@@ -1,0 +1,6 @@
+{
+  "parent": "neoecoae:block/crafting_network_switch",
+  "textures": {
+    "lights": "neoecoae:block/crafting/network_powered_light"
+  }
+}

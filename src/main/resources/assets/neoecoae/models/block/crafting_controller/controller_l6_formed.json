@@ -1,8 +1,9 @@
 {
     "parent": "neoecoae:block/crafting_controller/controller_formed_base",
     "textures": {
-        "base": "neoecoae:block/crafting/controller_formed/controller_formed_b",
+        "light": "neoecoae:block/crafting/controller_formed/controller_formed_light_b",
 		"screen": "neoecoae:block/crafting/controller/screen_on_b",
+        "controller": "neoecoae:block/crafting/controller/controller_north_b",
         "particle": "neoecoae:block/crafting/controller/controller_side_b"
     }
 }

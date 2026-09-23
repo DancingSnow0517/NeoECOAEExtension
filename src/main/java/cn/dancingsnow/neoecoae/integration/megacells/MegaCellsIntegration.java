@@ -91,7 +91,10 @@ public final class MegaCellsIntegration {
     private void registerDeferredModels() {
         registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", false);
         registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", false);
-        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "item", "l9", false);
+        registerCellModel(
+                NEMegaItems.ECO_MEGA_LONG_BULK_CELL,
+                "block/cell/storage_cell_l9_bulk_item",
+                false);
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", false);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", false);
         registerExternalModels(false);
@@ -100,7 +103,10 @@ public final class MegaCellsIntegration {
     private void registerResolvedModels() {
         registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", true);
         registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", true);
-        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "item", "l9", true);
+        registerCellModel(
+                NEMegaItems.ECO_MEGA_LONG_BULK_CELL,
+                "block/cell/storage_cell_l9_bulk_item",
+                true);
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", true);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", true);
         registerExternalModels(true);
@@ -148,7 +154,11 @@ public final class MegaCellsIntegration {
     }
 
     private static void registerCellModel(ItemEntry<? extends ECOStorageCellItem> cell, String family, String tier, boolean resolved) {
-        var model = NeoECOAE.id("block/cell/storage_cell_mega_" + tier + "_" + family);
+        registerCellModel(cell, "block/cell/storage_cell_mega_" + tier + "_" + family, resolved);
+    }
+
+    private static void registerCellModel(ItemEntry<? extends ECOStorageCellItem> cell, String modelPath, boolean resolved) {
+        var model = NeoECOAE.id(modelPath);
         if (resolved) {
             ECOCellModels.register(cell.get(), model);
         } else {

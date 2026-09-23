@@ -129,6 +129,22 @@ public final class ActiveRouteSelector {
         }
     }
 
+    /** Build a route for one explicit producer, including a self-loop that cycle avoidance skipped. */
+    public Selection selectWithPattern(CraftingDependencyGraph universe, AEKey key, CompiledPattern pattern,
+            ECOCancellation cancellation) throws InterruptedException {
+        Map<AEKey, Integer> choices = new LinkedHashMap<>();
+        Map<AEKey, List<CompiledPattern>> candidatesByKey = new LinkedHashMap<>();
+        for (AEKey candidateKey : universe.nodes().keySet()) {
+            choices.put(candidateKey, 0);
+            candidatesByKey.put(candidateKey, fastCandidates(universe, candidateKey));
+        }
+        int index = candidatesByKey.getOrDefault(key, List.of()).indexOf(pattern);
+        if (index < 0) throw new IllegalArgumentException("Pattern is not a supported producer of " + key);
+        choices.put(key, index);
+        CraftingDependencyGraph active = activeGraph(universe, choices, candidatesByKey, cancellation);
+        return finish(choices, tarjan.analyze(active, cancellation), active, List.of(), false, cancellation);
+    }
+
     private static Selection finish(Map<AEKey, Integer> choices,
             List<SccComponent> sccs, CraftingDependencyGraph active, List<CompiledPattern> deferred,
             boolean budgetExhausted, ECOCancellation cancellation) throws InterruptedException {

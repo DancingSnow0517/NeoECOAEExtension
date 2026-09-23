@@ -1,1 +1,8 @@
-{"parent":"neoecoae:block/storage_controller/controller_l6_formed_mirrored"}
+{
+	"parent": "neoecoae:block/storage_controller/controller_formed_base_mirrored",
+	"textures":
+	{
+		"light": "neoecoae:block/storage/controller_formed/controller_formed_light_b_switch",
+		"screen": "neoecoae:block/storage/controller_formed/screen_b_input"
+	}
+}

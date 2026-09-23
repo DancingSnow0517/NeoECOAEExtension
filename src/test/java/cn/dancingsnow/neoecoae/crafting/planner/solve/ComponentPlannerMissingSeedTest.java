@@ -36,6 +36,95 @@ import org.junit.jupiter.api.Test;
 
 class ComponentPlannerMissingSeedTest {
     @Test
+    void stockedSelfGrowthUsesOneSeedInsteadOfMissingTheWholeDemand() throws Exception {
+        AEKey product = mock(AEKey.class);
+        AEKey seed = mock(AEKey.class);
+        AEKey fuel = mock(AEKey.class);
+        for (AEKey key : List.of(product, seed, fuel)) when(key.getAmountPerByte()).thenReturn(8);
+        var consumer = staticPattern(0, product, 1L, seed, 51L);
+        var growth = staticPattern(1, seed, 2L,
+            new GenericStack(seed, 1L), new GenericStack(fuel, 1L));
+        var network = new CompiledNetwork(product,
+            Map.of(product, List.of(consumer), seed, List.of(growth), fuel, List.of()), Set.of(), 2, 3);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = new KeyCounter();
+        stock.add(seed, 23L);
+        stock.add(fuel, 28L);
+
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, stock, 1L, true, ECOCancellation.NONE);
+
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertTrue(outcome.state().missingItems().isEmpty());
+        assertEquals(28L, outcome.state().patternTimes().get(growth.details()));
+        assertEquals(1L, outcome.trace().cycles().getFirst().solveResult().requiredSeed().get(seed));
+        assertTrue(outcome.trace().cycles().getFirst().solveResult().seedShortfall().isEmpty());
+    }
+
+    @Test
+    void directSelfGrowthRequestStillCraftsNewOutputDespiteStoredCopies() throws Exception {
+        AEKey seed = mock(AEKey.class);
+        AEKey fuel = mock(AEKey.class);
+        for (AEKey key : List.of(seed, fuel)) when(key.getAmountPerByte()).thenReturn(8);
+        var growth = staticPattern(0, seed, 2L,
+            new GenericStack(seed, 1L), new GenericStack(fuel, 1L));
+        var network = new CompiledNetwork(seed,
+            Map.of(seed, List.of(growth), fuel, List.of()), Set.of(), 1, 2);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = new KeyCounter();
+        stock.add(seed, 23L);
+        stock.add(fuel, 28L);
+
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, stock, 28L, true, ECOCancellation.NONE);
+
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertTrue(outcome.state().missingItems().isEmpty());
+        assertEquals(28L, outcome.state().patternTimes().get(growth.details()));
+    }
+
+    @Test
+    void missingAcyclicAlternativeRetriesTheStockedGrowthRecipe() throws Exception {
+        AEKey product = mock(AEKey.class);
+        AEKey seed = mock(AEKey.class);
+        AEKey fuel = mock(AEKey.class);
+        AEKey unavailable = mock(AEKey.class);
+        for (AEKey key : List.of(product, seed, fuel, unavailable)) when(key.getAmountPerByte()).thenReturn(8);
+        var consumer = staticPattern(0, product, 1L, seed, 51L);
+        var growth = staticPattern(1, seed, 2L,
+            new GenericStack(seed, 1L), new GenericStack(fuel, 1L));
+        var alternative = staticPattern(2, seed, 1L, unavailable, 1L);
+        var stock = new KeyCounter();
+        stock.add(seed, 23L);
+        stock.add(fuel, 28L);
+        for (var producers : List.of(List.of(growth, alternative), List.of(alternative, growth))) {
+            var network = new CompiledNetwork(product, Map.of(product, List.of(consumer),
+                seed, producers, fuel, List.of(), unavailable, List.of()), Set.of(), 3, 4);
+            var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+            var condensation = CondensationGraph.build(graph,
+                new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+            var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+            var preferred = planner.selectRoutes(condensation, true, ECOCancellation.NONE);
+            assertTrue(preferred.acyclic());
+
+            var outcome = planner.planWithCycleFallback(network, condensation, preferred, stock,
+                PlannerInventorySnapshot.of(stock), 1L, false, ECOCancellation.NONE);
+
+            assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS,
+                outcome.status(), outcome.trace().diagnostics().toString());
+            assertTrue(outcome.state().missingItems().isEmpty());
+            assertEquals(28L, outcome.state().patternTimes().get(growth.details()));
+            assertFalse(outcome.cycles().isEmpty());
+        }
+    }
+
+    @Test
     void committedCycleDoesNotBlockAnUnrepresentableParentOrder() throws Exception {
         AEKey product = mock(AEKey.class);
         AEKey seed = mock(AEKey.class);

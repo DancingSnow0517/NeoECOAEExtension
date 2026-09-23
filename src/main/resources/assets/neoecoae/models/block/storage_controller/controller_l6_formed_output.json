@@ -1,1 +1,8 @@
-{"parent":"neoecoae:block/storage_controller/controller_l6_formed"}
+{
+	"parent": "neoecoae:block/storage_controller/controller_formed_base",
+	"textures":
+	{
+		"light": "neoecoae:block/storage/controller_formed/controller_formed_light_b",
+		"screen": "neoecoae:block/storage/controller_formed/screen_b_output"
+	}
+}

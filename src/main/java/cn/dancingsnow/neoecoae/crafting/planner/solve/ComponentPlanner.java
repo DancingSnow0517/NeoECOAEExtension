@@ -271,7 +271,7 @@ public final class ComponentPlanner {
                     Map<AEKey, Long> stock = relevantStock(cycle, exactRequiredOutputs.keySet(), inventory,
                             acyclic.state(), stockReservations);
                     Map<AEKey, PlannerAmount> solveTargets = additionalOutputTargets(exactRequiredOutputs, stock,
-                            network.goal(), cycle);
+                            network.goal());
                     if (!solveTargets.isEmpty()) {
                         cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, representable(solveTargets),
                                         solveTargets, stock, cycle.outgoingDependencies(), cycleSolveOptions(cycle)),
@@ -324,7 +324,7 @@ public final class ComponentPlanner {
                         if (external.solved()) {
                             Map<AEKey, Long> projectedStock = mergeReservations(stock, cycleResult.seedShortfall());
                             solveTargets = additionalOutputTargets(exactRequiredOutputs, projectedStock,
-                                    network.goal(), cycle);
+                                    network.goal());
                             CycleSolveResult recovered = cycleSolver.solve(new CycleSolveRequest(cycle,
                                     representable(solveTargets), solveTargets, projectedStock, cycle.outgoingDependencies(),
                                     cycleSolveOptions(cycle)), cancellation);
@@ -530,6 +530,58 @@ public final class ComponentPlanner {
                 .map(c -> c.componentId()).toList());
     }
 
+    /** Retry self-growing producer routes when the preferred route cannot be supplied. */
+    public Outcome planWithCycleFallback(CompiledNetwork network, CondensationGraph universe,
+                        ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
+                        PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
+                        ECOCancellation cancellation) throws InterruptedException {
+        Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, true,
+            ignorePatternSubstitutions, cancellation);
+        if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
+        Set<Map<AEKey, Integer>> attempted = new HashSet<>();
+        attempted.add(activeSelection.choices());
+        if (!activeSelection.deferredCyclicCandidates().isEmpty()) {
+            ActiveRouteSelector.Selection original = activeRouteSelector.select(universe.source(), false, cancellation);
+            if (!original.cyclicComponents().isEmpty() && attempted.add(original.choices())) {
+                Outcome cyclic = plan(network, original, inventory, snapshot, amount, true,
+                    ignorePatternSubstitutions, cancellation);
+                if (cyclic.status() == PlanningStatus.SUCCESS) return cyclic;
+            }
+        }
+        // The first producer can itself be acyclic but lack materials. Walk from its failed leaves back to
+        // their consumers, then try self-growing producers on that failed route only.
+        Set<AEKey> failedRoute = new LinkedHashSet<>(preferred.state().missingAmounts().keySet());
+        failedRoute.addAll(preferred.state().unsupported);
+        java.util.ArrayDeque<AEKey> pending = new java.util.ArrayDeque<>(failedRoute);
+        while (!pending.isEmpty()) {
+            for (AEKey parent : preferred.state().parents.getOrDefault(pending.removeFirst(), Set.of())) {
+                if (failedRoute.add(parent)) pending.addLast(parent);
+            }
+        }
+        if (preferred.status() == PlanningStatus.PARTIAL_UNSUPPORTED) {
+            // Acyclic candidate retry can abort before retaining the failed leaf/parent trace.
+            failedRoute.addAll(universe.source().nodes().keySet());
+        }
+        for (var entry : universe.source().nodes().entrySet()) {
+            cancellation.checkpoint();
+            AEKey key = entry.getKey();
+            if (!failedRoute.contains(key)) continue;
+            for (CompiledPattern pattern : entry.getValue().candidatePatterns()) {
+                if (!pattern.fastSupported() || pattern.inputs().stream().noneMatch(input ->
+                        key.equals(input.key()) && !pattern.specialAnalysis().excludesFromCycleGraph(input))) {
+                    continue;
+                }
+                ActiveRouteSelector.Selection candidate = activeRouteSelector.selectWithPattern(
+                    universe.source(), key, pattern, cancellation);
+                if (candidate.cyclicComponents().isEmpty() || !attempted.add(candidate.choices())) continue;
+                Outcome cyclic = plan(network, candidate, inventory, snapshot, amount, true,
+                    ignorePatternSubstitutions, cancellation);
+                if (cyclic.status() == PlanningStatus.SUCCESS) return cyclic;
+            }
+        }
+        return preferred;
+    }
+
     private static void validateProvenanceCoverage(CompiledNetwork network, SolveState state,
                                                    List<ComponentPlanningResult> components, ECOPlanTrace trace) {
         Set<String> reported = new LinkedHashSet<>();
@@ -682,42 +734,16 @@ public final class ComponentPlanner {
      * translation, stored copies of the final output satisfy the solver target and produce an empty CPU job.
      */
     private static Map<AEKey, PlannerAmount> additionalOutputTargets(Map<AEKey, PlannerAmount> requiredOutputs,
-                                                                     Map<AEKey, Long> relevantStock, AEKey finalGoal, CycleComponent cycle) {
-        Set<AEKey> growingFeedback = new LinkedHashSet<>();
-        if (cycle.patterns().stream().map(CompiledPattern::details).distinct().count() == 1) {
-            CompiledPattern pattern = cycle.patterns().getFirst();
-            var profile = new cn.dancingsnow.neoecoae.crafting.planner.growth.PatternProfileValidator()
-                    .validate(pattern);
-            if (profile.netGrowthSafe() && profile.selfReferencingKeys().size() == 1) {
-                AEKey feedback = profile.selfReferencingKeys().getFirst();
-                if (profile.netDeltaPerFiring(feedback) > 0L) growingFeedback.add(feedback);
-            }
-            // Stock protection is a planning contract, independent of smart-bus eligibility for the
-            // algebraic optimization. Ordinary static patterns use bounded solving and need the same
-            // net-growth target when their feedback is consumed by a downstream recipe.
-            if (pattern.fastSupported() && pattern.inputs().stream().allMatch(CompiledInput::fastSupported)) {
-                Map<AEKey, PlannerAmount> consumed = new LinkedHashMap<>();
-                Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
-                pattern.grossOutputs().forEach(output -> produced.merge(output.what(),
-                        PlannerAmount.of(output.amount()), PlannerAmount::add));
-                pattern.inputs().forEach(input -> {
-                    consumed.merge(input.key(), input.amountPerPattern(), PlannerAmount::add);
-                    if (input.remainderKey() != null) produced.merge(input.remainderKey(),
-                            input.remainderAmountPerPattern(), PlannerAmount::add);
-                });
-                consumed.forEach((key, amount) -> {
-                    if (produced.getOrDefault(key, PlannerAmount.ZERO).compareTo(amount) > 0) {
-                        growingFeedback.add(key);
-                    }
-                });
-            }
-        }
+                                                                     Map<AEKey, Long> relevantStock, AEKey finalGoal) {
         Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
         requiredOutputs.forEach((key, amount) -> {
-            if (!key.equals(finalGoal) && !growingFeedback.contains(key)) {
+            // Intermediate demand already includes the stock reserved by the DAG pass. Adding it again
+            // makes a 23-stock / 51-demand growth recipe run 51 times instead of the required 28.
+            if (!key.equals(finalGoal)) {
                 result.put(key, amount);
                 return;
             }
+            // AE2 asks the CPU to craft the final output anew, even when copies are already stored.
             result.put(key, amount.add(Math.max(0L, relevantStock.getOrDefault(key, 0L))));
         });
         return Map.copyOf(result);

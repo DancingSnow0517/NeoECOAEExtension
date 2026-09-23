@@ -8,14 +8,14 @@
         "base": {
             "parent": "neoecoae:block/computation_controller/controller_formed_base",
             "textures": {
-                "base": "neoecoae:block/compute/controller_formed/controller_formed_a",
+                "light": "neoecoae:block/compute/controller_formed/controller_formed_light_a",
 		        "screen": "neoecoae:block/compute/controller/screen_on_a"
             }
         },
         "glass": {
             "render_type":"translucent",
 			"textures":{
-				"base": "neoecoae:block/compute/controller_formed/controller_formed_a"
+				"base": "neoecoae:block/compute/controller_formed/controller_formed"
 			},
             "elements": [
                 {

@@ -80,40 +80,30 @@ public class NEBlocks {
     public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_NETWORK_SWITCH = networkSwitch(
         "crafting_network_switch",
         ECOCraftingNetworkSwitch::new,
-        "crafting",
-        "light",
         "ECO Crafting Subsystem Network Switch Module"
     );
 
     public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
         "crafting_high_energy_network_switch",
         ECOCraftingNetworkSwitch::new,
-        "crafting",
-        "power_light",
         "ECO Crafting Subsystem High-Energy Network Switch Module"
     );
 
     public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_NETWORK_SWITCH = networkSwitch(
         "computation_network_switch",
         ECOComputationNetworkSwitch::new,
-        "computation",
-        "light",
         "ECO Computation Subsystem Network Switch Module"
     );
 
     public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
         "computation_high_energy_network_switch",
         ECOComputationNetworkSwitch::new,
-        "computation",
-        "power_light",
         "ECO Computation Subsystem High-Energy Network Switch Module"
     );
 
     private static <T extends NENetworkSwitchBlock<?>> BlockEntry<T> networkSwitch(
         String name,
         NonNullFunction<BlockBehaviour.Properties, T> factory,
-        String modelName,
-        String lightTextureName,
         String englishName
     ) {
         return REGISTRATE.block(name, factory)
@@ -161,11 +151,7 @@ public class NEBlocks {
                 }
             })
             .blockstate((ctx, prov) -> {
-                ModelFile model = lightTextureName.equals("light")
-                    ? prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()))
-                    : prov.models().withExistingParent(ctx.getName(), prov.modLoc("block/network_switch_base"))
-                        .texture("base", prov.modLoc("block/network_switch/" + modelName))
-                        .texture("light", prov.modLoc("block/network_switch/" + lightTextureName));
+                ModelFile model = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStatesExcept(state -> ConfiguredModel.builder()
                         .modelFile(model)
@@ -1198,13 +1184,13 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .item()
         .properties(p -> p.rarity(Rarity.EPIC))
-        .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/advanced_crafting_worker")))
+        .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/crafting_monitor")))
         .build()
         .lang("ECO - FX Monitor Core")
         .blockstate((ctx, prov) -> {
-            ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/advanced_crafting_worker"));
-            ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/advanced_crafting_worker_formed"));
-            ModelFile modelFileWorking = prov.models().getExistingFile(prov.modLoc("block/advanced_crafting_worker_working"));
+            ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_monitor"));
+            ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/crafting_monitor_formed"));
+            ModelFile modelFileWorking = prov.models().getExistingFile(prov.modLoc("block/crafting_monitor_working"));
             prov.getVariantBuilder(ctx.get())
                 .forAllStates(s -> {
                     Direction facing = s.getValue(ECOCraftingWorker.FACING);

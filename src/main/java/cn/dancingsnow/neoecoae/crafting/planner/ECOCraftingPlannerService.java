@@ -95,8 +95,8 @@ public final class ECOCraftingPlannerService {
                                 if (activeSelection == null) activeSelection = componentPlanner.selectRoutes(
                                         condensation, true, cancellation);
                             }
-                            solved = componentPlanner.plan(compiled, activeSelection, inventory, inventorySnapshot, amount,
-                                    true, ignorePatternSubstitutions, cancellation);
+                            solved = componentPlanner.planWithCycleFallback(compiled, condensation, activeSelection,
+                                    inventory, inventorySnapshot, amount, ignorePatternSubstitutions, cancellation);
                         } else {
                             solved = componentPlanner.plan(compiled, condensation, inventory, inventorySnapshot, amount,
                                     false, ignorePatternSubstitutions, cancellation);
