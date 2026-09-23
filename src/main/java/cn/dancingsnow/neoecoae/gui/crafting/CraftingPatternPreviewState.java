@@ -331,7 +331,7 @@ final class CraftingPatternPreviewState {
         if (sub >= 0) {
             // A disk's recipes answer for themselves: the entry's flags describe the slot rather than the recipe,
             // and the recipe's own keywords are the only thing a search has to go on.
-            flags = 0;
+            flags = entry.diskPatterns().get(sub).flags();
             keywords = entry.diskPatterns().get(sub).keywords();
             carriesStack = true;
         }

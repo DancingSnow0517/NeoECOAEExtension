@@ -612,13 +612,16 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     public InternalInventory getTerminalPatternInventory() {
         TerminalInventoryHook hook = terminalInventoryHook;
         if (hook != null) {
-            // Cached against the same revision the bus's own view uses, and for the same end: the terminal must
-            // keep seeing one view for the length of a session. Holding it here rather than inside the hook is
-            // what ties the view's lifetime to this bus - a hook that cached per bus would keep every bus it was
-            // ever asked about alive, and the bus it belongs to is the only thing that knows when to let go.
+            // Cache against both disk contents and physical slot changes: a hook may map rows around the disk
+            // slots, including empty disks whose contents revision is unchanged. The terminal must still keep
+            // seeing one view for the length of a session. Holding it here rather than inside the hook is what
+            // ties the view's lifetime to this bus - a hook-side cache would keep every bus alive.
             long revision = getAuxiliaryRevision();
-            if (hookedView == null || hookedViewRevision != revision) {
+            int slotRevision = patternContentRevisionValue();
+            if (hookedView == null || hookedViewRevision != revision
+                    || hookedViewPatternRevision != slotRevision) {
                 hookedViewRevision = revision;
+                hookedViewPatternRevision = slotRevision;
                 InternalInventory supplied = hook.view(this);
                 hookedView = supplied == null ? null : withWritableRows(supplied, hook.writableRows(this));
             }
@@ -1188,6 +1191,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private transient InternalInventory hookedView;
 
     private long hookedViewRevision = Long.MIN_VALUE;
+    private int hookedViewPatternRevision = Integer.MIN_VALUE;
 
     /** Delegates everything and narrows only the rows the terminal is allowed to move. */
     private static final class WritableRowsView extends BaseInternalInventory

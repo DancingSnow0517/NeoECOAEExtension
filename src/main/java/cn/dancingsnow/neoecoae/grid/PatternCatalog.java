@@ -179,9 +179,13 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             return ECOPatternInsertion.of(ECOPatternInsertionResult.ALREADY_PRESENT);
         }
         // The container pass is the only one that consumes the pattern's item; a slot keeps it as a stack.
-        if (tryAuxiliaryPass(patternItem, prepared) == ECOPatternInsertionResult.INSERTED) {
+        ECOPatternInsertionResult auxiliary = tryAuxiliaryPass(patternItem, prepared);
+        if (auxiliary == ECOPatternInsertionResult.INSERTED) {
             return new ECOPatternInsertion(ECOPatternInsertionResult.INSERTED, true,
                     blankPatternReplacementFor(patternItem));
+        }
+        if (auxiliary == ECOPatternInsertionResult.ALREADY_PRESENT) {
+            return ECOPatternInsertion.of(ECOPatternInsertionResult.ALREADY_PRESENT);
         }
         // The container pass already ran and declined, so the slot path must not run it a second time: a
         // second write window could absorb the pattern while this method reports it as slot-held.
@@ -468,6 +472,42 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     public Set<PatternLocation> locationsForKey(AEItemKey key) {
         Set<PatternLocation> locations = patternLocationsByKey.get(key);
         return locations == null ? Set.of() : Set.copyOf(locations);
+    }
+
+    /**
+     * Whether the key exists anywhere in the network except one physical bus slot.
+     *
+     * <p>The player quick-insert path needs both ordinary/external slot locations and auxiliary containers. The
+     * latter contribute to {@link #networkPatternCounts} but deliberately do not have a physical
+     * {@link PatternLocation}, so checking that location index alone can admit a duplicate of a disk pattern.</p>
+     */
+    public boolean containsPatternOtherThan(ECOCraftingPatternBusBlockEntity targetBus, int targetSlot,
+                                             AEItemKey key) {
+        refreshPatternIndexes();
+        Set<PatternLocation> locations = patternLocationsByKey.get(key);
+        if (locations != null) {
+            for (PatternLocation location : locations) {
+                if (location.bus() != targetBus || location.physicalSlot() != targetSlot) {
+                    return true;
+                }
+            }
+        }
+        for (Map<AEItemKey, Integer> auxiliaryCounts : busAuxiliaryPatternKeys.values()) {
+            if (auxiliaryCounts.getOrDefault(key, 0) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Auxiliary pattern keys, refreshed from their store revisions before returning. */
+    public Set<AEItemKey> auxiliaryPatternKeys() {
+        refreshPatternIndexes();
+        Set<AEItemKey> keys = new HashSet<>();
+        for (Map<AEItemKey, Integer> counts : busAuxiliaryPatternKeys.values()) {
+            keys.addAll(counts.keySet());
+        }
+        return Set.copyOf(keys);
     }
 
     private static PatternRecord createRecord(ECOCraftingPatternBusBlockEntity bus,

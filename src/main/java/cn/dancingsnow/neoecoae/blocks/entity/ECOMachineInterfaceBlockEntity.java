@@ -416,7 +416,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             // Guarded: the two lists come from one store in one pass, but a row built from a short list would
             // otherwise throw while a screen is being drawn.
             held.add(new PatternPreviewEntry.DiskPattern(patterns.get(index).copy(),
-                    index < keywords.size() ? keywords.get(index) : ""));
+                    index < keywords.size() ? keywords.get(index) : "",
+                    patternSearchFlags(patterns.get(index))));
         }
         return List.copyOf(held);
     }
@@ -478,6 +479,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         InternalInventory inventory = target.bus().getPatternSlotInventory();
         if (physicalSlot < 0 || physicalSlot >= inventory.size()) return;
         ItemStack existing = inventory.getStackInSlot(physicalSlot);
+        if (target.bus().ownsAuxiliary(existing)) return;
         ItemStack carried = player.containerMenu.getCarried();
         int action = payload.getInt("action");
         int button = payload.getInt("button");
@@ -545,6 +547,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             InternalInventory inventory = target.bus().getPatternSlotInventory();
             if (physicalSlot < 0 || physicalSlot >= inventory.size()) continue;
             ItemStack existing = inventory.getStackInSlot(physicalSlot);
+            if (target.bus().ownsAuxiliary(existing)) continue;
             ItemStack expected = ItemStack.parseOptional(level.registryAccess(), targetTag.getCompound("stack"));
             if (existing.isEmpty() || !ItemStack.matches(existing, expected)) continue;
             ItemStack available = inventory.extractItem(physicalSlot, Integer.MAX_VALUE, true);
@@ -849,13 +852,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 ? null
                 : grid.getService(IECOPatternStorageService.class);
         if (service instanceof PatternCatalog catalog) {
-            for (PatternCatalog.PatternLocation location : catalog.locationsForKey(candidateKey)) {
-                ECOCraftingPatternBusBlockEntity bus = location.bus();
-                if (bus != null && (bus != target.bus() || location.physicalSlot() != target.slot())) {
-                    return true;
-                }
-            }
-            return false;
+            return catalog.containsPatternOtherThan(target.bus(), target.slot(), candidateKey);
         }
         for (PatternSlotRef ref : patternSlotRefs) {
             if (ref.equals(target)) {
@@ -914,7 +911,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         clearPatternTransferResults();
         clearPatternOrganizeResults();
         patternOrganizeTask = new PatternOrganizeTask(
-                patternSlotRefs, catalog.occupiedPatterns(), coordinator, player.getUUID());
+                patternSlotRefs, catalog.occupiedPatterns(), catalog.auxiliaryPatternKeys(), coordinator,
+                player.getUUID());
         patternOrganizeInProgress = true;
         patternOrganizeScannedSlots = 0;
         patternOrganizeTotalSlots = patternOrganizeTask.totalSlots();
@@ -1162,16 +1160,44 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (!(service instanceof PatternCatalog catalog)) {
             return false;
         }
+        ItemStack replacement = catalog.blankPatternReplacementFor(stack);
+        // Do not let the disk consume the pattern until its blank can be paid back. Otherwise a full network
+        // leaves one recipe on the disk and one encoded item in this slot; the disk then rejects the retry as
+        // a same-result duplicate, so the mismatch never repairs itself.
+        if (!canRefundConsumedPattern(replacement)) {
+            return false;
+        }
         ECOPatternInsertionResult outcome = catalog.insertPatternIntoAuxiliaryOnly(stack, null);
         if (outcome == null) {
             return false;
         }
-        if (!refundConsumedPattern(catalog.blankPatternReplacementFor(stack))) {
+        if (!refundConsumedPattern(replacement)) {
             return false;
         }
         setPatternStack(sourceRef, ItemStack.EMPTY);
         patternOrganizeAuxiliaryMoved++;
         return true;
+    }
+
+    private boolean canRefundConsumedPattern(ItemStack replacement) {
+        if (replacement.isEmpty()) {
+            return false;
+        }
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return false;
+        }
+        var storage = grid.getStorageService();
+        if (storage == null) {
+            return false;
+        }
+        AEItemKey key = AEItemKey.of(replacement);
+        if (key == null) {
+            return false;
+        }
+        long accepted = storage.getInventory().insert(key, replacement.getCount(),
+                appeng.api.config.Actionable.SIMULATE, appeng.api.networking.security.IActionSource.ofMachine(this));
+        return cn.dancingsnow.neoecoae.grid.PatternRefund.covers(replacement, accepted);
     }
 
     private boolean refundConsumedPattern(ItemStack replacement) {
@@ -1396,6 +1422,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private final class PatternOrganizeTask {
         private final List<PatternSlotRef> refs;
         private final List<PatternCatalog.PatternRecord> records;
+        private final Set<AEItemKey> auxiliaryPatternKeys;
         private final PatternMigrationCoordinator coordinator;
         private final UUID playerId;
         private final Set<AEItemKey> retainedPatternKeys = new HashSet<>();
@@ -1406,10 +1433,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         private PatternOrganizeTask(List<PatternSlotRef> refs,
                                     List<PatternCatalog.PatternRecord> records,
+                                    Set<AEItemKey> auxiliaryPatternKeys,
                                     PatternMigrationCoordinator coordinator,
                                     UUID playerId) {
             this.refs = List.copyOf(refs);
             this.records = List.copyOf(records);
+            this.auxiliaryPatternKeys = Set.copyOf(auxiliaryPatternKeys);
             this.coordinator = coordinator;
             this.playerId = playerId;
         }
@@ -1502,6 +1531,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             AEItemKey key = record.key();
             if (key == null) {
                 return PatternOrganizeDisposition.INVALID;
+            }
+            if (auxiliaryPatternKeys.contains(key)) {
+                return PatternOrganizeDisposition.DUPLICATE;
             }
             return retainedPatternKeys.add(key)
                     ? PatternOrganizeDisposition.VALID

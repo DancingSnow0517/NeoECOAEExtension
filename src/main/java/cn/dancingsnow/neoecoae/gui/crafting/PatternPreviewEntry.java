@@ -22,7 +22,7 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
      * recipes have no slot of their own to be addressed by. The list rides along with the slot and is expanded
      * for display only.</p>
      */
-    public record DiskPattern(ItemStack stack, String keywords) {
+    public record DiskPattern(ItemStack stack, String keywords, byte flags) {
     }
 
     public CompoundTag encode(HolderLookup.Provider registries) {
@@ -37,6 +37,7 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
             CompoundTag entry = new CompoundTag();
             entry.put("stack", pattern.stack().saveOptional(registries));
             entry.putString("keywords", pattern.keywords());
+            entry.putByte("flags", pattern.flags());
             held.add(entry);
         }
         tag.put("disk", held);
@@ -52,7 +53,7 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
         for (int index = 0; index < encoded.size(); index++) {
             CompoundTag entry = encoded.getCompound(index);
             held.add(new DiskPattern(ItemStack.parseOptional(registries, entry.getCompound("stack")),
-                    entry.getString("keywords")));
+                    entry.getString("keywords"), entry.getByte("flags")));
         }
         return new PatternPreviewEntry(tag.getLong("bus"), tag.getInt("slot"),
                 ItemStack.parseOptional(registries, tag.getCompound("stack")),
