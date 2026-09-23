@@ -89,6 +89,8 @@ class PatternPreviewSyncTest {
     }
 
     private static PatternPreviewEntry entry(int slot, String keywords) {
-        return new PatternPreviewEntry(0, slot, ItemStack.EMPTY, keywords, (byte) 0);
+        // 合并后的记录多了「盘内配方行 + 本槽是不是辅助容器」两个分量（样板磁盘那一半），这里按「普通样板槽、
+        // 没有盘内行」构造，与测试关心的同步去重/重发语义无关。
+        return new PatternPreviewEntry(0L, slot, ItemStack.EMPTY, keywords, (byte) 0, List.of(), false);
     }
 }

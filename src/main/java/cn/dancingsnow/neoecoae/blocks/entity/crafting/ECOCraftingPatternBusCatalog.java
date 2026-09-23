@@ -162,7 +162,15 @@ final class ECOCraftingPatternBusCatalog {
     }
 
     void onChangeInventory(int slot) {
-        if (host.getLevel() == null || host.getLevel().isClientSide) {
+        if (host.getLevel() == null) {
+            return;
+        }
+        // The highest occupied slot has to stay in step on both sides: the page count is derived from it, and the
+        // paging decides which physical slot a visible index maps to. The server applies a write to the slot the
+        // *client* clicked, so a client that counted fewer pages would write somewhere else entirely. That is why
+        // this runs before the client-side exit below.
+        trackHighestOccupiedSlot(slot);
+        if (host.getLevel().isClientSide) {
             return;
         }
         if (patternBatchDepth > 0) {
@@ -183,14 +191,6 @@ final class ECOCraftingPatternBusCatalog {
             rebuildPatternCapacityIndex();
         } else {
             updatePatternCapacitySlot(slot);
-            if (!inventory.getStackInSlot(slot).isEmpty()) {
-                highestOccupiedSlot = Math.max(highestOccupiedSlot, slot);
-            } else if (slot == highestOccupiedSlot) {
-                highestOccupiedSlot = slot - 1;
-                while (highestOccupiedSlot >= 0 && inventory.getStackInSlot(highestOccupiedSlot).isEmpty()) {
-                    highestOccupiedSlot--;
-                }
-            }
         }
         if (slot >= 0 && slot < decodedPatternDetails.length) {
             dirtyPatternSlots.set(slot);
@@ -200,6 +200,39 @@ final class ECOCraftingPatternBusCatalog {
         refreshAfterInventoryChange(slot);
         host.notifyPatternCatalog(previousRevision, new int[] { slot });
         host.notifyPatternInterfaceHosts(slot);
+    }
+
+    /**
+     * Keeps the highest occupied slot in step with the inventory on both sides.
+     *
+     * @param slot the slot that changed, or a negative value for "the whole inventory changed"
+     */
+    private void trackHighestOccupiedSlot(int slot) {
+        if (slot < 0 || slot >= inventory.size()) {
+            // A negative slot means "the whole inventory changed"; anything else is out of range. Either way the
+            // tracked maximum can no longer be trusted, and the page count is derived from it — slots past a
+            // stale maximum would stop being decoded and advertised.
+            rescanHighestOccupiedSlot();
+            return;
+        }
+        if (!inventory.getStackInSlot(slot).isEmpty()) {
+            highestOccupiedSlot = Math.max(highestOccupiedSlot, slot);
+            return;
+        }
+        if (slot != highestOccupiedSlot) {
+            return;
+        }
+        highestOccupiedSlot = slot - 1;
+        while (highestOccupiedSlot >= 0 && inventory.getStackInSlot(highestOccupiedSlot).isEmpty()) {
+            highestOccupiedSlot--;
+        }
+    }
+
+    private void rescanHighestOccupiedSlot() {
+        highestOccupiedSlot = inventory.size() - 1;
+        while (highestOccupiedSlot >= 0 && inventory.getStackInSlot(highestOccupiedSlot).isEmpty()) {
+            highestOccupiedSlot--;
+        }
     }
 
     void onReady() {
@@ -393,7 +426,13 @@ final class ECOCraftingPatternBusCatalog {
         patternBatchChangedSlots.clear();
     }
 
-    private static String buildPatternSearchKeywords(
+    /**
+     * Search keywords for one pattern: its own name plus everything it is built from and produces.
+     *
+     * <p>Package-private because the bus's auxiliary keyword list pairs a container's encoded patterns with the
+     * same decode, and a terminal only finds a recipe through these keywords.</p>
+     */
+    static String buildPatternSearchKeywords(
         ItemStack stack,
         @Nullable IPatternDetails details
     ) {

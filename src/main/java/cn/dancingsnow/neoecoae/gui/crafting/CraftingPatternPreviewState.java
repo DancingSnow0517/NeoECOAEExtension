@@ -25,7 +25,18 @@ final class CraftingPatternPreviewState {
     private final Player player;
     private final PatternItemSlot[] slots = new PatternItemSlot[ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS];
     private final int[] displayed = new int[slots.length];
+    /** Which disk recipe the row currently shows, or {@code -1} when it shows the entry itself. */
+    private final int[] displayedSubs = new int[slots.length];
     private final IntArrayList visibleSlots = new IntArrayList();
+    /**
+     * Which recipe inside that entry each visible row shows, or {@code -1} when the row is the entry itself.
+     * Parallel to {@link #visibleSlots}.
+     *
+     * <p>A row is a physical slot, so a disk has no row of its own to spread its recipes over. Keeping the two
+     * lists separate means one entry can occupy several rows without the entry index meaning anything different
+     * than it did before.</p>
+     */
+    private final IntArrayList visibleSubs = new IntArrayList();
     // The UI owns this callback; the block entity must not retain a closed screen.
     private final Consumer<CompoundTag> receiver = this::receive;
     private PatternPreviewEntry[] entries = new PatternPreviewEntry[0];
@@ -89,6 +100,12 @@ final class CraftingPatternPreviewState {
         int index = displayed[visualSlot];
         if (index < 0 || index >= entries.length) return;
         PatternPreviewEntry entry = entries[index];
+        // Both a recipe from inside a container and the container's own row are read-only here. Taking one back
+        // out is a write to contents this screen does not own - it changes what the integration that owns them
+        // charges for, and it moves the recipes behind it up one - and the pattern access terminal is where that
+        // belongs: it hands the container over to that integration and re-scans its rows per revision. Offering
+        // it here as well would mean two ways to change the same contents, from a screen that only ever reads.
+        if (displayedSubs[visualSlot] >= 0 || entry.auxiliaryDisk()) return;
         CompoundTag payload = new CompoundTag();
         payload.putInt("menu", menuId);
         payload.putInt("revision", revision);
@@ -129,6 +146,8 @@ final class CraftingPatternPreviewState {
                 || menuId != player.containerMenu.containerId) return;
         int index = displayed[visualSlot];
         if (index < 0 || index >= entries.length) return;
+        // As in act(): neither a disk's own slot nor one of its recipes is something this list can move.
+        if (displayedSubs[visualSlot] >= 0 || entries[index].auxiliaryDisk()) return;
         PatternPreviewEntry entry = entries[index];
         if (entry.stack().isEmpty()) return;
         for (PatternPreviewEntry queued : quickMoveTargets) {
@@ -167,7 +186,10 @@ final class CraftingPatternPreviewState {
         if (!player.level().isClientSide || revision < 0 || pending != null
                 || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return false;
         for (PatternPreviewEntry entry : entries) {
-            if (!entry.stack().isEmpty()) continue;
+            // A disk's slot reads as empty here too, so skipping on the stack alone would aim the insert at the
+            // disk: the server refuses it (the slot is not empty), but this method has already reported success,
+            // so the click would be swallowed and placing a pattern would appear to do nothing.
+            if (entry.auxiliaryDisk() || !entry.stack().isEmpty()) continue;
             CompoundTag payload = new CompoundTag();
             payload.putInt("menu", menuId);
             payload.putInt("revision", revision);
@@ -221,14 +243,24 @@ final class CraftingPatternPreviewState {
             }
             entries = pending;
         } else {
+            boolean rowsChanged = false;
             for (var change : pendingChanges.int2ObjectEntrySet()) {
                 int index = change.getIntKey();
-                boolean wasVisible = matchesEntry(entries[index]);
+                PatternPreviewEntry before = entries[index];
+                boolean wasVisible = matchesEntry(before, -1);
                 entries[index] = change.getValue();
-                boolean isVisible = matchesEntry(entries[index]);
+                boolean isVisible = matchesEntry(entries[index], -1);
+                // A disk's entry owns a row per recipe, so a change to it alters how many rows the list has -
+                // which this per-entry bookkeeping cannot express. Those rebuild the filter once the whole
+                // batch has been applied, rather than mid-loop against a half-updated array.
+                if (!before.diskPatterns().isEmpty() || !entries[index].diskPatterns().isEmpty()) {
+                    rowsChanged = true;
+                    continue;
+                }
                 if (wasVisible != isVisible) updateMembership(index, isVisible);
             }
             pendingChanges.clear();
+            if (rowsChanged) rebuildFilter();
         }
         pending = null;
         revision = pendingRevision;
@@ -267,23 +299,55 @@ final class CraftingPatternPreviewState {
 
     private void rebuildFilter() {
         visibleSlots.clear();
+        visibleSubs.clear();
         searchTerms = Arrays.stream(search.trim().toLowerCase(Locale.ROOT).split("\\s+"))
                 .filter(term -> !term.isEmpty()).toList();
         for (int index = 0; index < entries.length; index++) {
-            if (matchesEntry(entries[index])) visibleSlots.add(index);
+            PatternPreviewEntry entry = entries[index];
+            var held = entry.diskPatterns();
+            if (held.isEmpty()) {
+                if (matchesEntry(entry, -1)) {
+                    visibleSlots.add(index);
+                    visibleSubs.add(-1);
+                }
+                continue;
+            }
+            for (int sub = 0; sub < held.size(); sub++) {
+                if (matchesEntry(entry, sub)) {
+                    visibleSlots.add(index);
+                    visibleSubs.add(sub);
+                }
+            }
         }
         scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
         updateSlots();
     }
 
-    private boolean matchesEntry(PatternPreviewEntry entry) {
+    /** @param sub the disk recipe to match, or {@code -1} for the entry itself */
+    private boolean matchesEntry(PatternPreviewEntry entry, int sub) {
         byte flags = entry.flags();
+        String keywords = entry.keywords();
+        boolean carriesStack = !entry.stack().isEmpty();
+        if (sub >= 0) {
+            // A disk's recipes answer for themselves: the entry's flags describe the slot rather than the recipe,
+            // and the recipe's own keywords are the only thing a search has to go on.
+            flags = 0;
+            keywords = entry.diskPatterns().get(sub).keywords();
+            carriesStack = true;
+        }
         return (showSubstitution || (flags & 1) == 0)
                 && (showFluidSubstitution || (flags & 2) == 0)
-                && (searchTerms.isEmpty() || (!entry.stack().isEmpty() && matchesSearch(entry.keywords(), searchTerms)));
+                && (searchTerms.isEmpty() || (carriesStack && matchesSearch(keywords, searchTerms)));
     }
 
     private void updateMembership(int logicalSlot, boolean visible) {
+        // Rows are no longer one per entry: a disk's entry spans a row per recipe, so a surgical insert would
+        // have to place a whole run of them in order. Rebuilding is the honest option, and it only costs
+        // anything when the entry actually carries disk recipes.
+        if (logicalSlot >= 0 && logicalSlot < entries.length && !entries[logicalSlot].diskPatterns().isEmpty()) {
+            rebuildFilter();
+            return;
+        }
         int low = 0;
         int high = visibleSlots.size();
         while (low < high) {
@@ -291,8 +355,15 @@ final class CraftingPatternPreviewState {
             if (visibleSlots.getInt(mid) < logicalSlot) low = mid + 1;
             else high = mid;
         }
-        if (visible) visibleSlots.add(low, logicalSlot);
-        else if (low < visibleSlots.size() && visibleSlots.getInt(low) == logicalSlot) visibleSlots.removeInt(low);
+        if (visible) {
+            visibleSlots.add(low, logicalSlot);
+            // Paired with visibleSlots by construction: a row here is the entry itself, and the two lists have to
+            // stay the same length or every later row reads a sub-index belonging to a different entry.
+            visibleSubs.add(low, -1);
+        } else if (low < visibleSlots.size() && visibleSlots.getInt(low) == logicalSlot) {
+            visibleSlots.removeInt(low);
+            visibleSubs.removeInt(low);
+        }
     }
 
     private static boolean matchesSearch(String keywords, List<String> terms) {
@@ -303,9 +374,20 @@ final class CraftingPatternPreviewState {
     private void updateSlots() {
         int start = scrollRow * CraftingInterfaceUI.PREVIEW_COLUMNS;
         for (int visual = 0; visual < slots.length; visual++) {
-            int index = start + visual < visibleSlots.size() ? visibleSlots.getInt(start + visual) : -1;
+            int position = start + visual;
+            int index = position < visibleSlots.size() ? visibleSlots.getInt(position) : -1;
+            int sub = position < visibleSubs.size() ? visibleSubs.getInt(position) : -1;
             displayed[visual] = index;
-            if (slots[visual] != null) slots[visual].setItem(index < 0 ? ItemStack.EMPTY : entries[index].stack().copy(), false);
+            displayedSubs[visual] = sub;
+            ItemStack shown = ItemStack.EMPTY;
+            if (index >= 0) {
+                PatternPreviewEntry entry = entries[index];
+                // Bounded on purpose: the two parallel lists are written together, but a row whose sub-index does
+                // not belong to its entry would otherwise read past the end of that entry's recipe list.
+                boolean held = sub >= 0 && sub < entry.diskPatterns().size();
+                shown = held ? entry.diskPatterns().get(sub).stack().copy() : entry.stack().copy();
+            }
+            if (slots[visual] != null) slots[visual].setItem(shown, false);
         }
     }
 
