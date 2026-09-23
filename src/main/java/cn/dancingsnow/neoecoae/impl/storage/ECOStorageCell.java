@@ -269,10 +269,15 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
         }
     }
 
+    /** Specialized cells may accept multiple channels with the same amount-per-byte accounting. */
+    protected boolean acceptsKey(AEKey key) {
+        return keyType.contains(key);
+    }
+
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
         if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
-        if (amount == 0 || !keyType.contains(what)) {
+        if (amount == 0 || !acceptsKey(what)) {
             return 0;
         }
 
@@ -297,7 +302,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     /** Inserts for a lossless migration without applying the void upgrade's reported acceptance. */
     public long insertForMigration(AEKey what, long amount, Actionable mode) {
-        if (amount <= 0 || !keyType.contains(what)) {
+        if (amount <= 0 || !acceptsKey(what)) {
             return 0;
         }
         if (!partitionList.matchesFilter(what, partitionListMode) || cellType.isBlackListed(cellStack, what)) {
@@ -342,7 +347,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     public long simulateInsertForMigration(AEKey what, long amount, long currentAmount, long storedTypes, long storedItemCount) {
-        if (amount <= 0L || !keyType.contains(what) || !partitionList.matchesFilter(what, partitionListMode)
+        if (amount <= 0L || !acceptsKey(what) || !partitionList.matchesFilter(what, partitionListMode)
             || cellType.isBlackListed(cellStack, what) || !canStoreKeyInsideStorageCell(what)) return 0L;
 
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());

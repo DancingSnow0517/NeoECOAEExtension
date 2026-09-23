@@ -805,5 +805,10 @@
   "item.neoecoae.mega_mana_cell_housing": "ECO MEGA 魔力存储矩阵外壳",
   "item.neoecoae.eco_mega_mana_cell_4g": "ECO - LE9 MEGA 魔力存储矩阵",
   "item.neoecoae.mega_source_cell_housing": "ECO MEGA 源质存储矩阵外壳",
-  "item.neoecoae.eco_mega_source_cell_4g": "ECO - LE9 MEGA 源质存储矩阵"
+  "item.neoecoae.eco_mega_source_cell_4g": "ECO - LE9 MEGA 源质存储矩阵",
+  "cell_type.neoecoae.data": "数据",
+  "item.neoecoae.eco_data_cell_housing": "ECO 存储矩阵外壳（数据）",
+  "item.neoecoae.eco_data_storage_cell_16m": "ECO - LE4 存储矩阵（数据）",
+  "item.neoecoae.eco_data_storage_cell_64m": "ECO - LE6 存储矩阵（数据）",
+  "item.neoecoae.eco_data_storage_cell_256m": "ECO - LE9 存储矩阵（数据）"
 }

@@ -767,5 +767,10 @@
   "item.neoecoae.mega_mana_cell_housing": "ECO MEGA Storage Matrix Housing (Mana)",
   "item.neoecoae.eco_mega_mana_cell_4g": "ECO - LE9 Storage Matrix (Mega Mana)",
   "item.neoecoae.mega_source_cell_housing": "ECO MEGA Storage Matrix Housing (Source)",
-  "item.neoecoae.eco_mega_source_cell_4g": "ECO - LE9 Storage Matrix (Mega Source)"
+  "item.neoecoae.eco_mega_source_cell_4g": "ECO - LE9 Storage Matrix (Mega Source)",
+  "cell_type.neoecoae.data": "Data",
+  "item.neoecoae.eco_data_cell_housing": "ECO Storage Matrix Housing (Data)",
+  "item.neoecoae.eco_data_storage_cell_16m": "ECO - LE4 Storage Matrix (Data)",
+  "item.neoecoae.eco_data_storage_cell_64m": "ECO - LE6 Storage Matrix (Data)",
+  "item.neoecoae.eco_data_storage_cell_256m": "ECO - LE9 Storage Matrix (Data)"
 }

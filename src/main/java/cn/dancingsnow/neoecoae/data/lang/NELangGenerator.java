@@ -89,6 +89,7 @@ public class NELangGenerator {
 
         provider.add("cell_type.neoecoae.complex_omni", "Complex Omni");
         provider.add("cell_type.neoecoae.lightning", "Lightning");
+        provider.add("cell_type.neoecoae.data", "Data");
         provider.add("cell_type.neoecoae.mega_chemical", "MEGA Chemical");
         provider.add("cell_type.neoecoae.mega_energy", "MEGA Energy");
         provider.add("cell_type.neoecoae.mega_fluid", "MEGA Fluid");
