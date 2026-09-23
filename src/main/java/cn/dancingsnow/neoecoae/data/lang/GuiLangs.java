@@ -4,6 +4,7 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.large_integrated_working_station.auto_build", "Auto-build Large Integrated Working Station");
         // integrated working station
         provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs", "Output Sides");
@@ -12,30 +13,30 @@ public class GuiLangs {
         provider.add("gui.neoecoae.large_integrated_working_station.input_fluid", "Input Fluid");
         provider.add("gui.neoecoae.large_integrated_working_station.output_fluid", "Output Fluid");
         provider.add("gui.neoecoae.large_integrated_working_station.energy", "Energy: %s / %s");
-        provider.add("gui.neoecoae.large_integrated_working_station.no_task", "Current Task: None");
-        provider.add("gui.neoecoae.large_integrated_working_station.task", "Current Task: %s");
-        provider.add("gui.neoecoae.large_integrated_working_station.recipe_empty", "Crafting Task: Waiting for input");
-        provider.add("gui.neoecoae.large_integrated_working_station.recipe", "Crafting Task: %s items, %s mB fluid");
+        provider.add("gui.neoecoae.large_integrated_working_station.no_task", "Task: Idle");
+        provider.add("gui.neoecoae.large_integrated_working_station.task", "Task: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_empty", "Waiting for input");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe", "Input: %s items, %s mB");
         provider.add("gui.neoecoae.large_integrated_working_station.overclock_button", "OC");
         provider.add("gui.neoecoae.large_integrated_working_station.cooling_button", "AC");
-        provider.add("gui.neoecoae.large_integrated_working_station.settings", "Overclock: %s; active cooling: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.settings", "OC: %s; cooling: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.enabled", "On");
         provider.add("gui.neoecoae.large_integrated_working_station.disabled", "Off");
-        provider.add("gui.neoecoae.large_integrated_working_station.coolant_tier", "Coolant tier: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.coolant_tier", "Coolant: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.tier.none", "None");
         provider.add("gui.neoecoae.large_integrated_working_station.tier.water", "Water");
         provider.add("gui.neoecoae.large_integrated_working_station.tier.sodium", "Sodium");
         provider.add("gui.neoecoae.large_integrated_working_station.tier.cryotheum", "Cryotheum Solution");
-        provider.add("gui.neoecoae.large_integrated_working_station.parallel_and_energy", "Batch limit: %s; recipe energy: x%s");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.none", "Pause: None");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.overclock_disabled", "Paused: Overclock is off");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.cooling_disabled", "Paused: Active cooling is off");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_missing", "Paused: No supported coolant");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low", "Paused: Coolant tier is too low");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_insufficient", "Paused: Need 100 mB coolant");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked", "Paused: Coolant byproduct output is blocked");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.power_missing", "Paused: Not enough power");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked", "Paused: Recipe output is blocked");
+        provider.add("gui.neoecoae.large_integrated_working_station.parallel_and_energy", "Parallel %s · Energy x%s");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.none", "Status: OK");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.overclock_disabled", "Paused: OC off");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.cooling_disabled", "Paused: Cooling off");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_missing", "Paused: No coolant");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low", "Paused: Coolant tier low");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_insufficient", "Paused: Coolant low");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked", "Paused: Coolant output full");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.power_missing", "Paused: Low power");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked", "Paused: Output full");
         provider.add("gui.neoecoae.storage.legacy.cell_info", "%s (%s)");
         provider.add("gui.neoecoae.storage.legacy.cell_info.item", "Item Storage Matrix");
         provider.add("gui.neoecoae.storage.legacy.cell_info.fluid", "Fluid Storage Matrix");
