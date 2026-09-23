@@ -83,6 +83,15 @@ public class NELangGenerator {
         provider.add("category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("category.neoecoae.integrated_working_station", "Integrated Working Station");
 
+        provider.add("cell_type.neoecoae.complex_omni", "Complex Omni");
+        provider.add("cell_type.neoecoae.lightning", "Lightning");
+        provider.add("cell_type.neoecoae.mega_chemical", "MEGA Chemical");
+        provider.add("cell_type.neoecoae.mega_energy", "MEGA Energy");
+        provider.add("cell_type.neoecoae.mega_fluid", "MEGA Fluid");
+        provider.add("cell_type.neoecoae.mega_item", "MEGA Item");
+        provider.add("cell_type.neoecoae.omni", "Omni");
+        provider.add("cell_type.neoecoae.quantum_omni", "Quantum Omni");
+
         provider.add("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");
         provider.add("emi.category.neoecoae.cooling", "Cooling");
