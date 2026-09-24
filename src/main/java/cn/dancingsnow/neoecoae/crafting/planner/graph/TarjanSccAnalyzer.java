@@ -2,13 +2,12 @@ package cn.dancingsnow.neoecoae.crafting.planner.graph;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /** Iterative Tarjan SCC analysis. Runtime and memory are O(V + E), without Java recursion. */
@@ -28,8 +27,10 @@ public final class TarjanSccAnalyzer {
 
     public List<SccComponent> analyze(CraftingDependencyGraph graph, ECOCancellation cancellation)
             throws InterruptedException {
-        Map<AEKey, Integer> index = new HashMap<>();
-        Map<AEKey, Integer> lowlink = new HashMap<>();
+        var index = new Object2IntOpenHashMap<AEKey>(graph.nodes().size());
+        // DFS indices start at zero; -1 means the node has not been visited.
+        index.defaultReturnValue(-1);
+        var lowlink = new Object2IntOpenHashMap<AEKey>(graph.nodes().size());
         ArrayDeque<AEKey> tarjanStack = new ArrayDeque<>();
         Set<AEKey> onStack = new HashSet<>();
         List<List<AEKey>> memberSets = new ArrayList<>();
@@ -50,24 +51,24 @@ public final class TarjanSccAnalyzer {
                 Frame frame = dfs.peek();
                 if (frame.nextEdge < frame.edges.size()) {
                     AEKey target = frame.edges.get(frame.nextEdge++).requiredInput();
-                    Integer targetIndex = index.get(target);
-                    if (targetIndex == null) {
+                    int targetIndex = index.getInt(target);
+                    if (targetIndex < 0) {
                         index.put(target, nextIndex);
                         lowlink.put(target, nextIndex++);
                         tarjanStack.push(target);
                         onStack.add(target);
                         dfs.push(new Frame(target, frame.node, graph.outgoing(target)));
                     } else if (onStack.contains(target)) {
-                        lowlink.put(frame.node, Math.min(lowlink.get(frame.node), targetIndex));
+                        lowlink.put(frame.node, Math.min(lowlink.getInt(frame.node), targetIndex));
                     }
                     continue;
                 }
 
                 dfs.pop();
                 if (frame.parent != null) {
-                    lowlink.put(frame.parent, Math.min(lowlink.get(frame.parent), lowlink.get(frame.node)));
+                    lowlink.put(frame.parent, Math.min(lowlink.getInt(frame.parent), lowlink.getInt(frame.node)));
                 }
-                if (lowlink.get(frame.node).equals(index.get(frame.node))) {
+                if (lowlink.getInt(frame.node) == index.getInt(frame.node)) {
                     List<AEKey> members = new ArrayList<>();
                     AEKey member;
                     do {

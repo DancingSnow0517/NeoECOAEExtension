@@ -29,6 +29,33 @@ class ECOPlanningResultRegistryTest {
     }
 
     @Test
+    void metadataLruPromotesReadsAndReplacementsBeforeEviction() {
+        AEKey output = mock(AEKey.class);
+        IPatternDetails pattern = mock(IPatternDetails.class);
+        when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
+        when(pattern.getOutputs()).thenReturn(List.of());
+        var plans = new java.util.ArrayList<CraftingPlan>();
+        for (int i = 0; i < 4096; i++) {
+            CraftingPlan plan = plan(output, pattern);
+            when(plan.finalOutput()).thenReturn(new GenericStack(output, i + 1L));
+            plans.add(plan);
+            ECOPlanningResultRegistry.register(plan, result(plan));
+        }
+        ECOPlanningResult first = ECOPlanningResultRegistry.find(plans.get(0));
+        org.junit.jupiter.api.Assertions.assertNotNull(first);
+        ECOPlanningResult replacement = result(plans.get(1));
+        ECOPlanningResultRegistry.register(plans.get(1), replacement);
+        CraftingPlan extra = plan(output, pattern);
+        when(extra.finalOutput()).thenReturn(new GenericStack(output, 4097L));
+        ECOPlanningResultRegistry.register(extra, result(extra));
+
+        assertEquals(4096, ECOPlanningResultRegistry.registeredMetadataCount());
+        assertNull(ECOPlanningResultRegistry.find(plans.get(2)));
+        assertSame(first, ECOPlanningResultRegistry.find(plans.get(0)));
+        assertSame(replacement, ECOPlanningResultRegistry.find(plans.get(1)));
+    }
+
+    @Test
     void newestCalculationReplacesSameCompletePlanIdentityWithoutAmbiguity() {
         AEKey output = mock(AEKey.class);
         IPatternDetails pattern = mock(IPatternDetails.class);

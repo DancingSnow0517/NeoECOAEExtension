@@ -13,11 +13,11 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionContract;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionRequirement;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +38,7 @@ public final class ECOPlanningResultRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
     private static final int MAX_ENTRIES = 4096;
     private static final long MAX_AGE_NANOS = Duration.ofMinutes(10).toNanos();
-    private static final Map<Signature, Entry> RESULTS = new LinkedHashMap<>(64, 0.75f, true);
+    private static final Object2ObjectLinkedOpenHashMap<Signature, Entry> RESULTS = new Object2ObjectLinkedOpenHashMap<>(64);
     private static final Map<ICraftingPlan, ExactEntry> EXACT_RESULTS = new IdentityHashMap<>();
     private static final ThreadLocal<SubmissionAlias> ACTIVE_SUBMISSION_ALIAS = new ThreadLocal<>();
 
@@ -90,7 +90,7 @@ public final class ECOPlanningResultRegistry {
             // A complete plan signature is the execution identity. Keeping multiple planning IDs for the same
             // identity made a second identical calculation poison recovery for both submissions. Replace the
             // value atomically; the submitted pattern objects are rebound below before execution.
-            RESULTS.put(signature, new Entry(result, signature, Map.copyOf(plan.patternTimes()),
+            RESULTS.putAndMoveToLast(signature, new Entry(result, signature, Map.copyOf(plan.patternTimes()),
                     inspection.executionPlan(), inspection.cycleExpected(), recoveryState,
                     inspection.reason(), planningId, now));
             trimEntries();
@@ -121,7 +121,7 @@ public final class ECOPlanningResultRegistry {
         if (signature == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            Entry entry = RESULTS.get(signature);
+            Entry entry = RESULTS.getAndMoveToLast(signature);
             return entry == null ? null : entry.result();
         }
     }
@@ -216,7 +216,7 @@ public final class ECOPlanningResultRegistry {
         if (signature == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            Entry entry = RESULTS.get(signature);
+            Entry entry = RESULTS.getAndMoveToLast(signature);
             if (entry == null) return null;
 
             ECOExecutionPlan sourcePlan = entry.executionPlan();
@@ -293,7 +293,7 @@ public final class ECOPlanningResultRegistry {
 
     private static void trimEntries() {
         while (RESULTS.size() > MAX_ENTRIES) {
-            RESULTS.remove(RESULTS.entrySet().iterator().next().getKey());
+            RESULTS.removeFirst();
         }
         while (EXACT_RESULTS.size() > MAX_ENTRIES) {
             EXACT_RESULTS.remove(EXACT_RESULTS.keySet().iterator().next());
