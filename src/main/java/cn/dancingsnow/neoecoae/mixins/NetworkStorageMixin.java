@@ -15,7 +15,6 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.Objects;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -25,8 +24,8 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
 
     @Shadow private boolean mountsInUse;
-    @Shadow @Final private NavigableMap<Integer, List<MEStorage>> priorityInventory = null;
-    @Shadow @Final private List<MEStorage> secondPassInventories = null;
+    @Shadow private NavigableMap<Integer, List<MEStorage>> priorityInventory;
+    @Shadow private List<MEStorage> secondPassInventories;
 
     @Shadow private boolean isQueuedForRemoval(MEStorage inventory) { throw new AssertionError(); }
     @Shadow private void flushQueuedOperations() { throw new AssertionError(); }

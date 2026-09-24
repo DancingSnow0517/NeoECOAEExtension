@@ -121,7 +121,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
      * rebuild by one server task so all nodes in the newly joined grid have
      * finished their own topology update before logical hosts are grouped.
      */
-    private void onMainNodeGridChanged() {
+    protected void onMainNodeGridChanged() {
         if (cluster != null && cluster.isNetworkMode()) {
             NELogicalNetworkManager.refreshAfterGridChange(cluster);
         }

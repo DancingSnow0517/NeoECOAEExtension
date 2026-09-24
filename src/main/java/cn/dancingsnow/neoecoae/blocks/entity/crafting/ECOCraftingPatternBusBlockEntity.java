@@ -69,6 +69,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private List<IPatternDetails> patternDetails = List.of();
     private final PatternSlotCache<IPatternDetails> decodedPatternDetails;
     private boolean patternDetailsUpdateQueued;
+    private boolean patternCatalogRefreshPending;
     public final IItemHandlerModifiable itemHandler;
     private LazyOptional<IItemHandlerModifiable> itemHandlerCap;
     private int nextWorkerIndex = 0;
@@ -321,7 +322,8 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public @Nullable IGrid getGrid() {
-        return getGridNode().getGrid();
+        var node = getGridNode();
+        return node == null ? null : node.getGrid();
     }
 
     @Override
@@ -412,6 +414,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
                 instanceof PatternCatalog catalog) {
             catalog.onPatternSlotChanged(this, slot);
+            patternCatalogRefreshPending = false;
+        } else {
+            patternCatalogRefreshPending = true;
         }
     }
 
@@ -419,6 +424,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public void onReady() {
         super.onReady();
         updatePatternDetails();
+        if (patternCatalogRefreshPending) refreshPatternCatalog(-1);
+    }
+
+    @Override
+    protected void onMainNodeGridChanged() {
+        super.onMainNodeGridChanged();
+        if (patternCatalogRefreshPending && level instanceof ServerLevel) refreshPatternCatalog(-1);
     }
 
     private void updatePatternDetails() {
