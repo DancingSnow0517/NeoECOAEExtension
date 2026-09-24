@@ -62,12 +62,13 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -351,8 +352,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     /** Auxiliary revision each bus's preview rows were last drawn from, keyed by bus position. */
-    private final Map<Long, Long> busAuxiliaryPreviewRevisions = new HashMap<>();
-    private final Map<Long, AuxiliaryPreviewSnapshot> auxiliaryPreviewCache = new HashMap<>();
+    private final Long2LongOpenHashMap busAuxiliaryPreviewRevisions = new Long2LongOpenHashMap();
+    private final Long2ObjectOpenHashMap<AuxiliaryPreviewSnapshot> auxiliaryPreviewCache = new Long2ObjectOpenHashMap<>();
     private record AuxiliaryPreviewSnapshot(long revision, List<PatternPreviewEntry.DiskPattern> rows) {}
 
     /**
@@ -376,8 +377,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     /** Marks {@code count} rows dirty when {@code bus}'s disks have moved since they were last drawn. */
     private void noteAuxiliaryRevision(ECOCraftingPatternBusBlockEntity bus, int start, int count) {
         long revision = bus.getAuxiliaryRevision();
-        Long previous = busAuxiliaryPreviewRevisions.put(bus.getBlockPos().asLong(), revision);
-        if (previous == null || previous == revision) {
+        long position = bus.getBlockPos().asLong();
+        boolean seen = busAuxiliaryPreviewRevisions.containsKey(position);
+        long previous = busAuxiliaryPreviewRevisions.put(position, revision);
+        if (!seen || previous == revision) {
             // First sight of this bus, or its disks have not moved. The first sight is deliberately not a change:
             // the screen that opens next builds its rows from the current contents anyway.
             return;

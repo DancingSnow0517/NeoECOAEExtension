@@ -21,6 +21,13 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -29,7 +36,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.UUID;
 import java.util.Comparator;
@@ -65,24 +71,27 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             return PatternCatalog.this.insertPreparedPattern(prepared);
         }
     };
-    private final Map<ECOCraftingPatternBusBlockEntity, Map<AEItemKey, Integer>> busPatternKeys =
+    private final Map<ECOCraftingPatternBusBlockEntity, Object2IntOpenHashMap<AEItemKey>> busPatternKeys =
             new IdentityHashMap<>();
-    private final Map<ECOCraftingPatternBusBlockEntity, Integer> busPatternRevisions = new IdentityHashMap<>();
-    private final Map<ECOCraftingPatternBusBlockEntity, Integer> busEmptySlotCounts = new IdentityHashMap<>();
-    private final Map<ECOCraftingPatternBusBlockEntity, Map<Integer, PatternRecord>> busPatternRecords =
+    private final Reference2IntOpenHashMap<ECOCraftingPatternBusBlockEntity> busPatternRevisions =
+            new Reference2IntOpenHashMap<>();
+    private final Reference2IntOpenHashMap<ECOCraftingPatternBusBlockEntity> busEmptySlotCounts =
+            new Reference2IntOpenHashMap<>();
+    private final Map<ECOCraftingPatternBusBlockEntity, Int2ObjectMap<PatternRecord>> busPatternRecords =
             new IdentityHashMap<>();
-    private final Map<AEItemKey, Set<PatternLocation>> patternLocationsByKey = new HashMap<>();
-    private final Map<AEItemKey, Integer> networkPatternCounts = new HashMap<>();
+    private final Map<AEItemKey, Set<PatternLocation>> patternLocationsByKey = new Object2ObjectOpenHashMap<>();
+    private final Object2IntOpenHashMap<AEItemKey> networkPatternCounts = new Object2IntOpenHashMap<>();
     /**
      * Auxiliary (non-slot) pattern counts per bus, the counterpart of {@link #busPatternKeys}.
      *
      * <p>Kept apart because the slot deltas applied by {@link #onPatternSlotsChanged} assume one count
      * per physical slot; folding disk-held patterns into the same map would desync those deltas.</p>
      */
-    private final Map<ECOCraftingPatternBusBlockEntity, Map<AEItemKey, Integer>> busAuxiliaryPatternKeys =
+    private final Map<ECOCraftingPatternBusBlockEntity, Object2IntOpenHashMap<AEItemKey>> busAuxiliaryPatternKeys =
             new IdentityHashMap<>();
     /** Store revision each bus's auxiliary counts were built from. */
-    private final Map<ECOCraftingPatternBusBlockEntity, Long> busAuxiliaryRevisions = new IdentityHashMap<>();
+    private final Reference2LongOpenHashMap<ECOCraftingPatternBusBlockEntity> busAuxiliaryRevisions =
+            new Reference2LongOpenHashMap<>();
     /**
      * Slots currently holding an auxiliary container.
      *
@@ -99,7 +108,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     @Nullable
     private IGrid externalPatternIndexGrid;
     private final Map<PatternContainer, BitSet> externalPatternSlots = new IdentityHashMap<>();
-    private final Map<PatternContainer, Map<Integer, PatternRecord>> externalPatternRecords =
+    private final Map<PatternContainer, Int2ObjectMap<PatternRecord>> externalPatternRecords =
             new IdentityHashMap<>();
     private List<PatternContainer> externalPatternSources = List.of();
     private final Map<PatternContainer, BitSet> externalCraftingHistory = new IdentityHashMap<>();
@@ -120,9 +129,9 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     private long externalPatternScanNanos;
     private int externalPatternScanBudgetHits;
     private long externalPatternTick;
-    private final Map<ECOPatternSourceSlot, UUID> externalPatternClaims = new HashMap<>();
-    private final Map<UUID, Set<ECOPatternSourceSlot>> externalPatternClaimsByOwner = new HashMap<>();
-    private final Map<UUID, Long> externalPatternClaimTicks = new HashMap<>();
+    private final Map<ECOPatternSourceSlot, UUID> externalPatternClaims = new Object2ObjectOpenHashMap<>();
+    private final Map<UUID, Set<ECOPatternSourceSlot>> externalPatternClaimsByOwner = new Object2ObjectOpenHashMap<>();
+    private final Object2LongOpenHashMap<UUID> externalPatternClaimTicks = new Object2LongOpenHashMap<>();
     private long providerPublicationRevision;
 
     @Override
@@ -446,7 +455,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     public List<PatternRecord> occupiedPatterns() {
         refreshPatternIndexes();
         List<PatternRecord> result = new ArrayList<>();
-        for (Map.Entry<ECOCraftingPatternBusBlockEntity, Map<Integer, PatternRecord>> entry
+        for (Map.Entry<ECOCraftingPatternBusBlockEntity, Int2ObjectMap<PatternRecord>> entry
                 : busPatternRecords.entrySet()) {
             ECOCraftingPatternBusBlockEntity bus = entry.getKey();
             bus.refreshPatternDetailsForCatalog();
@@ -466,7 +475,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
 
     @Nullable
     public PatternRecord getPatternRecord(ECOCraftingPatternBusBlockEntity bus, int physicalSlot) {
-        Map<Integer, PatternRecord> records = busPatternRecords.get(bus);
+        Int2ObjectMap<PatternRecord> records = busPatternRecords.get(bus);
         if (records == null || !records.containsKey(physicalSlot)) {
             return null;
         }
@@ -501,8 +510,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 }
             }
         }
-        for (Map<AEItemKey, Integer> auxiliaryCounts : busAuxiliaryPatternKeys.values()) {
-            if (auxiliaryCounts.getOrDefault(key, 0) > 0) {
+        for (Object2IntOpenHashMap<AEItemKey> auxiliaryCounts : busAuxiliaryPatternKeys.values()) {
+            if (auxiliaryCounts.getInt(key) > 0) {
                 return true;
             }
         }
@@ -513,7 +522,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     public Set<AEItemKey> auxiliaryPatternKeys() {
         refreshPatternIndexes();
         Set<AEItemKey> keys = new HashSet<>();
-        for (Map<AEItemKey, Integer> counts : busAuxiliaryPatternKeys.values()) {
+        for (Object2IntOpenHashMap<AEItemKey> counts : busAuxiliaryPatternKeys.values()) {
             keys.addAll(counts.keySet());
         }
         return Set.copyOf(keys);
@@ -624,7 +633,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             return;
         }
         Set<ECOPatternSourceSlot> owned = externalPatternClaimsByOwner.remove(owner);
-        externalPatternClaimTicks.remove(owner);
+        externalPatternClaimTicks.removeLong(owner);
         if (owned == null) {
             return;
         }
@@ -651,7 +660,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             owned.remove(slot);
             if (owned.isEmpty()) {
                 externalPatternClaimsByOwner.remove(owner);
-                externalPatternClaimTicks.remove(owner);
+                externalPatternClaimTicks.removeLong(owner);
             }
         }
     }
@@ -662,7 +671,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         if (slots != null) {
             slots.clear(slot.slot());
         }
-        Map<Integer, PatternRecord> records = externalPatternRecords.get(slot.source());
+        Int2ObjectMap<PatternRecord> records = externalPatternRecords.get(slot.source());
         if (records != null) {
             removeLocation(records.remove(slot.slot()));
         }
@@ -673,7 +682,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 owned.remove(slot);
                 if (owned.isEmpty()) {
                     externalPatternClaimsByOwner.remove(owner);
-                    externalPatternClaimTicks.remove(owner);
+                    externalPatternClaimTicks.removeLong(owner);
                 }
             }
         }
@@ -684,8 +693,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         externalPatternTick++;
         if (!externalPatternClaimTicks.isEmpty()) {
             List<UUID> expired = new ArrayList<>();
-            for (Map.Entry<UUID, Long> entry : externalPatternClaimTicks.entrySet()) {
-                if (externalPatternTick - entry.getValue() >= EXTERNAL_PATTERN_CLAIM_TIMEOUT_TICKS) {
+            for (var entry : externalPatternClaimTicks.object2LongEntrySet()) {
+                if (externalPatternTick - entry.getLongValue() >= EXTERNAL_PATTERN_CLAIM_TIMEOUT_TICKS) {
                     expired.add(entry.getKey());
                 }
             }
@@ -853,7 +862,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                                 PatternType.EXTERNAL_ENCODED,
                                 false,
                                 "");
-                externalPatternRecords.computeIfAbsent(source, ignored -> new HashMap<>()).put(slot, record);
+                externalPatternRecords.computeIfAbsent(source, ignored -> new Int2ObjectOpenHashMap<>()).put(slot, record);
                 addLocation(record);
             }
         }
@@ -903,8 +912,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 continue;
             }
             current.add(bus);
-            Integer revision = busPatternRevisions.get(bus);
-            if (revision == null || revision != bus.getPatternContentRevision()) {
+            if (!busPatternRevisions.containsKey(bus)
+                    || busPatternRevisions.getInt(bus) != bus.getPatternContentRevision()) {
                 rebuildBusPatternIndex(bus);
                 changed = true;
                 continue;
@@ -912,8 +921,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             // A disk rewriting its contents leaves the slot layout untouched, so the slot revision above
             // does not move. Re-derive just the auxiliary side, or the network keeps counting patterns
             // that are gone and keeps missing ones that arrived.
-            Long auxiliaryRevision = busAuxiliaryRevisions.get(bus);
-            if (auxiliaryRevision == null || auxiliaryRevision != bus.getAuxiliaryRevision()) {
+            if (!busAuxiliaryRevisions.containsKey(bus)
+                    || busAuxiliaryRevisions.getLong(bus) != bus.getAuxiliaryRevision()) {
                 dropAuxiliaryCounts(bus);
                 indexAuxiliaryPatterns(bus);
                 // The disk changed without moving the slot layout, so nothing told AE2 to re-read this
@@ -944,11 +953,12 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     public void onPatternSlotsChanged(ECOCraftingPatternBusBlockEntity bus,
                                       int previousRevision,
                                       int[] changedSlots) {
-        Integer indexedRevision = busPatternRevisions.get(bus);
+        boolean indexed = busPatternRevisions.containsKey(bus);
+        int indexedRevision = busPatternRevisions.getInt(bus);
         var inventory = bus.getPatternSlotInventory();
         boolean unknownRange = Arrays.stream(changedSlots)
                 .anyMatch(slot -> slot < 0 || slot >= inventory.size());
-        if (indexedRevision == null || indexedRevision != previousRevision || unknownRange) {
+        if (!indexed || indexedRevision != previousRevision || unknownRange) {
             rebuildBusPatternIndex(bus);
             rebuildWritablePatternStorageCache();
             return;
@@ -967,8 +977,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 return;
             }
         }
-        Map<AEItemKey, Integer> busCounts = busPatternKeys.computeIfAbsent(bus, ignored -> new HashMap<>());
-        Map<Integer, PatternRecord> records = busPatternRecords.computeIfAbsent(bus, ignored -> new HashMap<>());
+        Object2IntOpenHashMap<AEItemKey> busCounts = busPatternKeys.computeIfAbsent(bus, ignored -> new Object2IntOpenHashMap<>());
+        Int2ObjectMap<PatternRecord> records = busPatternRecords.computeIfAbsent(bus, ignored -> new Int2ObjectOpenHashMap<>());
         int emptyDelta = 0;
         for (int slot : changedSlots) {
             PatternRecord previous = records.remove(slot);
@@ -983,8 +993,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             if (!current.isEmpty() && !bus.ownsAuxiliary(current)) {
                 AEItemKey key = AEItemKey.of(current);
                 if (key != null) {
-                    busCounts.merge(key, 1, Integer::sum);
-                    networkPatternCounts.merge(key, 1, Integer::sum);
+                    busCounts.addTo(key, 1);
+                    networkPatternCounts.addTo(key, 1);
                     PatternRecord record = createRecord(bus, slot, current);
                     records.put(slot, record);
                     addLocation(record);
@@ -997,7 +1007,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             }
         }
         busPatternRevisions.put(bus, bus.getPatternContentRevision());
-        int previousEmpty = busEmptySlotCounts.getOrDefault(bus, 0);
+        int previousEmpty = busEmptySlotCounts.getInt(bus);
         int nextEmpty = Math.max(0, previousEmpty + emptyDelta);
         busEmptySlotCounts.put(bus, nextEmpty);
         if ((previousEmpty == 0) != (nextEmpty == 0)) {
@@ -1005,14 +1015,14 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         }
     }
 
-    private static void decrementCount(Map<AEItemKey, Integer> target, AEItemKey key) {
-        target.computeIfPresent(key, (ignored, current) -> current <= 1 ? null : current - 1);
+    private static void decrementCount(Object2IntOpenHashMap<AEItemKey> target, AEItemKey key) {
+        dropCount(target, key, 1);
     }
 
     private void rebuildBusPatternIndex(ECOCraftingPatternBusBlockEntity bus) {
         removeBusPatternIndex(bus);
-        Map<AEItemKey, Integer> counts = new HashMap<>();
-        Map<Integer, PatternRecord> records = new HashMap<>();
+        Object2IntOpenHashMap<AEItemKey> counts = new Object2IntOpenHashMap<>();
+        Int2ObjectMap<PatternRecord> records = new Int2ObjectOpenHashMap<>();
         int emptySlots = 0;
         BitSet auxiliarySlots = new BitSet();
         var inventory = bus.getPatternSlotInventory();
@@ -1031,8 +1041,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             }
             AEItemKey key = AEItemKey.of(stack);
             if (key != null) {
-                counts.merge(key, 1, Integer::sum);
-                networkPatternCounts.merge(key, 1, Integer::sum);
+                counts.addTo(key, 1);
+                networkPatternCounts.addTo(key, 1);
                 PatternRecord record = createRecord(bus, slot, stack);
                 records.put(slot, record);
                 addLocation(record);
@@ -1053,12 +1063,12 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
      * {@link #tryInsertPatternInternal}'s first gate treat them as absent and accept a duplicate.</p>
      */
     private void indexAuxiliaryPatterns(ECOCraftingPatternBusBlockEntity bus) {
-        Map<AEItemKey, Integer> counts = new HashMap<>();
+        Object2IntOpenHashMap<AEItemKey> counts = new Object2IntOpenHashMap<>();
         for (ItemStack encoded : bus.getAuxiliaryEncodedPatterns()) {
             AEItemKey key = AEItemKey.of(encoded);
             if (key != null) {
-                counts.merge(key, 1, Integer::sum);
-                networkPatternCounts.merge(key, 1, Integer::sum);
+                counts.addTo(key, 1);
+                networkPatternCounts.addTo(key, 1);
             }
         }
         busAuxiliaryPatternKeys.put(bus, counts);
@@ -1067,38 +1077,37 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
 
     /** Drops a bus's auxiliary counts, keeping {@link #networkPatternCounts} consistent. */
     private void dropAuxiliaryCounts(ECOCraftingPatternBusBlockEntity bus) {
-        Map<AEItemKey, Integer> counts = busAuxiliaryPatternKeys.remove(bus);
+        Object2IntOpenHashMap<AEItemKey> counts = busAuxiliaryPatternKeys.remove(bus);
         if (counts == null) {
             return;
         }
-        for (Map.Entry<AEItemKey, Integer> entry : counts.entrySet()) {
-            dropCount(networkPatternCounts, entry.getKey(), entry.getValue());
+        for (var entry : counts.object2IntEntrySet()) {
+            dropCount(networkPatternCounts, entry.getKey(), entry.getIntValue());
         }
     }
 
     private void removeBusPatternIndex(ECOCraftingPatternBusBlockEntity bus) {
-        Map<Integer, PatternRecord> records = busPatternRecords.remove(bus);
+        Int2ObjectMap<PatternRecord> records = busPatternRecords.remove(bus);
         if (records != null) {
             records.values().forEach(this::removeLocation);
         }
-        Map<AEItemKey, Integer> counts = busPatternKeys.remove(bus);
+        Object2IntOpenHashMap<AEItemKey> counts = busPatternKeys.remove(bus);
         if (counts != null) {
-            for (Map.Entry<AEItemKey, Integer> entry : counts.entrySet()) {
-                dropCount(networkPatternCounts, entry.getKey(), entry.getValue());
+            for (var entry : counts.object2IntEntrySet()) {
+                dropCount(networkPatternCounts, entry.getKey(), entry.getIntValue());
             }
         }
         dropAuxiliaryCounts(bus);
-        busAuxiliaryRevisions.remove(bus);
+        busAuxiliaryRevisions.removeLong(bus);
         busAuxiliarySlots.remove(bus);
-        busPatternRevisions.remove(bus);
-        busEmptySlotCounts.remove(bus);
+        busPatternRevisions.removeInt(bus);
+        busEmptySlotCounts.removeInt(bus);
     }
 
-    private static void dropCount(Map<AEItemKey, Integer> target, AEItemKey key, int amount) {
-        target.computeIfPresent(key, (ignored, count) -> {
-            int remaining = count - amount;
-            return remaining <= 0 ? null : remaining;
-        });
+    private static void dropCount(Object2IntOpenHashMap<AEItemKey> target, AEItemKey key, int amount) {
+        int remaining = target.getInt(key) - amount;
+        if (remaining <= 0) target.removeInt(key);
+        else target.put(key, remaining);
     }
 
     private void addLocation(@Nullable PatternRecord record) {
@@ -1132,7 +1141,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             if (storage instanceof ECOCraftingPatternBusBlockEntity bus) {
                 // An auxiliary store keeps the bus writable even with every slot occupied: a bus full of
                 // pattern disks is exactly the case where slot capacity says nothing about room.
-                if (busEmptySlotCounts.getOrDefault(bus, 0) > 0 || bus.hasAuxiliaryRoom()) {
+                if (busEmptySlotCounts.getInt(bus) > 0 || bus.hasAuxiliaryRoom()) {
                     next.add(storage);
                 }
             }
@@ -1169,7 +1178,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
 
     private void markStorageFull(IECOPatternStorage storage) {
         if (storage instanceof ECOCraftingPatternBusBlockEntity bus) {
-            if (busEmptySlotCounts.getOrDefault(bus, 0) > 0) {
+            if (busEmptySlotCounts.getInt(bus) > 0) {
                 busEmptySlotCounts.put(bus, 0);
                 rebuildWritablePatternStorageCache();
             }

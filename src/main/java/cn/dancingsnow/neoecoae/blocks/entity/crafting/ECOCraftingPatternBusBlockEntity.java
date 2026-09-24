@@ -76,13 +76,12 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -117,13 +116,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private final ECOCraftingPatternBusCatalog catalog;
     private final ECOCraftingPatternBusDispatcher dispatcher;
     private static final int EXTERNAL_NONCE_HISTORY = 1024;
-    private final Map<UUID, FastpathSubmission> externalFastpathSubmissions =
-        new LinkedHashMap<>(64, 0.75F, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<UUID, FastpathSubmission> eldest) {
-                return size() > EXTERNAL_NONCE_HISTORY;
-            }
-        };
+    private final Object2ObjectLinkedOpenHashMap<UUID, FastpathSubmission> externalFastpathSubmissions =
+        new Object2ObjectLinkedOpenHashMap<>(64);
     private final ECOCraftingPatternBusPublisher publisher;
     public final IItemHandlerModifiable itemHandler;
     @Persisted
@@ -399,7 +393,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public FastpathSubmission submit(FastpathRequest request) {
-        var previous = externalFastpathSubmissions.get(request.nonce());
+        var previous = externalFastpathSubmissions.getAndMoveToLast(request.nonce());
         if (previous != null) return previous;
         var capability = inspect(request);
         if (capability.acceptedAmount() <= 0L) {
@@ -466,7 +460,10 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     private FastpathSubmission rememberExternal(UUID nonce, FastpathSubmission submission) {
-        externalFastpathSubmissions.put(nonce, submission);
+        externalFastpathSubmissions.putAndMoveToLast(nonce, submission);
+        if (externalFastpathSubmissions.size() > EXTERNAL_NONCE_HISTORY) {
+            externalFastpathSubmissions.removeFirst();
+        }
         return submission;
     }
 
