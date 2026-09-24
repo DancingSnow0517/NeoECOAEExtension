@@ -126,6 +126,9 @@ public final class ECOCraftingPlannerService {
                         elapsedSince(startedNanos),
                         solved.state().executionProvenance());
                 result.setTheoreticalBytes(solved.state().plannerBytes());
+                result.setExactPatternTimes(solved.state().plannerPatternTimes());
+                result.setExactMaterials(solved.state().usedAmounts(), solved.state().emittedAmounts(),
+                        solved.state().missingAmounts());
                 result.setFuzzyPlanningItemIds(fuzzyPlanningItemIds);
                 if (result.status() == PlanningStatus.SUCCESS
                         && ECOPlanningResultRegistry.cycleExpected(result)

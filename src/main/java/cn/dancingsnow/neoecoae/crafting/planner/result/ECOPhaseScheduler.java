@@ -84,7 +84,12 @@ public final class ECOPhaseScheduler {
     }
 
     public static PlannerAmount growingPatternFeedbackReserveExact(IPatternDetails pattern, long remaining, AEKey key) {
-        if (remaining <= 0L) return PlannerAmount.ZERO;
+        return growingPatternFeedbackReserveExact(pattern, java.math.BigInteger.valueOf(remaining), key);
+    }
+
+    public static PlannerAmount growingPatternFeedbackReserveExact(
+            IPatternDetails pattern, java.math.BigInteger remaining, AEKey key) {
+        if (remaining.signum() <= 0) return PlannerAmount.ZERO;
         try {
             PatternSemantics semantics = semantic(pattern);
             if (!semantics.supported()) return PlannerAmount.ZERO;
@@ -108,7 +113,7 @@ public final class ECOPhaseScheduler {
                 }
             }
             if (produced.compareTo(consumed) <= 0) return PlannerAmount.ZERO;
-            return consumed.multiply(remaining);
+            return consumed.multiply(PlannerAmount.of(remaining));
         } catch (RuntimeException rejected) {
             return PlannerAmount.ZERO;
         }

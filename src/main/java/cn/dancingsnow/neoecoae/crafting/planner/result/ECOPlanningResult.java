@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEKey;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
@@ -8,6 +9,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.provenance.ExecutionProvenance;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.resources.ResourceLocation;
@@ -23,6 +25,10 @@ public final class ECOPlanningResult {
     private final List<Integer> executionComponentOrder;
     private final long calculationNanos;
     private BigInteger theoreticalBytes = BigInteger.ZERO;
+    private Map<IPatternDetails, PlannerAmount> exactPatternTimes;
+    private Map<AEKey, PlannerAmount> exactUsedItems = Map.of();
+    private Map<AEKey, PlannerAmount> exactEmittedItems = Map.of();
+    private Map<AEKey, PlannerAmount> exactMissingItems = Map.of();
     private Set<ResourceLocation> fuzzyPlanningItemIds = Set.of();
     private final UUID planningId;
     private final ECOExecutionRequirement executionRequirement;
@@ -42,6 +48,9 @@ public final class ECOPlanningResult {
             @Nullable ExecutionProvenance provenance) {
         this.status = status;
         this.plan = plan;
+        var firings = new java.util.LinkedHashMap<IPatternDetails, PlannerAmount>();
+        if (plan != null) plan.patternTimes().forEach((pattern, count) -> firings.put(pattern, PlannerAmount.of(count)));
+        this.exactPatternTimes = Map.copyOf(firings);
         this.trace = trace;
         this.cycles = List.copyOf(cycles);
         this.components = List.copyOf(components);
@@ -179,6 +188,33 @@ public final class ECOPlanningResult {
 
     public BigInteger theoreticalBytes() {
         return theoreticalBytes;
+    }
+
+    public Map<IPatternDetails, PlannerAmount> exactPatternTimes() {
+        return exactPatternTimes;
+    }
+
+    public void setExactPatternTimes(Map<IPatternDetails, PlannerAmount> counts) {
+        exactPatternTimes = Map.copyOf(counts);
+    }
+
+    public void setExactMaterials(Map<AEKey, PlannerAmount> used, Map<AEKey, PlannerAmount> emitted,
+            Map<AEKey, PlannerAmount> missing) {
+        exactUsedItems = Map.copyOf(used);
+        exactEmittedItems = Map.copyOf(emitted);
+        exactMissingItems = Map.copyOf(missing);
+    }
+
+    public Map<AEKey, PlannerAmount> exactUsedItems() {
+        return exactUsedItems;
+    }
+
+    public Map<AEKey, PlannerAmount> exactEmittedItems() {
+        return exactEmittedItems;
+    }
+
+    public Map<AEKey, PlannerAmount> exactMissingItems() {
+        return exactMissingItems;
     }
 
     public void setTheoreticalBytes(PlannerAmount bytes) {

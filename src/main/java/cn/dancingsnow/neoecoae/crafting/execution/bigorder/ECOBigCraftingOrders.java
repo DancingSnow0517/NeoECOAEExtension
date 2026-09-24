@@ -6,6 +6,9 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
@@ -146,7 +149,32 @@ public final class ECOBigCraftingOrders extends SavedData {
         if (!order.future.isDone()) return;
         ICraftingPlan plan = order.future.get();
         order.future = null;
-        if (plan == null || plan.simulation() || !ECOBigCraftingBatchLimits.fits(plan)) {
+        ICraftingPlan executable = plan;
+        if (plan != null && plan.simulation() && plan instanceof ECOCraftingPlanDiagnostics diagnostics
+                && ECOBigOrderAdmission.allows(diagnostics.neoecoae$getPlanningResult(), false)) {
+            try {
+                var exactResult = diagnostics.neoecoae$getPlanningResult();
+                if (ECOExactCraftingPlan.needsSmallerBatch(exactResult)) {
+                    if (order.batch > 1L) {
+                        order.batchLimit = Math.max(1L, order.batch / 2L);
+                        order.status = "reducing batch: exact runtime limit";
+                    } else {
+                        order.paused = true;
+                        order.status = "paused: exact runtime limit";
+                    }
+                    setDirty();
+                    return;
+                }
+                executable = new ECOExactCraftingPlan(exactResult, false);
+            } catch (IllegalArgumentException unsupported) {
+                order.paused = true;
+                order.status = "paused: " + unsupported.getMessage();
+                setDirty();
+                return;
+            }
+        }
+        if (executable == null || executable.simulation()
+                || !(executable instanceof ECOExactCraftingPlan) && !ECOBigCraftingBatchLimits.fits(executable)) {
             if (order.batch > 1) {
                 order.batchLimit = Math.max(1, order.batch / 2);
             } else {
@@ -156,11 +184,11 @@ public final class ECOBigCraftingOrders extends SavedData {
             setDirty();
             return;
         }
-        if (!order.key.equals(plan.finalOutput().what()) || plan.finalOutput().amount() != order.batch)
+        if (!order.key.equals(executable.finalOutput().what()) || executable.finalOutput().amount() != order.batch)
             throw new IllegalStateException("Calculation changed the requested batch");
         SUBMITTING.set(order);
         try {
-            var result = NeoECOCraftingServiceBridge.submitJob(grid, plan, null, null, source);
+            var result = NeoECOCraftingServiceBridge.submitJob(grid, executable, null, null, source);
             if (result == null || !result.successful()) {
                 if (order.batch > 1
                         && (result == null
@@ -206,6 +234,8 @@ public final class ECOBigCraftingOrders extends SavedData {
                 order.ledger = ECOBigCraftingLedger.read(value.getCompound("ledger"));
                 order.batchLimit = value.getLong("batchLimit");
                 order.batch = value.getLong("batch");
+                if (order.ledger.jobId() != null && order.batch != order.ledger.batch())
+                    throw new IllegalArgumentException("Inconsistent active order batch");
                 order.paused = value.getBoolean("paused");
                 order.status = value.getString("status");
                 if (order.key == null || order.batchLimit <= 0) {

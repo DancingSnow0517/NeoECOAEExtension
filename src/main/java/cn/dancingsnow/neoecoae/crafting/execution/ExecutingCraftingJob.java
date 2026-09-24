@@ -29,6 +29,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOMissingCraftingPlan;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
@@ -43,6 +45,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.math.BigInteger;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -75,6 +78,9 @@ public class ExecutingCraftingJob {
     final ElapsedTimeTracker timeTracker;
     GenericStack finalOutput;
     long remainingAmount;
+    boolean exactOrder;
+    final Map<AEKey, BigInteger> deferredStock = new LinkedHashMap<>();
+    final Map<AEKey, BigInteger> deferredEmitted = new LinkedHashMap<>();
 
     @Nullable Integer playerId;
 
@@ -111,7 +117,8 @@ public class ExecutingCraftingJob {
             @Nullable Integer playerId) {
         this.finalOutput = plan.finalOutput();
         this.remainingAmount = this.finalOutput.amount();
-        this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
+        this.exactOrder = plan instanceof ECOExactCraftingPlan;
+        this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
 
         // Fill waiting for and tasks
         this.timeTracker = new ElapsedTimeTracker();
@@ -130,6 +137,15 @@ public class ExecutingCraftingJob {
                 amount = NEMath.saturatingMultiply(amount, output.what().getAmountPerUnit());
                 timeTracker.addMaxItems(amount, output.what().getType());
             }
+        }
+        if (plan instanceof ECOExactCraftingPlan exact) {
+            exact.exactTasks().forEach((pattern, count) -> {
+                TaskProgress progress = tasks.get(pattern);
+                if (progress == null) throw new IllegalArgumentException("Exact task missing from projection");
+                progress.setExact(count, count);
+            });
+            deferredStock.putAll(exact.deferredStock());
+            deferredEmitted.putAll(exact.deferredEmitted());
         }
         this.executionPlan = executionPlan;
         if (executionPlan == null) {
@@ -161,7 +177,8 @@ public class ExecutingCraftingJob {
 
         this.finalOutput = GenericStack.readTag(data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
-        this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
+        this.exactOrder = data.getBoolean("exactOrder");
+        this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND));
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
@@ -171,6 +188,7 @@ public class ExecutingCraftingJob {
         }
 
         ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
+        boolean taskDefinitionLost = false;
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
             var pattern = AEItemKey.fromTag(item);
@@ -178,13 +196,24 @@ public class ExecutingCraftingJob {
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
+                if (item.contains("exactRemaining", Tag.TAG_STRING)) {
+                    tp.readExact(item);
+                } else if (exactOrder) {
+                    taskDefinitionLost = true;
+                }
                 this.tasks.put(details, tp);
-            }
+            } else taskDefinitionLost = true;
         }
+        readDeferred(data, "deferredStock", deferredStock);
+        readDeferred(data, "deferredEmitted", deferredEmitted);
+        if (!exactOrder && (tasks.values().stream().anyMatch(TaskProgress::isExact)
+                || !deferredStock.isEmpty() || !deferredEmitted.isEmpty()))
+            throw new IllegalArgumentException("Exact task data without an exact order");
 
         ECOExecutionPlan restoredPlan = null;
         ECOExecutionRuntime restoredRuntime = null;
-        boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED);
+        boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED)
+                || exactOrder && taskDefinitionLost;
         if (data.contains(NBT_EXECUTION_PLAN)) {
             try {
                 restoredPlan =
@@ -402,11 +431,15 @@ public class ExecutingCraftingJob {
         for (var e : this.tasks.entrySet()) {
             var item = e.getKey().getDefinition().toTag();
             item.putLong(NBT_CRAFTING_PROGRESS, e.getValue().value);
+            e.getValue().writeExact(item);
             list.add(item);
         }
         data.put(NBT_TASKS, list);
 
         data.putLong(NBT_REMAINING_AMOUNT, remainingAmount);
+        data.putBoolean("exactOrder", exactOrder);
+        writeDeferred(data, "deferredStock", deferredStock);
+        writeDeferred(data, "deferredEmitted", deferredEmitted);
         if (this.playerId != null) {
             data.putInt(NBT_PLAYER_ID, this.playerId);
         }
@@ -440,5 +473,70 @@ public class ExecutingCraftingJob {
 
     static class TaskProgress {
         long value = 0;
+        private BigInteger exactTotal;
+        private BigInteger exactRemaining;
+
+        void setExact(BigInteger total, BigInteger remaining) {
+            if (total.signum() <= 0 || remaining.signum() < 0 || remaining.compareTo(total) > 0)
+                throw new IllegalArgumentException("Invalid exact task progress");
+            exactTotal = total;
+            exactRemaining = remaining;
+            value = ECOExactCraftingPlan.bounded(remaining);
+        }
+
+        BigInteger remainingExact() {
+            return exactRemaining == null ? BigInteger.valueOf(value) : exactRemaining;
+        }
+
+        boolean isExact() {
+            return exactTotal != null;
+        }
+
+        void writeExact(CompoundTag tag) {
+            if (!isExact()) return;
+            tag.putString("exactTotal", exactTotal.toString());
+            tag.putString("exactRemaining", exactRemaining.toString());
+        }
+
+        void readExact(CompoundTag tag) {
+            setExact(new BigInteger(tag.getString("exactTotal")),
+                    new BigInteger(tag.getString("exactRemaining")));
+        }
+
+        void accept(long count) {
+            if (count < 0 || BigInteger.valueOf(count).compareTo(remainingExact()) > 0)
+                throw new IllegalArgumentException("Dispatch exceeds remaining task");
+            if (exactRemaining == null) value -= count;
+            else setExact(exactTotal, exactRemaining.subtract(BigInteger.valueOf(count)));
+        }
+    }
+
+    private static ListCraftingInventory createWaitingInventory(boolean exact, CraftingDifferenceListener listener) {
+        if (!exact) return new ListCraftingInventory(listener::onCraftingDifference);
+        ECOExactInventory inventory = new ECOExactInventory(listener::onCraftingDifference);
+        inventory.setEnabled(true);
+        return inventory;
+    }
+
+    private static void writeDeferred(CompoundTag data, String name, Map<AEKey, BigInteger> amounts) {
+        ListTag entries = new ListTag();
+        amounts.forEach((key, amount) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.put("key", key.toTagGeneric());
+            entry.putString("amount", amount.toString());
+            entries.add(entry);
+        });
+        data.put(name, entries);
+    }
+
+    private static void readDeferred(CompoundTag data, String name, Map<AEKey, BigInteger> amounts) {
+        ListTag entries = data.getList(name, Tag.TAG_COMPOUND);
+        for (int i = 0; i < entries.size(); i++) {
+            CompoundTag entry = entries.getCompound(i);
+            AEKey key = AEKey.fromTagGeneric(entry.getCompound("key"));
+            BigInteger amount = new BigInteger(entry.getString("amount"));
+            if (key == null || amount.signum() <= 0) throw new IllegalArgumentException("Invalid deferred material");
+            amounts.merge(key, amount, BigInteger::add);
+        }
     }
 }
