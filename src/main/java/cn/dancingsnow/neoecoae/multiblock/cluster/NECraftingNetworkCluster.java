@@ -42,7 +42,9 @@ public final class NECraftingNetworkCluster {
     private List<ECOCraftingSystemBlockEntity> controllers = List.of();
     private List<ECOCraftingWorkerBlockEntity> workers = List.of();
     private List<ECOCraftingPatternBusBlockEntity> patternBuses = List.of();
+
     @Nullable private List<IPatternDetails> mergedPatterns;
+
     private List<cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity> parallelCores =
             List.of();
     private int nextPhysicalClusterIndex;

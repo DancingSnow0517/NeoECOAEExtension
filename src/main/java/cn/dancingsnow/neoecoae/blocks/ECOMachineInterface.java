@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks;
 
-import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import appeng.menu.locator.MenuLocators;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
 import net.minecraft.core.BlockPos;

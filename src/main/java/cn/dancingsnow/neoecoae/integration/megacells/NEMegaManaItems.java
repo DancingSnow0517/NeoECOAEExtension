@@ -13,10 +13,20 @@ import net.minecraft.world.item.Rarity;
 final class NEMegaManaItems {
     static final ItemEntry<Item> MEGA_MANA_CELL_HOUSING = NEMegaItems.housing("mega_mana", "Mega Mana");
     static final ItemEntry<ECOStorageCellItem> CELL_4G = NEMegaItems.optionalCell(
-            "mega_mana", "Mega Mana", "4g", ECOTier.L9, MEGA_4G_CAPACITY, Rarity.EPIC,
+            "mega_mana",
+            "Mega Mana",
+            "4g",
+            ECOTier.L9,
+            MEGA_4G_CAPACITY,
+            Rarity.EPIC,
             (properties, tier, type, capacity) -> new ECOStorageCellItem(
-                    properties, tier, AppBotCompat.getManaKeyType(), type, capacity,
-                    MegaCellCapacities.normalBytesPerType(tier), 1,
+                    properties,
+                    tier,
+                    AppBotCompat.getManaKeyType(),
+                    type,
+                    capacity,
+                    MegaCellCapacities.normalBytesPerType(tier),
+                    1,
                     MegaCellCapacities.normalIdleDrain(capacity)),
             NEMegaManaCellType.MEGA_MANA);
 

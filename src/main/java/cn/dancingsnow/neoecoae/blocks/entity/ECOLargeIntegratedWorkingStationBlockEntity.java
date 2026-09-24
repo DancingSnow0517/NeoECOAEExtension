@@ -4,20 +4,20 @@ import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.GridFlags;
+import appeng.api.networking.IGridMultiblock;
+import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.networking.ticking.TickRateModulation;
+import appeng.api.orientation.BlockOrientation;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
-import appeng.api.networking.IGridMultiblock;
-import appeng.api.networking.IGridNode;
-import appeng.api.networking.ticking.TickRateModulation;
-import appeng.api.orientation.BlockOrientation;
 import appeng.me.cluster.IAEMultiBlock;
-import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationControllerCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
@@ -42,8 +42,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,7 +57,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
     private final NEIntegratedWorkingStationControllerCalculator calculator;
     private final Deque<PendingBatch> pendingBatches = new ArrayDeque<>();
     private final List<CompoundTag> quarantinedBatches = new ArrayList<>();
+
     @Nullable private NEIntegratedWorkingStationCluster cluster;
+
     private boolean formed;
     private boolean overclocked;
     private boolean activeCooling;
@@ -104,7 +106,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         if (cluster != null) cluster.destroy();
     }
 
-    public boolean isFormed() { return formed; }
+    public boolean isFormed() {
+        return formed;
+    }
 
     public void setFormed(boolean value) {
         if (formed == value) return;
@@ -119,7 +123,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
     public void updateState() {
         if (level == null || isRemoved()) return;
         BlockState state = level.getBlockState(worldPosition);
-        if (state.getBlock() != getBlockState().getBlock() || !state.hasProperty(ECOIntegratedWorkingStation.FORMED)) return;
+        if (state.getBlock() != getBlockState().getBlock() || !state.hasProperty(ECOIntegratedWorkingStation.FORMED))
+            return;
         BlockState next = state.setValue(ECOIntegratedWorkingStation.FORMED, formed);
         if (next != state) level.setBlock(worldPosition, next, Block.UPDATE_CLIENTS);
     }
@@ -141,7 +146,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         return tickBatch();
     }
 
-    private static void moveFluid(net.minecraftforge.fluids.capability.templates.FluidTank source,
+    private static void moveFluid(
+            net.minecraftforge.fluids.capability.templates.FluidTank source,
             net.minecraftforge.fluids.capability.templates.FluidTank destination) {
         if (source.getFluid().isEmpty()) return;
         int filled = destination.fill(source.getFluid().copy(), IFluidHandler.FluidAction.EXECUTE);
@@ -156,15 +162,30 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
     }
 
-    public boolean isOverclocked() { return overclocked; }
-    public boolean isActiveCooling() { return activeCooling; }
-    public void setOverclocked(boolean value) { overclocked = value; setChanged(); wake(); }
-    public void setActiveCooling(boolean value) { activeCooling = value; setChanged(); wake(); }
+    public boolean isOverclocked() {
+        return overclocked;
+    }
+
+    public boolean isActiveCooling() {
+        return activeCooling;
+    }
+
+    public void setOverclocked(boolean value) {
+        overclocked = value;
+        setChanged();
+        wake();
+    }
+
+    public void setActiveCooling(boolean value) {
+        activeCooling = value;
+        setChanged();
+        wake();
+    }
 
     private LargeWorkstationOverclock currentProfile() {
         CoolingRecipe recipe = coolingRecipe();
-        return LargeWorkstationOverclock.forCurrentSettings(overclocked, activeCooling,
-                recipe == null ? 0 : recipe.maxOverclock());
+        return LargeWorkstationOverclock.forCurrentSettings(
+                overclocked, activeCooling, recipe == null ? 0 : recipe.maxOverclock());
     }
 
     @Nullable private CoolingRecipe coolingRecipe() {
@@ -179,7 +200,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         return best;
     }
 
-    public int getMaxBatchParallelism() { return currentProfile().maxParallelism(); }
+    public int getMaxBatchParallelism() {
+        return currentProfile().maxParallelism();
+    }
 
     public List<GenericStack> getCurrentBatchInputs() {
         PendingBatch batch = pendingBatches.peekFirst();
@@ -187,7 +210,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
     }
 
     public boolean canAcceptPattern() {
-        if (!formed || cluster == null || !getMainNode().isActive() || !quarantinedBatches.isEmpty()
+        if (!formed
+                || cluster == null
+                || !getMainNode().isActive()
+                || !quarantinedBatches.isEmpty()
                 || pendingBatches.size() >= MAX_PENDING_BATCHES) return false;
         for (PendingBatch batch : pendingBatches) if (batch.canceling) return false;
         return true;
@@ -197,7 +223,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         if (patternInputs == null || patternInputs.isEmpty()) return false;
         for (PendingBatch batch : pendingBatches) {
             for (var entry : batch.inputs) {
-                if (entry.getLongValue() > 0 && patternInputs.contains(entry.getKey().dropSecondary())) return true;
+                if (entry.getLongValue() > 0
+                        && patternInputs.contains(entry.getKey().dropSecondary())) return true;
             }
         }
         return false;
@@ -211,8 +238,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         return true;
     }
 
-    public boolean acceptPatternBatch(IPatternDetails pattern, KeyCounter[] holders, long craftCount,
-            @Nullable UUID craftingJobId, @Nullable GenericStack expectedResult) {
+    public boolean acceptPatternBatch(
+            IPatternDetails pattern,
+            KeyCounter[] holders,
+            long craftCount,
+            @Nullable UUID craftingJobId,
+            @Nullable GenericStack expectedResult) {
         // This AE2 version has no job-targeted output router.
         if (craftingJobId != null || holders == null || !canAcceptPattern()) return false;
         PendingBatch batch = makeBatch(pattern, holders, craftCount, expectedResult);
@@ -229,8 +260,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         wake();
     }
 
-    @Nullable private PendingBatch makeBatch(IPatternDetails pattern, @Nullable KeyCounter[] holders,
-            long crafts, @Nullable GenericStack unlock) {
+    @Nullable private PendingBatch makeBatch(
+            IPatternDetails pattern, @Nullable KeyCounter[] holders, long crafts, @Nullable GenericStack unlock) {
         if (!formed || level == null || pattern == null || !currentProfile().acceptsCraftCount(crafts)) return null;
         try {
             KeyCounter inputs = new KeyCounter();
@@ -240,8 +271,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
                 for (IPatternDetails.IInput input : patternInputs) {
                     if (input == null || input.getMultiplier() <= 0) return null;
                     GenericStack[] possible = input.getPossibleInputs();
-                    if (possible == null || possible.length == 0 || possible[0] == null
-                            || possible[0].what() == null || possible[0].amount() <= 0) return null;
+                    if (possible == null
+                            || possible.length == 0
+                            || possible[0] == null
+                            || possible[0].what() == null
+                            || possible[0].amount() <= 0) return null;
                     inputs.add(possible[0].what(), Math.multiplyExact(possible[0].amount(), input.getMultiplier()));
                 }
             } else {
@@ -279,8 +313,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
             }
             if (!validCounter(inputs) || !validCounter(totalOutputs)) return null;
             LargeWorkstationOverclock profile = currentProfile();
-            return new PendingBatch(crafts, recipe.energy(), profile.coolingTier(),
-                    profile.energyMultiplier(), inputs, totalOutputs, unlock);
+            return new PendingBatch(
+                    crafts,
+                    recipe.energy(),
+                    profile.coolingTier(),
+                    profile.energyMultiplier(),
+                    inputs,
+                    totalOutputs,
+                    unlock);
         } catch (ArithmeticException | IllegalArgumentException invalid) {
             return null;
         }
@@ -291,7 +331,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         GenericStack[] possible = input.getPossibleInputs();
         if (possible == null) return 0;
         for (GenericStack candidate : possible) {
-            if (candidate != null && candidate.what() != null && candidate.what().equals(key)) {
+            if (candidate != null
+                    && candidate.what() != null
+                    && candidate.what().equals(key)) {
                 if (amount != 0 && amount != candidate.amount()) return 0;
                 amount = candidate.amount();
             }
@@ -317,7 +359,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
     private static boolean validCounter(KeyCounter counter) {
         int entries = 0;
         for (var entry : counter) {
-            if (++entries > MAX_BATCH_ENTRIES || entry.getKey() == null || entry.getLongValue() <= 0
+            if (++entries > MAX_BATCH_ENTRIES
+                    || entry.getKey() == null
+                    || entry.getLongValue() <= 0
                     || entry.getLongValue() > MAX_BATCH_AMOUNT) return false;
         }
         return true;
@@ -350,8 +394,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         FluidStack byproduct = FluidStack.EMPTY;
         if (batch.coolingTier > 0) {
             CoolingRecipe cooling = coolingRecipe();
-            if (!overclocked || !activeCooling || cooling == null
-                    || cooling.maxOverclock() < batch.coolingTier) return TickRateModulation.SLOWER;
+            if (!overclocked || !activeCooling || cooling == null || cooling.maxOverclock() < batch.coolingTier)
+                return TickRateModulation.SLOWER;
             FluidTank input = cluster.getInputHatch().tank;
             FluidTank output = cluster.getOutputHatch().tank;
             if (input.getFluidAmount() < 100 || cooling.inputAmount() <= 0) return TickRateModulation.SLOWER;
@@ -361,15 +405,17 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
                 byproduct = cooling.output().copy();
                 byproduct.setAmount((int) amount);
             }
-            if (!byproduct.isEmpty() && output.fill(byproduct, IFluidHandler.FluidAction.SIMULATE)
-                    != byproduct.getAmount()) return TickRateModulation.SLOWER;
+            if (!byproduct.isEmpty()
+                    && output.fill(byproduct, IFluidHandler.FluidAction.SIMULATE) != byproduct.getAmount())
+                return TickRateModulation.SLOWER;
         }
         double energy = (double) batch.energyPerCraft * batch.energyMultiplier * batch.crafts;
         double required = energy * advance / PROCESSING_STEPS;
         if (!Double.isFinite(required)) return TickRateModulation.SLOWER;
         IEnergySource source = this;
         var grid = getMainNode().getGrid();
-        if (required > 0 && extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001 < required
+        if (required > 0
+                && extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001 < required
                 && grid != null) source = grid.getEnergyService();
         double available = source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG);
         if (required > 0 && available + 0.001 < required) {
@@ -379,8 +425,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         }
         IEnergySource paymentSource = source;
         FluidStack output = byproduct;
-        LargeWorkstationTickPayment.Result payment = LargeWorkstationTickPayment.commit(source, required,
-                () -> batch.coolingTier == 0 || consumeCooling(output), amount -> refundPower(paymentSource, amount));
+        LargeWorkstationTickPayment.Result payment = LargeWorkstationTickPayment.commit(
+                source,
+                required,
+                () -> batch.coolingTier == 0 || consumeCooling(output),
+                amount -> refundPower(paymentSource, amount));
         if (payment != LargeWorkstationTickPayment.Result.PAID) return TickRateModulation.SLOWER;
         batch.progress += advance;
         setProcessingTime(batch.progress);
@@ -421,7 +470,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         if (grid == null) return false;
         MEStorage storage = grid.getStorageService().getInventory();
         for (GenericStack stack : ECOFastPathStacks.copyCounter(batch.pendingOutput)) {
-            long inserted = storage.insert(stack.what(), stack.amount(), Actionable.MODULATE, IActionSource.ofMachine(this));
+            long inserted =
+                    storage.insert(stack.what(), stack.amount(), Actionable.MODULATE, IActionSource.ofMachine(this));
             if (inserted < 0 || inserted > stack.amount()) throw new IllegalStateException("Invalid output insertion");
             if (inserted > 0) {
                 batch.pendingOutput.remove(stack.what(), inserted);
@@ -448,8 +498,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         for (PendingBatch batch : new ArrayList<>(pendingBatches)) {
             if (batch.progress >= PROCESSING_STEPS) continue;
             for (GenericStack stack : ECOFastPathStacks.copyCounter(batch.inputs)) {
-                long inserted = storage.insert(stack.what(), stack.amount(), Actionable.MODULATE,
-                        IActionSource.ofMachine(this));
+                long inserted = storage.insert(
+                        stack.what(), stack.amount(), Actionable.MODULATE, IActionSource.ofMachine(this));
                 if (inserted < 0 || inserted > stack.amount()) {
                     throw new IllegalStateException("Invalid input recovery insertion");
                 }
@@ -460,7 +510,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
                 if (inserted < stack.amount()) return;
             }
             if (cluster != null
-                    && cluster.getCommunication() instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
+                    && cluster.getCommunication()
+                            instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
                 communication.getWorkstationProvider().onPatternAborted(batch.unlock);
             }
             pendingBatches.remove(batch);
@@ -469,7 +520,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         setProcessingTime(pendingBatches.isEmpty() ? 0 : pendingBatches.peekFirst().progress);
         setWorking(!pendingBatches.isEmpty());
         if (cluster != null
-                && cluster.getCommunication() instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
+                && cluster.getCommunication()
+                        instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
             ICraftingProvider.requestUpdate(communication.getMainNode());
         }
     }
@@ -479,7 +531,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         setProcessingTime(pendingBatches.isEmpty() ? 0 : pendingBatches.peekFirst().progress);
         setWorking(!pendingBatches.isEmpty());
         setChanged();
-        if (cluster != null && cluster.getCommunication() instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
+        if (cluster != null
+                && cluster.getCommunication()
+                        instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
             ICraftingProvider.requestUpdate(communication.getMainNode());
         }
     }
@@ -505,7 +559,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         }
     }
 
-    @Override public void saveAdditional(CompoundTag data) {
+    @Override
+    public void saveAdditional(CompoundTag data) {
         super.saveAdditional(data);
         data.putBoolean("largeOverclocked", overclocked);
         data.putBoolean("largeActiveCooling", activeCooling);
@@ -516,7 +571,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         data.put("pendingBatches", batches);
     }
 
-    @Override public void loadTag(CompoundTag data) {
+    @Override
+    public void loadTag(CompoundTag data) {
         super.loadTag(data);
         overclocked = data.getBoolean("largeOverclocked");
         activeCooling = data.getBoolean("largeActiveCooling");
@@ -538,7 +594,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         if (!pendingBatches.isEmpty()) setProcessingTime(pendingBatches.peekFirst().progress);
     }
 
-    @Override public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
+    @Override
+    public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
         for (PendingBatch batch : pendingBatches) {
             KeyCounter owned = empty(batch.pendingOutput) ? batch.inputs : batch.pendingOutput;
@@ -548,8 +605,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         }
         for (CompoundTag quarantined : quarantinedBatches) {
             String ownedKey = quarantined.getInt("progress") >= PROCESSING_STEPS
-                    || !quarantined.getList("pendingOutput", Tag.TAG_COMPOUND).isEmpty()
-                    ? "pendingOutput" : "inputTotal";
+                            || !quarantined
+                                    .getList("pendingOutput", Tag.TAG_COMPOUND)
+                                    .isEmpty()
+                    ? "pendingOutput"
+                    : "inputTotal";
             ListTag entries = quarantined.getList(ownedKey, Tag.TAG_COMPOUND);
             for (int i = 0; i < entries.size(); i++) {
                 try {
@@ -566,7 +626,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         quarantinedBatches.clear();
     }
 
-    @Override public void clearContent() {
+    @Override
+    public void clearContent() {
         pendingBatches.clear();
         quarantinedBatches.clear();
         super.clearContent();
@@ -580,12 +641,20 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         final KeyCounter inputs = new KeyCounter();
         final KeyCounter outputs = new KeyCounter();
         final KeyCounter pendingOutput = new KeyCounter();
+
         @Nullable final GenericStack unlock;
+
         int progress;
         boolean canceling;
 
-        PendingBatch(long crafts, long energyPerCraft, int coolingTier, int energyMultiplier,
-                KeyCounter inputs, KeyCounter outputs, @Nullable GenericStack unlock) {
+        PendingBatch(
+                long crafts,
+                long energyPerCraft,
+                int coolingTier,
+                int energyMultiplier,
+                KeyCounter inputs,
+                KeyCounter outputs,
+                @Nullable GenericStack unlock) {
             this.crafts = crafts;
             this.energyPerCraft = energyPerCraft;
             this.coolingTier = coolingTier;
@@ -605,7 +674,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
             tag.putBoolean("canceling", canceling);
             tag.put("inputTotal", ECOFastPathStacks.writeGenericStacks(null, ECOFastPathStacks.copyCounter(inputs)));
             tag.put("outputTotal", ECOFastPathStacks.writeGenericStacks(null, ECOFastPathStacks.copyCounter(outputs)));
-            tag.put("pendingOutput", ECOFastPathStacks.writeGenericStacks(null, ECOFastPathStacks.copyCounter(pendingOutput)));
+            tag.put(
+                    "pendingOutput",
+                    ECOFastPathStacks.writeGenericStacks(null, ECOFastPathStacks.copyCounter(pendingOutput)));
             if (unlock != null) tag.put("unlockStack", GenericStack.writeTag(unlock));
             return tag;
         }
@@ -619,18 +690,25 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
             int multiplier = tag.getInt("energyMultiplier");
             int progress = tag.getInt("progress");
             LargeWorkstationOverclock profile = LargeWorkstationOverclock.fromPersisted(tier, multiplier);
-            if (profile == null || !profile.acceptsCraftCount(crafts) || energy < 0
-                    || progress < 0 || progress > PROCESSING_STEPS) return null;
+            if (profile == null
+                    || !profile.acceptsCraftCount(crafts)
+                    || energy < 0
+                    || progress < 0
+                    || progress > PROCESSING_STEPS) return null;
             KeyCounter inputs = readCounter(tag, "inputTotal");
             KeyCounter outputs = readCounter(tag, "outputTotal");
             KeyCounter pending = readCounter(tag, "pendingOutput");
             boolean canceling = tag.getBoolean("canceling");
-            if (inputs == null || outputs == null || pending == null || empty(outputs)
+            if (inputs == null
+                    || outputs == null
+                    || pending == null
+                    || empty(outputs)
                     || progress < PROCESSING_STEPS && empty(inputs) && !canceling
                     || progress < PROCESSING_STEPS && !empty(pending)
                     || progress == PROCESSING_STEPS && (empty(pending) || !empty(inputs) || canceling)) return null;
             GenericStack unlock = tag.contains("unlockStack", Tag.TAG_COMPOUND)
-                    ? GenericStack.readTag(tag.getCompound("unlockStack")) : null;
+                    ? GenericStack.readTag(tag.getCompound("unlockStack"))
+                    : null;
             PendingBatch batch = new PendingBatch(crafts, energy, tier, multiplier, inputs, outputs, unlock);
             batch.pendingOutput.addAll(pending);
             batch.progress = progress;
@@ -645,7 +723,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
             try {
                 for (int i = 0; i < entries.size(); i++) {
                     GenericStack stack = GenericStack.readTag(entries.getCompound(i));
-                    if (stack == null || stack.what() == null || stack.amount() <= 0
+                    if (stack == null
+                            || stack.what() == null
+                            || stack.amount() <= 0
                             || stack.amount() > MAX_BATCH_AMOUNT
                             || result.get(stack.what()) > MAX_BATCH_AMOUNT - stack.amount()) return null;
                     result.add(stack.what(), stack.amount());
@@ -668,7 +748,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         return nodes.iterator();
     }
 
-    @Override public NEIntegratedWorkingStationCluster getCluster() { return cluster; }
+    @Override
+    public NEIntegratedWorkingStationCluster getCluster() {
+        return cluster;
+    }
 
     public void updateCluster(@Nullable NEIntegratedWorkingStationCluster next) {
         cluster = next;
@@ -685,5 +768,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity extends ECOIntegratedWo
         }
     }
 
-    @Override public boolean isValid() { return !isRemoved(); }
+    @Override
+    public boolean isValid() {
+        return !isRemoved();
+    }
 }

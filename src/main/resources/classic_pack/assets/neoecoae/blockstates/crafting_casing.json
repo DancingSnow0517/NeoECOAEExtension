@@ -1,7 +1,5 @@
 {
-  "variants": {
-    "": {
-      "model": "neoecoae:block/crafting_casing"
-    }
-  }
+  "multipart": [
+    { "apply": { "model": "neoecoae:block/crafting_casing" } }
+  ]
 }

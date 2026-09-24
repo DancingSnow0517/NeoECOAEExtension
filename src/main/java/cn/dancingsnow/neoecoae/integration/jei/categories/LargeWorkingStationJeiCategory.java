@@ -51,19 +51,29 @@ public final class LargeWorkingStationJeiCategory implements IRecipeCategory<Lar
     }
 
     @Override
-    public void draw(LargeWorkstationRecipe recipe, IRecipeSlotsView slots, GuiGraphics graphics,
-            double mouseX, double mouseY) {
+    public void draw(
+            LargeWorkstationRecipe recipe, IRecipeSlotsView slots, GuiGraphics graphics, double mouseX, double mouseY) {
         layout.drawLayout(recipe.display(), slots, graphics, false);
         var font = Minecraft.getInstance().font;
-        graphics.drawString(font,
+        graphics.drawString(
+                font,
                 Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy", recipe.energy()),
-                36, 64, 0xFF404040, false);
+                36,
+                64,
+                0xFF404040,
+                false);
         if (!recipe.extraInputs().isEmpty()) {
             var extra = recipe.extraInputs().get(0);
-            graphics.drawString(font,
-                    Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_cost",
-                            extra.amount(), extra.what().getDisplayName()),
-                    8, 79, 0xFF404040, false);
+            graphics.drawString(
+                    font,
+                    Component.translatable(
+                            "gui.neoecoae.large_integrated_working_station.lightning_cost",
+                            extra.amount(),
+                            extra.what().getDisplayName()),
+                    8,
+                    79,
+                    0xFF404040,
+                    false);
         }
     }
 }

@@ -13,7 +13,7 @@
 		"9": "neoecoae:block/storage/l6/led/storage_arrays_controller_b_west",
 		"10": "neoecoae:block/storage/led/storage_arrays_controller_west",
 
-		"particle": "neoecoae:block/storage/storage_arrays_controller_b_west"
+		"particle": "neoecoae:block/storage/storage_arrays_controller_west"
 	},
 	"elements": [
 		{

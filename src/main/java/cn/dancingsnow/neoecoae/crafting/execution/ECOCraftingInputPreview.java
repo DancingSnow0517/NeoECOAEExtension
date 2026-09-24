@@ -47,9 +47,11 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     private static PatternMetadata metadata(IPatternDetails pattern) {
         long generation = AE2PatternIntrospection.reloadGeneration();
-        return METADATA_BY_PATTERN.compute(pattern, (ignored, cached) ->
-                cached != null && cached.reloadGeneration() == generation
-                        ? cached : buildMetadata(pattern, generation));
+        return METADATA_BY_PATTERN.compute(
+                pattern,
+                (ignored, cached) -> cached != null && cached.reloadGeneration() == generation
+                        ? cached
+                        : buildMetadata(pattern, generation));
     }
 
     private static PatternMetadata buildMetadata(IPatternDetails pattern, long generation) {
@@ -68,8 +70,8 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
                 }
             }
         }
-        return new PatternMetadata(generation, Set.copyOf(primaryInputs),
-                Set.copyOf(possibleInputs), Set.copyOf(reusableTemplates));
+        return new PatternMetadata(
+                generation, Set.copyOf(primaryInputs), Set.copyOf(possibleInputs), Set.copyOf(reusableTemplates));
     }
 
     private static boolean isReusableTemplate(IPatternDetails.IInput input, AEKey key) {
@@ -124,6 +126,6 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         return List.copyOf(result);
     }
 
-    private record PatternMetadata(long reloadGeneration, Set<AEKey> primaryInputs,
-            Set<AEKey> possibleInputs, Set<AEKey> reusableTemplates) {}
+    private record PatternMetadata(
+            long reloadGeneration, Set<AEKey> primaryInputs, Set<AEKey> possibleInputs, Set<AEKey> reusableTemplates) {}
 }

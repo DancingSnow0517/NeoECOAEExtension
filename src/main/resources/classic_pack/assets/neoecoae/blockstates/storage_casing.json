@@ -1,7 +1,5 @@
 {
-  "variants": {
-    "": {
-      "model": "neoecoae:block/storage_casing"
-    }
-  }
+  "multipart": [
+    { "apply": { "model": "neoecoae:block/storage_casing" } }
+  ]
 }

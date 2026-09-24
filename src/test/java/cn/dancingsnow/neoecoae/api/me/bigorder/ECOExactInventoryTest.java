@@ -30,12 +30,30 @@ class ECOExactInventoryTest {
     @Test
     void unrepresentableCycleCannotAcquireCpuOwnership() {
         AEKey key = new TestKey();
-        var plan = new CraftingPlan(new GenericStack(key, 1L), 0L, true, false,
-                new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of());
-        var cycle = new ComponentPlanningResult(0, ComponentPlanningResult.Type.CYCLIC,
-                ComponentPlanningResult.Status.UNREPRESENTABLE, Map.of(), null, "wide cycle");
-        var result = new ECOPlanningResult(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE,
-                plan, new ECOPlanTrace(), List.of(), List.of(cycle), List.of(), 0L);
+        var plan = new CraftingPlan(
+                new GenericStack(key, 1L),
+                0L,
+                true,
+                false,
+                new KeyCounter(),
+                new KeyCounter(),
+                new KeyCounter(),
+                Map.of());
+        var cycle = new ComponentPlanningResult(
+                0,
+                ComponentPlanningResult.Type.CYCLIC,
+                ComponentPlanningResult.Status.UNREPRESENTABLE,
+                Map.of(),
+                null,
+                "wide cycle");
+        var result = new ECOPlanningResult(
+                PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE,
+                plan,
+                new ECOPlanTrace(),
+                List.of(),
+                List.of(cycle),
+                List.of(),
+                0L);
 
         assertFalse(ECOBigOrderAdmission.allows(result, false));
         assertFalse(ECOBigOrderAdmission.allows(result, true));
@@ -51,12 +69,16 @@ class ECOExactInventoryTest {
         assertTrue(inventory.hasContents());
         assertEquals(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(17)), inventory.amount(key));
         assertEquals(Long.MAX_VALUE, inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE));
-        assertFalse(inventory.debit(Map.of(key, BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(18)))));
+        assertFalse(
+                inventory.debit(Map.of(key, BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(18)))));
         assertEquals(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(17)), inventory.amount(key));
-        assertTrue(inventory.debit(Map.of(key, BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE))));
+        assertTrue(
+                inventory.debit(Map.of(key, BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE))));
         assertEquals(BigInteger.valueOf(16), inventory.amount(key));
         inventory.restore(Map.of(key, BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE)));
-        assertEquals(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(17)), inventory.snapshot().get(key));
+        assertEquals(
+                BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(17)),
+                inventory.snapshot().get(key));
         assertEquals(Long.MAX_VALUE, inventory.extract(key, Long.MAX_VALUE, Actionable.MODULATE));
         assertEquals(BigInteger.valueOf(17), inventory.amount(key));
         assertTrue(inventory.hasContents());
@@ -65,13 +87,40 @@ class ECOExactInventoryTest {
     }
 
     private static final class TestKey extends AEKey {
-        @Override public AEKeyType getType() { return null; }
-        @Override public AEKey dropSecondary() { return this; }
-        @Override public CompoundTag toTag() { return new CompoundTag(); }
-        @Override public Object getPrimaryKey() { return this; }
-        @Override public ResourceLocation getId() { return null; }
-        @Override public void writeToPacket(FriendlyByteBuf buffer) {}
-        @Override protected Component computeDisplayName() { return Component.literal("test"); }
-        @Override public void addDrops(long amount, List<ItemStack> drops, Level level, BlockPos pos) {}
+        @Override
+        public AEKeyType getType() {
+            return null;
+        }
+
+        @Override
+        public AEKey dropSecondary() {
+            return this;
+        }
+
+        @Override
+        public CompoundTag toTag() {
+            return new CompoundTag();
+        }
+
+        @Override
+        public Object getPrimaryKey() {
+            return this;
+        }
+
+        @Override
+        public ResourceLocation getId() {
+            return null;
+        }
+
+        @Override
+        public void writeToPacket(FriendlyByteBuf buffer) {}
+
+        @Override
+        protected Component computeDisplayName() {
+            return Component.literal("test");
+        }
+
+        @Override
+        public void addDrops(long amount, List<ItemStack> drops, Level level, BlockPos pos) {}
     }
 }

@@ -11,8 +11,7 @@ import java.util.Objects;
 public interface ECOBigIntegerStorage {
     BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source);
 
-    static BigInteger insert(MEStorage storage, AEKey what, BigInteger amount,
-            Actionable mode, IActionSource source) {
+    static BigInteger insert(MEStorage storage, AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
         Objects.requireNonNull(storage, "storage");
         Objects.requireNonNull(what, "what");
         Objects.requireNonNull(amount, "amount");
@@ -23,20 +22,19 @@ public interface ECOBigIntegerStorage {
 
         BigInteger max = BigInteger.valueOf(Long.MAX_VALUE);
         if (amount.compareTo(max) <= 0) {
-            return checkedResult(amount, BigInteger.valueOf(
-                    storage.insert(what, amount.longValueExact(), mode, source)));
+            return checkedResult(
+                    amount, BigInteger.valueOf(storage.insert(what, amount.longValueExact(), mode, source)));
         }
         if (storage instanceof ECOBigIntegerStorage exact) {
             return checkedResult(amount, exact.insertBigInteger(what, amount, mode, source));
         }
-        return checkedResult(amount, BigInteger.valueOf(
-                storage.insert(what, Long.MAX_VALUE, mode, source)));
+        return checkedResult(amount, BigInteger.valueOf(storage.insert(what, Long.MAX_VALUE, mode, source)));
     }
 
     private static BigInteger checkedResult(BigInteger offered, BigInteger inserted) {
         if (inserted == null || inserted.signum() < 0 || inserted.compareTo(offered) > 0) {
-            throw new IllegalStateException("Invalid BigInteger storage insertion result: " + inserted
-                    + " for " + offered);
+            throw new IllegalStateException(
+                    "Invalid BigInteger storage insertion result: " + inserted + " for " + offered);
         }
         return inserted;
     }

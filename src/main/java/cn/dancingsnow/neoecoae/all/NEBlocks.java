@@ -656,16 +656,18 @@ public class NEBlocks {
 
     public static final BlockEntry<ECOMachineCasing<NEIntegratedWorkingStationCluster>>
             LARGE_INTEGRATED_WORKING_STATION_CASING = REGISTRATE
-                    .block("large_integrated_working_station_casing",
+                    .block(
+                            "large_integrated_working_station_casing",
                             ECOMachineCasing<NEIntegratedWorkingStationCluster>::new)
                     .initialProperties(() -> Blocks.IRON_BLOCK)
                     .properties(BlockBehaviour.Properties::noOcclusion)
                     .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
                     .blockstate((ctx, prov) -> {
-                        ModelFile model = prov.models().getExistingFile(
-                                prov.modLoc("block/large_integrated_working_station_casing"));
-                        prov.getVariantBuilder(ctx.get()).forAllStates(s ->
-                                ConfiguredModel.builder().modelFile(model).build());
+                        ModelFile model = prov.models()
+                                .getExistingFile(prov.modLoc("block/large_integrated_working_station_casing"));
+                        prov.getVariantBuilder(ctx.get()).forAllStates(s -> ConfiguredModel.builder()
+                                .modelFile(model)
+                                .build());
                     })
                     .simpleItem()
                     .lang("Large Integrated Working Station Casing")
@@ -673,15 +675,17 @@ public class NEBlocks {
 
     public static final BlockEntry<ECOLargeIntegratedWorkingStationInputHatch>
             LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = REGISTRATE
-                    .block("large_integrated_working_station_input_hatch",
+                    .block(
+                            "large_integrated_working_station_input_hatch",
                             ECOLargeIntegratedWorkingStationInputHatch::new)
                     .initialProperties(() -> Blocks.IRON_BLOCK)
                     .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
                     .blockstate((ctx, prov) -> {
-                        ModelFile model = prov.models().getExistingFile(
-                                prov.modLoc("block/large_integrated_working_station_input_hatch"));
-                        prov.getVariantBuilder(ctx.get()).forAllStates(s ->
-                                ConfiguredModel.builder().modelFile(model).build());
+                        ModelFile model = prov.models()
+                                .getExistingFile(prov.modLoc("block/large_integrated_working_station_input_hatch"));
+                        prov.getVariantBuilder(ctx.get()).forAllStates(s -> ConfiguredModel.builder()
+                                .modelFile(model)
+                                .build());
                     })
                     .simpleItem()
                     .lang("Large Integrated Working Station Input Hatch")
@@ -689,15 +693,17 @@ public class NEBlocks {
 
     public static final BlockEntry<ECOLargeIntegratedWorkingStationOutputHatch>
             LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
-                    .block("large_integrated_working_station_output_hatch",
+                    .block(
+                            "large_integrated_working_station_output_hatch",
                             ECOLargeIntegratedWorkingStationOutputHatch::new)
                     .initialProperties(() -> Blocks.IRON_BLOCK)
                     .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
                     .blockstate((ctx, prov) -> {
-                        ModelFile model = prov.models().getExistingFile(
-                                prov.modLoc("block/large_integrated_working_station_output_hatch"));
-                        prov.getVariantBuilder(ctx.get()).forAllStates(s ->
-                                ConfiguredModel.builder().modelFile(model).build());
+                        ModelFile model = prov.models()
+                                .getExistingFile(prov.modLoc("block/large_integrated_working_station_output_hatch"));
+                        prov.getVariantBuilder(ctx.get()).forAllStates(s -> ConfiguredModel.builder()
+                                .modelFile(model)
+                                .build());
                     })
                     .simpleItem()
                     .lang("Large Integrated Working Station Output Hatch")
@@ -705,15 +711,17 @@ public class NEBlocks {
 
     public static final BlockEntry<ECOMachineInterface<NEIntegratedWorkingStationCluster>>
             LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
-                    .block("large_integrated_working_station_interface",
+                    .block(
+                            "large_integrated_working_station_interface",
                             ECOMachineInterface<NEIntegratedWorkingStationCluster>::new)
                     .initialProperties(() -> Blocks.IRON_BLOCK)
                     .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
                     .blockstate((ctx, prov) -> {
-                        ModelFile model = prov.models().getExistingFile(
-                                prov.modLoc("block/large_integrated_working_station_interface"));
-                        prov.getVariantBuilder(ctx.get()).forAllStates(s ->
-                                ConfiguredModel.builder().modelFile(model).build());
+                        ModelFile model = prov.models()
+                                .getExistingFile(prov.modLoc("block/large_integrated_working_station_interface"));
+                        prov.getVariantBuilder(ctx.get()).forAllStates(s -> ConfiguredModel.builder()
+                                .modelFile(model)
+                                .build());
                     })
                     .simpleItem()
                     .lang("Large Integrated Working Station Interface")
@@ -727,17 +735,18 @@ public class NEBlocks {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station"));
                 ModelFile modelFileWorking =
                         prov.models().getExistingFile(prov.modLoc("block/integrated_working_station_on"));
-                ModelFile largeModel = prov.models().getExistingFile(
-                        prov.modLoc("block/large_integrated_working_station_off"));
-                ModelFile largeModelWorking = prov.models().getExistingFile(
-                        prov.modLoc("block/large_integrated_working_station_on"));
+                ModelFile largeModel =
+                        prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_off"));
+                ModelFile largeModelWorking =
+                        prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_on"));
                 prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
                     boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
                     boolean formed = s.getValue(ECOIntegratedWorkingStation.FORMED);
                     return ConfiguredModel.builder()
-                            .modelFile(formed
-                                    ? (working ? largeModelWorking : largeModel)
-                                    : (working ? modelFileWorking : modelFile))
+                            .modelFile(
+                                    formed
+                                            ? (working ? largeModelWorking : largeModel)
+                                            : (working ? modelFileWorking : modelFile))
                             .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING)
                                                     .toYRot()
                                             + 180)
@@ -790,9 +799,7 @@ public class NEBlocks {
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .simpleItem()
-            .blockstate((ctx, prov) -> {
-                prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName())));
-            })
+            .blockstate(BlockStateUtil::simpleExistingBlockState)
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
                         .pattern("ABA")
@@ -971,16 +978,13 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()));
-                prov.getVariantBuilder(ctx.get())
-                        .forAllStatesExcept(
-                                s -> ConfiguredModel.builder()
-                                        .modelFile(modelFile)
-                                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
-                                                                .toYRot()
-                                                        + 180)
-                                                % 360)
-                                        .build(),
-                                ECOStorageVentBlock.FORMED);
+                prov.getVariantBuilder(ctx.get()).forAllStates(s -> ConfiguredModel.builder()
+                        .modelFile(modelFile)
+                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                .toYRot()
+                                        + 180)
+                                % 360)
+                        .build());
             })
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -1183,9 +1187,7 @@ public class NEBlocks {
                                 RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
                         .save(prov);
             })
-            .blockstate((ctx, prov) -> {
-                prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName())));
-            })
+            .blockstate(BlockStateUtil::simpleExistingBlockState)
             .simpleItem()
             .lang("Computation Subsystem Casing")
             .register();
@@ -1293,10 +1295,12 @@ public class NEBlocks {
                 ModelFile formed = prov.models().getExistingFile(prov.modLoc("block/crafting_monitor_formed"));
                 ModelFile working = prov.models().getExistingFile(prov.modLoc("block/crafting_monitor_working"));
                 prov.getVariantBuilder(ctx.get()).forAllStates(state -> ConfiguredModel.builder()
-                        .rotationY((int) ((state.getValue(ECOCraftingWorker.FACING).toYRot() + 180) % 360))
-                        .modelFile(state.getValue(ECOCraftingWorker.WORKING)
-                                ? working
-                                : state.getValue(ECOCraftingWorker.FORMED) ? formed : idle)
+                        .rotationY(
+                                (int) ((state.getValue(ECOCraftingWorker.FACING).toYRot() + 180) % 360))
+                        .modelFile(
+                                state.getValue(ECOCraftingWorker.WORKING)
+                                        ? working
+                                        : state.getValue(ECOCraftingWorker.FORMED) ? formed : idle)
                         .build());
             })
             .register();

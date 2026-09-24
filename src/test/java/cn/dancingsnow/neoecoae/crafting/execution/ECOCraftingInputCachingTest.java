@@ -59,8 +59,8 @@ class ECOCraftingInputCachingTest {
         assertEquals(2, reads.get());
     }
 
-    private static IPatternDetails.IInput input(AEKey key, AtomicReference<AEKey> remainder,
-            AtomicInteger remainderReads) {
+    private static IPatternDetails.IInput input(
+            AEKey key, AtomicReference<AEKey> remainder, AtomicInteger remainderReads) {
         return new IPatternDetails.IInput() {
             @Override
             public GenericStack[] getPossibleInputs() {
@@ -87,7 +87,8 @@ class ECOCraftingInputCachingTest {
 
     private static IPatternDetails pattern(IPatternDetails.IInput input, AtomicInteger inputReads) {
         return (IPatternDetails) Proxy.newProxyInstance(
-                IPatternDetails.class.getClassLoader(), new Class<?>[] {IPatternDetails.class},
+                IPatternDetails.class.getClassLoader(),
+                new Class<?>[] {IPatternDetails.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "getInputs" -> {
                         inputReads.incrementAndGet();
@@ -123,16 +124,44 @@ class ECOCraftingInputCachingTest {
     }
 
     private static final class TestKey extends AEKey {
-        @Override public appeng.api.stacks.AEKeyType getType() { return null; }
-        @Override public AEKey dropSecondary() { return this; }
-        @Override public net.minecraft.nbt.CompoundTag toTag() { return new net.minecraft.nbt.CompoundTag(); }
-        @Override public Object getPrimaryKey() { return this; }
-        @Override public net.minecraft.resources.ResourceLocation getId() { return null; }
-        @Override public void writeToPacket(net.minecraft.network.FriendlyByteBuf buf) {}
-        @Override protected net.minecraft.network.chat.Component computeDisplayName() {
+        @Override
+        public appeng.api.stacks.AEKeyType getType() {
+            return null;
+        }
+
+        @Override
+        public AEKey dropSecondary() {
+            return this;
+        }
+
+        @Override
+        public net.minecraft.nbt.CompoundTag toTag() {
+            return new net.minecraft.nbt.CompoundTag();
+        }
+
+        @Override
+        public Object getPrimaryKey() {
+            return this;
+        }
+
+        @Override
+        public net.minecraft.resources.ResourceLocation getId() {
+            return null;
+        }
+
+        @Override
+        public void writeToPacket(net.minecraft.network.FriendlyByteBuf buf) {}
+
+        @Override
+        protected net.minecraft.network.chat.Component computeDisplayName() {
             return net.minecraft.network.chat.Component.literal("test");
         }
-        @Override public void addDrops(long amount, List<net.minecraft.world.item.ItemStack> drops,
-                net.minecraft.world.level.Level level, net.minecraft.core.BlockPos pos) {}
+
+        @Override
+        public void addDrops(
+                long amount,
+                List<net.minecraft.world.item.ItemStack> drops,
+                net.minecraft.world.level.Level level,
+                net.minecraft.core.BlockPos pos) {}
     }
 }

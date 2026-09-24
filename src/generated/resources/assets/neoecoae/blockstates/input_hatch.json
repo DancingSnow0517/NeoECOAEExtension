@@ -1,6 +1,9 @@
 {
   "variants": {
-    "": {
+    "formed=false": {
+      "model": "neoecoae:block/input_hatch"
+    },
+    "formed=true": {
       "model": "neoecoae:block/input_hatch"
     }
   }

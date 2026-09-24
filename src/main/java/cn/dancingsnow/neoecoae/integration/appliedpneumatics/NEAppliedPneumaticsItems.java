@@ -20,11 +20,14 @@ final class NEAppliedPneumaticsItems {
     static final ItemEntry<ECOStorageCellItem> AIR_CELL_256M = cell("eco_air_cell_256m", ECOTier.L9, Rarity.EPIC);
 
     private static ItemEntry<ECOStorageCellItem> cell(String id, ECOTier tier, Rarity rarity) {
-        return REGISTRATE.item(id, properties -> new ECOStorageCellItem(
-                        properties.stacksTo(1).rarity(rarity),
-                        tier,
-                        AppliedPneumaticsCompat.getAirKeyType(),
-                        NEAppliedPneumaticsCellTypes.AIR))
+        return REGISTRATE
+                .item(
+                        id,
+                        properties -> new ECOStorageCellItem(
+                                properties.stacksTo(1).rarity(rarity),
+                                tier,
+                                AppliedPneumaticsCompat.getAirKeyType(),
+                                NEAppliedPneumaticsCellTypes.AIR))
                 .lang("ECO - LE" + tier.getTier() + " Storage Matrix (Air)")
                 .model((ctx, prov) -> {})
                 .register();

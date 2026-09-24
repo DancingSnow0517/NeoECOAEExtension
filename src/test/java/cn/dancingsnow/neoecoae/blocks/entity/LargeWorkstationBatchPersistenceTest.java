@@ -8,8 +8,8 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import java.util.UUID;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.SharedConstants;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
@@ -65,8 +65,7 @@ class LargeWorkstationBatchPersistenceTest {
         inputs.add(iron, 1);
         KeyCounter outputs = new KeyCounter();
         outputs.add(iron, 1);
-        var batch = new ECOLargeIntegratedWorkingStationBlockEntity.PendingBatch(
-                1, 200, 0, 1, inputs, outputs, null);
+        var batch = new ECOLargeIntegratedWorkingStationBlockEntity.PendingBatch(1, 200, 0, 1, inputs, outputs, null);
 
         var jobOwned = batch.save();
         jobOwned.putUUID("craftingJobId", UUID.randomUUID());

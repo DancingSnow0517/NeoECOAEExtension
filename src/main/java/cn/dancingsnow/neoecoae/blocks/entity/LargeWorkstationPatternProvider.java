@@ -21,6 +21,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     private List<IPatternDetails> compatiblePatterns = List.of();
     private boolean compatiblePatternsDirty = true;
     private Object lastRecipes;
+
     @Nullable private ECOLargeIntegratedWorkingStationBlockEntity lastController;
 
     public LargeWorkstationPatternProvider(ECOLargeIntegratedWorkingStationInterfaceBlockEntity host) {
@@ -28,8 +29,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         this.host = host;
     }
 
-    @Nullable
-    private ECOLargeIntegratedWorkingStationBlockEntity controller() {
+    @Nullable private ECOLargeIntegratedWorkingStationBlockEntity controller() {
         NEIntegratedWorkingStationCluster cluster = host.getCluster();
         return cluster == null ? null : cluster.getController();
     }
@@ -66,7 +66,9 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     @Override
     public boolean pushPattern(IPatternDetails pattern, KeyCounter[] inputs) {
         var controller = controller();
-        if (controller == null || !host.getMainNode().isActive() || isBusy()
+        if (controller == null
+                || !host.getMainNode().isActive()
+                || isBusy()
                 || !getAvailablePatterns().contains(pattern)) {
             return false;
         }
@@ -82,7 +84,8 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     @Override
     public boolean isBusy() {
         var controller = controller();
-        return controller == null || !controller.canAcceptPattern()
+        return controller == null
+                || !controller.canAcceptPattern()
                 || getCraftingLockedReason() != LockCraftingMode.NONE;
     }
 
@@ -96,7 +99,8 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     public void onPatternResult(@Nullable GenericStack result) {
         if (result == null) return;
         GenericStack unlockStack = getUnlockStack();
-        if (unlockStack != null && unlockStack.what().equals(result.what())
+        if (unlockStack != null
+                && unlockStack.what().equals(result.what())
                 && result.amount() >= unlockStack.amount()) {
             resetCraftingLock();
             ICraftingProvider.requestUpdate(host.getMainNode());
@@ -106,7 +110,8 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     public void onPatternAborted(@Nullable GenericStack expectedResult) {
         if (expectedResult == null) return;
         GenericStack unlockStack = getUnlockStack();
-        if (unlockStack != null && unlockStack.what().equals(expectedResult.what())
+        if (unlockStack != null
+                && unlockStack.what().equals(expectedResult.what())
                 && unlockStack.amount() == expectedResult.amount()) {
             resetCraftingLock();
             ICraftingProvider.requestUpdate(host.getMainNode());
@@ -118,7 +123,8 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         for (var input : pattern.getInputs()) {
             if (input == null || input.getPossibleInputs() == null) continue;
             for (GenericStack candidate : input.getPossibleInputs()) {
-                if (candidate != null && candidate.what() != null) keys.add(candidate.what().dropSecondary());
+                if (candidate != null && candidate.what() != null)
+                    keys.add(candidate.what().dropSecondary());
             }
         }
         return keys;

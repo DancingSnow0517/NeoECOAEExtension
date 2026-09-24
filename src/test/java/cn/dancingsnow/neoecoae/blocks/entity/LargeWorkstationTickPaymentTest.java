@@ -15,10 +15,14 @@ class LargeWorkstationTickPaymentTest {
         AtomicInteger coolantCalls = new AtomicInteger();
         IEnergySource source = (amount, action, multiplier) -> action == Actionable.MODULATE ? 40.0D : amount;
 
-        var result = LargeWorkstationTickPayment.commit(source, 100.0D, () -> {
-            coolantCalls.incrementAndGet();
-            return true;
-        }, refund::set);
+        var result = LargeWorkstationTickPayment.commit(
+                source,
+                100.0D,
+                () -> {
+                    coolantCalls.incrementAndGet();
+                    return true;
+                },
+                refund::set);
 
         assertEquals(LargeWorkstationTickPayment.Result.POWER_MISSING, result);
         assertEquals(40.0D, refund.get());
@@ -42,10 +46,14 @@ class LargeWorkstationTickPaymentTest {
         AtomicInteger coolantCalls = new AtomicInteger();
         IEnergySource source = (amount, action, multiplier) -> amount;
 
-        var result = LargeWorkstationTickPayment.commit(source, 100.0D, () -> {
-            coolantCalls.incrementAndGet();
-            return true;
-        }, refund::set);
+        var result = LargeWorkstationTickPayment.commit(
+                source,
+                100.0D,
+                () -> {
+                    coolantCalls.incrementAndGet();
+                    return true;
+                },
+                refund::set);
 
         assertEquals(LargeWorkstationTickPayment.Result.PAID, result);
         assertEquals(0.0D, refund.get());

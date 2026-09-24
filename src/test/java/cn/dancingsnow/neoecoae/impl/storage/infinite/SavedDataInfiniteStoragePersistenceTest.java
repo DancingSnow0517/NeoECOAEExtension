@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import appeng.api.config.Actionable;
 import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
-import java.math.BigInteger;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -52,7 +52,8 @@ class SavedDataInfiniteStoragePersistenceTest {
         assertEquals(Long.MAX_VALUE, engine.extract(key, Long.MAX_VALUE, Actionable.SIMULATE));
         engine.flushAndAwait();
 
-        CompoundTag entry = InfiniteStorageSnapshot.read(path).getList("entries", 10).getCompound(0);
+        CompoundTag entry =
+                InfiniteStorageSnapshot.read(path).getList("entries", 10).getCompound(0);
         assertEquals(amount, new BigInteger(entry.getByteArray("amount_wide")));
         assertEquals(ECOInfiniteDomainState.READY, engine.getState());
     }

@@ -23,8 +23,7 @@ final class ECOCraftingRemainderCache {
         return SHARED;
     }
 
-    @Nullable
-    synchronized AEKey get(IPatternDetails.IInput input, AEKey key) {
+    @Nullable synchronized AEKey get(IPatternDetails.IInput input, AEKey key) {
         long generation = AE2PatternIntrospection.reloadGeneration();
         if (reloadGeneration != generation) {
             byInput.clear();

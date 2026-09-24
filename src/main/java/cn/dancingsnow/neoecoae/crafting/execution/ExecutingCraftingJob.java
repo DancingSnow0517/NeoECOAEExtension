@@ -28,9 +28,9 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
-import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOMissingCraftingPlan;
-import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOMissingCraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
@@ -38,6 +38,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOGrowthDispatchBarrier;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -45,7 +46,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.math.BigInteger;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -206,14 +206,16 @@ public class ExecutingCraftingJob {
         }
         readDeferred(data, "deferredStock", deferredStock);
         readDeferred(data, "deferredEmitted", deferredEmitted);
-        if (!exactOrder && (tasks.values().stream().anyMatch(TaskProgress::isExact)
-                || !deferredStock.isEmpty() || !deferredEmitted.isEmpty()))
+        if (!exactOrder
+                && (tasks.values().stream().anyMatch(TaskProgress::isExact)
+                        || !deferredStock.isEmpty()
+                        || !deferredEmitted.isEmpty()))
             throw new IllegalArgumentException("Exact task data without an exact order");
 
         ECOExecutionPlan restoredPlan = null;
         ECOExecutionRuntime restoredRuntime = null;
-        boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED)
-                || exactOrder && taskDefinitionLost;
+        boolean executionMetadataLost =
+                data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED) || exactOrder && taskDefinitionLost;
         if (data.contains(NBT_EXECUTION_PLAN)) {
             try {
                 restoredPlan =
@@ -499,8 +501,7 @@ public class ExecutingCraftingJob {
         }
 
         void readExact(CompoundTag tag) {
-            setExact(new BigInteger(tag.getString("exactTotal")),
-                    new BigInteger(tag.getString("exactRemaining")));
+            setExact(new BigInteger(tag.getString("exactTotal")), new BigInteger(tag.getString("exactRemaining")));
         }
 
         void accept(long count) {

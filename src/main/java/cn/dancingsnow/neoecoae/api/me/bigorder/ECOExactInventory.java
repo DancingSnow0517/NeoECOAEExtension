@@ -137,7 +137,8 @@ public final class ECOExactInventory extends ListCraftingInventory {
             if (entry.getLongValue() <= 0) continue;
             var tag = entry.getKey().toTagGeneric();
             tag.putLong("#", entry.getLongValue());
-            if (excess.containsKey(entry.getKey())) tag.putString("ecoExactAmount", amount(entry.getKey()).toString());
+            if (excess.containsKey(entry.getKey()))
+                tag.putString("ecoExactAmount", amount(entry.getKey()).toString());
             result.add(tag);
         }
         return result;
@@ -166,9 +167,8 @@ public final class ECOExactInventory extends ListCraftingInventory {
                 if (exact) throw new IllegalArgumentException("Unknown key in exact inventory");
                 continue;
             }
-            BigInteger count = exact
-                    ? new BigInteger(tag.getString("ecoExactAmount"))
-                    : BigInteger.valueOf(tag.getLong("#"));
+            BigInteger count =
+                    exact ? new BigInteger(tag.getString("ecoExactAmount")) : BigInteger.valueOf(tag.getLong("#"));
             if (count.signum() < 0) throw new IllegalArgumentException("Negative saved inventory");
             restored.merge(key, count, BigInteger::add);
             hasExact |= exact;

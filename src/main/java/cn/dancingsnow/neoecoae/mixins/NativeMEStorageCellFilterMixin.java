@@ -9,14 +9,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Keep ECO cells in ECO hosts, which understand their storage and migration semantics. */
-@Mixin(targets = {
-    "appeng.blockentity.storage.ChestBlockEntity$CellInventoryFilter",
-    "appeng.blockentity.storage.DriveBlockEntity$CellValidInventoryFilter"
-})
+@Mixin(
+        targets = {
+            "appeng.blockentity.storage.ChestBlockEntity$CellInventoryFilter",
+            "appeng.blockentity.storage.DriveBlockEntity$CellValidInventoryFilter"
+        })
 public abstract class NativeMEStorageCellFilterMixin {
     @Inject(method = "allowInsert", at = @At("HEAD"), cancellable = true, remap = false)
-    private void neoecoae$rejectEcoCells(InternalInventory inventory, int slot, ItemStack stack,
-            CallbackInfoReturnable<Boolean> cir) {
+    private void neoecoae$rejectEcoCells(
+            InternalInventory inventory, int slot, ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
         if (!stack.isEmpty() && stack.getItem() instanceof ECOStorageCellItem) {
             cir.setReturnValue(false);
         }

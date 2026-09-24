@@ -22,11 +22,13 @@ public final class ECOBigOrderAdmission {
         if (result == null || result.plan() == null) return false;
         if (result.status() != PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE
                 && !(forced && result.status() == PlanningStatus.MISSING_ITEMS)) return false;
-        if (result.components().stream().anyMatch(component ->
-                component.status() == ComponentPlanningResult.Status.UNRESOLVED
+        if (result.components().stream()
+                .anyMatch(component -> component.status() == ComponentPlanningResult.Status.UNRESOLVED
                         || component.status() == ComponentPlanningResult.Status.UNSUPPORTED
                         || component.status() == ComponentPlanningResult.Status.UNREPRESENTABLE
                         || component.status() == ComponentPlanningResult.Status.SOLVED_NOT_EMITTED)) return false;
-        return forced || result.trace().nodes().stream().noneMatch(node -> node.exactMissing().signum() > 0);
+        return forced
+                || result.trace().nodes().stream()
+                        .noneMatch(node -> node.exactMissing().signum() > 0);
     }
 }

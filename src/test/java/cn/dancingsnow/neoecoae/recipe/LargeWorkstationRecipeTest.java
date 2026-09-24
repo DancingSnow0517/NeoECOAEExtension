@@ -18,7 +18,6 @@ class LargeWorkstationRecipeTest {
     void largeCountsStayCompactAndSurplusIsRejected() {
         assertTrue(LargeWorkstationRecipe.matchesQuantities(
                 new long[] {Integer.MAX_VALUE}, new long[] {Integer.MAX_VALUE}, new boolean[][] {{true}}));
-        assertFalse(LargeWorkstationRecipe.matchesQuantities(
-                new long[] {6}, new long[] {5}, new boolean[][] {{true}}));
+        assertFalse(LargeWorkstationRecipe.matchesQuantities(new long[] {6}, new long[] {5}, new boolean[][] {{true}}));
     }
 }

@@ -29,8 +29,8 @@ class CondensationGraphTest {
         for (AEKey key : List.of(goal, left, right, source)) {
             nodes.put(key, new CraftingGraphNode(key, List.of()));
         }
-        var graph = new CraftingDependencyGraph(goal, nodes, List.of(
-                edge(goal, left), edge(goal, right), edge(left, source), edge(right, source)));
+        var graph = new CraftingDependencyGraph(
+                goal, nodes, List.of(edge(goal, left), edge(goal, right), edge(left, source), edge(right, source)));
         var sccs = new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE);
         var condensed = CondensationGraph.build(graph, sccs, ECOCancellation.NONE);
 
@@ -49,23 +49,64 @@ class CondensationGraphTest {
     }
 
     private static final class TestKey extends AEKey {
-        private static final AEKeyType TYPE = new AEKeyType(
-                ResourceLocation.fromNamespaceAndPath("test", "graph"), TestKey.class, Component.empty()) {
-            @Override public int getAmountPerByte() { return 1; }
-            @Override public AEKey readFromPacket(FriendlyByteBuf buffer) { throw new UnsupportedOperationException(); }
-            @Override public AEKey loadKeyFromTag(CompoundTag tag) { throw new UnsupportedOperationException(); }
-        };
+        private static final AEKeyType TYPE =
+                new AEKeyType(
+                        ResourceLocation.fromNamespaceAndPath("test", "graph"), TestKey.class, Component.empty()) {
+                    @Override
+                    public int getAmountPerByte() {
+                        return 1;
+                    }
+
+                    @Override
+                    public AEKey readFromPacket(FriendlyByteBuf buffer) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public AEKey loadKeyFromTag(CompoundTag tag) {
+                        throw new UnsupportedOperationException();
+                    }
+                };
         private final String name;
 
-        private TestKey(String name) { this.name = name; }
+        private TestKey(String name) {
+            this.name = name;
+        }
 
-        @Override public AEKeyType getType() { return TYPE; }
-        @Override public AEKey dropSecondary() { return this; }
-        @Override public CompoundTag toTag() { return new CompoundTag(); }
-        @Override public Object getPrimaryKey() { return name; }
-        @Override public ResourceLocation getId() { return ResourceLocation.fromNamespaceAndPath("test", name); }
-        @Override public void writeToPacket(FriendlyByteBuf buffer) {}
-        @Override protected Component computeDisplayName() { return Component.literal(name); }
-        @Override public void addDrops(long amount, List<ItemStack> drops, Level level, BlockPos pos) {}
+        @Override
+        public AEKeyType getType() {
+            return TYPE;
+        }
+
+        @Override
+        public AEKey dropSecondary() {
+            return this;
+        }
+
+        @Override
+        public CompoundTag toTag() {
+            return new CompoundTag();
+        }
+
+        @Override
+        public Object getPrimaryKey() {
+            return name;
+        }
+
+        @Override
+        public ResourceLocation getId() {
+            return ResourceLocation.fromNamespaceAndPath("test", name);
+        }
+
+        @Override
+        public void writeToPacket(FriendlyByteBuf buffer) {}
+
+        @Override
+        protected Component computeDisplayName() {
+            return Component.literal(name);
+        }
+
+        @Override
+        public void addDrops(long amount, List<ItemStack> drops, Level level, BlockPos pos) {}
     }
 }

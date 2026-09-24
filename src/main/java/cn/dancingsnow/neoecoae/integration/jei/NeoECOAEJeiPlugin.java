@@ -55,8 +55,8 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
     public void registerCategories(IRecipeCategoryRegistration registration) {
         registration.addRecipeCategories(new IntegratedWorkingStationJeiCategory(
                 registration.getJeiHelpers().getGuiHelper()));
-        registration.addRecipeCategories(new LargeWorkingStationJeiCategory(
-                registration.getJeiHelpers().getGuiHelper()));
+        registration.addRecipeCategories(
+                new LargeWorkingStationJeiCategory(registration.getJeiHelpers().getGuiHelper()));
         registration.addRecipeCategories(
                 new CoolingJeiCategory(registration.getJeiHelpers().getGuiHelper()));
         registration.addRecipeCategories(

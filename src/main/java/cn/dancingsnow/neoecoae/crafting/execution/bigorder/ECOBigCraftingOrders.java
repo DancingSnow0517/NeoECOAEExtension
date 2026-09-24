@@ -4,10 +4,10 @@ import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import java.math.BigInteger;
@@ -150,7 +150,9 @@ public final class ECOBigCraftingOrders extends SavedData {
         ICraftingPlan plan = order.future.get();
         order.future = null;
         ICraftingPlan executable = plan;
-        if (plan != null && plan.simulation() && plan instanceof ECOCraftingPlanDiagnostics diagnostics
+        if (plan != null
+                && plan.simulation()
+                && plan instanceof ECOCraftingPlanDiagnostics diagnostics
                 && ECOBigOrderAdmission.allows(diagnostics.neoecoae$getPlanningResult(), false)) {
             try {
                 var exactResult = diagnostics.neoecoae$getPlanningResult();
@@ -173,7 +175,8 @@ public final class ECOBigCraftingOrders extends SavedData {
                 return;
             }
         }
-        if (executable == null || executable.simulation()
+        if (executable == null
+                || executable.simulation()
                 || !(executable instanceof ECOExactCraftingPlan) && !ECOBigCraftingBatchLimits.fits(executable)) {
             if (order.batch > 1) {
                 order.batchLimit = Math.max(1, order.batch / 2);
@@ -184,7 +187,8 @@ public final class ECOBigCraftingOrders extends SavedData {
             setDirty();
             return;
         }
-        if (!order.key.equals(executable.finalOutput().what()) || executable.finalOutput().amount() != order.batch)
+        if (!order.key.equals(executable.finalOutput().what())
+                || executable.finalOutput().amount() != order.batch)
             throw new IllegalStateException("Calculation changed the requested batch");
         SUBMITTING.set(order);
         try {

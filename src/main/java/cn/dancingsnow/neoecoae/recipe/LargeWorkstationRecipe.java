@@ -24,8 +24,12 @@ public record LargeWorkstationRecipe(
 
     public boolean matchesOutputs(KeyCounter outputs) {
         KeyCounter expected = new KeyCounter();
-        if (display.hasItemOutput()) expected.add(AEItemKey.of(display.itemOutput()), display.itemOutput().getCount());
-        if (display.hasFluidOutput()) expected.add(AEFluidKey.of(display.fluidOutput()), display.fluidOutput().getAmount());
+        if (display.hasItemOutput())
+            expected.add(
+                    AEItemKey.of(display.itemOutput()), display.itemOutput().getCount());
+        if (display.hasFluidOutput())
+            expected.add(
+                    AEFluidKey.of(display.fluidOutput()), display.fluidOutput().getAmount());
         expected.removeAll(outputs);
         for (var entry : expected) if (entry.getLongValue() != 0) return false;
         return true;
@@ -53,7 +57,10 @@ public record LargeWorkstationRecipe(
                 fluidAmount = Math.addExact(fluidAmount, amount);
             } else return false;
         }
-        if (fluidAmount != (display.inputFluid().ingredient().isEmpty() ? 0 : display.inputFluid().amount())) return false;
+        if (fluidAmount
+                != (display.inputFluid().ingredient().isEmpty()
+                        ? 0
+                        : display.inputFluid().amount())) return false;
 
         var required = display.inputItems();
         long[] supplied = items.stream().mapToLong(GenericStack::amount).toArray();
@@ -61,7 +68,8 @@ public record LargeWorkstationRecipe(
         boolean[][] accepts = new boolean[items.size()][required.size()];
         for (int i = 0; i < items.size(); i++) {
             var stack = ((AEItemKey) items.get(i).what()).toStack();
-            for (int j = 0; j < required.size(); j++) accepts[i][j] = required.get(j).ingredient().test(stack);
+            for (int j = 0; j < required.size(); j++)
+                accepts[i][j] = required.get(j).ingredient().test(stack);
         }
         return matchesQuantities(supplied, needed, accepts);
     }

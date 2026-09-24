@@ -21,8 +21,8 @@ public final class ECOExactVirtualLedger {
     private final Map<AEKey, BigInteger> inputs = new LinkedHashMap<>();
     private final Map<AEKey, BigInteger> outputs = new LinkedHashMap<>();
 
-    public ECOExactVirtualLedger(BigInteger crafts, List<GenericStack> inputs,
-            List<GenericStack> outputs, List<GenericStack> remaining) {
+    public ECOExactVirtualLedger(
+            BigInteger crafts, List<GenericStack> inputs, List<GenericStack> outputs, List<GenericStack> remaining) {
         this.crafts = positive(crafts, "crafts");
         addTotals(this.inputs, inputs, crafts);
         addTotals(this.outputs, outputs, crafts);
@@ -30,8 +30,8 @@ public final class ECOExactVirtualLedger {
     }
 
     /** The CPU has already extracted these exact totals before handing the batch to the worker. */
-    public static ECOExactVirtualLedger fromOwnedTotals(long crafts, List<GenericStack> inputs,
-            List<GenericStack> outputs, List<GenericStack> remaining) {
+    public static ECOExactVirtualLedger fromOwnedTotals(
+            long crafts, List<GenericStack> inputs, List<GenericStack> outputs, List<GenericStack> remaining) {
         ECOExactVirtualLedger ledger = new ECOExactVirtualLedger(BigInteger.valueOf(crafts));
         addTotals(ledger.inputs, inputs, BigInteger.ONE);
         addTotals(ledger.outputs, outputs, BigInteger.ONE);
@@ -52,10 +52,13 @@ public final class ECOExactVirtualLedger {
     }
 
     public boolean drain(boolean output, ToLongBiFunction<AEKey, Long> insert, Runnable changed) {
-        return drainExact(output, (key, amount) -> {
-            long offered = amount.min(LONG_MAX).longValueExact();
-            return BigInteger.valueOf(insert.applyAsLong(key, offered));
-        }, changed);
+        return drainExact(
+                output,
+                (key, amount) -> {
+                    long offered = amount.min(LONG_MAX).longValueExact();
+                    return BigInteger.valueOf(insert.applyAsLong(key, offered));
+                },
+                changed);
     }
 
     /** Debit accepted amounts before returning so a retry cannot replay completed delivery. */
@@ -93,8 +96,7 @@ public final class ECOExactVirtualLedger {
         return ledger;
     }
 
-    private static void addTotals(Map<AEKey, BigInteger> destination, List<GenericStack> stacks,
-            BigInteger copies) {
+    private static void addTotals(Map<AEKey, BigInteger> destination, List<GenericStack> stacks, BigInteger copies) {
         for (GenericStack stack : stacks) {
             if (stack == null || stack.what() == null || stack.amount() <= 0L) {
                 throw new IllegalArgumentException("Invalid exact virtual stack");

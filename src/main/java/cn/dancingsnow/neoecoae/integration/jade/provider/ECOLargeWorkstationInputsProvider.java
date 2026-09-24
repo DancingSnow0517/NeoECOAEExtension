@@ -56,7 +56,10 @@ public enum ECOLargeWorkstationInputsProvider implements IBlockComponentProvider
         for (int i = 0; i < inputs.size(); i++) {
             GenericStack stack = GenericStack.readTag(inputs.getCompound(i));
             if (stack == null || stack.amount() <= 0) continue;
-            tooltip.add(stack.what().getDisplayName().copy().withStyle(ChatFormatting.WHITE)
+            tooltip.add(stack.what()
+                    .getDisplayName()
+                    .copy()
+                    .withStyle(ChatFormatting.WHITE)
                     .append(Component.literal(" x " + stack.what().formatAmount(stack.amount(), AmountFormat.SLOT))
                             .withStyle(ChatFormatting.YELLOW)));
         }

@@ -88,34 +88,88 @@ class ECOPlanningResultRegistryTest {
 
     private static CraftingPlan plan(long amount) {
         return new CraftingPlan(
-                new GenericStack(OUTPUT, amount), 0L, false, false,
-                new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of());
+                new GenericStack(OUTPUT, amount),
+                0L,
+                false,
+                false,
+                new KeyCounter(),
+                new KeyCounter(),
+                new KeyCounter(),
+                Map.of());
     }
 
     private static ECOPlanningResult result(CraftingPlan plan, UUID planningId) {
         var blockedCycle = new ComponentPlanningResult(
-                0, ComponentPlanningResult.Type.CYCLIC, ComponentPlanningResult.Status.UNRESOLVED,
-                Map.of(), null, "test");
+                0,
+                ComponentPlanningResult.Type.CYCLIC,
+                ComponentPlanningResult.Status.UNRESOLVED,
+                Map.of(),
+                null,
+                "test");
         return new ECOPlanningResult(
-                PlanningStatus.SUCCESS, plan, new ECOPlanTrace(), List.of(), List.of(blockedCycle),
-                List.of(), 0L, planningId);
+                PlanningStatus.SUCCESS,
+                plan,
+                new ECOPlanTrace(),
+                List.of(),
+                List.of(blockedCycle),
+                List.of(),
+                0L,
+                planningId);
     }
 
     private static final class TestKey extends AEKey {
         private static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath("test", "registry");
         private static final AEKeyType TYPE = new AEKeyType(ID, TestKey.class, Component.empty()) {
-            @Override public int getAmountPerByte() { return 1; }
-            @Override public AEKey readFromPacket(FriendlyByteBuf buffer) { throw new UnsupportedOperationException(); }
-            @Override public AEKey loadKeyFromTag(CompoundTag tag) { throw new UnsupportedOperationException(); }
+            @Override
+            public int getAmountPerByte() {
+                return 1;
+            }
+
+            @Override
+            public AEKey readFromPacket(FriendlyByteBuf buffer) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public AEKey loadKeyFromTag(CompoundTag tag) {
+                throw new UnsupportedOperationException();
+            }
         };
 
-        @Override public AEKeyType getType() { return TYPE; }
-        @Override public AEKey dropSecondary() { return this; }
-        @Override public CompoundTag toTag() { return new CompoundTag(); }
-        @Override public Object getPrimaryKey() { return this; }
-        @Override public ResourceLocation getId() { return ID; }
-        @Override public void writeToPacket(FriendlyByteBuf buffer) {}
-        @Override protected Component computeDisplayName() { return Component.literal("registry"); }
-        @Override public void addDrops(long amount, List<ItemStack> drops, Level level, BlockPos pos) {}
+        @Override
+        public AEKeyType getType() {
+            return TYPE;
+        }
+
+        @Override
+        public AEKey dropSecondary() {
+            return this;
+        }
+
+        @Override
+        public CompoundTag toTag() {
+            return new CompoundTag();
+        }
+
+        @Override
+        public Object getPrimaryKey() {
+            return this;
+        }
+
+        @Override
+        public ResourceLocation getId() {
+            return ID;
+        }
+
+        @Override
+        public void writeToPacket(FriendlyByteBuf buffer) {}
+
+        @Override
+        protected Component computeDisplayName() {
+            return Component.literal("registry");
+        }
+
+        @Override
+        public void addDrops(long amount, List<ItemStack> drops, Level level, BlockPos pos) {}
     }
 }

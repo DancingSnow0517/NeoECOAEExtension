@@ -78,8 +78,11 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             return false;
         }
         BlockPos workerStart = controllerPos.relative(right).relative(right);
-        DataResult<BlockPos> workerEndResult =
-                validateBlockLine(level, right, workerStart, matchingStateFacing(NEBlocks.CRAFTING_WORKER, front)
+        DataResult<BlockPos> workerEndResult = validateBlockLine(
+                level,
+                right,
+                workerStart,
+                matchingStateFacing(NEBlocks.CRAFTING_WORKER, front)
                         .or(matchingStateFacing(NEBlocks.FX_MONITOR_CORE, front)));
         if (workerEndResult.error().isPresent()) {
             return false;

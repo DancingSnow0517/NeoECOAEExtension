@@ -86,7 +86,8 @@ public class NEMultiBlocks {
                 .setBlock(pos(2, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.getDefaultState())
                 .onFormed((blockPos, level) -> {
                     BlockState state = level.getBlockState(blockPos);
-                    if (state.hasProperty(NEBlock.FORMED)) level.setBlockAndUpdate(blockPos, state.setValue(NEBlock.FORMED, true));
+                    if (state.hasProperty(NEBlock.FORMED))
+                        level.setBlockAndUpdate(blockPos, state.setValue(NEBlock.FORMED, true));
                 })
                 .create(DEFINITIONS::add);
     }

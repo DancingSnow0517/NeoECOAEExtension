@@ -21,18 +21,18 @@ import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.crafting.inv.ListCraftingInventory;
-import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
-import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
 import cn.dancingsnow.neoecoae.api.me.ECOPatternPushDiagnostics;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOMissingCraftingPlan;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.execution.bigorder.ECOBigCraftingOrders;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingExecutor;
@@ -44,8 +44,8 @@ import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import com.google.common.base.Preconditions;
-import java.util.BitSet;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -272,15 +272,17 @@ public class ECOCraftingCPULogic {
         if (current.playerId != null) {
             var level = cpu.getLevel();
             var player = level == null || level.getServer() == null
-                    ? null : IPlayerRegistry.getConnected(level.getServer(), current.playerId);
+                    ? null
+                    : IPlayerRegistry.getConnected(level.getServer(), current.playerId);
             if (player == null) return;
             source = IActionSource.ofPlayer(player);
         }
         for (var entry : current.deferredStock.entrySet()) {
             long wanted = ECOExactCraftingPlan.bounded(entry.getValue());
             if (wanted <= 0) continue;
-            long extracted = grid.getStorageService().getInventory().extract(
-                    entry.getKey(), wanted, Actionable.MODULATE, source);
+            long extracted = grid.getStorageService()
+                    .getInventory()
+                    .extract(entry.getKey(), wanted, Actionable.MODULATE, source);
             if (extracted > 0) {
                 inventory.insert(entry.getKey(), extracted, Actionable.MODULATE);
                 entry.setValue(entry.getValue().subtract(java.math.BigInteger.valueOf(extracted)));
@@ -306,16 +308,16 @@ public class ECOCraftingCPULogic {
         AEKey key = current.finalOutput.what();
         PlannerAmount reserve = PlannerAmount.ZERO;
         for (var task : current.tasks.entrySet()) {
-            reserve = reserve.add(
-                    ECOPhaseScheduler.growingPatternFeedbackReserveExact(
-                            task.getKey(), task.getValue().remainingExact(), key));
+            reserve = reserve.add(ECOPhaseScheduler.growingPatternFeedbackReserveExact(
+                    task.getKey(), task.getValue().remainingExact(), key));
         }
         if (current.executionRuntime != null) {
             reserve = reserve.max(PlannerAmount.of(current.executionRuntime.reservedInputAmount(key)));
         }
         // Keep returned feedback available for the next growth wave before delivering any surplus.
-        PlannerAmount deliverable =
-                PlannerAmount.of(ECOExactInventory.amount(inventory, key)).subtract(reserve).max(PlannerAmount.ZERO);
+        PlannerAmount deliverable = PlannerAmount.of(ECOExactInventory.amount(inventory, key))
+                .subtract(reserve)
+                .max(PlannerAmount.ZERO);
         long amount = deliverable
                 .min(PlannerAmount.of(Math.max(0L, current.remainingAmount)))
                 .longValueExact();
@@ -350,7 +352,8 @@ public class ECOCraftingCPULogic {
                 && current.waitingFor.list.isEmpty()
                 && current.deferredStock.isEmpty()
                 && current.deferredEmitted.isEmpty()
-                && current.tasks.values().stream().noneMatch(task -> task.remainingExact().signum() > 0)) {
+                && current.tasks.values().stream()
+                        .noneMatch(task -> task.remainingExact().signum() > 0)) {
             if (current.executionRuntime != null && !current.executionRuntime.isComplete()) {
                 LOGGER.warn(
                         "ECO crafting job {} reached physical completion with an incomplete runtime; finalizing",
@@ -835,8 +838,8 @@ public class ECOCraftingCPULogic {
         providerCursor.clear();
         resumeDispatchPattern = null;
         dispatchStrategy.reset();
-        ((ECOExactInventory) inventory).setEnabled(data.contains("job")
-                && data.getCompound("job").getBoolean("exactOrder"));
+        ((ECOExactInventory) inventory)
+                .setEnabled(data.contains("job") && data.getCompound("job").getBoolean("exactOrder"));
         this.inventory.readFromNBT(data.getList("inventory", 10));
         if (data.contains("job")) {
             var jobData = data.getCompound("job");
@@ -929,8 +932,11 @@ public class ECOCraftingCPULogic {
             addSaturated(out, job.waitingFor.list);
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
-                    out.set(output.what(), NEMath.saturatingAdd(out.get(output.what()),
-                            NEMath.saturatingMultiply(output.amount(), t.getValue().value)));
+                    out.set(
+                            output.what(),
+                            NEMath.saturatingAdd(
+                                    out.get(output.what()),
+                                    NEMath.saturatingMultiply(output.amount(), t.getValue().value)));
                 }
             }
         }
@@ -938,8 +944,8 @@ public class ECOCraftingCPULogic {
 
     private static void addSaturated(KeyCounter destination, KeyCounter source) {
         for (var entry : source) {
-            destination.set(entry.getKey(),
-                    NEMath.saturatingAdd(destination.get(entry.getKey()), entry.getLongValue()));
+            destination.set(
+                    entry.getKey(), NEMath.saturatingAdd(destination.get(entry.getKey()), entry.getLongValue()));
         }
     }
 

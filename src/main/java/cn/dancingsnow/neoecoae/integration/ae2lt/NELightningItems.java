@@ -24,15 +24,18 @@ final class NELightningItems {
 
     private static ItemEntry<ECOStorageCellItem> cell(
             String id, ECOTier tier, Rarity rarity, long usableCapacity, double idleDrain) {
-        return REGISTRATE.item(id, properties -> new ECOStorageCellItem(
-                        properties.stacksTo(1).rarity(rarity),
-                        tier,
-                        AE2LightningTechCompat.getLightningKeyType(),
-                        NELightningCellTypes.LIGHTNING,
-                        usableCapacity + 16,
-                        8,
-                        2,
-                        idleDrain))
+        return REGISTRATE
+                .item(
+                        id,
+                        properties -> new ECOStorageCellItem(
+                                properties.stacksTo(1).rarity(rarity),
+                                tier,
+                                AE2LightningTechCompat.getLightningKeyType(),
+                                NELightningCellTypes.LIGHTNING,
+                                usableCapacity + 16,
+                                8,
+                                2,
+                                idleDrain))
                 .lang("ECO - LE" + tier.name().substring(1) + " Storage Matrix (Lightning)")
                 .model((ctx, prov) -> {})
                 .register();

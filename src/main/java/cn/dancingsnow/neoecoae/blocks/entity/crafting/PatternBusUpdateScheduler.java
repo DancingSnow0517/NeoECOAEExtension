@@ -26,21 +26,32 @@ public final class PatternBusUpdateScheduler {
     }
 
     public static void tick(MinecraftServer server) {
-        List<ECOCraftingPatternBusBlockEntity> due = DIRTY.drainDue(server.getTickCount(),
-                bus -> !bus.isRemoved() && bus.getLevel() != null && bus.getLevel().getServer() == server);
+        List<ECOCraftingPatternBusBlockEntity> due = DIRTY.drainDue(
+                server.getTickCount(),
+                bus -> !bus.isRemoved()
+                        && bus.getLevel() != null
+                        && bus.getLevel().getServer() == server);
         for (var bus : due) bus.flushScheduledPatternDetails();
     }
 
     static final class PendingUpdates<T> {
         private final Reference2IntOpenHashMap<T> deadlines = new Reference2IntOpenHashMap<>();
 
-        void mark(T target, int deadline) { deadlines.put(target, deadline); }
-        void remove(T target) { deadlines.removeInt(target); }
-        void removeIf(Predicate<T> predicate) { deadlines.keySet().removeIf(predicate); }
+        void mark(T target, int deadline) {
+            deadlines.put(target, deadline);
+        }
+
+        void remove(T target) {
+            deadlines.removeInt(target);
+        }
+
+        void removeIf(Predicate<T> predicate) {
+            deadlines.keySet().removeIf(predicate);
+        }
 
         List<T> drainDue(int now, Predicate<T> valid) {
             List<T> due = new ArrayList<>();
-            for (var iterator = deadlines.reference2IntEntrySet().iterator(); iterator.hasNext();) {
+            for (var iterator = deadlines.reference2IntEntrySet().iterator(); iterator.hasNext(); ) {
                 Reference2IntMap.Entry<T> entry = iterator.next();
                 if (!valid.test(entry.getKey())) iterator.remove();
                 else if (now >= entry.getIntValue()) {

@@ -8,18 +8,23 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 /** Element entities delegate fixed-structure checks to the powered controller. */
-public class NEIntegratedWorkingStationClusterCalculator extends NEClusterCalculator<NEIntegratedWorkingStationCluster> {
+public class NEIntegratedWorkingStationClusterCalculator
+        extends NEClusterCalculator<NEIntegratedWorkingStationCluster> {
     public NEIntegratedWorkingStationClusterCalculator(NEBlockEntity<NEIntegratedWorkingStationCluster, ?> target) {
         super(target);
     }
 
-    @Override protected int maxLength() { return 3; }
+    @Override
+    protected int maxLength() {
+        return 3;
+    }
 
     @Override
     public void calculateMultiblock(ServerLevel level, BlockPos pos) {
         for (BlockPos candidate : BlockPos.betweenClosed(pos.offset(-2, -1, -2), pos.offset(2, 1, 2))) {
             if (level.hasChunkAt(candidate)
-                    && level.getBlockEntity(candidate) instanceof ECOLargeIntegratedWorkingStationBlockEntity controller) {
+                    && level.getBlockEntity(candidate)
+                            instanceof ECOLargeIntegratedWorkingStationBlockEntity controller) {
                 controller.rebuildMultiblock();
             }
         }
@@ -43,7 +48,10 @@ public class NEIntegratedWorkingStationClusterCalculator extends NEClusterCalcul
         return y == 2 && ((x == 3 && z == 2) || (x == 2 && z == 3));
     }
 
-    @Override public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) { return false; }
+    @Override
+    public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
+        return false;
+    }
 
     @Override
     public boolean isValidBlockEntity(BlockEntity blockEntity) {

@@ -36,30 +36,38 @@ public final class LargeWorkstationIntegrationGameTest {
         helper.setBlock(new BlockPos(1, 1, 2), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.get());
         helper.setBlock(interfacePos, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.get());
         helper.setBlock(new BlockPos(3, 1, 2), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.get());
-        helper.setBlock(controllerPos, NEBlocks.INTEGRATED_WORKING_STATION.get().defaultBlockState()
-                .setValue(ECOIntegratedWorkingStation.FACING, Direction.NORTH));
+        helper.setBlock(
+                controllerPos,
+                NEBlocks.INTEGRATED_WORKING_STATION
+                        .get()
+                        .defaultBlockState()
+                        .setValue(ECOIntegratedWorkingStation.FACING, Direction.NORTH));
 
         helper.runAfterDelay(10, () -> {
             var controller = (ECOLargeIntegratedWorkingStationBlockEntity) helper.getBlockEntity(controllerPos);
             controller.rebuildMultiblock();
             helper.assertTrue(controller.isFormed(), "large workstation did not form");
-            helper.assertTrue(helper.getBlockState(controllerPos).getValue(ECOIntegratedWorkingStation.FORMED),
+            helper.assertTrue(
+                    helper.getBlockState(controllerPos).getValue(ECOIntegratedWorkingStation.FORMED),
                     "formed block state was not published");
 
-            var communication = (ECOLargeIntegratedWorkingStationInterfaceBlockEntity)
-                    helper.getBlockEntity(interfacePos);
-            helper.assertTrue(communication.getWorkstationProvider().getPatternInv().size() == 36,
+            var communication =
+                    (ECOLargeIntegratedWorkingStationInterfaceBlockEntity) helper.getBlockEntity(interfacePos);
+            helper.assertTrue(
+                    communication.getWorkstationProvider().getPatternInv().size() == 36,
                     "workstation provider has the wrong number of pattern slots");
 
             var level = helper.getLevel();
             var player = FakePlayerFactory.get(level, new GameProfile(UUID.randomUUID(), "WorkstationTest"));
-            player.connection = new ServerGamePacketListenerImpl(level.getServer(),
-                    new Connection(PacketFlow.SERVERBOUND), player) {
-                @Override
-                public void send(Packet<?> packet) {}
-            };
+            player.connection =
+                    new ServerGamePacketListenerImpl(
+                            level.getServer(), new Connection(PacketFlow.SERVERBOUND), player) {
+                        @Override
+                        public void send(Packet<?> packet) {}
+                    };
             communication.openMenu(player, MenuLocators.forBlockEntity(communication));
-            helper.assertTrue(player.containerMenu instanceof LargeIntegratedWorkingStationPatternProviderMenu,
+            helper.assertTrue(
+                    player.containerMenu instanceof LargeIntegratedWorkingStationPatternProviderMenu,
                     "workstation menu did not open");
             helper.succeed();
         });

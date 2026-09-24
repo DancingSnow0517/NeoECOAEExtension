@@ -22,10 +22,11 @@ final class LargeWorkstationTickPayment {
             IEnergySource source, double required, BooleanSupplier consumeCoolant, DoubleConsumer refundEnergy) {
         if (!Double.isFinite(required) || required < 0.0D) return Result.POWER_MISSING;
 
-        double charged = required == 0.0D
-                ? 0.0D
-                : source.extractAEPower(required, Actionable.MODULATE, PowerMultiplier.CONFIG);
-        if (!Double.isFinite(charged) || charged < 0.0D || charged + ENERGY_TOLERANCE < required
+        double charged =
+                required == 0.0D ? 0.0D : source.extractAEPower(required, Actionable.MODULATE, PowerMultiplier.CONFIG);
+        if (!Double.isFinite(charged)
+                || charged < 0.0D
+                || charged + ENERGY_TOLERANCE < required
                 || charged > required + ENERGY_TOLERANCE) {
             if (Double.isFinite(charged) && charged > 0.0D) refundEnergy.accept(charged);
             return Result.POWER_MISSING;

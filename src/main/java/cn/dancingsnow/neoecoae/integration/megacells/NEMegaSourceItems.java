@@ -13,10 +13,20 @@ import net.minecraft.world.item.Rarity;
 final class NEMegaSourceItems {
     static final ItemEntry<Item> MEGA_SOURCE_CELL_HOUSING = NEMegaItems.housing("mega_source", "Mega Source");
     static final ItemEntry<ECOStorageCellItem> CELL_4G = NEMegaItems.optionalCell(
-            "mega_source", "Mega Source", "4g", ECOTier.L9, MEGA_4G_CAPACITY, Rarity.EPIC,
+            "mega_source",
+            "Mega Source",
+            "4g",
+            ECOTier.L9,
+            MEGA_4G_CAPACITY,
+            Rarity.EPIC,
             (properties, tier, type, capacity) -> new ECOStorageCellItem(
-                    properties, tier, ArsEnergistiqueCompat.getSourceKeyType(), type, capacity,
-                    MegaCellCapacities.normalBytesPerType(tier), 1,
+                    properties,
+                    tier,
+                    ArsEnergistiqueCompat.getSourceKeyType(),
+                    type,
+                    capacity,
+                    MegaCellCapacities.normalBytesPerType(tier),
+                    1,
                     MegaCellCapacities.normalIdleDrain(capacity)),
             NEMegaSourceCellType.MEGA_SOURCE);
 

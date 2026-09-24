@@ -1,10 +1,11 @@
 package cn.dancingsnow.neoecoae.integration.jade;
 
+import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
-import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
@@ -14,7 +15,6 @@ import cn.dancingsnow.neoecoae.integration.jade.provider.ECOCraftingSystemProvid
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECOCraftingWorkerProvider;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECODriveProvider;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECOLargeWorkstationInputsProvider;
-import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import snownee.jade.api.IWailaClientRegistration;
 import snownee.jade.api.IWailaCommonRegistration;
 import snownee.jade.api.IWailaPlugin;
@@ -25,8 +25,8 @@ public class NEJadePlugin implements IWailaPlugin {
     @Override
     public void register(IWailaCommonRegistration registration) {
         registration.registerBlockDataProvider(ECODriveProvider.INSTANCE, ECODriveBlockEntity.class);
-        registration.registerBlockDataProvider(ECOLargeWorkstationInputsProvider.INSTANCE,
-                ECOLargeIntegratedWorkingStationInterfaceBlockEntity.class);
+        registration.registerBlockDataProvider(
+                ECOLargeWorkstationInputsProvider.INSTANCE, ECOLargeIntegratedWorkingStationInterfaceBlockEntity.class);
         registration.registerBlockDataProvider(ECOCraftingWorkerProvider.INSTANCE, ECOCraftingWorkerBlockEntity.class);
         registration.registerBlockDataProvider(ECOCraftingSystemProvider.INSTANCE, ECOCraftingSystemBlockEntity.class);
         registration.registerBlockDataProvider(

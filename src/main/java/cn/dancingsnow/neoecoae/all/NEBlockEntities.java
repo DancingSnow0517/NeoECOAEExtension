@@ -6,13 +6,12 @@ import appeng.blockentity.AEBaseBlockEntity;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationOutputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationNetworkSwitchBlockEntity;
@@ -28,18 +27,18 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOAdvancedCraftingWorkerRenderer;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageVentBlockEntity;
+import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOAdvancedCraftingWorkerRenderer;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
-import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
-import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.registration.NEBlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
@@ -294,8 +293,11 @@ public class NEBlockEntities {
                     .onRegister(type -> {
                         NEBlocks.INTEGRATED_WORKING_STATION
                                 .get()
-                                .setBlockEntity((Class) ECOLargeIntegratedWorkingStationBlockEntity.class,
-                                        (net.minecraft.world.level.block.entity.BlockEntityType) type, null, null);
+                                .setBlockEntity(
+                                        (Class) ECOLargeIntegratedWorkingStationBlockEntity.class,
+                                        (net.minecraft.world.level.block.entity.BlockEntityType) type,
+                                        null,
+                                        null);
                         AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.INTEGRATED_WORKING_STATION.asItem());
                     })
                     .register();
@@ -303,15 +305,18 @@ public class NEBlockEntities {
     public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEIntegratedWorkingStationCluster>>
             LARGE_INTEGRATED_WORKING_STATION_CASING = REGISTRATE
                     .<ECOMachineCasingBlockEntity<NEIntegratedWorkingStationCluster>, NEIntegratedWorkingStationCluster>
-                            blockEntityClusterElement("large_integrated_working_station_casing",
-                                    NEIntegratedWorkingStationClusterCalculator::new, ECOMachineCasingBlockEntity::new)
+                            blockEntityClusterElement(
+                                    "large_integrated_working_station_casing",
+                                    NEIntegratedWorkingStationClusterCalculator::new,
+                                    ECOMachineCasingBlockEntity::new)
                     .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)
                     .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)
                     .register();
 
     public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationInputHatchBlockEntity>
             LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = REGISTRATE
-                    .blockEntityBlockLinked("large_integrated_working_station_input_hatch",
+                    .blockEntityBlockLinked(
+                            "large_integrated_working_station_input_hatch",
                             ECOLargeIntegratedWorkingStationInputHatchBlockEntity::new)
                     .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
                     .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
@@ -320,7 +325,8 @@ public class NEBlockEntities {
 
     public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationOutputHatchBlockEntity>
             LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
-                    .blockEntityBlockLinked("large_integrated_working_station_output_hatch",
+                    .blockEntityBlockLinked(
+                            "large_integrated_working_station_output_hatch",
                             ECOLargeIntegratedWorkingStationOutputHatchBlockEntity::new)
                     .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
                     .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
@@ -329,8 +335,10 @@ public class NEBlockEntities {
 
     public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>>
             LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
-                    .<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>, NEIntegratedWorkingStationCluster>
-                            blockEntityClusterElement("large_integrated_working_station_interface",
+                    .<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>,
+                            NEIntegratedWorkingStationCluster>
+                            blockEntityClusterElement(
+                                    "large_integrated_working_station_interface",
                                     NEIntegratedWorkingStationClusterCalculator::new,
                                     ECOLargeIntegratedWorkingStationInterfaceBlockEntity::new)
                     .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)

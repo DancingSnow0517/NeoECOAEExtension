@@ -27,11 +27,11 @@ public final class AE2LightningTechIntegration extends AbstractCellIntegration {
 
     @Override
     protected void afterApply() {
-        ECOCellModels.register(NELightningItems.ECO_LIGHTNING_CELL_16M,
-                NeoECOAE.id("block/cell/storage_cell_l4_lightning"));
-        ECOCellModels.register(NELightningItems.ECO_LIGHTNING_CELL_64M,
-                NeoECOAE.id("block/cell/storage_cell_l6_lightning"));
-        ECOCellModels.register(NELightningItems.ECO_LIGHTNING_CELL_256M,
-                NeoECOAE.id("block/cell/storage_cell_l9_lightning"));
+        ECOCellModels.register(
+                NELightningItems.ECO_LIGHTNING_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_lightning"));
+        ECOCellModels.register(
+                NELightningItems.ECO_LIGHTNING_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_lightning"));
+        ECOCellModels.register(
+                NELightningItems.ECO_LIGHTNING_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_lightning"));
     }
 }

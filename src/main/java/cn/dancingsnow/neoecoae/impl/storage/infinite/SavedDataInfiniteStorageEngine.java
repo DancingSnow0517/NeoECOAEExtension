@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
-import java.math.BigInteger;
-
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -12,6 +10,7 @@ import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.io.File;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;

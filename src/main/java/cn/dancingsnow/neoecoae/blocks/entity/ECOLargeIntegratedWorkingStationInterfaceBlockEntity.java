@@ -28,14 +28,16 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /** Network-facing pattern storage for the large workstation. */
 public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
-        extends ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>
-        implements PatternProviderLogicHost {
+        extends ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster> implements PatternProviderLogicHost {
     private final LargeWorkstationPatternProvider workstationProvider;
     private boolean providerRefreshQueued;
     private Object lastRecipeManager;
 
-    public ECOLargeIntegratedWorkingStationInterfaceBlockEntity(BlockEntityType<?> type, BlockPos pos,
-            BlockState blockState, NEClusterCalculator.Factory<NEIntegratedWorkingStationCluster> calculator) {
+    public ECOLargeIntegratedWorkingStationInterfaceBlockEntity(
+            BlockEntityType<?> type,
+            BlockPos pos,
+            BlockState blockState,
+            NEClusterCalculator.Factory<NEIntegratedWorkingStationCluster> calculator) {
         super(type, pos, blockState, calculator);
         workstationProvider = new LargeWorkstationPatternProvider(this);
         getMainNode().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL);
@@ -107,7 +109,8 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     }
 
     private void refreshProvider() {
-        if (workstationProvider == null || !(level instanceof ServerLevel serverLevel)
+        if (workstationProvider == null
+                || !(level instanceof ServerLevel serverLevel)
                 || !getMainNode().isReady()) return;
         workstationProvider.updatePatterns();
         if (providerRefreshQueued) return;

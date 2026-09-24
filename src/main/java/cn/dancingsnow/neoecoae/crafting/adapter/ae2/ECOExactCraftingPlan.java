@@ -8,9 +8,9 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
@@ -29,8 +29,9 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
     public static boolean needsSmallerBatch(ECOPlanningResult result) {
         boolean wideTask = result.exactPatternTimes().values().stream()
                 .anyMatch(count -> count.toBigInteger().compareTo(MAX) > 0);
-        return wideTask && result.components().stream()
-                .anyMatch(component -> component.type() == ComponentPlanningResult.Type.CYCLIC);
+        return wideTask
+                && result.components().stream()
+                        .anyMatch(component -> component.type() == ComponentPlanningResult.Type.CYCLIC);
     }
 
     public ECOExactCraftingPlan(ECOPlanningResult result, boolean forced) {
@@ -48,20 +49,27 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         Map<AEKey, PlannerAmount> stockAmounts = new LinkedHashMap<>(result.exactUsedItems());
         for (var component : result.components()) {
             component.stockReservations().forEach((key, amount) -> {
-                if (amount != null && amount > 0)
-                    stockAmounts.merge(key, PlannerAmount.of(amount), PlannerAmount::max);
+                if (amount != null && amount > 0) stockAmounts.merge(key, PlannerAmount.of(amount), PlannerAmount::max);
             });
         }
         Map<AEKey, BigInteger> stock = new LinkedHashMap<>();
         Map<AEKey, BigInteger> emitted = new LinkedHashMap<>();
         KeyCounter initial = split(stockAmounts, stock);
         KeyCounter initialEmitted = split(result.exactEmittedItems(), emitted);
-        if (forced) result.exactMissingItems().forEach((key, amount) ->
-                stock.merge(key, amount.toBigInteger(), BigInteger::add));
+        if (forced)
+            result.exactMissingItems()
+                    .forEach((key, amount) -> stock.merge(key, amount.toBigInteger(), BigInteger::add));
         deferredStock = Map.copyOf(stock);
         deferredEmitted = Map.copyOf(emitted);
-        projection = new CraftingPlan(result.plan().finalOutput(), 0, false,
-                result.plan().multiplePaths(), initial, initialEmitted, new KeyCounter(), Map.copyOf(counts));
+        projection = new CraftingPlan(
+                result.plan().finalOutput(),
+                0,
+                false,
+                result.plan().multiplePaths(),
+                initial,
+                initialEmitted,
+                new KeyCounter(),
+                Map.copyOf(counts));
         boolean wideTask = exact.values().stream().anyMatch(count -> count.compareTo(MAX) > 0);
         if (wideTask && exact.size() == 1) {
             if (needsSmallerBatch(result))
@@ -70,9 +78,16 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         } else {
             if (needsSmallerBatch(result))
                 throw new IllegalArgumentException("Exact cycle count exceeds 1.20.1 runtime limit");
-            ECOPlanningResult interpreted = new ECOPlanningResult(PlanningStatus.SUCCESS,
-                    (CraftingPlan) projection, result.trace(), result.cycles(), result.components(),
-                    result.executionComponentOrder(), result.calculationNanos(), result.planningId(), result.provenance());
+            ECOPlanningResult interpreted = new ECOPlanningResult(
+                    PlanningStatus.SUCCESS,
+                    (CraftingPlan) projection,
+                    result.trace(),
+                    result.cycles(),
+                    result.components(),
+                    result.executionComponentOrder(),
+                    result.calculationNanos(),
+                    result.planningId(),
+                    result.provenance());
             if (interpreted.executionPlanError() != null)
                 throw new IllegalArgumentException(interpreted.executionPlanError());
             execution = interpreted.executionContract().executionPlan();
@@ -96,17 +111,63 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         return amount.min(MAX).longValueExact();
     }
 
-    public BigInteger theoreticalBytes() { return storage; }
-    public Map<IPatternDetails, BigInteger> exactTasks() { return tasks; }
-    public Map<AEKey, BigInteger> deferredStock() { return deferredStock; }
-    public Map<AEKey, BigInteger> deferredEmitted() { return deferredEmitted; }
-    public ECOExecutionPlan execution() { return execution; }
-    @Override public GenericStack finalOutput() { return projection.finalOutput(); }
-    @Override public long bytes() { return 0; }
-    @Override public boolean simulation() { return false; }
-    @Override public boolean multiplePaths() { return projection.multiplePaths(); }
-    @Override public KeyCounter usedItems() { return projection.usedItems(); }
-    @Override public KeyCounter emittedItems() { return projection.emittedItems(); }
-    @Override public KeyCounter missingItems() { return projection.missingItems(); }
-    @Override public Map<IPatternDetails, Long> patternTimes() { return projection.patternTimes(); }
+    public BigInteger theoreticalBytes() {
+        return storage;
+    }
+
+    public Map<IPatternDetails, BigInteger> exactTasks() {
+        return tasks;
+    }
+
+    public Map<AEKey, BigInteger> deferredStock() {
+        return deferredStock;
+    }
+
+    public Map<AEKey, BigInteger> deferredEmitted() {
+        return deferredEmitted;
+    }
+
+    public ECOExecutionPlan execution() {
+        return execution;
+    }
+
+    @Override
+    public GenericStack finalOutput() {
+        return projection.finalOutput();
+    }
+
+    @Override
+    public long bytes() {
+        return 0;
+    }
+
+    @Override
+    public boolean simulation() {
+        return false;
+    }
+
+    @Override
+    public boolean multiplePaths() {
+        return projection.multiplePaths();
+    }
+
+    @Override
+    public KeyCounter usedItems() {
+        return projection.usedItems();
+    }
+
+    @Override
+    public KeyCounter emittedItems() {
+        return projection.emittedItems();
+    }
+
+    @Override
+    public KeyCounter missingItems() {
+        return projection.missingItems();
+    }
+
+    @Override
+    public Map<IPatternDetails, Long> patternTimes() {
+        return projection.patternTimes();
+    }
 }

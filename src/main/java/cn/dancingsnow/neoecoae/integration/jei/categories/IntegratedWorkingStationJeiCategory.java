@@ -244,7 +244,8 @@ public class IntegratedWorkingStationJeiCategory implements IRecipeCategory<Inte
         if (showEnergy) {
             Component energyText =
                     Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
-            g.drawString(Minecraft.getInstance().font, energyText, ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
+            g.drawString(
+                    Minecraft.getInstance().font, energyText, ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
         }
     }
 }

@@ -9,8 +9,10 @@ import net.minecraft.world.entity.player.Inventory;
 public class LargeIntegratedWorkingStationPatternProviderScreen
         extends PatternProviderScreen<LargeIntegratedWorkingStationPatternProviderMenu> {
     public LargeIntegratedWorkingStationPatternProviderScreen(
-            LargeIntegratedWorkingStationPatternProviderMenu menu, Inventory inventory,
-            Component title, ScreenStyle style) {
+            LargeIntegratedWorkingStationPatternProviderMenu menu,
+            Inventory inventory,
+            Component title,
+            ScreenStyle style) {
         super(menu, inventory, title, style);
     }
 }

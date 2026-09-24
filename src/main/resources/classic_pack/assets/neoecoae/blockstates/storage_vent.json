@@ -1,19 +1,8 @@
 {
-  "variants": {
-    "facing=east": {
-      "model": "neoecoae:block/storage_vent",
-      "y": 90
-    },
-    "facing=north": {
-      "model": "neoecoae:block/storage_vent"
-    },
-    "facing=south": {
-      "model": "neoecoae:block/storage_vent",
-      "y": 180
-    },
-    "facing=west": {
-      "model": "neoecoae:block/storage_vent",
-      "y": 270
-    }
-  }
+  "multipart": [
+    { "when": { "facing": "north" }, "apply": { "model": "neoecoae:block/storage_vent" } },
+    { "when": { "facing": "east" }, "apply": { "model": "neoecoae:block/storage_vent", "y": 90 } },
+    { "when": { "facing": "south" }, "apply": { "model": "neoecoae:block/storage_vent", "y": 180 } },
+    { "when": { "facing": "west" }, "apply": { "model": "neoecoae:block/storage_vent", "y": 270 } }
+  ]
 }

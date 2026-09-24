@@ -1,7 +1,5 @@
 {
-  "variants": {
-    "": {
-      "model": "neoecoae:block/storage_interface"
-    }
-  }
+  "multipart": [
+    { "apply": { "model": "neoecoae:block/storage_interface" } }
+  ]
 }

@@ -160,7 +160,8 @@ public final class ECOCraftingFastPathCache {
                         ? FastPathCapability.TAG_RESOLVED_LINEAR
                         : FastPathCapability.PURE_LINEAR);
         if (reusableStateModel != null) capabilities.add(reusableStateModel.capability());
-        putEntry(entries,
+        putEntry(
+                entries,
                 key,
                 ECOFastPathResult.positive(
                         outputs,

@@ -49,7 +49,8 @@ public final class ECOPlanningResult {
         this.status = status;
         this.plan = plan;
         var firings = new java.util.LinkedHashMap<IPatternDetails, PlannerAmount>();
-        if (plan != null) plan.patternTimes().forEach((pattern, count) -> firings.put(pattern, PlannerAmount.of(count)));
+        if (plan != null)
+            plan.patternTimes().forEach((pattern, count) -> firings.put(pattern, PlannerAmount.of(count)));
         this.exactPatternTimes = Map.copyOf(firings);
         this.trace = trace;
         this.cycles = List.copyOf(cycles);
@@ -198,8 +199,8 @@ public final class ECOPlanningResult {
         exactPatternTimes = Map.copyOf(counts);
     }
 
-    public void setExactMaterials(Map<AEKey, PlannerAmount> used, Map<AEKey, PlannerAmount> emitted,
-            Map<AEKey, PlannerAmount> missing) {
+    public void setExactMaterials(
+            Map<AEKey, PlannerAmount> used, Map<AEKey, PlannerAmount> emitted, Map<AEKey, PlannerAmount> missing) {
         exactUsedItems = Map.copyOf(used);
         exactEmittedItems = Map.copyOf(emitted);
         exactMissingItems = Map.copyOf(missing);

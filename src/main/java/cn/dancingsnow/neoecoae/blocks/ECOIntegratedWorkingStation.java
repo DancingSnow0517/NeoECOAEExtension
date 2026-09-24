@@ -81,8 +81,11 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
 
     public ECOIntegratedWorkingStation(Properties props) {
         super(props);
-        registerDefaultState(
-                getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false).setValue(FORMED, false));
+        registerDefaultState(getStateDefinition()
+                .any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(WORKING, false)
+                .setValue(FORMED, false));
     }
 
     @Override
@@ -120,8 +123,13 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     }
 
     @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
-            BlockPos neighborPos, boolean movedByPiston) {
+    public void neighborChanged(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Block neighborBlock,
+            BlockPos neighborPos,
+            boolean movedByPiston) {
         if (level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity controller) {
             controller.updateMultiBlock(neighborPos);
         }

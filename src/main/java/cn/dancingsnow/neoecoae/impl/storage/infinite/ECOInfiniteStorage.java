@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
@@ -44,8 +44,7 @@ public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource, E
 
     @Override
     public BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
-        if (amount == null || amount.signum() <= 0 || !accessible.getAsBoolean()
-                || !canStoreKey(what)) {
+        if (amount == null || amount.signum() <= 0 || !accessible.getAsBoolean() || !canStoreKey(what)) {
             return BigInteger.ZERO;
         }
         return engine.insert(what, amount, mode);
@@ -89,8 +88,7 @@ public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource, E
         if (!(key instanceof AEItemKey itemKey)) return true;
         if (ordinaryKeys.contains(itemKey)) return true;
         // A cell's capacity can change outside its item NBT, so only handler misses are cached.
-        if (itemKey.getItem() instanceof IBasicECOCellItem
-                || StorageCells.isCellHandled(itemKey.getReadOnlyStack())) {
+        if (itemKey.getItem() instanceof IBasicECOCellItem || StorageCells.isCellHandled(itemKey.getReadOnlyStack())) {
             return ECOStorageCell.canStoreKeyInsideStorageCell(itemKey);
         }
         if (ordinaryKeys.size() < MAX_CELL_ELIGIBILITY_CACHE) ordinaryKeys.add(itemKey);

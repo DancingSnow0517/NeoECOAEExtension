@@ -58,9 +58,13 @@ public class NEIntegratedWorkingStationControllerCalculator
                 && casing(level, lowerCenter.relative(left))
                 && casing(level, lowerCenter.relative(right))
                 && block(level, lowerCenter.relative(back), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.get())
-                && block(level, lowerCenter.relative(back).relative(left),
+                && block(
+                        level,
+                        lowerCenter.relative(back).relative(left),
                         NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.get())
-                && block(level, lowerCenter.relative(back).relative(right),
+                && block(
+                        level,
+                        lowerCenter.relative(back).relative(right),
                         NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.get());
     }
 
@@ -73,7 +77,8 @@ public class NEIntegratedWorkingStationControllerCalculator
     }
 
     @Override
-    public void updateBlockEntities(NEIntegratedWorkingStationCluster cluster, ServerLevel level, BlockPos min, BlockPos max) {
+    public void updateBlockEntities(
+            NEIntegratedWorkingStationCluster cluster, ServerLevel level, BlockPos min, BlockPos max) {
         Set<NEIntegratedWorkingStationCluster> previous = Collections.newSetFromMap(new IdentityHashMap<>());
         for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
             BlockEntity entity = level.getBlockEntity(pos);

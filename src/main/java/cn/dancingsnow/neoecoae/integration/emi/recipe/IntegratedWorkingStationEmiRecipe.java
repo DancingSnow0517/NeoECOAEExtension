@@ -81,12 +81,15 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
     }
 
     public IntegratedWorkingStationEmiRecipe(LargeWorkstationRecipe recipe) {
-        this(NeoECOAE.id("large_workstation/" + recipe.id().getNamespace() + "/" + recipe.id().getPath()),
-                recipe.display(), recipe);
+        this(
+                NeoECOAE.id("large_workstation/" + recipe.id().getNamespace() + "/"
+                        + recipe.id().getPath()),
+                recipe.display(),
+                recipe);
     }
 
-    private IntegratedWorkingStationEmiRecipe(ResourceLocation id, IntegratedWorkingStationRecipe recipe,
-            LargeWorkstationRecipe largeRecipe) {
+    private IntegratedWorkingStationEmiRecipe(
+            ResourceLocation id, IntegratedWorkingStationRecipe recipe, LargeWorkstationRecipe largeRecipe) {
         this.id = id;
         this.recipe = recipe;
         this.largeRecipe = largeRecipe;
@@ -270,13 +273,20 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
         // ── Energy text ──
         Component energy = largeRecipe == null
                 ? Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000)
-                : Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy",
-                        largeRecipe.energy());
+                : Component.translatable(
+                        "gui.neoecoae.large_integrated_working_station.recipe_energy", largeRecipe.energy());
         widgets.addText(energy, ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
         if (largeRecipe != null && !largeRecipe.extraInputs().isEmpty()) {
             var extra = largeRecipe.extraInputs().get(0);
-            widgets.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_cost",
-                    extra.amount(), extra.what().getDisplayName()), 8, 79, ENERGY_TEXT_COLOR, false);
+            widgets.addText(
+                    Component.translatable(
+                            "gui.neoecoae.large_integrated_working_station.lightning_cost",
+                            extra.amount(),
+                            extra.what().getDisplayName()),
+                    8,
+                    79,
+                    ENERGY_TEXT_COLOR,
+                    false);
         }
     }
 }

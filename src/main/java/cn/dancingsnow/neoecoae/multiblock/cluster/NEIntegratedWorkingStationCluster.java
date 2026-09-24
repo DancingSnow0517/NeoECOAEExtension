@@ -18,10 +18,21 @@ public class NEIntegratedWorkingStationCluster extends NECluster<NEIntegratedWor
         super(min, max);
     }
 
-    public ECOLargeIntegratedWorkingStationBlockEntity getController() { return controller; }
-    public ECOLargeIntegratedWorkingStationInputHatchBlockEntity getInputHatch() { return inputHatch; }
-    public ECOLargeIntegratedWorkingStationOutputHatchBlockEntity getOutputHatch() { return outputHatch; }
-    public ECOMachineInterfaceBlockEntity<?> getCommunication() { return communication; }
+    public ECOLargeIntegratedWorkingStationBlockEntity getController() {
+        return controller;
+    }
+
+    public ECOLargeIntegratedWorkingStationInputHatchBlockEntity getInputHatch() {
+        return inputHatch;
+    }
+
+    public ECOLargeIntegratedWorkingStationOutputHatchBlockEntity getOutputHatch() {
+        return outputHatch;
+    }
+
+    public ECOMachineInterfaceBlockEntity<?> getCommunication() {
+        return communication;
+    }
 
     public void setController(ECOLargeIntegratedWorkingStationBlockEntity controller) {
         this.controller = controller;
@@ -36,7 +47,8 @@ public class NEIntegratedWorkingStationCluster extends NECluster<NEIntegratedWor
     public void addBlockEntity(NEBlockEntity<NEIntegratedWorkingStationCluster, ?> blockEntity) {
         super.addBlockEntity(blockEntity);
         if (blockEntity instanceof ECOLargeIntegratedWorkingStationInputHatchBlockEntity value) inputHatch = value;
-        else if (blockEntity instanceof ECOLargeIntegratedWorkingStationOutputHatchBlockEntity value) outputHatch = value;
+        else if (blockEntity instanceof ECOLargeIntegratedWorkingStationOutputHatchBlockEntity value)
+            outputHatch = value;
         else if (blockEntity instanceof ECOMachineInterfaceBlockEntity<?> value) communication = value;
     }
 

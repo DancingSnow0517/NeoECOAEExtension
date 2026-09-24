@@ -22,7 +22,9 @@ class ECOBigIntegerStorageTest {
         var exactCalls = new AtomicInteger();
         class ExactStorage implements MEStorage, ECOBigIntegerStorage {
             @Override
-            public Component getDescription() { return Component.empty(); }
+            public Component getDescription() {
+                return Component.empty();
+            }
 
             @Override
             public long insert(AEKey what, long amount, Actionable mode, IActionSource actionSource) {
@@ -31,8 +33,8 @@ class ECOBigIntegerStorageTest {
             }
 
             @Override
-            public BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode,
-                    IActionSource actionSource) {
+            public BigInteger insertBigInteger(
+                    AEKey what, BigInteger amount, Actionable mode, IActionSource actionSource) {
                 exactCalls.incrementAndGet();
                 return amount;
             }
@@ -42,8 +44,9 @@ class ECOBigIntegerStorageTest {
         assertEquals(wide, ECOBigIntegerStorage.insert(storage, key, wide, Actionable.MODULATE, source));
         assertEquals(0, longCalls.get());
         assertEquals(1, exactCalls.get());
-        assertEquals(BigInteger.valueOf(7), ECOBigIntegerStorage.insert(
-                storage, key, BigInteger.valueOf(7), Actionable.MODULATE, source));
+        assertEquals(
+                BigInteger.valueOf(7),
+                ECOBigIntegerStorage.insert(storage, key, BigInteger.valueOf(7), Actionable.MODULATE, source));
         assertEquals(1, longCalls.get());
     }
 
@@ -52,7 +55,9 @@ class ECOBigIntegerStorageTest {
         var calls = new AtomicInteger();
         MEStorage storage = new MEStorage() {
             @Override
-            public Component getDescription() { return Component.empty(); }
+            public Component getDescription() {
+                return Component.empty();
+            }
 
             @Override
             public long insert(AEKey what, long amount, Actionable mode, IActionSource actionSource) {
@@ -61,8 +66,9 @@ class ECOBigIntegerStorageTest {
                 return amount;
             }
         };
-        assertEquals(BigInteger.valueOf(Long.MAX_VALUE), ECOBigIntegerStorage.insert(
-                storage, key, BigInteger.TEN.pow(30), Actionable.MODULATE, source));
+        assertEquals(
+                BigInteger.valueOf(Long.MAX_VALUE),
+                ECOBigIntegerStorage.insert(storage, key, BigInteger.TEN.pow(30), Actionable.MODULATE, source));
         assertEquals(1, calls.get());
     }
 }

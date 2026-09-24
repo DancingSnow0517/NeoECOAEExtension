@@ -24,6 +24,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     private final Map<ECOCraftingPatternBusBlockEntity, BusIndex<AEItemKey>> busIndexes = new IdentityHashMap<>();
     private final Object2IntOpenHashMap<AEItemKey> patternCounts = new Object2IntOpenHashMap<>();
     private final IECOPatternStorage combinedStorage = this::tryInsertPattern;
+
     @Nullable private IECOPatternStorage preferredStorage;
 
     @Override
@@ -136,19 +137,22 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                     preferredStorage = storage;
                     return ECOPatternInsertionResult.INSERTED;
                 }
-                case ALREADY_PRESENT -> { return ECOPatternInsertionResult.ALREADY_PRESENT; }
+                case ALREADY_PRESENT -> {
+                    return ECOPatternInsertionResult.ALREADY_PRESENT;
+                }
                 case NO_SPACE -> noSpace = true;
                 case INCOMPATIBLE -> incompatible = true;
-                default -> { }
+                default -> {}
             }
         }
-        return noSpace ? ECOPatternInsertionResult.NO_SPACE
+        return noSpace
+                ? ECOPatternInsertionResult.NO_SPACE
                 : incompatible ? ECOPatternInsertionResult.INCOMPATIBLE : ECOPatternInsertionResult.NO_TARGET;
     }
 
     private boolean isActiveCandidate(IECOPatternStorage storage) {
-        return patternStorages.entrySet().stream().anyMatch(entry -> entry.getValue() == storage
-                && entry.getKey().isActive());
+        return patternStorages.entrySet().stream()
+                .anyMatch(entry -> entry.getValue() == storage && entry.getKey().isActive());
     }
 
     private boolean hasRoom(IECOPatternStorage storage) {
@@ -201,6 +205,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             return counts.containsKey(key);
         }
 
-        int emptySlots() { return emptySlots; }
+        int emptySlots() {
+            return emptySlots;
+        }
     }
 }

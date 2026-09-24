@@ -1,19 +1,12 @@
 {
-  "variants": {
-    "facing=east": {
-      "model": "neoecoae:block/builtin/eco_drive",
-      "y": 90
-    },
-    "facing=north": {
-      "model": "neoecoae:block/builtin/eco_drive"
-    },
-    "facing=south": {
-      "model": "neoecoae:block/builtin/eco_drive",
-      "y": 180
-    },
-    "facing=west": {
-      "model": "neoecoae:block/builtin/eco_drive",
-      "y": 270
-    }
-  }
+  "multipart": [
+    { "when": { "facing": "north", "formed": "false" }, "apply": { "model": "neoecoae:block/eco_drive_empty" } },
+    { "when": { "facing": "east", "formed": "false" }, "apply": { "model": "neoecoae:block/eco_drive_empty", "y": 90 } },
+    { "when": { "facing": "south", "formed": "false" }, "apply": { "model": "neoecoae:block/eco_drive_empty", "y": 180 } },
+    { "when": { "facing": "west", "formed": "false" }, "apply": { "model": "neoecoae:block/eco_drive_empty", "y": 270 } },
+    { "when": { "facing": "north", "formed": "true" }, "apply": { "model": "neoecoae:block/eco_drive_full" } },
+    { "when": { "facing": "east", "formed": "true" }, "apply": { "model": "neoecoae:block/eco_drive_full", "y": 90 } },
+    { "when": { "facing": "south", "formed": "true" }, "apply": { "model": "neoecoae:block/eco_drive_full", "y": 180 } },
+    { "when": { "facing": "west", "formed": "true" }, "apply": { "model": "neoecoae:block/eco_drive_full", "y": 270 } }
+  ]
 }

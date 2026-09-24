@@ -4,13 +4,13 @@
 	"parent": "block/block",
 	"render_type": "cutout",
 	"textures": {
-		"back": "ae2:block/generics/back",
-		"bottom": "ae2:block/generics/bottom",
+		"back": "ae2:block/drive/drive_side",
+		"bottom": "ae2:block/drive/drive_bottom",
 		"north": "neoecoae:block/working_station/front",
-		"side": "ae2:block/generics/side",
+		"side": "ae2:block/drive/drive_side",
 		"top": "neoecoae:block/working_station/top",
 		"screen": "neoecoae:block/working_station/screen_off",
-		"particle": "ae2:block/generics/back"
+		"particle": "ae2:block/drive/drive_side"
 	},
 	"elements": [
 		{

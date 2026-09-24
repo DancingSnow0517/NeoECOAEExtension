@@ -21,7 +21,8 @@ class LargeWorkstationOverclockTest {
         assertEquals(LargeWorkstationOverclock.NORMAL, LargeWorkstationOverclock.forCurrentSettings(false, true, 9));
         assertEquals(LargeWorkstationOverclock.NORMAL, LargeWorkstationOverclock.forCurrentSettings(true, false, 9));
         assertEquals(LargeWorkstationOverclock.NORMAL, LargeWorkstationOverclock.forCurrentSettings(true, true, -1));
-        assertEquals(new LargeWorkstationOverclock(6, 65_536, 32),
+        assertEquals(
+                new LargeWorkstationOverclock(6, 65_536, 32),
                 LargeWorkstationOverclock.forCurrentSettings(true, true, 6));
     }
 

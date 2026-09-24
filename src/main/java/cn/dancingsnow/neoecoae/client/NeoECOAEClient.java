@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client;
 
+import appeng.init.client.InitScreens;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NETooltips;
@@ -12,7 +13,6 @@ import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRe
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.client.rendering.BerModelCache;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
-import appeng.init.client.InitScreens;
 import cn.dancingsnow.neoecoae.network.ECOCpuOverlayPayload;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
@@ -47,7 +47,8 @@ public class NeoECOAEClient {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        InitScreens.register(LargeIntegratedWorkingStationPatternProviderMenu.TYPE,
+        InitScreens.register(
+                LargeIntegratedWorkingStationPatternProviderMenu.TYPE,
                 LargeIntegratedWorkingStationPatternProviderScreen::new,
                 "/screens/large_integrated_working_station_interface.json");
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();

@@ -25,8 +25,8 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOStatefulBatchCalculator;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe;
-import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.grid.PatternCatalog;
+import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
@@ -411,8 +411,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     private void refreshPatternCatalog(int slot) {
         IGrid grid = getGrid();
-        if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
-                instanceof PatternCatalog catalog) {
+        if (grid != null
+                && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
+                        instanceof PatternCatalog catalog) {
             catalog.onPatternSlotChanged(this, slot);
             patternCatalogRefreshPending = false;
         } else {
@@ -438,8 +439,8 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         PatternBusUpdateScheduler.remove(this);
         patternDetailsUpdateQueued = false;
         int slotCount = getPatternSlotCount();
-        decodedPatternDetails.refresh(slotCount,
-                slot -> PatternDetailsHelper.decodePattern(inventory.getStackInSlot(slot), level));
+        decodedPatternDetails.refresh(
+                slotCount, slot -> PatternDetailsHelper.decodePattern(inventory.getStackInSlot(slot), level));
         List<IPatternDetails> refreshed = new ArrayList<>();
         for (int slot = 0; slot < Math.min(slotCount, decodedPatternDetails.capacity()); slot++) {
             IPatternDetails details = decodedPatternDetails.get(slot);

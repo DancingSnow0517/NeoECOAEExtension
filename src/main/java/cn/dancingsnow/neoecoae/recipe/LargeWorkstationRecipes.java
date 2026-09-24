@@ -14,16 +14,15 @@ public final class LargeWorkstationRecipes {
 
     public static List<LargeWorkstationRecipe> getAll(Level level) {
         List<LargeWorkstationRecipe> recipes = new ArrayList<>();
-        for (IntegratedWorkingStationRecipe recipe : level.getRecipeManager()
-                .getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
+        for (IntegratedWorkingStationRecipe recipe :
+                level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
             recipes.add(new LargeWorkstationRecipe(recipe.id(), recipe, recipe.energy(), List.of()));
         }
         recipes.sort(Comparator.comparing(recipe -> recipe.id().toString()));
         return List.copyOf(recipes);
     }
 
-    @Nullable
-    public static LargeWorkstationRecipe find(Level level, KeyCounter inputs, KeyCounter outputs) {
+    @Nullable public static LargeWorkstationRecipe find(Level level, KeyCounter inputs, KeyCounter outputs) {
         for (LargeWorkstationRecipe recipe : getAll(level)) {
             if (recipe.matches(inputs, outputs)) return recipe;
         }

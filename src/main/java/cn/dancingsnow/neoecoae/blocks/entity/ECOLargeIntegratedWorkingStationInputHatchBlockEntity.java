@@ -18,14 +18,17 @@ import net.minecraftforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
 
 /** Fluid intake for the formed workstation. */
-public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity extends
-        NEBlockEntity<NEIntegratedWorkingStationCluster, ECOLargeIntegratedWorkingStationInputHatchBlockEntity> {
+public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
+        extends NEBlockEntity<
+                NEIntegratedWorkingStationCluster, ECOLargeIntegratedWorkingStationInputHatchBlockEntity> {
     public static final int CAPACITY = 1_024_000;
     public final FluidTank tank = new FluidTank(CAPACITY) {
-        @Override protected void onContentsChanged() {
+        @Override
+        protected void onContentsChanged() {
             setChanged();
             markForUpdate();
-            if (cluster != null && cluster.getController() != null) cluster.getController().onChangeTankFromHatch();
+            if (cluster != null && cluster.getController() != null)
+                cluster.getController().onChangeTankFromHatch();
         }
     };
     private LazyOptional<IFluidHandler> fluidCapability = LazyOptional.of(() -> tank);
@@ -40,8 +43,11 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity extends
         for (Direction face : Direction.values()) {
             BlockEntity neighbor = level.getBlockEntity(pos.relative(face));
             if (neighbor == null || cluster != null && clusterContains(neighbor)) continue;
-            IFluidHandler source = neighbor.getCapability(ForgeCapabilities.FLUID_HANDLER, face.getOpposite()).orElse(null);
-            if (source != null && !FluidUtil.tryFluidTransfer(tank, source, tank.getCapacity(), true).isEmpty()) return;
+            IFluidHandler source = neighbor.getCapability(ForgeCapabilities.FLUID_HANDLER, face.getOpposite())
+                    .orElse(null);
+            if (source != null
+                    && !FluidUtil.tryFluidTransfer(tank, source, tank.getCapacity(), true)
+                            .isEmpty()) return;
         }
     }
 
@@ -51,26 +57,31 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity extends
         return entity == cluster.getController();
     }
 
-    @Override public void saveAdditional(CompoundTag data) {
+    @Override
+    public void saveAdditional(CompoundTag data) {
         super.saveAdditional(data);
         data.put("largeWorkstationTank", tank.writeToNBT(new CompoundTag()));
     }
 
-    @Override public void loadTag(CompoundTag data) {
+    @Override
+    public void loadTag(CompoundTag data) {
         super.loadTag(data);
         if (data.contains("largeWorkstationTank")) tank.readFromNBT(data.getCompound("largeWorkstationTank"));
     }
 
-    @Override public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
         return cap == ForgeCapabilities.FLUID_HANDLER ? fluidCapability.cast() : super.getCapability(cap, side);
     }
 
-    @Override public void invalidateCaps() {
+    @Override
+    public void invalidateCaps() {
         super.invalidateCaps();
         fluidCapability.invalidate();
     }
 
-    @Override public void reviveCaps() {
+    @Override
+    public void reviveCaps() {
         super.reviveCaps();
         fluidCapability = LazyOptional.of(() -> tank);
     }

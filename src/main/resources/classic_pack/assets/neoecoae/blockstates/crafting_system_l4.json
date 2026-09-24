@@ -1,34 +1,82 @@
 {
-  "variants": {
-    "facing=east,formed=false": {
-      "model": "neoecoae:block/crafting_system_l4",
-      "y": 90
+  "multipart": [
+    {
+      "apply": {
+        "model": "neoecoae:block/crafting_system_l4",
+        "y": 90
+      },
+      "when": {
+        "formed": "false",
+        "facing": "east"
+      }
     },
-    "facing=east,formed=true": {
-      "model": "neoecoae:block/crafting_system_l4_formed",
-      "y": 90
+    {
+      "apply": {
+        "model": "neoecoae:block/crafting_system_l4_formed",
+        "y": 90
+      },
+      "when": {
+        "formed": "true",
+        "facing": "east"
+      }
     },
-    "facing=north,formed=false": {
-      "model": "neoecoae:block/crafting_system_l4"
+    {
+      "apply": {
+        "model": "neoecoae:block/crafting_system_l4"
+      },
+      "when": {
+        "formed": "false",
+        "facing": "north"
+      }
     },
-    "facing=north,formed=true": {
-      "model": "neoecoae:block/crafting_system_l4_formed"
+    {
+      "apply": {
+        "model": "neoecoae:block/crafting_system_l4_formed"
+      },
+      "when": {
+        "formed": "true",
+        "facing": "north"
+      }
     },
-    "facing=south,formed=false": {
-      "model": "neoecoae:block/crafting_system_l4",
-      "y": 180
+    {
+      "apply": {
+        "model": "neoecoae:block/crafting_system_l4",
+        "y": 180
+      },
+      "when": {
+        "formed": "false",
+        "facing": "south"
+      }
     },
-    "facing=south,formed=true": {
-      "model": "neoecoae:block/crafting_system_l4_formed",
-      "y": 180
+    {
+      "apply": {
+        "model": "neoecoae:block/crafting_system_l4_formed",
+        "y": 180
+      },
+      "when": {
+        "formed": "true",
+        "facing": "south"
+      }
     },
-    "facing=west,formed=false": {
-      "model": "neoecoae:block/crafting_system_l4",
-      "y": 270
+    {
+      "apply": {
+        "model": "neoecoae:block/crafting_system_l4",
+        "y": 270
+      },
+      "when": {
+        "formed": "false",
+        "facing": "west"
+      }
     },
-    "facing=west,formed=true": {
-      "model": "neoecoae:block/crafting_system_l4_formed",
-      "y": 270
+    {
+      "apply": {
+        "model": "neoecoae:block/crafting_system_l4_formed",
+        "y": 270
+      },
+      "when": {
+        "formed": "true",
+        "facing": "west"
+      }
     }
-  }
+  ]
 }
