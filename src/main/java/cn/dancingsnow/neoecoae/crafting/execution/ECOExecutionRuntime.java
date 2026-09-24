@@ -9,6 +9,9 @@ import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
+import it.unimi.dsi.fastutil.ints.Int2LongLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2LongMap;
+import it.unimi.dsi.fastutil.longs.LongIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -51,7 +54,7 @@ public final class ECOExecutionRuntime {
     private final int[] stepCursor;
     private final int[] dynamicCursor;
     private final List<long[]> remainingSteps;
-    private final List<Map<Integer, Long>> remainingDynamicFirings;
+    private final List<Int2LongLinkedOpenHashMap> remainingDynamicFirings;
     private final BitSet completedPhases;
     private final int[] unfinishedTasksByPhase;
     private final boolean[] unfinishedTasks;
@@ -117,7 +120,7 @@ public final class ECOExecutionRuntime {
             for (int i = 0; i < steps.length; i++)
                 steps[i] = phase.steps().get(i).count();
             remainingSteps.add(steps);
-            remainingDynamicFirings.add(new LinkedHashMap<>(phase.dynamicFirings()));
+            remainingDynamicFirings.add(new Int2LongLinkedOpenHashMap(phase.dynamicFirings()));
             phase.initialSeed()
                     .forEach((key, amount) -> startupSeedRemaining.merge(key, amount, NEMath::saturatingAdd));
         }
@@ -187,7 +190,7 @@ public final class ECOExecutionRuntime {
             }
 
             if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
-                Map<Integer, Long> dynamic = remainingDynamicFirings.get(phaseIndex);
+                Int2LongMap dynamic = remainingDynamicFirings.get(phaseIndex);
                 int activeCount = 0;
                 for (int taskId : phase.taskIds()) {
                     if (dynamic.getOrDefault(taskId, 0L) > 0L && taskRemaining(taskId, remainingTasks) > 0L) {
@@ -261,7 +264,7 @@ public final class ECOExecutionRuntime {
             steps[stepCursor[phaseIndex]] -= count;
             advanceFinishedSteps(phaseIndex);
         } else if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
-            Map<Integer, Long> dynamic = remainingDynamicFirings.get(phaseIndex);
+            Int2LongMap dynamic = remainingDynamicFirings.get(phaseIndex);
             long before = dynamic.getOrDefault(candidate.taskId(), 0L);
             if (count > before) throw new IllegalStateException("Accepted task exceeds dynamic firing vector");
             dynamic.put(candidate.taskId(), before - count);
@@ -362,17 +365,17 @@ public final class ECOExecutionRuntime {
         text.append('[');
         int included = 0;
         int remainingEntries = 0;
-        for (var entry : remainingDynamicFirings.get(phaseIndex).entrySet()) {
-            if (entry.getValue() <= 0L) continue;
+        for (var entry : remainingDynamicFirings.get(phaseIndex).int2LongEntrySet()) {
+            if (entry.getLongValue() <= 0L) continue;
             remainingEntries++;
             if (included >= MAX_DIAGNOSTIC_TASKS) continue;
             if (included++ > 0) text.append(',');
             text.append("task=")
-                    .append(entry.getKey())
+                    .append(entry.getIntKey())
                     .append(" firing=")
-                    .append(entry.getValue())
+                    .append(entry.getLongValue())
                     .append(" taskRemaining=")
-                    .append(taskRemaining(entry.getKey(), null));
+                    .append(taskRemaining(entry.getIntKey(), null));
         }
         if (remainingEntries > included) {
             text.append(",...").append(remainingEntries - included).append(" omitted");
@@ -434,10 +437,10 @@ public final class ECOExecutionRuntime {
             CompoundTag phase = new CompoundTag();
             phase.putLongArray("steps", remainingSteps.get(phaseIndex));
             ListTag dynamic = new ListTag();
-            for (var entry : remainingDynamicFirings.get(phaseIndex).entrySet()) {
+            for (var entry : remainingDynamicFirings.get(phaseIndex).int2LongEntrySet()) {
                 CompoundTag firing = new CompoundTag();
-                firing.putInt("task", entry.getKey());
-                firing.putLong("count", entry.getValue());
+                firing.putInt("task", entry.getIntKey());
+                firing.putLong("count", entry.getLongValue());
                 dynamic.add(firing);
             }
             phase.put("dynamic", dynamic);
@@ -486,7 +489,7 @@ public final class ECOExecutionRuntime {
                 throw new IllegalArgumentException("Execution runtime step count changed");
             }
             System.arraycopy(steps, 0, runtime.remainingSteps.get(phaseIndex), 0, steps.length);
-            Map<Integer, Long> dynamic = runtime.remainingDynamicFirings.get(phaseIndex);
+            Int2LongMap dynamic = runtime.remainingDynamicFirings.get(phaseIndex);
             dynamic.clear();
             ListTag dynamicTag = phase.getList("dynamic", Tag.TAG_COMPOUND);
             for (int i = 0; i < dynamicTag.size(); i++) {
@@ -603,8 +606,10 @@ public final class ECOExecutionRuntime {
         return false;
     }
 
-    private static boolean hasDynamicFirings(Map<Integer, Long> dynamic) {
-        for (long value : dynamic.values()) if (value > 0L) return true;
+    private static boolean hasDynamicFirings(Int2LongMap dynamic) {
+        for (LongIterator values = dynamic.values().iterator(); values.hasNext(); ) {
+            if (values.nextLong() > 0L) return true;
+        }
         return false;
     }
 
@@ -821,8 +826,8 @@ public final class ECOExecutionRuntime {
                 dependentsByPhase.get(dependency).add(phaseIndex);
                 if (!completedPhases.get(dependency)) remainingDependencies[phaseIndex]++;
             }
-            for (var entry : remainingDynamicFirings.get(phaseIndex).entrySet()) {
-                if (entry.getValue() > 0L) activeDynamicTasksByPhase[phaseIndex]++;
+            for (var entry : remainingDynamicFirings.get(phaseIndex).int2LongEntrySet()) {
+                if (entry.getLongValue() > 0L) activeDynamicTasksByPhase[phaseIndex]++;
             }
         }
         if (progressByTaskId != null) {

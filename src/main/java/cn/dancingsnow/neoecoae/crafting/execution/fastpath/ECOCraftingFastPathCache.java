@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -39,8 +40,8 @@ public final class ECOCraftingFastPathCache {
     private static final Set<ECOCraftingFastPathCache> ACTIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
 
     private final int limit;
-    private final Map<ECOFastPathKey, ECOFastPathResult> entries;
-    private final Map<ECOFastPathPatternKey, ECOPatternEligibility> patternEntries;
+    private final Object2ObjectLinkedOpenHashMap<ECOFastPathKey, ECOFastPathResult> entries;
+    private final Object2ObjectLinkedOpenHashMap<ECOFastPathPatternKey, ECOPatternEligibility> patternEntries;
     private final Map<String, Long> ineligibleReasonCounts = new LinkedHashMap<>();
     private final Map<String, String> ineligibleReasonExamples = new LinkedHashMap<>();
 
@@ -68,29 +69,15 @@ public final class ECOCraftingFastPathCache {
     public ECOCraftingFastPathCache(int limit) {
         this.limit = cn.dancingsnow.neoecoae.crafting.amount.NEMath.clamp(limit, MIN_CACHE_SIZE, MAX_CACHE_SIZE);
         int initialCapacity = Math.min(this.limit, 1_024);
-        this.entries = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<ECOFastPathKey, ECOFastPathResult> eldest) {
-                return size() > ECOCraftingFastPathCache.this.limit;
-            }
-        };
-        this.patternEntries = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<ECOFastPathPatternKey, ECOPatternEligibility> eldest) {
-                return size() > ECOCraftingFastPathCache.this.limit;
-            }
-        };
+        this.entries = new Object2ObjectLinkedOpenHashMap<>(initialCapacity);
+        this.patternEntries = new Object2ObjectLinkedOpenHashMap<>(initialCapacity);
         synchronized (ACTIVE_CACHES) {
             ACTIVE_CACHES.add(this);
         }
     }
 
     @Nullable public ECOFastPathResult get(ECOFastPathKey key, long tick) {
-        ECOFastPathResult result = entries.get(key);
+        ECOFastPathResult result = entries.getAndMoveToLast(key);
         if (result == null) {
             missCount++;
             return null;
@@ -167,13 +154,13 @@ public final class ECOCraftingFastPathCache {
             putNegative(key, tick, "REUSABLE_STATE_MODEL_MISSING");
             return;
         }
-        ECOPatternEligibility eligibility = patternEntries.get(key.patternKey());
+        ECOPatternEligibility eligibility = patternEntries.getAndMoveToLast(key.patternKey());
         EnumSet<FastPathCapability> capabilities = EnumSet.of(
                 eligibility != null && eligibility.hasSubstitutionInput()
                         ? FastPathCapability.TAG_RESOLVED_LINEAR
                         : FastPathCapability.PURE_LINEAR);
         if (reusableStateModel != null) capabilities.add(reusableStateModel.capability());
-        entries.put(
+        putEntry(entries,
                 key,
                 ECOFastPathResult.positive(
                         outputs,
@@ -195,7 +182,7 @@ public final class ECOCraftingFastPathCache {
     }
 
     public void putNegative(ECOFastPathKey key, long tick, String reason) {
-        entries.put(key, ECOFastPathResult.negative(tick, reason));
+        putEntry(entries, key, ECOFastPathResult.negative(tick, reason));
         verifyRejectCount++;
         recordRejectReason(reason, key.toString());
     }
@@ -217,8 +204,11 @@ public final class ECOCraftingFastPathCache {
             expectedMismatchCount++;
             return ECOFastPathLookup.mismatch();
         }
-        ECOPatternEligibility eligibility =
-                patternEntries.computeIfAbsent(key.patternKey(), ignored -> execution.patternEligibility());
+        ECOPatternEligibility eligibility = patternEntries.getAndMoveToLast(key.patternKey());
+        if (eligibility == null) {
+            eligibility = execution.patternEligibility();
+            putEntry(patternEntries, key.patternKey(), eligibility);
+        }
         if (!eligibility.supported()) {
             recordRejectReason(
                     eligibility.rejectReason(), execution.expectedOutputs().toString());
@@ -288,7 +278,7 @@ public final class ECOCraftingFastPathCache {
             break;
         }
         if (rebasedResult == null) return null;
-        entries.put(currentKey, rebasedResult);
+        putEntry(entries, currentKey, rebasedResult);
         hitCount++;
         return ECOFastPathLookup.verified(ECOVerifiedFastPathRecipe.trusted(
                 this, execution, currentKey, rebasedResult, currentKey.reloadGeneration()));
@@ -372,12 +362,17 @@ public final class ECOCraftingFastPathCache {
     }
 
     @Nullable ECOPatternEligibility getPatternEligibility(ECOFastPathPatternKey key) {
-        return patternEntries.get(key);
+        return patternEntries.getAndMoveToLast(key);
     }
 
     /** Package-private test seam for registry-independent AEKey fixtures. */
     void putResolvedForTesting(ECOFastPathKey key, ECOFastPathResult result) {
-        entries.put(key, result);
+        putEntry(entries, key, result);
+    }
+
+    private <K, V> void putEntry(Object2ObjectLinkedOpenHashMap<K, V> cache, K key, V value) {
+        cache.putAndMoveToLast(key, value);
+        if (cache.size() > limit) cache.removeFirst();
     }
 
     private void recordRejectReason(@Nullable String reason, @Nullable String example) {

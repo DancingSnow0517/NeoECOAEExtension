@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.event;
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.PatternBusUpdateScheduler;
 import cn.dancingsnow.neoecoae.crafting.execution.bigorder.ECOBigCraftingOrders;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import java.math.BigInteger;
@@ -85,12 +86,14 @@ public final class ECOBigCraftingEvents {
     public static void tick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         var server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) PatternBusUpdateScheduler.tick(server);
         if (server != null && server.getTickCount() % 20 == 0)
             ECOBigCraftingOrders.get(server).tick(server);
     }
 
     @SubscribeEvent
     public static void stop(ServerStoppingEvent event) {
+        PatternBusUpdateScheduler.clear(event.getServer());
         ECOBigCraftingOrders.get(event.getServer()).stop();
     }
 }

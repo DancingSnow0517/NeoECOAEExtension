@@ -38,18 +38,38 @@ class ECOExecutionRuntimeTest {
         assertEquals(2, candidates.get(0).taskId());
     }
 
+    @Test
+    void dynamicFiringsKeepLongCountsAcrossPersistence() {
+        IPatternDetails pattern = pattern();
+        var identity = new PlanIdentity.PatternIdentity(PlanIdentity.Kind.OBJECT, pattern);
+        var task = new ECOExecutionPlan.TaskSpec(0, identity, pattern,
+                new ECOExecutionPlan.PatternRuntimeInfo(null, 0, List.of()),
+                3_000_000_000L, 0, ECOExecutionPlan.TaskKind.CYCLE_DYNAMIC);
+        var phase = new ECOExecutionPlan.PhaseSpec(0, 0, ECOExecutionSchedule.Type.DYNAMIC_CYCLE,
+                List.of(0), List.of(), List.of(), Map.of(0, 3_000_000_000L), Map.of());
+        var signature = new PlanIdentity.Signature(new TestKey(), 1,
+                Map.of(identity, 3_000_000_000L), Map.of(), Map.of(), Map.of());
+        var plan = new ECOExecutionPlan(signature, ExecutionMode.DYNAMIC_CYCLE,
+                List.of(task), List.of(phase), new ECOExecutionSchedule(List.of()));
+        var progress = new ExecutingCraftingJob.TaskProgress();
+        progress.value = 3_000_000_000L;
+        var runtime = new ECOExecutionRuntime(plan, Map.of(0, pattern),
+                new ExecutingCraftingJob.TaskProgress[] {progress});
+
+        var candidate = runtime.candidates().get(0);
+        assertEquals(3_000_000_000L, candidate.maxDispatchCount());
+        progress.value = 2_000_000_000L;
+        runtime.onAccepted(candidate, 1_000_000_000L, null);
+
+        var saved = new net.minecraft.nbt.CompoundTag();
+        runtime.writeToNBT(saved, null);
+        var restored = ECOExecutionRuntime.fromNBT(plan, Map.of(0, pattern),
+                new ExecutingCraftingJob.TaskProgress[] {progress}, saved, null);
+        assertEquals(2_000_000_000L, restored.candidates().get(0).maxDispatchCount());
+    }
+
     private Fixture fixture() {
-        IPatternDetails pattern = (IPatternDetails) Proxy.newProxyInstance(
-                IPatternDetails.class.getClassLoader(),
-                new Class<?>[] {IPatternDetails.class},
-                (proxy, method, args) -> switch (method.getName()) {
-                    case "getInputs" -> new IPatternDetails.IInput[0];
-                    case "getOutputs" -> new GenericStack[0];
-                    case "getDefinition" -> null;
-                    case "hashCode" -> System.identityHashCode(proxy);
-                    case "equals" -> proxy == args[0];
-                    default -> null;
-                });
+        IPatternDetails pattern = pattern();
         var identity = new PlanIdentity.PatternIdentity(PlanIdentity.Kind.OBJECT, pattern);
         var info = new ECOExecutionPlan.PatternRuntimeInfo(null, 0, List.of());
         var tasks = new ArrayList<ECOExecutionPlan.TaskSpec>();
@@ -74,6 +94,20 @@ class ECOExecutionRuntimeTest {
                         new ExecutingCraftingJob.TaskProgress[] {shared, shared, last}),
                 shared,
                 last);
+    }
+
+    private static IPatternDetails pattern() {
+        return (IPatternDetails) Proxy.newProxyInstance(
+                IPatternDetails.class.getClassLoader(),
+                new Class<?>[] {IPatternDetails.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getInputs" -> new IPatternDetails.IInput[0];
+                    case "getOutputs" -> new GenericStack[0];
+                    case "getDefinition" -> null;
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "equals" -> proxy == args[0];
+                    default -> null;
+                });
     }
 
     private static final class TestKey extends appeng.api.stacks.AEKey {

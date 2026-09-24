@@ -6,8 +6,11 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ICraftingInventory;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import com.google.common.collect.MapMaker;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -17,6 +20,9 @@ import java.util.Set;
  * AE2's template selection and input validation while extraction remains virtual.
  */
 final class ECOCraftingInputPreview implements ICraftingInventory {
+    private static final Map<IPatternDetails, PatternMetadata> METADATA_BY_PATTERN =
+            new MapMaker().weakKeys().makeMap();
+
     private final ICraftingInventory source;
     private final KeyCounter removed = new KeyCounter();
     private final Set<AEKey> primaryInputs;
@@ -33,9 +39,23 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern) {
         this.source = source;
-        this.primaryInputs = new HashSet<>();
-        this.possibleInputs = new HashSet<>();
-        this.reusableTemplates = new HashSet<>();
+        PatternMetadata metadata = metadata(pattern);
+        this.primaryInputs = metadata.primaryInputs();
+        this.possibleInputs = metadata.possibleInputs();
+        this.reusableTemplates = metadata.reusableTemplates();
+    }
+
+    private static PatternMetadata metadata(IPatternDetails pattern) {
+        long generation = AE2PatternIntrospection.reloadGeneration();
+        return METADATA_BY_PATTERN.compute(pattern, (ignored, cached) ->
+                cached != null && cached.reloadGeneration() == generation
+                        ? cached : buildMetadata(pattern, generation));
+    }
+
+    private static PatternMetadata buildMetadata(IPatternDetails pattern, long generation) {
+        Set<AEKey> primaryInputs = new HashSet<>();
+        Set<AEKey> possibleInputs = new HashSet<>();
+        Set<AEKey> reusableTemplates = new HashSet<>();
         for (var input : pattern.getInputs()) {
             if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
             var possible = input.getPossibleInputs();
@@ -48,11 +68,13 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
                 }
             }
         }
+        return new PatternMetadata(generation, Set.copyOf(primaryInputs),
+                Set.copyOf(possibleInputs), Set.copyOf(reusableTemplates));
     }
 
     private static boolean isReusableTemplate(IPatternDetails.IInput input, AEKey key) {
         try {
-            AEKey remainder = input.getRemainingKey(key);
+            AEKey remainder = ECOCraftingRemainderCache.shared().get(input, key);
             if (key.equals(remainder)) return true;
             if (!(key instanceof AEItemKey item)
                     || !(remainder instanceof AEItemKey returned)
@@ -101,4 +123,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         }
         return List.copyOf(result);
     }
+
+    private record PatternMetadata(long reloadGeneration, Set<AEKey> primaryInputs,
+            Set<AEKey> possibleInputs, Set<AEKey> reusableTemplates) {}
 }

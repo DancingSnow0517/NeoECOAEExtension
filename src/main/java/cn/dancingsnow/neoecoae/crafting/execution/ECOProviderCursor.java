@@ -4,8 +4,9 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingProviderRevision;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +18,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Transient provider traversal only; contains no job progress or material state. */
 final class ECOProviderCursor {
-    private final Map<IPatternDetails, Cursor> cursors = new HashMap<>();
+    private final Map<IPatternDetails, Cursor> cursors = new Object2ObjectOpenHashMap<>();
     private CraftingService service;
     private long revision;
     private long tick;
@@ -82,12 +83,8 @@ final class ECOProviderCursor {
             // Refresh fallback snapshots each tick while preserving the next live provider by identity.
             if (previous != null && !previous.providers.isEmpty()) {
                 var nextProvider = previous.providers.get(previous.next);
-                for (int i = 0; i < snapshot.size(); i++) {
-                    if (snapshot.get(i) == nextProvider) {
-                        cursor.next = i;
-                        break;
-                    }
-                }
+                int nextIndex = cursor.indices.getInt(nextProvider);
+                if (nextIndex >= 0) cursor.next = nextIndex;
             }
             cursors.put(pattern, cursor);
         }
@@ -117,12 +114,8 @@ final class ECOProviderCursor {
         if (cursor == null || cursor.providers.isEmpty()) {
             return;
         }
-        for (int index = 0; index < cursor.providers.size(); index++) {
-            if (cursor.providers.get(index) == provider) {
-                cursor.next = (index + 1) % cursor.providers.size();
-                return;
-            }
-        }
+        int index = cursor.indices.getInt(provider);
+        if (index >= 0) cursor.next = (index + 1) % cursor.providers.size();
     }
 
     void forget(IPatternDetails pattern) {
@@ -137,11 +130,17 @@ final class ECOProviderCursor {
 
     private static final class Cursor {
         final List<ICraftingProvider> providers;
+        final Reference2IntOpenHashMap<ICraftingProvider> indices;
         final long tick;
         int next;
 
         Cursor(List<ICraftingProvider> providers, long tick) {
             this.providers = providers;
+            this.indices = new Reference2IntOpenHashMap<>(providers.size());
+            this.indices.defaultReturnValue(-1);
+            for (int index = 0; index < providers.size(); index++) {
+                this.indices.put(providers.get(index), index);
+            }
             this.tick = tick;
         }
     }
