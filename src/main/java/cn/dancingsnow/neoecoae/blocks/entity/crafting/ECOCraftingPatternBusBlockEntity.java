@@ -1356,12 +1356,14 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private final class EffectivePatternInventory extends BaseInternalInventory {
         @Override
         public int size() {
-            return getPatternSlotCount();
+            // A subclass may expose a wider logical view than this bus's backing AppEng inventory.
+            // Keep this physical slot view within the storage it actually delegates to.
+            return Math.min(Math.max(0, getPatternSlotCount()), inventory.size());
         }
 
         @Override
         public int getSlotLimit(int slot) {
-            return inventory.getSlotLimit(slot);
+            return slot >= 0 && slot < size() ? inventory.getSlotLimit(slot) : 0;
         }
 
         @Override
