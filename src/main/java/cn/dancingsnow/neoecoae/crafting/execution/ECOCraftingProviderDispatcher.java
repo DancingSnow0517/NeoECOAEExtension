@@ -66,6 +66,7 @@ final class ECOCraftingProviderDispatcher {
                     cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(exact), true);
                 if (request.job().suspended) return Result.none();
             }
+            // Processing providers get the CPU-owned batch attempt before other optional dispatch paths.
             var processingResult = processing.tryDispatch(
                     request, provider, singlePower, energyService, markProviderAttempt);
             if (processingResult != null) {
@@ -74,6 +75,17 @@ final class ECOCraftingProviderDispatcher {
             if (request.job().suspended) return Result.none();
             // Native batch providers already own their one-copy fallback and target recovery.
             if (processing.supports(provider, request.pattern())) continue;
+
+            if (processing.supportsScaledDispatchCached(request, provider)) {
+                var scaledProcessingResult = processing.tryScaledDispatch(
+                        request, provider, singlePower, energyService, markProviderAttempt, normalPush);
+                if (scaledProcessingResult != null) {
+                    return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
+                }
+                if (request.job().suspended) return Result.none();
+                // The ramp includes 1x and same-visit recovery.
+                continue;
+            }
 
             var fastResult = fastPath.tryDispatch(
                     request, provider, singlePower, energyService, diagnostics, markProviderAttempt);
@@ -88,18 +100,6 @@ final class ECOCraftingProviderDispatcher {
             if (parallelResult != null) {
                 return parallelResult;
             }
-
-            if (processing.supportsScaledDispatchCached(request, provider)) {
-                var scaledProcessingResult = processing.tryScaledDispatch(
-                        request, provider, singlePower, energyService, markProviderAttempt, normalPush);
-                if (scaledProcessingResult != null) {
-                    return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
-                }
-                if (request.job().suspended) return Result.none();
-                // This ramp includes 1x and same-visit recovery; do not replay it via ordinary fallback.
-                continue;
-            }
-            if (request.job().suspended) return Result.none();
 
             // A batch is an optional optimization. If it is unavailable, rejected, or dynamically ambiguous,
             // the same provider still receives the normal one-copy fallback.

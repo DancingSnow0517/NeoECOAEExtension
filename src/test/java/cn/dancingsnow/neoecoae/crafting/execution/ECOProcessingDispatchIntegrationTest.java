@@ -18,6 +18,9 @@ import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.helpers.patternprovider.PatternProviderLogic;
+import net.pedroksl.advanced_ae.common.logic.AdvPatternProviderLogic;
+import net.pedroksl.advanced_ae.common.patterns.AdvProcessingPattern;
+import net.pedroksl.advanced_ae.common.patterns.IAdvPatternDetails;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayList;
@@ -109,6 +112,53 @@ class ECOProcessingDispatchIntegrationTest {
         assertEquals(90, f.inventory.list.get(f.key));
         verify(f.energy).injectPower(6, Actionable.MODULATE);
         verify(f.accounting).apply(eq(f.request), argThat(r -> r.acceptedCrafts() == 10), any(), eq(nativeProvider));
+    }
+
+    @Test
+    void advancedProviderAcceptsEcoScaledOrdinaryPattern() {
+        var f = new Fixture();
+        var provider = mock(AdvPatternProviderLogic.class);
+        assertTrue(ECOProcessingPatternDispatcher.supportsScaledDispatch(f.request, provider));
+        f.dispatcher.beginTick(0);
+        var result = f.dispatcher.tryScaledDispatch(f.request, provider, 1, f.energy, ignored -> {},
+                (request, ignored) -> {
+                    assertTrue(List.of(f.request.pattern()).contains(request.pattern()));
+                    assertEquals(request.allowedCrafts(), request.pattern().getOutputs().getFirst().amount());
+                    return true;
+                });
+        assertEquals(16, result.acceptedCrafts());
+    }
+
+    @Test
+    void advancedProcessingPatternRetainsDirectionalContractWhenScaled() throws Exception {
+        var f = new Fixture();
+        var provider = mock(AdvPatternProviderLogic.class);
+        var pattern = mock(AdvProcessingPattern.class);
+        var direction = net.minecraft.core.Direction.NORTH;
+        var directions = new java.util.LinkedHashMap<AEKey, net.minecraft.core.Direction>();
+        directions.put(f.key, direction);
+        when(pattern.getDefinition()).thenReturn(AEItemKey.of(Items.STONE));
+        when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{mock(IPatternDetails.IInput.class)});
+        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(f.key, 1)));
+        when(pattern.supportsPushInputsToExternalInventory()).thenReturn(true);
+        when(pattern.directionalInputsSet()).thenReturn(true);
+        when(pattern.getDirectionMap()).thenReturn(directions);
+        when(pattern.getDirectionSideForInputKey(f.key)).thenReturn(direction);
+        var request = new ECOCraftingDispatchRequest(f.request.job(), f.request.candidate(), pattern,
+                f.request.inputs(), f.request.outputs(), f.request.remainders(), f.request.allowedCrafts(),
+                f.inventory, f.request.level());
+        assertTrue(ECOProcessingPatternDispatcher.supportsScaledDispatch(request, provider));
+        assertTrue(f.dispatcher.supports((ICraftingProvider) mock(thunderboltBatchContract()), pattern));
+        f.dispatcher.beginTick(0);
+        var result = f.dispatcher.tryScaledDispatch(request, provider, 1, f.energy, ignored -> {},
+                (scaled, ignored) -> {
+                    assertTrue(List.of(pattern).contains(scaled.pattern()));
+                    assertInstanceOf(IAdvPatternDetails.class, scaled.pattern());
+                    assertEquals(direction, ((IAdvPatternDetails) scaled.pattern()).getDirectionSideForInputKey(f.key));
+                    assertEquals(scaled.allowedCrafts(), scaled.pattern().getOutputs().getFirst().amount());
+                    return true;
+                });
+        assertEquals(16, result.acceptedCrafts());
     }
 
     @Test

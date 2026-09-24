@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusScaling;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
+import cn.dancingsnow.neoecoae.compat.advanced_ae.ECOAdvancedAEPatternScaling;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +53,7 @@ final class ECOProcessingPatternDispatcher {
     }
     boolean supports(ICraftingProvider provider, @Nullable IPatternDetails pattern) {
         return Contract.forProvider(provider) != null
-                && (pattern == null || ECOProviderPatternIntrospection.unwrap(pattern) instanceof AEProcessingPattern);
+                && (pattern == null || isProcessingPattern(ECOProviderPatternIntrospection.unwrap(pattern)));
     }
 
     @Nullable ECOCraftingDispatchResult tryDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider,
@@ -60,7 +61,7 @@ final class ECOProcessingPatternDispatcher {
         Contract c = Contract.forProvider(provider);
         if (c == null) return null;
         IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
-        if (!(base instanceof AEProcessingPattern)) return null;
+        if (!isProcessingPattern(base)) return null;
         var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
                 request.job().link.getCraftingID(),
                 request.job().finalOutput == null ? null : request.job().finalOutput.what());
@@ -120,7 +121,7 @@ final class ECOProcessingPatternDispatcher {
         if (budget <= 0) return null;
         ProbeState state = states.computeIfAbsent(provider, x -> new Reference2ObjectOpenHashMap<>())
                 .computeIfAbsent(request.pattern(), x -> new ProbeState());
-        long limit = ECOExtendedAEPlusScaling.cap(request.pattern(), Math.min(request.allowedCrafts(), budget));
+        long limit = Math.min(request.allowedCrafts(), budget);
         var ramp = state.beginRun(tick, SCALE_PROBE_INTERVAL_TICKS);
         while (ramp.owned < limit && !provider.isBusy()) {
             long offer = ramp.offer(limit - ramp.owned);
@@ -136,10 +137,13 @@ final class ECOProcessingPatternDispatcher {
                             mark.accept(provider);
                             // Only this external API boundary needs an AE2 pattern-shaped execution view.
                             // The task, plan and accounting retain the original pattern identity.
-                            IPatternDetails scaled = batch.craftCount() == 1 ? batch.identity().originalPattern() :
-                                    java.util.Objects.requireNonNullElse(
-                                        ECOExtendedAEPlusScaling.scale(batch.identity().originalPattern(), batch.craftCount()),
-                                        new ScaledProcessingPattern(batch.identity().originalPattern(), batch.craftCount()));
+                            IPatternDetails original = batch.identity().originalPattern();
+                            IPatternDetails scaled = batch.craftCount() == 1 ? original
+                                    : ECOAdvancedAEPatternScaling.isAdvancedPattern(original)
+                                    ? ECOAdvancedAEPatternScaling.scale(original, batch.craftCount())
+                                    : java.util.Objects.requireNonNullElse(
+                                            ECOExtendedAEPlusScaling.scale(original, batch.craftCount()),
+                                            new ScaledProcessingPattern(original, batch.craftCount()));
                             var scaledRequest = new ECOCraftingDispatchRequest(request.job(), request.candidate(), scaled,
                                     batch.inputCounters(), batch.outputCounter(), batch.remainderCounter(),
                                     batch.craftCount(), request.inventory(), request.level());
@@ -176,12 +180,17 @@ final class ECOProcessingPatternDispatcher {
     }
 
     private static boolean fullyInserted(ICraftingProvider provider) {
+        if (ECOAdvancedAEPatternScaling.isProvider(provider)) return !provider.isBusy();
         Object logic = providerLogic(provider);
         return logic instanceof PatternProviderLogicAccessor accessor && accessor.neoecoae$getSendList().isEmpty();
     }
 
+    private static boolean isProcessingPattern(Object pattern) {
+        return pattern instanceof AEProcessingPattern || ECOAdvancedAEPatternScaling.isAdvancedPattern(pattern);
+    }
+
     private static Object providerLogic(ICraftingProvider provider) {
-        if (provider instanceof PatternProviderLogic) return provider;
+        if (provider instanceof PatternProviderLogic || ECOAdvancedAEPatternScaling.isProvider(provider)) return provider;
         try {
             return provider.getClass().getMethod("getLogic").invoke(provider);
         } catch (ReflectiveOperationException | RuntimeException unavailable) {
@@ -197,17 +206,25 @@ final class ECOProcessingPatternDispatcher {
         if (Contract.forProvider(provider) != null) return false;
         // A successful push can still own overflow. Require a live observation of AE2's send buffer.
         Object providerLogic = providerLogic(provider);
-        if (!(providerLogic instanceof PatternProviderLogic logic)
-                || !(providerLogic instanceof PatternProviderLogicAccessor)) return false;
+        boolean ae2Logic = providerLogic instanceof PatternProviderLogic
+                && providerLogic instanceof PatternProviderLogicAccessor;
+        boolean advancedLogic = ECOAdvancedAEPatternScaling.isProvider(providerLogic);
+        if (!ae2Logic && !advancedLogic) return false;
         IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
-        if (!(base instanceof AEProcessingPattern) || base != request.pattern() || request.remainders().size() != 0
+        if (!isProcessingPattern(base)
+                || (ECOAdvancedAEPatternScaling.isAdvancedPattern(base) && !advancedLogic)
+                || base != request.pattern() || request.remainders().size() != 0
                 || request.pattern().getInputs().length != 1
                 || request.pattern().getOutputs().isEmpty()
                 || !request.pattern().supportsPushInputsToExternalInventory()) return false;
         try {
             // EAEP checks input presence rather than quantity. Scaling preserves the input keys,
             // and every offer still passes through the provider's own pushPattern blocking check.
-            if (logic.isBlocking() && !ECOExtendedAEPlusBlocking.isEnabled(logic.getConfigManager())) return false;
+            boolean blocking = ae2Logic ? ((PatternProviderLogic) providerLogic).isBlocking()
+                    : ECOAdvancedAEPatternScaling.isBlocking(providerLogic);
+            var config = ae2Logic ? ((PatternProviderLogic) providerLogic).getConfigManager()
+                    : ECOAdvancedAEPatternScaling.configManager(providerLogic);
+            if (blocking && (config == null || !ECOExtendedAEPlusBlocking.isEnabled(config))) return false;
         } catch (RuntimeException unavailable) {
             return false;
         }
