@@ -13,7 +13,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialSource;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -97,22 +96,22 @@ public final class SpecialPatternResolver {
             PlannerAmount times) throws InterruptedException {
         PlannerAmount uses = choice.amountPerPattern().multiply(times);
         ItemStack template = ((AEItemKey) choice.key()).toStack(1);
-        List<Map.Entry<AEKey, PlannerAmount>> available = new ArrayList<>(state.stored.asMap().entrySet());
-        for (var entry : available) {
+        List<AEKey> available = state.stored.keysSnapshot();
+        for (AEKey storedKey : available) {
             if (uses.isZero()) break;
-            if (!(entry.getKey() instanceof AEItemKey itemKey)) continue;
+            if (!(storedKey instanceof AEItemKey itemKey)) continue;
             ItemStack candidate = itemKey.toStack(1);
             if (candidate.isEmpty() || !candidate.isDamageableItem()
                     || !ItemStack.isSameItem(template, candidate)) continue;
             int capacity = durabilityUsesBeforeBreak(
                 candidate.getDamageValue(), choice.damagePerUse(), candidate.getMaxDamage());
             if (capacity <= 0) continue;
-            PlannerAmount tools = state.stored.available(entry.getKey(), requiredTools(uses, capacity));
+            PlannerAmount tools = state.stored.available(storedKey, requiredTools(uses, capacity));
             if (tools.signum() <= 0) continue;
-            state.stored.remove(entry.getKey(), tools);
-            state.used.add(entry.getKey(), tools);
+            state.stored.remove(storedKey, tools);
+            state.used.add(storedKey, tools);
             MaterialDemand demand = inputDemand(owner, choice.key(), tools);
-            state.provenance.allocate(demand, entry.getKey(), MaterialSource.Stock.INSTANCE, tools);
+            state.provenance.allocate(demand, storedKey, MaterialSource.Stock.INSTANCE, tools);
             uses = uses.subtract(tools.multiply(capacity)).max(PlannerAmount.ZERO);
         }
         if (uses.isZero()) return;
@@ -292,12 +291,12 @@ public final class SpecialPatternResolver {
         }
         PlannerAmount remaining = requested;
         PlannerAmount consumed = PlannerAmount.ZERO;
-        for (var entry : new ArrayList<>(state.stored.asMap().entrySet())) {
-            if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
+        for (AEKey storedKey : state.stored.keysSnapshot()) {
+            if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
-            PlannerAmount take = state.stored.available(entry.getKey(), remaining);
+            PlannerAmount take = state.stored.available(storedKey, remaining);
             if (take.signum() <= 0) continue;
-            consumeExact(demand, entry.getKey(), take);
+            consumeExact(demand, storedKey, take);
             consumed = consumed.add(take);
             remaining = remaining.subtract(take);
         }

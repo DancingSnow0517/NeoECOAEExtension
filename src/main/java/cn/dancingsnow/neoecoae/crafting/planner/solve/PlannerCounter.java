@@ -61,6 +61,15 @@ final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> 
         return Collections.unmodifiableMap(values);
     }
 
+    /**
+     * Stable keys for loops that consume this counter. Fastutil entries refer to table slots and become
+     * invalid when removal shifts or rehashes the table; copying the entry list does not detach them.
+     * Read quantities through available/get at the time of consumption instead.
+     */
+    java.util.List<AEKey> keysSnapshot() {
+        return java.util.List.copyOf(values.keySet());
+    }
+
     PlannerCounter copy() {
         PlannerCounter copy = new PlannerCounter();
         copy.values.putAll(values);

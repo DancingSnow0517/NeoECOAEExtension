@@ -366,15 +366,15 @@ public final class AcyclicCraftingSolver {
         }
         PlannerAmount remaining = requested;
         PlannerAmount consumed = PlannerAmount.ZERO;
-        for (var entry : new ArrayList<>(state.stored.asMap().entrySet())) {
-            if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
+        for (AEKey storedKey : state.stored.keysSnapshot()) {
+            if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
-            PlannerAmount take = state.stored.available(entry.getKey(), remaining);
+            PlannerAmount take = state.stored.available(storedKey, remaining);
             if (take.signum() <= 0) continue;
-            state.stored.remove(entry.getKey(), take);
-            addCounter(state.used, entry.getKey(), take);
-            if (demand == null) state.provenance.allocatePending(key, entry.getKey(), MaterialSource.Stock.INSTANCE, take);
-            else state.provenance.allocate(demand, entry.getKey(), MaterialSource.Stock.INSTANCE, take);
+            state.stored.remove(storedKey, take);
+            addCounter(state.used, storedKey, take);
+            if (demand == null) state.provenance.allocatePending(key, storedKey, MaterialSource.Stock.INSTANCE, take);
+            else state.provenance.allocate(demand, storedKey, MaterialSource.Stock.INSTANCE, take);
             consumed = consumed.add(take);
             remaining = remaining.subtract(take);
         }

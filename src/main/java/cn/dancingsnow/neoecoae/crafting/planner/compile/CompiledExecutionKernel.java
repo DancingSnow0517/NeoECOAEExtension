@@ -1,11 +1,13 @@
 package cn.dancingsnow.neoecoae.crafting.planner.compile;
 
 import appeng.api.stacks.AEKey;
+import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Immutable CSR and slot data for exact, statically dispatchable patterns. */
 public final class CompiledExecutionKernel {
@@ -41,17 +43,18 @@ public final class CompiledExecutionKernel {
         }
 
         List<AEKey> keys = new ArrayList<>();
-        Map<AEKey, Integer> ids = new LinkedHashMap<>();
+        Object2IntOpenHashMap<AEKey> ids = new Object2IntOpenHashMap<>();
+        ids.defaultReturnValue(-1);
         for (CompiledPattern pattern : patterns) {
             for (CompiledInput input : pattern.inputs()) intern(ids, keys, input.key());
             for (var output : pattern.grossOutputs()) if (output != null) intern(ids, keys, output.what());
         }
 
-        List<Integer> rowResources = new ArrayList<>();
-        List<Long> netDeltas = new ArrayList<>();
-        List<Long> consumedAmounts = new ArrayList<>();
-        List<Integer> slotResources = new ArrayList<>();
-        List<Long> slotAmounts = new ArrayList<>();
+        IntArrayList rowResources = new IntArrayList();
+        LongArrayList netDeltas = new LongArrayList();
+        LongArrayList consumedAmounts = new LongArrayList();
+        IntArrayList slotResources = new IntArrayList();
+        LongArrayList slotAmounts = new LongArrayList();
         int[] rowOffsets = new int[patterns.size() + 1];
         int[] slotOffsets = new int[patterns.size() + 1];
         boolean[] dispatchable = new boolean[patterns.size()];
@@ -60,39 +63,39 @@ public final class CompiledExecutionKernel {
             int patternId = pattern.id();
             dispatchable[patternId] = pattern.fastSupported();
             if (dispatchable[patternId]) {
-                Map<Integer, Totals> totals = new LinkedHashMap<>();
+                Int2ObjectLinkedOpenHashMap<Totals> totals = new Int2ObjectLinkedOpenHashMap<>();
                 for (CompiledInput input : pattern.inputs()) {
                     long consumed = input.amountPerPattern().longValueExact();
-                    int resourceId = ids.get(input.key());
+                    int resourceId = ids.getInt(input.key());
                     totals.computeIfAbsent(resourceId, ignored -> new Totals()).addConsumed(consumed);
                     slotResources.add(resourceId);
                     slotAmounts.add(consumed);
                 }
                 for (var output : pattern.grossOutputs()) {
                     if (output != null && output.what() != null && output.amount() > 0L) {
-                        totals.computeIfAbsent(ids.get(output.what()), ignored -> new Totals())
+                        totals.computeIfAbsent(ids.getInt(output.what()), ignored -> new Totals())
                             .addProduced(output.amount());
                     }
                 }
-                totals.forEach((resourceId, total) -> {
-                    rowResources.add(resourceId);
+                for (var entries = totals.int2ObjectEntrySet().fastIterator(); entries.hasNext();) {
+                    var entry = entries.next();
+                    Totals total = entry.getValue();
+                    rowResources.add(entry.getIntKey());
                     consumedAmounts.add(total.consumed);
                     netDeltas.add(Math.subtractExact(total.produced, total.consumed));
-                });
+                }
             }
             rowOffsets[patternId + 1] = rowResources.size();
             slotOffsets[patternId + 1] = slotResources.size();
         }
-        return new CompiledExecutionKernel(keys.toArray(AEKey[]::new), rowOffsets, ints(rowResources),
-            longs(netDeltas), longs(consumedAmounts), slotOffsets, ints(slotResources), longs(slotAmounts),
-            dispatchable);
+        return new CompiledExecutionKernel(keys.toArray(AEKey[]::new), rowOffsets, rowResources.toIntArray(),
+            netDeltas.toLongArray(), consumedAmounts.toLongArray(), slotOffsets, slotResources.toIntArray(),
+            slotAmounts.toLongArray(), dispatchable);
     }
 
-    private static void intern(Map<AEKey, Integer> ids, List<AEKey> keys, AEKey key) {
-        if (key != null) ids.computeIfAbsent(key, ignored -> { keys.add(key); return keys.size() - 1; });
+    private static void intern(Object2IntOpenHashMap<AEKey> ids, List<AEKey> keys, AEKey key) {
+        if (key != null) ids.computeIntIfAbsent(key, ignored -> { keys.add(key); return keys.size() - 1; });
     }
-    private static int[] ints(List<Integer> values) { return values.stream().mapToInt(Integer::intValue).toArray(); }
-    private static long[] longs(List<Long> values) { return values.stream().mapToLong(Long::longValue).toArray(); }
 
     public int patternCount() { return dispatchable.length; }
     public int resourceCount() { return keys.length; }

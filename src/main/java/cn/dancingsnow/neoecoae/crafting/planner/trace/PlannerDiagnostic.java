@@ -15,6 +15,10 @@ public record PlannerDiagnostic(Code code, String message) {
         CYCLE_SOLVED,
         /** The cycle needs start-up or boundary material it does not have, proven at the current stock. */
         CYCLE_SEED_REQUIRED,
+        /** A local impossibility proof; other routes or startup suppliers may still succeed. */
+        CYCLE_PROVEN_INFEASIBLE_AT_CURRENT_STOCK,
+        /** Even optimistic availability across every producer cannot reach the requested key. */
+        ROUTE_PROVEN_UNREACHABLE,
         /** The bounded cycle search ran out of budget; explicitly not a missing-items verdict. */
         CYCLE_BUDGET_EXHAUSTED,
         /** Unvisited producer combinations remain; failed attempts do not prove global material shortage. */

@@ -77,6 +77,97 @@ class CycleRouteCompletenessReviewTest {
             d.code() == PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED));
     }
 
+    @Test
+    void switchingGoalRecipeCanBypassASeedlessCycle() throws Exception {
+        var blockedFinish = pattern(0, goal, Map.of(a, 2L), Map.of(goal, 1L));
+        var availableFinish = pattern(1, goal, Map.of(c, 1L), Map.of(goal, 1L));
+        var growth = pattern(2, a, Map.of(a, 1L), Map.of(a, 2L));
+        var network = network(Map.of(goal, List.of(blockedFinish, availableFinish),
+            a, List.of(growth), c, List.of()));
+        var stock = new KeyCounter();
+        stock.add(c, 1L);
+        var graph = graph(network);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var initial = new ActiveRouteSelector().selectWithChoices(graph.source(),
+            Map.of(goal, 0), ECOCancellation.NONE);
+        var alternative = new ActiveRouteSelector().selectWithChoices(graph.source(),
+            Map.of(goal, 1), ECOCancellation.NONE);
+        assertNotEquals(PlanningStatus.SUCCESS,
+            planner.plan(network, initial, stock, 1L, true, ECOCancellation.NONE).status());
+        assertEquals(PlanningStatus.SUCCESS,
+            planner.plan(network, alternative, stock, 1L, true, ECOCancellation.NONE).status());
+
+        var result = planner.planWithCycleFallback(network, graph, initial, stock,
+            PlannerInventorySnapshot.of(stock), 1L, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
+        assertEquals(1L, stock.get(c));
+    }
+
+    @Test
+    void seedlessCycleStopsBeforeEnumeratingHundredsOfUnhelpfulRoutes() throws Exception {
+        var finishes = new ArrayList<CompiledPattern>();
+        for (int index = 0; index < 300; index++) {
+            finishes.add(pattern(index, goal, Map.of(a, 2L, c, (long) index + 1), Map.of(goal, 1L)));
+        }
+        var growth = pattern(300, a, Map.of(a, 1L), Map.of(a, 2L));
+        var network = network(Map.of(goal, finishes, a, List.of(growth), c, List.of()));
+        var stock = new KeyCounter();
+        stock.add(c, 1_000L);
+        var graph = graph(network);
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var solver = new BoundedCycleSolver();
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), (request, cancellation) -> {
+            calls.incrementAndGet();
+            return solver.solve(request, cancellation);
+        });
+        var initial = new ActiveRouteSelector().selectWithChoices(graph.source(), Map.of(goal, 0), ECOCancellation.NONE);
+        var result = planner.planWithCycleFallback(network, graph, initial, stock,
+            PlannerInventorySnapshot.of(stock), 1L, false, ECOCancellation.NONE);
+
+        assertNotEquals(PlanningStatus.SUCCESS, result.status());
+        assertEquals(1, calls.get(), "An unavoidable seedless cycle must not be solved per goal recipe");
+        assertEquals(1L, result.state().missingItems().get(a));
+        assertTrue(result.trace().diagnostics().stream().anyMatch(d ->
+            d.code() == PlannerDiagnostic.Code.ROUTE_PROVEN_UNREACHABLE));
+        assertTrue(result.trace().diagnostics().stream().noneMatch(d ->
+            d.code() == PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED));
+    }
+
+    @Test
+    void unchangedCycleFailureIsReusedAcrossDifferentGoalRecipes() throws Exception {
+        var b = key("B");
+        var finishes = new ArrayList<CompiledPattern>();
+        for (int index = 0; index < 3; index++) {
+            finishes.add(pattern(index, goal, Map.of(a, 2L, c, (long) index + 1), Map.of(goal, 1L)));
+        }
+        var first = pattern(3, a, Map.of(b, 1L), Map.of(a, 1L));
+        var second = pattern(4, b, Map.of(a, 1L), Map.of(b, 1L));
+        var network = network(Map.of(goal, finishes, a, List.of(first), b, List.of(second), c, List.of()));
+        var stock = new KeyCounter();
+        stock.add(a, 1L);
+        stock.add(c, 10L);
+        var graph = graph(network);
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var solver = new BoundedCycleSolver();
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), (request, cancellation) -> {
+            calls.incrementAndGet();
+            return solver.solve(request, cancellation);
+        });
+        var initial = new ActiveRouteSelector().selectWithChoices(graph.source(), Map.of(goal, 0), ECOCancellation.NONE);
+        var result = planner.planWithCycleFallback(network, graph, initial, stock,
+            PlannerInventorySnapshot.of(stock), 1L, false, ECOCancellation.NONE);
+
+        assertNotEquals(PlanningStatus.SUCCESS, result.status());
+        assertEquals(1, calls.get(), "Identical local impossibility must be solved only once");
+        assertTrue(result.trace().diagnostics().stream().noneMatch(d ->
+            d.code() == PlannerDiagnostic.Code.ROUTE_PROVEN_UNREACHABLE
+                || d.code() == PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED));
+        stock.add(a, 1L);
+        var recovered = planner.planWithCycleFallback(network, graph, initial, stock,
+            PlannerInventorySnapshot.of(stock), 1L, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, recovered.status(), recovered.trace().diagnostics().toString());
+    }
+
     private static AEKey key(String name) {
         var key = mock(AEKey.class, name);
         when(key.getAmountPerByte()).thenReturn(8);

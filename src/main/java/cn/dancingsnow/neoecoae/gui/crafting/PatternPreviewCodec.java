@@ -1,9 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.List;
-import java.util.Map;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.ListTag;
@@ -25,7 +24,8 @@ public final class PatternPreviewCodec {
         buf.writeByte((payload.getBoolean("full") ? 1 : 0)
                 | (payload.getBoolean("first") ? 2 : 0) | (payload.getBoolean("last") ? 4 : 0));
         ListTag entries = payload.getList("entries", Tag.TAG_COMPOUND);
-        Map<CompoundTag, Integer> dictionary = new HashMap<>();
+        Object2IntOpenHashMap<CompoundTag> dictionary = new Object2IntOpenHashMap<>();
+        dictionary.defaultReturnValue(-1);
         List<CompoundTag> contents = new ArrayList<>();
         List<Run> runs = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
@@ -41,7 +41,7 @@ public final class PatternPreviewCodec {
             if (!content.getBoolean("diskSlot")) content.remove("diskSlot");
             int id = -1;
             if (!content.isEmpty()) {
-                id = dictionary.computeIfAbsent(content, key -> {
+                id = dictionary.computeIntIfAbsent(content, key -> {
                     contents.add(key);
                     return contents.size() - 1;
                 });

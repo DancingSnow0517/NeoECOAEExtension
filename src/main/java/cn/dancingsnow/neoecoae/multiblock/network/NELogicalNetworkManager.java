@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.network;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationNetworkCluster;
@@ -274,7 +276,7 @@ public final class NELogicalNetworkManager {
         if (network == null) {
             return;
         }
-        List<Integer> assignedFrequencies = new ArrayList<>();
+        IntArrayList assignedFrequencies = new IntArrayList();
         for (NECraftingCluster other : clusters) {
             if (other == cluster || networkObject(other) != network) {
                 continue;
@@ -299,7 +301,7 @@ public final class NELogicalNetworkManager {
         if (network == null) {
             return;
         }
-        List<Integer> assignedFrequencies = new ArrayList<>();
+        IntArrayList assignedFrequencies = new IntArrayList();
         for (NEComputationCluster other : clusters) {
             if (other == cluster || networkObject(other) != network) {
                 continue;

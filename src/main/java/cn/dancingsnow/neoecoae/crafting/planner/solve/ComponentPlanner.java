@@ -144,6 +144,14 @@ public final class ComponentPlanner {
     public Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
                         KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
                         boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+        return plan(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
+                ignorePatternSubstitutions, cancellation, new CycleFailureCache(cycleSolver));
+    }
+
+    private Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
+                         KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
+                         boolean ignorePatternSubstitutions, ECOCancellation cancellation,
+                         CycleFailureCache failures) throws InterruptedException {
         cancellation.checkpoint();
         CondensationGraph activeCondensation;
         AcyclicCraftingSolver.Outcome attempt;
@@ -299,7 +307,7 @@ public final class ComponentPlanner {
                     Map<AEKey, PlannerAmount> solveTargets = additionalOutputTargets(exactRequiredOutputs, stock,
                             network.goal());
                     if (!solveTargets.isEmpty()) {
-                        cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, representable(solveTargets),
+                        cycleResult = failures.solve(new CycleSolveRequest(cycle, representable(solveTargets),
                                         solveTargets, stock, cycle.outgoingDependencies(), cycleSolveOptions(cycle)),
                                 cancellation);
                         cycleStatus = CyclePlanningStatus.of(cycleResult.status());
@@ -319,6 +327,13 @@ public final class ComponentPlanner {
                         }
                         if (cycleStatus == CyclePlanningStatus.UNREPRESENTABLE) amountUnrepresentable = true;
                         trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
+                        if (cycleResult.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT) {
+                            trace.addDiagnostic(new PlannerDiagnostic(
+                                    PlannerDiagnostic.Code.CYCLE_PROVEN_INFEASIBLE_AT_CURRENT_STOCK,
+                                    "Component " + cycle.componentId() + " cannot satisfy " + solveTargets
+                                            + " from current stock " + stock + "; seed shortfall="
+                                            + cycleResult.seedShortfall()));
+                        }
                     }
                     ExternalDemandPlanner.Outcome external = null;
                     boolean externalFailureHandled = false;
@@ -351,7 +366,7 @@ public final class ComponentPlanner {
                             Map<AEKey, Long> projectedStock = mergeReservations(stock, cycleResult.seedShortfall());
                             solveTargets = additionalOutputTargets(exactRequiredOutputs, projectedStock,
                                     network.goal());
-                            CycleSolveResult recovered = cycleSolver.solve(new CycleSolveRequest(cycle,
+                            CycleSolveResult recovered = failures.solve(new CycleSolveRequest(cycle,
                                     representable(solveTargets), solveTargets, projectedStock, cycle.outgoingDependencies(),
                                     cycleSolveOptions(cycle)), cancellation);
                             if (recovered.status() == CycleSolveStatus.SUCCESS) {
@@ -575,9 +590,20 @@ public final class ComponentPlanner {
                         ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
                         PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
                         ECOCancellation cancellation) throws InterruptedException {
+        CycleFailureCache failures = new CycleFailureCache(cycleSolver);
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, true,
-            ignorePatternSubstitutions, cancellation);
+            ignorePatternSubstitutions, cancellation, failures);
         if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
+        // A local seed shortfall does not prove that a different route cannot bypass the cycle.
+        // Stop globally only when even an optimistic closure over ALL producers cannot reach the goal.
+        if (preferred.trace().cycles().stream().anyMatch(cycle -> cycle.solveResult() != null
+                    && cycle.solveResult().status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT)
+                && RouteAvailabilityProof.goalUnreachable(network, snapshot, cancellation)) {
+            preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_PROVEN_UNREACHABLE,
+                    "No producer route can start from the current stock, even with quantities and consumption ignored; "
+                            + "retaining the current route's material deficits"));
+            return preferred;
+        }
         // Normalize every key so semantically identical choices share one invocation-local cache entry.
         Map<AEKey, Integer> baseline = new Object2ObjectLinkedOpenHashMap<>();
         var preferredChoices = new IntArrayList();
@@ -623,8 +649,10 @@ public final class ComponentPlanner {
             for (int i = 0; i < vector.length; i++) choices.put(variableKeys.get(i), vector[i]);
             ActiveRouteSelector.Selection candidate = activeRouteSelector.selectWithChoices(
                 universe.source(), choices, cancellation);
+            // An upstream change may remove or reduce a cycle demand, or free reserved seed.
+            // Deduplicate actual cycle requests after numeric planning, never just changed key names.
             Outcome alternative = plan(network, candidate, inventory, snapshot, amount, true,
-                ignorePatternSubstitutions, cancellation);
+                ignorePatternSubstitutions, cancellation, failures);
             if (alternative.status() == PlanningStatus.SUCCESS) return alternative;
         }
         return preferred;

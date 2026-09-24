@@ -26,6 +26,8 @@ public record CycleSolveDiagnostic(Code code, String message) {
         SEED_ESTIMATE_LOWER_BOUND,
         /** The reachable state space was closed without reaching the target at the current stock. */
         PROVEN_INFEASIBLE_AT_CURRENT_STOCK,
+        /** An identical cycle request already failed within this route-fallback invocation. */
+        PROVEN_FAILURE_REUSED,
         /** The SCC can fire but no firing changes the deficit; it cannot create the required output. */
         NO_PRODUCTIVE_FIRING,
         STATE_BUDGET_EXHAUSTED,

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.cycle;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -148,7 +150,9 @@ public final class BoundedCycleSolver implements CycleSolver {
 
         // A seed deficit in one constructed witness is not a reachability proof. Only return that seed
         // proposal after the original-stock search has actually closed; budget cuts above stay unknown.
-        if (exactRing != null && exactRing.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT) return exactRing;
+        if (exactRing != null && exactRing.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT) {
+            return exactRing.withAdditionalDiagnostics(diagnostics);
+        }
 
         PlannerAmount[] base = first.unblockDeficit;
         if (base == null || isZero(base)) {
@@ -358,8 +362,14 @@ public final class BoundedCycleSolver implements CycleSolver {
                 Arrays.copyOf(changed, changedCount), outputs.toArray(OutputTarget[]::new),
                 unlocks.toArray(UnlockTarget[]::new));
         }
+        // Output-only places cannot enable a transition. Their exact surplus is irrelevant to
+        // reachability, but must remain in the actual marking for witness/material accounting.
+        boolean[] consumedKeys = new boolean[n];
+        for (int p = 0; p < t; p++) {
+            for (int i = 0; i < n; i++) consumedKeys[i] |= cons[p][i] > 0L;
+        }
         return new Model(keys, transitions, cons, prod, suppliable, member, producesRequired, stock, required,
-            metadata);
+            metadata, consumedKeys);
     }
 
     private static @Nullable String unsupportedReason(CompiledPattern pattern) {
@@ -432,7 +442,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         // The same balance proof covers self-growth and two-transition rings, including counts wider than long.
         if (transitionCount < 1) return null;
 
-        List<Integer> memberKeys = new ArrayList<>();
+        IntArrayList memberKeys = new IntArrayList();
         for (int key = 0; key < model.keyCount(); key++) if (model.member[key]) memberKeys.add(key);
         if (memberKeys.size() != transitionCount) return null;
 
@@ -446,7 +456,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         Arrays.fill(producer, -1);
 
         for (int transition = 0; transition < transitionCount; transition++) {
-            for (int key : memberKeys) {
+            for (int memberIndex = 0; memberIndex < memberKeys.size(); memberIndex++) {
+                int key = memberKeys.getInt(memberIndex);
                 if (model.cons[transition][key] > 0L) {
                     if (consumedMember[transition] >= 0 || consumer[key] >= 0) return null;
                     consumedMember[transition] = key;
@@ -461,7 +472,10 @@ public final class BoundedCycleSolver implements CycleSolver {
             if (consumedMember[transition] < 0 || producedMember[transition] < 0
                     || transitionCount > 1 && consumedMember[transition] == producedMember[transition]) return null;
         }
-        for (int key : memberKeys) if (consumer[key] < 0 || producer[key] < 0) return null;
+        for (int memberIndex = 0; memberIndex < memberKeys.size(); memberIndex++) {
+            int key = memberKeys.getInt(memberIndex);
+            if (consumer[key] < 0 || producer[key] < 0) return null;
+        }
 
         // A side key that is both consumed and produced would add another coupled balance equation. Keep this path
         // strict and let the general bounded solver retain responsibility for that structure.
@@ -727,7 +741,7 @@ public final class BoundedCycleSolver implements CycleSolver {
 
         PlannerAmount[] root = Arrays.copyOf(start, n);
         nodes.add(new Node(root, -1, null, 0, deficitScore(model, root)));
-        seen.add(new Marking(root));
+        seen.add(new Marking(model, root));
         if (satisfied(root, model.required)) {
             outcome.kind = Search.Kind.REACHED;
             outcome.witness = List.of();
@@ -757,7 +771,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 }
                 for (long batch : batches) {
                     PlannerAmount[] next = fireBatch(model, node.marking, t, batch);
-                    Marking key = new Marking(next);
+                    Marking key = new Marking(model, next);
                     if (seen.contains(key)) continue;
                     if (seen.size() >= stateBudget) {
                         outcome.stateBudgetExhausted = true;
@@ -798,7 +812,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         PlannerAmount[] marking = Arrays.copyOf(start, start.length);
         Set<Marking> seen = new ObjectOpenHashSet<>();
         List<BatchFiring> witness = new ArrayList<>();
-        seen.add(new Marking(marking));
+        seen.add(new Marking(model, marking));
         CycleHeuristicBudget budget = new CycleHeuristicBudget(maxGreedyCandidateEvaluations,
             maxGreedyLookaheadNodes, Math.min(maxFirings, maxGreedyMacroSteps));
 
@@ -821,7 +835,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 for (long batch : greedyCandidateBatchCounts(model, marking, transition)) {
                     if (!budget.candidate()) return abandonGreedy(accounting, budget);
                     PlannerAmount[] next = fireBatch(model, marking, transition, batch);
-                    if (seen.contains(new Marking(next))) continue;
+                    if (seen.contains(new Marking(model, next))) continue;
                     BatchFiring firing = new BatchFiring(transition, batch);
                     if (satisfied(next, model.required)) {
                         List<BatchFiring> reached = new ArrayList<>(witness);
@@ -838,7 +852,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             if (isStrictSimpleRing(model) && !candidates.isEmpty()) {
                 GreedyCandidate selected = simpleRingCandidate(model, marking, candidates);
                 if (seen.size() >= stateBudget) return abandonGreedy(accounting, budget);
-                seen.add(new Marking(selected.marking()));
+                seen.add(new Marking(model, selected.marking()));
                 witness.add(selected.firing());
                 marking = selected.marking();
                 continue;
@@ -881,7 +895,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             }
             if (bestFiring == null) return abandonGreedy(accounting, budget);
             if (seen.size() >= stateBudget) return abandonGreedy(accounting, budget);
-            seen.add(new Marking(bestMarking));
+            seen.add(new Marking(model, bestMarking));
             witness.add(bestFiring);
             marking = bestMarking;
         }
@@ -1506,7 +1520,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         boolean[] producesRequired,
         PlannerAmount[] stock,
         PlannerAmount[] required,
-        TransitionMetadata[] metadata
+        TransitionMetadata[] metadata,
+        boolean[] consumedKeys
     ) {
         int keyCount() { return keys.size(); }
         int transitionCount() { return transitions.size(); }
@@ -1576,14 +1591,17 @@ public final class BoundedCycleSolver implements CycleSolver {
         int size() { return transitions.length; }
     }
 
-    /** Value wrapper so an exact marking can be deduplicated in a hash set. */
+    /** Reachability equivalence: only output-only places may be capped at their required amount. */
     private static final class Marking {
         private final PlannerAmount[] cells;
         private final int hash;
 
-        private Marking(PlannerAmount[] cells) {
-            this.cells = cells;
-            this.hash = Arrays.hashCode(cells);
+        private Marking(Model model, PlannerAmount[] cells) {
+            this.cells = cells.clone();
+            for (int i = 0; i < cells.length; i++) {
+                if (!model.consumedKeys[i]) this.cells[i] = cells[i].min(model.required[i]);
+            }
+            this.hash = Arrays.hashCode(this.cells);
         }
 
         @Override public boolean equals(Object other) {

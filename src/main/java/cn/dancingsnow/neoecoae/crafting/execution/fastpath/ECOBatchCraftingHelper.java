@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
 import appeng.api.config.Actionable;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.AEKey;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import java.math.BigDecimal;
@@ -88,17 +90,18 @@ public final class ECOBatchCraftingHelper {
 
     private static long maxBatchSizeForStacks(List<GenericStack> perCraft) {
         if (perCraft.size() > MAX_BATCH_STACK_ENTRIES) return 0L;
-        java.util.Map<appeng.api.stacks.AEKey, Long> totals = new java.util.HashMap<>();
+        Object2LongOpenHashMap<AEKey> totals = new Object2LongOpenHashMap<>();
         try {
             for (GenericStack stack : perCraft) {
                 if (stack == null || stack.amount() <= 0L) return 0L;
-                totals.merge(stack.what(), stack.amount(), Math::addExact);
+                totals.put(stack.what(), Math.addExact(totals.getLong(stack.what()), stack.amount()));
             }
         } catch (ArithmeticException overflow) {
             return 0L;
         }
         long max = Long.MAX_VALUE;
-        for (long amount : totals.values()) {
+        for (var amounts = totals.values().iterator(); amounts.hasNext();) {
+            long amount = amounts.nextLong();
             max = Math.min(max, maxBatchSizeForAmount(amount));
             if (max <= 0) {
                 return 0;

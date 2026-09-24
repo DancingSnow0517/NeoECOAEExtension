@@ -12,6 +12,8 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import it.unimi.dsi.fastutil.ints.Int2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -64,7 +66,7 @@ public final class ECOExecutionRuntime {
     private final int[] activeDynamicTasksByPhase;
     private final int[] remainingDependencies;
     private final int[] activeTaskBuffer;
-    private final List<List<Integer>> dependentsByPhase;
+    private final List<IntList> dependentsByPhase;
     // Reused by the dispatch loop; callers consume the snapshot before requesting the next one.
     private final List<DispatchCandidate> candidateBuffer = new ArrayList<>();
     private final List<Object2LongLinkedOpenHashMap<AEKey>> startupSeedRemainingByPhase;
@@ -968,7 +970,8 @@ public final class ECOExecutionRuntime {
             for (AEKey key : releasedSeeds.keySet()) incrementStartupSeedGeneration(key);
             releasedSeeds.clear();
         }
-        for (int dependent : dependentsByPhase.get(phaseIndex)) {
+        for (var dependents = dependentsByPhase.get(phaseIndex).iterator(); dependents.hasNext();) {
+            int dependent = dependents.nextInt();
             if (remainingDependencies[dependent] > 0) remainingDependencies[dependent]--;
         }
     }
@@ -1011,9 +1014,9 @@ public final class ECOExecutionRuntime {
         }
     }
 
-    private static List<List<Integer>> createDependents(ECOExecutionPlan plan) {
-        List<List<Integer>> result = new ArrayList<>(plan.phases().size());
-        for (int i = 0; i < plan.phases().size(); i++) result.add(new ArrayList<>());
+    private static List<IntList> createDependents(ECOExecutionPlan plan) {
+        List<IntList> result = new ArrayList<>(plan.phases().size());
+        for (int i = 0; i < plan.phases().size(); i++) result.add(new IntArrayList());
         return result;
     }
 
@@ -1025,12 +1028,12 @@ public final class ECOExecutionRuntime {
             return result;
         }
 
-        var aliasesByProgress = new IdentityHashMap<ExecutingCraftingJob.TaskProgress, List<Integer>>();
+        var aliasesByProgress = new IdentityHashMap<ExecutingCraftingJob.TaskProgress, IntArrayList>();
         for (int taskId = 0; taskId < progressByTaskId.length; taskId++) {
-            aliasesByProgress.computeIfAbsent(progressByTaskId[taskId], ignored -> new ArrayList<>()).add(taskId);
+            aliasesByProgress.computeIfAbsent(progressByTaskId[taskId], ignored -> new IntArrayList()).add(taskId);
         }
         for (var aliases : aliasesByProgress.values()) {
-            int[] taskIds = aliases.stream().mapToInt(Integer::intValue).toArray();
+            int[] taskIds = aliases.toIntArray();
             for (int taskId : taskIds) result[taskId] = taskIds;
         }
         return result;
@@ -1099,7 +1102,7 @@ public final class ECOExecutionRuntime {
 
     private void restoreLegacyStartupSeeds(Map<AEKey, Long> legacySeeds) {
         for (var entry : legacySeeds.entrySet()) {
-            List<Integer> owners = new ArrayList<>();
+            IntArrayList owners = new IntArrayList();
             long plannedTotal = 0L;
             for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
                 boolean hasLiveWork = progressByTaskId == null ? !completedPhases.get(phaseIndex) : false;
@@ -1127,7 +1130,8 @@ public final class ECOExecutionRuntime {
                 throw new IllegalArgumentException("Legacy startup seed has ambiguous phase ownership");
             }
             long remaining = entry.getValue();
-            for (int phaseIndex : owners) {
+            for (var ownerIterator = owners.iterator(); ownerIterator.hasNext();) {
+                int phaseIndex = ownerIterator.nextInt();
                 long assigned = Math.min(remaining,
                     plan.phases().get(phaseIndex).initialSeed().getOrDefault(entry.getKey(), 0L));
                 startupSeedRemainingByPhase.get(phaseIndex).put(entry.getKey(), assigned);

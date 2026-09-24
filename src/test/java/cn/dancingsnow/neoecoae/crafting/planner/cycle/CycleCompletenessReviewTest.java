@@ -95,6 +95,62 @@ class CycleCompletenessReviewTest {
         }
     }
 
+    @Test
+    void irrelevantByproductCannotKeepAnUnproductiveRingSearching() throws Exception {
+        AEKey a = mock(AEKey.class, "A");
+        AEKey b = mock(AEKey.class, "B");
+        AEKey waste = mock(AEKey.class, "waste");
+        var first = pattern(0, Map.of(a, 1L), Map.of(b, 1L, waste, 1L));
+        var second = pattern(1, Map.of(b, 1L), Map.of(a, 1L));
+        var cycle = new CycleComponent(0, List.of(a, b), List.of(first, second),
+            List.of(), List.of(), List.of());
+        var result = new BoundedCycleSolver().solve(new CycleSolveRequest(cycle,
+            Map.of(a, 2L), Map.of(a, 1L), List.of(),
+            new CycleSolveRequest.PlannerOptions(new CycleSolveLimits(8, 16, 32, 100, 0))),
+            ECOCancellation.NONE);
+
+        assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, result.status(),
+            result.diagnostics().toString());
+        assertTrue(result.metrics().statesVisited() <= 2, result.metrics().toString());
+    }
+
+    @Test
+    void consumedIntermediateMustAccumulateEvenWhenItIsNotARequestedOutput() throws Exception {
+        AEKey a = mock(AEKey.class, "A");
+        AEKey intermediate = mock(AEKey.class, "intermediate");
+        AEKey goal = mock(AEKey.class, "goal");
+        var accumulate = pattern(0, Map.of(a, 1L), Map.of(a, 1L, intermediate, 1L));
+        var finish = pattern(1, Map.of(intermediate, 3L), Map.of(goal, 1L));
+        var cycle = new CycleComponent(0, List.of(a), List.of(accumulate, finish),
+            List.of(), List.of(), List.of());
+        var result = new BoundedCycleSolver().solve(new CycleSolveRequest(cycle,
+            Map.of(goal, 1L), Map.of(a, 1L), List.of(), new CycleSolveRequest.PlannerOptions()),
+            ECOCancellation.NONE);
+
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.diagnostics().toString());
+        assertEquals(3L, result.patternTimes().get(accumulate.details()));
+        assertEquals(1L, result.patternTimes().get(finish.details()));
+        assertEquals(1L, result.deliverableOutputs().get(goal));
+    }
+
+    @Test
+    void outputOnlyTargetKeepsProgressAndFullWitnessSurplus() throws Exception {
+        AEKey a = mock(AEKey.class, "A");
+        AEKey product = mock(AEKey.class, "product");
+        var produce = pattern(0, Map.of(a, 1L), Map.of(a, 1L, product, 2L));
+        var neutral = pattern(1, Map.of(a, 1L), Map.of(a, 1L));
+        var cycle = new CycleComponent(0, List.of(a), List.of(produce, neutral),
+            List.of(), List.of(), List.of());
+        var result = new BoundedCycleSolver().solve(new CycleSolveRequest(cycle,
+            Map.of(product, 5L), Map.of(a, 1L), List.of(), new CycleSolveRequest.PlannerOptions()),
+            ECOCancellation.NONE);
+
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.diagnostics().toString());
+        assertEquals(3L, result.patternTimes().get(produce.details()));
+        assertEquals(6L, result.producedOutputs().get(product));
+        assertEquals(6L, result.deliverableOutputs().get(product));
+    }
+
     private record Inventory(long a, long b, long fuel) {}
 
     private static boolean reachable(Inventory stock, int ca, int cb, int pa, int pb, long ta, long tb) {
