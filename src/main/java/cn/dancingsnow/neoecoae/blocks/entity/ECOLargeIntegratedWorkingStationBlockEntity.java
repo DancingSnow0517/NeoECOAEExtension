@@ -386,6 +386,15 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return Component.translatable(reasons[index].translationKey);
     }
 
+    /** Returns the concrete materials accepted for the batch currently at the head of the work queue. */
+    public List<GenericStack> getCurrentBatchInputs() {
+        PendingBatch batch = pendingBatches.peekFirst();
+        if (batch == null || batch.progress >= MAX_PROCESSING_STEPS) {
+            return List.of();
+        }
+        return List.copyOf(counterEntries(batch.inputTotal));
+    }
+
     private void setPauseReason(PauseReason reason) {
         if (pauseReasonId != reason.ordinal()) {
             pauseReasonId = reason.ordinal();
