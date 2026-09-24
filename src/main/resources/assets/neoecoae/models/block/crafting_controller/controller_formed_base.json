@@ -5,7 +5,8 @@
 	"render_type": "cutout",
 	"texture_size": [128, 128],
 	"textures": {
-		"particle": "neoecoae:block/crafting/casing_formed"
+		"particle": "neoecoae:block/crafting/casing_formed",
+		"base": "neoecoae:block/crafting/controller_formed/controller_formed"
 	},
 	"elements": [
 		{
@@ -14,9 +15,9 @@
 			"to": [32, 32, 32],
 			"shade": false,
 			"faces": {
-				"north": {"uv": [0, 10, 6, 16], "texture": "#base", "forge_data": {"block_light": 15, "sky_light": 15}},
-				"east": {"uv": [6, 10, 10, 16], "texture": "#base", "forge_data": {"block_light": 15, "sky_light": 15}},
-				"south": {"uv": [10, 10, 16, 16], "texture": "#base", "forge_data": {"block_light": 15, "sky_light": 15}}
+				"north": {"uv": [0, 0, 6, 6], "texture": "#light", "forge_data": {"block_light": 15, "sky_light": 15}},
+				"east": {"uv": [6, 0, 10, 6], "texture": "#light", "forge_data": {"block_light": 15, "sky_light": 15}},
+				"south": {"uv": [10, 0, 16, 6], "texture": "#light", "forge_data": {"block_light": 15, "sky_light": 15}}
 			}
 		},
 		{
@@ -62,6 +63,15 @@
 			"faces": {
 				"north": {"uv": [2, 2.25, 2.25, 3.5], "texture": "#base", "cullface": "north"},
 				"west": {"uv": [2.125, 2.25, 2.25, 3.5], "texture": "#base"}
+			}
+		},
+		{
+			"name": "light",
+			"from": [4, 1, 0],
+			"to": [5, 3, 0],
+			"rotation": {"angle": 0, "axis": "y", "origin": [4, 1, 0]},
+			"faces": {
+				"north": {"uv": [11, 13, 12, 15], "texture": "#controller"}
 			}
 		},
 		{
@@ -121,13 +131,14 @@
 		{
 			"name": "monitor",
 			"origin": [8, 8, 8],
+			"scope": 0,
 			"color": 0,
-			"children": [1, 2, 3, 4, 5]
+			"children": [1, 2, 3, 4, 5, 6]
 		},
-		6,
 		7,
 		8,
 		9,
-		10
+		10,
+		11
 	]
 }

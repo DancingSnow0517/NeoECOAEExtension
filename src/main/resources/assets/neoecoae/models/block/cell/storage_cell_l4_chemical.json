@@ -1,4 +1,6 @@
 {
+	"format_version": "1.21.11",
+	"credit": "Made with Blockbench",
 	"render_type": "cutout",
 	"textures": {
 		"level": "neoecoae:block/storage/drive/cell_level",
@@ -24,8 +26,8 @@
 			"from": [3, 6, 0],
 			"to": [5, 12, 2],
 			"faces": {
-				"north": {"uv": [0, 0, 2, 6], "texture": "#type"},
-				"up": {"uv": [0, 2, 2, 0], "rotation": 180, "texture": "#type"}
+				"north": {"uv": [0, 0, 2, 6], "texture": "#type", "forge_data": {"block_light": 15, "sky_light": 15}},
+				"up": {"uv": [0, 2, 2, 0], "rotation": 180, "texture": "#type", "forge_data": {"block_light": 15, "sky_light": 15}}
 			}
 		},
 		{
@@ -34,9 +36,9 @@
 			"to": [6, 4, 2],
 			"shade": false,
 			"faces": {
-				"north": {"uv": [0, 0, 6, 2], "texture": "#level"},
-				"east": {"uv": [4, 0, 6, 2], "texture": "#level"},
-				"west": {"uv": [0, 0, 2, 2], "texture": "#level"}
+				"north": {"uv": [0, 0, 6, 2], "texture": "#level", "forge_data": {"block_light": 15, "sky_light": 15}},
+				"east": {"uv": [4, 0, 6, 2], "texture": "#level", "forge_data": {"block_light": 15, "sky_light": 15}},
+				"west": {"uv": [0, 0, 2, 2], "texture": "#level", "forge_data": {"block_light": 15, "sky_light": 15}}
 			}
 		}
 	]

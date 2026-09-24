@@ -1,8 +1,9 @@
 {
     "parent": "neoecoae:block/crafting_controller/controller_formed_base_mirrored",
     "textures": {
-        "base": "neoecoae:block/crafting/controller_formed/controller_formed_a",
-        "screen": "neoecoae:block/crafting/controller/screen_on_a",
+        "light": "neoecoae:block/crafting/controller_formed/controller_formed_light_a_switch",
+		"screen": "neoecoae:block/crafting/controller/screen_on_a",
+        "controller": "neoecoae:block/crafting/controller/controller_north_a",
         "particle": "neoecoae:block/crafting/controller/controller_side_a"
     }
 }

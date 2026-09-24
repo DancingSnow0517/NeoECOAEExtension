@@ -1,5 +1,5 @@
 {
   "parent": "forge:item/bucket_drip",
-  "fluid": "minecraft:water",
+  "fluid": "neoecoae:cryotheum_solution",
   "loader": "forge:fluid_container"
 }

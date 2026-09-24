@@ -1,72 +1,41 @@
 {
-    "loader": "forge:composite",
-    "parent": "block/block",
-    "textures": {
-        "particle": "neoecoae:block/compute/casing"
-    },
+    "loader":"forge:composite",
+	"parent":"block/block",
+	"textures": {
+		"particle": "neoecoae:block/compute/casing"
+	},
     "children": {
         "base": {
             "parent": "neoecoae:block/computation_controller/controller_formed_base_mirrored",
             "textures": {
-                "base": "neoecoae:block/compute/controller_formed/controller_formed_b",
-                "screen": "neoecoae:block/compute/controller/screen_on_b"
+                "light": "neoecoae:block/compute/controller_formed/controller_formed_light_b_switch",
+		        "screen": "neoecoae:block/compute/controller/screen_on_b"
             }
         },
         "glass": {
             "render_type": "translucent",
-            "textures": {
-                "base": "neoecoae:block/compute/controller_formed/controller_formed_b"
-            },
-            "elements": [
-                {
-                    "name": "glass_a",
-                    "from": [
-                        21,
-                        -12,
-                        1
-                    ],
-                    "to": [
-                        27,
-                        28,
-                        1
-                    ],
-                    "faces": {
-                        "north": {
-                            "uv": [
-                                5.375,
-                                0.5,
-                                4.625,
-                                5.5
-                            ],
-                            "texture": "#base"
-                        }
-                    }
-                },
-                {
-                    "name": "glass_b",
-                    "from": [
-                        27,
-                        6,
-                        1
-                    ],
-                    "to": [
-                        31,
-                        10,
-                        1
-                    ],
-                    "faces": {
-                        "north": {
-                            "uv": [
-                                5.875,
-                                2.75,
-                                5.375,
-                                3.25
-                            ],
-                            "texture": "#base"
-                        }
-                    }
+	        "textures": {
+		        "base": "neoecoae:block/compute/controller_formed/controller_formed_switch"
+	        },
+	        "elements": [
+		    {
+                "name": "glass_a",
+                "from": [21, -12, 1],
+                "to": [27, 28, 1],
+                "rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 0]},
+                "faces": {
+                    "north": {"uv": [1.375, 0.5, 0.625, 5.5], "texture": "#base"}
                 }
-            ]
+            },
+            {
+                "name": "glass_b",
+                "from": [27, 6, 1],
+                "to": [31, 10, 1],
+                "rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 0]},
+                "faces": {
+                    "north": {"uv": [0.625, 2.75, 0.125, 3.25], "texture": "#base"}
+                }
+            }]
         }
     }
 }

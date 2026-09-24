@@ -5,9 +5,9 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 import com.tterrag.registrate.util.entry.FluidEntry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.client.model.generators.loaders.DynamicFluidContainerModelBuilder;
 import net.minecraftforge.fluids.ForgeFlowingFluid;
+import net.minecraftforge.registries.ForgeRegistries;
 
 public class NEFluids {
     public static final FluidEntry<ForgeFlowingFluid.Flowing> CRYOTHEUM_SOLUTION = REGISTRATE
@@ -23,7 +23,8 @@ public class NEFluids {
             .model((ctx, prov) -> {
                 prov.withExistingParent(ctx.getName(), ResourceLocation.parse("forge:item/bucket_drip"))
                         .customLoader((builder, helper) -> DynamicFluidContainerModelBuilder.begin(builder, helper)
-                                .fluid(Fluids.WATER));
+                                .fluid(ForgeRegistries.FLUIDS.getValue(
+                                        ResourceLocation.parse("neoecoae:cryotheum_solution"))));
             })
             .build()
             .register();

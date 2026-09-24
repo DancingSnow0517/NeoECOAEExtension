@@ -1,0 +1,7 @@
+{
+  "parent": "neoecoae:block/cell/storage_cell_l9_quantum_omni",
+  "textures": {
+    "particle": "neoecoae:block/storage/drive/cell_housing",
+    "base": "neoecoae:block/storage/drive/cell_housing"
+  }
+}
