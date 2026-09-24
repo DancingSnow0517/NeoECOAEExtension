@@ -69,7 +69,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant,
             this::isFuzzyPlanningItem);
         exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant,
-            this::isFuzzyPlanningItem);
+            this::isMissingStartupSeed, this::isFuzzyPlanningItem);
         cycleItems = new ECOCycleItemListRenderer(this, 237, 27);
         scrollbar = widgets.addScrollBar("scrollbar", Scrollbar.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", Scrollbar.BIG);
@@ -121,9 +121,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         Component cpuDetails = Component.empty();
         Component planSummary = Component.translatable("gui.neoecoae.crafting_report.calculating")
             .withColor(AE2_TEXT_DARK);
+        Component largeCycleSummary = Component.empty();
         if (plan == null && showLargeCycleIndicator()) {
-            planSummary = Component.translatable("gui.neoecoae.crafting_report.solving_large_cycle")
+            largeCycleSummary = Component.translatable("gui.neoecoae.crafting_report.solving_large_cycle")
                 .withColor(AE2_TEXT_DARK);
+            planSummary = Component.empty();
         }
         if (plan != null) {
             String usedBytes = ReadableNumberConverter.format(plan.getUsedBytes(), 4);
@@ -207,7 +209,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             start.active = false;
             graph.active = false;
             setTextContent("plan_summary", Component.translatable("gui.neoecoae.crafting_report.loading_details"));
+            largeCycleSummary = Component.empty();
         }
+        setTextContent("large_cycle_summary", largeCycleSummary);
         String startGate = start.active ? "READY"
             : plan == null ? "WAITING_FOR_PLAN"
             : (Object) menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()
@@ -429,6 +433,16 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private boolean isCycleParticipant(AEKey key) {
         return (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && mode.neoecoae$getCycleItems().stream().anyMatch(entry -> entry.what().equals(key));
+    }
+
+    private boolean isMissingStartupSeed(AEKey key) {
+        return (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && mode.neoecoae$getCycleItems().stream()
+                .filter(entry -> entry.what().equals(key))
+                .anyMatch(entry -> entry.exactMissing().signum() > 0
+                    && entry.solveStatus() == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
+                    && entry.exactSingleNetOutput().signum() == 0
+                    && entry.exactTotalNetOutput().signum() == 0);
     }
 
     private boolean isFuzzyPlanningItem(AEKey key) {

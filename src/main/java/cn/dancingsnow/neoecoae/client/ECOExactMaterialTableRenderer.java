@@ -46,12 +46,15 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     private static final int CYCLE_OVERLAY = 0x1AB86BFF;
     private static final int FUZZY_PLANNING_OVERLAY = 0x264CAF70;
     private final Predicate<AEKey> cycleParticipant;
+    private final Predicate<AEKey> missingStartupSeed;
     private final Predicate<AEKey> fuzzyPlanningItem;
 
     ECOExactMaterialTableRenderer(AEBaseScreen<?> screen, int x, int y,
-            Predicate<AEKey> cycleParticipant, Predicate<AEKey> fuzzyPlanningItem) {
+            Predicate<AEKey> cycleParticipant, Predicate<AEKey> missingStartupSeed,
+            Predicate<AEKey> fuzzyPlanningItem) {
         super(screen, x, y, 7);
         this.cycleParticipant = cycleParticipant;
+        this.missingStartupSeed = missingStartupSeed;
         this.fuzzyPlanningItem = fuzzyPlanningItem;
     }
 
@@ -65,7 +68,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             lines.add(GuiText.FromStorage.text(formatAmount(entry.key(), stored, AmountFormat.SLOT)));
         }
         if (missing.signum() > 0) {
-            lines.add(entry.status() == CraftingGraphSnapshot.MaterialStatus.CYCLE
+            lines.add(isMissingStartupSeed(entry.key())
                 ? Component.literal("缺少启动种子数量：" + formatAmount(entry.key(), missing, AmountFormat.SLOT))
                 : GuiText.Missing.text(formatAmount(entry.key(), missing, AmountFormat.SLOT)));
         }
@@ -93,7 +96,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             lines.add(GuiText.FromStorage.text(formatAmount(entry.key(), stored, AmountFormat.FULL)));
         }
         if (missing.signum() > 0) {
-            lines.add(entry.status() == CraftingGraphSnapshot.MaterialStatus.CYCLE
+            lines.add(isMissingStartupSeed(entry.key())
                 ? Component.literal("缺少启动种子数量：" + formatAmount(entry.key(), missing, AmountFormat.FULL))
                 : GuiText.Missing.text(formatAmount(entry.key(), missing, AmountFormat.FULL)));
         }
@@ -129,6 +132,10 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             || node.fromInventoryBigInteger().signum() > 0
             || node.toCraftBigInteger().signum() > 0
             || node.missingBigInteger().signum() > 0;
+    }
+
+    private boolean isMissingStartupSeed(AEKey key) {
+        return missingStartupSeed != null && missingStartupSeed.test(key);
     }
 
     private static String formatAmount(AEKey key, BigInteger amount, AmountFormat format) {
