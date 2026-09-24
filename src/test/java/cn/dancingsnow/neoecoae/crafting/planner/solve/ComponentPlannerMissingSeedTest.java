@@ -28,6 +28,9 @@ import cn.dancingsnow.neoecoae.crafting.planner.bridge.AE2CraftingPlanBridge;
 
 
 import cn.dancingsnow.neoecoae.crafting.planner.result.CycleExecutionDisposition;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
+import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand;
+import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialSource;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis;
 import java.util.List;
@@ -127,6 +130,49 @@ class ComponentPlannerMissingSeedTest {
             outcome.status(), outcome.trace().diagnostics().toString());
         assertTrue(outcome.state().missingItems().isEmpty());
         assertEquals(28L, outcome.state().patternTimes().get(growth.details()));
+    }
+
+    @Test
+    void delegatedCycleCoveredByStockDoesNotLeaveAnUnscheduledCycleSupplier() throws Exception {
+        AEKey product = mock(AEKey.class);
+        AEKey dust = mock(AEKey.class);
+        AEKey fuel = mock(AEKey.class);
+        for (AEKey key : List.of(product, dust, fuel)) when(key.getAmountPerByte()).thenReturn(8);
+        var productGrowth = staticPattern(0, product, 2L,
+            new GenericStack(product, 1L), new GenericStack(dust, 1L));
+        var dustGrowth = staticPattern(1, dust, 2L,
+            new GenericStack(dust, 1L), new GenericStack(fuel, 1L));
+        var network = new CompiledNetwork(product,
+            Map.of(product, List.of(productGrowth), dust, List.of(dustGrowth), fuel, List.of()),
+            Set.of(), 2, 4);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = new KeyCounter();
+        stock.add(product, 1L);
+        stock.add(dust, 3L);
+
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, stock, 2L, true, ECOCancellation.NONE);
+
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        var dustComponent = outcome.components().stream()
+            .filter(component -> component.requiredOutputs().containsKey(dust))
+            .findFirst().orElseThrow();
+        assertEquals(CycleExecutionDisposition.STOCK_SATISFIED, dustComponent.cycleDisposition());
+        var provenance = outcome.state().executionProvenance();
+        provenance.requireComplete();
+        assertTrue(provenance.allocations().stream().anyMatch(allocation -> {
+            var demand = provenance.demands().get(allocation.demandId());
+            return demand.kind() == MaterialDemand.Kind.CYCLE_BOUNDARY && demand.key().equals(dust)
+                && allocation.source() == MaterialSource.Stock.INSTANCE;
+        }));
+        assertTrue(provenance.allocations().stream().noneMatch(allocation ->
+            allocation.source().equals(new MaterialSource.CycleOutput(dustComponent.componentId()))));
+        var schedule = ECOExecutionSchedule.from(outcome.components(), outcome.executionComponentOrder(),
+            outcome.state().patternTimes(), provenance);
+        assertTrue(schedule.phases().stream().noneMatch(phase -> phase.componentId() == dustComponent.componentId()));
     }
 
     @Test

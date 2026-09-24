@@ -188,10 +188,15 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                 };
                 if (demand.kind() == cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand.Kind.GOAL)
                     continue;
+                MaterialSource source = allocation.source();
                 if (consumer == null) {
+                    // A cycle fulfilled entirely by reserved stock has no executable phase or dependency.
+                    if (demand.kind() == cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand.Kind.CYCLE_BOUNDARY
+                            && (source instanceof MaterialSource.Stock || source instanceof MaterialSource.Emitted)) {
+                        continue;
+                    }
                     throw new IllegalStateException("Attributed consumer has no phase: demand=" + demand);
                 }
-                MaterialSource source = allocation.source();
                 Integer producer;
                 if (source instanceof MaterialSource.PatternOutput output) {
                     producer = matchingPhase(output.pattern(), phaseOfPattern);

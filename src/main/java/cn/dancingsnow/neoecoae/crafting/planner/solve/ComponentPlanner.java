@@ -483,6 +483,11 @@ public final class ComponentPlanner {
                             default -> PlanTraceNode.Selection.UNSUPPORTED;
                         },
                         cycleStatus.name()));
+                if (disposition == CycleExecutionDisposition.STOCK_SATISFIED
+                        || (disposition == CycleExecutionDisposition.NOT_REQUIRED
+                                && cycleStatus == CyclePlanningStatus.NOT_REQUIRED)) {
+                    acyclic.state().provenance.resolveStockSatisfiedCycle(cycle.componentId());
+                }
                 componentResults.add(new ComponentPlanningResult(cycle.componentId(),
                         ComponentPlanningResult.Type.CYCLIC,
                         componentStatus(exactRequiredOutputs, cycleStatus, disposition),

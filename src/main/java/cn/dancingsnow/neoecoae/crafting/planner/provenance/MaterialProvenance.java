@@ -98,6 +98,25 @@ public final class MaterialProvenance {
         }
     }
 
+    /** A delegated cycle that needs no firings supplies its output from reserved stock. */
+    public void resolveStockSatisfiedCycle(int componentId) {
+        MaterialSource.CycleOutput cycleOutput = new MaterialSource.CycleOutput(componentId);
+        for (int i = 0; i < allocations.size(); i++) {
+            SupplyAllocation allocation = allocations.get(i);
+            if (!cycleOutput.equals(allocation.source())) continue;
+            Map<MaterialSource, PlannerAmount> sources = suppliers.get(allocation.material());
+            PlannerAmount attributed = sources == null ? null : sources.get(cycleOutput);
+            if (attributed == null || attributed.compareTo(allocation.amount()) < 0) {
+                throw new IllegalStateException("Cycle output attribution exceeds its source total: " + allocation);
+            }
+            PlannerAmount left = attributed.subtract(allocation.amount());
+            if (left.isZero()) sources.remove(cycleOutput); else sources.put(cycleOutput, left);
+            sources.merge(MaterialSource.Stock.INSTANCE, allocation.amount(), PlannerAmount::add);
+            allocations.set(i, new SupplyAllocation(allocation.demandId(), allocation.material(),
+                MaterialSource.Stock.INSTANCE, allocation.amount()));
+        }
+    }
+
     /** The material may be a concrete component-sensitive alternative to the demand's key. */
     public void allocate(MaterialDemand demand, AEKey material, MaterialSource source, PlannerAmount amount) {
         SupplyAllocation allocation = new SupplyAllocation(demand.id(), material, source, amount);

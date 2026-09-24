@@ -5,7 +5,6 @@ import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.stacks.GenericStack;
-import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOCraftingCalculationSettings;
@@ -104,7 +103,7 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         }
 
         ECOPlannerOptions options = ecoRequest.neoecoae$getPlannerOptions();
-        KeyCounter inventory = grid.getStorageService().getInventory().getAvailableStacks();
+        var inventory = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
         this.neoecoae$plannerSession = NEOECOAE_DAG_PLANNER.createSession(
             grid.getCraftingService(), output.what(), inventory,
             options.cyclePlanningEnabled(),
