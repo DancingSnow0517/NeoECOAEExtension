@@ -1,7 +1,10 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMaps;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.BitSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,8 +47,8 @@ final class ECOCraftingTaskScheduler {
     private final ECODispatchStallDiagnostics stallDiagnostics = new ECODispatchStallDiagnostics();
     private final ECOCraftingProviderDispatcher providerDispatcher;
     private final List<ECOExecutionRuntime.DispatchCandidate> nativeCandidateBuffer = new java.util.ArrayList<>();
-    private final Map<FailedCandidateKey, InputAvailabilityEpoch> missingInputFailures = new HashMap<>();
-    private final Map<AEKey, Long> physicalInsertGenerations = new HashMap<>();
+    private final Map<FailedCandidateKey, InputAvailabilityEpoch> missingInputFailures = new Object2ObjectOpenHashMap<>();
+    private final Object2LongMap<AEKey> physicalInsertGenerations = new Object2LongOpenHashMap<>();
 
     private long physicalInsertGeneration;
     private IPatternDetails resumeDispatchPattern;
@@ -109,7 +112,7 @@ final class ECOCraftingTaskScheduler {
 
     void recordPhysicalInsert(AEKey key) {
         if (key == null) return;
-        long current = physicalInsertGenerations.getOrDefault(key, 0L);
+        long current = physicalInsertGenerations.getLong(key);
         if (current != Long.MAX_VALUE) physicalInsertGenerations.put(key, current + 1L);
         if (physicalInsertGeneration != Long.MAX_VALUE) physicalInsertGeneration++;
     }
@@ -388,16 +391,20 @@ final class ECOCraftingTaskScheduler {
 
     private InputAvailabilityEpoch captureAvailabilityEpoch(Set<AEKey> dependencyKeys,
             ECOExecutionRuntime runtime, boolean precise) {
-        Map<AEKey, Long> physical = new HashMap<>();
-        Map<AEKey, Long> startupSeeds = new HashMap<>();
-        if (precise) {
-            for (AEKey key : dependencyKeys) {
-                physical.put(key, physicalInsertGenerations.getOrDefault(key, 0L));
-                startupSeeds.put(key, runtime.startupSeedGeneration(key));
-            }
+        if (!precise) {
+            return new InputAvailabilityEpoch(false, physicalInsertGeneration, runtime.startupSeedGeneration(),
+                    Object2LongMaps.emptyMap(), Object2LongMaps.emptyMap(), AE2PatternIntrospection.reloadGeneration());
         }
+        Object2LongMap<AEKey> physical = new Object2LongOpenHashMap<>(dependencyKeys.size());
+        Object2LongMap<AEKey> startupSeeds = new Object2LongOpenHashMap<>(dependencyKeys.size());
+        for (AEKey key : dependencyKeys) {
+            physical.put(key, physicalInsertGenerations.getLong(key));
+            startupSeeds.put(key, runtime.startupSeedGeneration(key));
+        }
+        // These snapshots are privately owned; wrap without copying back into boxed JDK maps.
         return new InputAvailabilityEpoch(precise, physicalInsertGeneration, runtime.startupSeedGeneration(),
-                Map.copyOf(physical), Map.copyOf(startupSeeds), AE2PatternIntrospection.reloadGeneration());
+                Object2LongMaps.unmodifiable(physical), Object2LongMaps.unmodifiable(startupSeeds),
+                AE2PatternIntrospection.reloadGeneration());
     }
 
     private boolean availabilityUnchanged(InputAvailabilityEpoch previous, Set<AEKey> dependencyKeys,
@@ -409,9 +416,9 @@ final class ECOCraftingTaskScheduler {
                     && previous.globalStartupSeedGeneration() == runtime.startupSeedGeneration();
         }
         for (AEKey key : dependencyKeys) {
-            if (previous.physicalInsertGenerations().getOrDefault(key, 0L)
-                    != physicalInsertGenerations.getOrDefault(key, 0L)
-                    || previous.startupSeedGenerations().getOrDefault(key, 0L)
+            if (previous.physicalInsertGenerations().getLong(key)
+                    != physicalInsertGenerations.getLong(key)
+                    || previous.startupSeedGenerations().getLong(key)
                     != runtime.startupSeedGeneration(key)) return false;
         }
         return true;
@@ -425,7 +432,7 @@ final class ECOCraftingTaskScheduler {
     }
 
     private record InputAvailabilityEpoch(boolean precise, long globalPhysicalInsertGeneration,
-            long globalStartupSeedGeneration, Map<AEKey, Long> physicalInsertGenerations,
-            Map<AEKey, Long> startupSeedGenerations, long reloadGeneration) {
+            long globalStartupSeedGeneration, Object2LongMap<AEKey> physicalInsertGenerations,
+            Object2LongMap<AEKey> startupSeedGenerations, long reloadGeneration) {
     }
 }

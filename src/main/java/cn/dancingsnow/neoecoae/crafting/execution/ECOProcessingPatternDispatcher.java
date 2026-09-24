@@ -18,7 +18,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusScaling;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
-import java.util.IdentityHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -33,8 +33,8 @@ final class ECOProcessingPatternDispatcher {
     private final ECOCraftingCPULogic owner;
     private final ECOCraftingEnergyTransaction energy;
     private final ECOCraftingDispatchAccounting accounting;
-    private final Map<ICraftingProvider, IdentityHashMap<IPatternDetails, ProbeState>> states = new IdentityHashMap<>();
-    private final Map<ICraftingProvider, IdentityHashMap<IPatternDetails, Eligibility>> eligibility = new IdentityHashMap<>();
+    private final Map<ICraftingProvider, Reference2ObjectOpenHashMap<IPatternDetails, ProbeState>> states = new Reference2ObjectOpenHashMap<>();
+    private final Map<ICraftingProvider, Reference2ObjectOpenHashMap<IPatternDetails, Eligibility>> eligibility = new Reference2ObjectOpenHashMap<>();
     private long tick = Long.MIN_VALUE, used;
 
     ECOProcessingPatternDispatcher(ECOCraftingCPULogic owner, ECOCraftingEnergyTransaction energy,
@@ -42,8 +42,8 @@ final class ECOProcessingPatternDispatcher {
     void beginTick(long gameTick) { if (tick != gameTick) { tick = gameTick; used = 0; } }
     void reset() { states.clear(); eligibility.clear(); tick = Long.MIN_VALUE; used = 0; }
     boolean supportsScaledDispatchCached(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
-        IdentityHashMap<IPatternDetails, Eligibility> byPattern = eligibility.computeIfAbsent(provider,
-                ignored -> new IdentityHashMap<>());
+        Reference2ObjectOpenHashMap<IPatternDetails, Eligibility> byPattern = eligibility.computeIfAbsent(provider,
+                ignored -> new Reference2ObjectOpenHashMap<>());
         Eligibility cached = byPattern.get(request.pattern());
         if (cached != null && tick - cached.tick() < ELIGIBILITY_CACHE_TICKS) return cached.supported();
         boolean supported = supportsScaledDispatch(request, provider);
@@ -118,7 +118,7 @@ final class ECOProcessingPatternDispatcher {
         if (!supportsScaledDispatchCached(request, provider)) return null;
         long budget = TICK_BUDGET - used;
         if (budget <= 0) return null;
-        ProbeState state = states.computeIfAbsent(provider, x -> new IdentityHashMap<>())
+        ProbeState state = states.computeIfAbsent(provider, x -> new Reference2ObjectOpenHashMap<>())
                 .computeIfAbsent(request.pattern(), x -> new ProbeState());
         long limit = ECOExtendedAEPlusScaling.cap(request.pattern(), Math.min(request.allowedCrafts(), budget));
         var ramp = state.beginRun(tick, SCALE_PROBE_INTERVAL_TICKS);

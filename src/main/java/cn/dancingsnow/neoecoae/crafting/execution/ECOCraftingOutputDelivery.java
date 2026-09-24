@@ -20,12 +20,11 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.HolderLookup;
+import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,7 +33,7 @@ final class ECOCraftingOutputDelivery {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOCraftingCPULogic.class);
 
     private final ECOCraftingCPULogic host;
-    private final Map<AEKey, Long> pendingFinalOutputs = new LinkedHashMap<>();
+    private final Object2LongLinkedOpenHashMap<AEKey> pendingFinalOutputs = new Object2LongLinkedOpenHashMap<>();
     private boolean deliveringFinalOutput;
 
     ECOCraftingOutputDelivery(ECOCraftingCPULogic host) {
@@ -218,7 +217,7 @@ final class ECOCraftingOutputDelivery {
             host.taskSchedulerForOutput().recordPhysicalInsert(request.actualKey());
             if (finalOutputClaim && current.finalOutput != null
                     && !request.actualKey().equals(current.finalOutput.what())) {
-                pendingFinalOutputs.merge(request.actualKey(), route.storedInCpu(), NEMath::saturatingAdd);
+                pendingFinalOutputs.mergeLong(request.actualKey(), route.storedInCpu(), NEMath::saturatingAdd);
             }
         }
         host.recordCompletedCraftingWork(claim, request.actualKey().getType());
@@ -287,11 +286,11 @@ final class ECOCraftingOutputDelivery {
         if (pendingFinalOutputs.isEmpty()) {
             return;
         }
-        for (var entry : List.copyOf(pendingFinalOutputs.entrySet())) {
-            AEKey key = entry.getKey();
-            long stored = Math.min(entry.getValue(), host.getInventory().list.get(key));
+        // Delivery can re-enter this CPU through the destination, so walk a key snapshot and re-read each amount.
+        for (AEKey key : pendingFinalOutputs.keySet().toArray(new AEKey[0])) {
+            long stored = Math.min(pendingFinalOutputs.getLong(key), host.getInventory().list.get(key));
             if (stored <= 0L) {
-                pendingFinalOutputs.remove(key);
+                pendingFinalOutputs.removeLong(key);
                 continue;
             }
             long amount = Math.min(stored, Math.max(0L, current.remainingAmount));
@@ -303,7 +302,7 @@ final class ECOCraftingOutputDelivery {
             if (inserted > 0L) {
                 long remaining = Math.max(0L, stored - inserted);
                 if (remaining == 0L) {
-                    pendingFinalOutputs.remove(key);
+                    pendingFinalOutputs.removeLong(key);
                 } else {
                     pendingFinalOutputs.put(key, remaining);
                 }
@@ -360,7 +359,7 @@ final class ECOCraftingOutputDelivery {
             try {
                 GenericStack stack = GenericStack.readTag(registries, entries.getCompound(index));
                 if (stack != null && stack.amount() > 0L) {
-                    pendingFinalOutputs.merge(stack.what(), stack.amount(), NEMath::saturatingAdd);
+                    pendingFinalOutputs.mergeLong(stack.what(), stack.amount(), NEMath::saturatingAdd);
                 }
             } catch (RuntimeException failure) {
                 LOGGER.warn("Ignoring invalid persisted dynamic final-output delivery entry {}", index, failure);
@@ -374,9 +373,9 @@ final class ECOCraftingOutputDelivery {
             return;
         }
         ListTag entries = new ListTag();
-        for (var entry : pendingFinalOutputs.entrySet()) {
-            if (entry.getValue() > 0L) {
-                entries.add(GenericStack.writeTag(registries, new GenericStack(entry.getKey(), entry.getValue())));
+        for (var entry : pendingFinalOutputs.object2LongEntrySet()) {
+            if (entry.getLongValue() > 0L) {
+                entries.add(GenericStack.writeTag(registries, new GenericStack(entry.getKey(), entry.getLongValue())));
             }
         }
         if (entries.isEmpty()) {

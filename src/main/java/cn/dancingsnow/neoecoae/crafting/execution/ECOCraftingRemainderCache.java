@@ -4,8 +4,8 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import com.google.common.collect.MapMaker;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,7 +25,7 @@ final class ECOCraftingRemainderCache {
     private final Map<IPatternDetails.IInput, Map<AEKey, CachedRemainder>> byInput =
         new MapMaker().weakKeys().makeMap();
     private long reloadGeneration = Long.MIN_VALUE;
-    private final Map<IPatternDetails.IInput, Map<AEKey, CachedRemainder>> recentInputs = new IdentityHashMap<>();
+    private final Map<IPatternDetails.IInput, Map<AEKey, CachedRemainder>> recentInputs = new Reference2ObjectOpenHashMap<>();
 
     static ECOCraftingRemainderCache shared() {
         return SHARED;
@@ -42,7 +42,7 @@ final class ECOCraftingRemainderCache {
 
         Map<AEKey, CachedRemainder> byKey = recentInputs.get(input);
         if (byKey == null) {
-            byKey = byInput.computeIfAbsent(input, ignored -> new HashMap<>());
+            byKey = byInput.computeIfAbsent(input, ignored -> new Object2ObjectOpenHashMap<>());
             // Bound strong references while avoiding weak-map lookups for frequently reused inputs.
             if (recentInputs.size() >= 128) recentInputs.clear();
             recentInputs.put(input, byKey);

@@ -68,7 +68,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
-    final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
+    final Map<IPatternDetails, TaskProgress> tasks = new it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<>();
     {
         @SuppressWarnings({"rawtypes", "unchecked"})
         Map<IPatternDetails, Object> legacyTasks = (Map) tasks;

@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,8 +34,8 @@ public final class ECOCraftingFastPathCache {
     private static final Set<ECOCraftingFastPathCache> ACTIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
 
     private final int limit;
-    private final Map<ECOFastPathKey, ECOFastPathResult> entries;
-    private final Map<ECOFastPathPatternKey, ECOPatternEligibility> patternEntries;
+    private final Object2ObjectLinkedOpenHashMap<ECOFastPathKey, ECOFastPathResult> entries;
+    private final Object2ObjectLinkedOpenHashMap<ECOFastPathPatternKey, ECOPatternEligibility> patternEntries;
     private long credentialEpoch;
 
     public ECOCraftingFastPathCache() {
@@ -45,22 +45,8 @@ public final class ECOCraftingFastPathCache {
     public ECOCraftingFastPathCache(int limit) {
         this.limit = Math.clamp(limit, MIN_CACHE_SIZE, MAX_CACHE_SIZE);
         int initialCapacity = Math.min(this.limit, 1_024);
-        this.entries = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<ECOFastPathKey, ECOFastPathResult> eldest) {
-                return size() > ECOCraftingFastPathCache.this.limit;
-            }
-        };
-        this.patternEntries = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<ECOFastPathPatternKey, ECOPatternEligibility> eldest) {
-                return size() > ECOCraftingFastPathCache.this.limit;
-            }
-        };
+        this.entries = new Object2ObjectLinkedOpenHashMap<>(initialCapacity);
+        this.patternEntries = new Object2ObjectLinkedOpenHashMap<>(initialCapacity);
         synchronized (ACTIVE_CACHES) {
             ACTIVE_CACHES.add(this);
         }
@@ -68,7 +54,7 @@ public final class ECOCraftingFastPathCache {
 
     @Nullable
     public ECOFastPathResult get(ECOFastPathKey key, long tick) {
-        ECOFastPathResult result = entries.get(key);
+        ECOFastPathResult result = entries.getAndMoveToLast(key);
         if (result == null) {
             return null;
         }
@@ -109,7 +95,7 @@ public final class ECOCraftingFastPathCache {
             putNegative(key, tick, "VERIFIED_STACK_VALIDATION_FAILED");
             return;
         }
-        entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, reusableStateModel));
+        putEntry(entries, key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, reusableStateModel));
     }
 
     public void putNegative(ECOFastPathKey key, long tick) {
@@ -117,7 +103,7 @@ public final class ECOCraftingFastPathCache {
     }
 
     public void putNegative(ECOFastPathKey key, long tick, String reason) {
-        entries.put(key, ECOFastPathResult.negative(tick, reason));
+        putEntry(entries, key, ECOFastPathResult.negative(tick, reason));
     }
 
     /**
@@ -136,8 +122,11 @@ public final class ECOCraftingFastPathCache {
             entries.remove(key);
             return ECOFastPathLookup.mismatch();
         }
-        ECOPatternEligibility eligibility = patternEntries.computeIfAbsent(
-            key.patternKey(), ignored -> execution.patternEligibility());
+        ECOPatternEligibility eligibility = patternEntries.getAndMoveToLast(key.patternKey());
+        if (eligibility == null) {
+            eligibility = execution.patternEligibility();
+            putEntry(patternEntries, key.patternKey(), eligibility);
+        }
         if (!eligibility.supported()) {
             return ECOFastPathLookup.negative(eligibility.rejectReason());
         }
@@ -205,11 +194,20 @@ public final class ECOCraftingFastPathCache {
             break;
         }
         if (rebasedResult == null) return null;
-        entries.put(currentKey, rebasedResult);
+        putEntry(entries, currentKey, rebasedResult);
         return ECOFastPathLookup.verified(
             ECOVerifiedFastPathRecipe.trusted(this, execution, currentKey, rebasedResult,
                 currentKey.reloadGeneration())
         );
+    }
+
+    // Linked open maps track order in an index array; explicitly promote reads and writes
+    // to retain the previous access-order LRU policy without allocating entry nodes.
+    private <K, V> void putEntry(Object2ObjectLinkedOpenHashMap<K, V> cache, K key, V value) {
+        cache.putAndMoveToLast(key, value);
+        if (cache.size() > limit) {
+            cache.removeFirst();
+        }
     }
 
     public void clear() {
