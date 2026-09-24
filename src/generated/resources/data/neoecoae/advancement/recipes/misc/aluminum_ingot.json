@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_aluminum_block": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:storage_blocks/aluminum"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:aluminum_ingot"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_aluminum_block"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:aluminum_ingot"
+    ]
+  }
+}

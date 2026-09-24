@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "neoecoae:crafting_system_l4"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "neoecoae:blocks/crafting_system_l4"
+}

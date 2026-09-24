@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_energized_fluix_crytal_block": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:storage_blocks/energized_fluix_crystal"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:energized_fluix_crystal_from_block"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_energized_fluix_crytal_block"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:energized_fluix_crystal_from_block"
+    ]
+  }
+}

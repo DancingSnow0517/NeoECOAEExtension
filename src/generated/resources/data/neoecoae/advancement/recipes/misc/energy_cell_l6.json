@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_energy_cell_l4": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:energy_cell_l4"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:energy_cell_l6"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_energy_cell_l4"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:energy_cell_l6"
+    ]
+  }
+}

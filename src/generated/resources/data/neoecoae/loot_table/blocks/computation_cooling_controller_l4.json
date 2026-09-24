@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "neoecoae:computation_cooling_controller_l4"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "neoecoae:blocks/computation_cooling_controller_l4"
+}
