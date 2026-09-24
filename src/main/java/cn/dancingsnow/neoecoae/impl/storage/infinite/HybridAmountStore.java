@@ -72,6 +72,18 @@ final class HybridAmountStore<K> {
         return HugeAmount.of(next);
     }
 
+    HugeAmount add(K key, BigInteger amount) {
+        Objects.requireNonNull(amount, "amount");
+        if (amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+        if (amount.compareTo(LONG_MAX) <= 0) return add(key, amount.longValueExact());
+        Objects.requireNonNull(key, "key");
+        BigInteger current = wideAmounts.get(key);
+        BigInteger next = (current == null ? BigInteger.valueOf(longAmounts.getLong(key)) : current).add(amount);
+        longAmounts.removeLong(key);
+        wideAmounts.put(key, next);
+        return HugeAmount.of(next);
+    }
+
     /**
      * Removes at most {@code amount}, returning the actual removed quantity. A wide value can always satisfy a
      * positive long request, but it may demote back to the primitive map after the subtraction.

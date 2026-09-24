@@ -6,13 +6,14 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
 import cn.dancingsnow.neoecoae.impl.storage.StorageFileHistory;
 import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,7 @@ public final class ECOInfiniteStorageDomains {
     private static final String SAVED_DATA_DIRECTORY = "neoecoae_infinite";
     private static final String ARCHIVE_DIRECTORY = "neoecoae_storage_v1_archive";
     private static final String MIGRATION_DIRECTORY = "neoecoae_infinite_migration";
-    private static final Map<String, DomainEntry> ENTRIES = new HashMap<>();
+    private static final Map<String, DomainEntry> ENTRIES = new Object2ObjectOpenHashMap<>();
 
     private ECOInfiniteStorageDomains() {}
 
@@ -624,6 +625,12 @@ public final class ECOInfiniteStorageDomains {
         public long insert(AEKey key, long amount, Actionable mode) {
             SavedDataInfiniteStorageEngine engine = current();
             return engine == null ? 0L : engine.insert(key, amount, mode);
+        }
+
+        @Override
+        public BigInteger insert(AEKey key, BigInteger amount, Actionable mode) {
+            SavedDataInfiniteStorageEngine engine = current();
+            return engine == null ? BigInteger.ZERO : engine.insert(key, amount, mode);
         }
 
         @Override

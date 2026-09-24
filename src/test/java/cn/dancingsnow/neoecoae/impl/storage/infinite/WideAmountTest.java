@@ -43,4 +43,16 @@ class WideAmountTest {
         assertFalse(amounts.isWide("test"));
         assertEquals(HugeAmount.of(Long.MAX_VALUE), amounts.get("test"));
     }
+
+    @Test
+    void hybridStoreAcceptsOneWideInsertion() {
+        HybridAmountStore<String> amounts = new HybridAmountStore<>();
+        BigInteger inserted = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(23));
+
+        assertEquals(HugeAmount.of(inserted), amounts.add("test", inserted));
+        assertTrue(amounts.isWide("test"));
+        assertEquals(inserted, amounts.get("test").toBigInteger());
+        assertEquals(Long.MAX_VALUE, amounts.subtractAtMost("test", Long.MAX_VALUE));
+        assertEquals(HugeAmount.of(23), amounts.get("test"));
+    }
 }

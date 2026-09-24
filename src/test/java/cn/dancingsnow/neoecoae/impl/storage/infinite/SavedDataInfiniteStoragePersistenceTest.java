@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import appeng.api.config.Actionable;
 import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
+import java.math.BigInteger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +31,30 @@ class SavedDataInfiniteStoragePersistenceTest {
     @AfterEach
     void clearBackends() {
         ECOSavedDataPersistence.clear();
+    }
+
+    @Test
+    void exactWideInsertionIsAtomicAndPersistsWithoutLongSaturation() throws Exception {
+        Path path = directory.resolve("wide-insert.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var key = new InfiniteStorageTestKey(19);
+        key.cacheEncoding(engine);
+        BigInteger amount = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(123));
+
+        long before = engine.getRevision();
+        assertEquals(amount, engine.insert(key, amount, Actionable.SIMULATE));
+        assertEquals(before, engine.getRevision());
+        assertEquals(HugeAmount.ZERO, engine.getAmount(key));
+
+        assertEquals(amount, engine.insert(key, amount, Actionable.MODULATE));
+        assertEquals(before + 1, engine.getRevision());
+        assertEquals(amount, engine.getAmount(key).toBigInteger());
+        assertEquals(Long.MAX_VALUE, engine.extract(key, Long.MAX_VALUE, Actionable.SIMULATE));
+        engine.flushAndAwait();
+
+        CompoundTag entry = InfiniteStorageSnapshot.read(path).getList("entries", 10).getCompound(0);
+        assertEquals(amount, new BigInteger(entry.getByteArray("amount_wide")));
+        assertEquals(ECOInfiniteDomainState.READY, engine.getState());
     }
 
     @Test

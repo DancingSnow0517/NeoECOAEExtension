@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import java.util.Collection;
+import java.math.BigInteger;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
@@ -18,6 +19,12 @@ public interface ECOInfiniteStorageEngine {
     record OrphanedStack(CompoundTag encodedKey, HugeAmount amount) {}
 
     long insert(AEKey key, long amount, Actionable mode);
+
+    default BigInteger insert(AEKey key, BigInteger amount, Actionable mode) {
+        if (amount == null || amount.signum() <= 0) return BigInteger.ZERO;
+        if (amount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) return BigInteger.ZERO;
+        return BigInteger.valueOf(insert(key, amount.longValueExact(), mode));
+    }
 
     default long insertOnce(UUID transactionId, AEKey key, long amount) {
         return insert(key, amount, Actionable.MODULATE);

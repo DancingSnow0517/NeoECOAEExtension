@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import java.math.BigInteger;
+
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -230,6 +232,23 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         HugeAmount previous = amounts.get(key);
         HugeAmount next = amounts.add(key, amount);
         onAmountChanged(key, previous, next, amount, true);
+        markMutated();
+        return amount;
+    }
+
+    @Override
+    public synchronized BigInteger insert(AEKey key, BigInteger amount, Actionable mode) {
+        if (amount == null || amount.signum() <= 0) return BigInteger.ZERO;
+        if (amount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0) {
+            return BigInteger.valueOf(insert(key, amount.longValueExact(), mode));
+        }
+        if (!canOperate(key, Long.MAX_VALUE)) return BigInteger.ZERO;
+        if (mode == Actionable.SIMULATE) return amount;
+        if (!ensureEncodedKey(key)) return BigInteger.ZERO;
+
+        HugeAmount previous = amounts.get(key);
+        HugeAmount next = amounts.add(key, amount);
+        onAmountChanged(key, previous, next, HugeAmount.of(amount), true);
         markMutated();
         return amount;
     }
