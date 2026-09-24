@@ -261,12 +261,12 @@ final class ECOStorageMegaController {
             .toList();
     }
 
-    void autoMarkBulkCells(Player player) {
+    void autoMarkBulkCells(Player player, boolean migrate) {
         if (!host.canPlayerInteract(player)) {
             return;
         }
         StorageBulkMarkingIntegration.MarkResult result = StorageBulkMarkingIntegration.autoMark(
-            host, NEConfig.megaBulkAutoMarkThreshold);
+            host, NEConfig.megaBulkAutoMarkThreshold, migrate);
         String key = switch (result.status()) {
             case SUCCESS -> "gui.neoecoae.storage.bulk_mark.result.success";
             case NO_BULK_CELL -> "gui.neoecoae.storage.bulk_mark.result.no_bulk_cell";

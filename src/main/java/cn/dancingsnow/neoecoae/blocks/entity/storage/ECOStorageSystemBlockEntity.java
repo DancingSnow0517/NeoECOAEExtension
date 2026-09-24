@@ -427,7 +427,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
         storageMounts.mount(
                 createInfiniteStorageView(engine),
-                storagePriority
+                StoragePriority.mountPriority(storagePriority, false)
         );
     }
 
@@ -448,7 +448,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 delta -> changeStoragePriority(holder.player, delta),
                 StorageBulkMarkingIntegration::isAvailable,
                 () -> NEConfig.megaBulkAutoMarkThreshold,
-                () -> megaController.autoMarkBulkCells(holder.player)
+                migrate -> megaController.autoMarkBulkCells(holder.player, migrate)
         ));
     }
 

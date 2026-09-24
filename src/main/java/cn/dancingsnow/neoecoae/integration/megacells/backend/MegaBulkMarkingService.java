@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.megacells.backend;
 
 import appeng.api.config.Actionable;
+import appeng.api.storage.MEStorage;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -10,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.StorageExtractionExclusions;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MarkResult;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.Status;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaLongBulkStorageCellItem;
@@ -57,7 +59,7 @@ public final class MegaBulkMarkingService {
         return !leftChain.isEmpty() && leftChain.equals(CompressionService.getChain(rightKey));
     }
 
-    public static MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold) {
+    public static MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold, boolean migrate) {
         if (threshold < 0L) {
             return result(Status.INVALID_THRESHOLD);
         }
@@ -74,7 +76,12 @@ public final class MegaBulkMarkingService {
         if (targets.isEmpty()) {
             return result(Status.NO_BULK_CELL);
         }
+        var grid = host.getMainNode().getGrid();
         KeyCounter available = host.collectLocalStorageStacksForIntegration();
+        if (grid != null && !host.isStorageInterfaceTransferMode()) {
+            available = new KeyCounter();
+            grid.getStorageService().getInventory().getAvailableStacks(available);
+        }
         List<Candidate> candidates = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : available) {
             if (entry.getLongValue() <= threshold || !(entry.getKey() instanceof AEItemKey itemKey)) {
@@ -86,7 +93,7 @@ public final class MegaBulkMarkingService {
             }
         }
         candidates.sort(Comparator.comparingLong(Candidate::amount).reversed());
-        return markCandidates(host, drives, targets, candidates);
+        return markCandidates(host, drives, targets, candidates, migrate);
     }
 
     private static List<TargetCell> collectTargetCells(
@@ -116,7 +123,8 @@ public final class MegaBulkMarkingService {
         ECOStorageSystemBlockEntity host,
         List<ECODriveBlockEntity> drives,
         List<TargetCell> targets,
-        List<Candidate> rawCandidates
+        List<Candidate> rawCandidates,
+        boolean migrate
     ) {
         List<AEItemKey> occupiedMarkers = new ArrayList<>();
         for (TargetCell target : targets) {
@@ -165,7 +173,7 @@ public final class MegaBulkMarkingService {
             slotTarget.target().drive().onCellConfigurationChanged();
         }
 
-        long transferred = transferMarkedChains(host, drives, targets);
+        long transferred = migrate ? transferMarkedChains(host, drives, targets) : 0L;
         if (count > 0 || transferred > 0L) host.notifyStorageConfigurationChanged();
         return new MarkResult(Status.SUCCESS, count, alreadyMarked, 0, accepted.size() - count, transferred);
     }
@@ -201,10 +209,30 @@ public final class MegaBulkMarkingService {
                     if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey itemKey)) {
                         continue;
                     }
-                    ChainTarget target = findTarget(chainTargets, itemKey);
-                    if (target != null) {
-                        transferred = saturatingAdd(transferred, transfer(
-                            sourceStorage, target.storage(), itemKey, entry.getLongValue(), actionSource));
+                    for (ChainTarget target : chainTargets) {
+                        if (sameMarker(target.marker(), itemKey)) {
+                            transferred = saturatingAdd(transferred, transfer(
+                                sourceStorage, target.storage(), itemKey, entry.getLongValue(), actionSource));
+                        }
+                    }
+                }
+            }
+        }
+        var grid = host.getMainNode().getGrid();
+        if (grid != null) {
+            var network = grid.getStorageService().getInventory();
+            KeyCounter available = new KeyCounter();
+            network.getAvailableStacks(available);
+            try (var ignored = StorageExtractionExclusions.open(
+                    targets.stream().map(TargetCell::storage).toList());
+                 var batch = ECOCellMutationBatch.open()) {
+                for (var entry : available) {
+                    if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey key)) continue;
+                    for (ChainTarget target : chainTargets) {
+                        if (sameMarker(target.marker(), key)) {
+                            transferred = saturatingAdd(transferred, transfer(
+                                network, target.storage(), key, entry.getLongValue(), actionSource));
+                        }
                     }
                 }
             }
@@ -217,7 +245,8 @@ public final class MegaBulkMarkingService {
         for (TargetCell target : targets) {
             for (AEItemKey itemKey : target.storage().getEffectiveConfiguredFilters()) {
                 CompressionChain chain = CompressionService.getChain(itemKey);
-                if (findTarget(result, itemKey) == null) {
+                if (result.stream().noneMatch(existing -> existing.storage() == target.storage()
+                        && sameMarker(existing.marker(), itemKey))) {
                     result.add(new ChainTarget(itemKey, chain, target.storage()));
                 }
             }
@@ -225,15 +254,8 @@ public final class MegaBulkMarkingService {
         return result;
     }
 
-    private static ChainTarget findTarget(List<ChainTarget> targets, AEItemKey key) {
-        for (ChainTarget target : targets) {
-            if (sameMarker(target.marker(), key)) return target;
-        }
-        return null;
-    }
-
     private static long transfer(
-        IECOStorageCell from,
+        MEStorage from,
         ECOMegaLongBulkStorageCell to,
         AEItemKey key,
         long amount,

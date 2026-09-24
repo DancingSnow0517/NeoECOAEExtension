@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Items;
@@ -15,6 +16,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 class BulkInsertPriorityTest {
+    @Test
+    void bulkMountAlwaysOutranksOtherHostStorageIncludingInfiniteStorageAtTheCeiling() {
+        for (int priority : new int[] {Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE - 1, Integer.MAX_VALUE}) {
+            org.junit.jupiter.api.Assertions.assertTrue(
+                StoragePriority.mountPriority(priority, true) > StoragePriority.mountPriority(priority, false));
+        }
+    }
+
     @BeforeAll
     static void bootstrap() {
         InventoryTestBootstrap.initialize();

@@ -48,16 +48,16 @@ public final class StorageBulkMarkingIntegration {
             && !left.isEmpty() && !right.isEmpty() && sameMarkerChain.test(left, right);
     }
 
-    public static MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold) {
+    public static MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold, boolean migrate) {
         if (handler == null) {
             return new MarkResult(Status.UNAVAILABLE, 0, 0, 0, 0, 0L);
         }
-        return handler.autoMark(host, threshold);
+        return handler.autoMark(host, threshold, migrate);
     }
 
     @FunctionalInterface
     public interface Handler {
-        MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold);
+        MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold, boolean migrate);
     }
 
     public record MarkResult(

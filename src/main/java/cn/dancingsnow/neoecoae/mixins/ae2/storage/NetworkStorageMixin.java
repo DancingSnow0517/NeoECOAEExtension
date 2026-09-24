@@ -101,6 +101,9 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
     private long neoecoae$filterCreativeInput(MEStorage storage, appeng.api.stacks.AEKey key, long amount,
             appeng.api.config.Actionable mode, appeng.api.networking.security.IActionSource source,
             Operation<Long> original) {
+        if (cn.dancingsnow.neoecoae.impl.storage.transfer.StorageExtractionExclusions.contains(storage)) {
+            return 0L;
+        }
         return cn.dancingsnow.neoecoae.impl.storage.transfer.ECOCreativeExtractionFilter.extractSource(
             storage, key, mode, () -> original.call(storage, key, amount, mode, source));
     }

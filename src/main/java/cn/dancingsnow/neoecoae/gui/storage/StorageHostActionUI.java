@@ -42,7 +42,7 @@ public final class StorageHostActionUI {
         IntConsumer changePriority,
         BooleanSupplier bulkMarkingAvailable,
         LongSupplier bulkMarkingThreshold,
-        Runnable autoMarkBulkCells
+        Consumer<Boolean> autoMarkBulkCells
     ) {
     }
 
@@ -93,7 +93,9 @@ public final class StorageHostActionUI {
         Button button = HostSideButtonBar.createButton()
             .noText()
             .addPostIcon(AETextures.icon(Icon.TYPE_FILTER_ALL))
-            .setOnServerClick(event -> config.autoMarkBulkCells().run());
+            .setOnServerClick(event -> {
+                if (event.button == 1) config.autoMarkBulkCells().accept(event.isShiftDown());
+            });
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
             List.of(Component.translatable(
                 "gui.neoecoae.storage.bulk_mark", config.bulkMarkingThreshold().getAsLong())),

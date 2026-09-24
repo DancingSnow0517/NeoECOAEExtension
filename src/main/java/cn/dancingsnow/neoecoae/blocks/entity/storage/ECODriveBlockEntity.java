@@ -217,14 +217,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
                 && !storageCluster.getController().isStorageInterfaceTransferMode()
                 && !ECOInfiniteStorageMember.isMigrating(cellStack)
                 && !ECOInfiniteStorageMember.isMember(cellStack)) {
-                int priority = storageCluster.getController().getStoragePriority();
-                // Bulk cells reject unmarked chains, so only marked items use this higher priority.
-                if (cellInventory.prioritizesMarkedInserts() && priority < Integer.MAX_VALUE) {
-                    priority++;
-                } else if (!cellInventory.prioritizesMarkedInserts() && priority == Integer.MAX_VALUE) {
-                    // Leave a priority slot for marked bulk cells at the integer ceiling.
-                    priority--;
-                }
+                int priority = cn.dancingsnow.neoecoae.gui.storage.StoragePriority.mountPriority(
+                    storageCluster.getController().getStoragePriority(), cellInventory.prioritizesMarkedInserts());
                 storageMounts.mount(cellInventory, priority);
                 mounted = true;
                 updateCellState();
