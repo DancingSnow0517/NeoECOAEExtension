@@ -25,4 +25,12 @@ public abstract class ECOCraftingCPU implements ICraftingCPU {
      * target class and dispatch to the current implementation.
      */
     public abstract void markDirty();
+
+    /**
+     * Returns the legacy logic type used by ExtendedAE Plus' NeoECOAE virtual-crafting mixins.
+     * The current implementation overrides this covariantly with its execution-package logic.
+     */
+    public ECOCraftingCPULogic getLogic() {
+        return null;
+    }
 }

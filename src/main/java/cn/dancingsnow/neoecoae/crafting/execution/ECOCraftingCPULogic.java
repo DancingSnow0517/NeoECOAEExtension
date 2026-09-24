@@ -71,7 +71,8 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 
-public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
+public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic
+        implements ECOCraftingProgressSink,
         ECOCraftingOutputClaimSink, ECOVirtualCraftingCompletionSink {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
@@ -399,7 +400,8 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
      *
      * @param success 任务完成则为 true，取消则为 false。
      */
-    void finishJob(boolean success) {
+    @Override
+    protected void finishJob(boolean success) {
         lifecycle.finish(success);
     }
 
@@ -491,11 +493,13 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
     void setJobFromPersistence(@Nullable ExecutingCraftingJob restoredJob) {
         this.job = restoredJob;
+        super.job = restoredJob;
         exactInventory().setEnabled(restoredJob != null && restoredJob.exactOrder);
     }
 
     void setJobFromLifecycle(@Nullable ExecutingCraftingJob nextJob) {
         this.job = nextJob;
+        super.job = nextJob;
         exactInventory().setEnabled(nextJob != null && nextJob.exactOrder);
     }
 

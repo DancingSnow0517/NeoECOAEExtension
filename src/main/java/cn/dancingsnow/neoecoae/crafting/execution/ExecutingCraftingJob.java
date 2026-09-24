@@ -51,7 +51,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlannedInputAllocation;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 
-public class ExecutingCraftingJob {
+public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.ExecutingCraftingJob {
     private static final String NBT_LINK = "link";
     private static final String NBT_PLAYER_ID = "playerId";
     private static final String NBT_FINAL_OUTPUT = "finalOutput";
@@ -69,6 +69,11 @@ public class ExecutingCraftingJob {
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
     final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
+    {
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        Map<IPatternDetails, Object> legacyTasks = (Map) tasks;
+        super.tasks = legacyTasks;
+    }
     @Nullable
     final ECOExecutionPlan executionPlan;
     @Nullable
@@ -325,8 +330,7 @@ public class ExecutingCraftingJob {
         suspended = true;
     }
 
-    static class TaskProgress {
-        long value = 0;
+    static class TaskProgress extends cn.dancingsnow.neoecoae.api.me.ExecutingCraftingJob.TaskProgress {
         private java.math.BigInteger exactTotal;
         private java.math.BigInteger exactRemaining;
 
