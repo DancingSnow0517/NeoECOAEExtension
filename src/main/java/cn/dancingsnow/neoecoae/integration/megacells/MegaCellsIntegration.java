@@ -20,6 +20,7 @@ import com.tterrag.registrate.util.entry.ItemEntry;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,6 +28,8 @@ import org.jetbrains.annotations.Nullable;
 public final class MegaCellsIntegration {
     private boolean energyEnabled;
     private boolean chemicalEnabled;
+    private boolean manaEnabled;
+    private boolean sourceEnabled;
 
     public void apply() {
         StorageBulkMarkingIntegration.register(
@@ -39,6 +42,8 @@ public final class MegaCellsIntegration {
         NEMegaItems.register();
         energyEnabled = MegaCellsBackend.isEnergyAvailable();
         chemicalEnabled = MegaCellsBackend.isChemicalAvailable();
+        manaEnabled = ModList.get().isLoaded("appbot");
+        sourceEnabled = ModList.get().isLoaded("arseng");
         if (energyEnabled) {
             NEMegaEnergyCellType.register();
             NEMegaEnergyItems.register();
@@ -46,6 +51,14 @@ public final class MegaCellsIntegration {
         if (chemicalEnabled) {
             NEMegaChemicalCellType.register();
             NEMegaChemicalItems.register();
+        }
+        if (manaEnabled) {
+            NEMegaManaCellType.register();
+            NEMegaManaItems.register();
+        }
+        if (sourceEnabled) {
+            NEMegaSourceCellType.register();
+            NEMegaSourceItems.register();
         }
 
         registerModels();
@@ -75,6 +88,8 @@ public final class MegaCellsIntegration {
                 NEMegaItems.ECO_MEGA_LONG_BULK_CELL));
         if (energyEnabled) cells.addAll(NEMegaEnergyItems.cells());
         if (chemicalEnabled) cells.addAll(NEMegaChemicalItems.cells());
+        if (manaEnabled) cells.addAll(NEMegaManaItems.cells());
+        if (sourceEnabled) cells.addAll(NEMegaSourceItems.cells());
         return cells;
     }
 
@@ -84,6 +99,8 @@ public final class MegaCellsIntegration {
         registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "mega_item", false);
         if (energyEnabled) registerCellModel(NEMegaEnergyItems.CELL_4G, "mega_energy", false);
         if (chemicalEnabled) registerCellModel(NEMegaChemicalItems.CELL_4G, "mega_chemical", false);
+        if (manaEnabled) registerCellModel(NEMegaManaItems.CELL_4G, "mana", false);
+        if (sourceEnabled) registerCellModel(NEMegaSourceItems.CELL_4G, "source", false);
     }
 
     private static void registerCellModel(

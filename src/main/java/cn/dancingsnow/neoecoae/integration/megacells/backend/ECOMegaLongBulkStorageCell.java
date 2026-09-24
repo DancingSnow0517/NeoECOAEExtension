@@ -14,6 +14,8 @@ import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import gripe._90.megacells.misc.CompressionChain;
 import gripe._90.megacells.misc.CompressionService;
+import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -47,7 +49,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
      */
     private static final boolean COMPRESSION_ENABLED = true;
 
-    private final Map<AEItemKey, Long> storedUnits = new LinkedHashMap<>();
+    private final Object2LongLinkedOpenHashMap<AEItemKey> storedUnits = new Object2LongLinkedOpenHashMap<>();
     private boolean persisted = true;
 
     public ECOMegaLongBulkStorageCell(ItemStack stack, @Nullable ISaveProvider container) {
@@ -73,18 +75,18 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     @Override
     public long getStoredItemCount() {
         long total = 0L;
-        for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
+        for (var entry : storedUnits.object2LongEntrySet()) {
             AEItemKey storageForm = storageFormFor(entry.getKey());
             long factor = unitFactor(entry.getKey(), storageForm);
-            total = NEMath.saturatingAdd(total, entry.getValue() / factor);
+            total = NEMath.saturatingAdd(total, entry.getLongValue() / factor);
         }
         return total;
     }
 
     @Override
     public long getRemainingItemCount() {
-        for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
-            if (entry.getValue() < MAX_UNITS && hasConfiguredChain(entry.getKey())) {
+        for (var entry : storedUnits.object2LongEntrySet()) {
+            if (entry.getLongValue() < MAX_UNITS && hasConfiguredChain(entry.getKey())) {
                 return MAX_UNITS;
             }
         }
@@ -159,7 +161,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         }
 
         long factor = unitFactor(slot, item);
-        long current = storedUnits.getOrDefault(slot, 0L);
+        long current = storedUnits.getLong(slot);
         long remaining = MAX_UNITS - current;
         long accepted = Math.min(amount, divideSaturated(remaining, factor));
         if (accepted <= 0L) {
@@ -185,7 +187,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         }
 
         long factor = unitFactor(slot, item);
-        long available = storedUnits.getOrDefault(slot, 0L);
+        long available = storedUnits.getLong(slot);
         long requestedUnits = NEMath.saturatingMultiply(amount, factor);
         long extracted = Math.min(requestedUnits, available) / factor;
         if (extracted <= 0L) {
@@ -195,7 +197,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         if (mode == Actionable.MODULATE) {
             long remaining = available - NEMath.saturatingMultiply(extracted, factor);
             if (remaining == 0L) {
-                storedUnits.remove(slot);
+                storedUnits.removeLong(slot);
             } else {
                 storedUnits.put(slot, remaining);
             }
@@ -206,8 +208,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
-            long units = entry.getValue();
+        for (var entry : storedUnits.object2LongEntrySet()) {
+            long units = entry.getLongValue();
             if (units <= 0L) {
                 continue;
             }
@@ -269,10 +271,10 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             stack.getOrCreateTag().remove(DATA_TAG);
         } else {
             ListTag entries = new ListTag();
-            for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
+            for (var entry : storedUnits.object2LongEntrySet()) {
                 CompoundTag value = new CompoundTag();
                 value.put(ITEM_TAG, entry.getKey().toTagGeneric());
-                value.putLong(UNITS_TAG, entry.getValue());
+                value.putLong(UNITS_TAG, entry.getLongValue());
                 entries.add(value);
             }
             CompoundTag data = new CompoundTag();
@@ -317,7 +319,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             if (key != null && units > 0L) {
                 // Older versions could create one entry per configured variant in the same
                 // compression chain. Collapse those entries onto the current representative.
-                storedUnits.merge(storageFormFor(key), units, NEMath::saturatingAdd);
+                AEItemKey storageForm = storageFormFor(key);
+                storedUnits.put(storageForm, NEMath.saturatingAdd(storedUnits.getLong(storageForm), units));
             }
         }
     }
