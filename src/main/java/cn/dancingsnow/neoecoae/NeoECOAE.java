@@ -24,6 +24,7 @@ import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.event.NELightningTransformEvents;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNetwork;
+import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import java.util.List;
@@ -69,6 +70,7 @@ public class NeoECOAE {
         NEEcoTiers.register();
         NECellTypes.register();
         NERecipeTypes.register(modBus);
+        LargeIntegratedWorkingStationPatternProviderMenu.TYPE.toString();
         IWSUpgradeCompat.initialize();
         ECOPlannerNetwork.register();
 

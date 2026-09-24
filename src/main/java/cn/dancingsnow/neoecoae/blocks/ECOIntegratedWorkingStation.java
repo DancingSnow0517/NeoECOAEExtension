@@ -4,6 +4,7 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.block.AEBaseEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScreenOpener;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
@@ -28,6 +29,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegratedWorkingStationBlockEntity> {
     public static final Property<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final Property<Boolean> WORKING = BooleanProperty.create("working");
+    public static final Property<Boolean> FORMED = BooleanProperty.create("formed");
 
     private static final VoxelShape NORTH = Stream.of(
                     Block.box(4, 4, 1, 12, 15, 12),
@@ -80,7 +82,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     public ECOIntegratedWorkingStation(Properties props) {
         super(props);
         registerDefaultState(
-                getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false));
+                getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false).setValue(FORMED, false));
     }
 
     @Override
@@ -91,7 +93,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(WORKING);
+        builder.add(WORKING, FORMED);
     }
 
     @Override
@@ -106,6 +108,32 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
             return InteractionResult.PASS;
         }
         return NELDLibScreenOpener.openBlockEntityUi(level, pos, player);
+    }
+
+    @Override
+    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (oldState.getBlock() != state.getBlock()
+                && level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity controller) {
+            controller.rebuildMultiblock();
+        }
+    }
+
+    @Override
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+            BlockPos neighborPos, boolean movedByPiston) {
+        if (level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity controller) {
+            controller.updateMultiBlock(neighborPos);
+        }
+    }
+
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (newState.getBlock() != state.getBlock()
+                && level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity controller) {
+            controller.breakCluster();
+        }
+        super.onRemove(state, level, pos, newState, isMoving);
     }
 
     @Override

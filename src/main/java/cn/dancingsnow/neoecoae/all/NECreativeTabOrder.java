@@ -112,6 +112,10 @@ public final class NECreativeTabOrder {
     private static void acceptTerminalsAndStations(CreativeModeTab.Output output) {
         accept(output, NEItems.STRUCTURE_TERMINAL);
         accept(output, NEBlocks.INTEGRATED_WORKING_STATION);
+        accept(output, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING);
+        accept(output, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH);
+        accept(output, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH);
+        accept(output, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE);
     }
 
     private static void acceptMaterialsAndComponents(CreativeModeTab.Output output) {

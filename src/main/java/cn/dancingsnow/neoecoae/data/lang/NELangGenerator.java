@@ -13,6 +13,9 @@ public class NELangGenerator {
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
         provider.add("config.jade.plugin_neoecoae.eco_computation_system", "ECO Computation System");
+        provider.add("config.jade.plugin_neoecoae.large_workstation_current_inputs", "Large workstation current inputs");
+        provider.add("jade.neoecoae.large_workstation.current_inputs", "Current inputs:");
+        provider.add("jade.neoecoae.large_workstation.current_inputs.empty", "No current inputs");
 
         provider.add("jade.neoecoae.drive_mounted", "ECO drive mounted");
         provider.add("jade.neoecoae.drive_unmounted", "ECO drive unmounted");

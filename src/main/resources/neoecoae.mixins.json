@@ -6,6 +6,7 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "MEStorageMenuMixin",
+    "NativeMEStorageCellFilterMixin",
     "NetworkStorageMixin",
     "CraftConfirmMenuMixin",
     "CraftingCalculationMixin",
@@ -21,6 +22,7 @@
     "ae2.AECraftingPatternAccessor",
     "ae2.ElapsedTimeTrackerAccessor",
     "ae2.ExecutingCraftingJobAccessor",
+    "ae2.PatternProviderLogicAccessor",
     "ae2.TaskProgressAccessor",
     "aae.ContainerExIOPortMixin",
     "aae.TileExIOPortMixin"

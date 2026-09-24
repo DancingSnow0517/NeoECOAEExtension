@@ -27,6 +27,8 @@ import net.minecraft.world.phys.Vec3;
 public class NEMultiBlocks {
     public static final List<MultiBlockDefinition> DEFINITIONS = new ArrayList<>();
 
+    public static final MultiBlockDefinition LARGE_INTEGRATED_WORKING_STATION = createLargeIntegratedWorkingStation();
+
     public static final MultiBlockDefinition STORAGE_SYSTEM_L4 = storageSystem(
             holder(NEBlocks.STORAGE_SYSTEM_L4),
             NEBlocks.STORAGE_SYSTEM_L4.getDefaultState(),
@@ -66,6 +68,28 @@ public class NEMultiBlocks {
 
     public static final MultiBlockDefinition CRAFTING_SYSTEM_L9 =
             createCraftingSystem(NEBlocks.CRAFTING_SYSTEM_L9, NEBlocks.CRAFTING_PARALLEL_CORE_L9);
+
+    private static MultiBlockDefinition createLargeIntegratedWorkingStation() {
+        BlockState casing = NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING.getDefaultState();
+        return MultiBlockDefinition.builder(holder(NEBlocks.INTEGRATED_WORKING_STATION))
+                .setBlock(pos(0, 1, 0), casing)
+                .setBlock(pos(1, 1, 0), NEBlocks.INTEGRATED_WORKING_STATION.getDefaultState())
+                .setBlock(pos(2, 1, 0), casing)
+                .setBlock(pos(0, 1, 1), casing)
+                .setBlock(pos(1, 1, 1), casing)
+                .setBlock(pos(2, 1, 1), casing)
+                .setBlock(pos(0, 0, 0), casing)
+                .setBlock(pos(1, 0, 0), casing)
+                .setBlock(pos(2, 0, 0), casing)
+                .setBlock(pos(0, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.getDefaultState())
+                .setBlock(pos(1, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.getDefaultState())
+                .setBlock(pos(2, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.getDefaultState())
+                .onFormed((blockPos, level) -> {
+                    BlockState state = level.getBlockState(blockPos);
+                    if (state.hasProperty(NEBlock.FORMED)) level.setBlockAndUpdate(blockPos, state.setValue(NEBlock.FORMED, true));
+                })
+                .create(DEFINITIONS::add);
+    }
 
     private static MultiBlockDefinition createCraftingSystem(
             BlockEntry<ECOCraftingSystem> main, BlockEntry<ECOCraftingParallelCore> parallelCore) {

@@ -34,6 +34,7 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.util.BlockStateUtil;
@@ -141,9 +142,8 @@ public class NEBlocks {
                     .save(provider, ctx.getId().withPrefix("integrated_working_station/")))
             .blockstate((ctx, provider) -> {
                 ModelFile model = provider.models()
-                        .withExistingParent(ctx.getName(), provider.modLoc("block/network_switch_base"))
-                        .texture("base", provider.modLoc("block/network_switch/crafting"))
-                        .texture("light", provider.modLoc("block/network_switch/power_light"));
+                        .withExistingParent(ctx.getName(), provider.modLoc("block/crafting_network_switch"))
+                        .texture("lights", provider.modLoc("block/crafting/network_powered_light"));
                 provider.getVariantBuilder(ctx.get())
                         .forAllStatesExcept(
                                 state -> ConfiguredModel.builder()
@@ -176,9 +176,8 @@ public class NEBlocks {
                     .save(provider, ctx.getId().withPrefix("integrated_working_station/")))
             .blockstate((ctx, provider) -> {
                 ModelFile model = provider.models()
-                        .withExistingParent(ctx.getName(), provider.modLoc("block/network_switch_base"))
-                        .texture("base", provider.modLoc("block/network_switch/computation"))
-                        .texture("light", provider.modLoc("block/network_switch/power_light"));
+                        .withExistingParent(ctx.getName(), provider.modLoc("block/computation_network_switch"))
+                        .texture("lights", provider.modLoc("block/compute/network_powered_light"));
                 provider.getVariantBuilder(ctx.get())
                         .forAllStatesExcept(
                                 state -> ConfiguredModel.builder()
@@ -655,6 +654,71 @@ public class NEBlocks {
             .build()
             .register();
 
+    public static final BlockEntry<ECOMachineCasing<NEIntegratedWorkingStationCluster>>
+            LARGE_INTEGRATED_WORKING_STATION_CASING = REGISTRATE
+                    .block("large_integrated_working_station_casing",
+                            ECOMachineCasing<NEIntegratedWorkingStationCluster>::new)
+                    .initialProperties(() -> Blocks.IRON_BLOCK)
+                    .properties(BlockBehaviour.Properties::noOcclusion)
+                    .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+                    .blockstate((ctx, prov) -> {
+                        ModelFile model = prov.models().getExistingFile(
+                                prov.modLoc("block/large_integrated_working_station_casing"));
+                        prov.getVariantBuilder(ctx.get()).forAllStates(s ->
+                                ConfiguredModel.builder().modelFile(model).build());
+                    })
+                    .simpleItem()
+                    .lang("Large Integrated Working Station Casing")
+                    .register();
+
+    public static final BlockEntry<ECOLargeIntegratedWorkingStationInputHatch>
+            LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = REGISTRATE
+                    .block("large_integrated_working_station_input_hatch",
+                            ECOLargeIntegratedWorkingStationInputHatch::new)
+                    .initialProperties(() -> Blocks.IRON_BLOCK)
+                    .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+                    .blockstate((ctx, prov) -> {
+                        ModelFile model = prov.models().getExistingFile(
+                                prov.modLoc("block/large_integrated_working_station_input_hatch"));
+                        prov.getVariantBuilder(ctx.get()).forAllStates(s ->
+                                ConfiguredModel.builder().modelFile(model).build());
+                    })
+                    .simpleItem()
+                    .lang("Large Integrated Working Station Input Hatch")
+                    .register();
+
+    public static final BlockEntry<ECOLargeIntegratedWorkingStationOutputHatch>
+            LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
+                    .block("large_integrated_working_station_output_hatch",
+                            ECOLargeIntegratedWorkingStationOutputHatch::new)
+                    .initialProperties(() -> Blocks.IRON_BLOCK)
+                    .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+                    .blockstate((ctx, prov) -> {
+                        ModelFile model = prov.models().getExistingFile(
+                                prov.modLoc("block/large_integrated_working_station_output_hatch"));
+                        prov.getVariantBuilder(ctx.get()).forAllStates(s ->
+                                ConfiguredModel.builder().modelFile(model).build());
+                    })
+                    .simpleItem()
+                    .lang("Large Integrated Working Station Output Hatch")
+                    .register();
+
+    public static final BlockEntry<ECOMachineInterface<NEIntegratedWorkingStationCluster>>
+            LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
+                    .block("large_integrated_working_station_interface",
+                            ECOMachineInterface<NEIntegratedWorkingStationCluster>::new)
+                    .initialProperties(() -> Blocks.IRON_BLOCK)
+                    .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+                    .blockstate((ctx, prov) -> {
+                        ModelFile model = prov.models().getExistingFile(
+                                prov.modLoc("block/large_integrated_working_station_interface"));
+                        prov.getVariantBuilder(ctx.get()).forAllStates(s ->
+                                ConfiguredModel.builder().modelFile(model).build());
+                    })
+                    .simpleItem()
+                    .lang("Large Integrated Working Station Interface")
+                    .register();
+
     public static final BlockEntry<ECOIntegratedWorkingStation> INTEGRATED_WORKING_STATION = REGISTRATE
             .block("integrated_working_station", ECOIntegratedWorkingStation::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
@@ -663,10 +727,17 @@ public class NEBlocks {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station"));
                 ModelFile modelFileWorking =
                         prov.models().getExistingFile(prov.modLoc("block/integrated_working_station_on"));
+                ModelFile largeModel = prov.models().getExistingFile(
+                        prov.modLoc("block/large_integrated_working_station_off"));
+                ModelFile largeModelWorking = prov.models().getExistingFile(
+                        prov.modLoc("block/large_integrated_working_station_on"));
                 prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
                     boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
+                    boolean formed = s.getValue(ECOIntegratedWorkingStation.FORMED);
                     return ConfiguredModel.builder()
-                            .modelFile(working ? modelFileWorking : modelFile)
+                            .modelFile(formed
+                                    ? (working ? largeModelWorking : largeModel)
+                                    : (working ? modelFileWorking : modelFile))
                             .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING)
                                                     .toYRot()
                                             + 180)

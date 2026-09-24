@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
+import appeng.menu.locator.MenuLocators;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
 import net.minecraft.core.BlockPos;
@@ -56,6 +58,11 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
             BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
+        }
+        if (level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity workstation
+                && player instanceof ServerPlayer serverPlayer) {
+            workstation.openMenu(serverPlayer, MenuLocators.forBlockEntity(workstation));
+            return InteractionResult.CONSUME;
         }
         if (level.getBlockEntity(pos) instanceof ECOMachineInterfaceBlockEntity<?> machineInterface
                 && (machineInterface.supportsStorageInterfaceUi() || machineInterface.supportsCraftingInterfaceUi())
