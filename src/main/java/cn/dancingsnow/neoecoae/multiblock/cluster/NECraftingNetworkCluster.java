@@ -42,6 +42,7 @@ public final class NECraftingNetworkCluster {
     private List<ECOCraftingSystemBlockEntity> controllers = List.of();
     private List<ECOCraftingWorkerBlockEntity> workers = List.of();
     private List<ECOCraftingPatternBusBlockEntity> patternBuses = List.of();
+    @Nullable private List<IPatternDetails> mergedPatterns;
     private List<cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity> parallelCores =
             List.of();
     private int nextPhysicalClusterIndex;
@@ -88,6 +89,7 @@ public final class NECraftingNetworkCluster {
         this.patternBuses = nextPatternBuses.stream()
                 .sorted(Comparator.comparing(bus -> bus.getBlockPos().asLong()))
                 .toList();
+        invalidateMergedPatterns();
         this.parallelCores = nextParallelCores.stream()
                 .sorted(Comparator.comparing(core -> core.getBlockPos().asLong()))
                 .toList();
@@ -118,6 +120,7 @@ public final class NECraftingNetworkCluster {
         controllers = List.of();
         workers = List.of();
         patternBuses = List.of();
+        invalidateMergedPatterns();
         parallelCores = List.of();
         nextPhysicalClusterIndex = 0;
         nextWorkerIndexByCluster.clear();
@@ -503,13 +506,19 @@ public final class NECraftingNetworkCluster {
     }
 
     public List<IPatternDetails> getMergedPatterns() {
+        if (mergedPatterns != null) return mergedPatterns;
         Map<PatternSignature, IPatternDetails> merged = new LinkedHashMap<>();
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
             for (IPatternDetails pattern : patternBus.getLocalAvailablePatterns()) {
                 merged.putIfAbsent(PatternSignature.of(pattern), pattern);
             }
         }
-        return List.copyOf(merged.values());
+        mergedPatterns = List.copyOf(merged.values());
+        return mergedPatterns;
+    }
+
+    public void invalidateMergedPatterns() {
+        mergedPatterns = null;
     }
 
     public boolean tryPushPattern(

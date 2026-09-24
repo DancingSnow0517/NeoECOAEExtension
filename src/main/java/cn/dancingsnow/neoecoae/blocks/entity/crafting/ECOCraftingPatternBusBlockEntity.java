@@ -26,6 +26,7 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternEx
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOStatefulBatchCalculator;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import cn.dancingsnow.neoecoae.grid.PatternCatalog;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
@@ -65,7 +66,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     private final AppEngInternalInventory inventory;
     private final InternalInventory effectiveInventory = new EffectivePatternInventory();
-    private final List<IPatternDetails> patternDetails = new ArrayList<>();
+    private List<IPatternDetails> patternDetails = List.of();
+    private final PatternSlotCache<IPatternDetails> decodedPatternDetails;
+    private boolean patternDetailsUpdateQueued;
     public final IItemHandlerModifiable itemHandler;
     private LazyOptional<IItemHandlerModifiable> itemHandlerCap;
     private int nextWorkerIndex = 0;
@@ -79,7 +82,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     public List<IPatternDetails> getLocalAvailablePatterns() {
-        return List.copyOf(patternDetails);
+        if (patternDetailsUpdateQueued) {
+            flushScheduledPatternDetails();
+        }
+        return patternDetails;
     }
 
     @Override
@@ -339,7 +345,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public ECOPatternInsertionResult insertPattern(ItemStack itemStack) {
-        if (!(PatternDetailsHelper.decodePattern(itemStack, level) instanceof IMolecularAssemblerSupportedPattern)) {
+        if (!canAcceptPattern(itemStack)) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
         if (containsPatternInCluster(itemStack)) {
@@ -349,7 +355,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return result.isEmpty() ? ECOPatternInsertionResult.INSERTED : ECOPatternInsertionResult.NO_SPACE;
     }
 
-    private boolean containsPatternInCluster(ItemStack pattern) {
+    public boolean canAcceptPattern(ItemStack pattern) {
+        return PatternDetailsHelper.decodePattern(pattern, level) instanceof IMolecularAssemblerSupportedPattern;
+    }
+
+    public boolean containsPatternInCluster(ItemStack pattern) {
         List<ECOCraftingPatternBusBlockEntity> buses = cluster != null && cluster.getNetworkCluster() != null
                 ? cluster.getNetworkCluster().getPatternBuses()
                 : cluster != null ? cluster.getPatternBuses() : List.of(this);
@@ -373,6 +383,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public ECOCraftingPatternBusBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
         this.inventory = new AppEngInternalInventory(this, NEConfig.getMaxCraftingPatternBusSlotCount());
+        this.decodedPatternDetails = new PatternSlotCache<>(inventory.size());
         this.inventory.setFilter(new AEEncodedPatternFilter());
         this.itemHandler = (IItemHandlerModifiable) effectiveInventory.toItemHandler();
         this.itemHandlerCap = LazyOptional.of(() -> this.itemHandler);
@@ -386,7 +397,22 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void onChangeInventory(InternalInventory inv, int slot) {
         this.saveChanges();
-        updatePatternDetails();
+        NECraftingNetworkCluster network = getNetworkCluster();
+        if (network != null) network.invalidateMergedPatterns();
+        refreshPatternCatalog(slot);
+        decodedPatternDetails.mark(slot);
+        if (level instanceof ServerLevel serverLevel) {
+            patternDetailsUpdateQueued = true;
+            PatternBusUpdateScheduler.mark(this, serverLevel.getServer().getTickCount() + 1);
+        }
+    }
+
+    private void refreshPatternCatalog(int slot) {
+        IGrid grid = getGrid();
+        if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
+                instanceof PatternCatalog catalog) {
+            catalog.onPatternSlotChanged(this, slot);
+        }
     }
 
     @Override
@@ -396,14 +422,29 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     private void updatePatternDetails() {
-        patternDetails.clear();
-        for (ItemStack itemStack : this.effectiveInventory) {
-            IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, this.level);
+        if (level == null || level.isClientSide) return;
+        PatternBusUpdateScheduler.remove(this);
+        patternDetailsUpdateQueued = false;
+        int slotCount = getPatternSlotCount();
+        decodedPatternDetails.refresh(slotCount,
+                slot -> PatternDetailsHelper.decodePattern(inventory.getStackInSlot(slot), level));
+        List<IPatternDetails> refreshed = new ArrayList<>();
+        for (int slot = 0; slot < Math.min(slotCount, decodedPatternDetails.capacity()); slot++) {
+            IPatternDetails details = decodedPatternDetails.get(slot);
             if (details != null) {
-                patternDetails.add(details);
+                refreshed.add(details);
             }
         }
+        patternDetails = List.copyOf(refreshed);
+        NECraftingNetworkCluster network = getNetworkCluster();
+        if (network != null) network.invalidateMergedPatterns();
         ICraftingProvider.requestUpdate(this.getMainNode());
+    }
+
+    public void flushScheduledPatternDetails() {
+        if (!isRemoved() && patternDetailsUpdateQueued) {
+            updatePatternDetails();
+        }
     }
 
     public void notifyPersistence() {
@@ -450,6 +491,8 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                     input.contains(NBT_PATTERN_INVENTORY_PAGES) ? input.getInt(NBT_PATTERN_INVENTORY_PAGES) : 1;
             activePages = clampPages(
                     Math.max(NEConfig.getCraftingPatternBusPages(), Math.max(savedPages, getHighestOccupiedPage())));
+            decodedPatternDetails.invalidateAll();
+            refreshPatternCatalog(-1);
             updatePatternDetails();
         }
     }
@@ -471,11 +514,25 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
+        decodedPatternDetails.invalidateAll();
         inventory.clear();
         inventory.readFromNBT(data, NBT_PATTERN_INVENTORY);
         int savedPages = data.contains(NBT_PATTERN_INVENTORY_PAGES) ? data.getInt(NBT_PATTERN_INVENTORY_PAGES) : 1;
         activePages = clampPages(
                 Math.max(NEConfig.getCraftingPatternBusPages(), Math.max(savedPages, getHighestOccupiedPage())));
+        refreshPatternCatalog(-1);
+    }
+
+    @Override
+    public void setRemoved() {
+        PatternBusUpdateScheduler.remove(this);
+        super.setRemoved();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        PatternBusUpdateScheduler.remove(this);
+        super.onChunkUnloaded();
     }
 
     @Override
