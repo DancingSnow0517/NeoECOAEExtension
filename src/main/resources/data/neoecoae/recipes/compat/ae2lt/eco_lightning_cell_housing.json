@@ -1,0 +1,20 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2lt"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": { "item": "neoecoae:crystal_matrix" },
+    "B": { "tag": "forge:dusts/redstone" },
+    "C": { "item": "ae2lt:overload_alloy" }
+  },
+  "pattern": [" A ", " B ", "CC "],
+  "result": {
+    "count": 1,
+    "item": "neoecoae:eco_lightning_cell_housing"
+  }
+}
