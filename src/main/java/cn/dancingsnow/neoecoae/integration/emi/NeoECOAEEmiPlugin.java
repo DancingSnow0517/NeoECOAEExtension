@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.integration.emi.recipe.MultiblockEmiRecipe;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import dev.emi.emi.api.EmiEntrypoint;
 import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
@@ -24,6 +25,9 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
     public static final EmiRecipeCategory INTEGRATED_WORKING_STATION = new EmiRecipeCategory(
             NeoECOAE.id("integrated_working_station"), EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
+
+    public static final EmiRecipeCategory LARGE_WORKING_STATION = new EmiRecipeCategory(
+            NeoECOAE.id("large_integrated_working_station"), EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
 
     public static final EmiRecipeCategory COOLING =
             new EmiRecipeCategory(NeoECOAE.id("cooling"), EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
@@ -40,6 +44,8 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
         registry.addCategory(INTEGRATED_WORKING_STATION);
         registry.addWorkstation(INTEGRATED_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
+        registry.addCategory(LARGE_WORKING_STATION);
+        registry.addWorkstation(LARGE_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
 
         registry.addCategory(COOLING);
         registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L4));
@@ -70,6 +76,11 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
             if (!NEConfig.isInfiniteStorageEnabled() && isInfiniteComponentRecipe(recipe)) {
                 continue;
             }
+            registry.addRecipe(new IntegratedWorkingStationEmiRecipe(recipe));
+        }
+
+        for (var recipe : LargeWorkstationRecipes.getAll(mc.level)) {
+            if (!NEConfig.isInfiniteStorageEnabled() && isInfiniteComponentRecipe(recipe.display())) continue;
             registry.addRecipe(new IntegratedWorkingStationEmiRecipe(recipe));
         }
 

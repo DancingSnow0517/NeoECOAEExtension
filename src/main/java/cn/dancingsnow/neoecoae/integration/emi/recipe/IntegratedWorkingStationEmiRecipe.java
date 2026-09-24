@@ -1,8 +1,10 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import cn.dancingsnow.neoecoae.recipe.ingredient.SizedFluidIngredient;
 import cn.dancingsnow.neoecoae.recipe.ingredient.SizedIngredient;
 import dev.emi.emi.api.recipe.EmiRecipe;
@@ -69,13 +71,25 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
     // ── Instance state ──
     private final ResourceLocation id;
     private final IntegratedWorkingStationRecipe recipe;
+    private final LargeWorkstationRecipe largeRecipe;
     private final List<EmiIngredient> itemInputs = new ArrayList<>();
     private EmiIngredient fluidInput = null;
     private final List<EmiStack> outputStacks = new ArrayList<>();
 
     public IntegratedWorkingStationEmiRecipe(IntegratedWorkingStationRecipe recipe) {
-        this.id = recipe.getId();
+        this(recipe.getId(), recipe, null);
+    }
+
+    public IntegratedWorkingStationEmiRecipe(LargeWorkstationRecipe recipe) {
+        this(NeoECOAE.id("large_workstation/" + recipe.id().getNamespace() + "/" + recipe.id().getPath()),
+                recipe.display(), recipe);
+    }
+
+    private IntegratedWorkingStationEmiRecipe(ResourceLocation id, IntegratedWorkingStationRecipe recipe,
+            LargeWorkstationRecipe largeRecipe) {
+        this.id = id;
         this.recipe = recipe;
+        this.largeRecipe = largeRecipe;
 
         // ── Input items ──
         for (SizedIngredient input : recipe.inputItems()) {
@@ -126,7 +140,9 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
 
     @Override
     public EmiRecipeCategory getCategory() {
-        return NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION;
+        return largeRecipe == null
+                ? NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION
+                : NeoECOAEEmiPlugin.LARGE_WORKING_STATION;
     }
 
     @Override
@@ -153,7 +169,7 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
 
     @Override
     public int getDisplayHeight() {
-        return HEIGHT;
+        return largeRecipe == null ? HEIGHT : 101;
     }
 
     @Override
@@ -252,11 +268,15 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
         }
 
         // ── Energy text ──
-        widgets.addText(
-                Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000),
-                ENERGY_TEXT_X,
-                ENERGY_TEXT_Y,
-                ENERGY_TEXT_COLOR,
-                false);
+        Component energy = largeRecipe == null
+                ? Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000)
+                : Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy",
+                        largeRecipe.energy());
+        widgets.addText(energy, ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
+        if (largeRecipe != null && !largeRecipe.extraInputs().isEmpty()) {
+            var extra = largeRecipe.extraInputs().get(0);
+            widgets.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_cost",
+                    extra.amount(), extra.what().getDisplayName()), 8, 79, ENERGY_TEXT_COLOR, false);
+        }
     }
 }

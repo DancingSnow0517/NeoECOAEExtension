@@ -210,6 +210,10 @@ public class IntegratedWorkingStationJeiCategory implements IRecipeCategory<Inte
             GuiGraphics g,
             double mouseX,
             double mouseY) {
+        drawLayout(recipe, slots, g, true);
+    }
+
+    void drawLayout(IntegratedWorkingStationRecipe recipe, IRecipeSlotsView slots, GuiGraphics g, boolean showEnergy) {
 
         // JEI draws the recipe card background; only draw the machine-specific parts here.
         // 1. Input fluid tank background (empty — JEI renders actual fluid)
@@ -237,8 +241,10 @@ public class IntegratedWorkingStationJeiCategory implements IRecipeCategory<Inte
         NELDLibAe2StyleRenderer.drawAeProgressBar(g, PROGRESS_X, PROGRESS_Y, PROGRESS_W, PROGRESS_H, progress, 100);
 
         // 6. Energy text
-        Component energyText =
-                Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
-        g.drawString(Minecraft.getInstance().font, energyText, ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
+        if (showEnergy) {
+            Component energyText =
+                    Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
+            g.drawString(Minecraft.getInstance().font, energyText, ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
+        }
     }
 }

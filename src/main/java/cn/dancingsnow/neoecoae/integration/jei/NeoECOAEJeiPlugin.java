@@ -8,10 +8,13 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.jei.categories.CoolingJeiCategory;
 import cn.dancingsnow.neoecoae.integration.jei.categories.IntegratedWorkingStationJeiCategory;
+import cn.dancingsnow.neoecoae.integration.jei.categories.LargeWorkingStationJeiCategory;
 import cn.dancingsnow.neoecoae.integration.jei.categories.multiblock.MultiblockJeiCategory;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiblockInfoRecipe;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer;
 import java.util.List;
 import mezz.jei.api.IModPlugin;
@@ -34,6 +37,9 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
     public static final RecipeType<IntegratedWorkingStationRecipe> IWS_RECIPE_TYPE =
             RecipeType.create(NeoECOAE.MOD_ID, "integrated_working_station", IntegratedWorkingStationRecipe.class);
 
+    public static final RecipeType<LargeWorkstationRecipe> LARGE_WORKING_STATION_TYPE =
+            RecipeType.create(NeoECOAE.MOD_ID, "large_integrated_working_station", LargeWorkstationRecipe.class);
+
     public static final RecipeType<CoolingRecipe> COOLING_RECIPE_TYPE =
             RecipeType.create(NeoECOAE.MOD_ID, "cooling", CoolingRecipe.class);
 
@@ -48,6 +54,8 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
     @Override
     public void registerCategories(IRecipeCategoryRegistration registration) {
         registration.addRecipeCategories(new IntegratedWorkingStationJeiCategory(
+                registration.getJeiHelpers().getGuiHelper()));
+        registration.addRecipeCategories(new LargeWorkingStationJeiCategory(
                 registration.getJeiHelpers().getGuiHelper()));
         registration.addRecipeCategories(
                 new CoolingJeiCategory(registration.getJeiHelpers().getGuiHelper()));
@@ -76,6 +84,13 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
                     .toList();
         }
         registration.addRecipes(IWS_RECIPE_TYPE, iwsRecipes);
+        List<LargeWorkstationRecipe> largeRecipes = LargeWorkstationRecipes.getAll(minecraft.level);
+        if (!NEConfig.isInfiniteStorageEnabled()) {
+            largeRecipes = largeRecipes.stream()
+                    .filter(recipe -> !isInfiniteComponentRecipe(recipe.display()))
+                    .toList();
+        }
+        registration.addRecipes(LARGE_WORKING_STATION_TYPE, largeRecipes);
 
         List<CoolingRecipe> coolingRecipes =
                 minecraft.level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get());
@@ -85,6 +100,7 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
     @Override
     public void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         registration.addRecipeCatalyst(NEBlocks.INTEGRATED_WORKING_STATION.asStack(), IWS_RECIPE_TYPE);
+        registration.addRecipeCatalyst(NEBlocks.INTEGRATED_WORKING_STATION.asStack(), LARGE_WORKING_STATION_TYPE);
 
         registration.addRecipeCatalyst(NEBlocks.CRAFTING_SYSTEM_L4.asStack(), COOLING_RECIPE_TYPE);
         registration.addRecipeCatalyst(NEBlocks.CRAFTING_SYSTEM_L6.asStack(), COOLING_RECIPE_TYPE);
