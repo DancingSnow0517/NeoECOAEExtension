@@ -1,7 +1,7 @@
 {
 	"format_version": "1.9.0",
 	"credit": "Made with Blockbench, optimized by TedXenon",
-	"parent": "block_block",
+	"parent": "block/block",
 	"render_type": "cutout",
 	"texture_size": [128, 128],
 	"textures": {

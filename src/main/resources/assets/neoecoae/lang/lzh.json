@@ -89,6 +89,8 @@
   "config.jade.plugin_neoecoae.eco_drive": "ECO - 驅機",
   "config.jade.plugin_neoecoae.eco_computation_drive": "ECO 算術驅機",
   "config.jade.plugin_neoecoae.eco_storage_interface": "ECO 藏器通訊樞",
+  "config.jade.plugin_neoecoae.eco_storage_system": "ECO 藏儲系統",
+  "config.jade.plugin_neoecoae.large_workstation_current_inputs": "綜合工坊今批投料",
   "emi.category.neoecoae.cooling": "涼系",
   "emi.category.neoecoae.integrated_working_station": "綜合工坊",
   "emi.category.neoecoae.multiblock": "ECO 多方構訊",
