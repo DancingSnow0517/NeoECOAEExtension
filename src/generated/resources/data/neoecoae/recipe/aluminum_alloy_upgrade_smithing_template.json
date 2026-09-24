@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "tag": "c:ingots/aluminum_alloy"
+    },
+    {
+      "item": "neoecoae:energized_fluix_crystal"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:aluminum_alloy_upgrade_smithing_template"
+  }
+}

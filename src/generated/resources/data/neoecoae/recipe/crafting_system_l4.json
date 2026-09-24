@@ -1,0 +1,26 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 16000,
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:crafting_casing"
+    },
+    {
+      "count": 2,
+      "item": "neoecoae:crafting_parallel_core_l4"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:superconducting_processor"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:crafting_system_l4"
+  }
+}

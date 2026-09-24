@@ -1,0 +1,20 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "appmek"
+    }
+  ],
+  "type": "ae2:storage_cell_disassembly",
+  "cell": "neoecoae:eco_chemical_storage_cell_64m",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "id": "neoecoae:eco_chemical_cell_housing"
+    },
+    {
+      "count": 1,
+      "id": "neoecoae:eco_cell_component_64m"
+    }
+  ]
+}

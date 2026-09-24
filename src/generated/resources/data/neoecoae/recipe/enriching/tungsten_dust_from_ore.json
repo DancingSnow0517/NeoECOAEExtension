@@ -1,0 +1,17 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "type": "mekanism:enriching",
+  "input": {
+    "count": 1,
+    "tag": "c:ores/tungsten"
+  },
+  "output": {
+    "count": 2,
+    "id": "neoecoae:tungsten_dust"
+  }
+}

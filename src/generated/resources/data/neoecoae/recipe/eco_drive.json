@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:storage_casing"
+    },
+    "B": {
+      "tag": "ae2:smart_dense_cable"
+    },
+    "C": {
+      "item": "ae2:drive"
+    },
+    "D": {
+      "item": "ae2:logic_processor"
+    }
+  },
+  "pattern": [
+    "ADA",
+    "BCB",
+    "ADA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:eco_drive"
+  }
+}

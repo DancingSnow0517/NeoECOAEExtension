@@ -1,0 +1,18 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "extendedae"
+    }
+  ],
+  "type": "extendedae:circuit_cutter",
+  "input": {
+    "ingredient": {
+      "item": "neoecoae:energized_superconductive_block"
+    }
+  },
+  "output": {
+    "count": 9,
+    "id": "neoecoae:superconducting_processor_print"
+  }
+}

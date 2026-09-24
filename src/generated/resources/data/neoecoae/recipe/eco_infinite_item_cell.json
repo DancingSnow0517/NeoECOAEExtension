@@ -1,0 +1,26 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 144000,
+  "inputItems": [
+    {
+      "count": 1,
+      "item": "minecraft:water_bucket"
+    },
+    {
+      "count": 1,
+      "item": "minecraft:lava_bucket"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:crystal_matrix"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:eco_infinite_item_cell"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "appliedsoul"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "soulplied_energistics"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "megacells"
+    }
+  ],
+  "type": "neoecoae:integrated_working_station",
+  "inputItems": [
+    {
+      "count": 10,
+      "item": "megacells:cell_component_256m"
+    },
+    {
+      "count": 8,
+      "item": "megacells:accumulation_processor"
+    },
+    {
+      "count": 64,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:mega_soul_cell_housing"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:eco_mega_soul_cell_4g"
+  },
+  "energy": 144000
+}

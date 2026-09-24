@@ -1,0 +1,22 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 62500,
+  "inputFluid": {
+    "amount": 250,
+    "tag": "minecraft:water"
+  },
+  "inputItems": [
+    {
+      "count": 8,
+      "tag": "c:dusts/energized_crystal"
+    },
+    {
+      "count": 8,
+      "tag": "c:gems/fluix"
+    }
+  ],
+  "itemOutput": {
+    "count": 8,
+    "id": "neoecoae:energized_fluix_crystal"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    "B": {
+      "item": "ae2:engineering_processor_press"
+    },
+    "C": {
+      "item": "ae2:calculation_processor_press"
+    },
+    "D": {
+      "item": "ae2:logic_processor_press"
+    }
+  },
+  "pattern": [
+    "AAA",
+    "BCD",
+    "AAA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:superconducting_processor_press"
+  }
+}

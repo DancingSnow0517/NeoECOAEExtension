@@ -1,0 +1,23 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "extendedae"
+    }
+  ],
+  "type": "extendedae:crystal_fixer",
+  "chance": 500,
+  "fuel": {
+    "ingredient": {
+      "tag": "c:gems/energized_crystal"
+    }
+  },
+  "input": {
+    "count": 1,
+    "id": "neoecoae:chipped_budding_energized_crystal"
+  },
+  "output": {
+    "count": 1,
+    "id": "neoecoae:flawed_budding_energized_crystal"
+  }
+}

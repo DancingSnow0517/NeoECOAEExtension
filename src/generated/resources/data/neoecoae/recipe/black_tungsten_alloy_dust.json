@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "tag": "c:dusts/tungsten"
+    },
+    {
+      "tag": "c:dusts/aluminum_alloy"
+    },
+    {
+      "tag": "c:dusts/fluix"
+    },
+    {
+      "tag": "c:dusts/fluix"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:black_tungsten_alloy_dust"
+  }
+}

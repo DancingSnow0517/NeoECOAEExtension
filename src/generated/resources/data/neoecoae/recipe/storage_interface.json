@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:storage_casing"
+    },
+    "B": {
+      "item": "ae2:logic_processor"
+    },
+    "C": {
+      "item": "ae2:singularity"
+    },
+    "D": {
+      "item": "ae2:interface"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "CDC",
+    "ABA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:storage_interface"
+  }
+}
