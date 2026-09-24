@@ -1,0 +1,10 @@
+{
+  "conditions": [{ "type": "forge:mod_loaded", "modid": "appliedpneumatics" }],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "neoecoae:eco_air_cell_housing" },
+    { "item": "neoecoae:eco_cell_component_16m" }
+  ],
+  "result": { "item": "neoecoae:eco_air_cell_16m", "count": 1 }
+}

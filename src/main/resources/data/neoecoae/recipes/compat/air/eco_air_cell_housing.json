@@ -1,0 +1,12 @@
+{
+  "conditions": [{ "type": "forge:mod_loaded", "modid": "appliedpneumatics" }],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": ["ABA", "BCB", "AAA"],
+  "key": {
+    "A": { "item": "neoecoae:crystal_matrix" },
+    "B": { "item": "minecraft:glass_bottle" },
+    "C": { "item": "minecraft:redstone" }
+  },
+  "result": { "item": "neoecoae:eco_air_cell_housing", "count": 1 }
+}

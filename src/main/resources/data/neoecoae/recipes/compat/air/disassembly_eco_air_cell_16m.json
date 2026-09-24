@@ -1,0 +1,9 @@
+{
+  "conditions": [{ "type": "forge:mod_loaded", "modid": "appliedpneumatics" }],
+  "type": "neoecoae:storage_cell_disassembly",
+  "cell": "neoecoae:eco_air_cell_16m",
+  "cell_disassembly_items": [
+    { "count": 1, "id": "neoecoae:eco_air_cell_housing" },
+    { "count": 1, "id": "neoecoae:eco_cell_component_16m" }
+  ]
+}
