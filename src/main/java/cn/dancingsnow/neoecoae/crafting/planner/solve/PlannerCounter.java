@@ -3,13 +3,13 @@ package cn.dancingsnow.neoecoae.crafting.planner.solve;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Exact planner-side counter. Conversion to AE2's long counter is explicit. */
 final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> {
-    private final Map<AEKey, PlannerAmount> values = new LinkedHashMap<>();
+    private final Map<AEKey, PlannerAmount> values = new Object2ObjectLinkedOpenHashMap<>();
 
     PlannerAmount get(AEKey key) {
         return values.getOrDefault(key, PlannerAmount.ZERO);

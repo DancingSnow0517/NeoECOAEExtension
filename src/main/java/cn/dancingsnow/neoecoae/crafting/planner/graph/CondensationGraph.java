@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.component.AcyclicComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.component.ComponentDependency;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.component.PlanningComponent;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.Nullable;
 
 /** SCC contraction result. Its component graph is validated and topologically ordered. */
 public final class CondensationGraph {
@@ -92,18 +94,17 @@ public final class CondensationGraph {
             components.put(scc.componentId(), component);
         }
 
-        Map<Integer, Integer> indegree = new HashMap<>();
-        for (Integer id : components.keySet()) indegree.put(id, 0);
-        for (ComponentDependency edge : dependencies) indegree.merge(edge.toComponentId(), 1, Integer::sum);
+        Int2IntOpenHashMap indegree = new Int2IntOpenHashMap(components.size());
+        for (ComponentDependency edge : dependencies) indegree.addTo(edge.toComponentId(), 1);
         ArrayDeque<Integer> ready = new ArrayDeque<>();
-        for (Integer id : components.keySet()) if (indegree.get(id) == 0) ready.addLast(id);
+        for (Integer id : components.keySet()) if (indegree.get(id.intValue()) == 0) ready.addLast(id);
         List<PlanningComponent> order = new ArrayList<>(components.size());
         while (!ready.isEmpty()) {
             cancellation.checkpoint();
             int id = ready.removeFirst();
             order.add(components.get(id));
             for (ComponentDependency edge : outgoing.getOrDefault(id, List.of())) {
-                int remaining = indegree.merge(edge.toComponentId(), -1, Integer::sum);
+                int remaining = indegree.addTo(edge.toComponentId(), -1) - 1;
                 if (remaining == 0) ready.addLast(edge.toComponentId());
             }
         }
@@ -121,8 +122,10 @@ public final class CondensationGraph {
         return components;
     }
 
-    public PlanningComponent componentFor(AEKey key) {
-        return components.get(componentByKey.get(key));
+    /** Special inputs such as reusable catalysts may be absent from the structural graph. */
+    public @Nullable PlanningComponent componentFor(AEKey key) {
+        Integer componentId = componentByKey.get(key);
+        return componentId == null ? null : components.get(componentId);
     }
 
     public List<ComponentDependency> dependencies() {

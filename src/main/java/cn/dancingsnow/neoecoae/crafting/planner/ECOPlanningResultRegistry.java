@@ -11,11 +11,11 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +36,9 @@ public final class ECOPlanningResultRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
     private static final int MAX_ENTRIES = 4096;
     private static final long MAX_AGE_NANOS = Duration.ofMinutes(10).toNanos();
-    private static final Map<Signature, List<Entry>> RESULTS = new LinkedHashMap<>(64, 0.75f, true);
+    private static final Object2ObjectLinkedOpenHashMap<Signature, List<Entry>> RESULTS =
+            new Object2ObjectLinkedOpenHashMap<>(64);
+    private static int entryCount;
     private static final ThreadLocal<SubmissionAlias> ACTIVE_SUBMISSION_ALIAS = new ThreadLocal<>();
 
     private ECOPlanningResultRegistry() {}
@@ -84,7 +86,9 @@ public final class ECOPlanningResultRegistry {
             List<Entry> entries = RESULTS.computeIfAbsent(signature, ignored -> new ArrayList<>());
             // Multiple aliases of one ECO planning result are one candidate. Different planning IDs remain
             // independent even if they happen to have byte-for-byte equal plans.
+            int previousSize = entries.size();
             entries.removeIf(entry -> entry.planningId().equals(planningId));
+            entryCount -= previousSize - entries.size();
             entries.add(new Entry(
                     result,
                     signature,
@@ -95,6 +99,8 @@ public final class ECOPlanningResultRegistry {
                     inspection.reason(),
                     planningId,
                     now));
+            entryCount++;
+            RESULTS.getAndMoveToLast(signature);
             trimEntries();
         }
     }
@@ -125,7 +131,7 @@ public final class ECOPlanningResultRegistry {
         if (signature == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            return uniqueEntry(RESULTS.get(signature));
+            return uniqueEntry(RESULTS.getAndMoveToLast(signature));
         }
     }
 
@@ -225,7 +231,7 @@ public final class ECOPlanningResultRegistry {
         if (signature == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            List<Entry> entries = RESULTS.get(signature);
+            List<Entry> entries = RESULTS.getAndMoveToLast(signature);
             Entry entry = uniqueEntryObject(entries);
             if (entry == null) return null;
 
@@ -265,13 +271,14 @@ public final class ECOPlanningResultRegistry {
     public static int registeredMetadataCount() {
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            return RESULTS.values().stream().mapToInt(List::size).sum();
+            return entryCount;
         }
     }
 
     public static void clear() {
         synchronized (RESULTS) {
             RESULTS.clear();
+            entryCount = 0;
         }
         ACTIVE_SUBMISSION_ALIAS.remove();
     }
@@ -299,16 +306,16 @@ public final class ECOPlanningResultRegistry {
 
     private static void removeExpired(long now) {
         RESULTS.entrySet().removeIf(entry -> {
+            int previousSize = entry.getValue().size();
             entry.getValue().removeIf(value -> now - value.createdNanos() > MAX_AGE_NANOS);
+            entryCount -= previousSize - entry.getValue().size();
             return entry.getValue().isEmpty();
         });
     }
 
     private static void trimEntries() {
-        while (RESULTS.values().stream().mapToInt(List::size).sum() > MAX_ENTRIES) {
-            var oldestBucket = RESULTS.entrySet().iterator().next();
-            oldestBucket.getValue().clear();
-            RESULTS.remove(oldestBucket.getKey());
+        while (entryCount > MAX_ENTRIES) {
+            entryCount -= RESULTS.removeFirst().size();
         }
     }
 
