@@ -9,6 +9,8 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -105,10 +107,15 @@ public final class InfiniteStorageAcceptanceGameTest {
         engine.flushAndAwait();
         report.add(String.format(Locale.ROOT, "Initial full commit: %.3f ms", (System.nanoTime() - start) / 1e6));
         long[] tickWork = new long[400];
+        long[] operationWork = new long[tickWork.length];
+        long[] saveWork = new long[tickWork.length];
+        long[] gcMillis = new long[tickWork.length];
+        var collectors = ManagementFactory.getGarbageCollectorMXBeans();
         List<Long> saves = new ArrayList<>();
         for (int tick = 0; tick < tickWork.length; tick++) {
             final int index = tick;
             helper.runAtTickTime(tick + 1, () -> {
+                long gcBefore = gcTime(collectors);
                 long began = System.nanoTime();
                 // 20,000 facade calls/tick, distributed across the full inventory.
                 for (int j = 0; j < 10_000; j++) {
@@ -120,18 +127,35 @@ public final class InfiniteStorageAcceptanceGameTest {
                             storage.insert(key, 64, Actionable.MODULATE, IActionSource.empty()) == 64,
                             "insertion differs");
                 }
+                operationWork[index] = System.nanoTime() - began;
                 if (index % 40 == 39) {
                     long saving = System.nanoTime();
                     dataStorage.save();
-                    saves.add(System.nanoTime() - saving);
+                    saveWork[index] = System.nanoTime() - saving;
+                    saves.add(saveWork[index]);
                     helper.assertTrue(engine.isHealthy() && !engine.needsPersistence(), "commit failed");
                 }
                 tickWork[index] = System.nanoTime() - began;
+                gcMillis[index] = gcTime(collectors) - gcBefore;
             });
         }
         helper.runAtTickTime(402, () -> {
             try {
                 report.add(summary("20k calls/tick INCLUDING save", tickWork));
+                Integer[] slowest = new Integer[tickWork.length];
+                for (int i = 0; i < slowest.length; i++) slowest[i] = i;
+                Arrays.sort(slowest, (left, right) -> Long.compare(tickWork[right], tickWork[left]));
+                for (int i = 0; i < 5; i++) {
+                    int tick = slowest[i];
+                    report.add(String.format(
+                            Locale.ROOT,
+                            "Slow tick %d: total=%.3f ms, operations=%.3f ms, save=%.3f ms, JVM GC=%d ms",
+                            tick,
+                            tickWork[tick] / 1e6,
+                            operationWork[tick] / 1e6,
+                            saveWork[tick] / 1e6,
+                            gcMillis[tick]));
+                }
                 engine.verifyPersistence();
                 report.add(summary(
                         "World saves after net-zero I/O",
@@ -215,5 +239,13 @@ public final class InfiniteStorageAcceptanceGameTest {
                 sorted[(int) Math.ceil(sorted.length * .99) - 1] / 1e6,
                 sorted[sorted.length - 1] / 1e6,
                 Arrays.stream(sorted).filter(n -> n > 50_000_000).count());
+    }
+
+    private static long gcTime(List<GarbageCollectorMXBean> collectors) {
+        long millis = 0;
+        for (var collector : collectors) {
+            millis += Math.max(0L, collector.getCollectionTime());
+        }
+        return millis;
     }
 }
