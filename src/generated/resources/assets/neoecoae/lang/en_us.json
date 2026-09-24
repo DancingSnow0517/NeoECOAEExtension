@@ -293,7 +293,7 @@
   "gui.neoecoae.host.crafting.pattern_transfer.progress": "Transferring %d%%",
   "gui.neoecoae.host.crafting.pattern_transfer.ready": "Ready to transfer",
   "gui.neoecoae.host.crafting.pattern_transfer.result_primary": "Transferred %d; Already present %d",
-  "gui.neoecoae.host.crafting.pattern_transfer.result_secondary": "No space %d; Incompatible %d",
+  "gui.neoecoae.host.crafting.pattern_transfer.result_secondary": "No space %d; Non-crafting patterns %d",
   "gui.neoecoae.host.crafting.pattern_transfer.unavailable": "Crafting subsystem is not connected to an available network",
   "gui.neoecoae.host.crafting.subtitle": "Crafting System Host",
   "gui.neoecoae.host.metric.bytes": "Bytes",
@@ -780,5 +780,11 @@
   "gui.neoecoae.large_integrated_working_station.pause.lightning_missing": "Paused: Missing lightning",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "ME: %s × %s",
   "gui.neoecoae.large_integrated_working_station.lightning_amount": "Lightning from ME: %s",
-  "gui.neoecoae.large_integrated_working_station.recipe_energy": "Energy: %s AE"
+  "gui.neoecoae.large_integrated_working_station.recipe_energy": "Energy: %s AE",
+  "gui.neoecoae.crafting_interface.preview.source": "Source: %s, %s, %s · Slot %s",
+  "gui.neoecoae.crafting_interface.preview.read_only": "Disk contents · Read-only; edit in the pattern access terminal",
+  "gui.neoecoae.crafting_interface.preview.loading": "Loading patterns… %s slots received",
+  "gui.neoecoae.crafting_interface.preview.no_results": "No matching pattern rows",
+  "gui.neoecoae.crafting_interface.preview.rows": "Rows %s–%s / %s",
+  "gui.neoecoae.crafting_interface.preview.empty_rows": "Show / hide empty rows"
 }

@@ -666,7 +666,7 @@
   "gui.neoecoae.host.crafting.pattern_transfer.unavailable": "合成子系统未连接到可用网络",
   "gui.neoecoae.host.crafting.pattern_transfer.no_target": "未找到可用的样板总线",
   "gui.neoecoae.host.crafting.pattern_transfer.result_primary": "转移 %d · 已存在 %d",
-  "gui.neoecoae.host.crafting.pattern_transfer.result_secondary": "空间不足 %d · 不兼容 %d",
+  "gui.neoecoae.host.crafting.pattern_transfer.result_secondary": "空间不足 %d · 非合成样板 %d",
   "gui.neoecoae.computation_interface.hint": "标记物品用于忽略其组件差异",
   "gui.neoecoae.crafting_report.calculating": "计算中…",
   "gui.neoecoae.crafting_report.solving_large_cycle": "[ECO] 正在求解大型循环",
@@ -818,5 +818,11 @@
   "gui.neoecoae.large_integrated_working_station.pause.lightning_missing": "暂停：闪电不足",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "ME 提取：%s × %s",
   "gui.neoecoae.large_integrated_working_station.lightning_amount": "从 ME 提取闪电：%s",
-  "gui.neoecoae.large_integrated_working_station.recipe_energy": "耗能：%s AE"
+  "gui.neoecoae.large_integrated_working_station.recipe_energy": "耗能：%s AE",
+  "gui.neoecoae.crafting_interface.preview.source": "来源：%s, %s, %s · 槽位 %s",
+  "gui.neoecoae.crafting_interface.preview.read_only": "磁盘内容 · 只读；请在样板管理终端编辑",
+  "gui.neoecoae.crafting_interface.preview.loading": "正在加载样板…已接收 %s 个槽位",
+  "gui.neoecoae.crafting_interface.preview.no_results": "没有匹配的样板行",
+  "gui.neoecoae.crafting_interface.preview.rows": "第 %s–%s 行 / 共 %s 行",
+  "gui.neoecoae.crafting_interface.preview.empty_rows": "显示 / 隐藏空行"
 }

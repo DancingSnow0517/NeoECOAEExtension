@@ -33,6 +33,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.UUID;
 import java.util.Comparator;
+import java.util.ArrayDeque;
+import java.util.Locale;
 
 /**
  * Grid-owned source of truth for ECO and external pattern locations, key counts and free capacity.
@@ -100,6 +102,13 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     private final Map<PatternContainer, Map<Integer, PatternRecord>> externalPatternRecords =
             new IdentityHashMap<>();
     private List<PatternContainer> externalPatternSources = List.of();
+    private final Map<PatternContainer, BitSet> externalCraftingHistory = new IdentityHashMap<>();
+    private final Map<PatternContainer, BitSet> externalPreferredBySource = new IdentityHashMap<>();
+    private final ArrayDeque<ECOPatternSourceSlot> externalAvailable = new ArrayDeque<>();
+    private BitSet externalPreferredSlots = new BitSet();
+    private int externalPreferredSlot;
+    private boolean externalScanningPreferred = true;
+    private boolean externalPreferredPass = true;
     private int externalPatternSourceIndex;
     private int externalPatternSlotIndex;
     private int externalPatternScannedSlots;
@@ -570,6 +579,11 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
 
     @Override
     public ExternalPatternIndexState getExternalPatternIndex(IGrid grid) {
+        ensureExternalPatternIndex(grid);
+        return externalPatternIndexState(true);
+    }
+
+    private void ensureExternalPatternIndex(IGrid grid) {
         if (externalPatternIndexGrid != grid) {
             externalPatternIndexGrid = grid;
             invalidateExternalPatternIndex();
@@ -577,7 +591,6 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         if (externalPatternIndexDirty && !externalPatternIndexBuilding) {
             beginExternalPatternIndexBuild(grid);
         }
-        return externalPatternIndexState();
     }
 
     @Override
@@ -587,27 +600,19 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                     externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK,
                     externalPatternScanBudgetHits, externalPatternScanNanos);
         }
-        ExternalPatternIndexState state = getExternalPatternIndex(grid);
+        ensureExternalPatternIndex(grid);
+        ExternalPatternIndexState state = externalPatternIndexState(false);
         Set<ECOPatternSourceSlot> owned = externalPatternClaimsByOwner.computeIfAbsent(owner,
                 ignored -> new HashSet<>());
         externalPatternClaimTicks.put(owner, externalPatternTick);
         List<ECOPatternSourceSlot> claimed = new ArrayList<>(Math.min(maxCandidates, 64));
-        outer:
-        for (Map.Entry<PatternContainer, BitSet> entry : externalPatternSlots.entrySet()) {
-            BitSet slots = entry.getValue();
-            for (int slot = slots.nextSetBit(0); slot >= 0; slot = slots.nextSetBit(slot + 1)) {
-                ECOPatternSourceSlot candidate = new ECOPatternSourceSlot(entry.getKey(), slot);
-                UUID currentOwner = externalPatternClaims.get(candidate);
-                if (currentOwner != null) {
-                    continue;
-                }
-                externalPatternClaims.put(candidate, owner);
-                owned.add(candidate);
-                claimed.add(candidate);
-                if (claimed.size() >= maxCandidates) {
-                    break outer;
-                }
-            }
+        while (claimed.size() < maxCandidates && !externalAvailable.isEmpty()) {
+            ECOPatternSourceSlot candidate = externalAvailable.removeFirst();
+            BitSet slots = externalPatternSlots.get(candidate.source());
+            if (slots == null || !slots.get(candidate.slot()) || externalPatternClaims.containsKey(candidate)) continue;
+            externalPatternClaims.put(candidate, owner);
+            owned.add(candidate);
+            claimed.add(candidate);
         }
         return new ExternalPatternClaim(state.ready(), state.scannedSlots(), state.totalSlots(), List.copyOf(claimed),
                 state.lastScanNanos(), state.scanBudgetNanos(), state.scanBudgetHits(), state.totalScanNanos());
@@ -626,6 +631,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         for (ECOPatternSourceSlot candidate : owned) {
             if (owner.equals(externalPatternClaims.get(candidate))) {
                 externalPatternClaims.remove(candidate);
+                requeueExternalCandidate(candidate);
             }
         }
     }
@@ -639,6 +645,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         if (owner == null) {
             return;
         }
+        requeueExternalCandidate(slot);
         Set<ECOPatternSourceSlot> owned = externalPatternClaimsByOwner.get(owner);
         if (owned != null) {
             owned.remove(slot);
@@ -701,8 +708,10 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         externalPatternIndexBuilding = false;
         externalPatternIndexAge = 0;
         externalPatternSlots.clear();
+        externalAvailable.clear();
         clearExternalPatternRecords();
         externalPatternSources = List.of();
+        externalPreferredBySource.clear();
         externalPatternSourceIndex = 0;
         externalPatternSlotIndex = 0;
         externalPatternScannedSlots = 0;
@@ -727,11 +736,21 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 }
             }
         }
+        externalCraftingHistory.keySet().retainAll(visited);
+        sources.sort(Comparator.comparingInt(this::externalSourcePriority));
         externalPatternSlots.clear();
+        externalAvailable.clear();
         clearExternalPatternRecords();
         externalPatternSources = List.copyOf(sources);
+        externalPreferredBySource.clear();
+        for (PatternContainer source : sources) {
+            BitSet history = externalCraftingHistory.get(source);
+            if (history != null && !history.isEmpty()) externalPreferredBySource.put(source, (BitSet) history.clone());
+        }
+        externalPreferredPass = true;
         externalPatternSourceIndex = 0;
         externalPatternSlotIndex = 0;
+        beginPreferredSlots();
         externalPatternScannedSlots = 0;
         externalPatternTotalSlots = sources.stream()
                 .mapToInt(source -> sourceSlots(source).size())
@@ -739,6 +758,34 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         externalPatternIndexAge = 0;
         externalPatternIndexDirty = false;
         externalPatternIndexBuilding = !sources.isEmpty();
+    }
+
+    private void requeueExternalCandidate(ECOPatternSourceSlot candidate) {
+        BitSet slots = externalPatternSlots.get(candidate.source());
+        if (slots != null && slots.get(candidate.slot())) externalAvailable.addLast(candidate);
+    }
+
+    private int externalSourcePriority(PatternContainer source) {
+        BitSet previous = externalCraftingHistory.get(source);
+        return previous != null && !previous.isEmpty() ? 0 : sourceKindPriority(source.getClass());
+    }
+
+    // Hints only: unknown integrations are always scanned as well. No optional mod class is loaded here.
+    static int sourceKindPriority(Class<?> type) {
+        String name = type.getName().toLowerCase(Locale.ROOT);
+        if (name.contains("matrix") || name.contains("patterncore") || name.contains("patternstorage")
+                || name.contains("molecularassembler")) return 1;
+        if (name.contains("patternprovider")) return 2;
+        return 3;
+    }
+
+    private void beginPreferredSlots() {
+        externalPreferredSlots = externalPatternSourceIndex < externalPatternSources.size()
+                ? externalPreferredBySource.getOrDefault(
+                        externalPatternSources.get(externalPatternSourceIndex), new BitSet())
+                : new BitSet();
+        externalPreferredSlot = 0;
+        externalScanningPreferred = externalPreferredPass;
     }
 
     /**
@@ -766,17 +813,37 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             }
             PatternContainer source = externalPatternSources.get(externalPatternSourceIndex);
             var inventory = sourceSlots(source);
-            if (source.getGrid() != externalPatternIndexGrid || externalPatternSlotIndex >= inventory.size()) {
+            int preferred = externalScanningPreferred ? externalPreferredSlots.nextSetBit(externalPreferredSlot) : -1;
+            if (preferred < 0 || preferred >= inventory.size()) externalScanningPreferred = false;
+            if (source.getGrid() != externalPatternIndexGrid
+                    || (externalPreferredPass && !externalScanningPreferred)
+                    || (!externalScanningPreferred && externalPatternSlotIndex >= inventory.size())) {
                 externalPatternSourceIndex++;
                 externalPatternSlotIndex = 0;
+                if (externalPreferredPass && externalPatternSourceIndex >= externalPatternSources.size()) {
+                    externalPreferredPass = false;
+                    externalPatternSourceIndex = 0;
+                }
+                beginPreferredSlots();
                 continue;
             }
-            int slot = externalPatternSlotIndex++;
+            int slot;
+            if (externalScanningPreferred) {
+                slot = preferred;
+                externalPreferredSlot = slot + 1;
+            } else {
+                slot = externalPatternSlotIndex++;
+                if (externalPreferredSlots.get(slot)) continue;
+            }
             externalPatternScannedSlots++;
             budget--;
             var stack = inventory.getStackInSlot(slot);
+            BitSet history = externalCraftingHistory.computeIfAbsent(source, ignored -> new BitSet());
+            history.set(slot, stack.has(appeng.api.ids.AEComponents.ENCODED_CRAFTING_PATTERN));
             if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack)) {
                 externalPatternSlots.computeIfAbsent(source, ignored -> new BitSet()).set(slot);
+                ECOPatternSourceSlot candidate = new ECOPatternSourceSlot(source, slot);
+                if (!externalPatternClaims.containsKey(candidate)) externalAvailable.addLast(candidate);
                 AEItemKey key = AEItemKey.of(stack);
                 PatternRecord record = new PatternRecord(
                                 new PatternLocation(source, slot),
@@ -804,20 +871,24 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         }
     }
 
-    private ExternalPatternIndexState externalPatternIndexState() {
-        if (externalPatternIndexBuilding) {
-            return new ExternalPatternIndexState(false, externalPatternScannedSlots, externalPatternTotalSlots, List.of(),
+    private ExternalPatternIndexState externalPatternIndexState(boolean includeCandidates) {
+        if (externalPatternIndexBuilding || !includeCandidates) {
+            return new ExternalPatternIndexState(!externalPatternIndexBuilding, externalPatternScannedSlots, externalPatternTotalSlots, List.of(),
                     externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK,
                     externalPatternScanBudgetHits, externalPatternScanNanos);
         }
         List<ECOPatternSourceSlot> candidates = new ArrayList<>();
-        externalPatternSlots.forEach((source, slots) -> slots.stream()
+        for (PatternContainer source : externalPatternSources) {
+            BitSet slots = externalPatternSlots.get(source);
+            if (slots == null) continue;
+            slots.stream()
                 .forEach(slot -> {
                     ECOPatternSourceSlot candidate = new ECOPatternSourceSlot(source, slot);
                     if (!externalPatternClaims.containsKey(candidate)) {
                         candidates.add(candidate);
                     }
-                }));
+                });
+        }
         return new ExternalPatternIndexState(true, externalPatternScannedSlots, externalPatternTotalSlots, List.copyOf(candidates),
                 externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK,
                 externalPatternScanBudgetHits, externalPatternScanNanos);

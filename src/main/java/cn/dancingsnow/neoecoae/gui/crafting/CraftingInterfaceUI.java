@@ -160,6 +160,13 @@ public final class CraftingInterfaceUI {
         header.addChild(patternSearchField(previewState));
         header.addChild(patternFilterButton(
                 previewState,
+                CraftingPatternPreviewState::showsEmptyRows,
+                PATTERN_ACCESS_SHOW,
+                NETextures.aeIcon(80, 80, 16, 16),
+                CraftingPatternPreviewState::toggleEmptyRows,
+                "gui.neoecoae.crafting_interface.preview.empty_rows"));
+        header.addChild(patternFilterButton(
+                previewState,
                 CraftingPatternPreviewState::showsSubstitutionPatterns,
                 SUBSTITUTION_ENABLED,
                 SUBSTITUTION_DISABLED,
@@ -213,15 +220,17 @@ public final class CraftingInterfaceUI {
             String tooltip) {
         Button button = new Button()
                 .noText()
-                .addPreIcon(enabled.apply(previewState) ? enabledIcon : disabledIcon)
-                .setOnClick(event -> action.accept(previewState));
+                .addPreIcon(enabled.apply(previewState) ? enabledIcon : disabledIcon);
+        button.setOnClick(event -> {
+            action.accept(previewState);
+            button.getChildren().getFirst().style(style ->
+                    style.backgroundTexture(enabled.apply(previewState) ? enabledIcon : disabledIcon));
+        });
         button.buttonStyle(style -> style
                 .baseTexture(Sprites.RECT_RD)
                 .hoverTexture(Sprites.RECT_RD_LIGHT)
                 .pressedTexture(Sprites.RECT_RD_DARK));
         button.layout(layout -> layout.width(TOOL_BUTTON_SIZE).height(TOOL_BUTTON_SIZE));
-        button.addEventListener(UIEvents.TICK, event -> button.getChildren().getFirst().style(style ->
-                style.backgroundTexture(enabled.apply(previewState) ? enabledIcon : disabledIcon)));
         return HostElements.tooltips(button, Component.translatable(tooltip));
     }
 
@@ -235,6 +244,17 @@ public final class CraftingInterfaceUI {
                 .flexDirection(FlexDirection.COLUMN));
         section.addChild(previewHeader(craftingInterface, previewState, player));
         section.addChild(patternPreviewRow(previewState));
+        Label status = new Label();
+        status.textStyle(style -> style.textWrap(TextWrap.NONE).adaptiveWidth(false).adaptiveHeight(true));
+        status.layout(layout -> layout.widthPercent(100).height(12));
+        Component[] previous = {previewState.status()};
+        status.setText(previous[0]);
+        // This is local browse state: never bind it as server-to-client text.
+        status.addEventListener(UIEvents.TICK, event -> {
+            Component next = previewState.status();
+            if (!next.equals(previous[0])) status.setText(previous[0] = next);
+        });
+        section.addChild(status);
         return section;
     }
 

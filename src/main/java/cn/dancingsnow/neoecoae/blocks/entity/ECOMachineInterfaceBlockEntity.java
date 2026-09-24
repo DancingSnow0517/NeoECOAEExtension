@@ -126,6 +126,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private PatternOrganizeTask patternOrganizeTask;
     private long[] patternBusPositions = new long[0];
     private int[] patternBusSlotCounts = new int[0];
+    private transient int[] patternBusOffsets = new int[0];
     private int patternContentRevision;
     private transient List<PatternSlotRef> patternSlotRefs = List.of();
     private transient boolean patternInterfaceMappingInitialized;
@@ -351,6 +352,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     /** Auxiliary revision each bus's preview rows were last drawn from, keyed by bus position. */
     private final Map<Long, Long> busAuxiliaryPreviewRevisions = new HashMap<>();
+    private final Map<Long, AuxiliaryPreviewSnapshot> auxiliaryPreviewCache = new HashMap<>();
+    private record AuxiliaryPreviewSnapshot(long revision, List<PatternPreviewEntry.DiskPattern> rows) {}
 
     /**
      * Marks the rows of any bus whose disk contents moved, since that is what those rows now show.
@@ -397,8 +400,29 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
      */
     protected PatternPreviewEntry auxiliaryPreviewEntry(PatternSlotRef ref) {
         var bus = ref.bus();
-        return new PatternPreviewEntry(bus.getBlockPos().asLong(), ref.slot(), ItemStack.EMPTY, "",
-                patternSearchFlags(ItemStack.EMPTY), auxiliaryPreviewRows(bus), true);
+        // The auxiliary API publishes a bus-wide list, not a per-disk list. Attach it once only.
+        boolean firstDisk = true;
+        for (int slot = 0; slot < ref.slot(); slot++) {
+            if (bus.ownsAuxiliary(bus.getPatternSlotInventory().getStackInSlot(slot))) {
+                firstDisk = false;
+                break;
+            }
+        }
+        List<PatternPreviewEntry.DiskPattern> rows = List.of();
+        if (firstDisk) {
+            long position = bus.getBlockPos().asLong();
+            long revision = bus.getAuxiliaryRevision();
+            AuxiliaryPreviewSnapshot snapshot = auxiliaryPreviewCache.get(position);
+            if (snapshot == null || snapshot.revision() != revision) {
+                snapshot = new AuxiliaryPreviewSnapshot(revision, auxiliaryPreviewRows(bus));
+                auxiliaryPreviewCache.put(position, snapshot);
+            }
+            rows = snapshot.rows();
+        }
+        // Render the container icon without synchronizing its embedded recipe data a second time.
+        ItemStack icon = new ItemStack(bus.getPatternSlotInventory().getStackInSlot(ref.slot()).getItem());
+        return new PatternPreviewEntry(bus.getBlockPos().asLong(), ref.slot(), icon, "",
+                patternSearchFlags(ItemStack.EMPTY), rows, true);
     }
 
     /**
@@ -461,25 +485,18 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (player == null || !patternPreviewSync.isViewer(player)
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
         ensurePatternInterfaceMapping();
-        if (payload.getInt("revision") != patternContentRevision) {
-            patternPreviewSync.resend(player);
-            player.containerMenu.broadcastFullState();
-            return;
-        }
+        if (payload.getInt("revision") < 0) return;
         long busPosition = payload.getLong("bus");
         int physicalSlot = payload.getInt("slot");
-        PatternSlotRef target = null;
-        for (PatternSlotRef ref : patternSlotRefs) {
-            if (ref.slot() == physicalSlot && ref.bus().getBlockPos().asLong() == busPosition) {
-                target = ref;
-                break;
-            }
-        }
+        PatternSlotRef target = resolvePatternSlot(busPosition, physicalSlot);
         if (target == null || target.bus().isRemoved() || target.bus().getGrid() != getMainNode().getGrid()) return;
         InternalInventory inventory = target.bus().getPatternSlotInventory();
         if (physicalSlot < 0 || physicalSlot >= inventory.size()) return;
         ItemStack existing = inventory.getStackInSlot(physicalSlot);
-        if (target.bus().ownsAuxiliary(existing)) return;
+        if (target.bus().ownsAuxiliary(existing) || !payload.contains("stack", Tag.TAG_COMPOUND)) return;
+        // Unrelated automation must not invalidate a click or force a full catalogue resend.
+        ItemStack expectedTarget = ItemStack.parseOptional(level.registryAccess(), payload.getCompound("stack"));
+        if (!ItemStack.matches(existing, expectedTarget)) return;
         ItemStack carried = player.containerMenu.getCarried();
         int action = payload.getInt("action");
         int button = payload.getInt("button");
@@ -521,7 +538,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         player.containerMenu.broadcastChanges();
     }
 
-    /** Executes a client drag gesture atomically with respect to its starting preview revision. */
+    /** Validates every drag target against the stack actually shown when the gesture began. */
     @RPCMethod
     public void quickMovePatternPreview(RPCSender sender, CompoundTag payload) {
         if (sender.isServer() || !(level instanceof ServerLevel) || !formed
@@ -530,11 +547,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (player == null || !patternPreviewSync.isViewer(player)
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
         ensurePatternInterfaceMapping();
-        if (payload.getInt("revision") != patternContentRevision) {
-            patternPreviewSync.resend(player);
-            player.containerMenu.broadcastFullState();
-            return;
-        }
+        if (payload.getInt("revision") < 0) return;
         ListTag targets = payload.getList("targets", Tag.TAG_COMPOUND);
         int targetCount = Math.min(targets.size(), PATTERN_INTERFACE_VISIBLE_SLOTS);
         for (int index = 0; index < targetCount; index++) {
@@ -561,10 +574,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     @Nullable
     private PatternSlotRef resolvePatternSlot(long busPosition, int physicalSlot) {
-        for (PatternSlotRef ref : patternSlotRefs) {
-            if (ref.slot() == physicalSlot && ref.bus().getBlockPos().asLong() == busPosition) return ref;
-        }
-        return null;
+        int busIndex = Arrays.binarySearch(patternBusPositions, busPosition);
+        if (busIndex < 0 || busIndex >= patternBusOffsets.length || physicalSlot < 0
+                || physicalSlot >= patternBusSlotCounts[busIndex]) return null;
+        int index = patternBusOffsets[busIndex] + physicalSlot;
+        return index < patternSlotRefs.size() ? patternSlotRefs.get(index) : null;
     }
 
     public boolean isPatternTransferInProgress() {
@@ -767,10 +781,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         long[] positions = new long[buses.size()];
         int[] slotCounts = new int[buses.size()];
+        int[] offsets = new int[buses.size()];
         List<PatternSlotRef> refs = new ArrayList<>();
         for (int busIndex = 0; busIndex < buses.size(); busIndex++) {
             ECOCraftingPatternBusBlockEntity bus = buses.get(busIndex);
             int slotCount = Math.max(0, bus.getPatternSlotCount());
+            offsets[busIndex] = refs.size();
             positions[busIndex] = bus.getBlockPos().asLong();
             slotCounts[busIndex] = slotCount;
             for (int slot = 0; slot < slotCount; slot++) {
@@ -781,8 +797,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         synchronized (this) {
             patternBusPositions = positions;
             patternBusSlotCounts = slotCounts;
+            patternBusOffsets = offsets;
         }
         patternSlotRefs = List.copyOf(refs);
+        auxiliaryPreviewCache.clear();
+        busAuxiliaryPreviewRevisions.clear();
         patternInterfaceMappingInitialized = true;
         patternPreviewSync.reset();
         // Equal positions can still refer to replacement block entities or inventories.

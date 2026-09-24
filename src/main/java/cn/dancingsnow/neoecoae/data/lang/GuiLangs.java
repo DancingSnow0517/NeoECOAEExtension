@@ -305,7 +305,13 @@ public class GuiLangs {
             "Crafting subsystem is not connected to an available network");
         provider.add("gui.neoecoae.host.crafting.pattern_transfer.no_target", "No available pattern bus found");
         provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_primary", "Transferred %d; Already present %d");
-        provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_secondary", "No space %d; Incompatible %d");
+        provider.add("gui.neoecoae.crafting_interface.preview.source", "Source: %s, %s, %s · Slot %s");
+        provider.add("gui.neoecoae.crafting_interface.preview.read_only", "Disk contents · Read-only; edit in the pattern access terminal");
+        provider.add("gui.neoecoae.crafting_interface.preview.loading", "Loading patterns… %s slots received");
+        provider.add("gui.neoecoae.crafting_interface.preview.no_results", "No matching pattern rows");
+        provider.add("gui.neoecoae.crafting_interface.preview.rows", "Rows %s–%s / %s");
+        provider.add("gui.neoecoae.crafting_interface.preview.empty_rows", "Show / hide empty rows");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_secondary", "No space %d; Non-crafting patterns %d");
 
         // computation interface
         provider.add("gui.neoecoae.crafting_report.bytes", " - Bytes: %s");

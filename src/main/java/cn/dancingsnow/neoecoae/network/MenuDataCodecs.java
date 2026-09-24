@@ -40,8 +40,8 @@ final class MenuDataCodecs {
             }
             case PATTERNS -> {
                 var pos = buf.readBlockPos();
-                var payload = buf.readNbt(net.minecraft.nbt.NbtAccounter.create(64L * 1024 * 1024));
-                if (payload instanceof net.minecraft.nbt.CompoundTag tag && menu instanceof ModularUIContainerMenu modular
+                var tag = cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewCodec.read(buf);
+                if (menu instanceof ModularUIContainerMenu modular
                         && modular.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder
                         && holder.pos.equals(pos)
                         && player.level().getBlockEntity(pos) instanceof ECOMachineInterfaceBlockEntity<?> host)

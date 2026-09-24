@@ -161,8 +161,8 @@ public final class CraftingInterfaceClientUI {
             // Keep native text, cursor, and selection inside the recessed search-field sprite.
             int x = Math.round(getPositionX()) + SEARCH_TEXT_INSET_X;
             int y = Math.round(getPositionY()) + SEARCH_TEXT_INSET_Y;
-            int width = Math.max(1, Math.round(getSizeWidth()));
-            int height = Math.max(1, Math.round(getSizeHeight()));
+            int width = Math.max(1, Math.round(getSizeWidth()) - SEARCH_TEXT_INSET_X * 2);
+            int height = Math.max(1, Math.round(getSizeHeight()) - SEARCH_TEXT_INSET_Y * 2);
             if (x != nativeX) editBox.setX(nativeX = x);
             if (y != nativeY) editBox.setY(nativeY = y);
             if (width != nativeWidth) editBox.setWidth(nativeWidth = width);

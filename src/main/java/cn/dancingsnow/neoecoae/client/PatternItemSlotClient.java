@@ -22,6 +22,7 @@ public class PatternItemSlotClient extends PatternItemSlot {
     @Override
     protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
         super.drawItemStack(guiContext, itemStack);
+        if (isDimmed()) guiContext.graphics.fill(0, 0, 16, 16, 0x88000000);
         if (isHighlighted()) {
             guiContext.graphics.fill(-1, -1, 17, 0, SEARCH_HIGHLIGHT_COLOR);
             guiContext.graphics.fill(-1, 16, 17, 17, SEARCH_HIGHLIGHT_COLOR);

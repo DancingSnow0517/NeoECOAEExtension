@@ -6,7 +6,7 @@ public final class ECONetwork {
     private ECONetwork() {}
 
     public static void registerPayloadHandlers(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("2");
+        var registrar = event.registrar("3");
         registrar.playToClient(ECOMenuChunkS2CPacket.TYPE,
             ECOMenuChunkS2CPacket.STREAM_CODEC, ECOMenuChunkS2CPacket::handle);
         registrar.playToServer(ECOBigOrderStartC2SPacket.TYPE,

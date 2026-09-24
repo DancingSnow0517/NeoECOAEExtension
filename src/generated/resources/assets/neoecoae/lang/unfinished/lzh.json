@@ -278,7 +278,7 @@
   "gui.neoecoae.host.crafting.pattern_transfer.progress": "遷移中 %d%%",
   "gui.neoecoae.host.crafting.pattern_transfer.ready": "等待遷移",
   "gui.neoecoae.host.crafting.pattern_transfer.result_primary": "轉移 %d · 已存在 %d",
-  "gui.neoecoae.host.crafting.pattern_transfer.result_secondary": "空間不足 %d · 不兼容 %d",
+  "gui.neoecoae.host.crafting.pattern_transfer.result_secondary": "空間不足 %d · 非合成樣板 %d",
   "gui.neoecoae.host.crafting.pattern_transfer.unavailable": "合成子系統未連接到可用網絡",
   "gui.neoecoae.host.crafting.subtitle": "冶造主機",
   "gui.neoecoae.host.metric.bytes": "位元",
