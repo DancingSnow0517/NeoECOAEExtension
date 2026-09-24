@@ -68,16 +68,16 @@ final class SavedDataInfiniteStorageEngine extends SavedData
     private final Path dataFile;
     private final HybridAmountStore<AEKey> amounts = new HybridAmountStore<>();
     private final Object2ObjectOpenHashMap<AEKey, CompoundTag> encodedKeys = new Object2ObjectOpenHashMap<>();
-    private final Map<String, OrphanedStack> orphanedEntries = new HashMap<>();
+    private final Object2ObjectOpenHashMap<String, OrphanedStack> orphanedEntries = new Object2ObjectOpenHashMap<>();
     private final List<CompoundTag> retainedEntries = new ArrayList<>();
     private final List<CompoundTag> retainedReceipts = new ArrayList<>();
-    private final Set<String> blockedFingerprints = new HashSet<>();
+    private final ObjectOpenHashSet<String> blockedFingerprints = new ObjectOpenHashSet<>();
     private final List<String> entryFailures = new ArrayList<>();
-    private final Set<AEKey> blockedKeys = new HashSet<>();
+    private final ObjectOpenHashSet<AEKey> blockedKeys = new ObjectOpenHashSet<>();
     private final Object2ObjectOpenHashMap<AEKeyType, MutableTypeStats> typeStats = new Object2ObjectOpenHashMap<>();
     private final ObjectOpenHashSet<AEKey> hugeKeys = new ObjectOpenHashSet<>();
-    private final Set<UUID> legacyTransferReceipts = new HashSet<>();
-    private final Map<UUID, String> transferReceipts = new HashMap<>();
+    private final ObjectOpenHashSet<UUID> legacyTransferReceipts = new ObjectOpenHashSet<>();
+    private final Object2ObjectOpenHashMap<UUID, String> transferReceipts = new Object2ObjectOpenHashMap<>();
     private final KeyCounter visibleStacks = new KeyCounter();
 
     private final WideAmount storedAmount = WideAmount.of(0L);
@@ -295,7 +295,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         }
 
         List<HugeStack> batch = new ArrayList<>(contents);
-        Set<AEKey> seen = new HashSet<>();
+        ObjectOpenHashSet<AEKey> seen = new ObjectOpenHashSet<>();
         for (HugeStack stack : batch) {
             if (stack == null
                     || stack.key() == null

@@ -13,6 +13,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
@@ -37,8 +38,8 @@ public final class ECOCellStorageManager {
     private static final String LEGACY_ARCHIVE_DIRECTORY = "neoecoae_cell_storage_v1_archive";
     private static final String MIGRATION_DIRECTORY = "neoecoae_cell_migration";
 
-    private static final Map<UUID, SavedDataECOStorageBackend> CELLS = new HashMap<>();
-    private static final Map<UUID, ISaveProvider> OWNERS = new HashMap<>();
+    private static final Map<UUID, SavedDataECOStorageBackend> CELLS = new Object2ObjectOpenHashMap<>();
+    private static final Map<UUID, ISaveProvider> OWNERS = new Object2ObjectOpenHashMap<>();
     private static final Map<ISaveProvider, UUID> OWNER_IDS = new IdentityHashMap<>();
 
     private ECOCellStorageManager() {}

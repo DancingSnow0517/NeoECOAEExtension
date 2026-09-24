@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -37,8 +39,10 @@ public final class InfiniteStorageEntries {
 
     private static <K> Result<K> read(
             ListTag entries, Function<CompoundTag, K> decode, Function<CompoundTag, HugeAmount> readAmount) {
-        Map<CompoundTag, Integer> encodedCounts = new HashMap<>();
-        Map<K, Integer> keyCounts = new HashMap<>();
+        Object2IntOpenHashMap<CompoundTag> encodedCounts = new Object2IntOpenHashMap<>();
+        Object2IntOpenHashMap<K> keyCounts = new Object2IntOpenHashMap<>();
+        encodedCounts.defaultReturnValue(0);
+        keyCounts.defaultReturnValue(0);
         List<K> keys = new ArrayList<>();
         for (Tag raw : entries) {
             CompoundTag entry = (CompoundTag) raw;
@@ -58,7 +62,7 @@ public final class InfiniteStorageEntries {
         List<Entry<K>> available = new ArrayList<>();
         List<CompoundTag> retained = new ArrayList<>();
         List<String> failures = new ArrayList<>();
-        Set<K> blocked = new HashSet<>();
+        Set<K> blocked = new ObjectOpenHashSet<>();
         for (int i = 0; i < entries.size(); i++) {
             CompoundTag entry = entries.getCompound(i);
             K key = keys.get(i);

@@ -33,6 +33,12 @@ import net.minecraft.nbt.Tag;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
 public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileBackedInfiniteStorageEngine.class);
@@ -56,18 +62,18 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private final UUID domainId;
     private final Path domainPath;
     private final ECOStorageWal wal;
-    private final Map<AEKey, HugeAmount> amounts = new HashMap<>();
-    private final Map<AEKey, Integer> keyShards = new HashMap<>();
+    private final Object2ObjectOpenHashMap<AEKey, HugeAmount> amounts = new Object2ObjectOpenHashMap<>();
+    private final Object2IntOpenHashMap<AEKey> keyShards = new Object2IntOpenHashMap<>();
     private final List<Set<AEKey>> keysByShard = createShardKeySets();
-    private final Map<AEKey, Long> loadedKeyRevisions = new HashMap<>();
-    private final Map<AEKey, Integer> loadedKeySourceShards = new HashMap<>();
+    private final Object2LongOpenHashMap<AEKey> loadedKeyRevisions = new Object2LongOpenHashMap<>();
+    private final Object2IntOpenHashMap<AEKey> loadedKeySourceShards = new Object2IntOpenHashMap<>();
     private final KeyCounter visibleStacks = new KeyCounter();
-    private final Map<AEKeyType, MutableTypeStats> typeStats = new HashMap<>();
-    private final Map<AEKey, HugeAmount> hugeStacks = new HashMap<>();
-    private final Map<AEKey, PendingDelta> dirtyDeltas = new HashMap<>();
-    private final Set<Integer> dirtyShards = new HashSet<>();
-    private final Map<Integer, CheckpointWrite> checkpointWrites = new HashMap<>();
-    private final Set<UUID> committedTransactions = new HashSet<>();
+    private final Object2ObjectOpenHashMap<AEKeyType, MutableTypeStats> typeStats = new Object2ObjectOpenHashMap<>();
+    private final Object2ObjectOpenHashMap<AEKey, HugeAmount> hugeStacks = new Object2ObjectOpenHashMap<>();
+    private final Object2ObjectOpenHashMap<AEKey, PendingDelta> dirtyDeltas = new Object2ObjectOpenHashMap<>();
+    private final IntOpenHashSet dirtyShards = new IntOpenHashSet();
+    private final Int2ObjectOpenHashMap<CheckpointWrite> checkpointWrites = new Int2ObjectOpenHashMap<>();
+    private final ObjectOpenHashSet<UUID> committedTransactions = new ObjectOpenHashSet<>();
     private final long[] shardRevisions = new long[SHARD_COUNT];
     private final long[] shardMutationRevisions = new long[SHARD_COUNT];
     private List<TypeStats> typeStatsSnapshot = List.of();
@@ -87,6 +93,9 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     public FileBackedInfiniteStorageEngine(UUID domainId, Path domainPath) {
         this.domainId = domainId;
         this.domainPath = domainPath;
+        keyShards.defaultReturnValue(-1);
+        loadedKeyRevisions.defaultReturnValue(0L);
+        loadedKeySourceShards.defaultReturnValue(-1);
         this.wal = new ECOStorageWal(domainPath.resolve("wal_000.log"), MAX_WAL_RECORD_BYTES, WAL_BUFFER_BYTES);
         load();
     }
@@ -478,8 +487,8 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                         dirtyShards.add(shard);
                         dirtyShards.add(targetShard);
                     }
-                    Long previousRevision = loadedKeyRevisions.get(key);
-                    if (previousRevision == null
+                    long previousRevision = loadedKeyRevisions.getLong(key);
+                    if (!loadedKeyRevisions.containsKey(key)
                             || shardRevision > previousRevision
                             || (shardRevision == previousRevision && targetShard == shard)) {
                         amounts.put(key, amount);
@@ -786,8 +795,8 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     }
 
     private int shardFor(AEKey key) {
-        Integer cached = keyShards.get(key);
-        if (cached != null) {
+        int cached = keyShards.getInt(key);
+        if (cached >= 0) {
             return cached;
         }
         int shard = ECOStorageKeyHash.shardFor(key, SHARD_COUNT);

@@ -290,7 +290,7 @@ public class ECOStorageCell implements IECOStorageCell {
                 || !keyType.contains(what)
                 || !partitionList.matchesFilter(what, partitionListMode)
                 || cellType.isBlackListed(cellStack, what)
-                || !canStoreKeyInsideStorageCell(what)) {
+                || !canStoreKeyInsideStorageCellIfNew(what, simulatedContents.get(what))) {
             return 0L;
         }
 
@@ -412,11 +412,11 @@ public class ECOStorageCell implements IECOStorageCell {
         if (backend == null || !backend.canTransfer()) {
             return 0;
         }
-        if (!canStoreKeyInsideStorageCell(what)) {
+        var currentAmount = backend.getAmount(what);
+        // A key already present in this cell has already passed the nesting check.
+        if (currentAmount == 0L && !canStoreKeyInsideStorageCell(what)) {
             return 0;
         }
-
-        var currentAmount = backend.getAmount(what);
         long remainingItemCount = this.getRemainingItemCount();
 
         if (currentAmount <= 0) {
@@ -444,6 +444,10 @@ public class ECOStorageCell implements IECOStorageCell {
         long inserted = backend.insert(what, amount, mode);
         if (mode == Actionable.MODULATE && inserted > 0L) this.saveChanges();
         return inserted;
+    }
+
+    private boolean canStoreKeyInsideStorageCellIfNew(AEKey what, long currentAmount) {
+        return currentAmount > 0L || canStoreKeyInsideStorageCell(what);
     }
 
     public static boolean canStoreKeyInsideStorageCell(AEKey what) {
