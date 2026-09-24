@@ -133,7 +133,7 @@ class ECOMegaLongBulkStorageCellTest {
         doReturn(false).when(cell).hasEcoMegaUpgradeCard();
         var units = ECOMegaLongBulkStorageCell.class.getDeclaredField("storedUnits");
         units.setAccessible(true);
-        units.set(cell, new LinkedHashMap<AEItemKey, Long>());
+        units.set(cell, new it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap<AEItemKey>());
         var stack = ECOMegaLongBulkStorageCell.class.getDeclaredField("stack");
         stack.setAccessible(true);
         stack.set(cell, new ItemStack(Items.PAPER));
@@ -174,7 +174,7 @@ class ECOMegaLongBulkStorageCellTest {
         var upgrades = mock(IUpgradeInventory.class);
         when(upgrades.isInstalled(any(ItemLike.class))).thenReturn(true);
         doReturn(upgrades).when(cell).getUpgradesInventory();
-        var units = new LinkedHashMap<AEItemKey, Long>();
+        var units = new it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap<AEItemKey>();
         // Exactly 111 blocks: the old block listing reported zero ingots despite being extractable.
         units.put(persistedKey, 8_991L);
         doReturn(1L).when(cell).getTotalItemTypes();

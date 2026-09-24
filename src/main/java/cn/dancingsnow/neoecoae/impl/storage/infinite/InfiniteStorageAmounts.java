@@ -2,15 +2,15 @@ package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
 import appeng.api.stacks.AEKey;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.math.BigInteger;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
 /** One quantity table. Only keys exceeding long have a BigInteger side entry. Server-thread owned. */
 final class InfiniteStorageAmounts {
     private final Object2LongOpenHashMap<AEKey> amounts = new Object2LongOpenHashMap<>();
-    private final Map<AEKey, BigInteger> overflow = new HashMap<>();
+    private final Map<AEKey, BigInteger> overflow = new Object2ObjectOpenHashMap<>();
 
     long visible(AEKey key) { return amounts.getLong(key); }
 

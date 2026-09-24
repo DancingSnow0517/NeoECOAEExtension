@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -32,7 +32,7 @@ public final class ECOInfiniteStorageDomains {
      */
     public static synchronized ECOInfiniteStorageEngine acquire(ServerLevel level, UUID domainId) {
         MinecraftServer server = level.getServer();
-        DomainEntry entry = ENGINES.computeIfAbsent(server, ignored -> new HashMap<>())
+        DomainEntry entry = ENGINES.computeIfAbsent(server, ignored -> new Object2ObjectOpenHashMap<>())
                 .computeIfAbsent(domainId, ignored -> new DomainEntry(create(server, domainId)));
         entry.mountCount++;
         return entry.engine;

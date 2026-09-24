@@ -26,8 +26,8 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
 
     @Shadow private boolean mountsInUse;
-    @Shadow @Final private NavigableMap<Integer, List<MEStorage>> priorityInventory = null;
-    @Shadow @Final private List<MEStorage> secondPassInventories = null;
+    @Shadow @Final private NavigableMap<Integer, List<MEStorage>> priorityInventory;
+    @Shadow @Final private List<MEStorage> secondPassInventories;
 
     @Shadow private boolean isQueuedForRemoval(MEStorage inventory) { throw new AssertionError(); }
     @Shadow private void flushQueuedOperations() { throw new AssertionError(); }

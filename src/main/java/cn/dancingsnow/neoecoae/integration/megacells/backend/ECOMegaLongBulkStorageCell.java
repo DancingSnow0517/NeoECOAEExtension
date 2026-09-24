@@ -31,8 +31,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import org.jetbrains.annotations.Nullable;
 
+import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +56,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
     private final ItemStack stack;
     @Nullable
     private final ISaveProvider container;
-    private final Map<AEItemKey, Long> storedUnits = new LinkedHashMap<>();
+    private final Object2LongLinkedOpenHashMap<AEItemKey> storedUnits = new Object2LongLinkedOpenHashMap<>();
     private final Map<AEItemKey, BulkUnits> definitions = new LinkedHashMap<>();
     private final Map<AEItemKey, AEItemKey> cutoffs = new LinkedHashMap<>();
     private final ListTag unresolvedEntries = new ListTag();
@@ -76,8 +78,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
             this.typeLimit = state.typeLimit();
             this.filters = readFilters(this);
         }
-        private final Map<AEItemKey, CompressionChain> chains = new HashMap<>();
-        private final Map<AEItemKey, BulkUnits> compiled = new HashMap<>();
+        private final Map<AEItemKey, CompressionChain> chains = new Object2ObjectOpenHashMap<>();
+        private final Map<AEItemKey, BulkUnits> compiled = new Object2ObjectOpenHashMap<>();
 
         private CompressionChain chain(AEItemKey key) {
             CompressionChain current = CompressionService.getChain(key);
@@ -136,7 +138,9 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
     public long getStoredItemCount() {
         // Aggregate UI statistics use atoms too; only this aggregate may saturate.
         long total = 0L;
-        for (long units : storedUnits.values()) total = NEMath.saturatingAdd(total, units);
+        for (LongIterator it = storedUnits.values().iterator(); it.hasNext(); ) {
+            total = NEMath.saturatingAdd(total, it.nextLong());
+        }
         return total;
     }
 
@@ -145,12 +149,12 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
         LookupContext context = lookupContext();
         for (AEItemKey filter : context.filters) {
             AEItemKey slot = findSlot(filter, true, context);
-            if (slot != null && BulkUnits.insertable(storedUnits.getOrDefault(slot, 0L),
+            if (slot != null && BulkUnits.insertable(storedUnits.getLong(slot),
                     1L, unitFactor(slot, filter, context)) > 0) return MAX_UNITS;
             if (context.compressionCard) {
                 for (AEItemKey variant : context.units(filter).items()) {
                     slot = findSlot(variant, true, context);
-                    if (slot != null && BulkUnits.insertable(storedUnits.getOrDefault(slot, 0L),
+                    if (slot != null && BulkUnits.insertable(storedUnits.getLong(slot),
                             1L, unitFactor(slot, variant, context)) > 0) return MAX_UNITS;
                 }
             }
@@ -214,7 +218,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
         }
 
         long factor = unitFactor(slot, item, context);
-        long current = storedUnits.getOrDefault(slot, 0L);
+        long current = storedUnits.getLong(slot);
         long accepted = BulkUnits.insertable(current, amount, factor);
         if (accepted <= 0L) {
             return 0L;
@@ -241,7 +245,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
         }
 
         long factor = unitFactor(slot, item, context);
-        long available = storedUnits.getOrDefault(slot, 0L);
+        long available = storedUnits.getLong(slot);
         long extractableUnits = available;
         BulkUnits units = definition(slot, context);
         if (!context.compressionCard && units.equals(context.units(slot))) {
@@ -257,7 +261,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
         if (mode == Actionable.MODULATE) {
             long remaining = available - extracted * factor;
             if (remaining == 0L) {
-                storedUnits.remove(slot);
+                storedUnits.removeLong(slot);
                 definitions.remove(slot);
             } else {
                 storedUnits.put(slot, remaining);
@@ -277,10 +281,10 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
             return;
         }
         KeyCounter computed = new KeyCounter();
-        for (var entry : storedUnits.entrySet()) {
+        for (var entry : storedUnits.object2LongEntrySet()) {
             BulkUnits units = definition(entry.getKey(), context);
             int cutoff = effectiveCutoff(entry.getKey(), units, context);
-            units.publish(entry.getValue(), cutoff, computed);
+            units.publish(entry.getLongValue(), cutoff, computed);
         }
         availableStacksCache = computed;
         out.addAll(computed);
@@ -376,11 +380,11 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
             custom.remove(DATA_TAG);
         } else {
             ListTag entries = new ListTag();
-            for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
+            for (var entry : storedUnits.object2LongEntrySet()) {
                 CompoundTag value = new CompoundTag();
                 value.putString(ITEM_TAG, entry.getKey().getId().toString());
                 value.put(COMPONENTS_TAG, writeComponents(entry.getKey()));
-                value.putLong(UNITS_TAG, entry.getValue());
+                value.putLong(UNITS_TAG, entry.getLongValue());
                 BulkUnits definition = definition(entry.getKey(), lookupContext());
                 definitions.putIfAbsent(entry.getKey(), definition);
                 ListTag table = new ListTag();
