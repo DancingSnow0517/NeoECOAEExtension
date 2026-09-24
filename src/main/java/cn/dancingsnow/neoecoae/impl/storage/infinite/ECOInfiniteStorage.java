@@ -3,8 +3,10 @@ package cn.dancingsnow.neoecoae.impl.storage.infinite;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import java.math.BigInteger;
@@ -26,7 +28,7 @@ public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource, E
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (!allowInsert.getAsBoolean() || !ECOStorageCell.canStoreKeyInsideStorageCell(what)) {
+        if (!allowInsert.getAsBoolean() || !canStoreForInsert(what)) {
             return 0L;
         }
         return engine.insert(what, amount, mode);
@@ -35,10 +37,20 @@ public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource, E
     @Override
     public BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
         if (amount == null || amount.signum() <= 0 || !allowInsert.getAsBoolean()
-                || !ECOStorageCell.canStoreKeyInsideStorageCell(what)) {
+                || !canStoreForInsert(what)) {
             return BigInteger.ZERO;
         }
         return engine.insert(what, amount, mode);
+    }
+
+    private boolean canStoreForInsert(AEKey key) {
+        if (key instanceof AEItemKey itemKey
+                && itemKey.getItem() instanceof IBasicECOCellItem
+                && !engine.getAmount(key).isZero()) {
+            // Existing ECO cells were already admitted. Avoid probing their nested inventory on every transfer.
+            return true;
+        }
+        return ECOStorageCell.canStoreKeyInsideStorageCell(key);
     }
 
     @Override

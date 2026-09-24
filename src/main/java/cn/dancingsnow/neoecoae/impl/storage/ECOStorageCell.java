@@ -348,7 +348,11 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     public long simulateInsertForMigration(AEKey what, long amount, long currentAmount, long storedTypes, long storedItemCount) {
         if (amount <= 0L || !acceptsKey(what) || !partitionList.matchesFilter(what, partitionListMode)
-            || cellType.isBlackListed(cellStack, what) || !canStoreKeyInsideStorageCell(what)) return 0L;
+            || cellType.isBlackListed(cellStack, what)) return 0L;
+
+        // A key already present in the simulated contents was accepted when it was inserted.
+        // Avoid probing nested-cell handlers again during migration preflight.
+        if (currentAmount <= 0L && !canStoreKeyInsideStorageCell(what)) return 0L;
 
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
         long unusedItemCount = storedItemCount % amountPerByte == 0L
@@ -419,14 +423,13 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {
-        if (!canStoreKeyInsideStorageCell(what)) {
-            return 0;
-        }
-
         var currentAmount = this.getCellItems().getLong(what);
         long remainingItemCount = this.getRemainingItemCount();
 
         if (currentAmount <= 0) {
+            if (!canStoreKeyInsideStorageCell(what)) {
+                return 0;
+            }
             if (!canHoldNewItem()) {
                 // 无更多类型空间
                 return 0;
