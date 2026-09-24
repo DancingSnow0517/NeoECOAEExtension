@@ -38,6 +38,10 @@ final class InfiniteStorageAmounts {
         }
     }
 
+    void add(AEKey key, BigInteger amount) {
+        set(key, get(key).add(HugeAmount.of(amount)));
+    }
+
     void subtract(AEKey key, long amount) {
         long current = visible(key);
         BigInteger big = current == Long.MAX_VALUE ? overflow.get(key) : null;

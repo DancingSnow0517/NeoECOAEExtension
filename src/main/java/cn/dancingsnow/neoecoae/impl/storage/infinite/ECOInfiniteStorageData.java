@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
+import java.math.BigInteger;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -307,6 +308,11 @@ public final class ECOInfiniteStorageData extends SavedData {
     // Quantity changes only mark the snapshot due; they leave revision() alone so hot FE/item transfers don't
     // invalidate revision-keyed caches every operation. Callers bump the revision for structural changes.
     void add(AEKey key, long amount) {
+        amounts.add(key, amount);
+        setDirty(true);
+    }
+
+    void add(AEKey key, BigInteger amount) {
         amounts.add(key, amount);
         setDirty(true);
     }

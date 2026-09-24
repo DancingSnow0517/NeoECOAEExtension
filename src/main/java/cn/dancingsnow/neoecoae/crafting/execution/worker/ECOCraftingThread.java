@@ -13,6 +13,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import appeng.menu.AutoCraftingMenu;
@@ -577,19 +578,21 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ? (craftingEventOutput.isEmpty() ? firstOutputItem().copy() : craftingEventOutput.copy())
             : ItemStack.EMPTY;
         if (exactVirtual != null) {
-            boolean finished = exactVirtual.drain(true, (key, amount) -> {
+            boolean finished = exactVirtual.drainExact(true, (key, amount) -> {
                 if (!completedJobOutputsReleased && craftingJobId != null) {
-                    if (!(craftingService instanceof ECOCraftingOutputRouter router)) return 0L;
-                    long inserted = router.neoecoae$insertIntoCpuForJob(craftingJobId, key, amount, Actionable.MODULATE);
+                    if (!(craftingService instanceof ECOCraftingOutputRouter router)) return java.math.BigInteger.ZERO;
+                    long offered = amount.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+                    long inserted = router.neoecoae$insertIntoCpuForJob(
+                            craftingJobId, key, offered, Actionable.MODULATE);
                     if (inserted == 0 && !completedJobOutputsReleased)
                         recoveryState = RecoveryState.WAITING_FOR_OWNER;
                     if (inserted > 0) {
                         recoveryState = RecoveryState.ACTIVE;
                         owningCpuMissingSinceGameTime = Long.MIN_VALUE;
                     }
-                    return inserted;
+                    return java.math.BigInteger.valueOf(inserted);
                 }
-                return storage.insert(key, amount, Actionable.MODULATE, actionSource);
+                return ECOBigIntegerStorage.insert(storage, key, amount, Actionable.MODULATE, actionSource);
             }, this::setChanged);
             if (!finished) return false;
             worker.onBatchStopped();
@@ -841,8 +844,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private boolean recoverItemsToNetwork(MEStorage storage, boolean recoverOutputs) {
         if (exactVirtual != null) {
             try {
-                if (!exactVirtual.drain(recoverOutputs,
-                        (key, amount) -> storage.insert(key, amount, Actionable.MODULATE, actionSource),
+                if (!exactVirtual.drainExact(recoverOutputs,
+                        (key, amount) -> ECOBigIntegerStorage.insert(
+                                storage, key, amount, Actionable.MODULATE, actionSource),
                         this::setChanged)) return false;
                 worker.onBatchStopped();
                 clearWork();

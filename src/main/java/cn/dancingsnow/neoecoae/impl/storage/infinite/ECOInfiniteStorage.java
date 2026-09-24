@@ -6,12 +6,14 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
+import java.math.BigInteger;
 import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.Component;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 
-public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource {
+public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource, ECOBigIntegerStorage {
     private final ECOInfiniteStorageEngine engine;
     private final Component description;
     private final BooleanSupplier allowInsert;
@@ -26,6 +28,15 @@ public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource {
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
         if (!allowInsert.getAsBoolean() || !ECOStorageCell.canStoreKeyInsideStorageCell(what)) {
             return 0L;
+        }
+        return engine.insert(what, amount, mode);
+    }
+
+    @Override
+    public BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
+        if (amount == null || amount.signum() <= 0 || !allowInsert.getAsBoolean()
+                || !ECOStorageCell.canStoreKeyInsideStorageCell(what)) {
+            return BigInteger.ZERO;
         }
         return engine.insert(what, amount, mode);
     }

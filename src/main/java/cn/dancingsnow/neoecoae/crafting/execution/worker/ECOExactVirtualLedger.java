@@ -7,6 +7,7 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.function.ToLongBiFunction;
+import java.util.function.BiFunction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 
@@ -50,6 +51,22 @@ public final class ECOExactVirtualLedger {
             if (accepted < 0 || accepted > offered) throw new IllegalStateException("Invalid exact delivery");
             if (accepted > 0) {
                 inventory.debit(Map.of(entry.getKey(), BigInteger.valueOf(accepted)));
+                changed.run();
+            }
+        }
+        return inventory.snapshot().isEmpty();
+    }
+
+    /** Exact delivery path used when the destination can accept more than AE2's long-sized windows. */
+    public boolean drainExact(boolean output, BiFunction<AEKey, BigInteger, BigInteger> insert, Runnable changed) {
+        var inventory = output ? outputs : inputs;
+        for (var entry : inventory.snapshot().entrySet()) {
+            BigInteger accepted = insert.apply(entry.getKey(), entry.getValue());
+            if (accepted == null || accepted.signum() < 0 || accepted.compareTo(entry.getValue()) > 0) {
+                throw new IllegalStateException("Invalid exact delivery amount");
+            }
+            if (accepted.signum() > 0) {
+                inventory.debit(Map.of(entry.getKey(), accepted));
                 changed.run();
             }
         }

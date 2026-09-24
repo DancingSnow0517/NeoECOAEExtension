@@ -42,6 +42,16 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     @Override
+    public BigInteger insert(AEKey key, BigInteger amount, Actionable mode) {
+        if (key == null || amount == null || amount.signum() <= 0 || !data.canWrite(key)) return BigInteger.ZERO;
+        if (amount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0) {
+            return BigInteger.valueOf(insert(key, amount.longValueExact(), mode));
+        }
+        if (mode == Actionable.MODULATE) change(key, amount);
+        return amount;
+    }
+
+    @Override
     public long insertOnce(UUID transaction, AEKey key, long amount) {
         if (key == null || amount <= 0 || !data.canMigrate()) return 0;
         if (transaction == null) return insert(key, amount, Actionable.MODULATE);
@@ -85,6 +95,18 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
             stats.types += empty ? -1 : 1;
             if (stats.types == 0) typeStats.remove(key.getType());
             // A key appearing or vanishing is a structural change: refresh revision-keyed views right away.
+            data.setDirty();
+        }
+        statisticsDirty = true;
+    }
+
+    private void change(AEKey key, BigInteger amount) {
+        MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
+        boolean wasEmpty = data.getAmount(key).isZero();
+        data.add(key, amount);
+        stats.total = stats.total.add(HugeAmount.of(amount));
+        if (wasEmpty) {
+            stats.types++;
             data.setDirty();
         }
         statisticsDirty = true;

@@ -15,6 +15,8 @@ public interface ECOInfiniteStorageEngine {
 
     long insert(AEKey key, long amount, Actionable mode);
 
+    BigInteger insert(AEKey key, BigInteger amount, Actionable mode);
+
     BigInteger usedBytes();
 
     /**
