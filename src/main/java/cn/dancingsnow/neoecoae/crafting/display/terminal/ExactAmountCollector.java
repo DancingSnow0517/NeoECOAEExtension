@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.Set;
 
 /** Scoped server-thread collector; inactive outside the terminal's ordinary inventory listing call. */
 public final class ExactAmountCollector {
+    private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
     private static final ThreadLocal<State> ACTIVE = new ThreadLocal<>();
 
     private ExactAmountCollector() {}
@@ -41,7 +43,13 @@ public final class ExactAmountCollector {
         ACTIVE.remove();
         if (state == null) return Map.of();
         Map<AEKey, ExactAmount> result = new HashMap<>();
-        state.exactKeys.forEach(key -> result.put(key, state.totals.get(key)));
+        // Individually long-sized disks/hosts can overflow when combined. Their total also
+        // needs the side channel, even when no mounted inventory implements ExactAmountSource.
+        state.totals.forEach((key, amount) -> {
+            if (state.exactKeys.contains(key) || amount.infinite() || amount.value().compareTo(MAX_LONG) > 0) {
+                result.put(key, amount);
+            }
+        });
         return Map.copyOf(result);
     }
 

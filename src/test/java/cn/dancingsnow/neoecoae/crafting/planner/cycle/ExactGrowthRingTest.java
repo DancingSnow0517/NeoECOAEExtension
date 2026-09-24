@@ -25,11 +25,18 @@ class ExactGrowthRingTest {
     void wideCountsKeepAnExactSolutionWithoutBoundedSearch(int size) throws Exception {
         var ring = ring(size);
         for (var amount : List.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE),
+                BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.TWO),
                 BigInteger.TEN.pow(50))) {
             var result = solve(ring, amount, Map.of(ring.members().getFirst(), 1L));
-            assertEquals(CycleSolveStatus.UNREPRESENTABLE, result.status(), result.diagnostics().toString());
+            // One unit is already stocked. A MAX_VALUE+1 target needs exactly MAX_VALUE firings,
+            // so a wide deliverable alone must not make an otherwise representable task overflow.
+            var expectedCount = amount.subtract(BigInteger.ONE);
+            boolean fits = expectedCount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0;
+            assertEquals(fits ? CycleSolveStatus.SUCCESS : CycleSolveStatus.UNREPRESENTABLE,
+                result.status(), result.diagnostics().toString());
             assertTrue(result.hasExactExecutionCounts());
-            assertTrue(result.exactPatternTimes().values().stream().anyMatch(count -> !count.fitsLong()));
+            assertEquals(!fits, result.exactPatternTimes().values().stream().anyMatch(count -> !count.fitsLong()));
+            result.exactPatternTimes().values().forEach(count -> assertEquals(expectedCount, count.toBigInteger()));
             assertTrue(result.seedShortfall().isEmpty());
             assertTrue(result.diagnostics().stream().anyMatch(d ->
                 d.code() == CycleSolveDiagnostic.Code.DETERMINISTIC_RING_EXACT));

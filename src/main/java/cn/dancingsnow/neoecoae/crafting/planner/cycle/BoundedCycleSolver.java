@@ -9,12 +9,15 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.component.ComponentDependency;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
+import it.unimi.dsi.fastutil.ints.IntHeapPriorityQueue;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +57,7 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static final int GREEDY_TOP_K = 6;
     private static final int MAX_GREEDY_CANDIDATE_EVALUATIONS = 8_192;
     private static final int MAX_GREEDY_LOOKAHEAD_NODES = 16_384;
-    /** Exact ring counts use exponential pivot growth, so this is independent of the requested craft amount. */
+    /** Bound integer closure refinements after jumping to a proven algebraic lower bound. */
     private static final int MAX_EXACT_RING_PIVOT_STEPS = 128;
     /** Protects compact witness construction for pathologically weak net-growth ratios. */
     // A neutral ring may need one alternating batch per lap (for example A+fuel -> B, B -> A+product).
@@ -117,7 +120,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         }
 
         CycleSolveResult exactRing = solveDeterministicRing(model, cancellation);
-        if (exactRing != null) return exactRing;
+        if (exactRing != null && (exactRing.status() == CycleSolveStatus.SUCCESS
+                || exactRing.status() == CycleSolveStatus.UNREPRESENTABLE)) return exactRing;
 
         int budget = limits.maxStates();
         Search first = search(model, model.stock, budget, limits.maxFirings(), cancellation);
@@ -141,6 +145,10 @@ public final class BoundedCycleSolver implements CycleSolver {
         diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.PROVEN_INFEASIBLE_AT_CURRENT_STOCK,
             "Explored the complete reachable marking set (" + visited
                 + " states) without reaching the required outputs"));
+
+        // A seed deficit in one constructed witness is not a reachability proof. Only return that seed
+        // proposal after the original-stock search has actually closed; budget cuts above stay unknown.
+        if (exactRing != null && exactRing.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT) return exactRing;
 
         PlannerAmount[] base = first.unblockDeficit;
         if (base == null || isZero(base)) {
@@ -177,8 +185,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.SEED_ESTIMATE_LOWER_BOUND,
             "No verified seed within the ladder budget; the reported seed is the smallest amount that unblocks"
                 + " the deadlock, not a proven sufficient amount"));
-        Map<AEKey, PlannerAmount> exactShortfall = new LinkedHashMap<>();
-        Map<AEKey, PlannerAmount> exactSeed = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> exactShortfall = new Object2ObjectLinkedOpenHashMap<>();
+        Map<AEKey, PlannerAmount> exactSeed = new Object2ObjectLinkedOpenHashMap<>();
         for (int i = 0; i < model.keyCount(); i++) {
             if (base[i].signum() > 0) {
                 PlannerAmount exact = model.stock[i].max(PlannerAmount.ZERO).add(base[i]);
@@ -219,7 +227,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 "Cyclic component declares " + declared.size() + " patterns, limit is " + limits.maxPatterns());
         }
 
-        Map<IPatternDetails, CompiledPattern> unique = new LinkedHashMap<>();
+        Map<IPatternDetails, CompiledPattern> unique = new Object2ObjectLinkedOpenHashMap<>();
         for (CompiledPattern pattern : declared.stream()
                 .sorted(Comparator.comparingInt(CompiledPattern::id)).toList()) {
             unique.putIfAbsent(pattern.details(), pattern);
@@ -244,7 +252,8 @@ public final class BoundedCycleSolver implements CycleSolver {
             }
         }
 
-        LinkedHashMap<AEKey, Integer> index = new LinkedHashMap<>();
+        var index = new Object2IntLinkedOpenHashMap<AEKey>();
+        index.defaultReturnValue(-1);
         for (AEKey member : request.component().members()) index.putIfAbsent(member, index.size());
         for (CompiledPattern pattern : transitions) {
             for (CompiledInput input : pattern.inputs()) index.putIfAbsent(input.key(), index.size());
@@ -265,8 +274,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         for (ComponentDependency dependency : request.externalResourceBoundary()) {
             for (var relationship : dependency.relationships()) {
                 AEKey key = relationship.requiredInput();
-                Integer slot = index.get(key);
-                if (slot != null && !members.contains(key)) suppliable[slot] = true;
+                int slot = index.getInt(key);
+                if (slot >= 0 && !members.contains(key)) suppliable[slot] = true;
             }
         }
 
@@ -279,11 +288,11 @@ public final class BoundedCycleSolver implements CycleSolver {
             Arrays.fill(exactCons, PlannerAmount.ZERO);
             Arrays.fill(exactProd, PlannerAmount.ZERO);
             for (CompiledInput input : pattern.inputs()) {
-                int slot = index.get(input.key());
+                int slot = index.getInt(input.key());
                 exactCons[slot] = exactCons[slot].add(input.amountPerPattern());
             }
             for (GenericStack output : pattern.grossOutputs()) {
-                int slot = index.get(output.what());
+                int slot = index.getInt(output.what());
                 exactProd[slot] = exactProd[slot].add(output.amount());
             }
             for (int i = 0; i < n; i++) {
@@ -321,7 +330,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             }
         }
         boolean[] member = new boolean[n];
-        for (AEKey key : request.component().members()) member[index.get(key)] = true;
+        for (AEKey key : request.component().members()) member[index.getInt(key)] = true;
         TransitionMetadata[] metadata = new TransitionMetadata[t];
         for (int p = 0; p < t; p++) {
             int[] internal = new int[n];
@@ -337,7 +346,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 PlannerAmount delta = PlannerAmount.of(prod[p][i] - cons[p][i]);
                 if (required[i].signum() > 0) outputs.add(new OutputTarget(i, delta));
                 if (suppliable[i]) continue;
-                Set<Long> thresholds = new HashSet<>();
+                var thresholds = new LongOpenHashSet();
                 for (int other = 0; other < t; other++) {
                     long needed = cons[other][i];
                     if (needed > 0 && thresholds.add(needed)) {
@@ -386,9 +395,9 @@ public final class BoundedCycleSolver implements CycleSolver {
      *
      * <p>For ring key {@code i}, the balance constraint is
      * {@code stock[i] + produced[i-1] * x[i-1] - consumed[i] * x[i] >= required[i]}.
-     * Choosing one transition count determines lower bounds for every predecessor around the ring. Because the
-     * product of output ratios is strictly growing, exponentially increasing that pivot reaches a feasible exact
-     * integer vector in at most logarithmic work. The vector is then turned into a compact, replayable batch order;
+     * Choosing one transition count determines lower bounds for every predecessor around the ring. Start at
+     * the continuous balance lower bound, then propagate integer lower bounds without overshooting the least
+     * feasible vector. The vector is then turned into a compact, replayable batch order;
      * {@link #witnessResult} remains the final authority for non-negativity, seed and boundary imports.
      */
     private CycleSolveResult solveDeterministicRing(Model model, ECOCancellation cancellation)
@@ -410,7 +419,7 @@ public final class BoundedCycleSolver implements CycleSolver {
 
         List<CycleSolveDiagnostic> diagnostics = new ArrayList<>();
         diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.DETERMINISTIC_RING_EXACT,
-            "Solved a deterministic " + ring.size() + "-transition net-growth ring by exact integer balance"
+            "Solved a deterministic " + ring.size() + "-transition ring by least integer balance"
                 + " and verified it in " + witness.size() + " compact batch step(s)"));
         CycleSolveMetrics metrics = new CycleSolveMetrics(model.keyCount(), model.transitionCount(),
             witness.size() + 1L, witness.size(), expandedWitnessLength(witness), 0, false, false);
@@ -525,7 +534,29 @@ public final class BoundedCycleSolver implements CycleSolver {
     @Nullable
     private static PlannerAmount[] exactRingCounts(Model model, ExactRing ring, ECOCancellation cancellation)
             throws InterruptedException {
+        // Compose the unrounded inequalities backwards around the ring:
+        // x[0] >= (coefficient * x[0] + constant) / denominator.
+        // Every integer solution must satisfy this relaxation. Unlike exponential probing, its lower bound
+        // cannot skip a cheaper feasible firing vector (which may be the only one covered by finite fuel).
+        PlannerAmount coefficient = PlannerAmount.ONE;
+        PlannerAmount constant = PlannerAmount.ZERO;
+        PlannerAmount denominator = PlannerAmount.ONE;
+        for (int offset = 0; offset < ring.size(); offset++) {
+            cancellation.checkpoint();
+            int position = (ring.size() - offset) % ring.size();
+            int producer = (position - 1 + ring.size()) % ring.size();
+            int key = ring.keys[position];
+            constant = constant.multiply(ring.consumed[position])
+                .add(model.required[key].subtract(model.stock[key]).multiply(denominator));
+            coefficient = coefficient.multiply(ring.consumed[position]);
+            denominator = denominator.multiply(ring.produced[producer]);
+        }
+        PlannerAmount growth = denominator.subtract(coefficient);
+        if (growth.isZero() && constant.signum() > 0) return null;
         PlannerAmount pivot = ring.baseCounts[0];
+        if (growth.signum() > 0 && constant.signum() > 0) {
+            pivot = pivot.max(constant.ceilDiv(growth));
+        }
         for (int attempt = 0; attempt < MAX_EXACT_RING_PIVOT_STEPS; attempt++) {
             cancellation.checkpoint();
             PlannerAmount[] counts = ringCountsForPivot(model, ring, pivot);
@@ -535,8 +566,9 @@ public final class BoundedCycleSolver implements CycleSolver {
                 counts[0] = pivot;
                 return counts;
             }
-            PlannerAmount doubled = pivot.signum() == 0 ? PlannerAmount.ONE : pivot.multiply(2L);
-            pivot = doubled.max(closure);
+            // Closure is monotone. Starting below every solution and raising only to the required bound
+            // preserves that invariant, so the first feasible vector is componentwise minimal.
+            pivot = closure;
         }
         return null;
     }
@@ -687,8 +719,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         int n = model.keyCount();
         int transitionCount = model.transitionCount();
         List<Node> nodes = new ArrayList<>();
-        Set<Marking> seen = new HashSet<>();
-        java.util.PriorityQueue<Integer> queue = new java.util.PriorityQueue<>((left, right) -> {
+        Set<Marking> seen = new ObjectOpenHashSet<>();
+        var queue = new IntHeapPriorityQueue((left, right) -> {
             int progress = compareProgress(nodes.get(left), nodes.get(right));
             return progress != 0 ? progress : Integer.compare(left, right);
         });
@@ -706,11 +738,11 @@ public final class BoundedCycleSolver implements CycleSolver {
         Search greedy = greedySearch(model, root, stateBudget, maxFirings, cancellation, outcome);
         if (greedy != null) return greedy;
 
-        queue.add(0);
+        queue.enqueue(0);
 
         while (!queue.isEmpty()) {
             cancellation.checkpoint();
-            int index = queue.poll();
+            int index = queue.dequeueInt();
             Node node = nodes.get(index);
             if (node.depth >= maxFirings) {
                 outcome.firingDepthTruncated = true;
@@ -741,7 +773,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                         outcome.statesVisited = seen.size();
                         return outcome;
                     }
-                    queue.add(child);
+                    queue.enqueue(child);
                 }
                 if (outcome.stateBudgetExhausted) break;
             }
@@ -764,7 +796,7 @@ public final class BoundedCycleSolver implements CycleSolver {
     private Search greedySearch(Model model, PlannerAmount[] start, int stateBudget, int maxFirings,
             ECOCancellation cancellation, Search accounting) throws InterruptedException {
         PlannerAmount[] marking = Arrays.copyOf(start, start.length);
-        Set<Marking> seen = new HashSet<>();
+        Set<Marking> seen = new ObjectOpenHashSet<>();
         List<BatchFiring> witness = new ArrayList<>();
         seen.add(new Marking(marking));
         CycleHeuristicBudget budget = new CycleHeuristicBudget(maxGreedyCandidateEvaluations,
@@ -1147,21 +1179,44 @@ public final class BoundedCycleSolver implements CycleSolver {
         }
 
         Simulation bare = simulate(model, zeroes(model.keyCount()), witness);
-        Map<AEKey, PlannerAmount> exactRequiredSeed = Map.copyOf(bare.lazySeed);
+        Map<AEKey, PlannerAmount> exactRequiredSeed = new Object2ObjectLinkedOpenHashMap<>(bare.lazySeed);
         Map<AEKey, PlannerAmount> exactExternalDemand = Map.copyOf(bare.lazyImport);
 
-        Map<AEKey, PlannerAmount> exactShortfall = new LinkedHashMap<>();
+        // A speculative ladder seed can survive the witness and satisfy the target without ever being
+        // consumed (including an empty witness). Replay against real stock as well: lazy consumption seed
+        // alone would omit that retained material and incorrectly report SUCCESS after an exhausted search.
+        Simulation stocked = Arrays.equals(start, model.stock) ? actual : simulate(model, model.stock, witness);
+        PlannerAmount[] accountedStart = model.stock.clone();
+        for (int i = 0; i < model.keyCount(); i++) {
+            AEKey key = model.keys.get(i);
+            PlannerAmount retainedShortfall = model.required[i].subtract(stocked.marking[i]);
+            if (retainedShortfall.signum() > 0) {
+                PlannerAmount needed = model.stock[i]
+                    .add(stocked.lazySeed.getOrDefault(key, PlannerAmount.ZERO)).add(retainedShortfall);
+                exactRequiredSeed.merge(key, needed, PlannerAmount::max);
+            }
+            accountedStart[i] = accountedStart[i].max(exactRequiredSeed.getOrDefault(key, PlannerAmount.ZERO));
+        }
+        // Credit only stock and the seed actually reported, never surplus from a doubled probe.
+        actual = Arrays.equals(accountedStart, model.stock) ? stocked : simulate(model, accountedStart, witness);
+        if (!actual.lazySeed.isEmpty() || !satisfied(actual.marking, model.required)) {
+            return CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET,
+                CycleSolveDiagnostic.Code.STATE_BUDGET_EXHAUSTED,
+                "Internal inconsistency: accounted seed did not reproduce the verified target");
+        }
+
+        Map<AEKey, PlannerAmount> exactShortfall = new Object2ObjectLinkedOpenHashMap<>();
         exactRequiredSeed.forEach((key, amount) -> {
             PlannerAmount missing = amount.subtract(model.stockAmountOf(key).max(PlannerAmount.ZERO));
             if (missing.signum() > 0) exactShortfall.put(key, missing);
         });
 
-        Map<IPatternDetails, PlannerAmount> exactPatternTimes = new LinkedHashMap<>();
+        Map<IPatternDetails, PlannerAmount> exactPatternTimes = new Object2ObjectLinkedOpenHashMap<>();
         for (BatchFiring firing : witness) {
             IPatternDetails details = model.transitions.get(firing.transition()).details();
             exactPatternTimes.merge(details, firing.exactCount(), PlannerAmount::add);
         }
-        Map<IPatternDetails, Long> patternTimes = new LinkedHashMap<>();
+        Map<IPatternDetails, Long> patternTimes = new Object2ObjectLinkedOpenHashMap<>();
         List<PatternRun> executionPlan = new ArrayList<>(witness.size());
         boolean runtimeCountsRepresentable = true;
         try {
@@ -1223,9 +1278,9 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static Simulation simulate(Model model, PlannerAmount[] start, List<BatchFiring> witness) {
         int n = model.keyCount();
         PlannerAmount[] marking = Arrays.copyOf(start, n);
-        Map<AEKey, PlannerAmount> lazySeed = new LinkedHashMap<>();
-        Map<AEKey, PlannerAmount> lazyImport = new LinkedHashMap<>();
-        Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> lazySeed = new Object2ObjectLinkedOpenHashMap<>();
+        Map<AEKey, PlannerAmount> lazyImport = new Object2ObjectLinkedOpenHashMap<>();
+        Map<AEKey, PlannerAmount> produced = new Object2ObjectLinkedOpenHashMap<>();
         for (BatchFiring firing : witness) {
             int transition = firing.transition();
             PlannerAmount count = firing.exactCount();
@@ -1308,7 +1363,7 @@ public final class BoundedCycleSolver implements CycleSolver {
     }
 
     private static Map<AEKey, PlannerAmount> exactDeliverable(Model model, PlannerAmount[] marking) {
-        Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> result = new Object2ObjectLinkedOpenHashMap<>();
         for (int i = 0; i < model.keyCount(); i++) {
             if (model.required[i].signum() > 0) result.put(model.keys.get(i), marking[i]);
         }
@@ -1316,7 +1371,7 @@ public final class BoundedCycleSolver implements CycleSolver {
     }
 
     private static Map<AEKey, Long> representable(Map<AEKey, PlannerAmount> amounts) {
-        Map<AEKey, Long> result = new LinkedHashMap<>();
+        Map<AEKey, Long> result = new Object2ObjectLinkedOpenHashMap<>();
         amounts.forEach((key, amount) -> {
             if (amount.fitsLong()) result.put(key, amount.longValueExact());
         });

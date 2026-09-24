@@ -17,6 +17,8 @@ public record PlannerDiagnostic(Code code, String message) {
         CYCLE_SEED_REQUIRED,
         /** The bounded cycle search ran out of budget; explicitly not a missing-items verdict. */
         CYCLE_BUDGET_EXHAUSTED,
+        /** Unvisited producer combinations remain; failed attempts do not prove global material shortage. */
+        ROUTE_SEARCH_BUDGET_EXHAUSTED,
         /** The cycle is beyond the stage-one structural limits. */
         CYCLE_TOO_COMPLEX,
         CYCLE_EXTERNAL_DEMAND_SOLVED,

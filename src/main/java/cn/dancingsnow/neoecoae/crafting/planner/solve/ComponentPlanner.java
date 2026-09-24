@@ -30,9 +30,14 @@ import cn.dancingsnow.neoecoae.crafting.planner.trace.CycleTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrays;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,6 +53,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class ComponentPlanner {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComponentPlanner.class);
+    private static final int MAX_ROUTE_ATTEMPTS = 256;
 
     public record Outcome(
             PlanningStatus status,
@@ -63,12 +69,20 @@ public final class ComponentPlanner {
     private final CycleSolver cycleSolver;
     private final ActiveRouteSelector activeRouteSelector;
     private final ExternalDemandPlanner externalDemandPlanner;
+    private final int maxRouteAttempts;
 
     public ComponentPlanner(AcyclicCraftingSolver acyclicSolver, CycleSolver cycleSolver) {
+        this(acyclicSolver, cycleSolver, MAX_ROUTE_ATTEMPTS);
+    }
+
+    /** Package-visible budget override for deterministic route-search tests. */
+    ComponentPlanner(AcyclicCraftingSolver acyclicSolver, CycleSolver cycleSolver, int maxRouteAttempts) {
+        if (maxRouteAttempts < 1) throw new IllegalArgumentException("Route attempt budget must be positive");
         this.acyclicSolver = acyclicSolver;
         this.cycleSolver = cycleSolver;
         this.activeRouteSelector = new ActiveRouteSelector();
         this.externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
+        this.maxRouteAttempts = maxRouteAttempts;
     }
 
     public Outcome plan(CompiledNetwork network, CondensationGraph condensation, KeyCounter inventory,
@@ -133,7 +147,7 @@ public final class ComponentPlanner {
         cancellation.checkpoint();
         CondensationGraph activeCondensation;
         AcyclicCraftingSolver.Outcome attempt;
-        Set<Map<AEKey, Integer>> classifiedRoutes = new HashSet<>();
+        Set<Map<AEKey, Integer>> classifiedRoutes = new ObjectOpenHashSet<>();
         while (true) {
             activeCondensation = activeSelection.condensation();
             List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
@@ -564,56 +578,102 @@ public final class ComponentPlanner {
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, true,
             ignorePatternSubstitutions, cancellation);
         if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
-        Set<Map<AEKey, Integer>> attempted = new HashSet<>();
-        attempted.add(activeSelection.choices());
-        if (!activeSelection.deferredCyclicCandidates().isEmpty()) {
-            ActiveRouteSelector.Selection original = activeRouteSelector.select(universe.source(), false, cancellation);
-            if (!original.cyclicComponents().isEmpty() && attempted.add(original.choices())) {
-                Outcome cyclic = plan(network, original, inventory, snapshot, amount, true,
-                    ignorePatternSubstitutions, cancellation);
-                if (cyclic.status() == PlanningStatus.SUCCESS) return cyclic;
-            }
-        }
-        // The first producer can itself be acyclic but lack materials. Walk from its failed leaves back to
-        // their consumers, then try other producers on that failed route only. A blocked cyclic
-        // alternative must not hide a later acyclic producer with available materials.
-        Set<AEKey> failedRoute = new LinkedHashSet<>(preferred.state().missingAmounts().keySet());
-        failedRoute.addAll(preferred.state().unsupported);
-        failedRoute.addAll(preferred.state().selected.keySet());
-        Map<AEKey, Integer> fallbackChoices = new LinkedHashMap<>(activeSelection.choices());
-        preferred.state().selected.forEach((key, pattern) -> {
-            int index = network.fastProducersOf(key).indexOf(pattern);
-            if (index >= 0) fallbackChoices.put(key, index);
-        });
-        java.util.ArrayDeque<AEKey> pending = new java.util.ArrayDeque<>(failedRoute);
-        while (!pending.isEmpty()) {
-            for (AEKey parent : preferred.state().parents.getOrDefault(pending.removeFirst(), Set.of())) {
-                if (failedRoute.add(parent)) pending.addLast(parent);
-            }
-        }
-        if (preferred.status() == PlanningStatus.PARTIAL_UNSUPPORTED) {
-            // Acyclic candidate retry can abort before retaining the failed leaf/parent trace.
-            failedRoute.addAll(universe.source().nodes().keySet());
-        }
-        for (var entry : universe.source().nodes().entrySet()) {
+        // Normalize every key so semantically identical choices share one invocation-local cache entry.
+        Map<AEKey, Integer> baseline = new Object2ObjectLinkedOpenHashMap<>();
+        var preferredChoices = new IntArrayList();
+        List<AEKey> variableKeys = new ArrayList<>();
+        var radices = new IntArrayList();
+        for (AEKey key : universe.source().nodes().keySet()) {
             cancellation.checkpoint();
-            AEKey key = entry.getKey();
-            if (!failedRoute.contains(key)) continue;
-            for (CompiledPattern pattern : entry.getValue().candidatePatterns()) {
-                if (!pattern.fastSupported()) {
-                    continue;
-                }
-                Map<AEKey, Integer> choices = new LinkedHashMap<>(fallbackChoices);
-                choices.put(key, network.fastProducersOf(key).indexOf(pattern));
-                if (!attempted.add(Map.copyOf(choices))) continue;
-                ActiveRouteSelector.Selection candidate = activeRouteSelector.selectWithChoices(
-                    universe.source(), choices, cancellation);
-                Outcome cyclic = plan(network, candidate, inventory, snapshot, amount, true,
-                    ignorePatternSubstitutions, cancellation);
-                if (cyclic.status() == PlanningStatus.SUCCESS) return cyclic;
+            List<CompiledPattern> candidates = network.fastProducersOf(key);
+            int selected = Math.max(0, Math.min(activeSelection.choices().getOrDefault(key, 0),
+                Math.max(0, candidates.size() - 1)));
+            int resolved = candidates.indexOf(preferred.state().selected.get(key));
+            baseline.put(key, resolved >= 0 ? resolved : selected);
+            if (candidates.size() > 1) {
+                variableKeys.add(key);
+                radices.add(candidates.size());
+                preferredChoices.add(selected);
             }
+        }
+        // Cache compact immutable vectors, not a boxed map of every node for every attempt.
+        Set<int[]> attempted = new ObjectOpenCustomHashSet<>(IntArrays.HASH_STRATEGY);
+        attempted.add(preferredChoices.toIntArray());
+        int attempts = 1;
+        var combinations = new RouteCombinations(radices);
+        while (combinations.hasNext()) {
+            cancellation.checkpoint();
+            int[] offsets = combinations.next();
+            int[] vector = new int[offsets.length];
+            for (int i = 0; i < offsets.length; i++) {
+                AEKey key = variableKeys.get(i);
+                vector[i] = (baseline.get(key) + offsets[i]) % radices.getInt(i);
+            }
+            if (!attempted.add(vector)) continue;
+            if (attempts >= maxRouteAttempts) {
+                preferred.trace().addDiagnostic(new PlannerDiagnostic(
+                    PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED,
+                    "Producer route search stopped after " + attempts
+                        + " attempts; unvisited combinations may still be feasible"));
+                return new Outcome(PlanningStatus.CYCLE_UNRESOLVED, preferred.state(), preferred.trace(),
+                    preferred.cycles(), preferred.components(), preferred.executionComponentOrder());
+            }
+            attempts++;
+            Map<AEKey, Integer> choices = new Object2ObjectLinkedOpenHashMap<>(baseline);
+            for (int i = 0; i < vector.length; i++) choices.put(variableKeys.get(i), vector[i]);
+            ActiveRouteSelector.Selection candidate = activeRouteSelector.selectWithChoices(
+                universe.source(), choices, cancellation);
+            Outcome alternative = plan(network, candidate, inventory, snapshot, amount, true,
+                ignorePatternSubstitutions, cancellation);
+            if (alternative.status() == PlanningStatus.SUCCESS) return alternative;
         }
         return preferred;
+    }
+
+    /** Try cheap single changes before joint changes, retaining only one mixed-radix cursor in memory. */
+    private static final class RouteCombinations {
+        private final IntList radices;
+        private final int[] offsets;
+        private boolean baselinePending = true;
+        private int singleKey;
+        private int singleOffset = 1;
+        private boolean combinationsRemain = true;
+
+        private RouteCombinations(IntList radices) {
+            this.radices = radices;
+            this.offsets = new int[radices.size()];
+        }
+
+        private boolean hasNext() {
+            return baselinePending || singleKey < offsets.length || combinationsRemain;
+        }
+
+        private int[] next() {
+            if (baselinePending) {
+                baselinePending = false;
+                return offsets.clone();
+            }
+            if (singleKey < offsets.length) {
+                int[] single = new int[offsets.length];
+                single[singleKey] = singleOffset++;
+                if (singleOffset >= radices.getInt(singleKey)) {
+                    singleKey++;
+                    singleOffset = 1;
+                }
+                return single;
+            }
+            int[] result = offsets.clone();
+            combinationsRemain = advanceRouteCombination(offsets, radices);
+            return result;
+        }
+    }
+
+    private static boolean advanceRouteCombination(int[] offsets, IntList radices) {
+        for (int i = offsets.length - 1; i >= 0; i--) {
+            if (++offsets[i] < radices.getInt(i)) return true;
+            offsets[i] = 0;
+        }
+        return false;
     }
 
     private static void validateProvenanceCoverage(CompiledNetwork network, SolveState state,
@@ -642,7 +702,7 @@ public final class ComponentPlanner {
     }
 
     private static CycleSolveRequest.PlannerOptions cycleSolveOptions(CycleComponent cycle) {
-        Set<AEKey> keys = new HashSet<>(cycle.members());
+        Set<AEKey> keys = new ObjectOpenHashSet<>(cycle.members());
         for (CompiledPattern pattern : cycle.patterns()) {
             pattern.inputs().forEach(input -> keys.add(input.key()));
             pattern.grossOutputs().forEach(output -> keys.add(output.what()));
@@ -680,7 +740,7 @@ public final class ComponentPlanner {
 
     private static Set<AEKey> delegatedCycleInputs(CompiledNetwork network, CondensationGraph condensation,
                                                    Map<AEKey, Integer> choices, CycleComponent consumer, Set<AEKey> inputs) {
-        Set<AEKey> delegated = new HashSet<>();
+        Set<AEKey> delegated = new ObjectOpenHashSet<>();
         inputs.forEach(key -> {
             CycleComponent supplier = cyclicSupplier(network, condensation, choices, key, consumer.componentId());
             if (supplier != null) {
@@ -920,7 +980,7 @@ public final class ComponentPlanner {
             for (CompiledInput input : pattern.inputs()) diagnosticKeys.add(input.key());
         }
         for (AEKey key : diagnosticKeys) exactNet.put(key, PlannerAmount.ZERO);
-        Set<IPatternDetails> countedPatterns = new HashSet<>();
+        Set<IPatternDetails> countedPatterns = new ObjectOpenHashSet<>();
         for (var pattern : cycle.patterns()) {
             if (!countedPatterns.add(pattern.details())) continue;
             for (var output : pattern.grossOutputs())

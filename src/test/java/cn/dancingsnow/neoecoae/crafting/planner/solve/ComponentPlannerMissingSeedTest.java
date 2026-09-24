@@ -310,7 +310,8 @@ class ComponentPlannerMissingSeedTest {
         var finalInputs = new java.util.ArrayList<GenericStack>();
         finalInputs.add(new GenericStack(crystal, 400_000L));
         var inventory = new KeyCounter();
-        inventory.add(block, 100_004L);
+        // Four seeds each grow from one to four: 12 crystals, exactly three extra blocks.
+        inventory.add(block, 100_003L);
         for (int i = 0; i < seeds.size(); i++) {
             AEKey seed = seeds.get(i);
             inventory.add(seed, 1L);
@@ -333,9 +334,12 @@ class ComponentPlannerMissingSeedTest {
         assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS,
             outcome.status(), outcome.trace().diagnostics().toString());
         assertTrue(outcome.state().missingItems().isEmpty());
-        assertEquals(100_004L, outcome.state().usedItems().get(block));
+        assertEquals(100_003L, outcome.state().usedItems().get(block));
         assertEquals(0L, outcome.state().usedItems().get(crystal));
-        assertEquals(100_004L, outcome.state().patternTimes().get(unpack.details()));
+        assertEquals(100_003L, outcome.state().patternTimes().get(unpack.details()));
+        for (AEKey seed : seeds) {
+            assertEquals(3L, outcome.state().patternTimes().get(producers.get(seed).getFirst().details()));
+        }
         assertFalse(outcome.state().patternTimes().containsKey(pack.details()));
         outcome.state().executionProvenance().requireComplete();
         cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule.from(outcome.components(),
