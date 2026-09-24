@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.storage;
 
 import appeng.api.inventories.InternalInventory;
-import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,7 +17,7 @@ public abstract class NativeMEStorageCellFilterMixin {
     @Inject(method = "allowInsert", at = @At("HEAD"), cancellable = true)
     private void neoecoae$rejectEcoStorageCells(InternalInventory inventory, int slot, ItemStack stack,
             CallbackInfoReturnable<Boolean> cir) {
-        if (ECOStorageCells.isCellHandled(stack)) {
+        if (!stack.isEmpty() && stack.getItem() instanceof ECOStorageCellItem) {
             cir.setReturnValue(false);
         }
     }
