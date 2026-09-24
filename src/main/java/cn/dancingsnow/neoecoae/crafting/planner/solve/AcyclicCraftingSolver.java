@@ -79,13 +79,16 @@ public final class AcyclicCraftingSolver {
         Map<AEKey, Integer> choices = new HashMap<>(initialChoices);
         int retryBudget = Math.max(1, network.reachablePatternCount() + 1);
         SolveState state = null;
+        cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingDependencyGraph universe = null;
         for (int attempt = 0; attempt < retryBudget; attempt++) {
             cancellation.checkpoint();
             if (attempt > 0) {
                 // The caller classified the initial route. A numeric retry can add feedback through
                 // secondary outputs even when its ordinary input edges still look like a DAG.
-                var universe = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder()
-                    .build(network, cancellation);
+                if (universe == null) {
+                    universe = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder()
+                        .build(network, cancellation);
+                }
                 var selected = new ActiveRouteSelector().selectWithChoices(universe, choices, cancellation);
                 if (selected.cyclicComponents().stream()
                         .filter(cycle -> cycle.patterns().stream().anyMatch(pattern -> pattern.outputs().stream()
@@ -106,13 +109,7 @@ public final class AcyclicCraftingSolver {
             if (state == null) {
                 return cyclicRouteOutcome(network, inventory, choices, trace);
             }
-            if (!state.unsupported.isEmpty()) {
-                addTrace(network, state, amount, trace);
-                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
-                    "No batch-safe candidate remains for " + state.unsupported));
-                return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
-            }
-            if (state.missing.isEmpty()) {
+            if (state.missing.isEmpty() && state.unsupported.isEmpty()) {
                 addTrace(network, state, amount, trace);
                 if (addExecutionRepresentabilityDiagnostics(state, trace)) {
                     return new Outcome(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, state, trace);
@@ -122,6 +119,11 @@ public final class AcyclicCraftingSolver {
             }
             if (!candidates.advanceAfterFailure(network, state, choices)) {
                 addTrace(network, state, amount, trace);
+                if (!state.unsupported.isEmpty()) {
+                    trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
+                        "No batch-safe candidate remains for " + state.unsupported));
+                    return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
+                }
                 if (addExecutionRepresentabilityDiagnostics(state, trace)) {
                     return new Outcome(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, state, trace);
                 }
@@ -132,7 +134,8 @@ public final class AcyclicCraftingSolver {
                 trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, rejected.getKey(),
                     rejected.getValue().details(), 0, 0, 0, 0,
                     traceLong(state.patternTimes.getOrDefault(rejected.getValue().details(), PlannerAmount.ZERO)),
-                    PlanTraceNode.Selection.REJECTED, "DOWNSTREAM_MISSING_ROLLBACK"));
+                    PlanTraceNode.Selection.REJECTED, state.unsupported.isEmpty()
+                        ? "DOWNSTREAM_MISSING_ROLLBACK" : "DOWNSTREAM_UNSUPPORTED_ROLLBACK"));
             }
             trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANDIDATE_REJECTED,
                 "Candidate failed downstream; rolled back attempt " + (attempt + 1)));

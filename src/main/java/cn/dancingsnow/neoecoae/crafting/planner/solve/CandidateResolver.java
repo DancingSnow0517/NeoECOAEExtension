@@ -18,6 +18,9 @@ public final class CandidateResolver {
             queue.add(missing.getKey());
             seen.add(missing.getKey());
         }
+        for (AEKey unsupported : failed.unsupported) {
+            if (seen.add(unsupported)) queue.add(unsupported);
+        }
         while (!queue.isEmpty()) {
             AEKey failedKey = queue.removeFirst();
             for (AEKey parent : failed.parents.getOrDefault(failedKey, Set.of())) {

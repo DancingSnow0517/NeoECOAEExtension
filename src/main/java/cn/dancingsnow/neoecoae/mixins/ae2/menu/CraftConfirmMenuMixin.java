@@ -505,11 +505,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 neoecoae$planningDiagnostic = planningResult.trace().diagnostics().stream()
                     .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
                     .collect(java.util.stream.Collectors.joining("\n"));
+                // Keep the complete failure evidence in the server log; only the UI payload is bounded.
+                NEOECOAE_LOGGER.warn("[ECO-CRAFT-SUBMIT] ECO diagnostic: status={}, output={}, diagnostics={}",
+                    planningResult.status(), diagnosticPlan.finalOutput(), neoecoae$planningDiagnostic);
                 if (neoecoae$planningDiagnostic.length() > 4096) {
                     neoecoae$planningDiagnostic = neoecoae$planningDiagnostic.substring(0, 4096);
                 }
-                NEOECOAE_LOGGER.warn("[ECO-CRAFT-SUBMIT] ECO diagnostic: status={}, output={}, diagnostics={}",
-                    planningResult.status(), diagnosticPlan.finalOutput(), neoecoae$planningDiagnostic);
             }
             CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
             neoecoae$craftingGraph = snapshot;

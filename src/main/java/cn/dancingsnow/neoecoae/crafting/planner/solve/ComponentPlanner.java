@@ -340,20 +340,27 @@ public final class ComponentPlanner {
                             CycleSolveResult recovered = cycleSolver.solve(new CycleSolveRequest(cycle,
                                     representable(solveTargets), solveTargets, projectedStock, cycle.outgoingDependencies(),
                                     cycleSolveOptions(cycle)), cancellation);
-                            if (recovered.status() == CycleSolveStatus.SUCCESS
-                                    && demandsCover(recoveryDemands, recovered.positiveExternalDemand())) {
+                            if (recovered.status() == CycleSolveStatus.SUCCESS) {
                                 plannedCycleInputs = cycleResult.seedShortfall();
                                 cycleResult = recovered;
                                 cycleStatus = CyclePlanningStatus.SOLVED;
+                                // The seed probe was speculative. Replan the verified witness's complete
+                                // boundary and reservations from the original stock, committing neither twice.
+                                external = null;
                                 diagnostic = "Cycle startup seed was planned through its external producer route";
                             } else {
+                                if (recovered.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT) {
+                                    // Projected startup inputs have not been committed. Include them when
+                                    // reporting the remaining unfulfilled cycle seed requirement.
+                                    acyclic.state().markMissing(mergeDemands(
+                                            cycleResult.seedShortfall(), recovered.seedShortfall()));
+                                }
                                 cycleResult = recovered;
-                                cycleStatus = recovered.status() == CycleSolveStatus.SUCCESS
-                                        ? CyclePlanningStatus.UNSUPPORTED : CyclePlanningStatus.of(recovered.status());
-                                diagnostic = recovered.status() == CycleSolveStatus.SUCCESS
-                                        ? "Recovered cycle requires boundary inputs not covered by startup planning"
-                                        : recovered.summary();
+                                cycleStatus = CyclePlanningStatus.of(recovered.status());
+                                if (cycleStatus == CyclePlanningStatus.UNREPRESENTABLE) amountUnrepresentable = true;
+                                diagnostic = recovered.summary();
                             }
+                            trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
                         }
                     }
                     if (cycleResult != null && cycleStatus == CyclePlanningStatus.SOLVED) {
@@ -362,9 +369,11 @@ public final class ComponentPlanner {
                         Map<AEKey, Long> additionalReservations = reservationRemainder(
                                 initialReservations, stockReservations);
                         if (external == null) {
+                            Map<AEKey, Long> boundaryDemands = mergeDemands(
+                                    cycleResult.positiveExternalDemand(), plannedCycleInputs);
                             Set<AEKey> delegatedInputs = delegatedCycleInputs(network, activeCondensation,
-                                    activeSelection.choices(), cycle, cycleResult.positiveExternalDemand().keySet());
-                            external = externalDemandPlanner.solve(network, cycle, cycleResult, inventory,
+                                    activeSelection.choices(), cycle, boundaryDemands.keySet());
+                            external = externalDemandPlanner.solveDemands(network, cycle, boundaryDemands, inventory,
                                     acyclic.state(), additionalReservations, delegatedInputs,
                                     ignorePatternSubstitutions, cancellation);
                             externalDemandStatus = external.status();
@@ -687,11 +696,6 @@ public final class ComponentPlanner {
             if (amount != null && amount > 0L) result.merge(key, amount, Math::addExact);
         });
         return Map.copyOf(result);
-    }
-
-    private static boolean demandsCover(Map<AEKey, Long> planned, Map<AEKey, Long> required) {
-        return required.entrySet().stream().allMatch(entry -> entry.getValue() != null
-                && entry.getValue() >= 0L && planned.getOrDefault(entry.getKey(), 0L) >= entry.getValue());
     }
 
     private static @Nullable CycleComponent cyclicSupplier(CompiledNetwork network, CondensationGraph condensation,

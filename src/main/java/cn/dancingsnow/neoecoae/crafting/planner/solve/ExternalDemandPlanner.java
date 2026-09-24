@@ -10,9 +10,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.component.AcyclicComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveResult;
-import cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder;
-import cn.dancingsnow.neoecoae.crafting.planner.graph.TarjanSccAnalyzer;
 import cn.dancingsnow.neoecoae.crafting.planner.result.CycleExternalDemandStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.route.AcyclicRoutePlan;
@@ -34,7 +32,6 @@ final class ExternalDemandPlanner {
     private final AcyclicCraftingSolver acyclicSolver;
     private final ActiveRouteSelector routeSelector = new ActiveRouteSelector();
     private final CraftingGraphBuilder graphBuilder = new CraftingGraphBuilder();
-    private final TarjanSccAnalyzer sccAnalyzer = new TarjanSccAnalyzer();
 
     ExternalDemandPlanner(AcyclicCraftingSolver acyclicSolver) { this.acyclicSolver = acyclicSolver; }
 
@@ -68,7 +65,8 @@ final class ExternalDemandPlanner {
         for (var reservation : additionalCycleReservations.entrySet()) {
             long amount = reservation.getValue();
             if (amount < 0L || available.get(reservation.getKey()) < amount) {
-                return failure(CycleExternalDemandStatus.MISSING, Map.of(reservation.getKey(), Math.max(0L, amount)),
+                return failure(CycleExternalDemandStatus.MISSING,
+                    Map.of(reservation.getKey(), amount < 0L ? 0L : amount - available.get(reservation.getKey())),
                     "Cycle-owned stock is unavailable before external-demand planning");
             }
             if (amount > 0L && !base.stored.isUnbounded(reservation.getKey())) available.remove(reservation.getKey(), amount);
@@ -151,8 +149,7 @@ final class ExternalDemandPlanner {
             patterns, edges);
 
         var graph = graphBuilder.build(filtered, cancellation);
-        var condensation = CondensationGraph.build(graph, sccAnalyzer.analyze(graph, cancellation), cancellation);
-        var selection = routeSelector.select(condensation.source(), cancellation);
+        var selection = routeSelector.select(graph, cancellation);
         Set<IPatternDetails> deferredCyclePatterns = selection.cyclicComponents().stream()
             .flatMap(component -> component.patterns().stream())
             .map(pattern -> pattern.details()).collect(java.util.stream.Collectors.toSet());
@@ -192,7 +189,10 @@ final class ExternalDemandPlanner {
                     .findFirst().orElse("External DAG plan exceeds AE2 long range"));
         }
         return failure(CycleExternalDemandStatus.UNSUPPORTED, Map.of(),
-            "External DAG contains an unsupported pattern or route");
+            "External demand key=" + goal + " amount=" + amount + " status=" + solved.status()
+                + ": " + solved.trace().diagnostics().stream()
+                    .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
+                    .collect(java.util.stream.Collectors.joining("; ")));
     }
 
     private static Outcome failure(CycleExternalDemandStatus status, Map<AEKey, Long> missing, String diagnostic) {
@@ -209,6 +209,8 @@ final class ExternalDemandPlanner {
                 ? 0L : PlannerAmount.of(entry.getLongValue()).subtract(base.used.get(entry.getKey())).longValueExact();
             if (remaining > 0) result.add(entry.getKey(), remaining);
         }
+        // Creative supply belongs to the snapshot, even when the finite inventory API has no entry for it.
+        base.stored.unboundedKeys().forEach(key -> result.set(key, Long.MAX_VALUE));
         return result;
     }
     private static Map<AEKey, Long> positive(KeyCounter counter) {

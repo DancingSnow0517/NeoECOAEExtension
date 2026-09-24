@@ -19,6 +19,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
 import java.util.HashMap;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -226,13 +227,31 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
     private Map<Integer, IPatternDetails> bindExecutionPatterns(ECOExecutionPlan plan, boolean validateTotals) {
         Map<Integer, IPatternDetails> result = new HashMap<>();
-        java.util.Set<IPatternDetails> usedMatches = java.util.Collections.newSetFromMap(
-            new java.util.IdentityHashMap<>());
+        // AE2 may reconstruct equivalent pattern-detail wrappers while building the execution
+        // plan. The old implementation searched every live task for every execution task and
+        // recomputed the structural identity on each comparison (O(n^2)). Large cyclic plans
+        // made this synchronous submission step visible to the server tick. Build the identity
+        // index once and consume one live pattern per execution task instead.
+        Map<PlanIdentity.PatternIdentity, ArrayDeque<IPatternDetails>> candidates = new HashMap<>();
+        Map<IPatternDetails, ArrayDeque<IPatternDetails>> objectCandidates = new java.util.IdentityHashMap<>();
+        for (IPatternDetails candidate : tasks.keySet()) {
+            var identity = PlanIdentity.patternIdentityFor(candidate);
+            if (identity != null) {
+                candidates.computeIfAbsent(identity, ignored -> new ArrayDeque<>()).addLast(candidate);
+            } else {
+                objectCandidates.computeIfAbsent(candidate, ignored -> new ArrayDeque<>()).addLast(candidate);
+            }
+        }
         for (var task : plan.tasks()) {
-            IPatternDetails match = tasks.keySet().stream()
-                .filter(candidate -> !usedMatches.contains(candidate))
-                .filter(candidate -> ECOPhaseScheduler.samePattern(candidate, task.pattern()))
-                .findFirst().orElse(null);
+            IPatternDetails match = null;
+            var identity = PlanIdentity.patternIdentityFor(task.pattern());
+            if (identity != null) {
+                var matches = candidates.get(identity);
+                if (matches != null) match = matches.pollFirst();
+            } else {
+                var matches = objectCandidates.get(task.pattern());
+                if (matches != null) match = matches.pollFirst();
+            }
             if (match == null) {
                 throw new IllegalArgumentException("Execution plan task is absent from submitted plan: " + task.id());
             }
@@ -242,7 +261,6 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
                 throw new IllegalArgumentException("Execution plan count does not match submitted task: " + task.id());
             }
             result.put(task.id(), match);
-            usedMatches.add(match);
         }
         return result;
     }
