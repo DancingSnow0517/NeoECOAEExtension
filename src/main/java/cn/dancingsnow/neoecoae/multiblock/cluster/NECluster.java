@@ -92,6 +92,10 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         return blockEntities.listIterator();
     }
 
+    public boolean containsBlockEntity(@Nullable BlockEntity blockEntity) {
+        return blockEntity != null && blockEntities.contains(blockEntity);
+    }
+
     @Override
     @MustBeInvokedByOverriders
     public void updateStatus(boolean updateGrid) {

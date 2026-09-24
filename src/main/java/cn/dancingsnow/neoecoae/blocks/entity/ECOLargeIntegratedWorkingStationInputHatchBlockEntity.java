@@ -45,9 +45,14 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
+        var cluster = getCluster();
         for (Direction face : Direction.values()) {
+            BlockPos neighborPos = pos.relative(face);
+            if (cluster != null && cluster.containsBlockEntity(level.getBlockEntity(neighborPos))) {
+                continue;
+            }
             IFluidHandler source = level.getCapability(
-                Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
+                Capabilities.FluidHandler.BLOCK, neighborPos, face.getOpposite());
             if (source != null
                 && !FluidUtil.tryFluidTransfer(tank, source, tank.getCapacity(), true).isEmpty()) {
                 return;

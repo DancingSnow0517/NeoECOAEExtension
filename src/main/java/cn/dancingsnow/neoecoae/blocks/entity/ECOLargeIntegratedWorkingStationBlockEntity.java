@@ -1160,11 +1160,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 long inserted = storage.insert(item.what(), item.amount(), Actionable.MODULATE, IActionSource.ofMachine(this));
                 if (inserted > 0) outputInv.extractItem(0, (int) inserted, false);
             }
-            GenericStack fluid = GenericStack.fromFluidStack(getOutputTank().getFluid());
-            if (fluid != null) {
-                long inserted = storage.insert(fluid.what(), fluid.amount(), Actionable.MODULATE, IActionSource.ofMachine(this));
-                if (inserted > 0) getOutputTank().drain((int) inserted, IFluidHandler.FluidAction.EXECUTE);
-            }
         });
     }
 
