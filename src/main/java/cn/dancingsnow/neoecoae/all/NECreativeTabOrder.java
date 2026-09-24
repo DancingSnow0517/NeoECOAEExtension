@@ -58,6 +58,7 @@ public final class NECreativeTabOrder {
         accept(output, NEBlocks.CRAFTING_VENT);
 
         accept(output, NEBlocks.CRAFTING_WORKER);
+        accept(output, NEBlocks.FX_MONITOR_CORE);
         accept(output, NEBlocks.CRAFTING_PATTERN_BUS);
 
         accept(output, NEBlocks.CRAFTING_PARALLEL_CORE_L4);
@@ -100,6 +101,8 @@ public final class NECreativeTabOrder {
         acceptFeCells(output);
         acceptManaCells(output);
         acceptSourceCells(output);
+        acceptAirCells(output);
+        acceptLightningCells(output);
         acceptOmniCells(output);
     }
 
@@ -250,6 +253,16 @@ public final class NECreativeTabOrder {
         acceptById(output, "eco_source_storage_cell_256m");
     }
 
+    private static void acceptAirCells(CreativeModeTab.Output output) {
+        if (!ModList.get().isLoaded("appliedpneumatics")) {
+            return;
+        }
+        acceptById(output, "eco_air_cell_housing");
+        acceptById(output, "eco_air_cell_16m");
+        acceptById(output, "eco_air_cell_64m");
+        acceptById(output, "eco_air_cell_256m");
+    }
+
     private static void acceptOmniCells(CreativeModeTab.Output output) {
         if (!ModList.get().isLoaded("ae2omnicells")) {
             return;
@@ -266,6 +279,16 @@ public final class NECreativeTabOrder {
         acceptById(output, "eco_quantum_omni_cell_16m");
         acceptById(output, "eco_quantum_omni_cell_64m");
         acceptById(output, "eco_quantum_omni_cell_256m");
+    }
+
+    private static void acceptLightningCells(CreativeModeTab.Output output) {
+        if (!ModList.get().isLoaded("ae2lt")) {
+            return;
+        }
+        acceptById(output, "eco_lightning_cell_housing");
+        acceptById(output, "eco_lightning_cell_16m");
+        acceptById(output, "eco_lightning_cell_64m");
+        acceptById(output, "eco_lightning_cell_256m");
     }
 
     private static void accept(CreativeModeTab.Output output, Supplier<? extends ItemLike> supplier) {

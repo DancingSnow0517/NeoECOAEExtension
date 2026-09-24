@@ -7,6 +7,7 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
@@ -428,7 +429,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public boolean isMonitor() {
-        return false;
+        return getBlockState().is(NEBlocks.FX_MONITOR_CORE.get());
     }
 
     public void markDisplayDirty() {

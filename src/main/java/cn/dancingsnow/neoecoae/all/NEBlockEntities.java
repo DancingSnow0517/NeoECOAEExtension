@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOAdvancedCraftingWorkerRenderer;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
@@ -220,6 +221,13 @@ public class NEBlockEntities {
             .blockEntityBlockLinked("crafting_worker", ECOCraftingWorkerBlockEntity::new)
             .forBlock(NEBlocks.CRAFTING_WORKER)
             .validBlock(NEBlocks.CRAFTING_WORKER)
+            .register();
+
+    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> FX_MONITOR_CORE = REGISTRATE
+            .blockEntityBlockLinked("fx_monitor_core", ECOCraftingWorkerBlockEntity::new)
+            .forBlock(NEBlocks.FX_MONITOR_CORE)
+            .validBlock(NEBlocks.FX_MONITOR_CORE)
+            .renderer(() -> ECOAdvancedCraftingWorkerRenderer::new)
             .register();
 
     public static final NEBlockEntityEntry<ECOCraftingPatternBusBlockEntity> CRAFTING_PATTERN_BUS = REGISTRATE

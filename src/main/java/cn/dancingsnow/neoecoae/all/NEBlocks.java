@@ -1273,6 +1273,34 @@ public class NEBlocks {
             })
             .register();
 
+    public static final BlockEntry<ECOCraftingWorker> FX_MONITOR_CORE = REGISTRATE
+            .block("fx_monitor_core", ECOCraftingWorker::new)
+            .initialProperties(() -> Blocks.IRON_BLOCK)
+            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .recipe((ctx, prov) -> ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                    .pattern("AB")
+                    .define('A', NEBlocks.CRAFTING_WORKER)
+                    .define('B', AEParts.STORAGE_MONITOR)
+                    .unlockedBy("has_crafting_worker", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_WORKER))
+                    .save(prov))
+            .item()
+            .properties(p -> p.rarity(Rarity.EPIC))
+            .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/crafting_monitor")))
+            .build()
+            .lang("ECO - FX Monitor Core")
+            .blockstate((ctx, prov) -> {
+                ModelFile idle = prov.models().getExistingFile(prov.modLoc("block/crafting_monitor"));
+                ModelFile formed = prov.models().getExistingFile(prov.modLoc("block/crafting_monitor_formed"));
+                ModelFile working = prov.models().getExistingFile(prov.modLoc("block/crafting_monitor_working"));
+                prov.getVariantBuilder(ctx.get()).forAllStates(state -> ConfiguredModel.builder()
+                        .rotationY((int) ((state.getValue(ECOCraftingWorker.FACING).toYRot() + 180) % 360))
+                        .modelFile(state.getValue(ECOCraftingWorker.WORKING)
+                                ? working
+                                : state.getValue(ECOCraftingWorker.FORMED) ? formed : idle)
+                        .build());
+            })
+            .register();
+
     public static final BlockEntry<ECOCraftingPatternBus> CRAFTING_PATTERN_BUS = REGISTRATE
             .block("crafting_pattern_bus", ECOCraftingPatternBus::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)

@@ -127,6 +127,13 @@ public class NETooltips {
                     Component.translatable("tooltip.neoecoae.active_cooling"),
                     Component.literal("  ").append(Component.translatable("tooltip.neoecoae.clear_negative_effect")));
         }
+        if (stack.is(NEBlocks.FX_MONITOR_CORE.asItem())) {
+            addTooltips(
+                    tooltip,
+                    showDetails,
+                    Component.translatable("tooltip.neoecoae.fx_monitor_core.0"),
+                    Component.translatable("tooltip.neoecoae.fx_monitor_core.1"));
+        }
         if (stack.is(NEBlocks.CRAFTING_PATTERN_BUS.asItem())) {
             addTooltips(
                     tooltip,
