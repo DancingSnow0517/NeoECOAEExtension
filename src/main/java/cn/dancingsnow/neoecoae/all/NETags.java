@@ -36,6 +36,9 @@ public class NETags {
         public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_INGOT = common("ingots/black_tungsten_alloy");
         public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_DUST = common("dusts/black_tungsten_alloy");
 
+        public static final TagKey<Item> OBSIDIAN_INGOT = common("ingots/obsidian");
+        public static final TagKey<Item> DATA_CRYSTAL = common("gems/data_crystal");
+
         public static final TagKey<Item> ENERGIZED_CRYSTAL = common("gems/energized_crystal");
         public static final TagKey<Item> ENERGIZED_CRYSTAL_DUST = common("dusts/energized_crystal");
         public static final TagKey<Item> ENERGIZED_CRYSTAL_BLOCK = common("storage_blocks/energized_crystal");
