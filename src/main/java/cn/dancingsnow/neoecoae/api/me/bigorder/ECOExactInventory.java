@@ -27,6 +27,10 @@ public final class ECOExactInventory extends ListCraftingInventory {
         return enabled;
     }
 
+    public boolean hasContents() {
+        return !list.isEmpty() || !excess.isEmpty();
+    }
+
     public void setEnabled(boolean enabled) {
         this.enabled = enabled || !excess.isEmpty();
     }

@@ -25,6 +25,7 @@ public final class ECOBigOrderAdmission {
         if (result.components().stream().anyMatch(component ->
                 component.status() == ComponentPlanningResult.Status.UNRESOLVED
                         || component.status() == ComponentPlanningResult.Status.UNSUPPORTED
+                        || component.status() == ComponentPlanningResult.Status.UNREPRESENTABLE
                         || component.status() == ComponentPlanningResult.Status.SOLVED_NOT_EMITTED)) return false;
         return forced || result.trace().nodes().stream().noneMatch(node -> node.exactMissing().signum() > 0);
     }

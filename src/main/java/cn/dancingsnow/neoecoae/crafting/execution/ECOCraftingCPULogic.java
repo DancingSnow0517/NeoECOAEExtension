@@ -15,7 +15,6 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import appeng.core.AELog;
 import appeng.core.sync.BasePacket;
 import appeng.core.sync.packets.CraftingJobStatusPacket;
 import appeng.crafting.CraftingLink;
@@ -120,7 +119,9 @@ public class ECOCraftingCPULogic {
         // 检查存储字节数。
         if (cpu.getAvailableStorage() < plan.bytes()) return CraftingSubmitResult.CPU_TOO_SMALL;
 
-        if (!inventory.list.isEmpty()) AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
+        // AE2's initial-extraction rollback clears the CPU inventory. Pending cancellation returns
+        // must reach network storage before another job can acquire this CPU.
+        if (((ECOExactInventory) inventory).hasContents()) return CraftingSubmitResult.CPU_BUSY;
 
         var executionPlan = ECOPlanningResultRegistry.resolveExecutionPlan(
                 plan instanceof ECOMissingCraftingPlan missingPlan ? missingPlan.delegate() : plan);
@@ -212,7 +213,7 @@ public class ECOCraftingCPULogic {
         // 无任务时只需尝试清空物品。
         if (this.job == null) {
             this.storeItems();
-            if (!this.inventory.list.isEmpty()) {
+            if (((ECOExactInventory) inventory).hasContents()) {
                 cantStoreItems = true;
             } else {
                 if (markedForDeletion) {
@@ -778,7 +779,7 @@ public class ECOCraftingCPULogic {
     public void storeItems() {
         Preconditions.checkState(job == null, "CPU should not have a job to prevent re-insertion when dumping items");
         // 无事可做则快速返回。
-        if (this.inventory.list.isEmpty()) return;
+        if (!((ECOExactInventory) inventory).hasContents()) return;
 
         var g = cpu.getGrid();
         if (g == null) return;
@@ -949,7 +950,7 @@ public class ECOCraftingCPULogic {
 
     /** Allocation-free counterpart of {@link #getOwnedItems(KeyCounter)}; must cover the same ledgers. */
     public boolean hasOwnedItems() {
-        return !this.inventory.list.isEmpty();
+        return ((ECOExactInventory) inventory).hasContents();
     }
 
     public boolean isJobSuspended() {

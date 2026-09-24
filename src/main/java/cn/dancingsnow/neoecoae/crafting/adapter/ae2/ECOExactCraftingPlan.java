@@ -29,9 +29,7 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
     public static boolean needsSmallerBatch(ECOPlanningResult result) {
         boolean wideTask = result.exactPatternTimes().values().stream()
                 .anyMatch(count -> count.toBigInteger().compareTo(MAX) > 0);
-        if (!wideTask) return false;
-        long taskKinds = result.exactPatternTimes().values().stream().filter(count -> count.signum() > 0).count();
-        return taskKinds != 1 || result.components().stream()
+        return wideTask && result.components().stream()
                 .anyMatch(component -> component.type() == ComponentPlanningResult.Type.CYCLIC);
     }
 
@@ -65,11 +63,13 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         projection = new CraftingPlan(result.plan().finalOutput(), 0, false,
                 result.plan().multiplePaths(), initial, initialEmitted, new KeyCounter(), Map.copyOf(counts));
         boolean wideTask = exact.values().stream().anyMatch(count -> count.compareTo(MAX) > 0);
-        if (wideTask) {
+        if (wideTask && exact.size() == 1) {
             if (needsSmallerBatch(result))
                 throw new IllegalArgumentException("Exact task count exceeds 1.20.1 runtime limit");
             execution = null;
         } else {
+            if (needsSmallerBatch(result))
+                throw new IllegalArgumentException("Exact cycle count exceeds 1.20.1 runtime limit");
             ECOPlanningResult interpreted = new ECOPlanningResult(PlanningStatus.SUCCESS,
                     (CraftingPlan) projection, result.trace(), result.cycles(), result.components(),
                     result.executionComponentOrder(), result.calculationNanos(), result.planningId(), result.provenance());
