@@ -131,9 +131,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.crafting.subtitle", "Crafting System Host");
         provider.add("gui.neoecoae.storage_priority.open", "Open priority panel");
         provider.add("gui.neoecoae.storage_priority.close", "Close priority panel");
-        provider.add("gui.neoecoae.storage.bulk_mark", "Auto-mark compressible items above %s");
+        provider.add("gui.neoecoae.storage.bulk_mark", "Right-click: only mark network compressible items above %s; Shift + right-click: mark and migrate all matching network items into this host's bulk cells");
         provider.add("gui.neoecoae.storage.bulk_mark.result.success",
-            "Auto-marked %s; already marked %s; no space %s; internally transferred %s");
+            "Auto-marked %s; already marked %s; no space %s; migrated %s");
         provider.add("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell", "No ECO MEGA long bulk cell installed");
         provider.add("gui.neoecoae.storage.bulk_mark.result.busy", "Storage transfer or migration is in progress");
         provider.add("gui.neoecoae.storage.bulk_mark.result.invalid_threshold", "The auto-mark threshold is invalid");
