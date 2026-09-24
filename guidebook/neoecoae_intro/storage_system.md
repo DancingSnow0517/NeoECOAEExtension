@@ -44,53 +44,45 @@ There are three tiers of storage systems available:
 
 ### Controller
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_system_l4" />
-  <ItemIcon id="neoecoae:storage_system_l6" />
-  <ItemIcon id="neoecoae:storage_system_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:storage_system_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:storage_system_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:storage_system_l9" scale="2"></BlockImage>
+</Row>
 
 The controller (<ItemLink id="neoecoae:storage_system_l4" />, <ItemLink id="neoecoae:storage_system_l6" />, or <ItemLink id="neoecoae:storage_system_l9" />) is the core of the storage system. It must be placed at a valid position in the multiblock structure and determines the tier of the entire system.
 
 ### Storage Drive
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:eco_drive" />
-</ItemGrid>
+<BlockImage id="neoecoae:eco_drive" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:eco_drive" /> holds ECO storage cells. Multiple drives can be added to expand storage capacity. Drives are placed in a row extending from the controller.
 
 ### Energy Cells
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:energy_cell_l4" />
-  <ItemIcon id="neoecoae:energy_cell_l6" />
-  <ItemIcon id="neoecoae:energy_cell_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:energy_cell_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:energy_cell_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:energy_cell_l9" scale="2"></BlockImage>
+</Row>
 
 High-density energy cells (<ItemLink id="neoecoae:energy_cell_l4" />, <ItemLink id="neoecoae:energy_cell_l6" />, or <ItemLink id="neoecoae:energy_cell_l9" />) provide power storage for the system. The energy cell tier must match the controller tier.
 
 ### Interface
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_interface" />
-</ItemGrid>
+<BlockImage id="neoecoae:storage_interface" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:storage_interface" /> connects the storage system to your ME Network.
 
 ### Heat Sink
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_vent" />
-</ItemGrid>
+<BlockImage id="neoecoae:storage_vent" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:storage_vent" /> is required for thermal management of the storage system.
 
 ### Casing
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_casing" />
-</ItemGrid>
+<BlockImage id="neoecoae:storage_casing" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:storage_casing" /> blocks form the frame of the multiblock structure.
 
@@ -105,7 +97,7 @@ The <ItemLink id="neoecoae:storage_casing" /> blocks form the frame of the multi
 
 The structure is extensible - you can add more drives and energy cells to increase capacity.
 
-To assemble the structure more quickly, hold the Structure Terminal and normal right-click the controller. Follow [Multiblock Auto Builder](multiblock_builder.md) to select the length and build mode, then hold Shift and right-click the controller to execute.
+If you want to assemble the structure more quickly, see [Multiblock Auto Builder](multiblock_builder.md) for automatic preview and building tools.
 
 <GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/store_min.nbt" />
@@ -140,7 +132,7 @@ The following ECO storage cells can be used in the drives:
 - <ItemLink id="neoecoae:eco_fluid_storage_cell_64m" /> - 64MB capacity
 - <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256MB capacity
 
-Storage matrices provided by AE2 Omni Cells are documented in [Compatibility Storage Matrices](compat_storage_matrices.md).
+Storage matrices for AE2 Omni Cells and AE2 Lightning Tech are documented in [Compatibility Storage Matrices](compat_storage_matrices.md).
 
 ## Usage
 

@@ -4,89 +4,137 @@ navigation:
   icon: neoecoae:eco_drive
   position: 10
   parent: neoecoae_intro/storage_system.md
-item_ids:
-  - neoecoae:eco_omni_cell_housing
-  - neoecoae:eco_omni_cell_16m
-  - neoecoae:eco_omni_cell_64m
-  - neoecoae:eco_omni_cell_256m
-  - neoecoae:eco_complex_omni_cell_housing
-  - neoecoae:eco_complex_omni_cell_16m
-  - neoecoae:eco_complex_omni_cell_64m
-  - neoecoae:eco_complex_omni_cell_256m
-  - neoecoae:eco_quantum_omni_cell_housing
-  - neoecoae:eco_quantum_omni_cell_16m
-  - neoecoae:eco_quantum_omni_cell_64m
-  - neoecoae:eco_quantum_omni_cell_256m
 ---
 
 # 兼容存储矩阵
 
-兼容存储矩阵让 <ItemLink id="neoecoae:eco_drive" /> 能够存储其他模组提供的资源类型。存储子系统控制器可以驱动与自身同级或更低等级的矩阵。
+想让 [ECO 存储系统](storage_system.md)容纳物品、流体之外的资源，可以给 <ItemLink id="neoecoae:eco_drive" /> 装入对应的兼容矩阵。控制器可以驱动与自身同级或更低等级的矩阵。
 
-这些矩阵只会在对应模组存在时注册。**AE2 Omni Cells** 提供全能系列。
+## 先看要存什么资源
 
-## 全能存储矩阵
+这些矩阵只在对应模组存在时注册。先按资源选择系列，再比较容量、类型上限和待机耗电：
 
-全能存储矩阵可以接收当前游戏中注册的全部 AE 资源类型，让物品、流体、能量、化学品及其他受支持资源共用一个矩阵。
+| 要存储的资源 | 矩阵系列 | 需要的模组 |
+|--------------|----------|------------|
+| 多种 AE 资源混合存储 | 全能、复合全能、量子全能 | AE2 Omni Cells |
+| Forge Energy（FE） | FE | AppFlux |
+| Ars Nouveau 魔源 | 魔源 | Ars Energistique |
+| Botania 魔力 | 魔力 | AppBot |
+| Mekanism 化学品 | 化学品 | AppMek |
+| 高压闪电、极高压闪电 | 闪电 | AE2 闪电科技 |
 
-### 全能
+矩阵名称中的 `16M`、`64M` 和 `256M` 标识配方组件等级，并不总是实际存储字节容量。下面的常规矩阵表列出实际 AE 存储字节容量；闪电系列另列有效容量。
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:eco_omni_cell_16m" />
-  <ItemIcon id="neoecoae:eco_omni_cell_64m" />
-  <ItemIcon id="neoecoae:eco_omni_cell_256m" />
-</ItemGrid>
+## 混合存储：按资源种类数量选择全能矩阵
+
+全能矩阵接收当前游戏中注册的全部 AE 资源类型，物品、流体、能量、化学品及其他受支持资源可以共用一个矩阵。同级的三种全能系列容量相同，主要区别是类型上限与待机耗电。
+
+### 标准全能：最多 63 种资源
 
 标准全能系列适合紧凑的混合存储，三个等级均可容纳最多 63 种资源。
 
-| 矩阵 | 容量 | 类型上限 | 待机耗电 |
+| 等级 | 容量 | 类型上限 | 待机耗电 |
 |------|------|----------|----------|
-| <ItemLink id="neoecoae:eco_omni_cell_16m" /> | 16 MB | 63 | 8 AE/t |
-| <ItemLink id="neoecoae:eco_omni_cell_64m" /> | 64 MB | 63 | 9 AE/t |
-| <ItemLink id="neoecoae:eco_omni_cell_256m" /> | 256 MB | 63 | 10 AE/t |
+| LE4（16M） | 256 MiB | 63 | 8 AE/t |
+| LE6（64M） | 1 GiB | 63 | 9 AE/t |
+| LE9（256M） | 4 GiB | 63 | 10 AE/t |
 
-<ItemLink id="neoecoae:eco_omni_cell_housing" /> 使用末影锭制造，再与对应等级的 ECO 存储组件组合。
+全能存储矩阵外壳使用末影锭制造，成品矩阵在[集成工作站](integrated_working_station.md)中装配。
 
-<RecipeFor id="neoecoae:eco_omni_cell_housing" />
-
-### 复合全能
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:eco_complex_omni_cell_16m" />
-  <ItemIcon id="neoecoae:eco_complex_omni_cell_64m" />
-  <ItemIcon id="neoecoae:eco_complex_omni_cell_256m" />
-</ItemGrid>
+### 复合全能：提高类型上限
 
 复合全能矩阵以更高的待机耗电换取大幅提升的类型上限。
 
-| 矩阵 | 容量 | 类型上限 | 待机耗电 |
+| 等级 | 容量 | 类型上限 | 待机耗电 |
 |------|------|----------|----------|
-| <ItemLink id="neoecoae:eco_complex_omni_cell_16m" /> | 16 MB | 1,600 | 256 AE/t |
-| <ItemLink id="neoecoae:eco_complex_omni_cell_64m" /> | 64 MB | 3,200 | 512 AE/t |
-| <ItemLink id="neoecoae:eco_complex_omni_cell_256m" /> | 256 MB | 6,400 | 1,024 AE/t |
+| LE4（16M） | 256 MiB | 1,600 | 256 AE/t |
+| LE6（64M） | 1 GiB | 3,200 | 512 AE/t |
+| LE9（256M） | 4 GiB | 6,400 | 1,024 AE/t |
 
-<ItemLink id="neoecoae:eco_complex_omni_cell_housing" /> 需要充能末影锭和复合链接处理器。
+复合全能存储矩阵外壳需要充能末影锭和复合链接处理器，成品矩阵在集成工作站中装配。
 
-<RecipeFor id="neoecoae:eco_complex_omni_cell_housing" />
+### 量子全能：不限类型数量
 
-### 量子全能
+量子全能矩阵没有类型数量上限，且与同级标准全能矩阵拥有相同容量。极高的灵活性也会带来显著的待机耗电。
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:eco_quantum_omni_cell_16m" />
-  <ItemIcon id="neoecoae:eco_quantum_omni_cell_64m" />
-  <ItemIcon id="neoecoae:eco_quantum_omni_cell_256m" />
-</ItemGrid>
-
-量子全能矩阵没有类型数量上限，容量为对应普通矩阵的四倍。极高的灵活性也会带来显著的待机耗电。
-
-| 矩阵 | 容量 | 类型上限 | 待机耗电 |
+| 等级 | 容量 | 类型上限 | 待机耗电 |
 |------|------|----------|----------|
-| <ItemLink id="neoecoae:eco_quantum_omni_cell_16m" /> | 64 MB | 无限 | 6,561 AE/t |
-| <ItemLink id="neoecoae:eco_quantum_omni_cell_64m" /> | 256 MB | 无限 | 19,683 AE/t |
-| <ItemLink id="neoecoae:eco_quantum_omni_cell_256m" /> | 1,024 MB | 无限 | 59,049 AE/t |
+| LE4（16M） | 256 MiB | 无限 | 6,561 AE/t |
+| LE6（64M） | 1 GiB | 无限 | 19,683 AE/t |
+| LE9（256M） | 4 GiB | 无限 | 59,049 AE/t |
 
-<ItemLink id="neoecoae:eco_quantum_omni_cell_housing" /> 需要多维扩展处理器。量子全能矩阵需要在集成工作站中使用一个外壳和四个对应等级的量子全能存储元件合成。
+量子全能存储矩阵外壳需要多维扩展处理器，成品矩阵在集成工作站中装配。
 
-<RecipeFor id="neoecoae:eco_quantum_omni_cell_housing" />
+### 选好系列后，在工作站装配
 
-空的全能系列矩阵可以通过交替使用拆解，返还外壳和 ECO 存储组件。
+每个配方都需要一个对应系列的外壳和 10 个对应等级的 Omni 存储元件。其余材料与能耗如下：
+
+| 系列 | 等级 | 链接/扩展处理器 | 奇点 | 能耗 |
+|------|------|-----------------|------|------|
+| 全能 | LE4 / LE6 / LE9 | 2 / 4 / 8 | 1 / 4 / 16 | 1,000 / 12,000 / 144,000 FE |
+| 复合全能 | LE4 / LE6 / LE9 | 2 / 4 / 8 | 2 / 8 / 32 | 1,000 / 12,000 / 144,000 FE |
+| 量子全能 | LE4 / LE6 / LE9 | 2 / 4 / 8 | 4 / 16 / 64 | 1,000 / 12,000 / 144,000 FE |
+
+只有空矩阵可以通过交替使用拆解。标准全能和复合全能矩阵返还外壳与 1 个对应元件；量子全能矩阵返还外壳与 10 个对应元件。处理器和奇点不会返还。
+
+## 专门存储 FE、魔源、魔力或化学品
+
+### FE 存储矩阵（AppFlux）
+
+FE 存储矩阵需要 **AppFlux**，用于在 ME 网络中存储 Forge Energy（FE）。它们在集成工作站中由对应等级的 AppFlux 能量核心、能量处理器、奇点和 FE 外壳合成。
+
+空的 FE 存储矩阵可以通过交替使用拆解，并返还 10 个对应等级的 AppFlux 能量核心。
+
+| 等级 | 容量 | 类型上限 | 待机耗电 |
+|------|------|----------|----------|
+| LE4（16M） | 256 MiB | 1 | 256 AE/t |
+| LE6（64M） | 1 GiB | 1 | 1,024 AE/t |
+| LE9（256M） | 4 GiB | 1 | 4,096 AE/t |
+
+### 魔源存储矩阵（Ars Energistique）
+
+魔源存储矩阵需要 **Ars Energistique**，用于存储 Ars Nouveau 的魔源。魔源外壳在附魔装置中制作，随后与对应等级的 ECO 存储组件合成矩阵。
+
+| 等级 | 容量 | 类型上限 | 待机耗电 |
+|------|------|----------|----------|
+| LE4（16M） | 16 MiB | 1 | 16 AE/t |
+| LE6（64M） | 64 MiB | 1 | 64 AE/t |
+| LE9（256M） | 256 MiB | 1 | 256 AE/t |
+
+### 魔力存储矩阵（AppBot）
+
+魔力存储矩阵需要 **AppBot**，用于存储 Botania 魔力。魔力外壳由物品矩阵外壳注入 100,000 魔力制成，随后与对应等级的 ECO 存储组件合成矩阵。
+
+| 等级 | 容量 | 类型上限 | 待机耗电 |
+|------|------|----------|----------|
+| LE4（16M） | 16 MiB | 1 | 16 AE/t |
+| LE6（64M） | 64 MiB | 1 | 64 AE/t |
+| LE9（256M） | 256 MiB | 1 | 256 AE/t |
+
+### 化学品存储矩阵（AppMek）
+
+化学品存储矩阵需要 **AppMek**，用于存储有效的 Mekanism 化学品。它们由化学品外壳和对应等级的 ECO 存储组件合成；不符合 Mekanism 属性要求的化学品不能存入。
+
+| 等级 | 容量 | 类型上限 | 待机耗电 |
+|------|------|----------|----------|
+| LE4（16M） | 16 MiB | 25 | 16 AE/t |
+| LE6（64M） | 64 MiB | 25 | 64 AE/t |
+| LE9（256M） | 256 MiB | 25 | 256 AE/t |
+
+## 存储闪电：按等级准备加工机器
+
+闪电存储矩阵用于存储 AE2 闪电科技的高压闪电和极高压闪电。名称中的 LE 等级表示其科技阶段，而不是容量后缀。
+
+| 等级 | 有效容量 | 类型数 | 待机耗电 | 加工机器 |
+|------|----------|--------|----------|----------|
+| LE4（16M） | 1,048,576 | 2 | 32,768 AE/t | 闪电模拟室 |
+| LE6（64M） | 4,194,304 | 2 | 131,072 AE/t | 闪电装配室 |
+| LE9（256M） | 16,777,216 | 2 | 524,288 AE/t | 过载处理工厂 |
+
+**LE4 · 闪电模拟室：** 闪电模拟室需要一个外壳、一个 16M ECO 存储组件和一个 V 级闪电存储核心。加工消耗 1,000,000 FE 和 32 高压闪电。
+
+**LE6 · 闪电装配室：** 闪电装配室需要一个外壳、一个 64M ECO 存储组件、两个 V 级闪电存储核心、两个过载合金板和一个过载奇点。加工消耗 4,000,000 FE 和 64 极高压闪电。
+
+**LE9 · 过载处理工厂：** 过载处理工厂需要一个外壳、一个 256M ECO 存储组件、四个 V 级闪电存储核心、两个终极过载核心、两个苍穹合金锭、四个过载合金板、四个超导处理器、一个闪电坍缩矩阵以及 64,000 mB 凛冰溶液。加工消耗 16,000,000 FE 和 128 极高压闪电。
+
+空的闪电存储矩阵可以通过交替使用拆解。外壳、ECO 存储组件和全部 V 级闪电存储核心会被返还，其他加工材料会被消耗。

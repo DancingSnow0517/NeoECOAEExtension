@@ -33,17 +33,17 @@ button.__disabled__ .__button_text__ {
 // slot
 item-slot {
   background: built-in(ui-eco:ITEM_SLOT);
-  hover-overlay: #A0daffff
+  hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
 }
 
 pattern-item-slot {
   background: built-in(ui-eco:ITEM_SLOT);
-  hover-overlay: #A0daffff
+  hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
 }
 
 fluid-slot {
   background: built-in(ui-eco:ITEM_SLOT);
-  hover-overlay: #A0daffff
+  hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
 }
 
 // progress bar
@@ -53,4 +53,131 @@ fluid-slot {
 
 .__progress-bar_bar__ {
   background: built-in(ui-eco:BAR);
+}
+
+// unified ECO host UI
+.eco-host-panel {
+  background: built-in(ui-eco:BACKGROUND);
+  padding-all: 6;
+  gap-all: 5;
+}
+
+.eco-host-header {
+  gap-all: 2;
+}
+
+.eco-host-toolbar {
+  gap-all: 4;
+}
+
+.eco-host-card {
+  background: built-in(ui-eco:HOST_PANEL_BORDER);
+}
+
+.eco-host-card {
+  padding-all: 6;
+  gap-all: 3;
+}
+
+.eco-computation-capacity {
+  gap-all: 1;
+}
+
+
+.eco-host-progress .__progress-bar_bar-container__ {
+  background: #1f2f3428;
+}
+
+.eco-host-progress .__progress-bar_bar__ {
+  background: #26a6bd;
+}
+
+.eco-pattern-transfer-progress .__progress-bar_bar-container__ {
+  padding-all: 1;
+  background: #151d2b;
+}
+
+.eco-pattern-transfer-progress .__progress-bar_bar__ {
+  background: #32d6ff;
+}
+
+.eco-host-stats-progress {
+  padding-all: 2;
+  background: built-in(ui-eco:HOST_PANEL_BORDER);
+}
+
+.eco-host-stats-progress .__progress-bar_bar-container__ {
+  padding-all: 1;
+  background: #201e27;
+}
+
+.eco-host-stats-progress .__progress-bar_bar__ {
+  background: #8377ff;
+}
+
+.eco-host-panel-row {
+  gap-all: 6;
+}
+
+.eco-host-bottom-row {
+  gap-all: 8;
+}
+
+.eco-host-toolbar-button {
+  padding-all: 0;
+}
+
+.eco-host-status-row {
+  gap-all: 4;
+}
+
+.eco-host-status-light-edge {
+  background: #d8d3e4;
+}
+
+.eco-host-status-light-border {
+  background: #17141e;
+}
+
+.eco-host-status-light-on {
+  background: #55ff8a;
+}
+
+.eco-host-status-light-off {
+  background: #ff6a75;
+}
+
+.eco-host-gauge-row {
+  gap-all: 14;
+}
+
+.eco-host-energy-gauge {
+  padding-all: 3;
+  background: built-in(ui-eco:HOST_PANEL_BORDER);
+}
+
+.eco-host-energy-gauge .__progress-bar_bar-container__ {
+  padding-all: 1;
+  background: #17141e;
+}
+
+.eco-host-energy-gauge .__progress-bar_bar__ {
+  background: #00fc00;
+}
+
+.eco-host-energy-medium .__progress-bar_bar__ {
+  background: #e7a943;
+}
+
+.eco-host-energy-warning .__progress-bar_bar__ {
+  background: #ffd65a;
+}
+
+.eco-host-coolant-gauge {
+  padding-all: 3;
+  background: built-in(ui-eco:HOST_PANEL_BORDER);
+}
+
+.eco-host-task-panel {
+  padding-all: 0;
 }

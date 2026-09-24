@@ -17,8 +17,6 @@ item_ids:
   - neoecoae:crafting_vent
   - neoecoae:input_hatch
   - neoecoae:output_hatch
-  - neoecoae:crafting_network_switch
-  - neoecoae:crafting_high_energy_network_switch
 ---
 
 # ECO Crafting System
@@ -43,86 +41,72 @@ There are three tiers of crafting systems available:
 
 ### Controller
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_system_l4" />
-  <ItemIcon id="neoecoae:crafting_system_l6" />
-  <ItemIcon id="neoecoae:crafting_system_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:crafting_system_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_system_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_system_l9" scale="2"></BlockImage>
+</Row>
 
 The crafting system controller (<ItemLink id="neoecoae:crafting_system_l4" />, <ItemLink id="neoecoae:crafting_system_l6" />, or <ItemLink id="neoecoae:crafting_system_l9" />) manages all pattern processing operations and determines the tier of the system.
 
 ### Worker
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_worker" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_worker" scale="2"></BlockImage>
 
-The <ItemLink id="neoecoae:crafting_worker" /> provides independent task threads. Each FX Worker provides **1** thread at x1; while network exchange is active, every FX Worker provides one thread per participating F host.
+The <ItemLink id="neoecoae:crafting_worker" /> provides one independent physical execution lane. Network exchange increases the batch carried by that lane; it never creates additional physical lanes.
 
 ### Pattern Bus
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_pattern_bus" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_pattern_bus" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_pattern_bus" /> holds crafting patterns. In an exchange group, every member publishes the union of all member pattern buses to the ME network.
 
 ### Parallel Core
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_parallel_core_l4" />
-  <ItemIcon id="neoecoae:crafting_parallel_core_l6" />
-  <ItemIcon id="neoecoae:crafting_parallel_core_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:crafting_parallel_core_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_parallel_core_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_parallel_core_l9" scale="2"></BlockImage>
+</Row>
 
 Parallel cores (<ItemLink id="neoecoae:crafting_parallel_core_l4" />, <ItemLink id="neoecoae:crafting_parallel_core_l6" />, or <ItemLink id="neoecoae:crafting_parallel_core_l9" />) provide structural processing capacity. Capacity beyond what the FX Workers can use increases overflow overclock; it does not set the batch size of an FX thread.
 
 ### Interface
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_interface" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_interface" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_interface" /> connects the system to your ME Network.
 
 ### Fluid Input Hatch
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:input_hatch" />
-</ItemGrid>
+<BlockImage id="neoecoae:input_hatch" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:input_hatch" /> accepts coolant fluids for active cooling mode.
 
 ### Fluid Output Hatch
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:output_hatch" />
-</ItemGrid>
+<BlockImage id="neoecoae:output_hatch" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:output_hatch" /> expels used coolant from the system.
 
 ### Heat Sink
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_vent" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_vent" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_vent" /> provides passive thermal management for the crafting system.
 
 ### Casing
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_casing" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_casing" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the multiblock structure.
 
 ### Network Exchange Modules
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_network_switch" />
-  <ItemIcon id="neoecoae:crafting_high_energy_network_switch" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:crafting_network_switch" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_high_energy_network_switch" scale="2"></BlockImage>
+</Row>
 
 #### Normal Network Exchange Structure (Length 1)
 
@@ -135,32 +119,28 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 
 #### Exchange Multipliers
 
-| Topic | Normal | High-energy |
-|-------|--------|-------------|
-| Crafting multiplier | **x2** crafts per task slot | **x8** crafts per task slot |
-| Worker threads | One thread per participating F host on each FX Worker | One thread per participating F host on each FX Worker |
-| Power draw | **x4** | **x16** |
-| Cooling requirement | The shared pool must provide valid coolant | The shared pool must provide the highest-tier coolant, supporting overclock 9 |
-| Tick cooling | **4** coolant per active task thread per tick | **16** coolant per active task thread per tick, except for complete virtual exchange below |
+Every normal switch contributes 2 and every high-energy switch contributes 8 to one network-wide multiplier: **M = 2a + 8b**. Every physical FX lane in the logical network uses the same **512 x M** batch size; switches are not split into separate multiplier pools.
 
 #### Shared Exchange Rules
 
 | Topic | Behavior |
 |-------|----------|
 | Activation | At least two linked F9 hosts are required. A single host remains at **x1**. |
-| Patterns | All member pattern buses are combined into one pattern set; work is fairly routed to any member host with a suitable free slot. |
+| Patterns | All member pattern buses are combined into one pattern set; work is routed to a member host with a free physical FX lane. |
 | Power and UI | Each host continuously draws its full rated power for all available FX threads while exchange is active. Insufficient power pauses affected tasks, and the shared UI reports aggregate network energy use. |
 | Shared controls | The network shares one GUI for exchange state, overclocking, active cooling, and aggregate energy use. The shared UI also controls active cooling. |
-| Cooling pool | When active cooling is enabled, cached coolant from every member forms one pool. Drains rotate fairly across members with sufficient coolant tier, regardless of which host executes the task. |
-| Coolant fallback | If the relevant shared pool cannot supply the required coolant, the exchange multiplier falls back to **x1**. |
-| Tick cost basis | Only active exchange tasks use tick-based cooling; batch size does not affect this cost. |
-| Task pause | When the shared pool cannot pay the tick cost, the exchange task pauses and resumes from the same progress after coolant is restored. |
+| Cooling pool | When active cooling is enabled, cached coolant from every member forms one pool. Ordinary finite batches pay the existing per-craft coolant cost when accepted. Coolant quality limits effective overclock, not the network multiplier. |
+| Virtual tick cooling | Only final virtual mode uses a flat tick cost: each active physical FX lane pays 10000 coolant per tick when active cooling is enabled. Craft count never participates in this virtual cost. |
 
-#### Complete Eight-Host Virtual Exchange
+#### Complete Eight-host Virtual Crafting
 
-When exactly **8** linked F9 hosts form an active **x8** high-energy exchange, eligible fast-path tasks use virtual crafting. The whole available task amount is accepted as a `long` quantity in one submission: input is consumed and the matching output amount is produced without the ordinary per-slot batch cap.
+Virtual crafting mode requires a logical exchange network of **exactly 8 F9 hosts**, with every host using a high-energy network switch and actually formed at the configured maximum length. By default this is **11 physical FX lanes per host, 88 total**. Ordinary switches, any non-F9 host, or even one host with fewer than 11 actual FX lanes keeps the network on finite crafting behavior.
 
-Each active virtual task consumes a fixed **10,000 mB** from the shared coolant pool per tick. This cost is per task thread, not per item or batch size. An x8 exchange with fewer than 8 hosts keeps normal x8 behavior, including its ordinary per-slot limit and **16** coolant per active task thread per tick.
+- One FX Worker task thread carries one recipe task and accepts its complete remaining craft count.
+- Inputs and outputs are aggregated as item keys with 64-bit quantities instead of being expanded into physical item stacks inside the FX Worker.
+- The virtual task completes and returns its aggregated outputs on its first worker tick.
+- When active cooling is enabled, each active virtual lane consumes a fixed **10000 coolant per tick** from the shared pool. If the pool cannot pay the full amount, that lane waits. Without active cooling, virtual execution still uses its explicit one-tick path.
+- The supported task quantity follows the signed 64-bit range. Only true virtual mode is displayed as **infinite**; large finite capacities always display their real number.
 
 ## Building the Structure
 
@@ -177,7 +157,7 @@ Each active virtual task consumes a fixed **10,000 mB** from the shared coolant 
 
 The structure is extensible - add more workers, parallel cores, pattern buses, and heat sinks to increase capacity.
 
-To assemble the structure more quickly, hold the Structure Terminal and normal right-click the controller. Follow [Multiblock Auto Builder](multiblock_builder.md) to select the length and build mode, then hold Shift and right-click the controller to execute.
+If you want to assemble the structure more quickly, see [Multiblock Auto Builder](multiblock_builder.md) for automatic preview and building tools.
 
 ## Usage
 
@@ -196,7 +176,7 @@ Enable overclocking to increase batch capacity per task slot at the cost of high
 Enable active cooling to further enhance performance and eliminate extra energy costs from overclocking.
 - Requires coolant fluids in the input hatch
 - Coolant recipes can be viewed in JEI
-- The system stores coolant as a buffer. At x1 it is charged per craft when work starts; active x2/x8 exchange tasks are charged per active slot per tick. Complete eight-host virtual x8 tasks use 10,000 mB per active task thread per tick.
+- The system stores coolant as a buffer. Ordinary finite batches, including x2/x8 exchange batches, are charged per craft when work starts. Virtual mode uses the flat physical-lane tick cost described above.
 - If the output hatch is full, coolant cannot be converted and the buffer cannot be replenished
 
 ### Cooling and Effective Overclock
@@ -229,8 +209,9 @@ The interface displays:
 - Worker count
 - Pattern bus count
 - Parallel core count
-- Task slots (active/total)
-- Current maximum batch per slot
+- Physical and active FX lane counts
+- Network composition, multiplier, batch per FX, and total batch capacity
+- FT parallel capacity
 - Maximum energy usage
 - Theoretical overclock and effective overclock
 - Maximum overclock supported by the current coolant
@@ -241,6 +222,6 @@ The interface displays:
 - Enable active cooling in combination with overclocking for best efficiency
 - Upgrade coolant quality if the effective overclock is lower than the theoretical overclock
 - Use the clear coolant button before switching from a lower-tier coolant to a higher-tier coolant
-- Every FX Worker provides 1 thread at x1, or one thread per participating F host while exchange is active
+- Every FX Worker is exactly one physical lane. Exchange changes its batch size through the shared `M = 2a + 8b` multiplier and does not create more lanes.
 - Higher-tier parallel cores increase structural processing capacity and can raise overflow overclock
 - Ensure the output hatch has space for used coolant to avoid system shutdown
