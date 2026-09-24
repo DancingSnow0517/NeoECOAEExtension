@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.crafting.planner.graph;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
-import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import java.util.ArrayList;
@@ -29,33 +28,14 @@ public final class CraftingGraphBuilder {
             nodes.put(key, new CraftingGraphNode(key, patterns));
             for (CompiledPattern pattern : patterns) {
                 cancellation.checkpoint();
-                for (CompiledInput input : pattern.inputs()) {
-                    if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
-                    nodes.putIfAbsent(input.key(), new CraftingGraphNode(input.key(), network.producersOf(input.key())));
-                    edges.add(new CraftingGraphEdge(key, input.key(), pattern, input));
-                    if (reachable.add(input.key())) work.addLast(input.key());
-                }
-                // Only genuine production feedback belongs in Tarjan. Analyzer-proven tool/container state
-                // transitions are requirements of the local resolver, not production dependencies.
-                for (var feedback : pattern.semantics().feedbackEdges()) {
-                    if (pattern.specialAnalysis().requirements().stream()
-                            .anyMatch(requirement -> feedback.returnedKey().equals(requirement.returnedKey()))) continue;
-                    nodes.putIfAbsent(feedback.returnedKey(),
-                        new CraftingGraphNode(feedback.returnedKey(), network.producersOf(feedback.returnedKey())));
-                    nodes.putIfAbsent(feedback.dependentOutput(),
-                        new CraftingGraphNode(feedback.dependentOutput(),
-                            network.producersOf(feedback.dependentOutput())));
-                    CompiledInput edgeInput = pattern.inputs().stream()
-                        .filter(input -> feedback.returnedKey().equals(input.remainderKey())
-                            || feedback.returnedKey().equals(input.key()))
-                        .findFirst()
-                        .orElse(pattern.inputs().isEmpty() ? null : pattern.inputs().getFirst());
-                    if (edgeInput != null) {
-                        edges.add(new CraftingGraphEdge(feedback.returnedKey(), feedback.dependentOutput(),
-                            pattern, edgeInput));
-                    }
-                    if (reachable.add(feedback.returnedKey())) work.addLast(feedback.returnedKey());
-                    if (reachable.add(feedback.dependentOutput())) work.addLast(feedback.dependentOutput());
+                for (CraftingGraphEdge edge : PatternDependencyEdges.of(key, pattern)) {
+                    edges.add(edge);
+                    if (reachable.add(edge.producer())) work.addLast(edge.producer());
+                    if (reachable.add(edge.requiredInput())) work.addLast(edge.requiredInput());
+                    nodes.putIfAbsent(edge.producer(),
+                        new CraftingGraphNode(edge.producer(), network.producersOf(edge.producer())));
+                    nodes.putIfAbsent(edge.requiredInput(),
+                        new CraftingGraphNode(edge.requiredInput(), network.producersOf(edge.requiredInput())));
                 }
             }
         }

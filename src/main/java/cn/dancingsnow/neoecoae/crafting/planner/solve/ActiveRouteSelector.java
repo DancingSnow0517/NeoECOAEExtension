@@ -145,6 +145,14 @@ public final class ActiveRouteSelector {
         return finish(choices, tarjan.analyze(active, cancellation), active, List.of(), false, cancellation);
     }
 
+    public Selection selectWithChoices(CraftingDependencyGraph universe, Map<AEKey, Integer> choices,
+            ECOCancellation cancellation) throws InterruptedException {
+        Map<AEKey, List<CompiledPattern>> candidates = new LinkedHashMap<>();
+        for (AEKey key : universe.nodes().keySet()) candidates.put(key, fastCandidates(universe, key));
+        CraftingDependencyGraph active = activeGraph(universe, choices, candidates, cancellation);
+        return finish(choices, tarjan.analyze(active, cancellation), active, List.of(), false, cancellation);
+    }
+
     private static Selection finish(Map<AEKey, Integer> choices,
             List<SccComponent> sccs, CraftingDependencyGraph active, List<CompiledPattern> deferred,
             boolean budgetExhausted, ECOCancellation cancellation) throws InterruptedException {
@@ -267,26 +275,7 @@ public final class ActiveRouteSelector {
     }
 
     private static List<CraftingGraphEdge> patternEdges(AEKey key, CompiledPattern pattern) {
-        List<CraftingGraphEdge> edges = new ArrayList<>();
-        for (var input : pattern.inputs()) {
-            if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
-            edges.add(new CraftingGraphEdge(key, input.key(), pattern, input));
-        }
-        // Preserve genuine feedback while keeping analyzer-proven state transitions outside SCC routing.
-        for (var feedback : pattern.semantics().feedbackEdges()) {
-            if (pattern.specialAnalysis().requirements().stream()
-                    .anyMatch(requirement -> feedback.returnedKey().equals(requirement.returnedKey()))) continue;
-            var edgeInput = pattern.inputs().stream()
-                .filter(input -> feedback.returnedKey().equals(input.remainderKey())
-                    || feedback.returnedKey().equals(input.key()))
-                .findFirst()
-                .orElse(pattern.inputs().isEmpty() ? null : pattern.inputs().getFirst());
-            if (edgeInput != null) {
-                edges.add(new CraftingGraphEdge(feedback.returnedKey(), feedback.dependentOutput(),
-                    pattern, edgeInput));
-            }
-        }
-        return edges;
+        return cn.dancingsnow.neoecoae.crafting.planner.graph.PatternDependencyEdges.of(key, pattern);
     }
 
     private static CraftingDependencyGraph activeGraph(CraftingDependencyGraph universe,
@@ -302,6 +291,10 @@ public final class ActiveRouteSelector {
             List<CompiledPattern> selected = choice >= 0 ? List.of(candidates.get(choice)) : List.of();
             nodes.put(key, new CraftingGraphNode(key, selected));
             if (choice >= 0) edges.addAll(patternEdges(key, candidates.get(choice)));
+        }
+        for (CraftingGraphEdge edge : edges) {
+            nodes.putIfAbsent(edge.producer(), new CraftingGraphNode(edge.producer(), List.of()));
+            nodes.putIfAbsent(edge.requiredInput(), new CraftingGraphNode(edge.requiredInput(), List.of()));
         }
         return new CraftingDependencyGraph(universe.goal(), nodes, edges);
     }

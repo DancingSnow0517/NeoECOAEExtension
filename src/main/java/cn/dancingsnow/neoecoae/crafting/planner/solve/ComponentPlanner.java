@@ -131,29 +131,41 @@ public final class ComponentPlanner {
                         KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
                         boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
-        CondensationGraph activeCondensation = activeSelection.condensation();
-        List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
-                .filter(AcyclicComponent.class::isInstance)
-                .map(AcyclicComponent.class::cast)
-                .map(AcyclicComponent::key)
-                .toList();
-        var cycleOwnedPatterns = activeSelection.cyclicComponents().stream()
-                .flatMap(cycle -> cycle.patterns().stream())
-                .map(CompiledPattern::details)
-                .collect(java.util.stream.Collectors.toSet());
-        long acyclicStartedNanos = ECOPlanningStageLogger.start();
-        AcyclicCraftingSolver.Outcome acyclic;
-        try {
-            acyclic = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), snapshot, amount,
-                    activeSelection.choices(), cycleOwnedPatterns, ignorePatternSubstitutions, cancellation);
-            ECOPlanningStageLogger.finish("non_cycle_calculation", acyclicStartedNanos,
-                    acyclic.status() == PlanningStatus.SUCCESS,
-                    ECOPlanningStageLogger.resultReason(acyclic.status(), acyclic.trace()));
-        } catch (InterruptedException | RuntimeException e) {
-            ECOPlanningStageLogger.finish("non_cycle_calculation", acyclicStartedNanos, false,
-                    ECOPlanningStageLogger.exceptionReason(e));
-            throw e;
+        CondensationGraph activeCondensation;
+        AcyclicCraftingSolver.Outcome attempt;
+        Set<Map<AEKey, Integer>> classifiedRoutes = new HashSet<>();
+        while (true) {
+            activeCondensation = activeSelection.condensation();
+            List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
+                    .filter(AcyclicComponent.class::isInstance)
+                    .map(AcyclicComponent.class::cast).map(AcyclicComponent::key).toList();
+            var cycleOwnedPatterns = activeSelection.cyclicComponents().stream()
+                    .flatMap(cycle -> cycle.patterns().stream()).map(CompiledPattern::details)
+                    .collect(java.util.stream.Collectors.toSet());
+            long acyclicStartedNanos = ECOPlanningStageLogger.start();
+            try {
+                attempt = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), snapshot, amount,
+                        activeSelection.choices(), cycleOwnedPatterns, ignorePatternSubstitutions, cancellation);
+                ECOPlanningStageLogger.finish("non_cycle_calculation", acyclicStartedNanos,
+                        attempt.status() == PlanningStatus.SUCCESS,
+                        ECOPlanningStageLogger.resultReason(attempt.status(), attempt.trace()));
+            } catch (InterruptedException | RuntimeException e) {
+                ECOPlanningStageLogger.finish("non_cycle_calculation", acyclicStartedNanos, false,
+                        ECOPlanningStageLogger.exceptionReason(e));
+                throw e;
+            }
+            if (attempt.cyclicRouteChoices().isEmpty()
+                    || !classifiedRoutes.add(attempt.cyclicRouteChoices())) break;
+            // Numeric fallback may introduce a multi-recipe SCC. Reclassify the exact attempted route
+            // and restart from the untouched inventory; do not hand it back to the native DAG planner.
+            var universe = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder()
+                    .build(network, cancellation);
+            activeSelection = activeRouteSelector.selectWithChoices(universe,
+                    attempt.cyclicRouteChoices(), cancellation);
         }
+        final CondensationGraph resolvedCondensation = activeCondensation;
+        final Map<AEKey, Integer> resolvedChoices = activeSelection.choices();
+        AcyclicCraftingSolver.Outcome acyclic = attempt;
         ECOPlanTrace trace = acyclic.trace();
         for (var deferred : activeSelection.deferredCyclicCandidates()) {
             trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, deferred.producedKey(), deferred.details(),
@@ -411,8 +423,8 @@ public final class ComponentPlanner {
                                 unresolvedCycle = true;
                             } else {
                                 external.delegatedCycleDemands().forEach((key, demand) -> {
-                                    CycleComponent supplier = cyclicSupplier(network, activeCondensation,
-                                            activeSelection.choices(), key, cycle.componentId());
+                                    CycleComponent supplier = cyclicSupplier(network, resolvedCondensation,
+                                            resolvedChoices, key, cycle.componentId());
                                     if (supplier == null) {
                                         throw new IllegalStateException("Delegated cycle input lost its supplier: " + key);
                                     }
@@ -535,7 +547,7 @@ public final class ComponentPlanner {
                 .map(c -> c.componentId()).toList());
     }
 
-    /** Retry self-growing producer routes when the preferred route cannot be supplied. */
+    /** Retry producer routes, including cyclic alternatives, when the preferred route cannot be supplied. */
     public Outcome planWithCycleFallback(CompiledNetwork network, CondensationGraph universe,
                         ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
                         PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
@@ -554,9 +566,16 @@ public final class ComponentPlanner {
             }
         }
         // The first producer can itself be acyclic but lack materials. Walk from its failed leaves back to
-        // their consumers, then try self-growing producers on that failed route only.
+        // their consumers, then try other producers on that failed route only. A blocked cyclic
+        // alternative must not hide a later acyclic producer with available materials.
         Set<AEKey> failedRoute = new LinkedHashSet<>(preferred.state().missingAmounts().keySet());
         failedRoute.addAll(preferred.state().unsupported);
+        failedRoute.addAll(preferred.state().selected.keySet());
+        Map<AEKey, Integer> fallbackChoices = new LinkedHashMap<>(activeSelection.choices());
+        preferred.state().selected.forEach((key, pattern) -> {
+            int index = network.fastProducersOf(key).indexOf(pattern);
+            if (index >= 0) fallbackChoices.put(key, index);
+        });
         java.util.ArrayDeque<AEKey> pending = new java.util.ArrayDeque<>(failedRoute);
         while (!pending.isEmpty()) {
             for (AEKey parent : preferred.state().parents.getOrDefault(pending.removeFirst(), Set.of())) {
@@ -572,13 +591,14 @@ public final class ComponentPlanner {
             AEKey key = entry.getKey();
             if (!failedRoute.contains(key)) continue;
             for (CompiledPattern pattern : entry.getValue().candidatePatterns()) {
-                if (!pattern.fastSupported() || pattern.inputs().stream().noneMatch(input ->
-                        key.equals(input.key()) && !pattern.specialAnalysis().excludesFromCycleGraph(input))) {
+                if (!pattern.fastSupported()) {
                     continue;
                 }
-                ActiveRouteSelector.Selection candidate = activeRouteSelector.selectWithPattern(
-                    universe.source(), key, pattern, cancellation);
-                if (candidate.cyclicComponents().isEmpty() || !attempted.add(candidate.choices())) continue;
+                Map<AEKey, Integer> choices = new LinkedHashMap<>(fallbackChoices);
+                choices.put(key, network.fastProducersOf(key).indexOf(pattern));
+                if (!attempted.add(Map.copyOf(choices))) continue;
+                ActiveRouteSelector.Selection candidate = activeRouteSelector.selectWithChoices(
+                    universe.source(), choices, cancellation);
                 Outcome cyclic = plan(network, candidate, inventory, snapshot, amount, true,
                     ignorePatternSubstitutions, cancellation);
                 if (cyclic.status() == PlanningStatus.SUCCESS) return cyclic;
@@ -624,8 +644,9 @@ public final class ComponentPlanner {
     }
 
     private static CycleExecutionDisposition cycleExecutionDisposition(CycleComponent cycle, CycleSolveResult result) {
-        boolean simple = cycle.patterns().size() <= 2;
-        return simple && !result.executionPlan().isEmpty()
+        // A firing vector alone does not preserve liveness when transitions compete for one seed.
+        // Keep the solver's verified witness for every cycle size.
+        return !result.executionPlan().isEmpty()
                 ? CycleExecutionDisposition.ORDERED_EXECUTION
                 : CycleExecutionDisposition.DYNAMIC_EXECUTION;
     }

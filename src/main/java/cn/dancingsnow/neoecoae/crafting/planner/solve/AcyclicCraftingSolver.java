@@ -28,7 +28,15 @@ import java.util.Map;
 import java.util.Set;
 
 public final class AcyclicCraftingSolver {
-    public record Outcome(PlanningStatus status, SolveState state, ECOPlanTrace trace) {}
+    public record Outcome(PlanningStatus status, SolveState state, ECOPlanTrace trace,
+            Map<AEKey, Integer> cyclicRouteChoices) {
+        public Outcome(PlanningStatus status, SolveState state, ECOPlanTrace trace) {
+            this(status, state, trace, Map.of());
+        }
+        public Outcome {
+            cyclicRouteChoices = Map.copyOf(cyclicRouteChoices);
+        }
+    }
     private final CandidateResolver candidates = new CandidateResolver();
 
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
@@ -73,6 +81,20 @@ public final class AcyclicCraftingSolver {
         SolveState state = null;
         for (int attempt = 0; attempt < retryBudget; attempt++) {
             cancellation.checkpoint();
+            if (attempt > 0) {
+                // The caller classified the initial route. A numeric retry can add feedback through
+                // secondary outputs even when its ordinary input edges still look like a DAG.
+                var universe = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder()
+                    .build(network, cancellation);
+                var selected = new ActiveRouteSelector().selectWithChoices(universe, choices, cancellation);
+                if (selected.cyclicComponents().stream()
+                        .filter(cycle -> cycle.patterns().stream().anyMatch(pattern -> pattern.outputs().stream()
+                            .anyMatch(output -> !output.what().equals(pattern.producedKey()))))
+                        .flatMap(cycle -> cycle.patterns().stream())
+                        .anyMatch(pattern -> !deferredPatterns.contains(pattern.details()))) {
+                    return cyclicRouteOutcome(network, inventory, choices, trace);
+                }
+            }
             List<AEKey> currentRoute = selectedRoute(
                 network, choices, deferredPatterns, Set.of(), cancellation);
             state = currentRoute == null
@@ -82,11 +104,7 @@ public final class AcyclicCraftingSolver {
                     new SolveWorkspace(inventory, choices), amount,
                     deferredPatterns, Set.of(), ignorePatternSubstitutions, cancellation);
             if (state == null) {
-                state = new SolveState(inventory);
-                state.unsupported.add(network.goal());
-                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
-                    "The currently selected alternate producer route contains an undeclared cycle"));
-                return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
+                return cyclicRouteOutcome(network, inventory, choices, trace);
             }
             if (!state.unsupported.isEmpty()) {
                 addTrace(network, state, amount, trace);
@@ -121,6 +139,15 @@ public final class AcyclicCraftingSolver {
         }
         trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK, "Candidate retry budget exhausted"));
         return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
+    }
+
+    private static Outcome cyclicRouteOutcome(CompiledNetwork network, PlannerInventorySnapshot inventory,
+            Map<AEKey, Integer> choices, ECOPlanTrace trace) {
+        SolveState state = new SolveState(inventory);
+        state.unsupported.add(network.goal());
+        trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANDIDATE_DEFERRED_CYCLE,
+            "Selected alternate producer route requires cycle component planning"));
+        return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace, choices);
     }
 
     /**
