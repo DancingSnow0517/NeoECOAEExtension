@@ -21,7 +21,8 @@ final class ECOCraftingCoolingController {
     }
 
     TickRateModulation tick() {
-        if (!host.isLocallyActiveCooling()) {
+        // Stock the internal buffer even while idle, without FX cores, or with cooling disabled.
+        if (host.getCoolant() >= MAX_COOLANT) {
             return TickRateModulation.IDLE;
         }
         CoolingRecipe recipe = getCoolingRecipe();
@@ -29,7 +30,7 @@ final class ECOCraftingCoolingController {
             return TickRateModulation.IDLE;
         }
 
-        int targetCoolant = getTargetCoolantBuffer();
+        int targetCoolant = MAX_COOLANT;
         if (targetCoolant <= host.getCoolant()) {
             return TickRateModulation.IDLE;
         }
@@ -100,7 +101,7 @@ final class ECOCraftingCoolingController {
     }
 
     @Nullable
-    private CoolingRecipe getCoolingRecipe() {
+    CoolingRecipe getCoolingRecipe() {
         if (host.getCluster() == null
             || host.getCluster().getInputHatch() == null
             || host.getCluster().getOutputHatch() == null
@@ -121,8 +122,11 @@ final class ECOCraftingCoolingController {
 
     private boolean canRefillWith(int maxOverclock) {
         return host.getCoolant() <= 0
-            || host.getCoolantMaxOverclock() < 0
-            || host.getCoolantMaxOverclock() == maxOverclock;
+            || host.getCoolantMaxOverclock() == maxOverclock
+                && host.getCluster() != null
+                && host.getCluster().getInputHatch() != null
+                && FluidStack.isSameFluidSameComponents(host.getCurrentCoolantFluid(),
+                    host.getCluster().getInputHatch().tank.getFluid());
     }
 
     private boolean ensureCoolantAvailable(int requiredCoolant, int requiredOverclock) {
@@ -142,10 +146,6 @@ final class ECOCraftingCoolingController {
         refillCoolant(recipe, targetCoolant - host.getCoolant());
         return host.getCoolant() >= requiredCoolant
             && (requiredOverclock <= 0 || host.getCoolantMaxOverclock() >= requiredOverclock);
-    }
-
-    private int getTargetCoolantBuffer() {
-        return host.getCapabilitySnapshot().physicalFxCount() <= 0 ? 0 : MAX_COOLANT;
     }
 
     private int refillCoolant(CoolingRecipe recipe, int deficit) {

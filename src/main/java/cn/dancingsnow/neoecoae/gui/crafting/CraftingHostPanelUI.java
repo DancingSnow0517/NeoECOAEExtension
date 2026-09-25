@@ -589,12 +589,16 @@ public final class CraftingHostPanelUI {
                 .remoteSetter(this::setCapacity).build().getSyncValue());
             addSyncValue(DataBindingBuilder.intValS2C(config.coolantMaxOverclock::getAsInt)
                 .remoteSetter(value -> maxOverclock = value).build().getSyncValue());
+            // Include empty buffers and avoid depending on FluidSlot's XEI tooltip overload.
+            addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+                getFullTooltipTexts(), null, null, null));
         }
 
         @Override
         public List<Component> getFullTooltipTexts() {
             return List.of(
                 Component.translatable("gui.neoecoae.host.crafting.coolant"),
+                getFluid().isEmpty() ? Component.translatable("ldlib.fluid.empty") : getFluid().getHoverName(),
                 Component.literal(HostText.typeProgress(getFluid().getAmount(), getCapacity()).usedText() + " / "
                     + HostText.typeProgress(getFluid().getAmount(), getCapacity()).maxText() + " mB"),
                 Component.translatable("gui.neoecoae.crafting.coolant_max_overclock",
