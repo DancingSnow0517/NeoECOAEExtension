@@ -61,6 +61,34 @@ class CycleStartupRecoveryTest {
         assertTrue(outcome.state().usedItems().isEmpty());
     }
 
+    @Test
+    void unavailableCheapSeedDoesNotHideAnExternallyCraftableCarrier() throws Exception {
+        AEKey carrier = key("carrier");
+        // 1 seed -> 2 carriers -> 3 seeds. The one-item seed proposal is unavailable;
+        // the two-carrier proposal can be made from one raw item outside the cycle.
+        var finish = fastPattern(10, seed, 3, new GenericStack(carrier, 2));
+        var prepare = fastPattern(11, carrier, 2, new GenericStack(seed, 1));
+        var start = fastPattern(12, carrier, 2, new GenericStack(raw, 1));
+        var network = new CompiledNetwork(seed,
+            Map.of(seed, List.of(finish), carrier, List.of(prepare, start), raw, List.of()), Set.of(), 3, 3);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var selection = new ActiveRouteSelector().selectWithChoices(graph, Map.of(carrier, 0), ECOCancellation.NONE);
+        var stock = new KeyCounter(); stock.add(raw, 1L);
+        var outcome = planner.plan(network, selection, stock, 10L, true, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), outcome.trace().diagnostics().toString());
+        assertEquals(1L, outcome.state().patternTimes().get(start.details()));
+        assertEquals(1L, outcome.state().usedItems().get(raw));
+        assertTrue(outcome.state().missingItems().isEmpty());
+    }
+
+    private static CompiledPattern fastPattern(int id, AEKey output, long amount, GenericStack... inputs) {
+        var source = pattern(id, output, amount, inputs);
+        return new CompiledPattern(id, source.details(), output, source.outputPerPattern(),
+            java.util.Arrays.stream(inputs).map(i -> new CompiledInput(null, i.what(), i.amount(), true, null)).toList(),
+            source.outputs(), true, null, false, source.semantics());
+    }
+
     private ComponentPlanner.Outcome plan(CycleSolveResult recovered, long fuelStock) throws Exception {
         var network = new CompiledNetwork(seed, Map.of(seed, List.of(growth, bootstrap), raw, List.of(), fuel, List.of()),
             Set.of(), 2, 3);

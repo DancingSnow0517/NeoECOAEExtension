@@ -343,53 +343,93 @@ public final class ComponentPlanner {
                             && cycleResult.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
                             && !cycleResult.seedShortfall().isEmpty()) {
                         startupRecoveryAttempted = true;
-                        Map<AEKey, Long> recoveryDemands = mergeDemands(
-                                cycleResult.positiveExternalDemand(), cycleResult.seedShortfall());
-                        Map<AEKey, Long> recoveryReservations = cycleInitialReservations(
-                                exactRequiredOutputs, stock, cycleResult);
-                        Map<AEKey, Long> recoveryAdditionalReservations = reservationRemainder(
+                        CycleSolveResult proposal = cycleResult;
+                        CycleSolveResult recoveryFailure = null;
+                        Map<AEKey, Long> unresolvedSeed = Map.of();
+                        List<Map<AEKey, Long>> candidates = new ArrayList<>();
+                        candidates.add(proposal.seedShortfall());
+                        for (Map<AEKey, Long> candidate : proposal.startupCandidates()) {
+                            if (!candidate.isEmpty() && !candidates.contains(candidate)) candidates.add(candidate);
+                        }
+                        for (Map<AEKey, Long> candidate : candidates) {
+                            cancellation.checkpoint();
+                            // Do not run the cycle solver for a hypothetical bucket/tool that no
+                            // inventory or external producer can supply. This also preserves failure caching.
+                            Set<AEKey> seedDelegates = delegatedCycleInputs(network, activeCondensation,
+                                activeSelection.choices(), cycle, candidate.keySet());
+                            Map<AEKey, Long> heldSeed = new LinkedHashMap<>();
+                            for (AEKey key : candidate.keySet()) {
+                                long present = stock.getOrDefault(key, 0L);
+                                if (present > 0L) heldSeed.put(key, present);
+                            }
+                            var seedAttempt = externalDemandPlanner.solveDemands(network, cycle, candidate, inventory,
+                                acyclic.state(), reservationRemainder(heldSeed, stockReservations), seedDelegates,
+                                ignorePatternSubstitutions, cancellation);
+                            if (!seedAttempt.solved()) {
+                                if (external == null) {
+                                    external = seedAttempt;
+                                    externalDemandStatus = seedAttempt.status();
+                                    externalMissingItems = seedAttempt.missingLeaves();
+                                }
+                                continue;
+                            }
+                            // An alternative seed names concrete AE keys. First verify its actual circuit;
+                            // then ask the external DAG to supply this witness's inputs, not the old route's.
+                            Map<AEKey, Long> projectedStock = mergeReservations(stock, candidate);
+                            var candidateTargets = additionalOutputTargets(exactRequiredOutputs, projectedStock, network.goal());
+                            CycleSolveResult recovered = failures.solve(new CycleSolveRequest(cycle,
+                                    representable(candidateTargets), candidateTargets, projectedStock,
+                                    cycle.outgoingDependencies(), cycleSolveOptions(cycle)), cancellation);
+                            CycleSolveResult reservationSource = recovered.status() == CycleSolveStatus.SUCCESS ? recovered : proposal;
+                            Map<AEKey, Long> recoveryDemands = mergeDemands(
+                                reservationSource.positiveExternalDemand(), candidate);
+                            Map<AEKey, Long> recoveryReservations = cycleInitialReservations(
+                                exactRequiredOutputs, stock, reservationSource);
+                            Map<AEKey, Long> recoveryAdditionalReservations = reservationRemainder(
                                 recoveryReservations, stockReservations);
-                        Set<AEKey> delegatedInputs = delegatedCycleInputs(network, activeCondensation,
+                            Set<AEKey> delegatedInputs = delegatedCycleInputs(network, activeCondensation,
                                 activeSelection.choices(), cycle, recoveryDemands.keySet());
-                        external = externalDemandPlanner.solveDemands(network, cycle, recoveryDemands, inventory,
+                            var recoveryAttempt = externalDemandPlanner.solveDemands(network, cycle, recoveryDemands, inventory,
                                 acyclic.state(), recoveryAdditionalReservations, delegatedInputs,
                                 ignorePatternSubstitutions, cancellation);
-                        externalDemandStatus = external.status();
-                        externalMissingItems = external.missingLeaves();
-                        LOGGER.warn("[ECO-CYCLE] startup recovery component={} externalStatus={} demands={} "
-                                        + "missingLeaves={} diagnostic={}",
-                                cycle.componentId(), external.status(), recoveryDemands,
-                                externalMissingItems, external.diagnostic());
-                        trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
-                                external.diagnostic()));
-                        if (external.solved()) {
-                            Map<AEKey, Long> projectedStock = mergeReservations(stock, cycleResult.seedShortfall());
-                            solveTargets = additionalOutputTargets(exactRequiredOutputs, projectedStock,
-                                    network.goal());
-                            CycleSolveResult recovered = failures.solve(new CycleSolveRequest(cycle,
-                                    representable(solveTargets), solveTargets, projectedStock, cycle.outgoingDependencies(),
-                                    cycleSolveOptions(cycle)), cancellation);
-                            if (recovered.status() == CycleSolveStatus.SUCCESS) {
-                                plannedCycleInputs = cycleResult.seedShortfall();
-                                cycleResult = recovered;
-                                cycleStatus = CyclePlanningStatus.SOLVED;
-                                // The seed probe was speculative. Replan the verified witness's complete
-                                // boundary and reservations from the original stock, committing neither twice.
-                                external = null;
-                                diagnostic = "Cycle startup seed was planned through its external producer route";
-                            } else {
-                                if (recovered.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT) {
-                                    // Projected startup inputs have not been committed. Include them when
-                                    // reporting the remaining unfulfilled cycle seed requirement.
-                                    acyclic.state().markMissing(mergeDemands(
-                                            cycleResult.seedShortfall(), recovered.seedShortfall()));
-                                }
-                                cycleResult = recovered;
-                                cycleStatus = CyclePlanningStatus.of(recovered.status());
-                                if (cycleStatus == CyclePlanningStatus.UNREPRESENTABLE) amountUnrepresentable = true;
-                                diagnostic = recovered.summary();
+                            if (external == null) {
+                                external = recoveryAttempt;
+                                externalDemandStatus = recoveryAttempt.status();
+                                externalMissingItems = recoveryAttempt.missingLeaves();
                             }
+                            if (!recoveryAttempt.solved()) continue;
+                            if (recovered.status() != CycleSolveStatus.SUCCESS) {
+                                if (recoveryFailure == null) {
+                                    recoveryFailure = recovered;
+                                    unresolvedSeed = candidate;
+                                    external = recoveryAttempt;
+                                    externalDemandStatus = recoveryAttempt.status();
+                                    externalMissingItems = recoveryAttempt.missingLeaves();
+                                }
+                                continue;
+                            }
+                            plannedCycleInputs = candidate;
+                            cycleResult = recovered;
+                            cycleStatus = CyclePlanningStatus.SOLVED;
+                            solveTargets = candidateTargets;
+                            // Every probe was speculative. The common transaction below reserves and
+                            // plans the successful candidate again, once, from the original inventory.
+                            external = null;
+                            diagnostic = "Verified cycle startup through an available concrete seed route";
                             trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
+                            break;
+                        }
+                        if (cycleStatus != CyclePlanningStatus.SOLVED && recoveryFailure != null) {
+                            cycleResult = recoveryFailure;
+                            cycleStatus = CyclePlanningStatus.of(recoveryFailure.status());
+                            if (cycleStatus == CyclePlanningStatus.UNREPRESENTABLE) amountUnrepresentable = true;
+                            if (recoveryFailure.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT) {
+                                acyclic.state().markMissing(mergeDemands(unresolvedSeed, recoveryFailure.seedShortfall()));
+                            }
+                            diagnostic = recoveryFailure.summary();
+                        }
+                        if (cycleStatus != CyclePlanningStatus.SOLVED && external != null) {
+                            trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()), external.diagnostic()));
                         }
                     }
                     if (cycleResult != null && cycleStatus == CyclePlanningStatus.SOLVED) {

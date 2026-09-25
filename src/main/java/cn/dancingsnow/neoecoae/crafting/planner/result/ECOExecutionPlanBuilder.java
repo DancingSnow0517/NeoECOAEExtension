@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.PatternRun;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.RepeatLayout;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.ExecutionProvenance;
 import java.util.ArrayList;
@@ -107,7 +108,7 @@ public final class ECOExecutionPlanBuilder {
                     if (taskId == null || !taskIds.contains(taskId)) {
                         throw new IllegalStateException("Compact cycle trace references a task outside its phase");
                     }
-                    steps.add(new ECOExecutionPlan.ExecutionStep(taskId, run.count()));
+                    steps.add(new ECOExecutionPlan.ExecutionStep(taskId, run.count(), run.repeatWidth(), run.repetitions()));
                 }
                 validateCycleCounts(component, steps, tasks, taskIdByIdentity);
             }
@@ -156,7 +157,11 @@ public final class ECOExecutionPlanBuilder {
         Map<PlanIdentity.PatternIdentity, Long> expected = new HashMap<>();
         signature.forEach((identity, count) -> { if (count != null && count > 0) expected.put(identity, count); });
         Map<PlanIdentity.PatternIdentity, Long> actual = new HashMap<>();
-        for (var step : steps) actual.merge(tasks.get(step.taskId()).identity(), step.count(), Math::addExact);
+        long[] repeats = RepeatLayout.multipliers(steps);
+        for (int i = 0; i < steps.size(); i++) {
+            var step = steps.get(i);
+            actual.merge(tasks.get(step.taskId()).identity(), Math.multiplyExact(step.count(), repeats[i]), Math::addExact);
+        }
         if (!actual.equals(expected)) {
             throw new IllegalStateException("Compact cycle trace does not equal the solved firing vector");
         }

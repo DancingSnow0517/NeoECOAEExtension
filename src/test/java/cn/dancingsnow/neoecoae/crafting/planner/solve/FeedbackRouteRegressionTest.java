@@ -159,7 +159,17 @@ class FeedbackRouteRegressionTest {
                 planner.selectRoutes(graph, true, ECOCancellation.NONE), stock, PlannerInventorySnapshot.of(stock),
                 2L, false, ECOCancellation.NONE);
             assertEquals(PlanningStatus.SUCCESS, solved.status(), solved.trace().diagnostics().toString());
-            assertEquals(Map.of(usable.details(), 2L), solved.state().patternTimes());
+            if (solved.state().patternTimes().containsKey(cyclic.details())) {
+                // The later producer can now supply one real startup seed. This uses less C than
+                // taking the direct route twice, and must still account for the bootstrap craft.
+                assertEquals(Map.of(usable.details(), 1L, reverse.details(), 2L, cyclic.details(), 2L),
+                    solved.state().patternTimes());
+                assertEquals(1L, solved.state().usedItems().get(c));
+            } else {
+                assertEquals(Map.of(usable.details(), 2L), solved.state().patternTimes());
+                assertEquals(2L, solved.state().usedItems().get(c));
+            }
+            assertNull(ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, 2L, stock, network));
         }
     }
 

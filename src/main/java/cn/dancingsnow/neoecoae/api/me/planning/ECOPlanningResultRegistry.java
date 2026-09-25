@@ -137,6 +137,20 @@ public final class ECOPlanningResultRegistry {
     }
 
     /**
+     * Returns true only for a plan produced by the explicit ECO planning route.
+     * The complete plan identity is required, so a native/foreign plan with the
+     * same output cannot accidentally inherit ECO ownership.
+     */
+    public static boolean isECOOwnedPlan(@Nullable ICraftingPlan plan) {
+        if (plan == null) return false;
+        ECOPlanningResult exact = findExact(plan);
+        if (exact != null && exact.plan() == plan) return true;
+        ECOPlanningResult registered = find(plan);
+        return registered != null && registered.plan() != null
+            && PlanIdentity.matches(plan, registered.plan());
+    }
+
+    /**
      * Binds metadata to one synchronous confirmation submission. The binding contains no executable plan and can
      * therefore never replace the plan passed by the confirmation path.
      */

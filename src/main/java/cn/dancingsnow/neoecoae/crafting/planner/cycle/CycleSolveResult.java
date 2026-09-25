@@ -47,7 +47,8 @@ public record CycleSolveResult(
     List<CycleFiring> executionWitness,
     List<PatternRun> executionPlan,
     List<CycleSolveDiagnostic> diagnostics,
-    CycleSolveMetrics metrics
+    CycleSolveMetrics metrics,
+    List<Map<AEKey, Long>> startupCandidates
 ) {
     public CycleSolveResult {
         executionCountKnowledge = executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN
@@ -61,13 +62,31 @@ public record CycleSolveResult(
         deliverableOutputs = Map.copyOf(deliverableOutputs);
         executionWitness = List.copyOf(executionWitness);
         executionPlan = List.copyOf(executionPlan);
+        RepeatLayout.multipliers(executionPlan);
         diagnostics = List.copyOf(diagnostics);
+        startupCandidates = startupCandidates.stream().map(Map::copyOf).toList();
         if (status == CycleSolveStatus.SUCCESS && !seedShortfall.isEmpty()) {
             throw new IllegalArgumentException("A successful cycle solve cannot report a seed shortfall");
         }
         if (!executionWitness.isEmpty() && totalRunCount(executionPlan) != executionWitness.size()) {
             throw new IllegalArgumentException("A compact execution plan must account for every witness step");
         }
+    }
+
+    /** Additional startup candidates are proposals, never execution or sufficiency certificates. */
+    public CycleSolveResult(CycleSolveStatus status, ExecutionCountKnowledge knowledge,
+            Map<IPatternDetails, PlannerAmount> exactTimes, Map<IPatternDetails, Long> times,
+            Map<AEKey, Long> external, Map<AEKey, Long> seed, Map<AEKey, Long> shortfall,
+            Map<AEKey, Long> produced, Map<AEKey, Long> delivered, List<CycleFiring> witness,
+            List<PatternRun> plan, List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics) {
+        this(status, knowledge, exactTimes, times, external, seed, shortfall, produced, delivered,
+            witness, plan, diagnostics, metrics, List.of());
+    }
+
+    public CycleSolveResult withStartupCandidates(List<Map<AEKey, Long>> candidates) {
+        return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, patternTimes, externalDemand,
+            requiredSeed, seedShortfall, producedOutputs, deliverableOutputs, executionWitness, executionPlan,
+            diagnostics, metrics, candidates);
     }
 
     /** Runtime-compatible constructor. Exact counts are derived before any diagnostic arithmetic. */
@@ -111,7 +130,10 @@ public record CycleSolveResult(
 
     private static long totalRunCount(List<PatternRun> runs) {
         long total = 0;
-        for (PatternRun run : runs) total = Math.addExact(total, run.count());
+        long[] repeats = RepeatLayout.multipliers(runs);
+        for (int i = 0; i < runs.size(); i++) {
+            total = Math.addExact(total, Math.multiplyExact(runs.get(i).count(), repeats[i]));
+        }
         return total;
     }
 
@@ -141,7 +163,7 @@ public record CycleSolveResult(
         merged.addAll(diagnostics);
         return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, patternTimes, externalDemand,
             requiredSeed, seedShortfall, producedOutputs, deliverableOutputs, executionWitness, executionPlan,
-            merged, metrics);
+            merged, metrics, startupCandidates);
     }
 
     /** Exact total firings in the plan; it may exceed the legacy long projection. */

@@ -131,6 +131,16 @@ public class NEConfig {
             ECOCraftingFastPathCache.MAX_CACHE_SIZE
         );
 
+    private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_MILLIS = BUILDER
+        .comment("一次 ECO 规划会话的总耗时预算（毫秒），路线、种子和 CRAFT_LESS 探测共享；超限显示未解。",
+            "Shared cooperative time budget for one ECO planning session, including routes, seeds and CRAFT_LESS probes.")
+        .defineInRange("ecoPlanningMaxMillis", 10_000, 1, 600_000);
+
+    private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_WORK = BUILDER
+        .comment("一次 ECO 规划会话的检查点总预算；切换路线和种子不会重置预算。",
+            "Shared checkpoint work budget; changing routes or startup seeds does not reset it.")
+        .defineInRange("ecoPlanningMaxWork", 5_000_000, 1, Integer.MAX_VALUE);
+
     static {
         BUILDER.pop();
     }
@@ -208,6 +218,8 @@ public class NEConfig {
     public static boolean ecoAe2FastPathEnabled = true;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
+    public static int ecoPlanningMaxMillis = 10_000;
+    public static int ecoPlanningMaxWork = 5_000_000;
     public static boolean ecoPlanningStageDebug = false;
     public static boolean ecoCraftSubmissionDebug = false;
     public static boolean ecoDispatchWatchdogDebug = false;
@@ -233,6 +245,8 @@ public class NEConfig {
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
+        ecoPlanningMaxMillis = ECO_PLANNING_MAX_MILLIS.get();
+        ecoPlanningMaxWork = ECO_PLANNING_MAX_WORK.get();
         ecoPlanningStageDebug = ECO_PLANNING_STAGE_DEBUG.get();
         ecoCraftSubmissionDebug = ECO_CRAFT_SUBMISSION_DEBUG.get();
         ecoDispatchWatchdogDebug = ECO_DISPATCH_WATCHDOG_DEBUG.get();

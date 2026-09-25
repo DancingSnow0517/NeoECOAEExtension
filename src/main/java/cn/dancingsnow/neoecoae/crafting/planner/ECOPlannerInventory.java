@@ -19,6 +19,16 @@ public final class ECOPlannerInventory {
 
     public static PlannerInventorySnapshot capture(IGrid grid) {
         var inventory = grid.getStorageService().getInventory().getAvailableStacks();
+        Set<AEKey> unbounded = collectUnboundedKeys(grid);
+        return PlannerInventorySnapshot.of(inventory, unbounded);
+    }
+
+    /**
+     * Returns keys supplied by an unbounded storage source in this grid.  The ordinary AE2
+     * aggregate only exposes a saturated long amount, so callers that move physical stock must
+     * preserve this side-channel and never persist those generated resources.
+     */
+    public static Set<AEKey> collectUnboundedKeys(IGrid grid) {
         Set<AEKey> unbounded = new HashSet<>();
         for (var drive : grid.getMachines(ECODriveBlockEntity.class)) {
             if (!drive.isMounted() || !drive.isOnline()) continue;
@@ -40,7 +50,7 @@ public final class ECOPlannerInventory {
                 }
             }
         }
-        return PlannerInventorySnapshot.of(inventory, unbounded);
+        return Set.copyOf(unbounded);
     }
 
     private static void markUnbounded(ExactAmountSource source, Set<AEKey> target) {

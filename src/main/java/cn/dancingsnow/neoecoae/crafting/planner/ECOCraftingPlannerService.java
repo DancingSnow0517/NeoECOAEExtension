@@ -56,6 +56,7 @@ public final class ECOCraftingPlannerService {
         private final boolean ignorePatternSubstitutions;
         private final Set<ResourceLocation> fuzzyPlanningItemIds;
         private final long planningRequestId = ECOPlanningStageLogger.nextRequestId();
+        private ECOPlanningBudget planningBudget;
         private volatile CompiledNetwork compiled;
         private volatile CondensationGraph condensation;
         private volatile ActiveRouteSelector.Selection activeSelection;
@@ -82,6 +83,12 @@ public final class ECOCraftingPlannerService {
 
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation)
                 throws InterruptedException {
+            ECOCancellation callerCancellation = cancellation;
+            synchronized (initializationLock) {
+                if (planningBudget == null) planningBudget = new ECOPlanningBudget(ECOCancellation.NONE);
+            }
+            ECOPlanningBudget sharedBudget = planningBudget;
+            cancellation = () -> { callerCancellation.checkpoint(); sharedBudget.checkpoint(); };
             long startedNanos = System.nanoTime();
             try (var ignored = ECOPlanningStageLogger.open(
                     NEConfig.ecoPlanningStageDebug, planningRequestId, goal, amount, simulation)) {
@@ -110,6 +117,7 @@ public final class ECOCraftingPlannerService {
                             solved.status() == PlanningStatus.SUCCESS,
                             ECOPlanningStageLogger.resultReason(solved.status(), solved.trace()));
                     long validationStarted = ECOPlanningStageLogger.start();
+                    cancellation.checkpoint();
                     solved = rejectUnclosedSuccess(solved, amount);
                     ECOPlanningStageLogger.finish("material_closure_validation", validationStarted,
                             solved.status() == PlanningStatus.SUCCESS,
@@ -152,6 +160,7 @@ public final class ECOCraftingPlannerService {
                         logTotal(startedNanos, rejected);
                         return rejected;
                     }
+                    cancellation.checkpoint();
                     attach(result);
                     logTotal(startedNanos, result);
                     return result;
@@ -162,6 +171,15 @@ public final class ECOCraftingPlannerService {
                     var result = new ECOPlanningResult(PlanningStatus.CANCELLED, bridge.unsupported(goal, amount), trace,
                             List.of(), List.of(),
                             List.of(), elapsedSince(startedNanos));
+                    attach(result);
+                    logTotal(startedNanos, result);
+                    return result;
+                } catch (ECOPlanningBudget.Exhausted exhausted) {
+                    ECOPlanTrace trace = new ECOPlanTrace();
+                    trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED,
+                        exhausted.getMessage()));
+                    var result = new ECOPlanningResult(PlanningStatus.CYCLE_UNRESOLVED,
+                        bridge.unsupported(goal, amount), trace, List.of(), List.of(), List.of(), elapsedSince(startedNanos));
                     attach(result);
                     logTotal(startedNanos, result);
                     return result;

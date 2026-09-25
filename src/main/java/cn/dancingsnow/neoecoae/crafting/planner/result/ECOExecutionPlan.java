@@ -4,6 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.RepeatLayout;
 import java.util.List;
 import java.util.Objects;
 
@@ -97,9 +98,14 @@ public record ECOExecutionPlan(
     }
 
     /** One ordered run. Count is deliberately compressed and may be much larger than an int. */
-    public record ExecutionStep(int taskId, long count) {
+    public record ExecutionStep(int taskId, long count, int repeatWidth, long repetitions)
+            implements RepeatLayout.Run {
+        public ExecutionStep(int taskId, long count) { this(taskId, count, 1, 1L); }
         public ExecutionStep {
             if (taskId < 0 || count <= 0) throw new IllegalArgumentException("Invalid execution step");
+            if (repeatWidth < 1 || repetitions < 1 || repetitions == 1 && repeatWidth != 1) {
+                throw new IllegalArgumentException("Invalid execution circuit repeat");
+            }
         }
     }
 
@@ -161,11 +167,20 @@ public record ECOExecutionPlan(
                     throw new IllegalArgumentException("Duplicate phase dependency");
                 }
             }
-            for (ExecutionStep step : phase.steps()) {
+            long[] repeats = RepeatLayout.multipliers(phase.steps());
+            java.util.Map<Integer, Long> orderedCounts = new java.util.HashMap<>();
+            for (int stepIndex = 0; stepIndex < phase.steps().size(); stepIndex++) {
+                ExecutionStep step = phase.steps().get(stepIndex);
                 if (!phase.taskIds().contains(step.taskId())) {
                     throw new IllegalArgumentException("Cycle step references a task outside its phase");
                 }
+                orderedCounts.merge(step.taskId(), Math.multiplyExact(step.count(), repeats[stepIndex]), Math::addExact);
             }
+            orderedCounts.forEach((task, count) -> {
+                if (count > tasks.get(task).totalCount()) {
+                    throw new IllegalArgumentException("Ordered circuit exceeds its task total");
+                }
+            });
         }
         for (boolean owned : taskOwned) if (!owned) {
             throw new IllegalArgumentException("Execution plan contains an unowned task");
