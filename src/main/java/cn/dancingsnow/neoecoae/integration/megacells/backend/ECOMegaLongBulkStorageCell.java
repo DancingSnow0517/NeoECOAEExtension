@@ -542,6 +542,29 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
 
     @Nullable
     private AEItemKey findSlot(AEItemKey item, boolean allowEmpty, LookupContext context) {
+        // Most transfers address an already stored representative directly. Resolve that
+        // common case before walking every stored account. The linear scan is still needed
+        // for compressed variants and legacy entries, but ordinary bulk inserts/extracts are
+        // reduced from O(number of stored accounts) to O(1) lookup plus the chain check.
+        if (storedUnits.containsKey(item)) {
+            BulkUnits units = definition(item, context);
+            boolean current = units.equals(context.units(item));
+            if (allowEmpty) {
+                if (current && units.factor(item) > 0 && accepts(item, context)) {
+                    return item;
+                }
+                if (!context.compressionCard && units.factor(item) > 0) {
+                    return null;
+                }
+                if (!current && units.factor(item) > 0) {
+                    return null;
+                }
+            } else if (units.factor(item) > 0) {
+                if (current || item.equals(units.items().getFirst())) {
+                    return item;
+                }
+            }
+        }
         for (AEItemKey stored : storedUnits.keySet()) {
             // Existing contents remain extractable after reconfiguration, but a removed filter
             // must not keep accepting new items into that old entry.

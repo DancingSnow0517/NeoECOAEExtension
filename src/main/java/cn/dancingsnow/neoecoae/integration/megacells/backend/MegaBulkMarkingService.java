@@ -10,7 +10,10 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.StorageExtractionExclusions;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MarkResult;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.Status;
@@ -24,6 +27,8 @@ import net.minecraft.world.item.ItemStack;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Writes host-wide compression-chain filters into ECO MEGA long bulk cells. */
 public final class MegaBulkMarkingService {
@@ -77,6 +82,9 @@ public final class MegaBulkMarkingService {
             return result(Status.NO_BULK_CELL);
         }
         var grid = host.getMainNode().getGrid();
+        Set<AEKey> unboundedKeys = new HashSet<>();
+        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
+        collectUnboundedKeys(drives, unboundedKeys);
         KeyCounter available = host.collectLocalStorageStacksForIntegration();
         if (grid != null && !host.isStorageInterfaceTransferMode()) {
             available = new KeyCounter();
@@ -84,6 +92,9 @@ public final class MegaBulkMarkingService {
         }
         List<Candidate> candidates = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : available) {
+            // Unbounded sources may still be marked so the player can see/use the chain. They
+            // are filtered only from physical migration below; explicit decompression inserts
+            // into the bulk cell continue to work normally.
             if (entry.getLongValue() <= threshold || !(entry.getKey() instanceof AEItemKey itemKey)) {
                 continue;
             }
@@ -93,7 +104,19 @@ public final class MegaBulkMarkingService {
             }
         }
         candidates.sort(Comparator.comparingLong(Candidate::amount).reversed());
-        return markCandidates(host, drives, targets, candidates, migrate);
+        return markCandidates(host, drives, targets, candidates, migrate, unboundedKeys);
+    }
+
+    private static void collectUnboundedKeys(List<ECODriveBlockEntity> drives, Set<AEKey> target) {
+        for (ECODriveBlockEntity drive : drives) {
+            var cell = drive.getCellInventory();
+            if (cell instanceof ECOCreativeCell creative) target.addAll(creative.configuredKeys());
+            if (cell instanceof ExactAmountSource source) {
+                source.neoecoae$visitExactAmounts((key, amount) -> {
+                    if (amount.infinite()) target.add(key);
+                });
+            }
+        }
     }
 
     private static List<TargetCell> collectTargetCells(
@@ -124,7 +147,8 @@ public final class MegaBulkMarkingService {
         List<ECODriveBlockEntity> drives,
         List<TargetCell> targets,
         List<Candidate> rawCandidates,
-        boolean migrate
+        boolean migrate,
+        Set<AEKey> unboundedKeys
     ) {
         List<AEItemKey> occupiedMarkers = new ArrayList<>();
         for (TargetCell target : targets) {
@@ -173,7 +197,7 @@ public final class MegaBulkMarkingService {
             slotTarget.target().drive().onCellConfigurationChanged();
         }
 
-        long transferred = migrate ? transferMarkedChains(host, drives, targets) : 0L;
+        long transferred = migrate ? transferMarkedChains(host, drives, targets, unboundedKeys) : 0L;
         if (count > 0 || transferred > 0L) host.notifyStorageConfigurationChanged();
         return new MarkResult(Status.SUCCESS, count, alreadyMarked, 0, accepted.size() - count, transferred);
     }
@@ -181,7 +205,8 @@ public final class MegaBulkMarkingService {
     private static long transferMarkedChains(
         ECOStorageSystemBlockEntity host,
         List<ECODriveBlockEntity> drives,
-        List<TargetCell> targets
+        List<TargetCell> targets,
+        Set<AEKey> unboundedKeys
     ) {
         List<ChainTarget> chainTargets = collectChainTargets(targets);
         if (chainTargets.isEmpty()) return 0L;
@@ -206,7 +231,8 @@ public final class MegaBulkMarkingService {
                 KeyCounter available = new KeyCounter();
                 sourceStorage.getAvailableStacks(available);
                 for (Object2LongMap.Entry<AEKey> entry : available) {
-                    if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey itemKey)) {
+                    if (entry.getLongValue() <= 0L || unboundedKeys.contains(entry.getKey())
+                        || !(entry.getKey() instanceof AEItemKey itemKey)) {
                         continue;
                     }
                     for (ChainTarget target : chainTargets) {
@@ -227,7 +253,8 @@ public final class MegaBulkMarkingService {
                     targets.stream().map(TargetCell::storage).toList());
                  var batch = ECOCellMutationBatch.open()) {
                 for (var entry : available) {
-                    if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey key)) continue;
+                    if (entry.getLongValue() <= 0L || unboundedKeys.contains(entry.getKey())
+                        || !(entry.getKey() instanceof AEItemKey key)) continue;
                     for (ChainTarget target : chainTargets) {
                         if (sameMarker(target.marker(), key)) {
                             transferred = saturatingAdd(transferred, transfer(
