@@ -11,14 +11,12 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
-import cn.dancingsnow.neoecoae.mixins.compat.ae2omnicells.crafting.OmniCpuJobAccessor;
-import cn.dancingsnow.neoecoae.mixins.compat.ae2omnicells.crafting.OmniCpuTaskAccessor;
-import cn.dancingsnow.neoecoae.mixins.compat.ae2omnicells.crafting.OmniCpuTimeTrackerAccessor;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 
-/** Adapter for Omni Cells' ordinary AE2 CPU engine. No second loop is installed over managed CPU engines. */
+/** Shared verified-batch dispatcher. One accepted worker batch consumes one native CPU push slot. */
 public final class ECOExternalCpuFastPath {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("neoecoae");
     private final ECOCraftingEnergyTransaction energy;
     private final Runnable markDirty;
 
@@ -27,18 +25,30 @@ public final class ECOExternalCpuFastPath {
         energy = new ECOCraftingEnergyTransaction(markDirty, () -> TickHandler.instance().getCurrentTick());
     }
 
+    private static boolean fitsWaiting(ECOExternalCpuJob access, ECOFastPathFacade.PreparedBatch batch) {
+        var totals = new java.util.HashMap<appeng.api.stacks.AEKey, Long>();
+        try {
+            for (var output : batch.outputs()) totals.merge(output.what(), output.amount(), Math::addExact);
+            for (var output : batch.remainders()) totals.merge(output.what(), output.amount(), Math::addExact);
+            for (var entry : totals.entrySet()) Math.addExact(
+                    access.neoecoae$waitingFor().list.get(entry.getKey()), entry.getValue());
+            return true;
+        } catch (ArithmeticException overflow) { return false; }
+    }
+
+    public void refundIdleCredit(IEnergyService power) { energy.returnIdleCredit(power); }
     public void read(CompoundTag tag) { energy.readFromNBT(tag); }
     public void write(CompoundTag tag) { energy.writeToNBT(tag); }
 
     public int execute(Object owner, Object job, ListCraftingInventory inventory, int maxPatterns,
             CraftingService crafting, IEnergyService power, Level level) {
         energy.returnIdleCredit(power);
-        if (!(job instanceof OmniCpuJobAccessor access) || access.neoecoae$suspended() || maxPatterns < 2) return 0;
+        if (!(job instanceof ECOExternalCpuJob access) || access.neoecoae$suspended() || maxPatterns <= 0) return 0;
         var iterator = access.neoecoae$tasks().entrySet().iterator();
         while (iterator.hasNext()) {
             var task = iterator.next();
-            var progress = (OmniCpuTaskAccessor) task.getValue();
-            long limit = Math.min(maxPatterns, progress.neoecoae$value());
+            var progress = (ECOExternalCpuJob.Task) task.getValue();
+            long limit = progress.neoecoae$value();
             if (limit < 2) continue;
             var preview = new ListCraftingInventory(ignored -> {});
             preview.list.addAll(inventory.list);
@@ -47,19 +57,22 @@ public final class ECOExternalCpuFastPath {
             var inputs = CraftingCpuHelper.extractPatternInputs(task.getKey(), preview, level, outputs, remainders);
             if (inputs == null) continue;
             for (var provider : crafting.getProviders(task.getKey())) {
-                if (provider.isBusy()) continue;
+                if (provider.isBusy() || !ECOFastPathFacade.supports(provider)) continue;
                 var batch = ECOFastPathFacade.prepare(provider, task.getKey(), inputs, outputs, remainders,
                     inventory, limit, CraftingCpuHelper.calculatePatternPower(inputs), power, level,
                     access.neoecoae$link().getCraftingID());
-                if (batch == null || batch.craftCount() < 2) continue;
+                if (batch == null || batch.craftCount() < 2 || !fitsWaiting(access, batch)) continue;
                 var registration = ECOUselessDynamicOutputBridge.prepare(owner, task.getKey(), batch.craftCount());
                 if (registration == null) continue;
                 try {
-                    if (!batch.submit(ignored -> energy.reserve(power, CraftingCpuHelper.calculatePatternPower(inputs), batch.craftCount()))) continue;
+                    if (!batch.submit(amount -> energy.reserve(power, amount))) continue;
                 } catch (ECOIndeterminateBatchException failure) {
                     access.neoecoae$suspended(true);
                     markDirty.run();
                     throw failure;
+                } catch (RuntimeException rejected) {
+                    LOGGER.warn("External CPU batch rejected; resources restored", rejected);
+                    continue;
                 }
                 try {
                     progress.neoecoae$value(progress.neoecoae$value() - batch.craftCount());
@@ -68,14 +81,13 @@ public final class ECOExternalCpuFastPath {
                     }
                     for (var remainder : batch.remainders()) {
                         access.neoecoae$waitingFor().insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
-                        ((OmniCpuTimeTrackerAccessor) access.neoecoae$timeTracker())
-                            .neoecoae$addMaxItems(remainder.amount(), remainder.what().getType());
+                        access.neoecoae$addRemainderItems(remainder.amount(), remainder.what().getType());
                     }
                     registration.commit(access.neoecoae$link().getCraftingID(),
                         access.neoecoae$finalOutput() == null ? null : access.neoecoae$finalOutput().what());
                     if (progress.neoecoae$value() <= 0) iterator.remove();
                     markDirty.run();
-                    return Math.toIntExact(batch.craftCount());
+                    return 1;
                 } catch (RuntimeException failure) {
                     access.neoecoae$suspended(true);
                     markDirty.run();
@@ -85,4 +97,5 @@ public final class ECOExternalCpuFastPath {
         }
         return 0;
     }
+
 }

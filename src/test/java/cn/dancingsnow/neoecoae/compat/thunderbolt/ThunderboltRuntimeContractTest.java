@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.compat.thunderbolt;
 import static org.junit.jupiter.api.Assertions.*;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -11,7 +12,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.List;
@@ -61,9 +61,9 @@ class ThunderboltRuntimeContractTest {
         var instance = loader.loadClass(adapter).getConstructor().newInstance();
         assertEquals(false, instance.getClass().getMethod("supports", IPatternDetails.class)
                 .invoke(instance, mock(IPatternDetails.class)));
-        var provider = loader.loadClass(dispatcher).getDeclaredMethod("forProvider", Object.class);
+        var provider = loader.loadClass(dispatcher).getDeclaredMethod("forProvider", ICraftingProvider.class);
         provider.setAccessible(true);
-        assertNull(provider.invoke(null, new Object()));
+        assertNull(provider.invoke(null, mock(ICraftingProvider.class)));
     }
 
     @Test void providerApiIsNotInjectedIntoNeoEcoHosts() throws Exception {
@@ -140,56 +140,34 @@ class ThunderboltRuntimeContractTest {
                     }
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
-        var contract = dispatcherMethod("forProvider", Object.class).invoke(null, provider);
-        assertNotNull(contract);
-        assertEquals(64L, dispatcherMethod("inspect", IPatternDetails.class, KeyCounter[].class, long.class)
-                .invoke(contract, details, inputs, 10L));
-        assertEquals(true, dispatcherMethod("unbounded", Object.class, IPatternDetails.class)
-                .invoke(contract, provider, details));
-        assertEquals(7L, dispatcherMethod("push", IPatternDetails.class, KeyCounter[].class, long.class)
-                .invoke(contract, details, inputs, 10L));
+        assertEquals(64L, ThunderboltApi.invoke(
+                ThunderboltApi.method(api, "getBatchCapacity", IPatternDetails.class), provider, details));
+        assertEquals("UNBOUNDED", ((Enum<?>) ThunderboltApi.invoke(
+                ThunderboltApi.method(api, "getBatchDispatchMode", IPatternDetails.class), provider, details)).name());
+        assertEquals(7L, ThunderboltApi.invoke(ThunderboltApi.method(api, "pushBatch",
+                IPatternDetails.class, KeyCounter[].class, long.class), provider, details, inputs, 10L));
     }
 
-    @Test void failedBatchPushRetainsAmbiguousOwnershipHandling() throws Exception {
+    @Test void reflectiveBatchPushPreservesProviderFailure() throws Exception {
         var failure = new IllegalStateException("provider failed after accepting inputs");
         var provider = Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{batchContract()},
                 (proxy, method, args) -> { throw failure; });
-        var contract = dispatcherMethod("forProvider", Object.class).invoke(null, provider);
-        var thrown = assertThrows(InvocationTargetException.class,
-                () -> dispatcherMethod("push", IPatternDetails.class, KeyCounter[].class, long.class)
-                        .invoke(contract, null, new KeyCounter[0], 1L));
-        assertEquals("AmbiguousDispatchException", thrown.getCause().getClass().getSimpleName());
-        assertSame(failure, thrown.getCause().getCause());
+        var push = ThunderboltApi.method(batchContract(), "pushBatch",
+                IPatternDetails.class, KeyCounter[].class, long.class);
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> ThunderboltApi.invoke(push, provider, null, new KeyCounter[0], 1L)));
     }
 
-    @Test void nativeBatchOwnsAdaptiveDispatchAndDisabledOneCopyFallback() throws Exception {
-        var details = mock(IPatternDetails.class);
-        var inputs = new KeyCounter[]{new KeyCounter()};
+    @Test void nativeBatchContractCannotOverrideEcoOwnedMultiplierPolicy() throws Exception {
         var optionalSession = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.Session.class);
         try (var optional = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.class)) {
-            for (long capacity : new long[]{Long.MAX_VALUE, 1L}) {
-                var provider = Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{batchContract()},
-                        (proxy, method, args) -> switch (method.getName()) {
-                            case "getBatchCapacity" -> capacity;
-                            case "pushBatch" -> {
-                                assertSame(details, args[0]);
-                                assertSame(inputs, args[1]);
-                                long offered = (long) args[2];
-                                yield offered - Math.min(capacity, 3L);
-                            }
-                            default -> throw new UnsupportedOperationException(method.getName());
-                        });
+                var provider = Proxy.newProxyInstance(getClass().getClassLoader(),
+                        new Class<?>[]{batchContract(), ICraftingProvider.class},
+                        (proxy, method, args) -> { throw new AssertionError("Unexpected native dispatch: " + method); });
                 optional.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.open(provider))
                         .thenReturn(optionalSession);
-                var contract = dispatcherMethod("forProvider", Object.class).invoke(null, provider);
-                long available = (long) dispatcherMethod("inspect", IPatternDetails.class, KeyCounter[].class, long.class)
-                        .invoke(contract, details, inputs, 10L);
-                assertEquals(capacity, available);
-                long offered = Math.min(available, 10L);
-                assertEquals(offered - Math.min(capacity, 3L),
-                        dispatcherMethod("push", IPatternDetails.class, KeyCounter[].class, long.class)
-                                .invoke(contract, details, inputs, offered));
-            }
+                assertNull(dispatcherMethod("forProvider", ICraftingProvider.class).invoke(null, provider));
+            optional.verifyNoInteractions();
             verifyNoInteractions(optionalSession);
         }
     }

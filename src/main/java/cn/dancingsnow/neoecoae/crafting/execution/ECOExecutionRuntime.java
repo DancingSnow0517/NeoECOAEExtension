@@ -59,6 +59,7 @@ public final class ECOExecutionRuntime {
     private final int[] stepCursor;
     private final int[] dynamicCursor;
     private final List<long[]> remainingSteps;
+    private final List<long[]> remainingLaps;
     private final List<Int2LongLinkedOpenHashMap> remainingDynamicFirings;
     private final BitSet completedPhases;
     private final int[] unfinishedTasksByPhase;
@@ -102,6 +103,7 @@ public final class ECOExecutionRuntime {
         this.stepCursor = new int[plan.phases().size()];
         this.dynamicCursor = new int[plan.phases().size()];
         this.remainingSteps = new ArrayList<>(plan.phases().size());
+        this.remainingLaps = new ArrayList<>(plan.phases().size());
         this.remainingDynamicFirings = new ArrayList<>(plan.phases().size());
         this.completedPhases = new BitSet(plan.phases().size());
         this.inputKeysByTaskId = new ArrayList<>(plan.tasks().size());
@@ -130,6 +132,9 @@ public final class ECOExecutionRuntime {
             long[] steps = new long[phase.steps().size()];
             for (int i = 0; i < steps.length; i++) steps[i] = phase.steps().get(i).count();
             remainingSteps.add(steps);
+            long[] laps = new long[steps.length];
+            for (int i = 0; i < laps.length; i++) laps[i] = phase.steps().get(i).repetitions();
+            remainingLaps.add(laps);
             remainingDynamicFirings.add(new Int2LongLinkedOpenHashMap(phase.dynamicFirings()));
             startupSeedRemainingByPhase.add(new Object2LongLinkedOpenHashMap<>(phase.initialSeed()));
         }
@@ -516,6 +521,7 @@ public final class ECOExecutionRuntime {
         for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
             CompoundTag phase = new CompoundTag();
             phase.putLongArray("steps", remainingSteps.get(phaseIndex));
+            phase.putLongArray("laps", remainingLaps.get(phaseIndex));
             ListTag dynamic = new ListTag();
             for (var entry : remainingDynamicFirings.get(phaseIndex).int2LongEntrySet()) {
                 CompoundTag firing = new CompoundTag();
@@ -568,6 +574,18 @@ public final class ECOExecutionRuntime {
                 throw new IllegalArgumentException("Execution runtime step count changed");
             }
             System.arraycopy(steps, 0, runtime.remainingSteps.get(phaseIndex), 0, steps.length);
+            if (phase.contains("laps")) {
+                long[] laps = phase.getLongArray("laps");
+                if (laps.length != steps.length) throw new IllegalArgumentException("Execution circuit shape changed");
+                for (int i = 0; i < laps.length; i++) {
+                    if (laps[i] < 1L || laps[i] > plan.phases().get(phaseIndex).steps().get(i).repetitions()) {
+                        throw new IllegalArgumentException("Invalid remaining circuit laps");
+                    }
+                }
+                System.arraycopy(laps, 0, runtime.remainingLaps.get(phaseIndex), 0, laps.length);
+            } else if (plan.phases().get(phaseIndex).steps().stream().anyMatch(step -> step.repetitions() > 1L)) {
+                throw new IllegalArgumentException("Repeated circuit is missing its runtime cursor");
+            }
             Int2LongMap dynamic = runtime.remainingDynamicFirings.get(phaseIndex);
             dynamic.clear();
             ListTag dynamicTag = phase.getList("dynamic", Tag.TAG_COMPOUND);
@@ -661,7 +679,17 @@ public final class ECOExecutionRuntime {
         var steps = plan.phases().get(phaseIndex).steps();
         long[] remaining = remainingSteps.get(phaseIndex);
         while (stepCursor[phaseIndex] < steps.size() && remaining[stepCursor[phaseIndex]] == 0L) {
-            stepCursor[phaseIndex]++;
+            int end = stepCursor[phaseIndex];
+            var step = steps.get(end);
+            long[] laps = remainingLaps.get(phaseIndex);
+            if (laps[end] > 1L) {
+                laps[end]--;
+                int start = end - step.repeatWidth() + 1;
+                for (int i = start; i <= end; i++) remaining[i] = steps.get(i).count();
+                stepCursor[phaseIndex] = start;
+            } else {
+                stepCursor[phaseIndex]++;
+            }
         }
     }
 
@@ -1063,17 +1091,9 @@ public final class ECOExecutionRuntime {
                     completedByTask[taskId] = Math.max(0L,
                         completedTaskCount(taskId));
                 }
-                boolean prefixComplete = true;
-                for (int index = 0; index < phase.steps().size(); index++) {
-                    var step = phase.steps().get(index);
-                    long consumed = prefixComplete
-                        ? Math.min(step.count(), completedByTask[step.taskId()]) : 0L;
-                    long rebuilt = step.count() - consumed;
-                    completedByTask[step.taskId()] -= consumed;
-                    if (rebuilt > 0L) prefixComplete = false;
-                    changed |= steps[index] != rebuilt;
-                    steps[index] = rebuilt;
-                }
+                long[] before = steps.clone();
+                restoreOrderedProgress(phaseIndex, completedByTask);
+                changed |= !Arrays.equals(before, steps);
                 stepCursor[phaseIndex] = 0;
                 advanceFinishedSteps(phaseIndex);
             } else if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
@@ -1098,6 +1118,44 @@ public final class ECOExecutionRuntime {
 
     private long completedTaskCount(int taskId) {
         return progressByTaskId[taskId].completedBounded(plan.task(taskId).totalCount());
+    }
+
+    /** Skip completed laps arithmetically when reloading; never replay one operation per craft. */
+    private void restoreOrderedProgress(int phaseIndex, long[] completedByTask) {
+        var steps = plan.phases().get(phaseIndex).steps();
+        long[] remaining = remainingSteps.get(phaseIndex);
+        long[] laps = remainingLaps.get(phaseIndex);
+        int[] groupEnd = new int[steps.size()];
+        for (int i = 0; i < groupEnd.length; i++) groupEnd[i] = i;
+        for (int end = 0; end < steps.size(); end++) {
+            var last = steps.get(end);
+            if (last.repetitions() > 1L) groupEnd[end - last.repeatWidth() + 1] = end;
+        }
+        boolean prefix = true;
+        for (int start = 0; start < steps.size();) {
+            int end = groupEnd[start];
+            long repetitions = steps.get(end).repetitions();
+            Map<Integer, Long> perLap = new LinkedHashMap<>();
+            for (int i = start; i <= end; i++) perLap.merge(steps.get(i).taskId(), steps.get(i).count(), Math::addExact);
+            long complete = prefix ? repetitions : 0L;
+            for (var entry : perLap.entrySet()) complete = Math.min(complete, completedByTask[entry.getKey()] / entry.getValue());
+            for (var entry : perLap.entrySet()) completedByTask[entry.getKey()] -= complete * entry.getValue();
+            for (int i = start; i <= end; i++) {
+                laps[i] = 1L;
+                remaining[i] = complete == repetitions ? 0L : steps.get(i).count();
+            }
+            laps[end] = Math.max(1L, repetitions - complete);
+            if (complete < repetitions) {
+                for (int i = start; i <= end; i++) {
+                    var step = steps.get(i);
+                    long consumed = prefix ? Math.min(step.count(), completedByTask[step.taskId()]) : 0L;
+                    remaining[i] -= consumed;
+                    completedByTask[step.taskId()] -= consumed;
+                    if (remaining[i] > 0L) prefix = false;
+                }
+            }
+            start = end + 1;
+        }
     }
 
     private void restoreLegacyStartupSeeds(Map<AEKey, Long> legacySeeds) {

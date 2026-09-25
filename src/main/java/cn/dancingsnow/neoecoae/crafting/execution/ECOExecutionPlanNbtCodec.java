@@ -75,6 +75,10 @@ public final class ECOExecutionPlanNbtCodec {
                 CompoundTag stepTag = new CompoundTag();
                 stepTag.putInt("task", step.taskId());
                 stepTag.putLong("count", step.count());
+                if (step.repetitions() > 1L) {
+                    stepTag.putInt("repeatWidth", step.repeatWidth());
+                    stepTag.putLong("repetitions", step.repetitions());
+                }
                 steps.add(stepTag);
             }
             phaseTag.put("steps", steps);
@@ -152,7 +156,9 @@ public final class ECOExecutionPlanNbtCodec {
             ListTag stepTags = phaseTag.getList("steps", Tag.TAG_COMPOUND);
             for (int stepIndex = 0; stepIndex < stepTags.size(); stepIndex++) {
                 CompoundTag step = stepTags.getCompound(stepIndex);
-                steps.add(new ECOExecutionPlan.ExecutionStep(step.getInt("task"), step.getLong("count")));
+                steps.add(new ECOExecutionPlan.ExecutionStep(step.getInt("task"), step.getLong("count"),
+                    step.contains("repeatWidth") ? step.getInt("repeatWidth") : 1,
+                    step.contains("repetitions") ? step.getLong("repetitions") : 1L));
             }
 
             Map<Integer, Long> dynamic = new LinkedHashMap<>();

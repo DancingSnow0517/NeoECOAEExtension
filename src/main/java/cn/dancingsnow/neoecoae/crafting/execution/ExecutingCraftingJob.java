@@ -129,6 +129,19 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
                 timeTracker.addMaxItems(amount, output.what().getType());
             }
         }
+        // ECO plans already carry base recipes and a verified execution schedule. Only
+        // imported plans need EAEP automatic wrappers converted back to logical crafts.
+        if (executionPlan == null && !exactOrder) {
+            var normalized = cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExternalPatternNormalization
+                    .normalize(plan.patternTimes());
+            tasks.clear();
+            normalized.forEach((pattern, count) -> {
+                var progress = new TaskProgress();
+                if (count.bitLength() > 63) progress.setExact(count, count);
+                else progress.value = count.longValueExact();
+                tasks.put(pattern, progress);
+            });
+        }
         this.executionPlan = executionPlan;
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact) {
             exactOrder = true;

@@ -137,8 +137,12 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
             case PARTIAL, CYCLE_UNRESOLVED -> cir.setReturnValue(result.plan());
             case CANCELLED -> throw new InterruptedException("ECO DAG crafting calculation cancelled");
             case PARTIAL_UNSUPPORTED, UNSUPPORTED, INTERNAL_ERROR -> {
-                // Keep the structured diagnostic, but preserve AE2 semantics through its native planner.
-                fallbackBypassLocal.set(true);
+                // ECOPlannerRequest is an explicit hard route. Returning ECO's
+                // diagnostic shell keeps AppliedEnhancements/OmniSequence from
+                // consuming the same calculation and falling through to AE2.
+                // Native fallback remains available only to ordinary AE2
+                // calculations that never opted into ECO.
+                cir.setReturnValue(result.plan());
             }
         }
     }

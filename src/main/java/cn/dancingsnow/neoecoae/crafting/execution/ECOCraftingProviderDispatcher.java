@@ -50,6 +50,7 @@ final class ECOCraftingProviderDispatcher {
         return budget.canAttemptOrdinary()
                 || fastPath.supportsBatch(provider)
                 || provider instanceof ECOParallelCraftingProvider
+                || cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(provider) != null
                 || processing.supports(provider, null);
     }
 

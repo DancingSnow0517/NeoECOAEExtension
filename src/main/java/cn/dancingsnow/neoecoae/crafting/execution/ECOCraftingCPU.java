@@ -41,6 +41,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
     private final IECOTier tier;
 
     /** Stable output-claim boundary for integrations that must not inspect the CPU logic internals. */
+    @Override
     public ECOCraftingOutputClaimSink getOutputClaimSink() {
         return logic;
     }

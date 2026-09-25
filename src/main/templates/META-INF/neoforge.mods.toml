@@ -66,10 +66,6 @@ config="${mod_id}.compat.extendedae.mixins.json"
 config="${mod_id}.compat.ae2omnicells.mixins.json"
 
 [[mixins]]
-config="${mod_id}.compat.omnicpu.mixins.json"
-requiredMods=["ae2omnicells"]
-
-[[mixins]]
 config="${mod_id}.compat.useless_mod.mixins.json"
 
 [[mixins]]

@@ -1,8 +1,0 @@
-{
-  "required": false,
-  "minVersion": "0.8",
-  "package": "cn.dancingsnow.neoecoae.mixins.compat.ae2omnicells.crafting",
-  "compatibilityLevel": "JAVA_21",
-  "mixins": ["OmniCpuJobAccessor", "OmniCpuTaskAccessor", "OmniCpuTimeTrackerAccessor", "OmniCpuFastPathMixin"],
-  "injectors": {"defaultRequire": 1}
-}

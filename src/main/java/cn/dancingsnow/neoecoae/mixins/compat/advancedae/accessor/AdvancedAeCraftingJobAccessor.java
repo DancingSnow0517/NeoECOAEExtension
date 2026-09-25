@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Pseudo
 @Mixin(value = ExecutingCraftingJob.class, remap = false)
-public interface AdvancedAeCraftingJobAccessor {
+public interface AdvancedAeCraftingJobAccessor extends cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob {
     @Accessor("link")
     CraftingLink neoecoae$getLink();
 
@@ -24,4 +24,13 @@ public interface AdvancedAeCraftingJobAccessor {
 
     @Accessor("timeTracker")
     ElapsedTimeTracker neoecoae$getTimeTracker();
+    @Accessor("suspended") boolean neoecoae$suspended();
+    @Accessor("suspended") void neoecoae$suspended(boolean value);
+    @Accessor("finalOutput") appeng.api.stacks.GenericStack neoecoae$finalOutput();
+    default Map<IPatternDetails, ?> neoecoae$tasks() { return neoecoae$getTasks(); }
+    default ListCraftingInventory neoecoae$waitingFor() { return neoecoae$getWaitingFor(); }
+    default CraftingLink neoecoae$link() { return neoecoae$getLink(); }
+    default void neoecoae$addRemainderItems(long amount, appeng.api.stacks.AEKeyType type) {
+        ((AdvancedAeElapsedTimeTrackerInvoker) neoecoae$getTimeTracker()).neoecoae$addMaxItems(amount, type);
+    }
 }

@@ -26,6 +26,7 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.output.ECOAdvancedAeCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
@@ -620,6 +621,16 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             cir.setReturnValue(CraftingSubmitResult.INCOMPLETE_PLAN);
             return;
         }
+        // Native-safe ECO plans may use supported external CPUs unchanged. Plans requiring
+        // ECO's phased/cycle or exact-order runtime must stay on an ECO CPU.
+        boolean ecoOwnedPlan = ECOPlanningResultRegistry.isECOOwnedPlan(job);
+        if (ecoOwnedPlan && target != null && !(target instanceof ECOCraftingCPU)
+                && !cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.accepts(target, job)) {
+            neoecoae$traceSubmissionRoute("eco-owned-plan-rejected-non-eco-cpu", job,
+                    CraftingSubmitResult.NO_CPU_FOUND);
+            cir.setReturnValue(CraftingSubmitResult.NO_CPU_FOUND);
+            return;
+        }
         // CPU selection is independent of which planner produced the standard ICraftingPlan.
         // Execution metadata is validated separately by the CPU when it accepts the job.
         if (target instanceof ECOCraftingCPU ecoCpu) {
@@ -655,6 +666,11 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             ICraftingSubmitResult result = cluster.submitJob(this.grid, job, src, requestingMachine);
             neoecoae$traceSubmissionRoute("automatic-eco-cluster", job, result);
             cir.setReturnValue(result);
+        } else if (ecoOwnedPlan && !cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.supportsPlan(job)) {
+            // Runtime-dependent plans cannot fall through when no eligible ECO CPU exists.
+            neoecoae$traceSubmissionRoute("eco-owned-plan-no-eco-cpu", job,
+                    CraftingSubmitResult.NO_CPU_FOUND);
+            cir.setReturnValue(CraftingSubmitResult.NO_CPU_FOUND);
         } else if (NEConfig.ecoCraftSubmissionDebug) {
             NEOECOAE_SUBMISSION_LOGGER.info(
                     "[ECO-CRAFT-SUBMIT] stage=eco-route route=no-eco-candidate-fallthrough plan={} unsuitable={}",

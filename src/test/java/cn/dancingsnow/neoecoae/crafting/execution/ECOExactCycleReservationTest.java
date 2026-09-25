@@ -67,6 +67,8 @@ class ECOExactCycleReservationTest {
             var run = mock(PatternRun.class);
             when(run.details()).thenReturn(pattern);
             when(run.count()).thenReturn(1L);
+            when(run.repeatWidth()).thenReturn(1);
+            when(run.repetitions()).thenReturn(1L);
             var cycle = mock(CycleSolveResult.class);
             when(cycle.status()).thenReturn(CycleSolveStatus.SUCCESS);
             when(cycle.patternTimes()).thenReturn(Map.of(pattern, 1L));

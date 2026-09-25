@@ -61,6 +61,16 @@ final class ECOCraftingJobLifecycleController {
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact)
             executionPlan = exact.execution();
 
+        // Imported automatic wrappers must be validated before taking network materials.
+        if (executionPlan == null && !(plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan)) {
+            try {
+                cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExternalPatternNormalization.normalize(plan.patternTimes());
+            } catch (RuntimeException invalidWrapper) {
+                AELog.warn("Cannot normalize imported crafting plan: %s", invalidWrapper.getMessage());
+                return CraftingSubmitResult.INCOMPLETE_PLAN;
+            }
+        }
+
         host.exactInventory().setEnabled(plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan);
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(
                 plan, grid, host.getInventory(), src);

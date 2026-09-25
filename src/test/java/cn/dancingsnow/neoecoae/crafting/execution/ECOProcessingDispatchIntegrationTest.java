@@ -30,6 +30,137 @@ import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 
 class ECOProcessingDispatchIntegrationTest {
+    @Test
+    void directTransportPartialAcceptanceRefundsOnlyUnownedCopiesAndStopsRamp() {
+        var f = new Fixture();
+        var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        var offers = new ArrayList<Long>();
+        when(session.submit(any(), any(), anyLong())).thenAnswer(call -> {
+            long offer = call.getArgument(2);
+            offers.add(offer);
+            return cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.accepted(1, offer == 1);
+        });
+        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.class)) {
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
+            var result = f.scaled(0, (request, provider) -> { fail("Direct adapter must not replay ordinary push"); return false; });
+            assertEquals(List.of(1L, 2L), offers);
+            assertEquals(2, result.acceptedCrafts());
+            assertEquals(98, f.inventory.list.get(f.key));
+            verify(f.energy).injectPower(1, Actionable.MODULATE);
+            verify(f.accounting, times(2)).apply(eq(f.request), argThat(r -> r.acceptedCrafts() == 1), any(), eq(f.provider));
+        }
+    }
+
+    @Test
+    void directTransportExceptionRetainsDebitedInputsAndSuspendsWithoutReplay() {
+        var f = new Fixture();
+        var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        when(session.submit(any(), any(), anyLong())).thenThrow(new IllegalStateException("Failure after machine insertion"));
+        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.class)) {
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
+            assertNull(f.scaled(0, (request, provider) -> { fail("Uncertain ownership cannot be retried"); return false; }));
+            assertEquals(99, f.inventory.list.get(f.key));
+            assertTrue(f.request.job().suspended);
+            verify(f.energy, never()).injectPower(anyDouble(), any());
+        }
+    }
+
+    @Test
+    void mekSmartQueueTakesWholeBatchBeforeThunderboltAndAccountsOnce() throws Exception {
+        var f = new Fixture();
+        var provider = mekProvider(f, thunderboltBatchContract());
+        when(provider.getPatternAeSupport().enqueueSmartPattern(eq(f.request.pattern()), any()))
+                .thenAnswer(call -> {
+                    KeyCounter[] total = call.getArgument(1);
+                    assertEquals(16, total[0].get(f.key));
+                    return true;
+                });
+
+        var result = f.dispatcher.tryDispatch(f.request, provider, 1, f.energy, ignored -> {});
+
+        assertEquals(16, result.acceptedCrafts());
+        assertEquals(84, f.inventory.list.get(f.key));
+        verify(f.accounting).apply(eq(f.request), argThat(r -> r.acceptedCrafts() == 16
+                && r.outputs().getFirst().amount() == 16), any(), eq(provider));
+        verify(provider, never()).pushPattern(any(), any());
+        assertTrue(mockingDetails(provider).getInvocations().stream()
+                .noneMatch(call -> call.getMethod().getName().equals("pushBatch")));
+        verify(f.energy, never()).injectPower(anyDouble(), any());
+    }
+
+    @Test
+    void mekQueueRejectionRefundsEntireBatchWithoutOrdinaryReplay() {
+        var f = new Fixture();
+        var provider = mekProvider(f);
+        assertNull(f.dispatcher.tryDispatch(f.request, provider, 1, f.energy, ignored -> {}));
+        assertEquals(100, f.inventory.list.get(f.key));
+        verify(f.energy).injectPower(16, Actionable.MODULATE);
+        verifyNoInteractions(f.accounting);
+        assertTrue(f.dispatcher.supports(provider, f.request.pattern()));
+        verify(provider, never()).pushPattern(any(), any());
+    }
+
+    @Test
+    void mekQueueFailureRetainsOwnershipAndSuspendsJob() {
+        var f = new Fixture();
+        var provider = mekProvider(f);
+        when(provider.getPatternAeSupport().enqueueSmartPattern(any(), any()))
+                .thenThrow(new IllegalStateException("save failed after enqueue"));
+        assertNull(f.dispatcher.tryDispatch(f.request, provider, 1, f.energy, ignored -> {}));
+        assertEquals(84, f.inventory.list.get(f.key));
+        assertTrue(f.request.job().suspended);
+        verify(f.energy, never()).injectPower(anyDouble(), any());
+        verifyNoInteractions(f.accounting);
+    }
+
+    @Test
+    void mekDisabledSmartQueueDispatchesOnlyOneCopy() {
+        var f = new Fixture();
+        var provider = mekProvider(f);
+        when(provider.isSmartPatternMultiplicationEnabled()).thenReturn(false);
+        when(provider.pushPattern(eq(f.request.pattern()), any())).thenReturn(true);
+        var result = f.dispatcher.tryDispatch(f.request, provider, 1, f.energy, ignored -> {});
+        assertEquals(1, result.acceptedCrafts());
+        assertEquals(99, f.inventory.list.get(f.key));
+        verify(provider.getPatternAeSupport(), never()).enqueueSmartPattern(any(), any());
+    }
+
+    @Test
+    void mekInactiveOrBusyOrUnregisteredMachineDoesNotTakeInputs() {
+        var f = new Fixture();
+        var provider = mekProvider(f);
+        var support = provider.getPatternAeSupport();
+        when(support.getMainNode().isActive()).thenReturn(false);
+        assertNull(f.dispatcher.tryDispatch(f.request, provider, 1, f.energy, ignored -> {}));
+        when(support.getMainNode().isActive()).thenReturn(true);
+        when(provider.isBusy()).thenReturn(true);
+        assertNull(f.dispatcher.tryDispatch(f.request, provider, 1, f.energy, ignored -> {}));
+        when(provider.isBusy()).thenReturn(false);
+        when(support.hasRegisteredPattern(any())).thenReturn(false);
+        assertNull(f.dispatcher.tryDispatch(f.request, provider, 1, f.energy, ignored -> {}));
+        assertEquals(100, f.inventory.list.get(f.key));
+        verify(support, never()).enqueueSmartPattern(any(), any());
+    }
+
+    private static com.beipuo.mekenergistics.blockentity.api.MeAeSupportOwner mekProvider(
+            Fixture f, Class<?>... extraInterfaces) {
+        var provider = mock(com.beipuo.mekenergistics.blockentity.api.MeAeSupportOwner.class,
+                extraInterfaces.length == 0 ? withSettings() : withSettings().extraInterfaces(extraInterfaces));
+        var support = mock(com.beipuo.mekenergistics.blockentity.support.AbstractMeAeSupport.class);
+        var node = mock(appeng.api.networking.IManagedGridNode.class);
+        when(provider.getPatternAeSupport()).thenReturn(support);
+        when(provider.isSmartPatternMultiplicationEnabled()).thenReturn(true);
+        when(support.getMainNode()).thenReturn(node);
+        when(node.isActive()).thenReturn(true);
+        when(support.hasRegisteredPattern(f.request.pattern())).thenReturn(true);
+        var input = f.request.pattern().getInputs()[0];
+        when(input.getMultiplier()).thenReturn(1L);
+        when(input.getPossibleInputs()).thenReturn(new GenericStack[]{new GenericStack(f.key, 1)});
+        return provider;
+    }
+
     @org.junit.jupiter.api.BeforeAll static void bootstrap() {
         cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
     }
@@ -92,7 +223,7 @@ class ECOProcessingDispatchIntegrationTest {
     }
 
     @Test
-    void nativeProviderReceivesFullAllowanceOnceAndRefundsLeftover() throws Exception {
+    void nativeProviderCannotOverrideEcoOwnedBatchPolicy() throws Exception {
         var f = new Fixture();
         var offers = new ArrayList<Long>();
         Class<?> contract = thunderboltBatchContract();
@@ -107,11 +238,10 @@ class ECOProcessingDispatchIntegrationTest {
             };
         });
         var result = f.dispatcher.tryDispatch(f.request, nativeProvider, 1, f.energy, ignored -> {});
-        assertEquals(List.of(16L), offers);
-        assertEquals(10, result.acceptedCrafts());
-        assertEquals(90, f.inventory.list.get(f.key));
-        verify(f.energy).injectPower(6, Actionable.MODULATE);
-        verify(f.accounting).apply(eq(f.request), argThat(r -> r.acceptedCrafts() == 10), any(), eq(nativeProvider));
+        assertNull(result);
+        assertTrue(offers.isEmpty());
+        assertEquals(100L, f.inventory.list.get(f.key));
+        verifyNoInteractions(f.accounting);
     }
 
     @Test
@@ -124,6 +254,7 @@ class ECOProcessingDispatchIntegrationTest {
                 (request, ignored) -> {
                     assertTrue(List.of(f.request.pattern()).contains(request.pattern()));
                     assertEquals(request.allowedCrafts(), request.pattern().getOutputs().getFirst().amount());
+                    assertEquals(request.allowedCrafts(), request.inputs()[0].get(f.key));
                     return true;
                 });
         assertEquals(16, result.acceptedCrafts());
@@ -148,7 +279,7 @@ class ECOProcessingDispatchIntegrationTest {
                 f.request.inputs(), f.request.outputs(), f.request.remainders(), f.request.allowedCrafts(),
                 f.inventory, f.request.level());
         assertTrue(ECOProcessingPatternDispatcher.supportsScaledDispatch(request, provider));
-        assertTrue(f.dispatcher.supports((ICraftingProvider) mock(thunderboltBatchContract()), pattern));
+        assertFalse(f.dispatcher.supports((ICraftingProvider) mock(thunderboltBatchContract()), pattern));
         f.dispatcher.beginTick(0);
         var result = f.dispatcher.tryScaledDispatch(request, provider, 1, f.energy, ignored -> {},
                 (scaled, ignored) -> {
@@ -162,7 +293,7 @@ class ECOProcessingDispatchIntegrationTest {
     }
 
     @Test
-    void mekEnergisticsSmartMultiplicationUsesThunderboltAndSettlesPhysicalAcceptance() throws Exception {
+    void nonMekNativeBatchContractDoesNotOverrideEcoPolicy() throws Exception {
         var f = new Fixture();
         var offers = new ArrayList<Long>();
         Class<?> contract = thunderboltBatchContract();
@@ -183,12 +314,10 @@ class ECOProcessingDispatchIntegrationTest {
 
         var result = f.dispatcher.tryDispatch(f.request, mekEnergisticsProvider, 1, f.energy, ignored -> {});
 
-        assertEquals(List.of(16L), offers);
-        assertEquals(4L, result.acceptedCrafts());
-        assertEquals(96L, f.inventory.list.get(f.key));
-        verify(f.energy).injectPower(12, Actionable.MODULATE);
-        verify(f.accounting).apply(eq(f.request), argThat(r -> r.acceptedCrafts() == 4), any(),
-                eq(mekEnergisticsProvider));
+        assertNull(result);
+        assertTrue(offers.isEmpty());
+        assertEquals(100L, f.inventory.list.get(f.key));
+        verifyNoInteractions(f.accounting);
     }
 
     private static Class<?> thunderboltBatchContract() throws ClassNotFoundException {

@@ -84,7 +84,8 @@ public final class ECOAdvancedAEPatternScaling {
         }
         @Override public boolean supportsPushInputsToExternalInventory() { return true; }
         @Override public void pushInputsToExternalInventory(KeyCounter[] inputs, PatternInputSink sink) {
-            for (var counter : inputs) for (var entry : counter) sink.pushInput(entry.getKey(), entry.getLongValue());
+            new cn.dancingsnow.neoecoae.compat.ae2.ECOProcessingExecutionPattern(original, multiplier)
+                    .pushInputsToExternalInventory(inputs, sink);
         }
         @Override public boolean directionalInputsSet() { return original.directionalInputsSet(); }
         @Override public HashMap<AEKey, Direction> getDirectionMap() { return original.getDirectionMap(); }

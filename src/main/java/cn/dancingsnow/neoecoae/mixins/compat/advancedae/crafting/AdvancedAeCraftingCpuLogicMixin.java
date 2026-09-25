@@ -9,7 +9,6 @@ import java.util.UUID;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
-import cn.dancingsnow.neoecoae.compat.advanced_ae.NeoECOAEAdvCraftingFastPathExecutor;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.AdvancedAeCraftingJobAccessor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -37,8 +36,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputReceiver {
     @Unique
     private static final Logger NEOECOAE$LOGGER = LoggerFactory.getLogger("neoecoae");
-    @Unique
-    private static boolean NEOECOAE$fastPathAccessorsBroken;
 
     @Shadow @Final AdvCraftingCPU cpu;
     @Shadow @Final private ListCraftingInventory inventory;
@@ -80,28 +77,59 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
         }
     }
 
+    @Unique private cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath neoecoae$batchDispatcher;
+
+    @Unique private cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath neoecoae$batchDispatcher() {
+        if (neoecoae$batchDispatcher == null) neoecoae$batchDispatcher =
+                new cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath(cpu::markDirty);
+        return neoecoae$batchDispatcher;
+    }
+
     @Inject(method = "executeCrafting", at = @At("HEAD"), cancellable = true, remap = false)
-    private void neoecoae$tryFastPath(
-            int maxPatterns,
-            appeng.me.service.CraftingService craftingService,
-            IEnergyService energyService,
-            @Nullable Level level,
-            CallbackInfoReturnable<Integer> cir) {
-        if (NEOECOAE$fastPathAccessorsBroken) {
-            return;
-        }
+    private void neoecoae$tryFastPath(int maxPatterns, appeng.me.service.CraftingService craftingService,
+            IEnergyService energyService, @Nullable Level level, CallbackInfoReturnable<Integer> cir) {
+        // Keep OmniSequence's extraction/accounting owner consistent with the AE2 adapter.
+        if (level == null || net.neoforged.fml.ModList.get().isLoaded("molecularmanipulator")) return;
         try {
-            int pushed = NeoECOAEAdvCraftingFastPathExecutor.execute(
-                    this.cpu, this.job, this.inventory, maxPatterns, craftingService, energyService, level);
-            if (pushed > 0) {
-                cir.setReturnValue(pushed);
-            }
-        } catch (AbstractMethodError | NoSuchMethodError | ClassCastException failure) {
-            // An AdvancedAE update can change or omit an accessor target. Native crafting remains a valid fallback;
-            // never let an optional FastPath integration take down the server tick.
-            NEOECOAE$fastPathAccessorsBroken = true;
-            NEOECOAE$LOGGER.warn("Disabling AdvancedAE FastPath for this crafting pass after an incompatible accessor", failure);
+            int pushed = neoecoae$batchDispatcher().execute(this, job, inventory,
+                    maxPatterns, craftingService, energyService, level);
+            if (pushed > 0) cir.setReturnValue(pushed);
+        } catch (RuntimeException failure) {
+            if (job instanceof AdvancedAeCraftingJobAccessor access) access.neoecoae$suspended(true);
+            cpu.markDirty();
+            NEOECOAE$LOGGER.error("Suspended AdvancedAE CPU after batch dispatch failure", failure);
+            cir.setReturnValue(0);
         }
+    }
+
+    @Inject(method = "trySubmitJob", at = @At("HEAD"), cancellable = true, remap = false)
+    private void neoecoae$validatePlan(appeng.api.networking.IGrid grid,
+            appeng.api.networking.crafting.ICraftingPlan plan,
+            appeng.api.networking.security.IActionSource source,
+            appeng.api.networking.crafting.ICraftingRequester requester,
+            CallbackInfoReturnable<appeng.api.networking.crafting.ICraftingSubmitResult> cir) {
+        if (!cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.supportsPlan(plan))
+            cir.setReturnValue(appeng.crafting.execution.CraftingSubmitResult.NO_CPU_FOUND);
+    }
+
+    @Inject(method = "tickCraftingLogic", at = @At("HEAD"), remap = false)
+    private void neoecoae$refundCredit(IEnergyService energy, appeng.me.service.CraftingService crafting, CallbackInfo ci) {
+        if (neoecoae$batchDispatcher != null) neoecoae$batchDispatcher.refundIdleCredit(energy);
+    }
+
+    @Inject(method = "readFromNBT", at = @At("TAIL"), remap = false)
+    private void neoecoae$readBatchEnergy(net.minecraft.nbt.CompoundTag tag,
+            net.minecraft.core.HolderLookup.Provider registries, CallbackInfo ci) {
+        neoecoae$batchDispatcher().read(tag.getCompound("neoecoaeFastPath"));
+    }
+
+    @Inject(method = "writeToNBT", at = @At("TAIL"), remap = false)
+    private void neoecoae$writeBatchEnergy(net.minecraft.nbt.CompoundTag tag,
+            net.minecraft.core.HolderLookup.Provider registries, CallbackInfo ci) {
+        if (neoecoae$batchDispatcher == null) return;
+        var ledger = new net.minecraft.nbt.CompoundTag();
+        neoecoae$batchDispatcher.write(ledger);
+        tag.put("neoecoaeFastPath", ledger);
     }
 
     /** Keeps the existing ECO worker's job-directed output routing for native single-craft fallback. */
