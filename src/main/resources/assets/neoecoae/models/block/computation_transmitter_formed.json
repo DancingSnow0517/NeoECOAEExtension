@@ -41,7 +41,7 @@
 		"coolant": {
 			"render_type": "cutout",
 			"textures": {
-				"coolant": "neoecoae:block/compute/coolant"
+				"coolant": "neoecoae:block/cryotheum_solution_still"
 			},
 			"elements": [
 				{

@@ -15,17 +15,23 @@ import cn.dancingsnow.neoecoae.all.NEEcoTiers;
 import cn.dancingsnow.neoecoae.all.NEFluids;
 import cn.dancingsnow.neoecoae.all.NEGridServices;
 import cn.dancingsnow.neoecoae.all.NEItems;
+import cn.dancingsnow.neoecoae.all.NEMenus;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETooltips;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.command.NECommands;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.network.ECONetwork;
+import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import lombok.Getter;
@@ -63,8 +69,12 @@ public class NeoECOAE {
 
     public NeoECOAE(IEventBus modBus, ModContainer modContainer) {
         MOD_BUS = modBus;
+        // Force the copied AE2/ExtendedAE-style menu type to enter AE2's menu
+        // registration queue during mod construction.
+        LargeIntegratedWorkingStationPatternProviderMenu.TYPE.toString();
 
         NECreativeTabs.register();
+        NEMenus.register(modBus);
         NEItems.register();
         NEBlocks.register();
         NEFluids.register();
@@ -89,12 +99,15 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);
         modBus.addListener(NeoECOAE::addClassicPack);
+        modBus.addListener(ECONetwork::registerPayloadHandlers);
+        NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::tick);
+        NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::stopped);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
+        NeoForge.EVENT_BUS.addListener(NECommands::register);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelSave);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTickPre);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTickPost);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
     }
 
     public static ResourceLocation id(String path) {
@@ -115,6 +128,16 @@ public class NeoECOAE {
         event.registerBlockEntity(
             Capabilities.FluidHandler.BLOCK,
             NEBlockEntities.OUTPUT_HATCH.get(),
+            (be, side) -> be.tank
+        );
+        event.registerBlockEntity(
+            Capabilities.FluidHandler.BLOCK,
+            NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.get(),
+            (be, side) -> be.tank
+        );
+        event.registerBlockEntity(
+            Capabilities.FluidHandler.BLOCK,
+            NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.get(),
             (be, side) -> be.tank
         );
         event.registerBlockEntity(
@@ -145,7 +168,7 @@ public class NeoECOAE {
         event.registerBlockEntity(
             Capabilities.EnergyStorage.BLOCK,
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-            ECOIntegratedWorkingStationBlockEntity::getEnergyStorage
+            ECOLargeIntegratedWorkingStationBlockEntity::getEnergyStorage
         );
     }
 
@@ -157,6 +180,7 @@ public class NeoECOAE {
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(
                 NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,
+                NEItems.ECO_BULK_ITEM_CELL_16M, NEItems.ECO_BULK_ITEM_CELL_64M, NEItems.ECO_BULK_ITEM_CELL_256M,
                 NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_FLUID_CELL_64M, NEItems.ECO_FLUID_CELL_256M
             );
             for (ItemEntry<ECOStorageCellItem> cell : cells) {
@@ -170,6 +194,7 @@ public class NeoECOAE {
     private static void initStorageCells(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOStorageCellItem.Handler.INSTANCE);
+            ECOStorageCells.register(ECOCreativeCell.Handler.INSTANCE);
         });
     }
 

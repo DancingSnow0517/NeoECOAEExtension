@@ -10,6 +10,7 @@ import net.neoforged.fml.loading.progress.StartupNotificationManager;
 import net.neoforged.neoforgespi.language.ModFileScanData;
 
 import java.lang.annotation.ElementType;
+import java.util.function.Consumer;
 
 @Slf4j
 public class IntegrationManager {
@@ -39,33 +40,37 @@ public class IntegrationManager {
     }
 
     public void load(String modid) {
-        for (IntegrationInstance instance : instances.get(modid)) {
-            instance.newInstance();
-            log.info("Loading integration {} for {}.", instance.instance(), modid);
-            instance.invoke();
-        }
+        load(modid, false);
     }
 
     public void loadClient(String modid) {
-        for (IntegrationInstance instance : instances.get(modid)) {
-            instance.newInstance();
-            log.info("Loading client integration {} for {}.", instance.instance(), modid);
-            instance.invokeClient();
-        }
+        load(modid, true);
     }
 
-    public void loadAllIntegrations() {
-        for (String key : instances.keys()) {
-            if (LoadingModList.get().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
-                load(key);
+    private void load(String modid, boolean client) {
+        for (IntegrationInstance instance : instances.get(modid)) {
+            instance.newInstance();
+            log.info("Loading {}integration {} for {}.", client ? "client " : "", instance.instance(), modid);
+            if (client) {
+                instance.invokeClient();
+            } else {
+                instance.invoke();
             }
         }
     }
 
+    public void loadAllIntegrations() {
+        loadAll(this::load);
+    }
+
     public void loadAllClientIntegrations() {
-        for (String key : instances.keys()) {
+        loadAll(this::loadClient);
+    }
+
+    private void loadAll(Consumer<String> loader) {
+        for (String key : instances.keySet()) {
             if (LoadingModList.get().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
-                loadClient(key);
+                loader.accept(key);
             }
         }
     }

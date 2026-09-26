@@ -1,12 +1,16 @@
 package cn.dancingsnow.neoecoae.blocks;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import appeng.menu.locator.MenuLocators;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -19,16 +23,34 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 
 public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMachineInterfaceBlockEntity<C>> implements BlockUIMenuType.BlockUI {
+    public static final EnumProperty<cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode> STORAGE_MODE =
+        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.class);
+
     public ECOMachineInterface(Properties properties) {
         super(properties);
+        registerDefaultState(defaultBlockState().setValue(STORAGE_MODE,
+            cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(STORAGE_MODE);
     }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         ECOMachineInterfaceBlockEntity<C> blockEntity = getBlockEntity(level, pos);
-        if (blockEntity == null || !blockEntity.supportsStorageInterfaceUi()
-            || !blockEntity.isInfiniteTransferAvailable()) {
+        if (blockEntity == null || !blockEntity.supportsInterfaceUi()) {
             return InteractionResult.PASS;
+        }
+        if (blockEntity.supportsIntegratedWorkingStationInterfaceUi()) {
+            if (player instanceof ServerPlayer serverPlayer
+                && blockEntity instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity workstationInterface) {
+                workstationInterface.openMenu(serverPlayer, MenuLocators.forBlockEntity(workstationInterface));
+                return InteractionResult.CONSUME;
+            }
+            return InteractionResult.SUCCESS;
         }
         if (player instanceof ServerPlayer serverPlayer) {
             BlockUIMenuType.openUI(serverPlayer, pos);
@@ -49,35 +71,11 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
     public boolean stillValid(BlockUIMenuType.BlockUIHolder holder) {
         return BlockUIMenuType.BlockUI.super.stillValid(holder)
             && holder.player.level().getBlockEntity(holder.pos) instanceof ECOMachineInterfaceBlockEntity<?> be
-            && be.supportsStorageInterfaceUi()
-            && be.isInfiniteTransferAvailable();
+            && be.supportsInterfaceUi();
     }
 
     @Override
-    protected RenderShape getRenderShape(BlockState state) {
-        if (state.getValue(FORMED)) {
-            return RenderShape.INVISIBLE;
-        }
-        return RenderShape.MODEL;
-    }
-
-    @Override
-    protected boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
-        return state.getValue(FORMED);
-    }
-
-    @Override
-    protected float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(FORMED) ? 1 : 0.2f;
-    }
-
-    @Override
-    protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return state.getValue(FORMED) ? Shapes.empty() : super.getVisualShape(state, level, pos, context);
-    }
-
-    @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(FORMED);
+    protected boolean hideWhenFormed() {
+        return true;
     }
 }

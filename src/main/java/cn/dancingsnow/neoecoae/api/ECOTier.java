@@ -85,17 +85,17 @@ public enum ECOTier implements IECOTier {
 
     @Override
     public int getCrafterParallel() {
-        return NEConfig.getCraftingParallelCoreCount(crafterParallel);
+        return crafterParallel;
     }
 
     @Override
     public int getOverclockedCrafterParallel() {
-        return NEConfig.getCraftingParallelCoreCount(overclockedCrafterParallel);
+        return overclockedCrafterParallel;
     }
 
     @Override
     public int getCPUAccelerators() {
-        return NEConfig.getComputationParallelCoreCount(cpuAccelerators);
+        return cpuAccelerators;
     }
 
     @Override

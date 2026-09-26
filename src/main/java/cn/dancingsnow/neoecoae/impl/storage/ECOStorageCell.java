@@ -20,8 +20,9 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -35,7 +36,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ECOStorageCell implements IECOStorageCell {
+public class ECOStorageCell implements IECOStorageMigrationCell {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     @Nullable
@@ -50,13 +51,17 @@ public class ECOStorageCell implements IECOStorageCell {
     private final IncludeExclude partitionListMode;
     private final boolean hasVoidUpgrade;
 
-    private final ItemStack cellStack;
+    /** Protected so specialised cells (for example the infinite resource cell) can read the cell stack. */
+    protected final ItemStack cellStack;
 
     private final int maxItemTypes;
     private int storedItems;
     @Getter
     private long storedItemCount;
     private Object2LongMap<AEKey> storedAmounts;
+    private long contentRevision;
+
+    public long contentRevision() { return contentRevision; }
     private boolean isPersisted = true;
     @Getter
     private final IECOTier tier;
@@ -69,8 +74,9 @@ public class ECOStorageCell implements IECOStorageCell {
             keyType = c.getKeyType();
             maxItemTypes = c.getTotalTypes();
             var storedStacks = getStoredStacks();
-            this.storedItems = storedStacks.size();
-            this.storedItemCount = storedStacks.stream().mapToLong(GenericStack::amount).sum();
+            this.storedItems = (int) storedStacks.stream().filter(stack -> stack.amount() > 0L).count();
+            this.storedItemCount = storedStacks.stream().filter(stack -> stack.amount() > 0L)
+                .mapToLong(GenericStack::amount).reduce(0L, NEMath::saturatingAdd);
             this.storedAmounts = null;
             this.cellType = c;
             this.tier = c.getTier();
@@ -113,22 +119,24 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     public long getRemainingItemCount() {
-        final long remaining = this.getFreeBytes() * keyType.getAmountPerByte() + this.getUnusedItemCount();
-        return remaining > 0 ? remaining : 0;
+        return NEMath.saturatingAdd(
+            NEMath.saturatingMultiply(getFreeBytes(), Math.max(1L, keyType.getAmountPerByte())),
+            getUnusedItemCount());
     }
 
     public long getFreeBytes() {
-        return this.getTotalBytes() - this.getUsedBytes();
+        return Math.max(0L, this.getTotalBytes() - this.getUsedBytes());
     }
 
     public int getUnusedItemCount() {
-        final int div = (int) (this.getStoredItemCount() % keyType.getAmountPerByte());
+        int amountPerByte = Math.max(1, keyType.getAmountPerByte());
+        final int div = (int) (this.getStoredItemCount() % amountPerByte);
 
         if (div == 0) {
             return 0;
         }
 
-        return keyType.getAmountPerByte() - div;
+        return amountPerByte - div;
     }
 
     public int getBytesPerType() {
@@ -136,8 +144,11 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     public long getUsedBytes() {
-        var bytesForItemCount = (this.getStoredItemCount() + this.getUnusedItemCount()) / keyType.getAmountPerByte();
-        return this.getStoredItemTypes() * this.getBytesPerType() + bytesForItemCount;
+        long storedAmount = Math.max(0L, getStoredItemCount());
+        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
+        long bytesForItems = ceilDivide(storedAmount, amountPerByte);
+        return NEMath.saturatingAdd(
+            NEMath.saturatingMultiply(getStoredItemTypes(), getBytesPerType()), bytesForItems);
     }
 
     public long getTotalBytes() {
@@ -171,8 +182,8 @@ public class ECOStorageCell implements IECOStorageCell {
 
     public static boolean canStoreKeyInsideStorageCell(AEKey what) {
         if (what instanceof AEItemKey itemKey) {
-            var stack = itemKey.toStack();
-            var cellInv = StorageCells.getCellInventory(stack, null);
+            // Only probed, never mutated: skip the per-insert ItemStack copy.
+            var cellInv = StorageCells.getCellInventory(itemKey.getReadOnlyStack(), null);
             return cellInv == null || cellInv.canFitInsideCell();
         }
         return true;
@@ -190,13 +201,18 @@ public class ECOStorageCell implements IECOStorageCell {
     private void loadCellItems() {
         var stacks = getStoredStacks();
         for (var stack : stacks) {
-            storedAmounts.put(stack.what(), stack.amount());
+            if (stack.what() != null && stack.amount() > 0L) {
+                storedAmounts.put(stack.what(), NEMath.saturatingAdd(
+                    storedAmounts.getLong(stack.what()), stack.amount()));
+            }
         }
+        storedItems = storedAmounts.size();
+        storedItemCount = storedAmounts.values().longStream().reduce(0L, NEMath::saturatingAdd);
     }
 
     @Override
     public double getIdleDrain() {
-        return (double) getTotalBytes() / (1 << 20);
+        return cellType.getIdleDrain();
     }
 
     @Override
@@ -210,7 +226,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
         for (var entry : this.storedAmounts.object2LongEntrySet()) {
             long amount = entry.getLongValue();
-            itemCount += amount;
+            itemCount = NEMath.saturatingAdd(itemCount, amount);
 
             if (amount > 0) {
                 stacks.add(new GenericStack(entry.getKey(), amount));
@@ -238,7 +254,13 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     protected void saveChanges() {
+        contentRevision++;
         this.isPersisted = false;
+        if (ECOCellMutationBatch.defer(this)) return;
+        flushBatchedChanges();
+    }
+
+    void flushBatchedChanges() {
         // The host only marks its block entity dirty; it does not serialize this
         // transient inventory instance back into the cell stack for us.
         this.persist();
@@ -247,9 +269,15 @@ public class ECOStorageCell implements IECOStorageCell {
         }
     }
 
+    /** Specialized cells may accept multiple channels with the same amount-per-byte accounting. */
+    protected boolean acceptsKey(AEKey key) {
+        return keyType.contains(key);
+    }
+
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (amount == 0 || !keyType.contains(what)) {
+        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
+        if (amount == 0 || !acceptsKey(what)) {
             return 0;
         }
 
@@ -274,7 +302,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     /** Inserts for a lossless migration without applying the void upgrade's reported acceptance. */
     public long insertForMigration(AEKey what, long amount, Actionable mode) {
-        if (amount <= 0 || !keyType.contains(what)) {
+        if (amount <= 0 || !acceptsKey(what)) {
             return 0;
         }
         if (!partitionList.matchesFilter(what, partitionListMode) || cellType.isBlackListed(cellStack, what)) {
@@ -283,21 +311,132 @@ public class ECOStorageCell implements IECOStorageCell {
         return innerInsert(what, amount, mode);
     }
 
-    private long innerInsert(AEKey what, long amount, Actionable mode) {
-        if (!canStoreKeyInsideStorageCell(what)) {
-            return 0;
+    /** Marks an in-memory mutation from a specialised cell implementation. */
+    protected final void markContentChanged() {
+        contentRevision = contentRevision == Long.MAX_VALUE ? 0L : contentRevision + 1L;
+    }
+
+    /** Joins the current controller mutation batch, if one is active. */
+    protected final boolean deferMutationBatch() {
+        return ECOCellMutationBatch.defer(this);
+    }
+
+    @Override
+    public long insertForMigration(AEKey what, long amount, Actionable mode, IActionSource source) {
+        return insertForMigration(what, amount, mode);
+    }
+
+    /**
+     * Computes migration capacity against a caller-owned inventory snapshot. A restore preflight must not mutate a
+     * real cell because some cell implementations back copied ItemStacks with world-level storage.
+     */
+    public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {
+        if (simulatedContents == null) return 0L;
+
+        long currentAmount = simulatedContents.get(what);
+        long storedTypes = 0L;
+        long storedItemCount = 0L;
+        for (Object2LongMap.Entry<AEKey> entry : simulatedContents) {
+            if (entry.getLongValue() > 0L) {
+                storedTypes = NEMath.saturatingAdd(storedTypes, 1L);
+                storedItemCount = NEMath.saturatingAdd(storedItemCount, entry.getLongValue());
+            }
         }
 
+        return simulateInsertForMigration(what, amount, currentAmount, storedTypes, storedItemCount);
+    }
+
+    public long simulateInsertForMigration(AEKey what, long amount, long currentAmount, long storedTypes, long storedItemCount) {
+        if (amount <= 0L || !acceptsKey(what) || !partitionList.matchesFilter(what, partitionListMode)
+            || cellType.isBlackListed(cellStack, what)) return 0L;
+
+        // A key already present in the simulated contents was accepted when it was inserted.
+        // Avoid probing nested-cell handlers again during migration preflight.
+        if (currentAmount <= 0L && !canStoreKeyInsideStorageCell(what)) return 0L;
+
+        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
+        long unusedItemCount = storedItemCount % amountPerByte == 0L
+            ? 0L
+            : amountPerByte - storedItemCount % amountPerByte;
+        long bytesForItems = ceilDivide(storedItemCount, amountPerByte);
+        long typeBytes = NEMath.saturatingMultiply(storedTypes, getBytesPerType());
+        long usedBytes = NEMath.saturatingAdd(typeBytes, bytesForItems);
+        long freeBytes = Math.max(0L, getTotalBytes() - usedBytes);
+        long remainingItemCount = NEMath.saturatingAdd(
+            NEMath.saturatingMultiply(freeBytes, amountPerByte), unusedItemCount);
+        long remainingTypes = Math.min(
+            Math.max(0L, getTotalItemTypes() - Math.min(getTotalItemTypes(), storedTypes)),
+            getBytesPerType() <= 0 ? 0L : freeBytes / getBytesPerType());
+
+        if (currentAmount <= 0L) {
+            boolean canHoldNewType = (freeBytes > getBytesPerType()
+                || freeBytes == getBytesPerType() && unusedItemCount > 0L)
+                && remainingTypes > 0L;
+            if (!canHoldNewType) {
+                return 0L;
+            }
+            remainingItemCount = Math.max(
+                0L,
+                remainingItemCount - NEMath.saturatingMultiply(getBytesPerType(), amountPerByte));
+        }
+
+        return Math.min(amount, remainingItemCount);
+    }
+
+    @Override
+    public long simulateInsertForMigration(
+        AEKey what,
+        long amount,
+        KeyCounter simulatedContents,
+        long simulatedTypes,
+        long simulatedAmount
+    ) {
+        return simulateInsertForMigration(
+            what, amount, simulatedContents.get(what), simulatedTypes, simulatedAmount);
+    }
+
+    @Override
+    public long getUsedBytesForMigration(KeyCounter simulatedContents) {
+        if (simulatedContents == null) {
+            return 0L;
+        }
+        long storedTypes = 0L;
+        long storedItemCount = 0L;
+        for (Object2LongMap.Entry<AEKey> entry : simulatedContents) {
+            if (entry.getLongValue() > 0L) {
+                storedTypes = NEMath.saturatingAdd(storedTypes, 1L);
+                storedItemCount = NEMath.saturatingAdd(storedItemCount, entry.getLongValue());
+            }
+        }
+        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
+        long unusedItemCount = storedItemCount % amountPerByte == 0L
+            ? 0L
+            : amountPerByte - storedItemCount % amountPerByte;
+        long bytesForItems = ceilDivide(storedItemCount, amountPerByte);
+        return NEMath.saturatingAdd(
+            NEMath.saturatingMultiply(storedTypes, getBytesPerType()), bytesForItems);
+    }
+
+    private static long ceilDivide(long amount, long divisor) {
+        long quotient = amount / divisor;
+        return amount % divisor == 0L ? quotient : quotient + 1L;
+    }
+
+    private long innerInsert(AEKey what, long amount, Actionable mode) {
         var currentAmount = this.getCellItems().getLong(what);
         long remainingItemCount = this.getRemainingItemCount();
 
         if (currentAmount <= 0) {
+            if (!canStoreKeyInsideStorageCell(what)) {
+                return 0;
+            }
             if (!canHoldNewItem()) {
                 // 无更多类型空间
                 return 0;
             }
 
-            remainingItemCount -= (long) this.getBytesPerType() * keyType.getAmountPerByte();
+            remainingItemCount = Math.max(0L, remainingItemCount
+                - NEMath.saturatingMultiply(this.getBytesPerType(), keyType.getAmountPerByte()));
             if (remainingItemCount <= 0) {
                 return 0;
             }
@@ -318,7 +457,7 @@ public class ECOStorageCell implements IECOStorageCell {
             if (currentAmount <= 0) {
                 storedItems++;
             }
-            storedItemCount = saturatedAdd(storedItemCount, amount);
+            storedItemCount = NEMath.saturatingAdd(storedItemCount, amount);
             this.saveChanges();
         }
 
@@ -327,6 +466,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (amount <= 0L || cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
         var currentAmount = getCellItems().getLong(what);
         if (currentAmount > 0) {
             if (amount >= currentAmount) {
@@ -354,15 +494,30 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public boolean canFitInsideCell() {
-        return getAvailableStacks().isEmpty();
+        return !cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
+            && getAvailableStacks().isEmpty();
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
+        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return;
+        getMigrationStacks(out);
+    }
+
+    @Override
+    public void getMigrationStacks(KeyCounter out) {
         for (var entry : Object2LongMaps.fastIterable(this.getCellItems())) {
             out.add(entry.getKey(), entry.getLongValue());
         }
     }
+
+    @Override
+    public java.util.Iterator<Object2LongMap.Entry<AEKey>> migrationEntries() {
+        return getCellItems().object2LongEntrySet().iterator();
+    }
+
+    @Override
+    public long getMigrationAmount(AEKey key) { return getCellItems().getLong(key); }
 
     @Override
     public Component getDescription() {
@@ -396,8 +551,9 @@ public class ECOStorageCell implements IECOStorageCell {
         saveChanges();
     }
 
-    private static long saturatedAdd(long a, long b) {
-        long result = a + b;
-        return result < 0 ? Long.MAX_VALUE : result;
+    @Override
+    public void clearMigrationStacks() {
+        clearAllStoredStacks();
     }
+
 }

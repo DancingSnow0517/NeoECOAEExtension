@@ -26,6 +26,7 @@ public class ECOComputationCellItem extends Item {
                 "tooltip.neoecoae.computation_cell",
                 Tooltips.ofUnformattedNumber(tier.getCPUTotalBytes())
             ));
+            tooltipComponents.add(Component.translatable("tooltip.neoecoae.computation_cell.install"));
         }
     }
 }

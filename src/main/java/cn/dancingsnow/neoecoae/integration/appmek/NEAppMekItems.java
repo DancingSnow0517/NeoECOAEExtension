@@ -43,6 +43,7 @@ public class NEAppMekItems {
                 .save(appmekInstalled);
         })
         .lang("ECO Storage Matrix Housing (Chemical)")
+        .model(ItemModelUtil.importedCellModel("eco_chemical_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE

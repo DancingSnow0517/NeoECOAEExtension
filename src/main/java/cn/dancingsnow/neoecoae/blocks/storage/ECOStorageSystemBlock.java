@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
@@ -31,6 +32,8 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty MIRRORED = BooleanProperty.create("mirrored");
+    public static final EnumProperty<cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode> STORAGE_MODE =
+        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.class);
 
     public ECOStorageSystemBlock(BlockBehaviour.Properties properties) {
         super(properties);
@@ -38,6 +41,7 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
             .setValue(FORMED, false)
             .setValue(FACING, Direction.NORTH)
             .setValue(MIRRORED, false)
+            .setValue(STORAGE_MODE, cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE)
         );
     }
 
@@ -45,6 +49,7 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(MIRRORED);
+        builder.add(STORAGE_MODE);
     }
 
     @Override

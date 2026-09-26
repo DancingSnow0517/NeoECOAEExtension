@@ -1,0 +1,430 @@
+package cn.dancingsnow.neoecoae.crafting.graph;
+
+import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.jetbrains.annotations.Nullable;
+
+/** Client-only presentation model. It never references planner or solver classes. */
+public final class ClientCraftingGraph {
+    public enum Kind { MATERIAL, PATTERN, CYCLE_GROUP, CYCLE_CLUSTER, FOLDER, REFERENCE }
+    public enum View { MAIN, CYCLE_FOCUS, CYCLE_CLUSTER }
+
+    public record Node(int id, Kind kind, String label, @Nullable AEKey key,
+            @Nullable CraftingGraphSnapshot.MaterialNode material,
+            @Nullable CraftingGraphSnapshot.PatternNode pattern,
+            @Nullable CraftingGraphSnapshot.CycleGroup cycle, @Nullable CycleCluster cluster) {
+        public Node(int id, Kind kind, String label, @Nullable AEKey key,
+                @Nullable CraftingGraphSnapshot.MaterialNode material,
+                @Nullable CraftingGraphSnapshot.PatternNode pattern,
+                @Nullable CraftingGraphSnapshot.CycleGroup cycle) {
+            this(id, kind, label, key, material, pattern, cycle, null);
+        }
+    }
+
+    public record Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected,
+            int materialNodeId) {
+        public Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected) {
+            this(fromId, toId, amount, kind, selected, -1);
+        }
+    }
+
+    private final CraftingGraphSnapshot source;
+    private final View view;
+    private final int rootId;
+    private final int focusedCycleId;
+    private final @Nullable CycleCluster focusedCluster;
+    private final @Nullable Integer focusedMaterialId;
+    private final Map<Integer, Node> nodes;
+    private final List<Link> links;
+    private final Map<Integer, CompactTreeNode> compactTreeNodes;
+    private final boolean compactTree;
+    private final Set<Integer> boundaryMaterialIds;
+    private final Set<Integer> externalInputIds;
+    private final Set<Integer> boundaryOutputIds;
+    private final Map<Integer, Set<Integer>> upstream;
+    private final Map<Integer, Set<Integer>> downstream;
+
+    private ClientCraftingGraph(CraftingGraphSnapshot source, View view, int rootId, int focusedCycleId,
+            Map<Integer, Node> nodes, List<Link> links) {
+        this(source, view, rootId, focusedCycleId, null, null, nodes, links, Map.of(), false, Set.of(), Set.of(),
+            Set.of());
+    }
+
+    private ClientCraftingGraph(CraftingGraphSnapshot source, View view, int rootId, int focusedCycleId,
+            Map<Integer, Node> nodes, List<Link> links, Map<Integer, CompactTreeNode> compactTreeNodes,
+            boolean compactTree) {
+        this(source, view, rootId, focusedCycleId, null, null, nodes, links, compactTreeNodes, compactTree, Set.of(),
+            Set.of(), Set.of());
+    }
+
+    private ClientCraftingGraph(CraftingGraphSnapshot source, View view, int rootId, int focusedCycleId,
+            @Nullable CycleCluster focusedCluster, @Nullable Integer focusedMaterialId,
+            Map<Integer, Node> nodes, List<Link> links,
+            Map<Integer, CompactTreeNode> compactTreeNodes, boolean compactTree, Set<Integer> boundaryMaterialIds,
+            Set<Integer> externalInputIds, Set<Integer> boundaryOutputIds) {
+        this.source = source;
+        this.view = view;
+        this.rootId = rootId;
+        this.focusedCycleId = focusedCycleId;
+        this.focusedCluster = focusedCluster;
+        this.focusedMaterialId = focusedMaterialId;
+        this.nodes = Map.copyOf(nodes);
+        this.links = List.copyOf(links);
+        this.compactTreeNodes = Map.copyOf(compactTreeNodes);
+        this.compactTree = compactTree;
+        this.boundaryMaterialIds = Set.copyOf(boundaryMaterialIds);
+        this.externalInputIds = Set.copyOf(externalInputIds);
+        this.boundaryOutputIds = Set.copyOf(boundaryOutputIds);
+        Map<Integer, Set<Integer>> up = new HashMap<>();
+        Map<Integer, Set<Integer>> down = new HashMap<>();
+        for (Link link : links) {
+            down.computeIfAbsent(link.fromId(), ignored -> new LinkedHashSet<>()).add(link.toId());
+            up.computeIfAbsent(link.toId(), ignored -> new LinkedHashSet<>()).add(link.fromId());
+        }
+        this.upstream = freeze(up);
+        this.downstream = freeze(down);
+    }
+
+    /** Package-visible benchmark fixture factory; production callers use {@link #main} and {@link #cycle}. */
+    static ClientCraftingGraph synthetic(int rootId, Map<Integer, Node> nodes, List<Link> links) {
+        return new ClientCraftingGraph(CraftingGraphSnapshot.EMPTY, View.MAIN, rootId, -1, nodes, links);
+    }
+
+    static ClientCraftingGraph compact(ClientCraftingGraph source, Map<Integer, Node> nodes, List<Link> links,
+            Map<Integer, CompactTreeNode> compactTreeNodes, int rootId) {
+        return new ClientCraftingGraph(source.source, source.view, rootId, source.focusedCycleId,
+            source.focusedCluster, source.focusedMaterialId, nodes, links, compactTreeNodes, true,
+            source.boundaryMaterialIds,
+            source.externalInputIds, source.boundaryOutputIds);
+    }
+
+    public static ClientCraftingGraph main(CraftingGraphSnapshot snapshot, boolean advanced) {
+        Map<Integer, CraftingGraphSnapshot.CycleGroup> cycleByMember = new HashMap<>();
+        for (var cycle : snapshot.cycleGroups()) {
+            for (int member : cycle.memberNodeIds()) cycleByMember.put(member, cycle);
+        }
+        List<CycleCluster> clusters = CycleClusterProjection.derive(snapshot);
+        Map<Integer, CycleCluster> clusterByComponent = new HashMap<>();
+        for (CycleCluster cluster : clusters) for (int componentId : cluster.componentIds()) {
+            clusterByComponent.put(componentId, cluster);
+        }
+        Map<Integer, Node> nodes = new LinkedHashMap<>();
+        for (var material : snapshot.nodes()) {
+            if (!cycleByMember.containsKey(material.nodeId())) {
+                nodes.put(material.nodeId(), materialNode(material));
+            }
+        }
+        for (var cycle : snapshot.cycleGroups()) {
+            if (clusterByComponent.containsKey(cycle.componentId())) continue;
+            int id = cycleVisualId(cycle.componentId());
+            nodes.put(id, new Node(id, Kind.CYCLE_GROUP, "循环 #" + cycle.componentId(), null, null, null, cycle));
+        }
+        for (CycleCluster cluster : clusters) {
+            int id = clusterVisualId(cluster.clusterId());
+            nodes.put(id, new Node(id, Kind.CYCLE_CLUSTER, "循环簇 #" + cluster.clusterId(), null, null,
+                null, null, cluster));
+        }
+        for (var pattern : snapshot.patterns()) {
+            if (!advanced && pattern.status() != CraftingGraphSnapshot.CandidateStatus.SELECTED) continue;
+            boolean internalCyclePattern = pattern.componentId() >= 0 && snapshot.cycleGroups().stream()
+                .anyMatch(cycle -> cycle.componentId() == pattern.componentId());
+            if (internalCyclePattern) continue;
+            int id = pattern.patternNodeId();
+            nodes.put(id, patternNode(id, pattern));
+        }
+
+        List<Link> links = new ArrayList<>();
+        Set<String> dedupe = new HashSet<>();
+        for (var edge : snapshot.edges()) {
+            int from = collapse(edge.fromId(), cycleByMember, clusterByComponent);
+            int to = collapse(edge.toId(), cycleByMember, clusterByComponent);
+            if (from == to || !nodes.containsKey(from) || !nodes.containsKey(to)) continue;
+            int materialId = edgeMaterialId(edge);
+            String identity = from + ":" + to + ":" + edge.kind() + ":" + materialId + ":" + edge.amount()
+                + ":" + edge.fromId() + ":" + edge.toId();
+            if (dedupe.add(identity)) links.add(new Link(from, to, edge.amount(), edge.kind(), edge.selected(),
+                materialId));
+        }
+        int root = collapse(snapshot.rootNodeId(), cycleByMember, clusterByComponent);
+        return new ClientCraftingGraph(snapshot, View.MAIN, root, -1, nodes, links);
+    }
+
+    public static ClientCraftingGraph cycle(CraftingGraphSnapshot snapshot, int componentId, boolean advanced) {
+        return cycle(snapshot, componentId, advanced, null);
+    }
+
+    /** Builds a material-flow view without consulting any planner or solver on the client. */
+    public static ClientCraftingGraph cycle(CraftingGraphSnapshot snapshot, int componentId, boolean advanced,
+            @Nullable AEKey focusedMaterial) {
+        var cycle = snapshot.cycleGroups().stream().filter(value -> value.componentId() == componentId).findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Unknown cycle component " + componentId));
+        Set<Integer> members = Set.copyOf(cycle.memberNodeIds());
+        Map<Integer, CraftingGraphSnapshot.PatternNode> cyclePatterns = new LinkedHashMap<>();
+        Set<Integer> externalInputIds = new LinkedHashSet<>();
+        Set<Integer> boundaryOutputIds = new LinkedHashSet<>();
+        for (var pattern : snapshot.patterns()) {
+            if (pattern.componentId() != componentId) continue;
+            cyclePatterns.put(pattern.patternNodeId(), pattern);
+            for (var input : pattern.inputs()) {
+                if (!members.contains(input.materialNodeId())) externalInputIds.add(input.materialNodeId());
+            }
+            for (var output : pattern.outputs()) {
+                if (!members.contains(output.materialNodeId())) boundaryOutputIds.add(output.materialNodeId());
+            }
+        }
+        for (var external : cycle.externalInputs()) {
+            if (external.key() == null) continue;
+            snapshot.nodes().stream().filter(node -> node.key() != null && node.key().equals(external.key()))
+                .filter(node -> !members.contains(node.nodeId()))
+                .findFirst().ifPresent(node -> externalInputIds.add(node.nodeId()));
+        }
+        Set<Integer> boundaryMaterialIds = new LinkedHashSet<>(externalInputIds);
+        boundaryMaterialIds.addAll(boundaryOutputIds);
+        Map<Integer, Node> nodes = new LinkedHashMap<>();
+        for (var material : snapshot.nodes()) if (members.contains(material.nodeId())
+                || boundaryMaterialIds.contains(material.nodeId())) {
+            nodes.put(material.nodeId(), materialNode(material));
+        }
+        for (var pattern : cyclePatterns.values()) {
+            int id = pattern.patternNodeId();
+            nodes.put(id, patternNode(id, pattern));
+        }
+        List<Link> links = new ArrayList<>();
+        Set<String> dedupe = new LinkedHashSet<>();
+        for (var pattern : cyclePatterns.values()) {
+            int patternId = pattern.patternNodeId();
+            boolean selected = pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED;
+            for (var input : pattern.inputs()) {
+                if (nodes.containsKey(input.materialNodeId())
+                        && dedupe.add(input.materialNodeId() + ":" + patternId + ":input:" + input.amount())) {
+                    // Focus view deliberately reverses the dependency edge: material/input -> pattern.
+                    links.add(new Link(input.materialNodeId(), patternId, input.amount(),
+                        CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, selected, input.materialNodeId()));
+                }
+            }
+            for (var output : pattern.outputs()) {
+                if (nodes.containsKey(output.materialNodeId())
+                        && dedupe.add(patternId + ":" + output.materialNodeId() + ":output:" + output.amount())) {
+                    CraftingGraphSnapshot.EdgeKind kind = members.contains(output.materialNodeId())
+                        ? CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT : CraftingGraphSnapshot.EdgeKind.BYPRODUCT;
+                    links.add(new Link(patternId, output.materialNodeId(), output.amount(), kind, selected,
+                        output.materialNodeId()));
+                }
+            }
+        }
+        if (cyclePatterns.isEmpty()) {
+            // Compatibility for snapshots produced before PatternNode was part of the cycle contract. New snapshots
+            // always take the material -> pattern -> material path above and never use this direct-edge fallback.
+            for (var edge : snapshot.edges()) {
+                if (members.contains(edge.fromId()) && members.contains(edge.toId())
+                        && dedupe.add(edge.fromId() + ":" + edge.toId() + ":legacy:" + edge.amount())) {
+                    links.add(new Link(edge.fromId(), edge.toId(), edge.amount(), edge.kind(), edge.selected(),
+                        edgeMaterialId(edge)));
+                }
+            }
+        }
+        int root = cycle.requiredOutputs().stream().map(CraftingGraphSnapshot.KeyAmount::key)
+            .map(key -> snapshot.nodes().stream().filter(node -> node.key().equals(key)).findFirst().orElse(null))
+            .filter(java.util.Objects::nonNull).map(CraftingGraphSnapshot.MaterialNode::nodeId).findFirst()
+            .orElse(cycle.memberNodeIds().isEmpty() ? -1 : cycle.memberNodeIds().getFirst());
+        Integer focusedId = focusedMaterial == null ? null : snapshot.nodes().stream()
+            .filter(node -> members.contains(node.nodeId()) && node.key().equals(focusedMaterial))
+            .map(CraftingGraphSnapshot.MaterialNode::nodeId).findFirst().orElse(null);
+        return new ClientCraftingGraph(snapshot, View.CYCLE_FOCUS, root, componentId, null, focusedId, nodes, links,
+            Map.of(), false, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
+    }
+
+    /** Builds a multi-SCC focus while retaining every component's independent ring membership. */
+    public static ClientCraftingGraph cluster(CraftingGraphSnapshot snapshot, CycleCluster cluster,
+            boolean advanced) {
+        Set<Integer> componentIds = Set.copyOf(cluster.componentIds());
+        Set<Integer> memberIds = new LinkedHashSet<>();
+        for (var cycle : snapshot.cycleGroups()) if (componentIds.contains(cycle.componentId())) {
+            memberIds.addAll(cycle.memberNodeIds());
+        }
+        for (InterCycleFlow flow : cluster.flows()) memberIds.add(flow.materialNodeId());
+
+        Map<Integer, Node> nodes = new LinkedHashMap<>();
+        for (var material : snapshot.nodes()) if (memberIds.contains(material.nodeId())) {
+            nodes.put(material.nodeId(), materialNode(material));
+        }
+        List<CraftingGraphSnapshot.PatternNode> patterns = snapshot.patterns().stream()
+            .filter(pattern -> componentIds.contains(pattern.componentId()))
+            .filter(pattern -> advanced || pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED
+                || pattern.firingCount() > 0)
+            .toList();
+        // A zero-firing/stock-satisfied SCC still needs a visible ring. Retain its structural patterns when the
+        // selected projection would otherwise leave the component empty.
+        Set<Integer> visibleComponents = patterns.stream().map(CraftingGraphSnapshot.PatternNode::componentId)
+            .collect(java.util.stream.Collectors.toSet());
+        if (!visibleComponents.containsAll(componentIds)) {
+            List<CraftingGraphSnapshot.PatternNode> expanded = new ArrayList<>(patterns);
+            for (var pattern : snapshot.patterns()) if (componentIds.contains(pattern.componentId())
+                    && !visibleComponents.contains(pattern.componentId())) expanded.add(pattern);
+            patterns = List.copyOf(expanded);
+        }
+        for (var pattern : patterns) nodes.put(pattern.patternNodeId(), patternNode(pattern.patternNodeId(), pattern));
+
+        List<Link> links = new ArrayList<>();
+        Set<String> dedupe = new LinkedHashSet<>();
+        for (var pattern : patterns) {
+            boolean selected = pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED;
+            for (var input : pattern.inputs()) if (nodes.containsKey(input.materialNodeId())) {
+                String identity = input.materialNodeId() + ":" + pattern.patternNodeId() + ":in:" + input.amount();
+                if (dedupe.add(identity)) links.add(new Link(input.materialNodeId(), pattern.patternNodeId(),
+                    input.amount(), CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, selected, input.materialNodeId()));
+            }
+            for (var output : pattern.outputs()) if (nodes.containsKey(output.materialNodeId())) {
+                String identity = pattern.patternNodeId() + ":" + output.materialNodeId() + ":out:" + output.amount();
+                if (dedupe.add(identity)) links.add(new Link(pattern.patternNodeId(), output.materialNodeId(),
+                    output.amount(), CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT, selected,
+                    output.materialNodeId()));
+            }
+        }
+        int root = cluster.componentIds().stream().map(componentId -> snapshot.cycleGroups().stream()
+                .filter(cycle -> cycle.componentId() == componentId).findFirst().orElse(null))
+            .filter(java.util.Objects::nonNull).flatMap(cycle -> cycle.memberNodeIds().stream()).findFirst().orElse(-1);
+        return new ClientCraftingGraph(snapshot, View.CYCLE_CLUSTER, root, -1, cluster, null, nodes, links, Map.of(),
+            false, Set.of(), Set.of(), Set.of());
+    }
+
+    public ClientCraftingGraph limited(int focusId, int depth, Set<Integer> collapsed) {
+        if (!nodes.containsKey(focusId) || depth < 0) return this;
+        Set<Integer> visible = new LinkedHashSet<>();
+        Set<Integer> frontier = Set.of(focusId);
+        for (int level = 0; level <= depth && !frontier.isEmpty(); level++) {
+            visible.addAll(frontier);
+            Set<Integer> next = new LinkedHashSet<>();
+            for (int id : frontier) {
+                if (collapsed.contains(id)) continue;
+                next.addAll(upstream(id));
+                next.addAll(downstream(id));
+            }
+            next.removeAll(visible);
+            frontier = next;
+        }
+        Map<Integer, Node> subset = new LinkedHashMap<>();
+        for (int id : visible) subset.put(id, nodes.get(id));
+        List<Link> subsetLinks = links.stream()
+            .filter(link -> visible.contains(link.fromId()) && visible.contains(link.toId())).toList();
+        return new ClientCraftingGraph(source, view, focusId, focusedCycleId, focusedCluster, focusedMaterialId,
+            subset, subsetLinks,
+            Map.of(), compactTree, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
+    }
+
+    /** Keeps missing materials and every dependency node needed to connect them to the plan root. */
+    public ClientCraftingGraph missingPaths() {
+        if (view != View.MAIN || !nodes.containsKey(rootId)) return this;
+
+        boolean hasSelectedLinks = links.stream().anyMatch(Link::selected);
+        Map<Integer, Set<Integer>> activeUpstream = new HashMap<>();
+        Map<Integer, Set<Integer>> activeDownstream = new HashMap<>();
+        for (Link link : links) {
+            if (hasSelectedLinks && !link.selected()) continue;
+            activeDownstream.computeIfAbsent(link.fromId(), ignored -> new LinkedHashSet<>()).add(link.toId());
+            activeUpstream.computeIfAbsent(link.toId(), ignored -> new LinkedHashSet<>()).add(link.fromId());
+        }
+        Set<Integer> reachable = new LinkedHashSet<>();
+        var frontier = new ArrayDeque<Integer>();
+        frontier.add(rootId);
+        while (!frontier.isEmpty()) {
+            int id = frontier.removeFirst();
+            if (!reachable.add(id)) continue;
+            for (int child : activeDownstream.getOrDefault(id, Set.of())) frontier.addLast(child);
+        }
+
+        Set<Integer> visible = new LinkedHashSet<>();
+        var missingFrontier = new ArrayDeque<Integer>();
+        for (int id : reachable) {
+            Node node = nodes.get(id);
+            if (node != null && node.material() != null
+                    && node.material().status() == CraftingGraphSnapshot.MaterialStatus.MISSING) {
+                visible.add(id);
+                missingFrontier.addLast(id);
+            }
+        }
+        while (!missingFrontier.isEmpty()) {
+            int id = missingFrontier.removeFirst();
+            for (int parent : activeUpstream.getOrDefault(id, Set.of())) {
+                if (reachable.contains(parent) && visible.add(parent)) missingFrontier.addLast(parent);
+            }
+        }
+
+        // Preserve a stable anchor when a valid plan contains no missing material.
+        visible.add(rootId);
+        Map<Integer, Node> subset = new LinkedHashMap<>();
+        for (int id : visible) subset.put(id, nodes.get(id));
+        List<Link> subsetLinks = links.stream()
+            .filter(link -> !hasSelectedLinks || link.selected())
+            .filter(link -> visible.contains(link.fromId()) && visible.contains(link.toId())).toList();
+        return new ClientCraftingGraph(source, view, rootId, focusedCycleId, focusedCluster, focusedMaterialId,
+            subset, subsetLinks, Map.of(), false, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
+    }
+
+    public CraftingGraphSnapshot source() { return source; }
+    public View view() { return view; }
+    public int rootId() { return rootId; }
+    public int focusedCycleId() { return focusedCycleId; }
+    public @Nullable CycleCluster focusedCluster() { return focusedCluster; }
+    public @Nullable Integer focusedMaterialId() { return focusedMaterialId; }
+    public Map<Integer, Node> nodes() { return nodes; }
+    public List<Link> links() { return links; }
+    public boolean isCompactTree() { return compactTree; }
+    public boolean isBoundaryMaterial(int id) { return boundaryMaterialIds.contains(id); }
+    public boolean isExternalInput(int id) { return externalInputIds.contains(id); }
+    public boolean isBoundaryOutput(int id) { return boundaryOutputIds.contains(id); }
+    public Map<Integer, CompactTreeNode> compactTreeNodes() { return compactTreeNodes; }
+    public CompactTreeNode compactTreeNode(int id) { return compactTreeNodes.get(id); }
+    public Set<Integer> upstream(int id) { return upstream.getOrDefault(id, Set.of()); }
+    public Set<Integer> downstream(int id) { return downstream.getOrDefault(id, Set.of()); }
+
+    public Set<Integer> neighborhood(int id) {
+        Set<Integer> result = new LinkedHashSet<>(upstream(id));
+        result.addAll(downstream(id));
+        return result;
+    }
+
+    public static int cycleVisualId(int componentId) { return Integer.MIN_VALUE + componentId; }
+    public static int clusterVisualId(int clusterId) { return Integer.MIN_VALUE / 2 + clusterId; }
+
+    private static int collapse(int id, Map<Integer, CraftingGraphSnapshot.CycleGroup> cycleByMember,
+            Map<Integer, CycleCluster> clusterByComponent) {
+        var cycle = cycleByMember.get(id);
+        if (cycle == null) return id;
+        CycleCluster cluster = clusterByComponent.get(cycle.componentId());
+        return cluster == null ? cycleVisualId(cycle.componentId()) : clusterVisualId(cluster.clusterId());
+    }
+
+    private static int edgeMaterialId(CraftingGraphSnapshot.Edge edge) {
+        return switch (edge.kind()) {
+            case PATTERN_OUTPUT, BYPRODUCT -> edge.fromId() >= 0 ? edge.fromId() : edge.toId();
+            case PATTERN_INPUT, CYCLE_INTERNAL -> edge.toId() >= 0 ? edge.toId() : edge.fromId();
+        };
+    }
+
+    private static Node materialNode(CraftingGraphSnapshot.MaterialNode material) {
+        String label = material.key() == null ? "Material #" + material.nodeId()
+            : material.key().getDisplayName().getString();
+        return new Node(material.nodeId(), Kind.MATERIAL, label, material.key(),
+            material, null, null);
+    }
+
+    private static Node patternNode(int id, CraftingGraphSnapshot.PatternNode pattern) {
+        return new Node(id, Kind.PATTERN, pattern.displayIdentity(), null, null, pattern, null);
+    }
+
+    private static Map<Integer, Set<Integer>> freeze(Map<Integer, Set<Integer>> values) {
+        Map<Integer, Set<Integer>> result = new HashMap<>();
+        values.forEach((key, value) -> result.put(key, Set.copyOf(value)));
+        return Map.copyOf(result);
+    }
+}

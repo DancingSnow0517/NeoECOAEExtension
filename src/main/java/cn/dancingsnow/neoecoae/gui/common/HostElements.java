@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
+import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -8,6 +9,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -52,6 +55,18 @@ public final class HostElements {
         return label;
     }
 
+    public static Component networkFrequencyTooltip(int frequency) {
+        return frequency == NEFrequencyAllocator.UNASSIGNED
+            ? Component.translatable("gui.neoecoae.host.network_frequency.cycle.unassigned")
+            : Component.translatable("gui.neoecoae.host.network_frequency.cycle", frequency);
+    }
+
+    public static <T extends UIElement> T tooltips(T element, Component... lines) {
+        element.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = HoverTooltips.empty().append(lines));
+        return element;
+    }
+
     public static UIElement horizontalRow(int height, int gap) {
         return new UIElement().layout(layout -> {
             layout.height(height);
@@ -59,14 +74,6 @@ public final class HostElements {
             layout.alignItems(AlignItems.CENTER);
             layout.gapAll(gap);
         });
-    }
-
-    public static UIElement tinyInsetPanel(int width, int height) {
-        UIElement panel = new UIElement();
-        panel.addChild(insetLayer("eco-storage-load-inset-edge", 0, 0, width, height));
-        panel.addChild(insetLayer("eco-storage-load-inset-border", 1, 1, width - 2, height - 2));
-        panel.addChild(insetLayer("eco-storage-load-inset-fill", 2, 2, width - 4, height - 4));
-        return panel;
     }
 
     public static <T extends UIElement> T absolute(T element, int left, int top, int width, int height) {
@@ -78,10 +85,6 @@ public final class HostElements {
             layout.height(height);
         });
         return element;
-    }
-
-    private static UIElement insetLayer(String className, int left, int top, int width, int height) {
-        return absolute(new UIElement().addClass(className), left, top, width, height);
     }
 
     private static void lineTextStyle(TextElement.TextStyle style) {

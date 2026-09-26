@@ -50,33 +50,13 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
         return this;
     }
 
-    public NEBlockEntityBuilder<T, P> clientTicker(BlockEntityTicker<T> ticker) {
-        clientTicker = ticker;
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> serverTicker(BlockEntityTicker<T> ticker) {
-        serverTicker = ticker;
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> clientTicker(Consumer<T> ticker) {
-        clientTicker = (level, blockPos, blockState, t) -> ticker.accept(t);
+    public NEBlockEntityBuilder<T, P> serverTicker(NEBlockEntityTicker<T> ticker) {
+        serverTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
         return this;
     }
 
     public NEBlockEntityBuilder<T, P> serverTicker(Consumer<T> ticker) {
         serverTicker = (level, blockPos, blockState, t) -> ticker.accept(t);
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> clientTicker(NEBlockEntityTicker<T> ticker) {
-        clientTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> serverTicker(NEBlockEntityTicker<T> ticker) {
-        serverTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
         return this;
     }
 

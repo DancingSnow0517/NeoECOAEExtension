@@ -36,13 +36,13 @@ public final class IntegrationInstance {
             MethodHandle loader;
             try {
                 loader = lookup.findVirtual(clazz, "apply", MethodType.methodType(void.class));
-            } catch (Throwable e) {
+            } catch (ReflectiveOperationException e) {
                 loader = null;
             }
             this.loader = loader;
             try {
                 loader = lookup.findVirtual(clazz, "applyClient", MethodType.methodType(void.class));
-            } catch (Throwable e) {
+            } catch (ReflectiveOperationException e) {
                 loader = null;
             }
             this.clientLoader = loader;
@@ -83,20 +83,19 @@ public final class IntegrationInstance {
         if (obj == null || obj.getClass() != this.getClass()) return false;
         var that = (IntegrationInstance) obj;
         return Objects.equals(this.modid, that.modid)
-            && Objects.equals(this.instance, that.instance)
-            && Objects.equals(this.loader, that.loader)
-            && Objects.equals(this.clientLoader, that.clientLoader);
+            && Objects.equals(this.className, that.className);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(modid, instance, loader, clientLoader);
+        return Objects.hash(modid, className);
     }
 
     @Override
     public String toString() {
         return "IntegrationInstance["
             + "modid=" + modid + ", "
+            + "className=" + className + ", "
             + "instance=" + instance + ", "
             + "loader=" + loader + ", "
             + "clientLoader=" + clientLoader

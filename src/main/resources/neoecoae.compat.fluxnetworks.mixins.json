@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.compat.fluxnetworks",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ServerFluxNetworkMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixinextras": {
+    "minVersion": "0.5.3"
+  }
+}

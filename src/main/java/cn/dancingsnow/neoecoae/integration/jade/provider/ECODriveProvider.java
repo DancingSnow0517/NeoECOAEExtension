@@ -1,10 +1,12 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
+import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.impl.storage.ECOInfiniteResourceCell;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -21,9 +23,19 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
     @Override
     public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
         CompoundTag serverData = blockAccessor.getServerData();
+        if (serverData.getBoolean("tierMismatch")) {
+            iTooltip.add(Component.translatable("jade.neoecoae.storage_matrix_tier_too_high")
+                .withStyle(ChatFormatting.RED));
+        }
         if (serverData.getBoolean("infiniteMember")) {
             iTooltip.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
+            return;
+        }
+        if (serverData.getBoolean("infiniteResource")) {
+            if (serverData.getBoolean("mounted")) {
+                iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
+            }
             return;
         }
         if (serverData.contains("mounted")) {
@@ -36,24 +48,58 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
             }
         }
         if (serverData.contains("usedBytes") && serverData.contains("totalBytes")) {
-            iTooltip.add(Tooltips.bytesUsed(serverData.getLong("usedBytes"),serverData.getLong("totalBytes")));
+            iTooltip.add(bytesUsedLine(serverData.getLong("usedBytes"), serverData.getLong("totalBytes")));
         }
         if (serverData.contains("storedItemTypes") && serverData.contains("totalItemTypes")) {
-            iTooltip.add(Tooltips.typesUsed(serverData.getLong("storedItemTypes"), serverData.getLong("totalItemTypes")));
+            long storedItemTypes = serverData.getLong("storedItemTypes");
+            if (serverData.getBoolean("infiniteTypeCapacity")) {
+                iTooltip.add(Tooltips.of(
+                    Tooltips.ofUnformattedNumberWithRatioColor(storedItemTypes, 0, false),
+                    Tooltips.of(" "),
+                    Tooltips.of(GuiText.Of),
+                    Tooltips.of(" "),
+                    Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT),
+                    Tooltips.of(" "),
+                    Tooltips.of(GuiText.Types)
+                ));
+            } else {
+                iTooltip.add(Tooltips.typesUsed(storedItemTypes, serverData.getLong("totalItemTypes")));
+            }
         }
+    }
+
+    private static Component bytesUsedLine(long used, long total) {
+        if (total != Long.MAX_VALUE) {
+            return Tooltips.bytesUsed(used, total);
+        }
+        return Tooltips.of(
+            GuiText.BytesUsed,
+            Tooltips.of(
+                Tooltips.ofUnformattedNumberWithRatioColor(used, 0.0, false),
+                Tooltips.of(" "),
+                Tooltips.of(GuiText.Of),
+                Tooltips.of(" "),
+                Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT)
+            )
+        );
     }
 
     @Override
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
         if (blockAccessor.getBlockEntity() instanceof ECODriveBlockEntity be) {
             compoundTag.putBoolean("infiniteMember", ECOInfiniteStorageMember.isMember(be.getCellStack()));
+            compoundTag.putBoolean("infiniteResource", be.getCellInventory() instanceof ECOInfiniteResourceCell);
             compoundTag.putBoolean("mounted", be.isMounted());
             IECOStorageCell cellInventory = be.getCellInventory();
             if (cellInventory != null) {
+                var controller = be.getStorageController();
+                compoundTag.putBoolean("tierMismatch", controller != null
+                    && !controller.getTier().supportsComponentTier(cellInventory.getTier()));
                 compoundTag.putLong("usedBytes", cellInventory.getUsedBytes());
                 compoundTag.putLong("totalBytes", cellInventory.getTotalBytes());
                 compoundTag.putLong("storedItemTypes", cellInventory.getStoredItemTypes());
                 compoundTag.putLong("totalItemTypes", cellInventory.getTotalItemTypes());
+                compoundTag.putBoolean("infiniteTypeCapacity", cellInventory.hasInfiniteTypeCapacity());
             }
         }
     }

@@ -18,9 +18,9 @@ public class AppFluxIntegration {
         NEAppFluxCellTypes.register();
         NEAppFluxItems.register();
 
-        ECOCellModels.register(NEAppFluxItems.ECO_FE_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_fe"));
-        ECOCellModels.register(NEAppFluxItems.ECO_FE_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_fe"));
-        ECOCellModels.register(NEAppFluxItems.ECO_FE_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_fe"));
+        ECOCellModels.register(NEAppFluxItems.ECO_FE_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_energy"));
+        ECOCellModels.register(NEAppFluxItems.ECO_FE_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_energy"));
+        ECOCellModels.register(NEAppFluxItems.ECO_FE_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_energy"));
 
         NeoECOAE.MOD_BUS.addListener(this::initUpgrades);
     }

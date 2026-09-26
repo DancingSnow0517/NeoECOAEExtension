@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.multiblock;
 
 import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
@@ -104,28 +105,21 @@ public final class MultiblockBuilderUI {
     }
 
     public static UIElement createOpenButton(UIElement window) {
-        UIElement buildButtonPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        buildButtonPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.CRAFT_HAMMER))
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+        return HostSideButtonBar.left(createInlineOpenButton(window));
+    }
+
+    public static Button createInlineOpenButton(UIElement window) {
+        Button button = HostSideButtonBar.createButton();
+        button.noText().addPostIcon(AETextures.icon(Icon.CRAFT_HAMMER));
+        button.setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
                 List.of(Component.translatable("gui.neoecoae.multiblock.builder")),
                 null,
                 null,
                 null
-            ))
-            .layout(layout -> {
-                layout.width(18);
-                layout.height(20);
-            }));
-        return buildButtonPanel;
+            ));
+        button.layout(layout -> layout.width(18).height(20));
+        return button;
     }
 
     private static UIElement createControlPanel(Config config) {

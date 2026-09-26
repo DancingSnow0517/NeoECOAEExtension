@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "neoecoae:item/eco_cell_compat/experience_cell_housing"
+  }
+}

@@ -34,19 +34,6 @@ public class ECOStorageCells {
     }
 
     @Nullable
-    public static synchronized IECOCellHandler getHandler(ItemStack stack) {
-        if (stack.isEmpty()) {
-            return null;
-        }
-        for (IECOCellHandler handler : handlers) {
-            if (handler.isCell(stack)) {
-                return handler;
-            }
-        }
-        return null;
-    }
-
-    @Nullable
     public static synchronized IECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
         if (stack.isEmpty()) {
             return null;
@@ -58,5 +45,23 @@ public class ECOStorageCells {
             }
         }
         return null;
+    }
+
+    public static synchronized void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {
+        if (stack == null || stack.isEmpty() || host == null) {
+            return;
+        }
+        for (IECOCellHandler handler : handlers) {
+            if (handler.isCell(stack)) {
+                handler.releaseCellInventory(stack, host);
+                return;
+            }
+        }
+    }
+
+    public static synchronized void clearRuntimeState() {
+        for (IECOCellHandler handler : handlers) {
+            handler.clearRuntimeState();
+        }
     }
 }

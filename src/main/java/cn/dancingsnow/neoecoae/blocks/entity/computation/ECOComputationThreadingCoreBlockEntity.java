@@ -7,7 +7,8 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import lombok.Getter;
@@ -26,13 +27,14 @@ import org.slf4j.LoggerFactory;
 import java.util.Arrays;
 import java.util.List;
 
-public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationBlockEntity<ECOComputationThreadingCoreBlockEntity> {
+public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster, ECOComputationThreadingCoreBlockEntity> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOComputationThreadingCoreBlockEntity.class);
     @Getter
     private final IECOTier tier;
     @Getter
     private final ECOCraftingCPU[] cpus;
     private final CompoundTag[] deferredInit;
+    private final java.util.BitSet packedExactInventories = new java.util.BitSet();
 
     public ECOComputationThreadingCoreBlockEntity(
         BlockEntityType<?> type,
@@ -40,7 +42,7 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator::new);
         this.tier = tier;
         cpus = new ECOCraftingCPU[tier.getCPUThreads()];
         deferredInit = new CompoundTag[tier.getCPUThreads()];
@@ -115,14 +117,17 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
                     try {
                         cpu.readFromNBT(tag, registries);
                         if (cpu.getPlan() != null) {
+                            ECOCraftingJobLifecycle.resumePersistedJob(level, tag);
                             cpus[i] = cpu;
                             deferredInit[i] = null;
                             cluster.pickup(cpu.getPlan(), cpu);
                         } else {
-                            LOGGER.error("Deferred ECO crafting CPU at {} has no valid plan; keeping it quarantined", worldPosition);
+                            LOGGER.error("Deferred ECO crafting CPU at {} has no valid plan; keeping it quarantined for retry",
+                                worldPosition);
                         }
                     } catch (RuntimeException e) {
-                        LOGGER.error("Unable to restore deferred ECO crafting CPU at {}; keeping its data", worldPosition, e);
+                        LOGGER.error("Unable to restore deferred ECO crafting CPU at {}; keeping its data for retry",
+                            worldPosition, e);
                     }
                 }
             }
@@ -141,11 +146,32 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
         }
     }
 
+    /** Ends ownership without dropping inventory; callers retain or drop only the unreturned remainder. */
+    public void prepareForPermanentRemoval() {
+        if (level == null || level.isClientSide()) return;
+        for (int i = 0; i < cpus.length; i++) {
+            ECOCraftingCPU cpu = cpus[i];
+            if (cpu != null) cpu.getLogic().cancel();
+            if (deferredInit[i] != null) {
+                ECOCraftingJobLifecycle.cancelPersistedJob(level, deferredInit[i]);
+            }
+        }
+    }
+
+    @Override
+    public void breakCluster() {
+        // A previously dismantled core may have deferred jobs but no cluster to notify.
+        prepareForPermanentRemoval();
+        super.breakCluster();
+    }
+
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
+        prepareForPermanentRemoval();
         super.addAdditionalDrops(level, pos, drops);
         HolderLookup.Provider registries = level.registryAccess();
         for (int i = 0; i < cpus.length; i++) {
+            if (packedExactInventories.get(i)) continue;
             KeyCounter owned = new KeyCounter();
             ECOCraftingCPU cpu = cpus[i];
             if (cpu != null) {
@@ -155,6 +181,60 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
             }
             addOwnedDrops(owned, drops, level, pos);
         }
+    }
+
+    @Override
+    public void clearContent() {
+        // AE2 calls this after collecting drops (also when wrenching). Do not serialize those items again.
+        prepareForPermanentRemoval();
+        for (ECOCraftingCPU cpu : cpus) {
+            if (cpu != null) cpu.getLogic().getInventory().clear();
+        }
+        Arrays.fill(cpus, null);
+        Arrays.fill(deferredInit, null);
+        setChanged();
+        super.clearContent();
+    }
+
+    /** Preserve exact-order leftovers as one portable inventory snapshot on the existing core drop. */
+    public void packExactInventories(ItemStack drop) {
+        if (level == null || level.isClientSide()) return;
+        var recovery = new CompoundTag();
+        for (int i = 0; i < cpus.length; i++) {
+            var cpu = cpus[i];
+            boolean exact = cpu != null ? cpu.getLogic().exactInventory().isEnabled()
+                : deferredInit[i] != null && (deferredInit[i].getBoolean("ecoExactInventory")
+                    || deferredInit[i].getCompound("job").getBoolean("exactOrder"));
+            if (!exact) continue;
+            CompoundTag saved;
+            if (cpu != null) {
+                cpu.getLogic().cancel();
+                saved = new CompoundTag();
+                cpu.writeToNBT(saved, level.registryAccess());
+            } else {
+                saved = deferredInit[i].copy();
+                ECOCraftingJobLifecycle.cancelPersistedJob(level, saved);
+            }
+            saved.remove("job");
+            recovery.put("CPU" + i, saved);
+            packedExactInventories.set(i);
+        }
+        if (!recovery.isEmpty()) {
+            net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                drop, data -> data.put("ecoExactCpuRecovery", recovery));
+        }
+    }
+
+    public void restoreExactInventories(ItemStack stack) {
+        var data = stack.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+            net.minecraft.world.item.component.CustomData.EMPTY).copyTag().getCompound("ecoExactCpuRecovery");
+        for (int i = 0; i < deferredInit.length; i++) {
+            if (data.contains("CPU" + i) && cpus[i] == null && deferredInit[i] == null) {
+                deferredInit[i] = data.getCompound("CPU" + i).copy();
+            }
+        }
+        setChanged();
+        if (cluster != null) updateCluster(cluster);
     }
 
     private static void collectDeferredOwnedItems(

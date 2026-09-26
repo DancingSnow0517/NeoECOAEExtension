@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.gui.common;
 
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import net.minecraft.network.chat.Component;
 
 import java.math.BigDecimal;
@@ -31,11 +33,14 @@ public final class HostText {
     private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
     private static final BigInteger BIG_BYTES_IN_K = BigInteger.valueOf(BYTES_IN_K);
     private static final int TOOLTIP_BYTE_DIGITS = 4;
-    private static final String[] EXPANDED_BYTE_UNITS = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
+    // Continue the binary-prefix display beyond yotta for effectively unbounded storage amounts.
+    private static final String[] EXPANDED_BYTE_UNITS = {
+        "", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"
+    };
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
-        ThreadLocal.withInitial(() -> new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.US)));
+        ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PRECISE_HUGE_DECIMAL =
         ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
@@ -60,20 +65,24 @@ public final class HostText {
     }
 
     public static UsedTotal typeProgress(long used, long max) {
-        return new UsedTotal(ae2Amount(used), ae2Amount(max), Component.empty());
+        return new UsedTotal(ae2Amount(used), max < 0L ? "\u221E" : ae2Amount(max), Component.empty());
     }
 
     public static UsedTotal byteProgress(long used, long max) {
-        return new UsedTotal(ae2Amount(used), ae2Amount(max), Component.empty());
+        return typeProgress(used, max);
+    }
+
+    public static String expandedNumber(long value) {
+        return NUMBER_FORMAT.get().format(Math.max(0L, value));
     }
 
     public static String expandedStorageBytes(long value) {
-        return expandedStorageBytes(BigInteger.valueOf(Math.max(0L, value)));
+        return expandedNumber(value);
     }
 
     public static String expandedStorageBytes(BigInteger value) {
         BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        return NUMBER_FORMAT.get().format(safe);
+        return BigNumberFormatter.format(safe, 1, true);
     }
 
     public static String compactStorageBytes(BigInteger value) {
@@ -85,9 +94,9 @@ public final class HostText {
             unit = unit.multiply(BIG_BYTES_IN_K);
             unitIndex++;
         }
-        return new BigDecimal(safe)
+        return DisplayNumbers.grouped(new BigDecimal(safe)
             .divide(new BigDecimal(unit), 0, RoundingMode.HALF_UP)
-            .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+            .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
     /** Matches the 1.20.1 System Load tooltip: retain up to ten integer digits plus two decimals. */
@@ -131,9 +140,9 @@ public final class HostText {
         if (unitIndex == 0) {
             return NUMBER_FORMAT.get().format(safe);
         }
-        return new BigDecimal(safe)
+        return DisplayNumbers.grouped(new BigDecimal(safe)
             .divide(new BigDecimal(unit), 2, RoundingMode.DOWN)
-            .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+            .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
     public static String fitHugeAmount(BigInteger value, int maxWidth) {
@@ -157,9 +166,9 @@ public final class HostText {
         for (int decimals = 2; decimals >= 0; decimals--) {
             BigInteger unit = BIG_BYTES_IN_K;
             for (int unitIndex = 1; unitIndex <= naturalUnitIndex; unitIndex++) {
-                String candidate = new BigDecimal(safe)
+                String candidate = DisplayNumbers.grouped(new BigDecimal(safe)
                     .divide(new BigDecimal(unit), decimals, RoundingMode.HALF_UP)
-                    .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+                    .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
                 if (width.applyAsInt(candidate) <= maxWidth) {
                     return candidate;
                 }
@@ -194,7 +203,11 @@ public final class HostText {
     }
 
     public static UsedTotal fullTypeProgress(long used, long max) {
-        return new UsedTotal(number(Math.max(0L, used)), number(Math.max(0L, max)), Component.empty());
+        return new UsedTotal(
+            number(Math.max(0L, used)),
+            max < 0L ? "\u221E" : number(max),
+            Component.empty()
+        );
     }
 
     public static UsedTotal fullByteProgressValues(long used, long max) {
@@ -293,12 +306,15 @@ public final class HostText {
     }
 
     public static String ae2Amount(long value) {
-        return ReadableNumberConverter.format(Math.max(0L, value), 4);
+        return DisplayNumbers.grouped(ReadableNumberConverter.format(Math.max(0L, value), 4));
     }
 
     public static String ae2Amount(BigInteger value) {
         BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        return ae2Amount(safe.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue());
+        if (safe.bitLength() < Long.SIZE) {
+            return ae2Amount(safe.longValue());
+        }
+        return BigNumberFormatter.format(safe, 1, false);
     }
 
     private static String compactTaskAmount(long value) {
@@ -321,8 +337,8 @@ public final class HostText {
     private static String compactDecimal(long value, long unit, String suffix) {
         double scaled = (double) Math.max(0L, value) / (double) unit;
         if (scaled >= 100.0D || Math.abs(scaled - Math.rint(scaled)) < 0.05D) {
-            return String.format(Locale.US, "%.0f%s", scaled, suffix);
+            return String.format(Locale.US, "%,.0f%s", scaled, suffix);
         }
-        return String.format(Locale.US, "%.1f%s", scaled, suffix);
+        return String.format(Locale.US, "%,.1f%s", scaled, suffix);
     }
 }

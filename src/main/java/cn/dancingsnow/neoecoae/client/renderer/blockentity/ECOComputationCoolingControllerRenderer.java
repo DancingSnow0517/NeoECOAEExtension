@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
-import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
+import cn.dancingsnow.neoecoae.client.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;

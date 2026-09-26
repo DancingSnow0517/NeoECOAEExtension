@@ -261,7 +261,7 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
         if (!removed.isEmpty()) {
             payload.put(NBT_REMOVED, removed);
         }
-        payload.put(NBT_ORDER, writeOrder(currentOrder));
+        if (orderChanged) payload.put(NBT_ORDER, writeOrder(currentOrder));
 
         lastServerTasks = Map.copyOf(currentById);
         lastServerOrder = List.copyOf(currentOrder);

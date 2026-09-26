@@ -61,6 +61,15 @@ public class NETooltips {
                 Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.craftingSystemMaxLength)
             );
         }
+        if (stack.is(NEBlocks.INTEGRATED_WORKING_STATION.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.water"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.sodium"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.cryotheum"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.coolant_tick")
+            );
+        }
         if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOCraftingParallelCore parallelCore) {
             IECOTier tier = parallelCore.getTier();
             addTooltips(tooltip, flags,
@@ -104,6 +113,13 @@ public class NETooltips {
                 Component.literal("  ").append(
                     Component.translatable("tooltip.neoecoae.clear_negative_effect")
                 )
+            );
+        }
+
+        if (stack.is(NEBlocks.FX_MONITOR_CORE.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.fx_monitor_core.0"),
+                Component.translatable("tooltip.neoecoae.fx_monitor_core.1")
             );
         }
         if (stack.is(NEBlocks.CRAFTING_PATTERN_BUS.asItem())) {

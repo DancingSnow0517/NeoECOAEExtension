@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.data.recipe;
 
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
+import appeng.core.definitions.AEParts;
 import appeng.datagen.providers.tags.ConventionTags;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
@@ -237,6 +238,14 @@ public class EcoMachineRecipes {
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 64)
             .itemOutput(NEBlocks.CRAFTING_SYSTEM_L9)
             .energy(640000)
+            .save(provider);
+
+        // FX monitor core
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.FX_MONITOR_CORE)
+            .pattern("AB")
+            .define('A', NEBlocks.CRAFTING_WORKER)
+            .define('B', AEParts.STORAGE_MONITOR)
+            .unlockedBy("has_crafting_worker", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_WORKER))
             .save(provider);
 
         // crafting parallel core

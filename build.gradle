@@ -13,6 +13,11 @@ tasks.named('wrapper', Wrapper).configure {
 version = mod_version
 group = mod_group_id
 
+// AppBot depends on a matching Botania development build. Keep that integration
+// out of normal builds until compatible releases are available.
+def enableAppBotIntegration = providers.gradleProperty('enableAppBotIntegration')
+    .map { it.toBoolean() }
+    .getOrElse(false)
 
 base {
     archivesName = mod_id
@@ -26,19 +31,31 @@ repositories {
     }
     mavenLocal()
     mavenCentral()
-    maven {
-        name = "Modrinth Maven"
-        url = "https://api.modrinth.com/maven"
-        content {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth Maven"
+                url = "https://api.modrinth.com/maven"
+            }
+        }
+        filter {
             includeGroup "maven.modrinth"
         }
     }
-    maven {
-        name = "CurseForge Maven"
-        url "https://cursemaven.com"
-        content {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "CurseForge Maven"
+                url = "https://cursemaven.com"
+            }
+        }
+        filter {
             includeGroup "curse.maven"
         }
+    }
+    maven {
+        name = "Curios"
+        url = "https://maven.theillusivec4.top/"
     }
     maven { // Registrate
         url "https://maven.gegy.dev/releases"
@@ -91,9 +108,31 @@ repositories {
     maven { url "https://maven.minecraftforge.net/" }
 }
 
-dependencies {
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+configurations {
+    curiosDevMod
+    devMods
+}
 
+dependencies {
+    curiosDevMod("top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1") { transitive = false }
+    devMods("curse.maven:applied-pneumatics-1355087:8812885") { transitive = false }
+    devMods("curse.maven:pneumaticcraft-repressurized-281849:8519226") { transitive = false }
+    devMods("curse.maven:applied-experienced-1157608:7705498") { transitive = false }
+    devMods("curse.maven:applied-soul-1337114:8711537") { transitive = false }
+    devMods("curse.maven:soulplied-energistics-1143614:8333758") { transitive = false }
+    devMods("curse.maven:experiencelib-1156551:7705470") { transitive = false }
+    devMods("curse.maven:industrial-foregoing-266515:6473752") { transitive = false }
+    devMods("curse.maven:industrial-foregoing-souls-904394:6235883") { transitive = false }
+    devMods("curse.maven:titanium-287342:7951516") { transitive = false }
+    devMods("curse.maven:patchouli-306770:7730942") { transitive = false }
+    devMods("curse.maven:jade-324717:8591319") { transitive = false }
+    devMods("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}") { transitive = false }
+    testImplementation(platform('org.junit:junit-bom:5.11.4'))
+    testImplementation('org.junit.jupiter:junit-jupiter')
+    testImplementation('org.mockito:mockito-core:5.15.2')
+    testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+    // Inspect the released optional target's bytecode without installing it in the dev runtime.
+    testRuntimeOnly("curse.maven:flux-networks-248020:6089446") { transitive = false }
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
 
@@ -102,36 +141,75 @@ dependencies {
 
     implementation("org.appliedenergistics:appliedenergistics2:19.2.17")
 
+    // Optional alloy-furnace scaled dispatch API; not bundled or installed in the dev runtime.
+    // Requires 2.3.7.2+ for AlloyFurnaceBigIntegerTarget public API (introduced 2026-09-18)
+    compileOnly("maven.modrinth:a-useless-mod:VX1feqRC") { transitive = false } // 1.21.1-2.3.8
+
+    // Optional transfer fast path. Never place this on the default runtime classpath.
+
+    // Optional OmniSequence v1 batch API. Compile against the upstream classes without installing the mod at runtime.
+    compileOnly("curse.maven:omnisequence-transfinite-1624558:8622739") { transitive = false }
+
+    // Optional integration target. 4.11.0 is the verified 1.21.1 build (AE2 >= 19.2.15).
+    compileOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }
+    runtimeOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }
+
+    implementation("curse.maven:omni-cells-1359517:8050965")
+
+    def localAe2LtJar = providers.gradleProperty("ae2lt_local_jar").orNull
+    if (localAe2LtJar) {
+        implementation(files(localAe2LtJar))
+    } else {
+        implementation("curse.maven:ae2-lightning-tech-1527395:8823559") { transitive = false }
+    }
+    implementation("curse.maven:thunderbolt-core-1631756:8844639") { transitive = false }
+    // JDT Time Accelerators is optional and requires the separate
+    // Just Dire Things mod, so it is not included in the default dev runtime.
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }
     compileOnly("org.appliedenergistics.yoga:yoga:${yoga_version}")
     compileOnly("dev.vfyjxf:taffy:${taffy_version}")
 
-    implementation("curse.maven:mekanism-268560:7132168")
+    implementation("curse.maven:mekanism-268560:7904058")
     implementation("curse.maven:applied-mekanistics-574300:7096962")
 
     implementation("curse.maven:glodium-957920:5821676")
-    implementation("curse.maven:ex-pattern-provider-892005:7478960")
+    implementation("curse.maven:ex-pattern-provider-892005:8811572")
     implementation("curse.maven:applied-flux-965012:8204513")
 
-    implementation("curse.maven:advancedae-1084104:7374386")
+    implementation("curse.maven:advancedae-1084104:8564177")
 
-    implementation("curse.maven:jade-324717:7428884")
+    // Jade is a client-side integration. Keep its API available for compilation,
+    // but only add the implementation to NeoForge's client runtime.
+    compileOnly("curse.maven:jade-324717:8591319") { transitive = false }
 
-    // implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
-    // implementation("curse.maven:applied-botanics-addon-610632:7234122")
-    // implementation(name: "appbot-1.6.0")
+    if (enableAppBotIntegration) {
+        // Compile the Mana cell integration against the same Botania/AppBot pair used by runClient.
+        compileOnly("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
+        compileOnly("curse.maven:applied-botanics-addon-610632:8298277") { transitive = false }
+    }
 
-    implementation("com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182")
+    implementation("com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182") {
+        // The Ars Nouveau POM pins an older JEI build; use the project-wide client version instead.
+        exclude group: "mezz.jei", module: "jei-${minecraft_version}-neoforge"
+        // Jade is supplied separately by the client run configuration; do not let Ars Nouveau
+        // pin an older CurseForge build into runtimeClasspath's consistent-resolution set.
+        exclude group: "curse.maven", module: "jade-324717"
+        exclude group: "top.theillusivec4.curios", module: "curios-neoforge"
+    }
     implementation("curse.maven:ars-energistique-905641:6203425")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
-    runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
     compileOnly("dev.emi:emi-neoforge:${emi_version}")
 
     implementation("software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}")
 
-    api("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
-    interfaceInjectionData("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
+    // KubeJS integration API used by the recipe schema plugin.
+    compileOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}")
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    maxHeapSize = '2G'
 }
 
 neoForge {
@@ -145,9 +223,6 @@ neoForge {
     runs {
         client {
             client()
-
-            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
         aeGuide {
@@ -160,12 +235,6 @@ neoForge {
         server {
             server()
             programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        gameTestServer {
-            type = "gameTestServer"
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
         data {
@@ -190,20 +259,33 @@ neoForge {
 }
 
 sourceSets.main.java {
-    exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
+    if (!enableAppBotIntegration) {
+        exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
+    }
 }
+
+// ModDev supplies Minecraft to main; isolated JVM contract tests need the same game classes.
+sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 
 sourceSets.main.resources {
-    srcDirs 'src/generated/resources', 'src/guidebook/resources'
-}
-
-sourceSets.test {
-    compileClasspath += sourceSets.main.compileClasspath
-    runtimeClasspath += sourceSets.main.runtimeClasspath
+    srcDirs 'src/generated/resources'
+    exclude 'kubejs.plugins.txt'
 }
 
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+}
+
+// The dev launcher discovers Curios only when its JAR is in run/mods. Keep it
+// off the Java module path to avoid loading the same module twice.
+def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
+    from(configurations.curiosDevMod, configurations.devMods)
+    into(layout.projectDirectory.dir("run/mods"))
+}
+
+tasks.named("runClient").configure {
+    dependsOn(installCuriosDevMod)
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
@@ -247,15 +329,11 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
 }
 
-tasks.named('test', Test).configure {
-    useJUnitPlatform()
-}
-
 tasks.register('copyGuidebook', Copy) {
     group = 'build'
 
     from 'guidebook/'
-    into 'src/guidebook/resources/assets/neoecoae/ae2guide'
+    into 'src/main/resources/assets/neoecoae/ae2guide'
 }
 
 tasks.named('processResources') {
@@ -266,6 +344,20 @@ idea {
     module {
         downloadSources = true
         downloadJavadoc = true
+    }
+}
+
+// Freefair 8.7.1 passes whole source directories to delombok, ignoring source-set exclusions.
+def prepareDelombokSources = tasks.register('prepareDelombokSources', Sync) {
+    from sourceSets.main.java
+    into layout.buildDirectory.dir('delombok-input/main')
+}
+
+// Override after the plugin installs its directory inputs in afterEvaluate.
+afterEvaluate {
+    tasks.named('delombok') {
+        dependsOn prepareDelombokSources
+        input.setFrom(prepareDelombokSources)
     }
 }
 

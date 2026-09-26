@@ -30,12 +30,6 @@ public class ConfigLangs {
             "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n" +
                 "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
         );
-        provider.add("neoecoae.configuration.enableInfiniteStorage", "Enable Infinite Storage");
-        provider.add(
-            "neoecoae.configuration.enableInfiniteStorage.tooltip",
-            "Enable ECO infinite storage on the storage controller.\n" +
-                "Requires 64 infinite components and 16 L9 storage matrices; disabling it blocks new infinite migrations without deleting existing domain files."
-        );
         provider.add("neoecoae.configuration.craftingPatternBusPages", "Crafting Pattern Bus Pages");
         provider.add(
             "neoecoae.configuration.craftingPatternBusPages.tooltip",
@@ -56,21 +50,56 @@ public class ConfigLangs {
                 "This can greatly reduce repeated pattern execution cost. If recipe compatibility issues occur in a modpack, disable this option to fall back to the slow path.\n" +
                 "Fast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics."
         );
-        provider.add("neoecoae.configuration.debugEcoFastPath", "Debug ECO Fast Path");
-        provider.add(
-            "neoecoae.configuration.debugEcoFastPath.tooltip",
-            "Periodically log ECO fast path cache statistics."
-        );
+
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
             "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n" +
+                "The temporary hard ceiling is 393216 until adaptive dispatch is integrated.\n" +
                 "The effective value is still capped by available co-processors."
         );
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(
             "neoecoae.configuration.ecoFastPathCacheSize.tooltip",
             "Maximum recipe entries kept in each ECO fast path cache."
+        );
+
+        provider.add("neoecoae.configuration.debug", "Debug");
+        provider.add(
+            "neoecoae.configuration.debug.tooltip",
+            "Troubleshooting options. Keep these disabled during normal play."
+        );
+        provider.add("neoecoae.configuration.calculating", "Calculating");
+        provider.add(
+            "neoecoae.configuration.calculating.tooltip",
+            "ECO crafting calculation and dispatch diagnostics."
+        );
+        provider.add("neoecoae.configuration.ecoPlanningStageDebug", "Enable ECO Fast Planning Stage Logs");
+        provider.add(
+            "neoecoae.configuration.ecoPlanningStageDebug.tooltip",
+            "Log every ECO fast-planning calculation stage, including acyclic and cyclic planning.\n" +
+                "Also logs whether each request selects ECO fast planning or the native AE2 planner, and why.\n" +
+                "Includes stage duration, success state, failure reason, target item and requested amount."
+        );
+        provider.add("neoecoae.configuration.ecoCraftSubmissionDebug", "Enable ECO Craft Submission Detail Logs");
+        provider.add(
+            "neoecoae.configuration.ecoCraftSubmissionDebug.tooltip",
+            "Diagnose why the crafting-confirm Start button is unavailable or why submission is delayed or fails.\n" +
+                "Includes Start-button state, plan and CPU selection, submission route and elapsed time."
+        );
+        provider.add("neoecoae.configuration.ecoDispatchWatchdogDebug", "Log ECO Dispatch Reasons");
+        provider.add(
+            "neoecoae.configuration.ecoDispatchWatchdogDebug.tooltip",
+            "Log ECO dispatch candidate reasons and task accounting before and after dispatch.\n" +
+                "Also logs an aggregated diagnostic after 200 ticks without real progress, then every 1200 ticks.\n" +
+                "This option only collects diagnostics and does not change crafting state."
+        );
+        provider.add("neoecoae.configuration.ecoCraftingOutputDeliveryDebug", "ECO Output Delivery Debug");
+        provider.add(
+            "neoecoae.configuration.ecoCraftingOutputDeliveryDebug.tooltip",
+            "Log one aggregated warning per crafting job after its workers have been unable to deliver outputs for 200 ticks, then every 1200 ticks.\n" +
+                "A recovery message is logged when the wait ends.\n" +
+                "This option only controls logging and never changes output ownership, retry or recovery behavior."
         );
     }
 }

@@ -1,14 +1,19 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.networking.GridFlags;
+import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
+import appeng.api.networking.IManagedGridNode;
 import appeng.api.orientation.BlockOrientation;
 import appeng.blockentity.grid.AENetworkedBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
+import appeng.me.helpers.BlockEntityNodeListener;
+import appeng.me.helpers.IGridConnectedBlockEntity;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
@@ -34,6 +39,14 @@ import java.util.Set;
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
     extends AENetworkedBlockEntity implements IAEMultiBlock<C> {
 
+    private static final IGridNodeListener<NEBlockEntity<?, ?>> NODE_LISTENER =
+        new BlockEntityNodeListener<>() {
+            @Override
+            public void onGridChanged(NEBlockEntity<?, ?> nodeOwner, IGridNode node) {
+                nodeOwner.onMainNodeGridChanged();
+            }
+        };
+
     @Setter
     @Getter
     protected boolean formed = false;
@@ -58,6 +71,14 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         onGridConnectableSidesChanged();
         if (level instanceof ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
+            // During chunk loading, neighboring block entities may not be available yet. A single
+            // immediate calculation can therefore leave a valid structure disconnected until a
+            // block update occurs. Retry after the load queue has finished restoring the chunk.
+            serverLevel.getServer().executeIfPossible(() -> {
+                if (!isRemoved() && level == serverLevel && hasLevel() && level.hasChunkAt(worldPosition)) {
+                    calculator.calculateMultiblock(serverLevel, worldPosition);
+                }
+            });
         }
         getMainNode().setIdlePowerUsage(16);
     }
@@ -81,6 +102,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     }
 
     @Override
+    protected IManagedGridNode createMainNode() {
+        return GridHelper.createManagedNode(this, NODE_LISTENER);
+    }
+
+    @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         if (isServerStopping()) {
             return;
@@ -88,6 +114,9 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (reason != IGridNodeListener.State.GRID_BOOT) {
             this.updateState(false);
         }
+    }
+
+    protected void onMainNodeGridChanged() {
     }
 
     @Override
@@ -103,7 +132,8 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (level != null) {
             for (Direction value : Direction.values()) {
                 BlockPos adjacentPos = this.worldPosition.relative(value);
-                if (level.hasChunkAt(adjacentPos) && level.getBlockEntity(adjacentPos) instanceof NEBlockEntity) {
+                if (level.hasChunkAt(adjacentPos)
+                    && level.getBlockEntity(adjacentPos) instanceof IGridConnectedBlockEntity) {
                     directions.add(value);
                 }
             }
@@ -120,6 +150,8 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         BlockState newState = state;
         if (state.hasProperty(NEBlock.FORMED)) {
             newState = state.setValue(NEBlock.FORMED, formed);
+        } else if (state.hasProperty(NENetworkSwitchBlock.FORMED)) {
+            newState = state.setValue(NENetworkSwitchBlock.FORMED, formed);
         }
         if (newState != state) {
             level.setBlock(
@@ -133,11 +165,16 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
     }
 
+    /**
+     * AEBaseBlockEntity overrides getUpdateTag without calling BlockEntity#getUpdateTag, so LDLib's
+     * BlockEntity mixin cannot append the initial values of our managed sync fields. Keep the bridge
+     * here so clients receive cell, multiblock and orientation data before section geometry is built.
+     */
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = super.getUpdateTag(registries);
-        if (this instanceof ISyncMangedHolder syncMangedHolder) {
-            tag.put(syncMangedHolder.getSyncTag(), syncMangedHolder.serializeInitialData(registries));
+        if (this instanceof ISyncMangedHolder syncManagedHolder) {
+            tag.put(syncManagedHolder.getSyncTag(), syncManagedHolder.serializeInitialData(registries));
         }
         return tag;
     }
@@ -147,9 +184,10 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
             return new ChainedIterator<>();
         }
         List<IGridNode> nodes = new ArrayList<>();
-        Iterator<? extends NEBlockEntity<C, ?>> it = cluster.getBlockEntities();
+        Iterator<? extends net.minecraft.world.level.block.entity.BlockEntity> it = cluster.getBlockEntities();
         while (it.hasNext()) {
-            IGridNode node = it.next().getGridNode();
+            net.minecraft.world.level.block.entity.BlockEntity blockEntity = it.next();
+            IGridNode node = blockEntity instanceof NEBlockEntity<?, ?> member ? member.getGridNode() : null;
             if (node != null) {
                 nodes.add(node);
             }
@@ -186,7 +224,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     public void breakCluster() {
         if (this.cluster != null) {
-            cluster.destroy();
+            cluster.breakCluster();
         }
     }
 }

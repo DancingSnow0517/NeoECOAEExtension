@@ -5,6 +5,7 @@ bin
 .metadata
 .classpath
 .project
+.eclipse/
 
 # idea
 out
@@ -12,6 +13,9 @@ out
 *.iws
 *.iml
 .idea
+
+# vscode
+.vscode/
 
 # gradle
 build
@@ -40,5 +44,4 @@ src/generated/resources/.cache/
 .gitignore
 .codex/config.toml
 logs/
-docs/
-src/test
+STORAGE_RELIABILITY.md

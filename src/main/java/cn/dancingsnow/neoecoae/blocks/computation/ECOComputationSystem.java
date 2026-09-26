@@ -4,13 +4,17 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -23,6 +27,8 @@ import net.minecraft.world.phys.BlockHitResult;
 public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntity> implements BlockUIMenuType.BlockUI{
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty MIRRORED = BooleanProperty.create("mirrored");
+    public static final BooleanProperty NETWORK_SWITCH = BooleanProperty.create("network_switch");
+    public static final BooleanProperty HIGH_ENERGY_NETWORK_SWITCH = BooleanProperty.create("high_energy_network_switch");
 
     public ECOComputationSystem(Properties properties) {
         super(properties);
@@ -30,13 +36,15 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
             .setValue(FORMED, false)
             .setValue(FACING, Direction.NORTH)
             .setValue(MIRRORED, false)
+            .setValue(NETWORK_SWITCH, false)
+            .setValue(HIGH_ENERGY_NETWORK_SWITCH, false)
         );
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(MIRRORED);
+        builder.add(MIRRORED, NETWORK_SWITCH, HIGH_ENERGY_NETWORK_SWITCH);
     }
 
     @Override
@@ -45,7 +53,40 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
     }
 
     @Override
+    protected ItemInteractionResult useItemOn(
+        ItemStack heldItem,
+        BlockState state,
+        Level level,
+        BlockPos pos,
+        Player player,
+        InteractionHand hand,
+        BlockHitResult hit
+    ) {
+        if (!(heldItem.getItem() instanceof ECOComputationCellItem)
+            || !(level.getBlockEntity(pos) instanceof ECOComputationSystemBlockEntity be)) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (level.isClientSide) {
+            return ItemInteractionResult.SUCCESS;
+        }
+        int inserted = be.insertComputationCells(heldItem);
+        if (inserted > 0) {
+            if (!player.isCreative()) {
+                heldItem.shrink(inserted);
+                if (heldItem.isEmpty()) {
+                    player.setItemInHand(hand, ItemStack.EMPTY);
+                }
+            }
+            return ItemInteractionResult.sidedSuccess(false);
+        }
+        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+    }
+
+    @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        if (!isPlayerCloseEnough(level, pos, player)) {
+            return InteractionResult.FAIL;
+        }
         if (player instanceof ServerPlayer serverPlayer) {
             BlockUIMenuType.openUI(serverPlayer, pos);
             return InteractionResult.CONSUME;
@@ -55,9 +96,22 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
 
     @Override
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        if (holder.player.level().getBlockEntity(holder.pos) instanceof ECOComputationSystemBlockEntity be) {
+        if (isPlayerCloseEnough(holder.player.level(), holder.pos, holder.player)
+            && holder.player.level().getBlockEntity(holder.pos) instanceof ECOComputationSystemBlockEntity be) {
             return be.createUI(holder);
         }
         return null;
+    }
+
+    @Override
+    public boolean stillValid(BlockUIMenuType.BlockUIHolder holder) {
+        return BlockUIMenuType.BlockUI.super.stillValid(holder)
+            && isPlayerCloseEnough(holder.player.level(), holder.pos, holder.player);
+    }
+
+    public static boolean isPlayerCloseEnough(Level level, BlockPos pos, Player player) {
+        return player.level() == level
+            && level.getBlockState(pos).getBlock() instanceof ECOComputationSystem
+            && player.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= 64.0D;
     }
 }

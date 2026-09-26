@@ -34,9 +34,18 @@ public class ECOMachineCasingBlockEntity<C extends NECluster<C>> extends NEBlock
             if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
                 newState = newState.setValue(ECOMachineCasing.INVISIBLE, this.cluster.shouldCasingHide(this));
             }
+            if (newState.hasProperty(ECOMachineCasing.CLASSIC_VISIBLE)) {
+                newState = newState.setValue(
+                    ECOMachineCasing.CLASSIC_VISIBLE,
+                    this.cluster.shouldCasingRenderInClassic(this)
+                );
+            }
         } else {
             if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
                 newState = newState.setValue(ECOMachineCasing.INVISIBLE, false);
+            }
+            if (newState.hasProperty(ECOMachineCasing.CLASSIC_VISIBLE)) {
+                newState = newState.setValue(ECOMachineCasing.CLASSIC_VISIBLE, false);
             }
         }
         if (newState != state) {

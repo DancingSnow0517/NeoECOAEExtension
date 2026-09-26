@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.all;
 
 import appeng.api.ids.AETags;
 import appeng.api.stacks.AEKeyType;
+import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.datagen.providers.tags.ConventionTags;
 import appeng.items.materials.MaterialItem;
@@ -14,6 +15,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import cn.dancingsnow.neoecoae.items.ECOInfiniteResourceCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
@@ -102,7 +104,7 @@ public class NEItems {
 
     public static final ItemEntry<PickaxeItem> ALUMINUM_PICKAXE = REGISTRATE
         .item("aluminum_pickaxe", p -> new PickaxeItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 1.0F, -2.8F)))
+        .properties(p -> p.attributes(PickaxeItem.createAttributes(NEToolTier.ALUMINUM, 1.0F, -2.8F)))
         .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -118,7 +120,7 @@ public class NEItems {
 
     public static final ItemEntry<SwordItem> ALUMINUM_SWORD = REGISTRATE
         .item("aluminum_sword", p -> new SwordItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 3F, -2.4F)))
+        .properties(p -> p.attributes(SwordItem.createAttributes(NEToolTier.ALUMINUM, 3F, -2.4F)))
         .tag(ItemTags.SWORDS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -182,7 +184,7 @@ public class NEItems {
 
     public static final ItemEntry<PickaxeItem> TUNGSTEN_PICKAXE = REGISTRATE
         .item("tungsten_pickaxe", p -> new PickaxeItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 1.0F, -2.8F)))
+        .properties(p -> p.attributes(PickaxeItem.createAttributes(NEToolTier.TUNGSTEN, 1.0F, -2.8F)))
         .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -198,7 +200,7 @@ public class NEItems {
 
     public static final ItemEntry<SwordItem> TUNGSTEN_SWORD = REGISTRATE
         .item("tungsten_sword", p -> new SwordItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 3F, -2.4F)))
+        .properties(p -> p.attributes(SwordItem.createAttributes(NEToolTier.TUNGSTEN, 3F, -2.4F)))
         .tag(ItemTags.SWORDS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -207,7 +209,7 @@ public class NEItems {
                 .pattern("B")
                 .define('A', NETags.Items.TUNGSTEN_INGOT)
                 .define('B', Items.STICK)
-                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
                 .save(prov);
         })
         .register();
@@ -826,11 +828,28 @@ public class NEItems {
         .<Item>item("eco_infinite_cell_component", p -> new Item(p.rarity(Rarity.EPIC)) {
             @Override
             public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
-                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.unlock")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.header")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.components")
+                    .withStyle(ChatFormatting.GRAY));
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.matrices")
+                    .withStyle(ChatFormatting.AQUA));
             }
         })
         .tag(NETags.Items.INFINITE_CELL_COMPONENTS)
+        .recipe((ctx, prov) -> {
+            IntegratedWorkingStationRecipe.builder()
+                .require(Items.WATER_BUCKET)
+                .require(Items.LAVA_BUCKET)
+                .require(Items.COBBLESTONE, 64)
+                .require(NEItems.ECO_CELL_COMPONENT_256M)
+                .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 8)
+                .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
+                .require(NEItems.CRYSTAL_MATRIX, 4)
+                .energy(144_000)
+                .itemOutput(ctx.get())
+                .save(prov);
+        })
         .lang("ECO Infinite Storage Component")
         .register();
 
@@ -850,6 +869,26 @@ public class NEItems {
                 .save(prov);
         })
         .lang("ECO Storage Matrix Housing (Item)")
+        .model(ItemModelUtil.importedCellModel("eco_item_cell_housing"))
+        .register();
+
+    public static final ItemEntry<MaterialItem> ECO_BULK_ITEM_CELL_HOUSING = REGISTRATE
+        .item("eco_bulk_item_cell_housing", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("B B")
+                .pattern("CCC")
+                .define('A', NEItems.CRYSTAL_MATRIX)
+                .define('B', Tags.Items.DUSTS_REDSTONE)
+                .define('C', NETags.Items.ALUMINUM_ALLOY_INGOT)
+                .unlockedBy("has_crystal_matrix", RegistrateRecipeProvider.has(NEItems.CRYSTAL_MATRIX))
+                .unlockedBy("has_redstone", RegistrateRecipeProvider.has(Tags.Items.DUSTS_REDSTONE))
+                .unlockedBy("has_aluminum_alloy", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
+                .save(prov);
+        })
+        .lang("ECO Storage Matrix Housing (Bulk Item)")
+        .model(ItemModelUtil.importedCellModel("eco_bulk_item_cell_housing"))
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_FLUID_CELL_HOUSING = REGISTRATE
@@ -868,6 +907,7 @@ public class NEItems {
                 .save(prov);
         })
         .lang("ECO Storage Matrix Housing (Fluid)")
+        .model(ItemModelUtil.importedCellModel("eco_fluid_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_16M = REGISTRATE
@@ -928,6 +968,61 @@ public class NEItems {
         })
         .lang("ECO - LE9 Storage Matrix (Item)")
         .model(ItemModelUtil.cellModel("item", "256m"))
+        .register();
+
+    public static final ItemEntry<ECOStorageCellItem> ECO_BULK_ITEM_CELL_16M = bulkItemCell(
+        "eco_bulk_item_cell_16m", ECOTier.L4, "16m", ECO_CELL_COMPONENT_16M, Rarity.UNCOMMON);
+    public static final ItemEntry<ECOStorageCellItem> ECO_BULK_ITEM_CELL_64M = bulkItemCell(
+        "eco_bulk_item_cell_64m", ECOTier.L6, "64m", ECO_CELL_COMPONENT_64M, Rarity.RARE);
+    public static final ItemEntry<ECOStorageCellItem> ECO_BULK_ITEM_CELL_256M = bulkItemCell(
+        "eco_bulk_item_cell_256m", ECOTier.L9, "256m", ECO_CELL_COMPONENT_256M, Rarity.EPIC);
+
+    private static ItemEntry<ECOStorageCellItem> bulkItemCell(
+        String name, ECOTier tier, String size, ItemEntry<?> component, Rarity rarity
+    ) {
+        long capacity = tier.getStorageTotalBytes();
+        String level = tier.name().substring(1);
+        return REGISTRATE.item(name, p -> new ECOStorageCellItem(
+                p.stacksTo(1).rarity(rarity), tier, AEKeyType.items(), NECellTypes.BULK_ITEM,
+                capacity, Math.toIntExact(capacity), (double) capacity / (1L << 20)))
+            .recipe((ctx, prov) -> {
+                ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                    .requires(ECO_BULK_ITEM_CELL_HOUSING)
+                    .requires(component)
+                    .unlockedBy("has_component", RegistrateRecipeProvider.has(component))
+                    .save(prov);
+                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
+                    ctx.get(), List.of(ECO_BULK_ITEM_CELL_HOUSING.asStack(), component.asStack()));
+                prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+            })
+            .lang("ECO - LE" + level + " Storage Matrix (Bulk Item)")
+            .model(ItemModelUtil.cellModel("bulk_item", size))
+            .removeTab(NECreativeTabs.ECO.getKey())
+            .register();
+    }
+
+    /**
+     * ECO infinite base resource storage matrix: an unbounded source and sink for a hard-locked set
+     * of base resources (see {@link ECOInfiniteResourceCellItem#lockedKeys()}). Capacity uses
+     * {@link Long#MAX_VALUE} as the "unbounded" sentinel that {@link ECOStorageCellItem} renders as ∞.
+     * The finished matrix is assembled from the infinite component and the standard item housing.
+     */
+    public static final ItemEntry<ECOInfiniteResourceCellItem> ECO_INFINITE_ITEM_CELL = REGISTRATE
+        .item("eco_infinite_item_cell", p -> new ECOInfiniteResourceCellItem(
+            p.stacksTo(1).rarity(Rarity.EPIC),
+            ECOTier.L9,
+            NECellTypes.ITEM
+        ))
+        .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
+            .require(Items.WATER_BUCKET)
+            .require(Items.LAVA_BUCKET)
+            .require(NEItems.ECO_CELL_COMPONENT_256M)
+            .require(NEItems.CRYSTAL_MATRIX)
+            .itemOutput(ctx.get())
+            .energy(144_000)
+            .save(prov))
+        .lang("ECO Infinite Base Resource Storage Matrix")
+        .model(ItemModelUtil.infiniteCellModel("eco_infinite_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_16M = REGISTRATE
@@ -1014,7 +1109,7 @@ public class NEItems {
     ) {
         return REGISTRATE
             .item("eco_computation_cell_" + tierString, p -> new ECOComputationCellItem(
-                p.stacksTo(1).rarity(rarity),
+                p.stacksTo(8).rarity(rarity),
                 tier
             ))
             .lang("ECO - %s Flash Crystal Matrix".formatted(tierString.replace("l", "CE")))

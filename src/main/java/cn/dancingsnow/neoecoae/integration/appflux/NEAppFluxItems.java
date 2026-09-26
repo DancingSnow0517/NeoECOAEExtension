@@ -40,6 +40,7 @@ public class NEAppFluxItems {
                 .save(appFluxInstalled);
         })
         .lang("ECO Storage Matrix Housing (FE)")
+        .model(ItemModelUtil.importedCellModel("eco_energy_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_16M = REGISTRATE

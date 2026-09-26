@@ -1,21 +1,17 @@
 package cn.dancingsnow.neoecoae.api;
 
+import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import lombok.Getter;
-import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ModelEvent;
 
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-@EventBusSubscriber
 public class ECOCellModels {
     private static final Map<Holder<Item>, ResourceLocation> deferredRegistration = new HashMap<>();
     @Getter
@@ -26,6 +22,11 @@ public class ECOCellModels {
         register(NEItems.ECO_ITEM_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_item"));
         register(NEItems.ECO_ITEM_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_item"));
         register(NEItems.ECO_ITEM_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_item"));
+        register(NEItems.ECO_INFINITE_ITEM_CELL, NeoECOAE.id("block/cell/storage_cell_l9_infinite_item"));
+
+        register(NEItems.ECO_BULK_ITEM_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_bulk"));
+        register(NEItems.ECO_BULK_ITEM_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_bulk"));
+        register(NEItems.ECO_BULK_ITEM_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_bulk"));
 
         register(NEItems.ECO_FLUID_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_fluid"));
         register(NEItems.ECO_FLUID_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_fluid"));
@@ -48,17 +49,14 @@ public class ECOCellModels {
     }
 
     public static void runDeferredRegistration() {
+        register(AEItems.CREATIVE_CELL.asItem(), NeoECOAE.id("block/cell/storage_cell_creative"));
         deferredRegistration.forEach((itemHolder, location) -> {
             register(itemHolder.value(), location);
         });
     }
 
-    @SubscribeEvent
-    public static void on(ModelEvent.RegisterAdditional e) {
-        registry.forEach((__, location) -> {
-            e.register(ModelResourceLocation.standalone(location));
-        });
-        e.register(ModelResourceLocation.standalone(DEFAULT_MODEL));
+    public static Map<Item, ResourceLocation> getDeferredModels() {
+        runDeferredRegistration();
+        return Map.copyOf(registry);
     }
-
 }

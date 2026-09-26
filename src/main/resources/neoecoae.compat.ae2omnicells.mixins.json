@@ -1,0 +1,15 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.compat.ae2omnicells",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AEUniversalCellInventoryMixin",
+    "IAEUniversalCellMixin"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

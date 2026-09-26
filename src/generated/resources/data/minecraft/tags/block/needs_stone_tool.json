@@ -1,5 +1,9 @@
 {
   "values": [
+    "neoecoae:crafting_network_switch",
+    "neoecoae:crafting_high_energy_network_switch",
+    "neoecoae:computation_network_switch",
+    "neoecoae:computation_high_energy_network_switch",
     "neoecoae:energized_crystal_block",
     "neoecoae:energized_superconductive_block",
     "neoecoae:flawless_budding_energized_crystal",
@@ -8,6 +12,10 @@
     "neoecoae:damaged_budding_energized_crystal",
     "neoecoae:energized_fluix_crystal_block",
     "neoecoae:integrated_working_station",
+    "neoecoae:large_integrated_working_station_casing",
+    "neoecoae:large_integrated_working_station_input_hatch",
+    "neoecoae:large_integrated_working_station_output_hatch",
+    "neoecoae:large_integrated_working_station_interface",
     "neoecoae:storage_system_l4",
     "neoecoae:storage_system_l6",
     "neoecoae:storage_system_l9",
@@ -42,6 +50,7 @@
     "neoecoae:crafting_parallel_core_l6",
     "neoecoae:crafting_parallel_core_l9",
     "neoecoae:crafting_worker",
+    "neoecoae:fx_monitor_core",
     "neoecoae:crafting_pattern_bus",
     "neoecoae:input_hatch",
     "neoecoae:output_hatch",

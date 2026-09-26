@@ -50,6 +50,36 @@ description='''${mod_description}'''
 [[mixins]]
 config="${mod_id}.mixins.json"
 
+# Optional display-only extension. It never participates in storage interactions and is intentionally
+# non-required so AE2 UI changes degrade to the standard long amount display.
+[[mixins]]
+config="${mod_id}.terminal_big_amount.mixins.json"
+
+[[mixins]]
+config="${mod_id}.compat.advanced_ae.mixins.json"
+requiredMods=["advanced_ae"]
+
+[[mixins]]
+config="${mod_id}.compat.extendedae.mixins.json"
+
+[[mixins]]
+config="${mod_id}.compat.ae2omnicells.mixins.json"
+
+[[mixins]]
+config="${mod_id}.compat.useless_mod.mixins.json"
+
+[[mixins]]
+config="${mod_id}.compat.thunderbolt.mixins.json"
+requiredMods=["thunderbolt"]
+
+[[mixins]]
+config="${mod_id}.compat.omnisequence.mixins.json"
+requiredMods=["molecularmanipulator"]
+
+[[mixins]]
+config="${mod_id}.compat.fluxnetworks.mixins.json"
+requiredMods=["fluxnetworks"]
+
 # The [[accessTransformers]] block allows you to declare where your AT file is.
 # If this block is omitted, a fallback attempt will be made to load an AT from META-INF/accesstransformer.cfg
 [[accessTransformers]]
@@ -104,6 +134,75 @@ file="META-INF/accesstransformer.cfg"
     [dependencies.${mod_id}.mc-publish]
         modrinth="ldlib"
         curseforge="ldlib"
+
+[[dependencies.${mod_id}]]
+    modId="ae2omnicells"
+    type="optional"
+    versionRange="[1.1.6,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="megacells"
+    type="optional"
+    # The MEGA integration links against the 4.11.x API (including
+    # DecompressionService#getPatternPriority). Older releases, such as
+    # 4.2.2, do not expose that method and crash during server ticks.
+    versionRange="[4.11.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="extendedae"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="ae2lt"
+    type="optional"
+    versionRange="[1.1.3,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="appliedenhancements"
+    type="optional"
+    versionRange="[1.0.9,)"
+    ordering="AFTER"
+    side="BOTH"
+    reason="Applied Enhancements 1.0.9 or newer is required when this mod is installed."
+
+[[dependencies.${mod_id}]]
+    modId="molecularmanipulator"
+    type="optional"
+    versionRange="[2.0.5,),[2.0.5-fix]"
+    ordering="AFTER"
+    side="BOTH"
+    reason="OmniSequence: Transfinite 2.0.5 or newer is required when this mod is installed. Version 2.0.5-fix is also supported."
+
+[[dependencies.${mod_id}]]
+    modId="useless_mod"
+    type="optional"
+    versionRange="[1.21.1-2.3.7.2,)"
+    ordering="AFTER"
+    side="BOTH"
+    reason="Useless Mod integration requires 1.21.1-2.3.7.2 or newer for AlloyFurnaceBigIntegerTarget public API."
+
+[[dependencies.${mod_id}]]
+    modId="jade"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="jei"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="CLIENT"
 
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't

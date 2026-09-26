@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Set;
 
 public final class MultiBlockPlacementService {
+    private static final int PLACEMENT_DELAY_TICKS = 1;
     public enum PlacementTickResult {
         WAITING,
         ADVANCED,
@@ -32,16 +33,6 @@ public final class MultiBlockPlacementService {
     }
 
     private MultiBlockPlacementService() {
-    }
-
-    public static MultiBlockPlacementPlan preview(
-        Level level,
-        BlockPos controllerPos,
-        BlockState controllerState,
-        MultiBlockDefinition definition,
-        int repeats
-    ) {
-        return preview(level, controllerPos, controllerState, definition, repeats, false);
     }
 
     public static MultiBlockPlacementPlan preview(
@@ -89,19 +80,18 @@ public final class MultiBlockPlacementService {
     }
 
     public static boolean buildInstant(ServerLevel level, MultiBlockPlacementPlan plan, ServerPlayer player) {
-        if (!plan.getConflictPositions().isEmpty()) {
+        if (!plan.getConflictPositions().isEmpty()
+            || (!player.isCreative() && !hasRequiredItems(player, plan.getRequiredItems()))) {
             return false;
         }
         for (WorldPlannedBlock worldBlock : plan.getMissingBlocks()) {
-            if (!placeWithPermissionCheck(level, worldBlock, player)) {
-                return false;
-            }
+            if (!placeBuildBlock(level, worldBlock, player)) return false;
         }
         return true;
     }
 
     public static MultiBlockBuildSession createBuildSession(ServerLevel level, MultiBlockPlacementPlan plan) {
-        return new MultiBlockBuildSession(plan.getMissingBlocks(), nextPlacementDelay());
+        return new MultiBlockBuildSession(plan.getMissingBlocks(), PLACEMENT_DELAY_TICKS);
     }
 
     public static PlacementTickResult tickBuild(ServerLevel level, MultiBlockBuildSession session, ServerPlayer player) {
@@ -112,25 +102,27 @@ public final class MultiBlockPlacementService {
             return PlacementTickResult.WAITING;
         }
 
-        WorldPlannedBlock worldBlock = session.getCurrentBlock();
-        BlockState existingState = level.getBlockState(worldBlock.worldPos());
-        if (!existingState.equals(worldBlock.targetState()) && !(existingState.isAir() || existingState.canBeReplaced())) {
+        if (!placeBuildBlock(level, session.getCurrentBlock(), player)) {
             return PlacementTickResult.BLOCKED;
         }
-
-        if (!existingState.equals(worldBlock.targetState())) {
-            if (!placeWithPermissionCheck(level, worldBlock, player)) {
-                return PlacementTickResult.BLOCKED;
-            }
-            if (!player.isCreative() && !consumeRequiredItem(player, worldBlock.requiredItem())) {
-                level.setBlock(worldBlock.worldPos(), existingState, Block.UPDATE_ALL);
-                return PlacementTickResult.BLOCKED;
-            }
-            playPlacementSound(level, worldBlock);
-        }
-
-        session.advance(nextPlacementDelay());
+        session.advance(PLACEMENT_DELAY_TICKS);
         return session.isFinished() ? PlacementTickResult.COMPLETED : PlacementTickResult.ADVANCED;
+    }
+
+    private static boolean placeBuildBlock(ServerLevel level, WorldPlannedBlock worldBlock, ServerPlayer player) {
+        if (!level.hasChunkAt(worldBlock.worldPos())
+            || !level.getWorldBorder().isWithinBounds(worldBlock.worldPos())
+            || !level.mayInteract(player, worldBlock.worldPos())) return false;
+        BlockState existingState = level.getBlockState(worldBlock.worldPos());
+        if (existingState.equals(worldBlock.targetState())) return true;
+        if (!(existingState.isAir() || existingState.canBeReplaced())) return false;
+        if (!placeWithPermissionCheck(level, worldBlock, player)) return false;
+        if (!player.isCreative() && !consumeRequiredItem(player, worldBlock.requiredItem())) {
+            level.setBlock(worldBlock.worldPos(), existingState, Block.UPDATE_ALL);
+            return false;
+        }
+        playPlacementSound(level, worldBlock);
+        return true;
     }
 
     public static boolean hasRequiredItems(Player player, List<RequiredItem> requiredItems) {
@@ -264,10 +256,6 @@ public final class MultiBlockPlacementService {
             return false;
         }
         return true;
-    }
-
-    private static int nextPlacementDelay() {
-        return 1;
     }
 
     private static void playPlacementSound(ServerLevel level, WorldPlannedBlock worldBlock) {

@@ -21,7 +21,6 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEDataGen {
     public static void configureDataGen() {
-        // REGISTRATE.addDataGenerator(NEProviderTypes.CELL_MODEL, CellModelGenerator::accept);
         REGISTRATE.addDataGenerator(ProviderType.LANG, NELangGenerator::accept);
         REGISTRATE.addDataGenerator(ProviderType.RECIPE, NERecipeGenerator::accept);
         REGISTRATE.addDataGenerator(ProviderType.ITEM_TAGS, NETagGenerator::itemTag);

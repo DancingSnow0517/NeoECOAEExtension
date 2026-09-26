@@ -4,11 +4,69 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
+        provider.add("emi.category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.lightning_missing", "Paused: Missing lightning");
+        provider.add("gui.neoecoae.large_integrated_working_station.lightning_cost", "ME: %s \u00d7 %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.lightning_amount", "Lightning from ME: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy", "Energy: %s AE");
+        provider.add("gui.neoecoae.large_integrated_working_station.auto_build", "Auto-build Large Integrated Working Station");
+        provider.add("gui.neoecoae.large_integrated_working_station.return_inputs", "Return Stored Inputs");
         // integrated working station
         provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs", "Output Sides");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.enabled", "Enabled");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.disabled", "Disabled");
+        provider.add("gui.neoecoae.large_integrated_working_station.input_fluid", "Input Fluid");
+        provider.add("gui.neoecoae.large_integrated_working_station.output_fluid", "Output Fluid");
+        provider.add("gui.neoecoae.large_integrated_working_station.energy", "Energy: %s / %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.no_task", "Task: Idle");
+        provider.add("gui.neoecoae.large_integrated_working_station.task", "Task: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_empty", "Waiting for input");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe", "Input: %s items, %s mB");
+        provider.add("gui.neoecoae.large_integrated_working_station.overclock_button", "OC");
+        provider.add("gui.neoecoae.large_integrated_working_station.cooling_button", "AC");
+        provider.add("gui.neoecoae.large_integrated_working_station.settings", "OC: %s; cooling: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.enabled", "On");
+        provider.add("gui.neoecoae.large_integrated_working_station.disabled", "Off");
+        provider.add("gui.neoecoae.large_integrated_working_station.coolant_tier", "Coolant: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.tier.none", "None");
+        provider.add("gui.neoecoae.large_integrated_working_station.tier.water", "Water");
+        provider.add("gui.neoecoae.large_integrated_working_station.tier.sodium", "Sodium");
+        provider.add("gui.neoecoae.large_integrated_working_station.tier.cryotheum", "Cryotheum Solution");
+        provider.add("gui.neoecoae.large_integrated_working_station.parallel_and_energy", "Parallel %s · Energy x%s");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.none", "Status: OK");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.overclock_disabled", "Paused: OC off");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.cooling_disabled", "Paused: Cooling off");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_missing", "Paused: No coolant");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low", "Paused: Coolant tier low");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_insufficient", "Paused: Coolant low");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked", "Paused: Coolant output full");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.power_missing", "Paused: Low power");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked", "Paused: Output full");
+        provider.add("gui.neoecoae.storage.legacy.cell_info", "%s (%s)");
+        provider.add("gui.neoecoae.storage.legacy.cell_info.item", "Item Storage Matrix");
+        provider.add("gui.neoecoae.storage.legacy.cell_info.fluid", "Fluid Storage Matrix");
+        provider.add("gui.neoecoae.storage.legacy.cell_info.gas", "Gas Storage Matrix");
+        provider.add("gui.neoecoae.storage.legacy.cell_info.custom", "%s Storage Matrix");
+        provider.add("gui.neoecoae.storage.legacy.cell_info.other", "Other Storage Matrix");
+        provider.add("gui.neoecoae.storage.legacy.cell_info.empty", "Unknown");
+        provider.add("gui.neoecoae.storage.legacy.cell_types", "Types: %s / %s");
+        provider.add("gui.neoecoae.storage.legacy.cell_types.used", "Types: %s");
+        provider.add("gui.neoecoae.storage.legacy.cell_bytes.used", "Bytes: %s");
+        provider.add("gui.neoecoae.storage.legacy.cell_bytes", "Bytes: %s / %s");
+        provider.add("gui.neoecoae.storage.legacy.cell_tooltip", "%s (%s)\nBytes: %s / %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.item", "Item storage: %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.fluid", "Fluid storage: %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.gas", "Other storage: %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.total", "Total storage: %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.item_type", "Item types: %s / %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.fluid_type", "Fluid types: %s / %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.gas_type", "Other types: %s / %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.energy_usage", "Total energy: %s AE/t");
+        provider.add("gui.neoecoae.storage.legacy.graph.energy_stored", "Energy stored: %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.total_bytes", "Total bytes: %s");
+        provider.add("gui.neoecoae.storage.legacy.graph.total_usage", "Total usage: %s");
         provider.add("gui.neoecoae.multiblock.builder", "Structure Builder");
         provider.add("gui.neoecoae.multiblock.close_builder", "Close builder");
         provider.add("gui.neoecoae.multiblock.decrease_length", "Decrease length");
@@ -19,7 +77,6 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.mirror.on", "On");
         provider.add("gui.neoecoae.multiblock.mirror.off.tooltip", "Build without mirroring");
         provider.add("gui.neoecoae.multiblock.mirror.on.tooltip", "Build mirrored structure");
-        provider.add("gui.neoecoae.multiblock.preview", "Preview");
         provider.add("gui.neoecoae.multiblock.build", "Build");
         provider.add("gui.neoecoae.multiblock.reused", "Reused: %d");
         provider.add("gui.neoecoae.multiblock.missing", "Missing: %d");
@@ -37,9 +94,6 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.no_conflicts", "No conflicts");
         provider.add("gui.neoecoae.multiblock.conflict_positions", "Conflict positions");
         provider.add("gui.neoecoae.multiblock.more_conflicts", "...and %d more");
-        provider.add("gui.neoecoae.multiblock.status.idle", "Idle");
-        provider.add("gui.neoecoae.multiblock.status.length_updated", "Length updated");
-        provider.add("gui.neoecoae.multiblock.status.mirror_updated", "Mirror option updated");
         provider.add("gui.neoecoae.multiblock.status.controller_formed", "Controller already formed");
         provider.add("gui.neoecoae.multiblock.status.no_definition", "No structure definition");
         provider.add("gui.neoecoae.multiblock.status.structure_ready", "Structure ready");
@@ -47,12 +101,6 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.status.not_enough_items", "Not enough items");
         provider.add("gui.neoecoae.multiblock.status.conflicts_detected", "Conflicts detected");
         provider.add("gui.neoecoae.multiblock.status.build_in_progress", "Build in progress");
-        provider.add("gui.neoecoae.multiblock.status.build_already_in_progress", "Build already in progress");
-        provider.add("gui.neoecoae.multiblock.status.build_complete", "Build complete");
-        provider.add("gui.neoecoae.multiblock.status.build_interrupted", "Build interrupted");
-        provider.add("gui.neoecoae.multiblock.status.builder_unavailable", "Builder unavailable");
-        provider.add("gui.neoecoae.multiblock.status.build_failed", "Build failed");
-        provider.add("gui.neoecoae.multiblock.status.building", "Building %d/%d");
         provider.add("gui.neoecoae.relative_side.front", "Front");
         provider.add("gui.neoecoae.relative_side.back", "Back");
         provider.add("gui.neoecoae.relative_side.left", "Left");
@@ -67,10 +115,8 @@ public class GuiLangs {
 
         // storage
         provider.add("gui.neoecoae.storage.energy", "Energy Monitoring");
-        provider.add("gui.neoecoae.storage.energy_status", "Energy Storage: %sAE / %sAE (%d%%)");
         provider.add("gui.neoecoae.storage.energy_storage", "Energy Storage");
         provider.add("gui.neoecoae.storage.bytes_used", "bytes used");
-        provider.add("gui.neoecoae.storage.used_short", "Used");
         provider.add("gui.neoecoae.storage.system_load", "System Load");
         provider.add("gui.neoecoae.storage.current_load", "Current Load");
         provider.add("gui.neoecoae.storage.max_load", "Max Load");
@@ -82,47 +128,27 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.idle_matrices", "Idle Matrices");
         provider.add("gui.neoecoae.storage.infinite_value", "infinite");
         provider.add("gui.neoecoae.common.types", "types");
-        provider.add("gui.neoecoae.host.status.online", "ONLINE");
-        provider.add("gui.neoecoae.host.status.running", "RUNNING");
-        provider.add("gui.neoecoae.host.storage.subtitle", "Storage System Host");
-        provider.add("gui.neoecoae.host.computation.subtitle", "Computation System Host");
         provider.add("gui.neoecoae.host.crafting.subtitle", "Crafting System Host");
-        provider.add("gui.neoecoae.host.storage.type_usage", "Type Usage");
-        provider.add("gui.neoecoae.host.storage.storage_usage", "Storage Usage");
-        provider.add("gui.neoecoae.host.storage.energy_buffer", "Energy Buffer");
-        provider.add("gui.neoecoae.host.storage.channels", "Storage Channels");
-        provider.add("gui.neoecoae.host.storage.footer", "Dynamic by ECOCellType registry; storage channels scroll when expanded.");
-        provider.add("gui.neoecoae.storage_priority.title", "Priority");
         provider.add("gui.neoecoae.storage_priority.open", "Open priority panel");
         provider.add("gui.neoecoae.storage_priority.close", "Close priority panel");
-        provider.add("gui.neoecoae.storage_priority.insert_hint", "When inserting: higher-priority storage is preferred.");
-        provider.add("gui.neoecoae.storage_priority.extract_hint", "When extracting: lower-priority storage is preferred.");
+        provider.add("gui.neoecoae.storage.bulk_mark", "Right-click: only mark network compressible items above %s; Shift + right-click: mark and migrate all matching network items into this host's bulk cells");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.success",
+            "Auto-marked %s; already marked %s; no space %s; migrated %s");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell", "No ECO MEGA long bulk cell installed");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.busy", "Storage transfer or migration is in progress");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.invalid_threshold", "The auto-mark threshold is invalid");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.unavailable", "MEGA bulk-cell integration is unavailable");
         provider.add("gui.neoecoae.host.metric.types", "Types");
         provider.add("gui.neoecoae.host.metric.bytes", "Bytes");
 
         // computation
-        provider.add("gui.neoecoae.computation.thread_info", "Thread Used: %d / %d");
-        provider.add("gui.neoecoae.computation.parallel_info", "Parallel Count: %d");
-        provider.add("gui.neoecoae.computation.storage_info", "Storage Used: %s / %s");
         provider.add("gui.neoecoae.host.computation.cpu_storage", "CPU Storage");
         provider.add("gui.neoecoae.host.computation.thread_usage", "Thread Usage");
         provider.add("gui.neoecoae.host.computation.parallel_count", "Parallel Count");
         provider.add("gui.neoecoae.host.computation.capacity", "Computation Capacity");
-        provider.add("gui.neoecoae.host.computation.active_vcpu", "Active vCPU");
-        provider.add("gui.neoecoae.host.computation.max_vcpu", "Max vCPU");
-        provider.add("gui.neoecoae.host.computation.accelerators", "Accelerators");
         provider.add("gui.neoecoae.host.computation.free_memory", "Free CPU Memory");
-        provider.add("gui.neoecoae.host.computation.cpu_pool", "Crafting CPU Pool");
-        provider.add("gui.neoecoae.host.computation.cpu_pool_hint", "Threads expose virtual crafting CPUs to the AE network.");
-        provider.add("gui.neoecoae.host.computation.footer", "Single-screen computation status.");
 
         // crafting
-        provider.add("gui.neoecoae.crafting.pattern_bus_count", "Pattern Buses: %d");
-        provider.add("gui.neoecoae.crafting.parallel_core_count", "Parallel Cores: %d");
-        provider.add("gui.neoecoae.crafting.worker_count", "Worker Cores: %d");
-        provider.add("gui.neoecoae.crafting.working_threads", "Working Threads: %d / %d (%d%%)");
-        provider.add("gui.neoecoae.crafting.total_parallelism", "Total Parallelism: %d");
-        provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %d (%d%%)");
         provider.add("gui.neoecoae.crafting.tasks", "Crafting Tasks");
         provider.add("gui.neoecoae.crafting.no_tasks", "No active tasks");
         provider.add("gui.neoecoae.crafting.ui.status", "Status");
@@ -130,53 +156,124 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.energy_cooling", "Energy / Cooling");
         provider.add("gui.neoecoae.crafting.ui.overclock_short", "OC");
         provider.add("gui.neoecoae.crafting.ui.cooling_short", "Cool");
-        provider.add("gui.neoecoae.crafting.ui.energy_short", "AE");
-        provider.add("gui.neoecoae.crafting.ui.recipe_slots", "Slots");
-        provider.add("gui.neoecoae.crafting.ui.batch_parallel", "Batch");
-        provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Time");
-        provider.add("gui.neoecoae.crafting.ui.patterns_short", "PB");
-        provider.add("gui.neoecoae.crafting.ui.ft_cores_short", "FT");
+        provider.add("gui.neoecoae.crafting.ui.fx_cores", "FX Cores");
+        provider.add("gui.neoecoae.crafting.ui.single_core_capacity", "Processing Capacity");
+        provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Runtime");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread.detail", "Authoritative Crafting Capability");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread.total", "Max Crafts per Tick: %s");
+        provider.add("gui.neoecoae.host.crafting.host_line", "%s · FT Parallel Capacity %d · Batch %d");
+        provider.add("gui.neoecoae.crafting.capability.fx", "FX Cores: %d active / %d physical");
+        provider.add("gui.neoecoae.crafting.capability.network_composition", "Network: x2 %d / x8 %d");
+        provider.add("gui.neoecoae.crafting.capability.network_multiplier", "Network Multiplier M: %d");
+        provider.add("gui.neoecoae.crafting.capability.batch_per_fx", "Batch per FX: %s");
+        provider.add("gui.neoecoae.crafting.capability.total", "Total Batch Capacity: %s");
+        provider.add("gui.neoecoae.crafting.capability.ft_parallel", "FT Parallel Capacity: %s");
+        provider.add("gui.neoecoae.crafting.capability.overclock", "Overclock: %d theoretical / %d effective");
+        provider.add("gui.neoecoae.host.crafting.host_type.high_energy", "High-Energy");
+        provider.add("gui.neoecoae.host.crafting.host_type.normal", "Normal");
         provider.add("gui.neoecoae.crafting.ui.energy_usage", "Energy Usage");
         provider.add("gui.neoecoae.crafting.performance", "Performance");
-        provider.add("gui.neoecoae.crafting.performance_short", "Performance");
-        provider.add("gui.neoecoae.crafting.task.amount", "Amount: %s");
-        provider.add("gui.neoecoae.crafting.task.crafts", "Crafts: %s");
-        provider.add("gui.neoecoae.crafting.task.time", "Time: %s / %s");
         provider.add("gui.neoecoae.crafting.task.status.running", "Running");
         provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
-        provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy Usage: §b%s AE");
-        provider.add("gui.neoecoae.crafting.overclock_status", "Theoretical Overclock: %d, Effective Overclock: %d");
-        provider.add("gui.neoecoae.crafting.overclock_status.disabled", "Theoretical Overclock: 0, Effective Overclock: 0");
-        provider.add("gui.neoecoae.crafting.enable_overlock", "Enable Overlock: ");
+        provider.add("gui.neoecoae.crafting.fast_path_reason", "FastPath miss reason: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_hit", "FastPath hit");
+        provider.add("gui.neoecoae.crafting.fast_path_partial_hit", "Partial FastPath hit; miss reasons: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.not_recorded", "No runtime FastPath result recorded yet");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.fluid_input_single_craft", "Fluid input requires single-craft execution");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.cache_miss", "No verified result in the cache");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.fast_path_disabled", "FastPath is disabled");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.post_crafting_event_enabled",
+            "Crafting events are enabled, so FastPath is disabled");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.key_build_failed", "Cannot build the cache key");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.ae2_introspection_unavailable",
+            "AE2 pattern information is unavailable");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.unsafe_pattern_type", "Unsupported pattern type");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.slow_execution_context", "Slow execution context");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.cache_result_mismatch", "Cached result does not match");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.negative_cache", "The recipe is marked as unsupported");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.cached_result_materialization_failed",
+            "Cached result could not be materialized");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.verified_output_or_input_conversion_failed",
+            "Verified output or input conversion failed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.assembly_contract_mismatch",
+            "Assembly result does not match the pattern contract");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.state_second_step_proof_failed",
+            "Second state transition proof failed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.verified_stack_validation_failed",
+            "Verified stack validation failed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.reusable_state_model_missing",
+            "Reusable state model is missing");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.state_slot_count_mismatch",
+            "State slot count changed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.mixed_reusable_state_models",
+            "Reusable state models are mixed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.durability_transition_invalid",
+            "Durability transition is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.state_transition_not_provably_linear",
+            "State transition cannot be proven linear");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.verification_rejected", "Recipe verification was rejected");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.pattern_input_inspection_failed",
+            "Pattern inputs could not be inspected");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.pattern_null", "Pattern is missing");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.no_inputs", "Pattern has no inputs");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.no_outputs", "Pattern has no outputs");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.non_item_output", "Pattern output is not an item");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.invalid_input", "Pattern input is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.non_item_input", "Pattern input is not an item");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.invalid_item_input", "Pattern input item is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.invalid_remainder", "Pattern remainder is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.remainder_is_not_reusable_item",
+            "Remainder is not a reusable item");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.runtime_simulation_required",
+            "Runtime simulation is required");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.one_to_one_reusable_item_or_component",
+            "One-to-one reusable item or component");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.static_item_contract", "Static item contract");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.multiple", "Multiple reasons");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.unknown", "Unknown reason");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.unknown_code", "Unknown reason: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.output_count", "Output count is not 1: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.output", "Output validation failed: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.remainder", "Remainder validation failed: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.input", "Input validation failed: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.null_collection", "collection is null");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.too_many_entries", "too many entries");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.empty_required", "required collection is empty");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.null_stack", "stack is null");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.invalid_amount", "amount is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.non_item_key", "key is not an item");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.empty_item_stack", "item stack is empty");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.damaged_item", "item is damaged");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.component_patch", "component patch is unsupported");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.unknown_validation", "unknown validation failure");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.classifier_failed", "Pattern classifier failed: %s");
         provider.add("gui.neoecoae.crafting.overclock.on", "Disable Overclock");
         provider.add("gui.neoecoae.crafting.overclock.off", "Enable Overclock");
-        provider.add("gui.neoecoae.crafting.overclocked.tooltip", "Boosting performance within a limited range while consuming more §cEnergy§f.");
-        provider.add("gui.neoecoae.crafting.enable_active_cooling", "Enable Active Cooling: ");
         provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
         provider.add("gui.neoecoae.crafting.active_cooling.off", "Enable Active Cooling");
-        provider.add("gui.neoecoae.crafting.active_cooling.tooltip", "Consumes coolant from the fluid input hatch to enhance performance and eliminate the additional energy cost of overclocking.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output hatch is full, coolant cannot be consumed from the fluid input hatch, preventing the machine from replenishing its coolant supply.");
-        provider.add("gui.neoecoae.crafting.clear_coolant", "Clear");
-        provider.add("gui.neoecoae.crafting.clear_coolant.tooltip", "Clears the cached coolant so you can switch to a different coolant.");
+        provider.add("gui.neoecoae.crafting.planning.ignore_substitutions.on",
+            "Disable Ignore Pattern Substitutions");
+        provider.add("gui.neoecoae.crafting.planning.ignore_substitutions.off",
+            "Enable Ignore Pattern Substitutions");
+        provider.add("gui.neoecoae.crafting.planning.substitution_pattern_count",
+            "Currently %d substitution-enabled patterns");
+        provider.add("gui.neoecoae.host.network_frequency.cycle", "Cycle Network Frequency (Current: %d)");
+        provider.add("gui.neoecoae.host.network_frequency.cycle.unassigned", "Cycle Network Frequency (Unassigned)");
+        provider.add("gui.neoecoae.host.network.mode.local", "LOCAL x1");
+        provider.add("gui.neoecoae.host.network.mode.normal", "NETWORK SWITCH x2");
+        provider.add("gui.neoecoae.host.network.mode.high_energy", "HIGH-ENERGY x8");
+        provider.add("gui.neoecoae.host.network.connected", "NETWORK ONLINE");
+        provider.add("gui.neoecoae.host.network.disconnected", "NETWORK OFFLINE");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");
-        provider.add("gui.neoecoae.crafting.coolant_max_overclock.none", "Current Coolant Max Overclock: None");
-        provider.add("gui.neoecoae.host.crafting.working_threads", "Working Threads");
-        provider.add("gui.neoecoae.host.crafting.total_parallelism", "Total Parallelism");
-        provider.add("gui.neoecoae.host.crafting.max_energy_usage", "Max Energy Usage");
-        provider.add("gui.neoecoae.host.crafting.runtime", "Crafting Runtime");
-        provider.add("gui.neoecoae.host.crafting.pattern_buses", "Pattern Buses");
-        provider.add("gui.neoecoae.host.crafting.parallel_cores", "Parallel Cores");
-        provider.add("gui.neoecoae.host.crafting.worker_cores", "Worker Cores");
         provider.add("gui.neoecoae.host.crafting.overflow", "Overflow");
-        provider.add("gui.neoecoae.host.crafting.overclock_cooling", "Overclock & Cooling");
-        provider.add("gui.neoecoae.host.crafting.overclock_summary", "Theoretical %d, effective %d, coolant max %s.");
         provider.add("gui.neoecoae.host.crafting.coolant", "Coolant");
-        provider.add("gui.neoecoae.host.crafting.energy", "Energy");
-        provider.add("gui.neoecoae.host.crafting.footer", "Single-screen crafting status and controls.");
         provider.add("gui.neoecoae.storage_interface.title", "Storage Interface");
         provider.add("gui.neoecoae.storage_interface.mode.storage", "Storage");
         provider.add("gui.neoecoae.storage_interface.mode.input", "Input");
         provider.add("gui.neoecoae.storage_interface.mode.output", "Output");
+        provider.add("jade.neoecoae.storage_interface.input", "Storage interface: Input mode");
+        provider.add("jade.neoecoae.storage_interface.output", "Storage interface: Output mode");
         provider.add("gui.neoecoae.storage_interface.structure", "Infinite Storage");
         provider.add("gui.neoecoae.storage_interface.infinite_ready", "Ready");
         provider.add("gui.neoecoae.storage_interface.infinite_unavailable", "Unavailable");
@@ -186,5 +283,139 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage_interface.transfer", "Transferred: %s / tick");
         provider.add("gui.neoecoae.storage_interface.transfer_prefix", "Transferred: ");
         provider.add("gui.neoecoae.storage_interface.transfer_suffix", " / tick");
+
+        // crafting interface
+        provider.add("gui.neoecoae.crafting_interface.title", "Crafting Interface");
+        provider.add("gui.neoecoae.crafting_interface.preview.search", "Search ingredients or outputs");
+        provider.add("gui.neoecoae.crafting_interface.preview.search.tooltip",
+            "Searches pattern ingredients and outputs. Separate terms with spaces; right-click to clear.");
+        provider.add("gui.neoecoae.crafting_interface.preview.filter_substitutions", "Show/hide substitution patterns");
+        provider.add("gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions", "Show/hide fluid substitution patterns");
+        provider.add("gui.neoecoae.crafting_interface.preview.organize", "Organize pattern buses");
+        provider.add("gui.neoecoae.crafting_interface.preview.organizing", "Organizing pattern buses %d%%");
+        provider.add("gui.neoecoae.crafting_interface.preview.organize.result_primary",
+            "Organization complete: recovered %d invalid patterns, %d duplicate patterns");
+        provider.add("gui.neoecoae.crafting_interface.preview.organize.result_secondary",
+            "Inventory space insufficient, %d patterns remain to be recovered");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer", "Transfer Network Patterns");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.indexing", "Indexing %d%%");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.progress", "Transferring %d%%");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.ready", "Ready to transfer");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.unavailable",
+            "Crafting subsystem is not connected to an available network");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.no_target", "No available pattern bus found");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_primary", "Transferred %d; Already present %d");
+        provider.add("gui.neoecoae.crafting_interface.preview.source", "Source: %s, %s, %s · Slot %s");
+        provider.add("gui.neoecoae.crafting_interface.preview.read_only", "Disk contents · Read-only; edit in the pattern access terminal");
+        provider.add("gui.neoecoae.crafting_interface.preview.loading", "Loading patterns… %s slots received");
+        provider.add("gui.neoecoae.crafting_interface.preview.no_results", "No matching pattern rows");
+        provider.add("gui.neoecoae.crafting_interface.preview.rows", "Rows %s–%s / %s");
+        provider.add("gui.neoecoae.crafting_interface.preview.empty_rows", "Show / hide empty rows");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_secondary", "No space %d; Non-crafting patterns %d");
+
+        // computation interface
+        provider.add("gui.neoecoae.crafting_report.bytes", " - Bytes: %s");
+        provider.add("gui.neoecoae.crafting_report.bytes_only", "Bytes: %s");
+        provider.add("gui.neoecoae.crafting_report.loading_details", "Loading crafting details…");
+        provider.add("gui.neoecoae.computation_interface.hint", "Mark items to ignore component differences when planning");
+        provider.add("gui.neoecoae.crafting_report.single_net_output", "Single change: %s");
+        provider.add("gui.neoecoae.crafting_report.total_net_output", "Total change: %s");
+        provider.add("gui.neoecoae.crafting_report.total_net_output_unknown", "Total change: unknown");
+        provider.add("gui.neoecoae.crafting_report.calculating", "Calculating...");
+        provider.add("gui.neoecoae.crafting_report.bookmark_missing", "Bookmark missing");
+        provider.add("gui.neoecoae.crafting_report.complex_tree_hint", "Check the patterns in this complex crafting tree");
+        provider.add("gui.neoecoae.crafting_report.search_incomplete", "Route search incomplete; calculated materials are retained");
+        provider.add("gui.neoecoae.crafting_report.cycle_unsupported", "A cyclic recipe cannot be handled by the current solver.");
+        provider.add("gui.neoecoae.crafting_report.total_consumed", "Total consumed: %s");
+        provider.add("gui.neoecoae.crafting_report.total_produced", "Total produced: %s");
+        provider.add("gui.neoecoae.crafting.fast_planner.on", "ECO Fast Planning: Enabled");
+        provider.add("gui.neoecoae.crafting.fast_planner.off", "ECO Fast Planning: Disabled");
+        provider.add("gui.neoecoae.crafting.planning_log.on", "Planning Stage Logs: Enabled");
+        provider.add("gui.neoecoae.crafting.planning_log.off", "Planning Stage Logs: Disabled");
+        provider.add("gui.neoecoae.crafting.submission_log.on", "Craft Submission Logs: Enabled");
+        provider.add("gui.neoecoae.crafting.submission_log.off", "Craft Submission Logs: Disabled");
+        provider.add("gui.neoecoae.crafting.virtual_reason.overclock", "Overclocking is disabled");
+        provider.add("gui.neoecoae.crafting.virtual_reason.cooling", "Active cooling is disabled");
+        provider.add("gui.neoecoae.crafting.virtual_reason.host_count", "Network hosts: %d/%d");
+        provider.add("gui.neoecoae.crafting.virtual_reason.f9", "A host is below F9 tier");
+        provider.add("gui.neoecoae.crafting.virtual_reason.high_energy_switch", "A host lacks a high-energy network switch");
+        provider.add("gui.neoecoae.crafting.virtual_reason.max_length", "A host has not reached maximum length");
+        provider.add("gui.neoecoae.crafting.virtual_reason.topology", "Network topology requirements are not met");
+        provider.add("gui.neoecoae.crafting_report.cycle_not_detected", "No cycles detected");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle detected");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");
+        provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
+        provider.add("gui.neoecoae.crafting_report.seed_parallelism", "Concurrent uses allowed by this seed: at most %s");
+        provider.add("gui.neoecoae.crafting_report.seed_parallelism_hint", "Machines and execution order also limit throughput. Add seed stock and replan to raise this bound.");
+        provider.add("gui.neoecoae.crafting_report.requested_exact", "Total requested: %s");
+        provider.add("gui.neoecoae.crafting_report.quantity_unknown", "Quantity unknown");
+        provider.add("gui.neoecoae.crafting_report.planning_failed", "Planning incomplete (hover CPU for details)");
+        provider.add("gui.neoecoae.crafting_report.solving_large_cycle", "[ECO] Solving large cycle");
+        provider.add("gui.neoecoae.crafting_graph.open", "Planning Graph");
+        provider.add("gui.neoecoae.crafting_graph.title", "ECO Crafting Planning Graph");
+        provider.add("gui.neoecoae.crafting_graph.search", "Search");
+        provider.add("gui.neoecoae.crafting_graph.search_hint", "Search AEKey / item");
+        provider.add("gui.neoecoae.crafting_graph.node.pending_craft", "Pending craft");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.fit_all", "Fit All");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.missing_on", "Missing only: On");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.missing_off", "Missing only: Off");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.root", "Root");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.expand", "Expand");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.collapse", "Collapse");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.expand_all", "All");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.depth", "Depth: %s");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.depth_all", "Depth: All");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.depth_four", "D4");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.fold_four", "Fold4");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.view_tree", "View: Tree");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.view_graph", "View: Graph");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.debug_on", "Debug: ON");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.debug_off", "Debug: OFF");
+        provider.add("gui.neoecoae.crafting_graph.breadcrumb.plan", "ECO Plan");
+        provider.add("gui.neoecoae.crafting_graph.breadcrumb.cycle", "ECO Plan  >  Cycle #%s");
+        provider.add("gui.neoecoae.crafting_graph.breadcrumb.cluster", "ECO Plan  >  Cycle Cluster #%s");
+        provider.add("gui.neoecoae.crafting_graph.details.cycle_title", "Cycle #%s");
+        provider.add("gui.neoecoae.crafting_graph.details.cluster_title", "Cycle Cluster #%s");
+        provider.add("gui.neoecoae.crafting_graph.details.cluster_cycles", "Independent cycles: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.cluster_flows", "Inter-cycle flows: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.cluster_hint", "Double-click a ring node to open one cycle");
+        provider.add("gui.neoecoae.crafting_graph.details.status_label", "Status: ");
+        provider.add("gui.neoecoae.crafting_graph.details.seed_label", "Seed: ");
+        provider.add("gui.neoecoae.crafting_graph.details.external_label", "External: ");
+        provider.add("gui.neoecoae.crafting_graph.details.execute_label", "Execute: ");
+        provider.add("gui.neoecoae.crafting_graph.details.witness_steps", "Witness steps: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.required_outputs", "Required outputs: %s");
+        provider.add("gui.neoecoae.crafting_graph.summary.more", ", %s more");
+        provider.add("gui.neoecoae.crafting_graph.summary.more_suffix", " more");
+        provider.add("gui.neoecoae.crafting_graph.details.folder", "Collapsed group");
+        provider.add("gui.neoecoae.crafting_graph.details.hidden_nodes", "Hidden nodes: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.hidden_layers", "Hidden layers: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.depth", "Depth: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.requested", "Requested: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.inventory", "From inventory: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.to_craft", "To craft: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.consumed", "Consumed by job: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.produced", "Produced by job: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.missing", "Missing: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.unsupported", "Unsupported: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.cycle", "Cycle: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.status", "Status: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.source_patterns", "Source patterns: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.members", "Members: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.action", "Action: %s");
+        provider.add("gui.neoecoae.crafting_graph.action.expand", "Expand");
+        provider.add("gui.neoecoae.crafting_graph.status.satisfied", "Satisfied");
+        provider.add("gui.neoecoae.crafting_graph.status.crafting", "Crafting");
+        provider.add("gui.neoecoae.crafting_graph.status.missing", "Missing materials");
+        provider.add("gui.neoecoae.crafting_graph.status.unsupported", "Unsupported");
+        provider.add("gui.neoecoae.crafting_graph.status.cycle", "Cycle");
+        provider.add("gui.neoecoae.crafting_graph.status.not_required", "Not required");
+        provider.add("gui.neoecoae.crafting_graph.status.disabled", "Disabled");
+        provider.add("gui.neoecoae.crafting_graph.status.not_implemented", "Not implemented");
+        provider.add("gui.neoecoae.crafting_graph.status.solved", "Solved");
+        provider.add("gui.neoecoae.crafting_graph.status.insufficient_external_input", "Insufficient external input");
+        provider.add("gui.neoecoae.crafting_graph.status.unknown_budget", "Planning budget exhausted");
+        provider.add("gui.neoecoae.crafting_graph.status.too_complex", "Too complex");
+        provider.add("gui.neoecoae.crafting_graph.status.cancelled", "Cancelled");
     }
 }

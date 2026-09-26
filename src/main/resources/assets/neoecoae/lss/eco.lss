@@ -33,17 +33,17 @@ button.__disabled__ .__button_text__ {
 // slot
 item-slot {
   background: built-in(ui-eco:ITEM_SLOT);
-  hover-overlay: #A0daffff
+  hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
 }
 
 pattern-item-slot {
   background: built-in(ui-eco:ITEM_SLOT);
-  hover-overlay: #A0daffff
+  hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
 }
 
 fluid-slot {
   background: built-in(ui-eco:ITEM_SLOT);
-  hover-overlay: #A0daffff
+  hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
 }
 
 // progress bar
@@ -92,6 +92,15 @@ fluid-slot {
   background: #26a6bd;
 }
 
+.eco-pattern-transfer-progress .__progress-bar_bar-container__ {
+  padding-all: 1;
+  background: #151d2b;
+}
+
+.eco-pattern-transfer-progress .__progress-bar_bar__ {
+  background: #32d6ff;
+}
+
 .eco-host-stats-progress {
   padding-all: 2;
   background: built-in(ui-eco:HOST_PANEL_BORDER);
@@ -104,18 +113,6 @@ fluid-slot {
 
 .eco-host-stats-progress .__progress-bar_bar__ {
   background: #8377ff;
-}
-
-.eco-storage-load-inset-edge {
-  background: #c9c3d6;
-}
-
-.eco-storage-load-inset-border {
-  background: #17141e;
-}
-
-.eco-storage-load-inset-fill {
-  background: #201e27;
 }
 
 .eco-host-panel-row {

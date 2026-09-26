@@ -1,155 +1,128 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
-import java.io.IOException;
-import java.nio.file.Files;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.LevelResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Looks up the storage engine of an infinite domain. Domains are world-global, so their data lives in the overworld's
+ * data storage no matter which dimension the storage host stands in; the map here is only a cache of engines over that
+ * data, discarded when the server stops. Loading and saving belong entirely to the vanilla {@code DimensionDataStorage}.
+ */
 public final class ECOInfiniteStorageDomains {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOInfiniteStorageDomains.class);
-    private static final long TICK_CHECKPOINT_BUDGET_NANOS = 1_000_000L;
-    private static final Map<String, FileBackedInfiniteStorageEngine> ENGINES = new HashMap<>();
+    private static final String DATA_NAME_PREFIX = "neoecoae_infinite_";
 
-    private ECOInfiniteStorageDomains() {}
+    private static final Map<MinecraftServer, Map<UUID, DomainEntry>> ENGINES = new IdentityHashMap<>();
 
-    public static synchronized FileBackedInfiniteStorageEngine get(ServerLevel level, UUID domainId) {
-        String key = keyFor(level, domainId);
-        return ENGINES.computeIfAbsent(
-                key, ignored -> new FileBackedInfiniteStorageEngine(level.registryAccess(), domainId, domainPath(level, domainId)));
+    private ECOInfiniteStorageDomains() {
     }
 
-    public static synchronized void close(ServerLevel level, UUID domainId) {
-        String key = keyFor(level, domainId);
-        FileBackedInfiniteStorageEngine engine = ENGINES.get(key);
-        if (engine != null) {
-            // A controller or a mounted storage wrapper in another dimension may still reference this world-global
-            // domain. Keep one engine instance until server shutdown and only force its current state to disk here.
-            engine.flushBudgeted(0L);
-        }
+    /**
+     * Mounts one host on a domain. Every successful acquire must be paired with {@link #release}.
+     */
+    public static synchronized ECOInfiniteStorageEngine acquire(ServerLevel level, UUID domainId) {
+        MinecraftServer server = level.getServer();
+        DomainEntry entry = ENGINES.computeIfAbsent(server, ignored -> new Object2ObjectOpenHashMap<>())
+                .computeIfAbsent(domainId, ignored -> new DomainEntry(create(server, domainId)));
+        entry.mountCount++;
+        return entry.engine;
     }
 
-    public static synchronized void flushAll() {
-        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
-            engine.flushBudgeted(0L);
-        }
-    }
-
-    public static synchronized void awaitPreviousTick() {
-        // The writer normally finishes while the server is between ticks. Waiting here bounds the durability window
-        // to one tick without putting force(false) on every storage-system block entity tick.
-        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
-            engine.submitPendingWal();
-        }
-        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
-            engine.awaitPendingWal();
+    /**
+     * Releases one host mount. The engine stays cached for the rest of the server session: it is only a view over the
+     * level's SavedData, which the vanilla save cycle persists whether or not any host is mounted.
+     */
+    public static synchronized void release(MinecraftServer server, UUID domainId) {
+        Map<UUID, DomainEntry> engines = ENGINES.get(server);
+        if (engines != null) {
+            DomainEntry entry = engines.get(domainId);
+            if (entry != null && entry.mountCount > 0) entry.mountCount--;
         }
     }
 
-    public static synchronized void flushTick() {
-        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
-            engine.submitPendingWal();
-        }
-        long deadline = System.nanoTime() + TICK_CHECKPOINT_BUDGET_NANOS;
-        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
-            long remaining = deadline - System.nanoTime();
-            if (remaining <= 0L) {
-                break;
+    /** The world has already been saved by vanilla shutdown; only drop the cached views. */
+    public static synchronized void onServerStopped(MinecraftServer server) {
+        ENGINES.remove(server);
+    }
+
+    public static synchronized com.google.gson.JsonObject diagnosticReport(MinecraftServer server) {
+        com.google.gson.JsonObject report = new com.google.gson.JsonObject();
+        report.addProperty("generatedAt", java.time.Instant.now().toString());
+        com.google.gson.JsonArray domains = new com.google.gson.JsonArray();
+        Map<UUID, DomainEntry> engines = ENGINES.get(server);
+        if (engines != null) engines.forEach((id, entry) -> {
+            ECOInfiniteStorageEngine engine = entry.engine;
+            com.google.gson.JsonObject domain = new com.google.gson.JsonObject();
+            domain.addProperty("domain", id.toString());
+            domain.addProperty("mountedHosts", entry.mountCount);
+            domain.addProperty("status", engine.status().name());
+            domain.addProperty("canRestore", engine.canExitOrRestore());
+            if (engine instanceof SavedDataInfiniteStorageEngine saved) {
+                domain.addProperty("persistence", saved.persistenceSummary());
+                com.google.gson.JsonArray failures = new com.google.gson.JsonArray();
+                saved.failures().forEach(failures::add);
+                domain.add("failures", failures);
             }
-            engine.checkpointBudgeted(remaining);
+            domains.add(domain);
+        });
+        report.add("domains", domains);
+        return report;
+    }
+
+    private static final class DomainEntry {
+        private final ECOInfiniteStorageEngine engine;
+        private int mountCount;
+
+        private DomainEntry(ECOInfiniteStorageEngine engine) {
+            this.engine = engine;
         }
     }
 
-    public static synchronized void closeAll() {
-        RuntimeException failure = null;
+    private static ECOInfiniteStorageEngine create(MinecraftServer server, UUID domainId) {
+        ServerLevel overworld = server.getLevel(Level.OVERWORLD);
+        if (overworld == null) {
+            throw new IllegalStateException("Cannot open ECO infinite storage domain " + domainId + " without a level");
+        }
+        String legacyName = DATA_NAME_PREFIX + domainId;
+        // A separate name keeps every old .dat/.store byte intact. Once v3 exists it is authoritative;
+        // never fall back to the stale legacy inventory when the newer file is damaged.
+        String dataName = legacyName + "_v3";
+        Path dataDir = server.getWorldPath(LevelResource.ROOT).resolve("data");
+        Path dataFile = dataDir.resolve(dataName + ".dat");
+        Path legacyFile = dataDir.resolve(legacyName + ".dat");
+        ECOInfiniteStorageData data = overworld.getDataStorage().computeIfAbsent(
+                ECOInfiniteStorageData.factory(dataFile, () -> importLegacy(overworld, domainId, legacyFile)), dataName);
+        if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
+            LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
+        }
+        return new SavedDataInfiniteStorageEngine(data);
+    }
+
+    private static ECOInfiniteStorageData importLegacy(ServerLevel overworld, UUID domainId, Path legacyFile) {
+        ECOInfiniteStorageData data = ECOInfiniteStorageData.createNew();
         try {
-            for (FileBackedInfiniteStorageEngine engine : new ArrayList<>(ENGINES.values())) {
-                try {
-                    engine.closeAndFlush();
-                } catch (RuntimeException e) {
-                    LOGGER.error("Unable to close an ECO infinite storage domain", e);
-                    if (failure == null) {
-                        failure = e;
-                    } else {
-                        failure.addSuppressed(e);
-                    }
-                }
-            }
-        } finally {
-            ENGINES.clear();
-            ECOInfiniteStorageIoWorker.shutdown();
+            if (!LegacyInfiniteStorageReader.exists(legacyFile)) return data;
+            var recovered = LegacyInfiniteStorageReader.readAvailable(legacyFile);
+            data = ECOInfiniteStorageData.load(recovered.data(), overworld.registryAccess());
+            if (!recovered.failures().isEmpty()) data.markIncompleteLegacy(recovered.failures());
+            // Written as v3 on the next world save; the legacy files are never touched.
+            if (data.canWrite()) data.setDirty();
+        } catch (java.io.IOException | RuntimeException e) {
+            data = ECOInfiniteStorageData.createNew();
+            data.markUnreadable("Cannot import legacy domain snapshot; original files retained: " + e);
+            LOGGER.error("Cannot import ECO domain {}; original files retained", domainId, e);
         }
-        if (failure != null) {
-            throw failure;
-        }
-    }
-
-    private static String keyFor(ServerLevel level, UUID domainId) {
-        String root = level.getServer()
-                .getWorldPath(LevelResource.ROOT)
-                .toAbsolutePath()
-                .normalize()
-                .toString();
-        return root + ":" + domainId;
-    }
-
-    private static Path domainPath(ServerLevel level, UUID domainId) {
-        Path storageRoot = level.getServer()
-                .getWorldPath(LevelResource.ROOT)
-                .resolve("data")
-                .resolve("neoecoae_storage");
-        return resolveDomainPath(storageRoot, domainId);
-    }
-
-    static Path resolveDomainPath(Path storageRoot, UUID domainId) {
-        Path globalPath = storageRoot.resolve("domain_" + domainId);
-        if (Files.isDirectory(globalPath)) {
-            return globalPath;
-        }
-
-        Path legacyPath = findLegacyDomainPath(storageRoot, domainId);
-        if (legacyPath == null) {
-            return globalPath;
-        }
-        try {
-            Files.createDirectories(storageRoot);
-            Files.move(legacyPath, globalPath);
-            LOGGER.info("Migrated ECO infinite storage domain {} from {} to {}", domainId, legacyPath, globalPath);
-            return globalPath;
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to migrate ECO infinite storage domain " + domainId, e);
-        }
-    }
-
-    private static Path findLegacyDomainPath(Path storageRoot, UUID domainId) {
-        if (!Files.isDirectory(storageRoot)) {
-            return null;
-        }
-        String domainDirectory = "domain_" + domainId;
-        List<Path> matches = new ArrayList<>();
-        try (var children = Files.list(storageRoot)) {
-            children
-                .filter(Files::isDirectory)
-                .filter(path -> path.getFileName().toString().startsWith("dim_"))
-                .map(path -> path.resolve(domainDirectory))
-                .filter(Files::isDirectory)
-                .forEach(matches::add);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to inspect legacy ECO infinite storage domains", e);
-        }
-        if (matches.size() > 1) {
-            throw new IllegalStateException(
-                "Multiple legacy ECO infinite storage domains share UUID " + domainId + ": " + matches
-            );
-        }
-        return matches.isEmpty() ? null : matches.get(0);
+        return data;
     }
 
 }
