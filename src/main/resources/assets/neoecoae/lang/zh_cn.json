@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.crafting_report.seed_parallelism": "该种子并发占用上限：%s",
+  "gui.neoecoae.crafting_report.seed_parallelism_hint": "实际吞吐还受机器和执行顺序限制；增加种子库存后重新规划可提高上限。",
   "gui.neoecoae.storage_interface.ignore_creative.on": "忽略创造盘吸入：开启",
   "gui.neoecoae.storage_interface.ignore_creative.off": "忽略创造盘吸入：关闭",
   "gui.neoecoae.storage_interface.ignore_creative.description": "仅吸入模式生效：抽取后库存数量不变的资源视为创造盘资源并跳过",

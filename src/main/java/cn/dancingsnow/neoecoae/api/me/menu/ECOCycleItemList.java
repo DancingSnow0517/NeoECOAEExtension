@@ -28,7 +28,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         for (int i = 0; i < size; i++) {
             items.add(new Entry(AEKey.readKey(data), readBigInteger(data), readBigInteger(data),
                 readBigInteger(data), readBigInteger(data), readBigInteger(data),
-                data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class), data.readVarInt()));
+                data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class), data.readVarInt(), data.readLong()));
         }
         return items;
     }
@@ -47,12 +47,20 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
             data.writeEnum(item.executionCountKnowledge());
             data.writeEnum(item.solveStatus());
             data.writeVarInt(item.componentId());
+            data.writeLong(item.seedParallelism());
         }
     }
 
     public record Entry(AEKey what, BigInteger exactConsumed, BigInteger exactProduced,
             BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput, BigInteger exactMissing,
-            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId) {
+            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId, long seedParallelism) {
+        public Entry(AEKey what, BigInteger exactConsumed, BigInteger exactProduced,
+                BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput, BigInteger exactMissing,
+                ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId) {
+            this(what, exactConsumed, exactProduced, exactSingleNetOutput, exactTotalNetOutput, exactMissing,
+                executionCountKnowledge, solveStatus, componentId, -1L);
+        }
+
         public Entry(AEKey what, BigInteger exactConsumed, BigInteger exactProduced,
                 BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput,
                 ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId) {

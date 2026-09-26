@@ -92,6 +92,10 @@ final class ECOCycleItemListRenderer {
                     tooltip.add(net.minecraft.network.chat.Component.literal("Cycle #" + entry.componentId()));
                 }
                 tooltip.add(totalLine(entry, AmountFormat.FULL));
+                if (entry.seedParallelism() >= 0) {
+                    tooltip.add(Component.translatable("gui.neoecoae.crafting_report.seed_parallelism", entry.seedParallelism()));
+                    tooltip.add(Component.translatable("gui.neoecoae.crafting_report.seed_parallelism_hint"));
+                }
                 if (isMissingStartupSeed(entry)) {
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.missing_startup_seed"));
                 }

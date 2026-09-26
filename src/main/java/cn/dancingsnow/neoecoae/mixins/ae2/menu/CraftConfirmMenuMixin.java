@@ -516,6 +516,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             neoecoae$craftingGraph = snapshot;
             LinkedHashMap<AEKey, ECOCycleItemList.Entry> cycleItems = new LinkedHashMap<>();
             for (var cycle : snapshot.cycleGroups()) {
+                java.util.Map<AEKey, Long> seedParallelism = planningResult.components().stream()
+                    .filter(component -> component.componentId() == cycle.componentId() && component.cycleResult() != null
+                        && component.status() == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.PLANNED)
+                    .findFirst().map(component -> component.cycleResult().seedParallelism(component.cycleResult().requiredSeed()))
+                    .orElse(java.util.Map.of());
                 LinkedHashSet<AEKey> keys = new LinkedHashSet<>();
                 cycle.exactSingleNetOutputs().forEach(value -> keys.add(value.key()));
                 cycle.exactTotalNetOutputs().forEach(value -> keys.add(value.key()));
@@ -549,7 +554,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                         neoecoae$exactAmountFor(cycle.exactTotalNetOutputs(), key),
                         material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
                         cycle.executionCountKnowledge(),
-                        cycle.solveStatus(), cycle.componentId());
+                        cycle.solveStatus(), cycle.componentId(), seedParallelism.getOrDefault(key, -1L));
                     // An unresolved structural cycle has no authoritative total. Do not project
                     // the ordinary plan's consumed/produced fields into the cycle list: doing so
                     // makes an unused cycle look as if it consumed a real amount and falls back
@@ -568,7 +573,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                         material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
                         java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
                         material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
-                        cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId());
+                        cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId(),
+                        seedParallelism.getOrDefault(seed.key(), -1L));
                     if (entry.totalNetOutputKnown() || entry.exactMissing().signum() > 0) {
                         cycleItems.putIfAbsent(seed.key(), entry);
                     }

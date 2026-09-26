@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.crafting_report.seed_parallelism": "Concurrent uses allowed by this seed: at most %s",
+  "gui.neoecoae.crafting_report.seed_parallelism_hint": "Machines and execution order also limit throughput. Add seed stock and replan to raise this bound.",
   "block.neoecoae.aluminum_alloy_block": "Aluminum Alloy Block",
   "block.neoecoae.aluminum_alloy_casing": "Aluminum Alloy Casing",
   "block.neoecoae.aluminum_block": "Aluminum Block",

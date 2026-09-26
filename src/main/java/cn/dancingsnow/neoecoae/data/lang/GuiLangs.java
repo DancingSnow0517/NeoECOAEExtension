@@ -325,6 +325,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle detected");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
+        provider.add("gui.neoecoae.crafting_report.seed_parallelism", "Concurrent uses allowed by this seed: at most %s");
+        provider.add("gui.neoecoae.crafting_report.seed_parallelism_hint", "Machines and execution order also limit throughput. Add seed stock and replan to raise this bound.");
         provider.add("gui.neoecoae.crafting_report.requested_exact", "Total requested: %s");
         provider.add("gui.neoecoae.crafting_report.quantity_unknown", "Quantity unknown");
         provider.add("gui.neoecoae.crafting_report.planning_failed", "Planning incomplete (hover CPU for details)");
