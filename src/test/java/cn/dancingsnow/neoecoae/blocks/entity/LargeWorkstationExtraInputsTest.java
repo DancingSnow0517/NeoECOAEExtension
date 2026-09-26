@@ -47,4 +47,40 @@ class LargeWorkstationExtraInputsTest {
         assertEquals(0, owned.get(LightningKey.HIGH_VOLTAGE));
         assertEquals(4096, missing.get(LightningKey.HIGH_VOLTAGE));
     }
+
+    @Test void returningOwnedInputsNeverInsertsUnacquiredExtras() {
+        var storage = mock(MEStorage.class);
+        var source = mock(IActionSource.class);
+        var owned = new KeyCounter();
+        var stillMissing = new KeyCounter();
+        owned.add(LightningKey.EXTREME_HIGH_VOLTAGE, 10);
+        stillMissing.add(LightningKey.EXTREME_HIGH_VOLTAGE, 18);
+        when(storage.insert(LightningKey.EXTREME_HIGH_VOLTAGE, 10, Actionable.MODULATE, source)).thenReturn(10L);
+
+        assertTrue(LargeWorkstationExtraInputs.returnOwned(owned, storage, source, () -> {}));
+
+        assertEquals(0, owned.get(LightningKey.EXTREME_HIGH_VOLTAGE));
+        assertEquals(18, stillMissing.get(LightningKey.EXTREME_HIGH_VOLTAGE));
+        verify(storage).insert(LightningKey.EXTREME_HIGH_VOLTAGE, 10, Actionable.MODULATE, source);
+        verifyNoMoreInteractions(storage);
+    }
+
+    @Test void partialReturnKeepsOnlyTheUninsertedOwnedAmount() {
+        var storage = mock(MEStorage.class);
+        var source = mock(IActionSource.class);
+        var owned = new KeyCounter();
+        var changes = new AtomicInteger();
+        owned.add(LightningKey.HIGH_VOLTAGE, 10);
+        when(storage.insert(LightningKey.HIGH_VOLTAGE, 10, Actionable.MODULATE, source)).thenReturn(4L);
+        when(storage.insert(LightningKey.HIGH_VOLTAGE, 6, Actionable.MODULATE, source)).thenReturn(6L);
+
+        assertFalse(LargeWorkstationExtraInputs.returnOwned(owned, storage, source, changes::incrementAndGet));
+        assertEquals(6, owned.get(LightningKey.HIGH_VOLTAGE));
+        assertTrue(LargeWorkstationExtraInputs.returnOwned(owned, storage, source, changes::incrementAndGet));
+        assertEquals(0, owned.get(LightningKey.HIGH_VOLTAGE));
+        assertEquals(2, changes.get());
+        verify(storage).insert(LightningKey.HIGH_VOLTAGE, 10, Actionable.MODULATE, source);
+        verify(storage).insert(LightningKey.HIGH_VOLTAGE, 6, Actionable.MODULATE, source);
+        verifyNoMoreInteractions(storage);
+    }
 }

@@ -107,13 +107,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private static final int MAX_PENDING_BATCHES = 512;
     private static final long MAX_PENDING_OUTPUT_STACKS = 100_000L;
     private static final long MAX_SAVE_STACKS = 50_000L;
-    private static final long MAX_BATCH_AGE = 72_000L;
     private static final int MAX_POWER_STORAGE = 16_000_000;
     private static final IGuiTexture UI_BACKGROUND = SpriteTexture.of(
         NeoECOAE.id("textures/gui/large_integrated_working_station.png")
     ).setSprite(0, 0, 176, 180);
 
     private final NEIntegratedWorkingStationControllerCalculator calculator;
+    private final LargeWorkstationCoolingOutput coolingOutput = new LargeWorkstationCoolingOutput();
     /** Accepted ordinary-path batches, bounded by MAX_PENDING_BATCHES backpressure. */
     private final Deque<PendingBatch> pendingBatches = new ArrayDeque<>();
     @Nullable
@@ -285,24 +285,25 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Nullable
-    private CoolingRecipe getCoolingRecipeForInput() {
+    private RecipeHolder<CoolingRecipe> getCoolingRecipeForInput() {
         if (level == null) return null;
         FluidStack input = getInputTank().getFluid();
         if (input.isEmpty()) return null;
 
-        CoolingRecipe best = null;
+        RecipeHolder<CoolingRecipe> best = null;
         for (RecipeHolder<CoolingRecipe> holder : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
             CoolingRecipe recipe = holder.value();
             if (recipe.input().ingredient().test(input)
-                && (best == null || recipe.maxOverclock() > best.maxOverclock())) {
-                best = recipe;
+                && (best == null || recipe.maxOverclock() > best.value().maxOverclock())) {
+                best = holder;
             }
         }
         return best;
     }
 
     private LargeWorkstationOverclock getCurrentLiquidProfile() {
-        CoolingRecipe recipe = getCoolingRecipeForInput();
+        RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
+        CoolingRecipe recipe = holder == null ? null : holder.value();
         LargeWorkstationOverclock profile = recipe == null
             ? null : LargeWorkstationOverclock.forCoolingTier(recipe.maxOverclock());
         return profile == null ? LargeWorkstationOverclock.NORMAL : profile;
@@ -355,7 +356,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public Component getCoolingTierText() {
-        CoolingRecipe recipe = getCoolingRecipeForInput();
+        RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
+        CoolingRecipe recipe = holder == null ? null : holder.value();
         LargeWorkstationOverclock profile = recipe == null
             ? null : LargeWorkstationOverclock.forCoolingTier(recipe.maxOverclock());
         String tier = profile == null ? "none" : switch (profile.coolingTier()) {
@@ -496,6 +498,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
         super.saveAdditional(data, registries);
         if (pendingPowerRefund > 0.0D) data.putDouble("pendingPowerRefund", pendingPowerRefund);
+        coolingOutput.save(data, registries);
         ListTag batches = new ListTag();
         for (PendingBatch batch : pendingBatches) {
             batches.add(batch.save(registries));
@@ -508,6 +511,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         super.loadTag(data, registries);
         double restoredRefund = data.getDouble("pendingPowerRefund");
         pendingPowerRefund = Double.isFinite(restoredRefund) && restoredRefund > 0.0D ? restoredRefund : 0.0D;
+        coolingOutput.load(data, registries);
         pendingBatches.clear();
         ListTag batches = data.getList("pendingBatches", Tag.TAG_COMPOUND);
         setPauseReason(PauseReason.NONE);
@@ -657,12 +661,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         // is actually removed from the queue.
         setWorking(true);
         setProcessingTime(batch.progress);
-        if (isBatchExpired(batch)) {
-            boolean cleared = expireBatch(batch);
-            setPauseReason(cleared ? PauseReason.NONE : PauseReason.OUTPUT_BLOCKED);
-            setChanged();
-            return cleared ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
-        }
         boolean terminal = batch.craftingJobId != null
             && ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId);
         if (terminal) {
@@ -707,17 +705,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
         CoolingTickPlan coolingPlan = null;
         if (batch.coolingTier > 0) {
-            PauseReason coolingPause = getCoolingPauseReason(batch);
-            if (coolingPause != PauseReason.NONE) {
-                setPauseReason(coolingPause);
-                return TickRateModulation.SLOWER;
-            }
-            CoolingRecipe coolingRecipe = getCoolingRecipeForInput();
-            if (coolingRecipe == null) {
-                setPauseReason(PauseReason.COOLANT_MISSING);
-                return TickRateModulation.SLOWER;
-            }
-            coolingPlan = new CoolingTickPlan(getCoolingOutputPerTick(coolingRecipe));
+            coolingPlan = prepareCoolingTick(batch);
+            if (coolingPlan == null) return TickRateModulation.SLOWER;
         }
 
         double energyPerBatch = (double) batch.energyPerCraft * batch.energyMultiplier * batch.craftCount;
@@ -808,86 +797,68 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
     }
 
-    private PauseReason getCoolingPauseReason(PendingBatch batch) {
-        if (!overclocked) return PauseReason.OVERCLOCK_DISABLED;
-        if (!activeCooling) return PauseReason.COOLING_DISABLED;
+    @Nullable
+    private CoolingTickPlan prepareCoolingTick(PendingBatch batch) {
+        if (!overclocked) {
+            setPauseReason(PauseReason.OVERCLOCK_DISABLED);
+            return null;
+        }
+        if (!activeCooling) {
+            setPauseReason(PauseReason.COOLING_DISABLED);
+            return null;
+        }
 
-        CoolingRecipe recipe = getCoolingRecipeForInput();
-        if (recipe == null) return PauseReason.COOLANT_MISSING;
+        RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
+        if (holder == null) {
+            setPauseReason(PauseReason.COOLANT_MISSING);
+            return null;
+        }
+        CoolingRecipe recipe = holder.value();
         LargeWorkstationOverclock current = LargeWorkstationOverclock.forCoolingTier(recipe.maxOverclock());
         if (current == null || current.coolingTier() < batch.coolingTier) {
-            return PauseReason.COOLANT_TIER_LOW;
+            setPauseReason(PauseReason.COOLANT_TIER_LOW);
+            return null;
         }
         if (getInputTank().getFluidAmount() < COOLANT_PER_PROCESSING_TICK) {
-            return PauseReason.COOLANT_INSUFFICIENT;
+            setPauseReason(PauseReason.COOLANT_INSUFFICIENT);
+            return null;
         }
 
-        FluidStack byproduct = getCoolingOutputPerTick(recipe);
-        if (byproduct == null) return PauseReason.COOLANT_OUTPUT_BLOCKED;
-        if (byproduct.isEmpty()) return PauseReason.NONE;
-
-        FluidStack stored = getOutputTank().getFluid();
-        if (!stored.isEmpty() && !recipe.output().is(stored.getFluid())) {
-            return PauseReason.COOLANT_OUTPUT_BLOCKED;
+        LargeWorkstationCoolingOutput.Plan output = coolingOutput.plan(
+            holder.id(), recipe.output(), recipe.inputAmount(), recipe.outputAmount(), COOLANT_PER_PROCESSING_TICK);
+        if (output == null) {
+            setPauseReason(PauseReason.COOLANT_OUTPUT_BLOCKED);
+            return null;
         }
-        return getOutputTank().fill(byproduct, IFluidHandler.FluidAction.SIMULATE) == byproduct.getAmount()
-            ? PauseReason.NONE : PauseReason.COOLANT_OUTPUT_BLOCKED;
-    }
-
-    @Nullable
-    private static FluidStack getCoolingOutputPerTick(CoolingRecipe recipe) {
-        FluidStack output = recipe.output();
-        if (output.isEmpty()) return FluidStack.EMPTY;
-        int recipeInput = recipe.inputAmount();
-        if (recipeInput <= 0 || recipe.outputAmount() <= 0) return null;
-        long amount = (long) recipe.outputAmount() * COOLANT_PER_PROCESSING_TICK / recipeInput;
-        if (amount <= 0L) return FluidStack.EMPTY;
-        if (amount > Integer.MAX_VALUE) return null;
-        return output.copyWithAmount((int) amount);
+        FluidStack byproduct = output.output();
+        if (!byproduct.isEmpty()
+            && getOutputTank().fill(byproduct, IFluidHandler.FluidAction.SIMULATE) != byproduct.getAmount()) {
+            setPauseReason(PauseReason.COOLANT_OUTPUT_BLOCKED);
+            return null;
+        }
+        setPauseReason(PauseReason.NONE);
+        return new CoolingTickPlan(getInputTank().getFluid().copyWithAmount(COOLANT_PER_PROCESSING_TICK), output);
     }
 
     private boolean consumeCoolingTick(CoolingTickPlan plan) {
         FluidStack drained = getInputTank().drain(COOLANT_PER_PROCESSING_TICK, IFluidHandler.FluidAction.EXECUTE);
-        if (drained.getAmount() != COOLANT_PER_PROCESSING_TICK) {
+        if (drained.getAmount() != COOLANT_PER_PROCESSING_TICK
+            || !FluidStack.isSameFluidSameComponents(drained, plan.input)) {
             if (!drained.isEmpty()) getInputTank().fill(drained, IFluidHandler.FluidAction.EXECUTE);
             return false;
         }
 
-        if (!plan.output.isEmpty()) {
-            int filled = getOutputTank().fill(plan.output, IFluidHandler.FluidAction.EXECUTE);
-            if (filled != plan.output.getAmount()) {
+        FluidStack byproduct = plan.output.output();
+        if (!byproduct.isEmpty()) {
+            int filled = getOutputTank().fill(byproduct, IFluidHandler.FluidAction.EXECUTE);
+            if (filled != byproduct.getAmount()) {
                 if (filled > 0) getOutputTank().drain(filled, IFluidHandler.FluidAction.EXECUTE);
                 getInputTank().fill(drained, IFluidHandler.FluidAction.EXECUTE);
                 return false;
             }
         }
+        coolingOutput.commit(plan.output);
         return true;
-    }
-
-    private boolean isBatchExpired(PendingBatch batch) {
-        return level != null && level.getGameTime() - batch.createdTick > MAX_BATCH_AGE;
-    }
-
-    private boolean expireBatch(PendingBatch batch) {
-        long age = level == null ? MAX_BATCH_AGE : Math.max(0L, level.getGameTime() - batch.createdTick);
-        if (!batch.expirationLogged) {
-            LOGGER.warn("Expiring large workstation batch at {} after {} ticks, job={}",
-                getBlockPos(), age, batch.craftingJobId);
-            batch.expirationLogged = true;
-        }
-        if (batch.craftingJobId != null && !ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId)) {
-            ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
-        }
-
-        boolean abandonedWithoutOutput = isCounterEmpty(batch.pendingOutput);
-        boolean cleared = abandonedWithoutOutput
-            ? recoverCounterToNetwork(batch.inputTotal)
-            : deliverBatchOutputs(batch);
-        if (cleared) {
-            if (abandonedWithoutOutput) notifyPatternAborted(batch.unlockStack);
-            removeFirstBatch(batch);
-        }
-        return cleared;
     }
 
     private void removeFirstBatch(PendingBatch batch) {
@@ -968,17 +939,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (isCounterEmpty(counter)) return true;
         IGrid grid = getMainNode().getGrid();
         if (grid == null) return false;
-        MEStorage storage = grid.getStorageService().getInventory();
-        for (GenericStack stack : counterEntries(counter)) {
-            long inserted = storage.insert(stack.what(), stack.amount(), Actionable.MODULATE, IActionSource.ofMachine(this));
-            if (inserted < 0L || inserted > stack.amount()) {
-                throw new IllegalStateException(
-                    "Invalid large workstation recovery insertion amount: " + inserted + " for " + stack.amount());
-            }
-            if (inserted > 0L) counter.remove(stack.what(), inserted);
-            if (inserted < stack.amount()) return false;
-        }
-        return isCounterEmpty(counter);
+        return LargeWorkstationExtraInputs.returnOwned(
+            counter, grid.getStorageService().getInventory(), IActionSource.ofMachine(this), this::setChanged);
     }
 
     @Nullable
@@ -1253,8 +1215,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         var batches = new ArrayList<>(pendingBatches);
         for (PendingBatch batch : batches) {
             if (batch.progress >= MAX_PROCESSING_STEPS) continue;
-            if (!recoverCounterToNetwork(batch.inputTotal)
-                || !recoverCounterToNetwork(batch.missingExtras)) {
+            if (!recoverCounterToNetwork(batch.inputTotal)) {
                 setPauseReason(PauseReason.OUTPUT_BLOCKED);
                 setChanged();
                 return;
@@ -1377,7 +1338,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
     }
 
-    private record CoolingTickPlan(FluidStack output) {
+    private record CoolingTickPlan(FluidStack input, LargeWorkstationCoolingOutput.Plan output) {
     }
 
     private static final class PendingBatch {
@@ -1399,7 +1360,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         @Nullable
         private final GenericStack unlockStack;
         private int progress;
-        private boolean expirationLogged;
 
         private PendingBatch(
             long craftCount,

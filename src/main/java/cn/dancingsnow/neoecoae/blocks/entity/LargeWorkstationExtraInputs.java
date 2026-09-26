@@ -23,4 +23,19 @@ final class LargeWorkstationExtraInputs {
         for (var entry : missing) if (entry.getLongValue() > 0) return false;
         return true;
     }
+
+    static boolean returnOwned(KeyCounter owned, MEStorage storage, IActionSource source, Runnable changed) {
+        for (var stack : ECOFastPathStacks.copyCounter(owned)) {
+            long inserted = storage.insert(stack.what(), stack.amount(), Actionable.MODULATE, source);
+            if (inserted < 0L || inserted > stack.amount()) {
+                throw new IllegalStateException("Invalid owned input recovery insertion amount");
+            }
+            if (inserted > 0L) {
+                owned.remove(stack.what(), inserted);
+                changed.run();
+            }
+            if (inserted < stack.amount()) return false;
+        }
+        return true;
+    }
 }
