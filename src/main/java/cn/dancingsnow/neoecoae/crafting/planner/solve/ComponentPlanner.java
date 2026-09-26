@@ -362,7 +362,16 @@ public final class ComponentPlanner {
                                 long present = stock.getOrDefault(key, 0L);
                                 if (present > 0L) heldSeed.put(key, present);
                             }
-                            var seedAttempt = externalDemandPlanner.solveDemands(network, cycle, candidate, inventory,
+                            Map<AEKey, Long> seedDemands = candidate;
+                            if (completeMaterialDeficit(proposal) && candidate.equals(proposal.seedShortfall())) {
+                                // Price the entire witness even when its startup ingredient is missing.
+                                // Otherwise missing fuel/raw materials disappear behind the first missing tool.
+                                seedDemands = mergeDemands(candidate, proposal.positiveExternalDemand());
+                                heldSeed = cycleInitialReservations(exactRequiredOutputs, stock, proposal);
+                                seedDelegates = delegatedCycleInputs(network, activeCondensation,
+                                    activeSelection.choices(), cycle, seedDemands.keySet());
+                            }
+                            var seedAttempt = externalDemandPlanner.solveDemands(network, cycle, seedDemands, inventory,
                                 acyclic.state(), reservationRemainder(heldSeed, stockReservations), seedDelegates,
                                 ignorePatternSubstitutions, cancellation);
                             if (!seedAttempt.solved()) {
@@ -399,7 +408,8 @@ public final class ComponentPlanner {
                             }
                             if (!recoveryAttempt.solved()) continue;
                             if (recovered.status() != CycleSolveStatus.SUCCESS) {
-                                if (recoveryFailure == null) {
+                                if (recoveryFailure == null
+                                        && (!completeMaterialDeficit(proposal) || completeMaterialDeficit(recovered))) {
                                     recoveryFailure = recovered;
                                     unresolvedSeed = candidate;
                                     external = recoveryAttempt;
@@ -618,11 +628,24 @@ public final class ComponentPlanner {
         if (unresolvedCycle && (status == PlanningStatus.SUCCESS || status == PlanningStatus.MISSING_ITEMS)) {
             status = acyclic.state().hasPlannedCrafting() || status == PlanningStatus.MISSING_ITEMS
                     ? PlanningStatus.PARTIAL : PlanningStatus.CYCLE_UNRESOLVED;
+            if (!acyclic.state().missingItems().isEmpty() && componentResults.stream()
+                    .filter(c -> c.type() == ComponentPlanningResult.Type.CYCLIC)
+                    .filter(c -> c.cycleDisposition() == CycleExecutionDisposition.BLOCKED)
+                    .allMatch(c -> completeMaterialDeficit(c.cycleResult())
+                        && (c.externalDemandStatus() == CycleExternalDemandStatus.MISSING
+                            || c.externalDemandStatus() == CycleExternalDemandStatus.FORBIDDEN_ROUTE))) {
+                status = PlanningStatus.MISSING_ITEMS;
+            }
         }
         validateProvenanceCoverage(network, acyclic.state(), componentResults, trace);
         return new Outcome(status, acyclic.state(), trace, List.copyOf(cycleDiagnostics),
                 List.copyOf(componentResults), activeCondensation.executionOrder().stream()
                 .map(c -> c.componentId()).toList());
+    }
+
+    private static boolean completeMaterialDeficit(CycleSolveResult result) {
+        return result != null && result.diagnostics().stream().anyMatch(d -> d.code()
+            == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveDiagnostic.Code.FULL_ORDER_MATERIAL_DEFICIT);
     }
 
     /** Retry producer routes, including cyclic alternatives, when the preferred route cannot be supplied. */
@@ -634,8 +657,8 @@ public final class ComponentPlanner {
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, true,
             ignorePatternSubstitutions, cancellation, failures);
         if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
-        // A local seed shortfall does not prove that a different route cannot bypass the cycle.
-        // Stop globally only when even an optimistic closure over ALL producers cannot reach the goal.
+        // One route's unsupported ingredient or seed deficit cannot rule out a different recipe.
+        // Stop globally only if even optimistic reachability through ALL producers fails.
         if (preferred.trace().cycles().stream().anyMatch(cycle -> cycle.solveResult() != null
                     && cycle.solveResult().status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT)
                 && RouteAvailabilityProof.goalUnreachable(network, snapshot, cancellation)) {

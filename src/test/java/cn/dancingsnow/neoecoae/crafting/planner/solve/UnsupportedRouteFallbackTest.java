@@ -66,6 +66,19 @@ class UnsupportedRouteFallbackTest {
     }
 
     @Test
+    void unsupportedLastAlternativeDoesNotEraseCompleteShortage() throws Exception {
+        var missing = key("missing");
+        var first = pattern(3, goal, true, new GenericStack(missing, 4));
+        var network = new CompiledNetwork(goal, Map.of(goal, List.of(first, preferred),
+            missing, List.of(), blocked, List.of(unsupported), stock, List.of()), Set.of(), 3, 3);
+        var result = new AcyclicCraftingSolver().solve(network,
+            new AcyclicRoutePlan(List.of(goal, missing)), inventory(), 1000, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.MISSING_ITEMS, result.status());
+        assertEquals(4000L, result.state().missingItems().get(missing));
+        assertTrue(result.state().unsupported.isEmpty());
+    }
+
+    @Test
     void largeBoundaryDemandRemainsAggregatedAcrossFallback() throws Exception {
         var inventory = new KeyCounter();
         inventory.add(stock, 1_000_000_000L);

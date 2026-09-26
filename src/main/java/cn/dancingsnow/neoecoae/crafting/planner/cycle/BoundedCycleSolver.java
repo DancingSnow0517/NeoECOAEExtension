@@ -121,6 +121,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         if (balance.status() == CycleStateEquation.Status.INFEASIBLE) {
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.STATE_EQUATION_INFEASIBLE,
                 "Exact material balance has no nonnegative integer firing vector at current stock"));
+            CycleSolveResult materials = fullOrderDeficit(model, cancellation);
+            if (materials != null) return materials.withAdditionalDiagnostics(diagnostics);
             boolean noGrowth = true;
             for (int k = 0; k < model.keyCount(); k++) {
                 if (model.required[k].compareTo(model.stock[k]) <= 0) continue;
@@ -167,6 +169,9 @@ public final class BoundedCycleSolver implements CycleSolver {
         if (equation != null && equation.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT) {
             return equation.withAdditionalDiagnostics(diagnostics).withStartupCandidates(startupCandidates(model));
         }
+
+        CycleSolveResult materials = fullOrderDeficit(model, cancellation);
+        if (materials != null) return materials.withAdditionalDiagnostics(diagnostics);
 
         PlannerAmount[] base = first.unblockDeficit;
         if (base == null || isZero(base)) {
@@ -430,7 +435,12 @@ public final class BoundedCycleSolver implements CycleSolver {
 
     private CycleSolveResult solveEquationWitness(Model model, CycleStateEquation.Result balance,
             ECOCancellation cancellation) throws InterruptedException {
-        List<BatchFiring> witness = equationWitness(model, balance.counts(), cancellation);
+        return solveEquationWitness(model, balance, cancellation, false);
+    }
+
+    private CycleSolveResult solveEquationWitness(Model model, CycleStateEquation.Result balance,
+            ECOCancellation cancellation, boolean materialReport) throws InterruptedException {
+        List<BatchFiring> witness = equationWitness(model, balance.counts(), cancellation, materialReport);
         if (witness == null) return null;
         Simulation bare = simulate(model, zeroes(model.keyCount()), witness);
         PlannerAmount[] start = model.stock.clone();
@@ -448,9 +458,27 @@ public final class BoundedCycleSolver implements CycleSolver {
                 witness.size(), expandedWitnessLength(witness), 0, false, false));
     }
 
+    /** Only called after current-stock infeasibility is proven. Imported ingredients are proposals;
+     * the original model replays the whole order and the component planner checks their actual supply. */
+    private CycleSolveResult fullOrderDeficit(Model model, ECOCancellation cancellation) throws InterruptedException {
+        if (!supportsRecipeCircuits(model)) return null;
+        boolean[] importable = model.suppliable.clone();
+        for (int k = 0; k < importable.length; k++) {
+            // Never satisfy the requested output by pretending it was supplied as an ingredient.
+            if (model.required[k].isZero()) importable[k] = true;
+        }
+        var balance = CycleStateEquation.solve(model.cons, model.prod, importable,
+            model.stock, model.required, cancellation);
+        if (balance.counts() == null) return null;
+        CycleSolveResult result = solveEquationWitness(model, balance, cancellation, true);
+        if (result == null || result.status() != CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
+                || result.seedShortfall().isEmpty()) return null;
+        return result.withStartupCandidates(startupCandidates(model));
+    }
+
     /** One shared prefix-deficit/repetition construction for growth, rings and split/merge circuits. */
     private static List<BatchFiring> equationWitness(Model model, PlannerAmount[] counts,
-            ECOCancellation cancellation) throws InterruptedException {
+            ECOCancellation cancellation, boolean materialReport) throws InterruptedException {
         PlannerAmount[] remaining = counts.clone(), marking = model.stock.clone();
         List<BatchFiring> witness = new ArrayList<>();
         for (int macro = 0; macro < MAX_EQUATION_WITNESS_STEPS; macro++) {
@@ -494,8 +522,14 @@ public final class BoundedCycleSolver implements CycleSolver {
                 if (best < 0 || missing.compareTo(score) < 0) { best = t; score = missing; }
             }
             if (best < 0) return null;
-            for (int k : model.metadata[best].consumedInternalKeys)
-                marking[k] = marking[k].max(PlannerAmount.of(model.cons[best][k]));
+            for (int k : model.metadata[best].consumedInternalKeys) {
+                PlannerAmount needed = PlannerAmount.of(model.cons[best][k]);
+                if (materialReport && model.cons[best][k] > model.prod[best][k]) {
+                    needed = needed.add(remaining[best].subtract(PlannerAmount.ONE)
+                        .multiply(model.cons[best][k] - model.prod[best][k]));
+                }
+                marking[k] = marking[k].max(needed);
+            }
         }
         return null;
     }
@@ -1009,6 +1043,11 @@ public final class BoundedCycleSolver implements CycleSolver {
         Map<AEKey, Long> shortfall = representable(exactShortfall);
 
         List<CycleSolveDiagnostic> explanation = new ArrayList<>(diagnostics);
+        if (!exactShortfall.isEmpty()) {
+            explanation.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.FULL_ORDER_MATERIAL_DEFICIT,
+                "Replayed the complete requested order with the reported additional ingredients; "
+                    + "deficits are sufficient for this recipe route, not merely enough to start one firing"));
+        }
         explanation.add(new CycleSolveDiagnostic(
             exactShortfall.isEmpty() ? CycleSolveDiagnostic.Code.SEED_COVERED_BY_STOCK
                 : CycleSolveDiagnostic.Code.SEED_SHORTFALL,

@@ -40,6 +40,88 @@ import org.junit.jupiter.api.Test;
 
 class ComponentPlannerMissingSeedTest {
     @Test
+    void reversibleOrderPublishesFullRawShortageToAe2() throws Exception {
+        AEKey product = mock(AEKey.class, "prudentium");
+        AEKey raw = mock(AEKey.class, "inferium");
+        for (AEKey key : List.of(product, raw)) when(key.getAmountPerByte()).thenReturn(8);
+        var upgrade = staticPattern(0, product, 1L, raw, 4L);
+        var downgrade = staticPattern(1, raw, 4L, product, 1L);
+        var network = new CompiledNetwork(product,
+            Map.of(product, List.of(upgrade), raw, List.of(downgrade)), Set.of(), 2, 2);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = new KeyCounter(); stock.add(raw, 19_314L);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var outcome = planner.plan(network, condensation, stock, 640_000L, true, ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertEquals(2_540_686L, outcome.state().missingItems().get(raw));
+        assertEquals(0L, outcome.state().missingItems().get(product));
+        assertTrue(outcome.state().patternTimes().isEmpty(), "Missing cycle must not become executable");
+        var plan = new AE2CraftingPlanBridge().success(product, 640_000L, true, false, outcome.state());
+        var summary = CraftingPlanSummary.fromJob(mock(IGrid.class, RETURNS_DEEP_STUBS),
+            mock(IActionSource.class), plan);
+        assertEquals(2_540_686L, summary.getEntries().stream().filter(e -> e.getWhat().equals(raw))
+            .findFirst().orElseThrow().getMissingAmount());
+    }
+
+    @Test
+    void missingSeedDoesNotHideTheWholeOrdersExternalIngredients() throws Exception {
+        AEKey seed = mock(AEKey.class, "seed"), fuel = mock(AEKey.class, "fuel");
+        for (AEKey key : List.of(seed, fuel)) when(key.getAmountPerByte()).thenReturn(8);
+        var growth = staticPattern(0, seed, 2L, new GenericStack(seed, 1L), new GenericStack(fuel, 7L));
+        var network = new CompiledNetwork(seed,
+            Map.of(seed, List.of(growth), fuel, List.of()), Set.of(), 1, 2);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = new KeyCounter(); stock.add(fuel, 3L);
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, stock, 100L, true, ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertEquals(1L, outcome.state().missingItems().get(seed));
+        assertEquals(697L, outcome.state().missingItems().get(fuel));
+        assertTrue(outcome.state().patternTimes().isEmpty());
+    }
+
+    @Test
+    void toolRecipeReversibleBoneRouteReportsQuantityInsteadOfUnsupported() throws Exception {
+        AEKey goal = mock(AEKey.class, "goal"), tool = mock(AEKey.class, "tool");
+        AEKey block = mock(AEKey.class, "bone_block"), dust = mock(AEKey.class, "bone_meal");
+        for (AEKey key : List.of(goal, tool, block, dust)) when(key.getAmountPerByte()).thenReturn(8);
+        var input = new CompiledInput(null, tool, 1L, true, null, tool, 1L);
+        var original = staticPattern(0, goal, 1L, tool, 1L);
+        var semantics = new PatternSemantics(original.details(), null, List.of(), original.outputs(),
+            List.of(new GenericStack(tool, 1L)), List.of(), PatternSemantics.MatchingMode.EXACT,
+            PatternSemantics.ExecutionRestriction.NONE, true, true, null);
+        var finish = new CompiledPattern(0, original.details(), goal, PlannerAmount.ONE, List.of(input),
+            original.outputs(), true, null, false, semantics,
+            new SpecialPatternAnalysis(List.of(new SpecialPatternAnalysis.Requirement(
+                input, tool, SpecialPatternAnalysis.Type.REUSABLE, 0, 0))));
+        var makeTool = staticPattern(1, tool, 1L, block, 20L);
+        var pack = staticPattern(2, block, 1L, dust, 9L);
+        var unpack = staticPattern(3, dust, 9L, block, 1L);
+        var network = new CompiledNetwork(goal, Map.of(goal, List.of(finish), tool, List.of(makeTool),
+            block, List.of(pack), dust, List.of(unpack)), Set.of(), 4, 4);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var stock = new KeyCounter(); stock.add(block, 5L);
+        var result = planner.plan(network, condensation, stock, 1000L, true, ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS,
+            result.status(), result.trace().diagnostics().toString());
+        assertEquals(15L, result.state().missingItems().get(block));
+        assertTrue(result.state().unsupported.isEmpty());
+        stock.add(block, 15L);
+        var supplied = planner.plan(network, condensation, stock, 1000L, true, ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS, supplied.status());
+        assertEquals(1L, supplied.state().patternTimes().get(makeTool.details()));
+    }
+
+    @Test
     void missingReusableCatalystOutsideCycleGraphReachesMissingSummary() throws Exception {
         AEKey seed = mock(AEKey.class);
         AEKey catalyst = mock(AEKey.class);

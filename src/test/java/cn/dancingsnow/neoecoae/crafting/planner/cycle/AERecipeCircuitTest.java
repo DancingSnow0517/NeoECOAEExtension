@@ -41,6 +41,25 @@ class AERecipeCircuitTest {
         }
     }
 
+    @Test void largeReversibleConversionReportsTheWholeOrderAndOneReturnedCrystal() {
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            AEKey raw = mock(AEKey.class, "inferium"), product = mock(AEKey.class, "prudentium");
+            AEKey crystal = mock(AEKey.class, "master_crystal");
+            var upgrade = recipe(0, Map.of(raw, 4L, crystal, 1L), Map.of(product, 1L), Map.of(crystal, 1L));
+            var downgrade = recipe(1, Map.of(product, 1L), Map.of(raw, 4L), Map.of());
+            var result = solve(List.of(raw, product), List.of(upgrade, downgrade), product, 640_000L,
+                Map.of(raw, 19_314L), null);
+            assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, result.status(), result.summary());
+            assertEquals(Map.of(raw, 2_540_686L, crystal, 1L), result.seedShortfall());
+            assertEquals(640_000L, result.patternTimes().get(upgrade.details()));
+            assertTrue(result.diagnostics().stream().anyMatch(d ->
+                d.code() == CycleSolveDiagnostic.Code.FULL_ORDER_MATERIAL_DEFICIT));
+            var supplied = solve(List.of(raw, product), List.of(upgrade, downgrade), product, 640_000L,
+                Map.of(raw, 2_560_000L, crystal, 1L), null);
+            assertEquals(CycleSolveStatus.SUCCESS, supplied.status(), supplied.summary());
+        });
+    }
+
     @Test void splitMergeCircuitUsesBalanceEvenWithOneSearchState() throws Exception {
         AEKey a = mock(AEKey.class), b = mock(AEKey.class), c = mock(AEKey.class), product = mock(AEKey.class);
         var split = recipe(0, Map.of(a, 2L), Map.of(b, 3L, c, 1L), Map.of());
@@ -62,7 +81,9 @@ class AERecipeCircuitTest {
         var result = solve(List.of(a), List.of(grow, consume), product, 5, Map.of(a, 1L, fuel, 4L), null);
         assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, result.status(), result.summary());
         assertTrue(result.diagnostics().stream().anyMatch(d -> d.code() == CycleSolveDiagnostic.Code.STATE_EQUATION_INFEASIBLE));
-        assertEquals(0, result.metrics().statesVisited());
+        assertEquals(1L, result.seedShortfall().get(fuel));
+        assertTrue(result.diagnostics().stream().anyMatch(d ->
+            d.code() == CycleSolveDiagnostic.Code.FULL_ORDER_MATERIAL_DEFICIT));
     }
 
     @Test void trillionProductsReuseOneBucketAndChargeEveryMillibucket() {

@@ -25,9 +25,8 @@ public final class SpecialPatternAnalyzer {
 
     public SpecialPatternAnalysis analyze(int patternId, IPatternDetails pattern, PatternSemantics semantics,
             List<CompiledInput> inputs) {
-        // Normal patterns have no returned stack. This branch is deliberately before all ItemStack work.
-        if (semantics.returnedOutputs().isEmpty()) return SpecialPatternAnalysis.NONE;
-
+        // The compiled slot is the remainder contract, including the raw-input fallback. Optional aggregate
+        // returnedOutputs must not gate catalyst/durability recognition or reintroduce these inputs into cycles.
         List<SpecialPatternAnalysis.Requirement> requirements = new ArrayList<>();
         for (CompiledInput input : inputs) {
             if (input.remainderKey() == null || input.remainderAmountPerPattern().signum() <= 0) continue;

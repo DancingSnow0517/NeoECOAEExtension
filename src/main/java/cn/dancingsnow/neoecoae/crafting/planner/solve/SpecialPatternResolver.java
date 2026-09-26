@@ -26,7 +26,7 @@ public final class SpecialPatternResolver {
     private final Map<AEKey, Integer> choices;
     private final ECOCancellation cancellation;
     private final boolean ignorePatternSubstitutions;
-    private final Set<AEKey> resolving = new LinkedHashSet<>();
+    private final Map<AEKey, PlannerAmount> resolving = new java.util.LinkedHashMap<>();
     private final Map<AEKey, PlannerAmount> reusableStock = new java.util.LinkedHashMap<>();
     private CompiledPattern specialOwner;
     private int specialSlot = -1;
@@ -216,10 +216,20 @@ public final class SpecialPatternResolver {
             state.provenance.allocate(demand, key, MaterialSource.Emitted.INSTANCE, requested);
             return;
         }
-        if (!resolving.add(key)) {
-            state.unsupported.add(key);
+        PlannerAmount pending = resolving.get(key);
+        if (pending != null) {
+            // A non-growing conversion loop (for example block <-> dust while making a tool)
+            // cannot supply its own outstanding ingredient. The fully expanded batch needs this
+            // concrete quantity from outside. Keep it as a simulated material deficit, rather than
+            // misclassifying supported recipes as an unsupported pattern contract.
+            if (requested.compareTo(pending) >= 0 && resolving.keySet().stream().allMatch(member -> {
+                CompiledPattern pattern = selectedPattern(member);
+                return pattern != null && pattern.semantics().cycleSafeForStaticPlanning();
+            })) state.missing.add(key, requested);
+            else state.unsupported.add(key);
             return;
         }
+        resolving.put(key, requested);
         try {
             CompiledPattern producer = selectedPattern(key);
             if (producer == null) {

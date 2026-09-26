@@ -7,6 +7,8 @@ public record CycleSolveDiagnostic(Code code, String message) {
         SATISFIED_FROM_STOCK,
         STATE_EQUATION_INFEASIBLE,
         STATE_EQUATION_WITNESS,
+        /** A replayed complete order determines sufficient material deficits, not a startup lower bound. */
+        FULL_ORDER_MATERIAL_DEFICIT,
         STATE_EQUATION_BUDGET,
         /** A concrete firing order was found. */
         WITNESS_FOUND,

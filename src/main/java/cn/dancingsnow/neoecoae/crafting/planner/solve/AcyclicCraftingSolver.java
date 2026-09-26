@@ -79,6 +79,7 @@ public final class AcyclicCraftingSolver {
         Map<AEKey, Integer> choices = new HashMap<>(initialChoices);
         int retryBudget = Math.max(1, network.reachablePatternCount() + 1);
         SolveState state = null;
+        SolveState missingRoute = null;
         cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingDependencyGraph universe = null;
         for (int attempt = 0; attempt < retryBudget; attempt++) {
             cancellation.checkpoint();
@@ -118,6 +119,8 @@ public final class AcyclicCraftingSolver {
                 return new Outcome(PlanningStatus.SUCCESS, state, trace);
             }
             if (!candidates.advanceAfterFailure(network, state, choices)) {
+                // A later unsupported alternative must not erase a completely calculated material list.
+                if (!state.unsupported.isEmpty() && missingRoute != null) state = missingRoute;
                 addTrace(network, state, amount, trace);
                 if (!state.unsupported.isEmpty()) {
                     trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
@@ -130,6 +133,7 @@ public final class AcyclicCraftingSolver {
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.MISSING, "Required inputs are unavailable"));
                 return new Outcome(PlanningStatus.MISSING_ITEMS, state, trace);
             }
+            if (state.unsupported.isEmpty()) missingRoute = state;
             for (var rejected : state.selected.entrySet()) {
                 trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, rejected.getKey(),
                     rejected.getValue().details(), 0, 0, 0, 0,
