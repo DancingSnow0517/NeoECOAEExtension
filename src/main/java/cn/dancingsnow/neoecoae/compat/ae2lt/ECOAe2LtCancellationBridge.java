@@ -60,7 +60,7 @@ public final class ECOAe2LtCancellationBridge {
             Object cpu = access.cpu.get(logic);
             Level level = cpu == null ? null : (Level) access.level.invoke(cpu);
             // The live CPU normally always supplies a server level; otherwise let cancellation proceed quietly.
-            ECOCraftingJobLifecycle.cancelAndRecover(level, jobId);
+            ECOCraftingJobLifecycle.finish(level, jobId, false);
         } catch (ReflectiveOperationException | ClassCastException ignored) {
             // Private AE2LT details are optional and version-sensitive. A failed bridge must not cancel the CPU.
         }

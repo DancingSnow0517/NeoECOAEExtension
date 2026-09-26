@@ -182,7 +182,8 @@ public final class ClientCraftingGraph {
             }
         }
         for (var external : cycle.externalInputs()) {
-            snapshot.nodes().stream().filter(node -> node.key().equals(external.key()))
+            if (external.key() == null) continue;
+            snapshot.nodes().stream().filter(node -> node.key() != null && node.key().equals(external.key()))
                 .filter(node -> !members.contains(node.nodeId()))
                 .findFirst().ifPresent(node -> externalInputIds.add(node.nodeId()));
         }

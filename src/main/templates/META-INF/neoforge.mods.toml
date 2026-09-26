@@ -185,10 +185,10 @@ file="META-INF/accesstransformer.cfg"
 [[dependencies.${mod_id}]]
     modId="useless_mod"
     type="optional"
-    versionRange="[1.21.1-2.3.4,)"
+    versionRange="[1.21.1-2.3.7.2,)"
     ordering="AFTER"
     side="BOTH"
-    reason="Useless Mod integration requires 1.21.1-2.3.4 or newer for scaled batch dispatch."
+    reason="Useless Mod integration requires 1.21.1-2.3.7.2 or newer for AlloyFurnaceBigIntegerTarget public API."
 
 [[dependencies.${mod_id}]]
     modId="jade"

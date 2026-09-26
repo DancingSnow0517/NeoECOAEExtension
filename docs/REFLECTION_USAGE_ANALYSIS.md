@@ -109,9 +109,9 @@ UUID jobId = (UUID) idField.get(job);
 - `OmniversalBigIntegerTarget.core` (Field)
 - `AlloyFurnaceBigIntegerCpuBinding.pushBigIntegerBatch(...)` (Method)
 
-**依赖版本**: Useless 1.21.1-2.3.10
+**依赖版本**: Useless 1.21.1-2.3.7.2+
 
-**分析结果**: ✅ **可以取消反射**
+**分析结果**: ✅ **已完全移除反射**
 
 **分析**:
 1. 查看 `OmniversalBigIntegerTarget` 源码（第41行）：
@@ -163,7 +163,9 @@ static @Nullable ExactPreparation prepare(Object target, ECOBatchDispatchContext
 }
 ```
 
-**结论**: ✅ **Useless的反射可以完全移除**
+**API可用性**: `AlloyFurnaceBigIntegerTarget` 公开API在 **Useless 1.21.1-2.3.7.2** (2026-09-18) 引入
+
+**结论**: ✅ **Useless的反射已完全移除** (2026-09-26完成)
 
 ---
 
@@ -215,14 +217,15 @@ static @Nullable ExactPreparation prepare(Object target, ECOBatchDispatchContext
 
 ### 已成功移除的反射
 
-1. ✅ **Useless集成** (`ECOUselessExactCraftingDispatch.java`) - **已完成**
+1. ✅ **Useless集成** (`ECOUselessExactCraftingDispatch.java`) - **已完成 (2026-09-26)**
    - 使用公开的 `AlloyFurnaceBigIntegerTarget` API替代
    - 完全移除了反射，使用 `admit()` + `commit()` 公开API
    - 已验证与 Useless 1.21.1-2.4.2 兼容
+   - **最低版本要求**: Useless 1.21.1-2.3.7.2+ (公开API引入于2026-09-18)
 
 ### 已修复的反射
 
-2. ✅ **AE2LT取消桥接** (`ECOAe2LtCancellationBridge.java`) - **已完成**
+2. ✅ **AE2LT取消桥接** (`ECOAe2LtCancellationBridge.java`) - **已完成 (2026-09-26)**
    - 修复了尝试访问不存在的 `link` 字段的bug
    - 改为直接访问 `BigCraftingJob.id` 公共字段
    - 已验证与 AE2LT Reborn 2.1.0+ 兼容
@@ -247,12 +250,12 @@ static @Nullable ExactPreparation prepare(Object target, ECOBatchDispatchContext
 
 ## 六、依赖版本汇总
 
-| Mod | 版本 | 项目路径 |
-|-----|------|----------|
-| JEI | 19.27.0.340 | (依赖库) |
-| AE2LT Reborn | 2.1.0 | F:/Minecraft Project AE2LT Reborn/AE2-Lightning-Tech-Reborn |
-| Useless | 1.21.1-2.3.10 | E:/Minecraft Project/UselessMod |
-| Thunderbolt | 2.0.0 | F:/Minecraft Project AE2LT Reborn/Thunderbolt-Core-Reborn |
+| Mod | 版本 | 最低兼容版本 | 项目路径 |
+|-----|------|-------------|----------|
+| JEI | 19.27.0.340 | - | (依赖库) |
+| AE2LT Reborn | 2.1.0 | 2.1.0 | F:/Minecraft Project AE2LT Reborn/AE2-Lightning-Tech-Reborn |
+| Useless | 1.21.1-2.4.2 | 1.21.1-2.3.7.2 | E:/Minecraft Project/UselessMod |
+| Thunderbolt | 2.0.0 | - | F:/Minecraft Project AE2LT Reborn/Thunderbolt-Core-Reborn |
 
 ---
 

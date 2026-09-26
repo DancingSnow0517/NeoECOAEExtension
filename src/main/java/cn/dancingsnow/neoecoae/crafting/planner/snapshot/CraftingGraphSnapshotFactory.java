@@ -207,7 +207,9 @@ public final class CraftingGraphSnapshotFactory {
             Map<AEKey, Long> externalInputValues = new LinkedHashMap<>();
             Map<AEKey, PlannerAmount> exactExternalInputs = new LinkedHashMap<>();
             for (var edge : cycle.externalEdges()) {
-                exactExternalInputs.merge(edge.requiredInput(), edge.input().amountPerPattern(), PlannerAmount::add);
+                if (edge.requiredInput() != null) {
+                    exactExternalInputs.merge(edge.requiredInput(), edge.input().amountPerPattern(), PlannerAmount::add);
+                }
             }
             exactExternalInputs.forEach((key, value) -> {
                 if (value.fitsLong()) externalInputValues.put(key, value.longValueExact());
@@ -316,7 +318,9 @@ public final class CraftingGraphSnapshotFactory {
     }
 
     private static List<KeyAmount> keyAmounts(Map<AEKey, Long> values) {
-        return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
+        return values.entrySet().stream()
+            .filter(entry -> entry.getKey() != null)
+            .sorted(Comparator.comparing(entry -> entry.getKey().toString()))
             .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
     }
 
