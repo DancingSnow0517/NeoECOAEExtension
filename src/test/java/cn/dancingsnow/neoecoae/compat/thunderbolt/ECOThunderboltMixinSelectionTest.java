@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.net.URL;
+import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin;
 import org.junit.jupiter.api.Test;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 
@@ -15,6 +16,15 @@ class ECOThunderboltMixinSelectionTest {
     @Test void modernApiDoesNotInjectAProviderContract() throws Exception { check(true, false, false, false); }
     @Test void absentModSelectsNeither() throws Exception { check(false, false, false, false); }
     @Test void mixedApisDoNotInjectAProviderContract() throws Exception { check(true, true, false, false); }
+
+    @Test void timeWheelCancellationBridgeRequiresAe2LightningTech() {
+        var plugin = new ECOThunderboltMixinPlugin();
+        String mixin = PACKAGE + "Ae2LtTimeWheelCraftingCpuLogicMixin";
+        assertEquals(
+                getClass().getClassLoader().getResource(
+                        "com/moakiee/ae2lt/crafting/timewheel/Ae2LtTimeWheelCraftingCpuLogic.class") != null,
+                plugin.shouldApplyMixin("com.moakiee.ae2lt.crafting.timewheel.Ae2LtTimeWheelCraftingCpuLogic", mixin));
+    }
 
     private void check(boolean modern, boolean legacy, boolean expectModern, boolean expectLegacy) throws Exception {
         ClassLoader parent = getClass().getClassLoader();

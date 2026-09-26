@@ -17,6 +17,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,6 +44,12 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         this.host = host;
     }
 
+    @Override
+    public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
+        super.readFromNBT(tag, registries);
+        disableSmartDoubling();
+    }
+
     @Nullable
     private ECOLargeIntegratedWorkingStationBlockEntity controller() {
         return host.getCluster() instanceof NEIntegratedWorkingStationCluster cluster ? cluster.getController() : null;
@@ -58,11 +66,24 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
 
     @Override
     public void updatePatterns() {
+        disableSmartDoubling();
         compatiblePatternsDirty = true;
         // PatternProviderLogic.requestUpdate() refreshes the AE2 provider synchronously. Invalidate the
         // workstation-specific compatibility cache before delegating, otherwise the refresh can remount the
         // previous filtered list and leave the newly decoded patterns invisible until the network is replugged.
         super.updatePatterns();
+    }
+
+    private void disableSmartDoubling() {
+        var manager = getConfigManager();
+        for (var setting : manager.getSettings()) {
+            if ("smart_doubling".equals(setting.getName())) {
+                @SuppressWarnings("unchecked")
+                var toggle = (appeng.api.config.Setting<appeng.api.config.YesNo>) setting;
+                if (manager.getSetting(toggle) != appeng.api.config.YesNo.NO)
+                    manager.putSetting(toggle, appeng.api.config.YesNo.NO);
+            }
+        }
     }
 
     @Override

@@ -108,21 +108,26 @@ public final class ECOAe2LtDirectDispatch {
                     int count = (int) Math.min(Integer.MAX_VALUE, copies);
                     // A machine lacking a counted transport can only own one physical transaction.
                     if (!(boolean) a.supportsBatch.invoke(target, targetLevel, pattern)) count = 1;
-                    Object receipt = a.chunk.invoke(logic, context, pattern, canonical, copy(prototype), count, cost, a.complete);
-                    long accepted = ((Number) a.owned.invoke(receipt)).longValue();
-                    if (accepted < 0 || accepted > count) return ECOBatchAdmission.indeterminate();
-                    if (accepted == 0) {
-                        if ((boolean) a.abort.invoke(receipt)) return ECOBatchAdmission.rejected();
-                        continue;
+                    a.setBypass.invoke(null, true);
+                    try {
+                        Object receipt = a.chunk.invoke(logic, context, pattern, canonical, copy(prototype), count, cost, a.complete);
+                        long accepted = ((Number) a.owned.invoke(receipt)).longValue();
+                        if (accepted < 0 || accepted > count) return ECOBatchAdmission.indeterminate();
+                        if (accepted == 0) {
+                            if ((boolean) a.abort.invoke(receipt)) return ECOBatchAdmission.rejected();
+                            continue;
+                        }
+                        if (!wireless) {
+                            a.sendDirection.invoke(logic, ((Direction) a.face.invoke(target)).getOpposite());
+                            a.send.invoke(logic);
+                        }
+                        a.wake.invoke(logic);
+                        a.save.invoke(logic);
+                        return ECOBatchAdmission.accepted(accepted,
+                                accepted == copies && (boolean) a.inserted.invoke(receipt) && drained());
+                    } finally {
+                        a.setBypass.invoke(null, false);
                     }
-                    if (!wireless) {
-                        a.sendDirection.invoke(logic, ((Direction) a.face.invoke(target)).getOpposite());
-                        a.send.invoke(logic);
-                    }
-                    a.wake.invoke(logic);
-                    a.save.invoke(logic);
-                    return ECOBatchAdmission.accepted(accepted,
-                            accepted == copies && (boolean) a.inserted.invoke(receipt) && drained());
                 }
                 return ECOBatchAdmission.rejected();
             } catch (ReflectiveOperationException failure) {
@@ -158,7 +163,7 @@ public final class ECOAe2LtDirectDispatch {
         final Object complete;
         final Method flush, flushLocal, localOverflow, sendList, lock, resolve, level, mode, refresh, backpressure,
                 connections, directions, cost, contains, dimension, pos, canAccept, normalTarget, contextTarget,
-                blocked, before, supportsBatch, chunk, owned, abort, inserted, sendDirection, face, send, wake, save, empty;
+                blocked, before, supportsBatch, chunk, owned, abort, inserted, sendDirection, face, send, wake, save, empty, setBypass;
         Access(Class<?> type) throws ReflectiveOperationException {
             node = field(type, "gridNode"); host = field(type, "overloadedHost");
             catalog = field(type, "patternCatalog"); overflow = field(type, "wirelessOverflow");
@@ -166,7 +171,9 @@ public final class ECOAe2LtDirectDispatch {
             flush = method(type, "flushWirelessSends", 0); flushLocal = method(type, "flushLocalDirectionalOverflow", 0);
             localOverflow = method(type, "hasLocalDirectionalOverflow", 0);
             sendList = method(type, "getSendList", 0); lock = method(type, "getCraftingLockedReason", 0);
-            resolve = method(catalog.getType(), "resolve", 1);
+            // The Reborn catalog also exposes resolve(AEKey). Selecting by arity alone
+            // can bind that overload and fail only when the first live dispatch arrives.
+            resolve = method(catalog.getType(), "resolve", IPatternDetails.class);
             level = method(host.getType(), "getLevel", 0); mode = method(host.getType(), "getProviderMode", 0);
             refresh = method(overflow.getType(), "refreshBackpressure", 0);
             backpressure = method(overflow.getType(), "isBackpressured", 0);
@@ -195,6 +202,8 @@ public final class ECOAe2LtDirectDispatch {
             wake = method(type, "alertGridTick", 0); save = method(type, "saveChanges", 0);
             Class<?> power = Class.forName("com.moakiee.ae2lt.logic.energy.PowerCostUtil", false, type.getClassLoader());
             cost = method(power, "totalCost", 1);
+            Class<?> registry = Class.forName("com.moakiee.ae2lt.logic.EjectModeRegistry", false, type.getClassLoader());
+            setBypass = method(registry, "setBypass", 1);
         }
     }
     private static Field field(Class<?> type, String name) throws NoSuchFieldException {
@@ -214,5 +223,25 @@ public final class ECOAe2LtDirectDispatch {
             m.setAccessible(true); return m;
         }
         throw new NoSuchMethodException(type.getName() + "." + name);
+    }
+
+    private static Method method(Class<?> type, String name, Class<?>... parameterTypes)
+            throws NoSuchMethodException {
+        for (Class<?> c = type; c != null; c = c.getSuperclass()) {
+            try {
+                var method = c.getDeclaredMethod(name, parameterTypes);
+                method.setAccessible(true);
+                return method;
+            } catch (NoSuchMethodException ignored) {
+                // Continue through the hierarchy; the catalog is package-private.
+            }
+        }
+        try {
+            var method = type.getMethod(name, parameterTypes);
+            method.setAccessible(true);
+            return method;
+        } catch (NoSuchMethodException absent) {
+            throw new NoSuchMethodException(type.getName() + "." + name);
+        }
     }
 }

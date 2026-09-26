@@ -14,6 +14,13 @@ public final class ECOThunderboltMixinPlugin implements IMixinConfigPlugin {
         // NeoECO exposes its own FastPath facade. External CPUs opt into that API explicitly;
         // never make an ECO host implement a foreign provider contract at runtime.
         if (mixinClassName.endsWith(".ECOThunderboltProviderMixin")) return false;
+        if (mixinClassName.endsWith(".Ae2LtTimeWheelCraftingCpuLogicMixin")) {
+            return present("com/moakiee/ae2lt/crafting/timewheel/Ae2LtTimeWheelCraftingCpuLogic.class");
+        }
+        if (mixinClassName.endsWith(".ECOThunderboltWorkstationProviderMixin")) {
+            return present("com/moakiee/thunderbolt/api/crafting/batch/IBatchCraftingProvider.class")
+                && present("com/moakiee/thunderbolt/api/crafting/batch/BatchJobView.class");
+        }
         return false;
     }
     private boolean present(String resource) {

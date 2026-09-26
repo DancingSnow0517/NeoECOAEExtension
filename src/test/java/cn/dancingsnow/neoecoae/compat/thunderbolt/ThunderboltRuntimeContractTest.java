@@ -161,12 +161,12 @@ class ThunderboltRuntimeContractTest {
     @Test void nativeBatchContractCannotOverrideEcoOwnedMultiplierPolicy() throws Exception {
         var optionalSession = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.Session.class);
         try (var optional = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.class)) {
-                var provider = Proxy.newProxyInstance(getClass().getClassLoader(),
-                        new Class<?>[]{batchContract(), ICraftingProvider.class},
-                        (proxy, method, args) -> { throw new AssertionError("Unexpected native dispatch: " + method); });
-                optional.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.open(provider))
-                        .thenReturn(optionalSession);
-                assertNull(dispatcherMethod("forProvider", ICraftingProvider.class).invoke(null, provider));
+            var provider = Proxy.newProxyInstance(getClass().getClassLoader(),
+                    new Class<?>[]{batchContract(), ICraftingProvider.class},
+                    (proxy, method, args) -> { throw new AssertionError("Unexpected native dispatch: " + method); });
+            optional.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.open(provider))
+                    .thenReturn(optionalSession);
+            assertNull(dispatcherMethod("forProvider", ICraftingProvider.class).invoke(null, provider));
             optional.verifyNoInteractions();
             verifyNoInteractions(optionalSession);
         }
