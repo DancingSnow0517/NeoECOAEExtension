@@ -28,6 +28,21 @@ public final class BigNumberFormatter {
         return compact(display);
     }
 
+    /** Formats an exact amount using SI decimal prefixes and at most three significant digits. */
+    public static String formatSI(BigInteger amount, int amountPerUnit) {
+        return format(amount, amountPerUnit, false);
+    }
+
+    /** Formats an exact amount for a tooltip without shortening the integer digits. */
+    public static String formatTooltip(BigInteger amount, int amountPerUnit) {
+        BigInteger safe = amount == null || amount.signum() < 0 ? BigInteger.ZERO : amount;
+        BigDecimal display = new BigDecimal(safe)
+            .divide(BigDecimal.valueOf(Math.max(1, amountPerUnit)), 6, RoundingMode.DOWN)
+            .setScale(0, RoundingMode.HALF_UP)
+            .stripTrailingZeros();
+        return DisplayNumbers.grouped(display.toPlainString());
+    }
+
     private static String compact(BigDecimal value) {
         if (value.signum() == 0) {
             return "0";

@@ -45,7 +45,7 @@ public abstract class MEStorageScreenExactAmountMixin {
     private String neoecoae$renderExactSlotAmount(String original, @Local GridInventoryEntry entry) {
         MEStorageScreen<?> self = (MEStorageScreen<?>) (Object) this;
         var exact = ExactAmountClientCache.get(self.getMenu().containerId, entry.getWhat());
-        return exact == null ? original : ExactAmountFormatter.slot(exact);
+        return exact == null ? original : ExactAmountFormatter.slot(entry.getWhat(), exact);
     }
 
     @ModifyExpressionValue(method = "renderGridInventoryEntryTooltip", at = @At(value = "INVOKE", target =
@@ -55,7 +55,7 @@ public abstract class MEStorageScreenExactAmountMixin {
         var self = (MEStorageScreen<?>) (Object) this;
         var exact = ExactAmountClientCache.get(self.getMenu().containerId, entry.getWhat());
         return exact == null ? original : appeng.core.localization.ButtonToolTips.StoredAmount
-            .text(ExactAmountFormatter.full(exact))
+            .text(ExactAmountFormatter.full(entry.getWhat(), exact))
             .withStyle(appeng.core.localization.Tooltips.MUTED_COLOR);
     }
 }

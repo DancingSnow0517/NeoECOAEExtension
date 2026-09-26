@@ -82,7 +82,11 @@ public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource, E
         engine.getAvailableStacks(keys);
         for (var entry : keys) {
             var amount = engine.getAmount(entry.getKey());
-            if (amount.isBig()) visitor.accept(entry.getKey(), ExactAmount.finite(amount.toBigInteger()));
+            // Publish every visible exact value through the side channel. This is required even
+            // for values that still fit in a long: the AE2 projection may already be saturated
+            // after combining this domain with another inventory, and the terminal must format
+            // the exact aggregate rather than fall back to its rounded long view.
+            visitor.accept(entry.getKey(), ExactAmount.finite(amount.toBigInteger()));
         }
     }
 }
