@@ -34,6 +34,7 @@ ECOExternalCpuFastPath 使用统一的 ECOFastPathFacade：先在库存副本上
 - 拒收、可回滚异常、无法确认接收、接收后记账失败，以及能量退款存档往返。
 - 原生计划允许提交，阶段/循环/大订单计划拒绝外部执行，显式 CPU 提交入口不能绕过检查。
 - 对当前依赖 JAR 检查两种 CPU 的注入方法、任务字段及时间统计调用签名。
+- 两种 CPU 的实际注入处理方法分别覆盖无额外引擎、仅 Thunderbolt、仅 OmniSequence、两者共存；验证 Thunderbolt 回退仍进入 ECO，OmniSequence 保留其记账所有权。
 
 这些测试验证调度与适配契约；未替代实际游戏内的 Mixin 加载和多方块验收。
 
