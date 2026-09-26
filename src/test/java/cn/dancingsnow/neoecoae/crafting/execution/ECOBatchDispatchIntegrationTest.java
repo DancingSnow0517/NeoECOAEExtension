@@ -10,17 +10,22 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.inv.ListCraftingInventory;
+import appeng.crafting.pattern.AEProcessingPattern;
+import appeng.helpers.patternprovider.PatternProviderLogic;
+import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchMode;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 
 class ECOBatchDispatchIntegrationTest {
@@ -28,6 +33,10 @@ class ECOBatchDispatchIntegrationTest {
         cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
     }
     interface Parallel extends ICraftingProvider, ECOParallelCraftingProvider {}
+    interface Ae2LogicProvider extends ICraftingProvider {
+        PatternProviderLogic getLogic();
+    }
+    interface WorkstationLike extends Ae2LogicProvider, ECOParallelCraftingProvider {}
 
     final AEKey input = mock(AEKey.class, RETURNS_DEEP_STUBS);
     final AEKey output = mock(AEKey.class, RETURNS_DEEP_STUBS);
@@ -103,6 +112,37 @@ class ECOBatchDispatchIntegrationTest {
         assertEquals(2, request.inputs()[0].get(input));
         verify(accounting).apply(eq(request), argThat(r -> r.acceptedCrafts() == 4
                 && r.outputs().getFirst().amount() == 12), any(), eq(provider));
+    }
+
+    @Test void workstationProviderUsesParallelRouteEvenWhenItExposesAe2ProviderLogic() {
+        var provider = mock(WorkstationLike.class);
+        var ordinary = mock(Ae2LogicProvider.class);
+        var logic = mock(PatternProviderLogic.class,
+                withSettings().extraInterfaces(PatternProviderLogicAccessor.class));
+        when(provider.getLogic()).thenReturn(logic);
+        when(ordinary.getLogic()).thenReturn(logic);
+        when(provider.eco$getAvailableParallelSlots()).thenReturn(4);
+        var processingPattern = mock(AEProcessingPattern.class);
+        when(processingPattern.getDefinition()).thenReturn(AEItemKey.of(Items.STONE));
+        when(processingPattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{mock(IPatternDetails.IInput.class)});
+        when(processingPattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 3)));
+        when(processingPattern.supportsPushInputsToExternalInventory()).thenReturn(true);
+        var processingRequest = new ECOCraftingDispatchRequest(request.job(), null, processingPattern,
+                request.inputs(), request.outputs(), request.remainders(), 10, inventory, request.level());
+        assertTrue(ECOProcessingPatternDispatcher.supportsScaledDispatch(processingRequest, ordinary));
+        assertFalse(ECOProcessingPatternDispatcher.supportsScaledDispatch(processingRequest, provider));
+        when(provider.eco$pushPatternBatch(eq(processingPattern), any(), eq(4L), any())).thenReturn(true);
+
+        ECOCraftingProviderDispatcher.Result result;
+        try (var helpers = mockStatic(CraftingCpuHelper.class)) {
+            helpers.when(() -> CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
+            result = dispatcher.dispatchCandidate(processingRequest, List.of(provider),
+                    new ECOCraftingDispatchBudget(64, 64), energy, mock(ECODispatchStallDiagnostics.class),
+                    ignored -> {}, () -> {}, (attempt, target) -> fail("Must use the parallel batch route"));
+        }
+
+        assertEquals(4, result.acceptedCrafts());
+        verify(provider).eco$pushPatternBatch(eq(processingPattern), any(), eq(4L), any());
     }
 
     @Test void uncertainSinglePushSuspendsWithoutTryingTheNextProvider() {
