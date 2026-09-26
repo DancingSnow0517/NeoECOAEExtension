@@ -10,7 +10,8 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
-import cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.AdvancedAeCraftingJobAccessor;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.world.level.Level;
@@ -45,8 +46,8 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
 
     @Override
     public long neoecoae$insertWorkerOutput(UUID jobId, AEKey what, long amount, Actionable type) {
-        if (what == null || amount <= 0L || !(job instanceof AdvancedAeCraftingJobAccessor access)
-                || !access.neoecoae$getLink().getCraftingID().equals(jobId)) return 0L;
+        if (what == null || amount <= 0L || !(job instanceof ECOExternalCpuJob access)
+                || !access.neoecoae$link().getCraftingID().equals(jobId)) return 0L;
         boolean wasMarkedForDeletion = markedForDeletion;
         // Keep the CPU discoverable if insert finishes the job before its physical remainder is retained.
         if (type == Actionable.MODULATE) markedForDeletion = true;
@@ -69,11 +70,16 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
 
     @Inject(method = "finishJob", at = @At("HEAD"), remap = false)
     private void neoecoae$releaseCompletedWorkerOutputs(boolean success, CallbackInfo ci) {
-        if (!success || !(job instanceof AdvancedAeCraftingJobAccessor access)) return;
+        if (!(job instanceof ECOExternalCpuJob access)) return;
+        var craftingJobId = access.neoecoae$link().getCraftingID();
+        if (!success) {
+            ECOCraftingJobLifecycle.cancelAndRecover(cpu.getLevel(), craftingJobId);
+            return;
+        }
         var grid = cpu.getGrid();
         if (grid == null) return;
         for (var worker : grid.getMachines(ECOCraftingWorkerBlockEntity.class)) {
-            worker.releaseCompletedJobOutputs(access.neoecoae$getLink().getCraftingID());
+            worker.releaseCompletedJobOutputs(craftingJobId);
         }
     }
 
@@ -95,7 +101,7 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
                     maxPatterns, craftingService, energyService, level);
             if (pushed > 0) cir.setReturnValue(pushed);
         } catch (RuntimeException failure) {
-            if (job instanceof AdvancedAeCraftingJobAccessor access) access.neoecoae$suspended(true);
+            if (job instanceof ECOExternalCpuJob access) access.neoecoae$suspended(true);
             cpu.markDirty();
             NEOECOAE$LOGGER.error("Suspended AdvancedAE CPU after batch dispatch failure", failure);
             cir.setReturnValue(0);
@@ -144,11 +150,11 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
             KeyCounter[] inputHolder,
             Operation<Boolean> original) {
         if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                && this.job instanceof AdvancedAeCraftingJobAccessor jobAccess) {
+                && this.job instanceof ECOExternalCpuJob jobAccess) {
             return patternBus.pushPattern(
                     details,
                     inputHolder,
-                    jobAccess.neoecoae$getLink().getCraftingID());
+                    jobAccess.neoecoae$link().getCraftingID());
         }
         return original.call(provider, details, inputHolder);
     }

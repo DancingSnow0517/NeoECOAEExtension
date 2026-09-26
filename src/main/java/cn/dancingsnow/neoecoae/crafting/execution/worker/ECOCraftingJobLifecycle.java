@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution.worker;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -38,6 +39,23 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         if (jobId == null) return;
         var data = get(level);
         if (data != null && data.terminatedJobs.putIfAbsent(jobId, completed) == null) data.setDirty();
+    }
+
+    /**
+     * Terminates a job owned by an external AE2 CPU and wakes every loaded ECO worker that still holds its
+     * batch. External CPUs clear their own inventory during cancellation, so the worker must learn about the
+     * terminal decision before that inventory is gone; otherwise a completed fast-path batch can remain owned by
+     * an F host until the orphan timeout.
+     */
+    public static void cancelAndRecover(@Nullable Level level, @Nullable UUID jobId) {
+        if (jobId == null) return;
+        finish(level, jobId, false);
+        if (level == null || level.getServer() == null) return;
+        for (var worker : ECOCraftingWorkerBlockEntity.getLoadedServerWorkers()) {
+            if (worker.getLevel() != null && worker.getLevel().getServer() == level.getServer()) {
+                worker.recoverTerminatedJob(jobId);
+            }
+        }
     }
 
     /** Works without decoding a plan, so even a quarantined CPU can terminate its worker ownership. */

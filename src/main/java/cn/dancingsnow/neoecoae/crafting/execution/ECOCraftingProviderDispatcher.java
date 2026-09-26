@@ -84,8 +84,11 @@ final class ECOCraftingProviderDispatcher {
                     return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
                 }
                 if (request.job().suspended) return Result.none();
-                // The ramp includes 1x and same-visit recovery.
-                continue;
+                // A scaled adapter is an optimization boundary.  Its eligibility can be
+                // valid while the live target rejects the current offer (stale target,
+                // backpressure, or a version-specific transport mismatch).  Do not let
+                // that rejection suppress AE2's ordinary one-copy transaction; otherwise
+                // an overloaded provider becomes completely undispatchable.
             }
 
             var fastResult = fastPath.tryDispatch(

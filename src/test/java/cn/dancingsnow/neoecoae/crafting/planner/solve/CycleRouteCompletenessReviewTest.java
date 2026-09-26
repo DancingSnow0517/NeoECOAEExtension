@@ -104,6 +104,31 @@ class CycleRouteCompletenessReviewTest {
     }
 
     @Test
+    void fallbackComputesChoicesForDeferredCycleNodesNotDemandedByPreferredRoute() throws Exception {
+        var blockedFinish = pattern(0, goal, Map.of(a, 2L), Map.of(goal, 1L));
+        var availableFinish = pattern(1, goal, Map.of(c, 1L), Map.of(goal, 1L));
+        var blockedGrowth = pattern(2, a, Map.of(a, 1L), Map.of(a, 2L));
+        // This producer is not visited by the preferred route, but it is a cyclic candidate in the
+        // structural universe. Its stocked feedback key must still receive a concrete route choice
+        // before the fallback enumerates the alternative goal producer.
+        var stockedGrowth = pattern(3, c, Map.of(c, 1L), Map.of(c, 2L));
+        var network = network(Map.of(goal, List.of(blockedFinish, availableFinish),
+            a, List.of(blockedGrowth), c, List.of(stockedGrowth)));
+        var stock = new KeyCounter();
+        stock.add(c, 1L);
+        var graph = graph(network);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var initial = new ActiveRouteSelector().selectWithChoices(graph.source(),
+            Map.of(goal, 0, c, 0), ECOCancellation.NONE);
+
+        var result = planner.planWithCycleFallback(network, graph, initial, stock,
+            PlannerInventorySnapshot.of(stock), 1L, false, ECOCancellation.NONE);
+
+        assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
+        assertEquals(1L, stock.get(c), "Speculative route enumeration must not consume stock");
+    }
+
+    @Test
     void seedlessCycleStopsBeforeEnumeratingHundredsOfUnhelpfulRoutes() throws Exception {
         var finishes = new ArrayList<CompiledPattern>();
         for (int index = 0; index < 300; index++) {

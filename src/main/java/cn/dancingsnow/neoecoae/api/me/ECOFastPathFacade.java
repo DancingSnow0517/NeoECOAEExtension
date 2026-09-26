@@ -7,10 +7,12 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOStatefulBatchPlanner;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOParallelProviderAdapter;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import java.util.List;
@@ -63,6 +65,16 @@ public final class ECOFastPathFacade {
         if (target == null) return null;
         var batch = ECOStatefulBatchPlanner.prepare(target, pattern, inputs, outputs, remainders,
             inventory, maxCrafts, singlePower, energy, level, jobId, exactOrder);
+        return batch == null ? null : new PreparedBatch(batch, inventory);
+    }
+
+    /** External native CPUs can use the workstation queue without changing ECO's ordinary batch lane. */
+    @Nullable
+    public static PreparedBatch prepareParallel(ECOParallelCraftingProvider provider, IPatternDetails pattern,
+            KeyCounter[] inputs, KeyCounter outputs, KeyCounter remainders, ListCraftingInventory inventory,
+            long maxCrafts, double singlePower, IEnergyService energy, Level level, @Nullable UUID jobId) {
+        var batch = ECOStatefulBatchPlanner.prepare(new ECOParallelProviderAdapter(provider), pattern,
+            inputs, outputs, remainders, inventory, maxCrafts, singlePower, energy, level, jobId);
         return batch == null ? null : new PreparedBatch(batch, inventory);
     }
 

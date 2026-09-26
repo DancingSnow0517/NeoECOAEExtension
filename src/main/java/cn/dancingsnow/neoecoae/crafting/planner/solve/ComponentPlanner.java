@@ -649,13 +649,20 @@ public final class ComponentPlanner {
         var preferredChoices = new IntArrayList();
         List<AEKey> variableKeys = new ArrayList<>();
         var radices = new IntArrayList();
+        // The numeric pass can retry an acyclic producer, while cycle-owned keys are deliberately
+        // absent from SolveState.selected because their work is deferred to the cycle transaction.
+        // Start from the structural route and overlay only the concrete choices discovered by the
+        // numeric pass. This gives every graph key a real producer index before combinations are
+        // enumerated, including keys owned by a deferred cycle.
         for (AEKey key : universe.source().nodes().keySet()) {
             cancellation.checkpoint();
             List<CompiledPattern> candidates = network.fastProducersOf(key);
-            int selected = Math.max(0, Math.min(activeSelection.choices().getOrDefault(key, 0),
-                Math.max(0, candidates.size() - 1)));
-            int resolved = candidates.indexOf(preferred.state().selected.get(key));
-            baseline.put(key, resolved >= 0 ? resolved : selected);
+            if (candidates.isEmpty()) continue;
+            int routeChoice = normalizeChoice(activeSelection.choices().getOrDefault(key, 0), candidates.size());
+            CompiledPattern selectedPattern = preferred.state().selected.get(key);
+            int numericChoice = producerIndex(candidates, selectedPattern);
+            int selected = numericChoice >= 0 ? numericChoice : routeChoice;
+            baseline.put(key, selected);
             if (candidates.size() > 1) {
                 variableKeys.add(key);
                 radices.add(candidates.size());
@@ -696,6 +703,19 @@ public final class ComponentPlanner {
             if (alternative.status() == PlanningStatus.SUCCESS) return alternative;
         }
         return preferred;
+    }
+
+    private static int normalizeChoice(int choice, int candidateCount) {
+        return Math.max(0, Math.min(choice, candidateCount - 1));
+    }
+
+    private static int producerIndex(List<CompiledPattern> candidates, CompiledPattern selected) {
+        if (selected == null) return -1;
+        for (int index = 0; index < candidates.size(); index++) {
+            CompiledPattern candidate = candidates.get(index);
+            if (candidate == selected || candidate.equals(selected)) return index;
+        }
+        return -1;
     }
 
     /** Try cheap single changes before joint changes, retaining only one mixed-radix cursor in memory. */

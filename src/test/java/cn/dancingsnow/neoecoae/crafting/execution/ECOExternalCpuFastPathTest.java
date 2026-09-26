@@ -27,6 +27,7 @@ class ECOExternalCpuFastPathTest {
         cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
     }
     interface FastProvider extends ICraftingProvider, ECOFastPathDispatchProvider {}
+    interface ParallelProvider extends ICraftingProvider, ECOParallelCraftingProvider {}
     final AEKey input = mock(AEKey.class, RETURNS_DEEP_STUBS);
     final AEKey output = mock(AEKey.class, RETURNS_DEEP_STUBS);
     final AEKey container = mock(AEKey.class, RETURNS_DEEP_STUBS);
@@ -139,6 +140,41 @@ class ECOExternalCpuFastPathTest {
         assertEquals(150, waiting.list.get(output));
     }
 
+    @ParameterizedTest @ValueSource(strings = {"ae2", "omnicell", "advancedae"})
+    void workstationParallelProviderUsesOneCpuPushAndKeepsJobId(String engine) {
+        setup(engine);
+        var workstation = mock(ParallelProvider.class);
+        when(workstation.eco$getAvailableParallelSlots()).thenReturn(512);
+        when(service.getProviders(pattern)).thenReturn(List.of(workstation));
+        when(workstation.eco$pushPatternBatch(eq(pattern), any(), eq(512L), eq(jobId)))
+                .thenAnswer(c -> {
+                    KeyCounter[] totals = c.getArgument(1);
+                    assertEquals(1024, totals[0].get(input));
+                    totals[0].clear();
+                    return true;
+                });
+
+        assertEquals(1, dispatch(1));
+        assertEquals(512, remaining.get());
+        assertEquals(1024, inventory.list.get(input));
+        assertEquals(1024, waiting.list.get(output));
+        assertEquals(512, waiting.list.get(container));
+        verify(workstation).eco$pushPatternBatch(eq(pattern), any(), eq(512L), eq(jobId));
+        verify(workstation, never()).pushPattern(any(), any());
+    }
+
+    @Test void rejectedWorkstationBatchLeavesExternalCpuInventoryUntouched() {
+        setup("ae2");
+        var workstation = mock(ParallelProvider.class);
+        when(workstation.eco$getAvailableParallelSlots()).thenReturn(512);
+        when(service.getProviders(pattern)).thenReturn(List.of(workstation));
+        assertEquals(0, dispatch(1));
+        assertEquals(2048, inventory.list.get(input));
+        assertEquals(1024, remaining.get());
+        assertTrue(waiting.list.isEmpty());
+        verify(energy).injectPower(512, Actionable.MODULATE);
+    }
+
     @Test void rejectionRestoresInputsAndEnergyWithoutChangingTask() {
         setup("ae2"); reject = true;
         assertEquals(0, dispatch(1));
@@ -217,5 +253,37 @@ class ECOExternalCpuFastPathTest {
         assertEquals(512, remaining.get());
         verify(job).neoecoae$suspended(true);
         verify(energy, never()).injectPower(anyDouble(), any());
+    }
+
+    @Test void bridgedProviderIsFilteredOutForExternalCpu() {
+        setup("advancedae");
+        // 创建一个只实现ICraftingProvider但不实现ECOFastPathDispatchProvider的桥接provider
+        var bridgedProvider = mock(ICraftingProvider.class);
+        when(service.getProviders(pattern)).thenReturn(List.of(bridgedProvider, provider));
+
+        // 桥接provider不应被调用，只有真正的ECO provider会被使用
+        assertEquals(1, dispatch(1));
+        assertEquals(1, deliveries.size());
+        assertEquals(512, deliveries.getFirst().craftCount());
+
+        // 验证桥接provider完全没有被调用
+        verify(bridgedProvider, never()).isBusy();
+        verify(bridgedProvider, never()).pushPattern(any(), any());
+    }
+
+    @Test void onlyEcoNativeProvidersAreUsedForBatchDispatch() {
+        setup("advancedae");
+        // ExtendedAEPlus矩阵和Useless熔炉会通过桥接适配器返回，但它们不是ECOFastPathDispatchProvider实例
+        var nonEcoProvider1 = mock(ICraftingProvider.class);
+        var nonEcoProvider2 = mock(ICraftingProvider.class);
+        when(service.getProviders(pattern)).thenReturn(List.of(nonEcoProvider1, nonEcoProvider2, provider));
+
+        // 只有ECO原生provider（provider）应该被使用
+        assertEquals(1, dispatch(1));
+        assertEquals(1, deliveries.size());
+
+        // 非ECO providers完全被跳过
+        verify(nonEcoProvider1, never()).isBusy();
+        verify(nonEcoProvider2, never()).isBusy();
     }
 }

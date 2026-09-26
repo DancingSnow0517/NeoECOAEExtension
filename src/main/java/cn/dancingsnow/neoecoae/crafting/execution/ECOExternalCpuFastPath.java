@@ -10,6 +10,8 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
@@ -40,6 +42,12 @@ public final class ECOExternalCpuFastPath {
     public void read(CompoundTag tag) { energy.readFromNBT(tag); }
     public void write(CompoundTag tag) { energy.writeToNBT(tag); }
 
+    /** Native ECO workers and workstation queues own atomic batch admission. */
+    private static boolean isEcoFastPathProvider(Object provider) {
+        return provider instanceof ECOFastPathDispatchProvider
+            || provider instanceof ECOParallelCraftingProvider;
+    }
+
     public int execute(Object owner, Object job, ListCraftingInventory inventory, int maxPatterns,
             CraftingService crafting, IEnergyService power, Level level) {
         energy.returnIdleCredit(power);
@@ -57,10 +65,14 @@ public final class ECOExternalCpuFastPath {
             var inputs = CraftingCpuHelper.extractPatternInputs(task.getKey(), preview, level, outputs, remainders);
             if (inputs == null) continue;
             for (var provider : crafting.getProviders(task.getKey())) {
-                if (provider.isBusy() || !ECOFastPathFacade.supports(provider)) continue;
-                var batch = ECOFastPathFacade.prepare(provider, task.getKey(), inputs, outputs, remainders,
-                    inventory, limit, CraftingCpuHelper.calculatePatternPower(inputs), power, level,
-                    access.neoecoae$link().getCraftingID());
+                if (!isEcoFastPathProvider(provider)) continue;
+                if (provider.isBusy()) continue;
+                double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
+                var batch = provider instanceof ECOParallelCraftingProvider parallel
+                    ? ECOFastPathFacade.prepareParallel(parallel, task.getKey(), inputs, outputs, remainders,
+                        inventory, limit, singlePower, power, level, access.neoecoae$link().getCraftingID())
+                    : ECOFastPathFacade.prepare(provider, task.getKey(), inputs, outputs, remainders,
+                        inventory, limit, singlePower, power, level, access.neoecoae$link().getCraftingID());
                 if (batch == null || batch.craftCount() < 2 || !fitsWaiting(access, batch)) continue;
                 var registration = ECOUselessDynamicOutputBridge.prepare(owner, task.getKey(), batch.craftCount());
                 if (registration == null) continue;

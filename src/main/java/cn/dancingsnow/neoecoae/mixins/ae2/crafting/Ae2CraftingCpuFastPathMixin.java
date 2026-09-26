@@ -7,6 +7,7 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
@@ -68,11 +69,16 @@ public abstract class Ae2CraftingCpuFastPathMixin {
 
     @Inject(method = "finishJob", at = @At("HEAD"))
     private void neoecoae$releaseWorkerOutput(boolean success, CallbackInfo ci) {
-        if (!success || !(job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)) return;
+        if (!(job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)) return;
+        var craftingJobId = access.neoecoae$link().getCraftingID();
+        if (!success) {
+            ECOCraftingJobLifecycle.cancelAndRecover(cluster.getLevel(), craftingJobId);
+            return;
+        }
         var grid = cluster.getGrid();
         if (grid == null) return;
         for (var worker : grid.getMachines(cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity.class))
-            worker.releaseCompletedJobOutputs(access.neoecoae$link().getCraftingID());
+            worker.releaseCompletedJobOutputs(craftingJobId);
     }
 
     @com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation(method = "executeCrafting",
