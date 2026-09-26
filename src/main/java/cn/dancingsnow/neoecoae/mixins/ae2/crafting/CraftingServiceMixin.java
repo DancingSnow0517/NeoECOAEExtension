@@ -174,11 +174,11 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Unique
     private boolean neoecoae$planningModeInitialized;
     @Unique
-    private boolean neoecoae$fastPlannerEnabled;
+    private boolean neoecoae$fastPlannerEnabled = true;
     @Unique
     private boolean neoecoae$fastPlannerInitialized;
     @Unique
-    private boolean neoecoae$cyclePlanningEnabled;
+    private boolean neoecoae$cyclePlanningEnabled = true;
     @Unique
     private boolean neoecoae$cyclePlanningInitialized;
     @Unique

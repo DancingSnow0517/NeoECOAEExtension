@@ -91,7 +91,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private ECOStorageInterfaceMode storageInterfaceMode = ECOStorageInterfaceMode.STORAGE;
     @Persisted
     @DescSynced
-    private boolean ignoreCreativeStorageInput;
+    private boolean ignoreCreativeStorageInput = true;
     @Persisted
     private final AppEngInternalInventory fuzzyPlanningInventory = new AppEngInternalInventory(
         this, FUZZY_PLANNING_SLOT_COUNT, 1

@@ -82,7 +82,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     private boolean fastCraftingPlannerEnabled = true;
     @Persisted
     @DescSynced
-    private boolean cyclePlanningEnabled;
+    private boolean cyclePlanningEnabled = true;
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
