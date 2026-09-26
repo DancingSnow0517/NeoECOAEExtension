@@ -34,6 +34,7 @@ class ECOProcessingDispatchIntegrationTest {
     void directTransportPartialAcceptanceRefundsOnlyUnownedCopiesAndStopsRamp() {
         var f = new Fixture();
         var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        when(session.maxBatchSize(any())).thenReturn((long) Integer.MAX_VALUE);
         var offers = new ArrayList<Long>();
         when(session.submit(any(), any(), anyLong())).thenAnswer(call -> {
             long offer = call.getArgument(2);
@@ -56,6 +57,7 @@ class ECOProcessingDispatchIntegrationTest {
     void directTransportExceptionRetainsDebitedInputsAndSuspendsWithoutReplay() {
         var f = new Fixture();
         var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        when(session.maxBatchSize(any())).thenReturn((long) Integer.MAX_VALUE);
         when(session.submit(any(), any(), anyLong())).thenThrow(new IllegalStateException("Failure after machine insertion"));
         try (var bridge = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.class)) {
             bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
@@ -223,6 +225,140 @@ class ECOProcessingDispatchIntegrationTest {
     }
 
     @Test
+    void fullInventoryStopsAfterOneRejectionAndRetainsTheSuccessfulChunk() {
+        var f = new Fixture(1_000_000, 2_000_000);
+        assertEquals(127, f.scaled(0, 127, (request, provider) -> true).acceptedCrafts());
+        var offers = new ArrayList<Long>();
+        long[] free = {128};
+        var result = f.scaled(0, (request, provider) -> {
+            offers.add(request.allowedCrafts());
+            if (free[0] < request.allowedCrafts()) return false;
+            free[0] -= request.allowedCrafts();
+            return true;
+        });
+        assertEquals(128, result.acceptedCrafts());
+        assertEquals(List.of(64L, 64L, 64L), offers);
+        assertEquals(2_000_000 - 127 - 128, f.inventory.list.get(f.key));
+        assertNull(f.scaled(0, (request, provider) -> fail("Saturated target must wait for the next tick")));
+        offers.clear();
+        assertEquals(64, f.scaled(1, 64, (request, provider) -> {
+            offers.add(request.allowedCrafts());
+            return true;
+        }).acceptedCrafts());
+        assertEquals(List.of(64L), offers);
+    }
+
+    @Test
+    void saturatedProviderDoesNotReceiveAnOrdinaryFallbackInTheSameTick() {
+        var f = new Fixture(1_000_000, 2_000_000);
+        var outer = f.outerDispatcher();
+        outer.beginTick(0);
+        long[] free = {127};
+        int[] calls = {0};
+        ECOCraftingProviderDispatcher.ECOCraftingNormalPush push = (request, provider) -> {
+            calls[0]++;
+            if (free[0] < request.allowedCrafts()) return false;
+            free[0] -= request.allowedCrafts();
+            return true;
+        };
+        assertEquals(127, f.outerDispatch(outer, push).acceptedCrafts());
+        int attempted = calls[0];
+        assertFalse(f.outerDispatch(outer, push).accepted());
+        assertEquals(attempted, calls[0]);
+        assertEquals(0, free[0]);
+    }
+
+    @Test
+    void tinyWarmBatchHasSharedAttemptBudgetAndRecoversExponentiallyNextTick() {
+        var f = new Fixture(1_000_000, 2_000_000);
+        f.scaled(0, 1, (request, provider) -> true);
+        int[] calls = {0};
+        ECOCraftingProviderDispatcher.ECOCraftingNormalPush push = (request, provider) -> {
+            calls[0]++;
+            assertEquals(1, request.allowedCrafts());
+            return true;
+        };
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_VISIT,
+                f.scaled(0, push).acceptedCrafts());
+        assertNotNull(f.scaled(0, push));
+        assertNull(f.scaled(0, push));
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK - 1, calls[0]);
+        assertEquals(2_000_000 - ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK,
+                f.inventory.list.get(f.key));
+
+        calls[0] = 0;
+        var result = f.scaled(1, (request, provider) -> { calls[0]++; return true; });
+        assertEquals(1_000_000, result.acceptedCrafts());
+        assertTrue(calls[0] <= 20, "Successful recovery should reach a million copies in logarithmic calls");
+    }
+
+    @Test
+    void exhaustedBudgetCannotFallThroughToUnbudgetedOrdinaryPushes() {
+        var f = new Fixture(1, 1000);
+        var outer = f.outerDispatcher();
+        outer.beginTick(0);
+        int[] calls = {0};
+        for (int i = 0; i < ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK; i++) {
+            assertTrue(f.outerDispatch(outer, (request, provider) -> { calls[0]++; return true; }).accepted());
+        }
+        assertFalse(f.outerDispatch(outer, (request, provider) -> { calls[0]++; return true; }).accepted());
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK, calls[0]);
+        outer.beginTick(1);
+        assertTrue(f.outerDispatch(outer, (request, provider) -> true).accepted());
+    }
+
+    @Test
+    void firstScaledRejectionStillGetsOneOrdinaryFallback() {
+        var f = new Fixture();
+        var outer = f.outerDispatcher();
+        outer.beginTick(0);
+        int[] calls = {0};
+        var result = f.outerDispatch(outer, (request, provider) -> ++calls[0] == 2);
+        assertTrue(result.accepted());
+        assertEquals(1, result.acceptedCrafts());
+        assertEquals(2, calls[0]);
+        assertEquals(99, f.inventory.list.get(f.key));
+        var next = f.outerDispatch(outer, (request, provider) -> {
+            calls[0]++;
+            return true;
+        });
+        assertTrue(next.accepted(), "A live single-copy provider can continue during scaled cooldown");
+        assertEquals(3, calls[0]);
+    }
+
+    @Test
+    void routedTransportCountsEveryNativeCopyAgainstAttemptBudget() {
+        var f = new Fixture(1_000_000, 2_000_000);
+        var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        when(session.maxBatchSize(any())).thenReturn(1L);
+        when(session.submit(any(), any(), eq(1L))).thenReturn(
+                cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.accepted(1, true));
+        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.class)) {
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
+            for (int i = 0; i < 3; i++) f.scaled(0, (request, provider) -> fail("Direct transport owns these pushes"));
+            verify(session, times(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK))
+                    .submit(eq(f.request.pattern()), any(), eq(1L));
+        }
+    }
+
+    @Test
+    void planRefreshesMaterialAndWaitingLimitsAfterProviderCallbacks() {
+        for (boolean exhaustMaterials : new boolean[]{false, true}) {
+            var f = new Fixture();
+            int[] calls = {0};
+            var result = f.scaled(0, (request, provider) -> {
+                calls[0]++;
+                if (exhaustMaterials) f.inventory.extract(f.key, 100, Actionable.MODULATE);
+                else f.request.job().waitingFor.insert(f.key, Long.MAX_VALUE, Actionable.MODULATE);
+                return true;
+            });
+            assertEquals(1, result.acceptedCrafts());
+            assertEquals(1, calls[0]);
+        }
+    }
+
+    @Test
     void nativeProviderCannotOverrideEcoOwnedBatchPolicy() throws Exception {
         var f = new Fixture();
         var offers = new ArrayList<Long>();
@@ -344,7 +480,9 @@ class ECOProcessingDispatchIntegrationTest {
                 new ECOCraftingEnergyTransaction(() -> {}, () -> 0), accounting);
         final ECOCraftingDispatchRequest request;
 
-        Fixture() {
+        Fixture() { this(16, 100); }
+
+        Fixture(long requested, long stock) {
             InventoryTestBootstrap.initialize();
             var keyType = mock(AEKeyType.class);
             when(key.getType()).thenReturn(keyType);
@@ -359,7 +497,7 @@ class ECOProcessingDispatchIntegrationTest {
             var inputs = new KeyCounter();
             inputs.add(key, 1);
             var plan = mock(ICraftingPlan.class);
-            when(plan.finalOutput()).thenReturn(new GenericStack(key, 16));
+            when(plan.finalOutput()).thenReturn(new GenericStack(key, requested));
             when(plan.emittedItems()).thenReturn(new KeyCounter());
             var link = mock(CraftingLink.class);
             when(link.getCraftingID()).thenReturn(java.util.UUID.randomUUID());
@@ -368,13 +506,34 @@ class ECOProcessingDispatchIntegrationTest {
                 job = new ExecutingCraftingJob(plan, ignored -> {}, link, null);
             }
             request = new ECOCraftingDispatchRequest(job, null, pattern, new KeyCounter[]{inputs},
-                    inputs, new KeyCounter(), 16, inventory, mock(net.minecraft.world.level.Level.class));
-            inventory.insert(key, 100, Actionable.MODULATE);
+                    inputs, new KeyCounter(), requested, inventory, mock(net.minecraft.world.level.Level.class));
+            inventory.insert(key, stock, Actionable.MODULATE);
         }
 
         ECOCraftingDispatchResult scaled(long tick, ECOCraftingProviderDispatcher.ECOCraftingNormalPush push) {
+            return scaled(tick, request.allowedCrafts(), push);
+        }
+
+        ECOCraftingDispatchResult scaled(long tick, long limit, ECOCraftingProviderDispatcher.ECOCraftingNormalPush push) {
             dispatcher.beginTick(tick);
-            return dispatcher.tryScaledDispatch(request, provider, 1, energy, ignored -> {}, push);
+            var limited = limit == request.allowedCrafts() ? request : new ECOCraftingDispatchRequest(
+                    request.job(), request.candidate(), request.pattern(), request.inputs(), request.outputs(),
+                    request.remainders(), limit, inventory, request.level());
+            return dispatcher.tryScaledDispatch(limited, provider, 1, energy, ignored -> {}, push);
+        }
+
+        ECOCraftingProviderDispatcher outerDispatcher() {
+            return new ECOCraftingProviderDispatcher(null, mock(ECOCraftingFastPathDispatcher.class),
+                    new ECOCraftingEnergyTransaction(() -> {}, () -> 0), accounting);
+        }
+
+        ECOCraftingProviderDispatcher.Result outerDispatch(ECOCraftingProviderDispatcher outer,
+                ECOCraftingProviderDispatcher.ECOCraftingNormalPush push) {
+            try (var helper = mockStatic(appeng.crafting.execution.CraftingCpuHelper.class)) {
+                helper.when(() -> appeng.crafting.execution.CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
+                return outer.dispatchCandidate(request, List.of(provider), new ECOCraftingDispatchBudget(64, 64),
+                        energy, mock(ECODispatchStallDiagnostics.class), ignored -> {}, () -> {}, push);
+            }
         }
     }
 }

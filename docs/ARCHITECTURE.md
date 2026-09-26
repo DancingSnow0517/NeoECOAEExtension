@@ -95,7 +95,7 @@ The computation cluster owns active CPUs and capacity. In a logical computation 
 
 ### 5.2 Dispatch paths
 
-Ordinary dispatch probes AE2 providers and can use `ECOParallelCraftingProvider` for atomic multi-craft acceptance. The CPU's internal adaptive path remembers a safe batch per provider/pattern and periodically probes growth; its probe state and eligibility cache are implementation details. Verified FastPath classifies/materializes a recipe, computes a safe arithmetic/stateful batch, extracts inputs, reserves energy, and commits through `ECOFastPathDispatchProvider`.
+Ordinary dispatch probes AE2 providers and can use `ECOParallelCraftingProvider` for atomic multi-craft acceptance. The CPU's internal adaptive path remembers a safe batch per provider/pattern, grows exponentially on success and stops on target saturation without discarding proven chunks. Attempt budgets are separate from craft-count quotas. Per-visit fastutil quantity tables avoid repeated recipe sorting while resource limits remain live; probe state and eligibility caches are implementation details. Verified FastPath classifies/materializes a recipe, computes a safe arithmetic/stateful batch, extracts inputs, reserves energy, and commits through `ECOFastPathDispatchProvider`.
 
 Never silently route a processing pattern through the FastPath-only contract. Never retry an indeterminate commit through another provider. Exactly-once accounting must happen after acceptance and before observable completion.
 

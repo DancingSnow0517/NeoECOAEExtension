@@ -49,6 +49,11 @@ public final class ECOAe2LtDirectDispatch {
         private final Access a;
         private Session(Object logic, Access a) { this.logic = logic; this.a = a; }
 
+        public long maxBatchSize(IPatternDetails pattern) {
+            // Each routed copy is a separate native transaction and must consume an ECO attempt.
+            return directional(pattern) ? 1L : Integer.MAX_VALUE;
+        }
+
         public ECOBatchAdmission submit(IPatternDetails pattern, KeyCounter[] prototype, long copies) {
             if (copies <= 0) return ECOBatchAdmission.rejected();
             try {

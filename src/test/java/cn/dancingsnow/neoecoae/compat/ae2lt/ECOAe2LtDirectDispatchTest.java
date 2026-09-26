@@ -28,6 +28,7 @@ class ECOAe2LtDirectDispatchTest {
             var f = new Fixture(enabled, 8, false);
             var session = ECOAe2LtDirectDispatch.open(f.logic);
             assertNotNull(session, "All reflected transport members must exist in the released AE2LT jar");
+            assertEquals(Integer.MAX_VALUE, session.maxBatchSize(f.pattern));
             var receipt = session.submit(f.pattern, f.inputs, 8);
             assertEquals(8, receipt.acceptedCrafts());
             assertTrue(receipt.canContinue());
@@ -72,6 +73,7 @@ class ECOAe2LtDirectDispatchTest {
     @Test void directionalBatchesPreserveOneCopyRoutingAndStopOnFirstRejection() throws Exception {
         var f = new Fixture(false, 0, false);
         when(((net.pedroksl.advanced_ae.common.patterns.IAdvPatternDetails) f.pattern).directionalInputsSet()).thenReturn(true);
+        assertEquals(1, Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic)).maxBatchSize(f.pattern));
         var attempts = new java.util.concurrent.atomic.AtomicInteger();
         when(f.logic.pushPattern(eq(f.pattern), any())).thenAnswer(call -> {
             KeyCounter[] inputs = call.getArgument(1);

@@ -29,17 +29,42 @@ final class ECOProcessingPatternDispatcher {
     private static final long TICK_BUDGET = 1_000_000L;
     private static final long ELIGIBILITY_CACHE_TICKS = 10L;
     private static final long SCALE_PROBE_INTERVAL_TICKS = 5L;
+    static final int MAX_ATTEMPTS_PER_TICK = 64;
+    static final int MAX_ATTEMPTS_PER_VISIT = 32;
     private final ECOCraftingCPULogic owner;
     private final ECOCraftingEnergyTransaction energy;
     private final ECOCraftingDispatchAccounting accounting;
     private final Map<ICraftingProvider, Reference2ObjectOpenHashMap<IPatternDetails, ProbeState>> states = new Reference2ObjectOpenHashMap<>();
     private final Map<ICraftingProvider, Reference2ObjectOpenHashMap<IPatternDetails, Eligibility>> eligibility = new Reference2ObjectOpenHashMap<>();
     private long tick = Long.MIN_VALUE, used;
+    private int attempts;
 
     ECOProcessingPatternDispatcher(ECOCraftingCPULogic owner, ECOCraftingEnergyTransaction energy,
             ECOCraftingDispatchAccounting accounting) { this.owner = owner; this.energy = energy; this.accounting = accounting; }
-    void beginTick(long gameTick) { if (tick != gameTick) { tick = gameTick; used = 0; } }
-    void reset() { states.clear(); eligibility.clear(); tick = Long.MIN_VALUE; used = 0; }
+    void beginTick(long gameTick) { if (tick != gameTick) { tick = gameTick; used = 0; attempts = 0; } }
+    void reset() { states.clear(); eligibility.clear(); tick = Long.MIN_VALUE; used = 0; attempts = 0; }
+
+    boolean isScaledAttemptBudgetExhausted() {
+        return attempts >= MAX_ATTEMPTS_PER_TICK || used >= TICK_BUDGET;
+    }
+
+    boolean claimFallbackAttempt() {
+        if (isScaledAttemptBudgetExhausted()) return false;
+        attempts++;
+        return true;
+    }
+
+    boolean isScaledDispatchDeferred(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+        var byPattern = states.get(provider);
+        var state = byPattern == null ? null : byPattern.get(request.pattern());
+        return state != null && tick < state.nextDispatchTick;
+    }
+
+    boolean isScaledFallbackDeferred(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+        var byPattern = states.get(provider);
+        var state = byPattern == null ? null : byPattern.get(request.pattern());
+        return state != null && tick < state.nextFallbackTick;
+    }
     boolean supportsScaledDispatchCached(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
         Reference2ObjectOpenHashMap<IPatternDetails, Eligibility> byPattern = eligibility.computeIfAbsent(provider,
                 ignored -> new Reference2ObjectOpenHashMap<>());
@@ -109,12 +134,16 @@ final class ECOProcessingPatternDispatcher {
         return result;
     }
 
-    /** Mirrors ProviderTarget's bounded ramp, including accepted-but-buffered chunks. */
+    /** Learns from fully inserted chunks; target saturation ends a visit without erasing its successes. */
     @Nullable ECOCraftingDispatchResult tryScaledDispatch(ECOCraftingDispatchRequest request,
             ICraftingProvider provider, double onePower, IEnergyService service,
             Consumer<ICraftingProvider> mark, ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
-        if (!supportsScaledDispatchCached(request, provider)) return null;
+        if (isScaledAttemptBudgetExhausted() || isScaledDispatchDeferred(request, provider)
+                || !supportsScaledDispatchCached(request, provider)) return null;
         var direct = ECOAe2LtDirectDispatch.open(provider);
+        Object logic = direct == null ? providerLogic(provider) : null;
+        boolean advancedPattern = direct == null && ECOAdvancedAEPatternScaling.isAdvancedPattern(request.pattern());
+        long transportLimit = direct == null ? Long.MAX_VALUE : direct.maxBatchSize(request.pattern());
         var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
                 request.job().link.getCraftingID(),
                 request.job().finalOutput == null ? null : request.job().finalOutput.what());
@@ -125,12 +154,28 @@ final class ECOProcessingPatternDispatcher {
                 .computeIfAbsent(request.pattern(), x -> new ProbeState());
         long limit = Math.min(request.allowedCrafts(), budget);
         var ramp = state.beginRun(tick, SCALE_PROBE_INTERVAL_TICKS);
-        while (ramp.owned < limit && !provider.isBusy()) {
-            long offer = ramp.offer(limit - ramp.owned);
-            var plan = ECOBatchDispatchPlanning.plan(request, provider, offer, limit - ramp.owned,
-                    onePower, service, ECOBatchMode.LINEAR);
-            if (plan == null) break;
+        var planning = ECOBatchDispatchPlanning.prepare(request, provider);
+        IPatternDetails cachedExecutionPattern = null;
+        long cachedCopies = 0;
+        int visitAttempts = 0;
+        while (ramp.owned < limit && attempts < MAX_ATTEMPTS_PER_TICK
+                && visitAttempts < MAX_ATTEMPTS_PER_VISIT && !provider.isBusy()) {
+            attempts++;
+            visitAttempts++;
+            long offer = Math.min(ramp.offer(limit - ramp.owned), transportLimit);
+            var plan = planning.plan(offer, limit - ramp.owned, onePower, service, ECOBatchMode.LINEAR);
+            if (plan == null) {
+                state.nextDispatchTick = tick + 1;
+                break;
+            }
             offer = plan.craftCount();
+            if (direct == null && cachedCopies != offer) {
+                cachedExecutionPattern = offer == 1 ? request.pattern()
+                        : advancedPattern ? ECOAdvancedAEPatternScaling.scale(request.pattern(), offer)
+                        : new ECOProcessingExecutionPattern(request.pattern(), offer);
+                cachedCopies = offer;
+            }
+            IPatternDetails executionPattern = cachedExecutionPattern;
             ECOBatchAdmission admission;
             try {
                 admission = ECOBatchExecutor.execute(plan, request.inputs(), request.outputs(), request.remainders(),
@@ -140,17 +185,12 @@ final class ECOProcessingPatternDispatcher {
                             if (direct != null) return direct.submit(request.pattern(), request.inputs(), batch.craftCount());
                             // Only this external API boundary needs an AE2 pattern-shaped execution view.
                             // The task, plan and accounting retain the original pattern identity.
-                            IPatternDetails original = batch.identity().originalPattern();
-                            IPatternDetails executionPattern = batch.craftCount() == 1 ? original
-                                    : ECOAdvancedAEPatternScaling.isAdvancedPattern(original)
-                                    ? ECOAdvancedAEPatternScaling.scale(original, batch.craftCount())
-                                    : new ECOProcessingExecutionPattern(original, batch.craftCount());
                             if (executionPattern == null) return ECOBatchAdmission.rejected();
                             var scaledRequest = new ECOCraftingDispatchRequest(request.job(), request.candidate(), executionPattern,
                                     batch.inputCounters(), batch.outputCounter(), batch.remainderCounter(),
                                     batch.craftCount(), request.inventory(), request.level());
                             return normalPush.push(scaledRequest, provider)
-                                    ? ECOBatchAdmission.accepted(batch.craftCount(), fullyInserted(provider))
+                                    ? ECOBatchAdmission.accepted(batch.craftCount(), fullyInserted(logic))
                                     : ECOBatchAdmission.rejected();
                         });
             } catch (ECOIndeterminateBatchException failure) {
@@ -182,9 +222,8 @@ final class ECOProcessingPatternDispatcher {
                 ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), copies), List.of());
     }
 
-    private static boolean fullyInserted(ICraftingProvider provider) {
-        if (ECOAdvancedAEPatternScaling.isProvider(provider)) return !provider.isBusy();
-        Object logic = providerLogic(provider);
+    private static boolean fullyInserted(Object logic) {
+        if (ECOAdvancedAEPatternScaling.isProvider(logic)) return !((ICraftingProvider) logic).isBusy();
         return logic instanceof PatternProviderLogicAccessor accessor && accessor.neoecoae$getSendList().isEmpty();
     }
 
@@ -287,35 +326,37 @@ final class ECOProcessingPatternDispatcher {
     private record Eligibility(long tick, boolean supported) { }
     /** History survives visits; growth/recovery flags belong only to the current visit. */
     static final class ProbeState {
+        private static final int MAX_RECOVERY_RETRIES = 3;
         long remembered = 1;
         long nextProbeTick = Long.MIN_VALUE;
+        long nextDispatchTick = Long.MIN_VALUE;
+        long nextFallbackTick = Long.MIN_VALUE;
         boolean probed;
 
         Run beginRun(long currentTick, long probeInterval) {
             boolean probe = currentTick >= nextProbeTick;
-            boolean coldStart = !probed && remembered == 1;
             long target = probe
-                    ? (probed ? Math.min(Integer.MAX_VALUE, Math.max(remembered + 1L, remembered * 2L)) : remembered)
+                    ? (probed ? doubled(remembered) : remembered)
                     : remembered;
-            return new Run(target, probe, probed && target > remembered, coldStart, probeInterval);
+            // A new provider/pattern starts with the same one-copy proof but may grow immediately.
+            return new Run(target, probe && (probed || remembered == 1), probeInterval);
+        }
+
+        private static long doubled(long count) {
+            return Math.min(Integer.MAX_VALUE, count * 2L);
         }
 
         final class Run {
             long next = remembered;
             long owned;
-            final long target;
-            final boolean probe;
-            final boolean growthProbe;
-            final boolean coldStart;
+            final boolean growing;
             final long probeInterval;
             boolean backingOff;
+            int recoveryRetries;
 
-            private Run(long target, boolean probe, boolean growthProbe, boolean coldStart, long probeInterval) {
-                this.target = target;
+            private Run(long target, boolean growing, long probeInterval) {
                 this.next = target;
-                this.probe = probe;
-                this.growthProbe = growthProbe;
-                this.coldStart = coldStart;
+                this.growing = growing;
                 this.probeInterval = probeInterval;
             }
 
@@ -324,39 +365,43 @@ final class ECOProcessingPatternDispatcher {
             /** Returns whether this visit should try another chunk. */
             boolean record(long offered, long accepted, boolean fullyInserted, long currentTick) {
                 if (accepted <= 0) {
+                    nextProbeTick = currentTick + probeInterval;
+                    // A target filled by earlier chunks cannot prove that those chunks were too large.
+                    if (owned > 0 || offered < next) {
+                        nextDispatchTick = currentTick + 1;
+                        if (owned > 0) nextFallbackTick = currentTick + 1;
+                        return false;
+                    }
                     remembered = next = Math.max(1, offered / 2);
-                    if (probe) nextProbeTick = currentTick + probeInterval;
-                    backingOff = offered > 1 && (owned > 0 || growthProbe);
-                    return backingOff;
+                    backingOff = true;
+                    if (offered > 1 && recoveryRetries++ < MAX_RECOVERY_RETRIES) return true;
+                    nextDispatchTick = currentTick + probeInterval;
+                    nextProbeTick = currentTick + 2 * probeInterval;
+                    return false;
+                }
+                if (accepted != offered || !fullyInserted) {
+                    if (owned == 0 && offered == next) {
+                        remembered = Math.min(remembered, Math.max(1, Math.min(accepted, offered / 2)));
+                    }
+                    owned += accepted;
+                    nextProbeTick = currentTick + probeInterval;
+                    nextDispatchTick = currentTick + 1;
+                    nextFallbackTick = currentTick + 1;
+                    return false;
                 }
                 owned += accepted;
-                if (accepted != offered || !fullyInserted) {
-                    remembered = Math.max(1, offered / 2);
-                    if (probe) nextProbeTick = currentTick + probeInterval;
-                    return false;
-                }
+                probed = true;
                 if (backingOff) {
-                    remembered = Math.max(remembered, offered);
-                    probed = true;
+                    remembered = offered;
                     return false;
                 }
-                if (coldStart) {
-                    remembered = Math.max(remembered, offered);
-                    probed = true;
-                    nextProbeTick = currentTick + probeInterval;
-                    next = Math.min(Integer.MAX_VALUE, Math.max(offered + 1L, offered * 2L));
-                    return offered < Integer.MAX_VALUE;
-                }
-                if (probe && offered == target) {
-                    remembered = offered;
-                    probed = true;
-                    nextProbeTick = currentTick + probeInterval;
+                remembered = Math.max(remembered, offered);
+                if (growing && offered == next) {
+                    nextProbeTick = currentTick + 1;
+                    next = doubled(offered);
+                } else {
                     next = remembered;
-                    return !growthProbe;
                 }
-                // Between upward probes, reuse the last proven chunk size without
-                // repeatedly re-running the expensive eligibility/scale decision.
-                next = remembered;
                 return true;
             }
         }

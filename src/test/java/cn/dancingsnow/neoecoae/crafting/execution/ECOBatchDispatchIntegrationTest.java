@@ -133,4 +133,40 @@ class ECOBatchDispatchIntegrationTest {
         assertEquals(100, inventory.list.get(input));
         verify(energy, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
     }
+
+    @Test void preparedPlanAggregatesRepeatedInputsBeforeBoundingMaterials() {
+        inventory.extract(input, 94, Actionable.MODULATE);
+        var repeated = new ECOCraftingDispatchRequest(request.job(), null, pattern,
+                new KeyCounter[]{request.inputs()[0], request.inputs()[0]}, request.outputs(), request.remainders(),
+                10, inventory, request.level());
+        var prepared = ECOBatchDispatchPlanning.prepare(repeated, mock(ICraftingProvider.class));
+        assertEquals(1, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
+        inventory.insert(input, 2, Actionable.MODULATE);
+        assertEquals(2, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
+        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, 6L));
+        assertNull(prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR));
+    }
+
+    @Test void preparedPlanRefreshesEnergyAndWaitingHeadroom() {
+        var prepared = ECOBatchDispatchPlanning.prepare(request, mock(ICraftingProvider.class));
+        assertEquals(10, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
+        when(energy.extractAEPower(anyDouble(), any(), any())).thenAnswer(call -> Math.min(4.0, call.getArgument(0)));
+        assertEquals(4, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
+        request.job().waitingFor.insert(output, Long.MAX_VALUE - 6, Actionable.MODULATE);
+        assertEquals(2, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
+        request.job().waitingFor.insert(output, 6, Actionable.MODULATE);
+        assertNull(prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR));
+    }
+
+    @Test void exactExcessStockRemainsAvailableWithProtectedSeeds() {
+        var exact = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ignored -> {});
+        exact.setEnabled(true);
+        exact.restore(Map.of(input, java.math.BigInteger.valueOf(Long.MAX_VALUE).add(java.math.BigInteger.TEN)));
+        var exactRequest = new ECOCraftingDispatchRequest(request.job(), null, pattern, request.inputs(),
+                request.outputs(), request.remainders(), 10, exact, request.level());
+        var prepared = ECOBatchDispatchPlanning.prepare(exactRequest, mock(ICraftingProvider.class));
+        assertEquals(10, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
+        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, Long.MAX_VALUE));
+        assertEquals(5, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
+    }
 }

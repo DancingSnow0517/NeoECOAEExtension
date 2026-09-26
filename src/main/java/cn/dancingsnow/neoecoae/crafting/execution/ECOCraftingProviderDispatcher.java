@@ -77,13 +77,18 @@ final class ECOCraftingProviderDispatcher {
             // Native batch providers already own their one-copy fallback and target recovery.
             if (processing.supports(provider, request.pattern())) continue;
 
-            if (processing.supportsScaledDispatchCached(request, provider)) {
-                var scaledProcessingResult = processing.tryScaledDispatch(
-                        request, provider, singlePower, energyService, markProviderAttempt, normalPush);
-                if (scaledProcessingResult != null) {
-                    return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
+            boolean scaledProvider = processing.supportsScaledDispatchCached(request, provider);
+            if (scaledProvider) {
+                if (processing.isScaledAttemptBudgetExhausted()) continue;
+                if (processing.isScaledFallbackDeferred(request, provider)) continue;
+                if (!processing.isScaledDispatchDeferred(request, provider)) {
+                    var scaledProcessingResult = processing.tryScaledDispatch(
+                            request, provider, singlePower, energyService, markProviderAttempt, normalPush);
+                    if (scaledProcessingResult != null) {
+                        return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
+                    }
+                    if (request.job().suspended) return Result.none();
                 }
-                if (request.job().suspended) return Result.none();
                 // A scaled adapter is an optimization boundary.  Its eligibility can be
                 // valid while the live target rejects the current offer (stale target,
                 // backpressure, or a version-specific transport mismatch).  Do not let
@@ -115,6 +120,7 @@ final class ECOCraftingProviderDispatcher {
             var plan = ECOBatchDispatchPlanning.plan(request, provider, 1, 1, singlePower,
                     energyService, ECOBatchMode.SINGLE);
             if (plan == null) continue;
+            if (scaledProvider && !processing.claimFallbackAttempt()) continue;
             ECOBatchAdmission admission;
             try {
                 admission = ECOBatchExecutor.execute(plan, request.inputs(), request.outputs(), request.remainders(),
