@@ -21,6 +21,51 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class CycleRouteCompletenessReviewTest {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 5, 80})
+    void sharedBudgetDuringAlternativesKeepsMaterialsThroughSessionAndClientSnapshot(int extraWork) throws Exception {
+        cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
+        var missing = key("missing");
+        var finishes = new ArrayList<CompiledPattern>();
+        for (int i = 0; i < 20; i++) {
+            finishes.add(pattern(i, goal, Map.of(a, 2L, missing, 5L), Map.of(goal, 1L)));
+        }
+        var growth = pattern(20, a, Map.of(a, 1L), Map.of(a, 2L));
+        var network = network(Map.of(goal, finishes, a, List.of(growth), missing, List.of()));
+        var graph = graph(network);
+        var initial = new ActiveRouteSelector().selectWithChoices(graph.source(), Map.of(), ECOCancellation.NONE);
+        var stock = new KeyCounter(); stock.add(a, 1L);
+        var work = new java.util.concurrent.atomic.AtomicLong();
+        var completed = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, initial, stock, 1L, true, work::incrementAndGet);
+        assertEquals(PlanningStatus.MISSING_ITEMS, completed.status());
+        var session = new cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService().createSession(
+            mock(appeng.api.networking.crafting.ICraftingService.class), goal, stock, true);
+        // Freeze compilation and the clock so the test cuts the shared allowance at the route boundary,
+        // not at a machine-dependent elapsed time or during unrelated recipe discovery.
+        var fields = Map.<String, Object>of("compiled", network, "condensation", graph, "activeSelection", initial,
+            "planningBudget", new cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget(
+                ECOCancellation.NONE, work.get() + extraWork, Long.MAX_VALUE, () -> 0L));
+        for (var entry : fields.entrySet()) {
+            var field = session.getClass().getDeclaredField(entry.getKey());
+            field.setAccessible(true); field.set(session, entry.getValue());
+        }
+        var result = session.plan(1L, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status(), result.trace().diagnostics().toString());
+        assertEquals(5L, result.plan().missingItems().get(missing));
+        assertEquals(PlannerAmount.of(5L), result.exactMissingItems().get(missing));
+        assertTrue(result.plan().simulation());
+        assertTrue(result.plan().bytes() > 0);
+        assertFalse(result.cycles().isEmpty());
+        assertFalse(result.components().isEmpty());
+        assertTrue(result.trace().diagnostics().stream().anyMatch(d ->
+            d.code() == PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED));
+        var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
+        assertFalse(snapshot.cycleGroups().isEmpty());
+        assertTrue(snapshot.nodes().stream().anyMatch(n -> n.key().equals(missing)
+            && n.missingBigInteger().equals(java.math.BigInteger.valueOf(5L))));
+    }
+
     private final AEKey a = key("A");
     private final AEKey c = key("C");
     private final AEKey goal = key("goal");

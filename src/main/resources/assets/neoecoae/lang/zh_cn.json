@@ -11,6 +11,8 @@
   "gui.neoecoae.import_jei_bookmarks.tooltip": "将 JEI 收藏全部导入元件配置",
   "gui.neoecoae.crafting_report.quantity_unknown": "数量未确定",
   "gui.neoecoae.crafting_report.planning_failed": "规划未完成（悬停 CPU 按钮查看原因）",
+  "gui.neoecoae.crafting_report.search_incomplete": "路线搜索未完成，已保留已算出的材料",
+  "gui.neoecoae.crafting_report.complex_tree_hint": "合成树复杂请检查样板",
   "gui.neoecoae.big_order.reason.output_storage": "等待网络接收剩余产物",
   "gui.neoecoae.big_order.reason.child_incomplete": "子任务尚未完整完成，已停止后续规划",
   "gui.neoecoae.big_order.planning": "规划中",

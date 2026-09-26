@@ -173,7 +173,21 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 .withColor(AE2_TEXT_DARK);
         }
 
-        if (isDiagnosticShell()) {
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
+                && mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED) {
+            boolean retainedMaterials = !mode.neoecoae$getCraftingGraphSnapshot().nodes().isEmpty()
+                || plan != null && !plan.getEntries().isEmpty();
+            cpuDetails = Component.translatable(retainedMaterials
+                    ? "gui.neoecoae.crafting_report.search_incomplete"
+                    : "gui.neoecoae.crafting_report.planning_failed")
+                .withColor(0xAA6600);
+            selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.literal(mode.neoecoae$getPlanningDiagnostic())));
+            if (plan != null && !retainedMaterials) {
+                planSummary = Component.literal(formatMillis(mode.neoecoae$getCalculationNanos()) + " ms - ")
+                    .append(Component.translatable("gui.neoecoae.crafting_report.quantity_unknown"));
+            }
+        } else if (isDiagnosticShell()) {
             var mode = (ECOCraftConfirmMenuMode) (Object) menu;
             cpuDetails = Component.translatable("gui.neoecoae.crafting_report.planning_failed")
                 .withColor(0xAA3333);
@@ -186,6 +200,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
+        setTextContent("complex_tree_hint", (Object) menu instanceof ECOCraftConfirmMenuMode mode
+                && mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED
+            ? Component.translatable("gui.neoecoae.crafting_report.complex_tree_hint").withColor(0xFFCC66)
+            : Component.empty());
         setTextContent("plan_summary", planSummary);
         setTextContent("cycle_status", Component.empty());
         setTextContent("cpu_status", cpuDetails);

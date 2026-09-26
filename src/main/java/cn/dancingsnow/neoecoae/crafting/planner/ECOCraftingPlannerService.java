@@ -117,7 +117,9 @@ public final class ECOCraftingPlannerService {
                             solved.status() == PlanningStatus.SUCCESS,
                             ECOPlanningStageLogger.resultReason(solved.status(), solved.trace()));
                     long validationStarted = ECOPlanningStageLogger.start();
-                    cancellation.checkpoint();
+                    // Search may have exhausted its allowance while retaining a completed route.
+                    // Publishing that report must still honor cancellation, but must not spend search budget.
+                    callerCancellation.checkpoint();
                     solved = rejectUnclosedSuccess(solved, amount);
                     ECOPlanningStageLogger.finish("material_closure_validation", validationStarted,
                             solved.status() == PlanningStatus.SUCCESS,
@@ -160,7 +162,7 @@ public final class ECOCraftingPlannerService {
                         logTotal(startedNanos, rejected);
                         return rejected;
                     }
-                    cancellation.checkpoint();
+                    callerCancellation.checkpoint();
                     attach(result);
                     logTotal(startedNanos, result);
                     return result;

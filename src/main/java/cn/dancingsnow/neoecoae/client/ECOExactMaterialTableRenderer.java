@@ -38,7 +38,8 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     static boolean hasMissingMaterialSnapshot(
             cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus status,
             CraftingGraphSnapshot snapshot) {
-        return status == cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS
+        return (status == cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS
+                || status == cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.CYCLE_UNRESOLVED)
             && !snapshot.nodes().isEmpty();
     }
 

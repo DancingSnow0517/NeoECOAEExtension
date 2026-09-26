@@ -657,6 +657,24 @@ public final class ComponentPlanner {
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, true,
             ignorePatternSubstitutions, cancellation, failures);
         if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
+        try {
+            return searchAlternativeRoutes(network, universe, activeSelection, inventory, snapshot, amount,
+                ignorePatternSubstitutions, cancellation, failures, preferred);
+        } catch (cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget.Exhausted exhausted) {
+            // The interrupted alternative is speculative. The completed route still owns a valid
+            // material report and cycle diagnostics; never replace those with an empty shell.
+            preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED,
+                exhausted.getMessage() + "; retaining the completed route's material report"));
+            return new Outcome(PlanningStatus.CYCLE_UNRESOLVED, preferred.state(), preferred.trace(),
+                preferred.cycles(), preferred.components(), preferred.executionComponentOrder());
+        }
+    }
+
+    private Outcome searchAlternativeRoutes(CompiledNetwork network, CondensationGraph universe,
+                        ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
+                        PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
+                        ECOCancellation cancellation, CycleFailureCache failures, Outcome preferred)
+            throws InterruptedException {
         // One route's unsupported ingredient or seed deficit cannot rule out a different recipe.
         // Stop globally only if even optimistic reachability through ALL producers fails.
         if (preferred.trace().cycles().stream().anyMatch(cycle -> cycle.solveResult() != null

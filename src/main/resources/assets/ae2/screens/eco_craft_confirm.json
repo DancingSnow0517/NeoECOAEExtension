@@ -8,6 +8,10 @@
     "srcRect": [0, 0, 330, 260]
   },
   "text": {
+    "complex_tree_hint": {
+      "position": { "left": 165, "top": -11 },
+      "align": "CENTER"
+    },
     "dialog_title": {
       "position": { "left": 8, "top": 7 }
     },
