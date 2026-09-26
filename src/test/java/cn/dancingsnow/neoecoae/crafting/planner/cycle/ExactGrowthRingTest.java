@@ -39,7 +39,7 @@ class ExactGrowthRingTest {
             result.exactPatternTimes().values().forEach(count -> assertEquals(expectedCount, count.toBigInteger()));
             assertTrue(result.seedShortfall().isEmpty());
             assertTrue(result.diagnostics().stream().anyMatch(d ->
-                d.code() == CycleSolveDiagnostic.Code.DETERMINISTIC_RING_EXACT));
+                d.code() == CycleSolveDiagnostic.Code.STATE_EQUATION_WITNESS));
             assertTrue(result.diagnostics().stream().noneMatch(d ->
                 d.code() == CycleSolveDiagnostic.Code.STATE_BUDGET_EXHAUSTED));
             // Independently check the material balance using the returned exact firing counts.

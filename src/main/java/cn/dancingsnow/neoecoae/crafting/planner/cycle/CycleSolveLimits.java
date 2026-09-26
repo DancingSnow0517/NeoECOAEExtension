@@ -7,10 +7,6 @@ package cn.dancingsnow.neoecoae.crafting.planner.cycle;
  * {@link CycleSolveStatus#TOO_COMPLEX} or {@link CycleSolveStatus#UNKNOWN_BUDGET}, never a
  * missing-items verdict.
  *
- * <p>Canonical stage-one defaults, mirrored by {@code planner.maxScc*} in the design document's Appendix B:
- * {@code maxKeys = 8}, {@code maxPatterns = 16}, {@code maxStates = 100000}, {@code maxFirings = 100000},
- * {@code maxSeedLadderSteps = 12}.
- *
  * @param maxKeys      relevant-key cap for one SCC; above it the component is {@code TOO_COMPLEX}
  * @param maxPatterns  pattern cap for one SCC; above it the component is {@code TOO_COMPLEX}
  * @param maxStates    distinct-marking cap shared by the first search and the whole seed ladder
@@ -26,14 +22,25 @@ public record CycleSolveLimits(
     int maxFirings,
     int maxSeedLadderSteps
 ) {
-    /** Stage-one defaults: only small, inventory-aware SCCs are attempted. */
+    /** Structural safety caps are independent of the search allowance. */
+    public static final CycleSolveLimits DEFAULT = new CycleSolveLimits(256, 64, 100_000, 100_000, 12);
+    /** Compatibility alias; the planner no longer promotes requests into a million-state tier. */
+    @Deprecated
+    public static final CycleSolveLimits LARGE = DEFAULT;
+
     /**
-     * The firing budget is sized for the large batch counts used by high-tier storage recipes. The bounded
-     * solver still remains finite, while callers that need a tighter latency bound can provide explicit limits.
+     * Estimate work per marking from its width and outgoing transitions. Competing producers/consumers
+     * receive some extra exploration, while wide inventories reduce the number of retained markings.
+     * External ingredients affect per-state cost, but never trigger a larger latency tier.
+     * The calculation-wide ECOPlanningBudget remains the hard time/work deadline across all attempts.
      */
-    public static final CycleSolveLimits DEFAULT = new CycleSolveLimits(8, 16, 100_000, 100_000, 12);
-    /** Opt-in budget used only after the planner has identified a large cyclic component. */
-    public static final CycleSolveLimits LARGE = new CycleSolveLimits(64, 64, 1_000_000, 1_000_000, 20);
+    public static CycleSolveLimits forWorkload(int keys, int transitions, int competingChoices) {
+        long perState = Math.max(4L, keys) * Math.max(1L, transitions);
+        long work = 1_600_000L * (1L + Math.min(4, Math.max(0, competingChoices)));
+        int states = (int) Math.max(2_048L, Math.min(DEFAULT.maxStates(), work / perState));
+        return new CycleSolveLimits(DEFAULT.maxKeys(), DEFAULT.maxPatterns(), states, states,
+            DEFAULT.maxSeedLadderSteps());
+    }
 
     public CycleSolveLimits {
         if (maxKeys < 1 || maxPatterns < 1 || maxStates < 1 || maxFirings < 1 || maxSeedLadderSteps < 0) {

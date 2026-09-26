@@ -201,6 +201,41 @@ public record CycleSolveResult(
         return executionCountKnowledge == ExecutionCountKnowledge.EXACT;
     }
 
+    /**
+     * Seed-only upper bounds on simultaneous uses, based on committed reservations, not free network stock.
+     * Only inventory-neutral keys are reusable seeds. Machines and ordered-step barriers may lower throughput.
+     * Count the smallest consuming firing for each key so this remains an upper bound across mixed recipes.
+     */
+    public Map<AEKey, Long> seedParallelism(Map<AEKey, Long> reservations) {
+        if (status != CycleSolveStatus.SUCCESS || executionPlan.isEmpty()) return Map.of();
+        Map<AEKey, PlannerAmount> net = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> smallestUse = new LinkedHashMap<>();
+        Map<IPatternDetails, CompiledPattern> unique = new LinkedHashMap<>();
+        executionPlan.forEach(run -> unique.putIfAbsent(run.pattern().details(), run.pattern()));
+        for (CompiledPattern pattern : unique.values()) {
+            PlannerAmount times = exactPatternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO);
+            if (times.signum() <= 0) continue;
+            Map<AEKey, PlannerAmount> inputs = new LinkedHashMap<>();
+            pattern.inputs().forEach(input -> inputs.merge(input.key(), input.amountPerPattern(), PlannerAmount::add));
+            inputs.forEach((key, amount) -> {
+                net.merge(key, PlannerAmount.ZERO.subtract(amount.multiply(times)), PlannerAmount::add);
+                smallestUse.merge(key, amount, PlannerAmount::min);
+            });
+            pattern.grossOutputs().forEach(output ->
+                net.merge(output.what(), times.multiply(output.amount()), PlannerAmount::add));
+        }
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        requiredSeed.forEach((key, amount) -> {
+            PlannerAmount use = smallestUse.get(key);
+            if (amount > 0 && use != null && use.signum() > 0
+                    && net.getOrDefault(key, PlannerAmount.ZERO).isZero()) {
+                result.put(key, PlannerAmount.of(Math.max(0L, reservations.getOrDefault(key, 0L)))
+                    .divide(use).longValueExact());
+            }
+        });
+        return Map.copyOf(result);
+    }
+
     private static Map<IPatternDetails, PlannerAmount> exact(Map<IPatternDetails, Long> values) {
         Map<IPatternDetails, PlannerAmount> result = new LinkedHashMap<>();
         values.forEach((pattern, count) -> result.put(pattern, PlannerAmount.of(count == null ? 0L : count)));

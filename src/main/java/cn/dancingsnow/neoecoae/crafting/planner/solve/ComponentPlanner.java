@@ -341,13 +341,13 @@ public final class ComponentPlanner {
                     Map<AEKey, Long> plannedCycleInputs = Map.of();
                     if (cycleResult != null
                             && cycleResult.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
-                            && !cycleResult.seedShortfall().isEmpty()) {
+                            && (!cycleResult.seedShortfall().isEmpty() || !cycleResult.startupCandidates().isEmpty())) {
                         startupRecoveryAttempted = true;
                         CycleSolveResult proposal = cycleResult;
                         CycleSolveResult recoveryFailure = null;
                         Map<AEKey, Long> unresolvedSeed = Map.of();
                         List<Map<AEKey, Long>> candidates = new ArrayList<>();
-                        candidates.add(proposal.seedShortfall());
+                        if (!proposal.seedShortfall().isEmpty()) candidates.add(proposal.seedShortfall());
                         for (Map<AEKey, Long> candidate : proposal.startupCandidates()) {
                             if (!candidate.isEmpty() && !candidates.contains(candidate)) candidates.add(candidate);
                         }
@@ -795,9 +795,17 @@ public final class ComponentPlanner {
             pattern.inputs().forEach(input -> keys.add(input.key()));
             pattern.grossOutputs().forEach(output -> keys.add(output.what()));
         }
-        boolean large = keys.size() > CycleSolveLimits.DEFAULT.maxKeys()
-                || cycle.patterns().size() > CycleSolveLimits.DEFAULT.maxPatterns();
-        return new CycleSolveRequest.PlannerOptions(large ? CycleSolveLimits.LARGE : CycleSolveLimits.DEFAULT);
+        int choices = 0;
+        var patterns = cycle.patterns().stream().collect(java.util.stream.Collectors.toMap(
+            CompiledPattern::details, pattern -> pattern, (first, second) -> first)).values();
+        for (AEKey member : cycle.members()) {
+            long producers = patterns.stream().filter(pattern -> pattern.grossOutputs().stream()
+                .anyMatch(output -> output.what().equals(member))).count();
+            long consumers = patterns.stream().filter(pattern -> pattern.inputs().stream()
+                .anyMatch(input -> input.key().equals(member))).count();
+            choices += (int) (Math.max(0, producers - 1) + Math.max(0, consumers - 1));
+        }
+        return new CycleSolveRequest.PlannerOptions(CycleSolveLimits.forWorkload(keys.size(), patterns.size(), choices));
     }
 
     private static CycleExecutionDisposition cycleExecutionDisposition(CycleComponent cycle, CycleSolveResult result) {

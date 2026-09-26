@@ -5,6 +5,9 @@ public record CycleSolveDiagnostic(Code code, String message) {
     public enum Code {
         /** The required outputs were already covered by relevant stock; no firing was needed. */
         SATISFIED_FROM_STOCK,
+        STATE_EQUATION_INFEASIBLE,
+        STATE_EQUATION_WITNESS,
+        STATE_EQUATION_BUDGET,
         /** A concrete firing order was found. */
         WITNESS_FOUND,
         /**

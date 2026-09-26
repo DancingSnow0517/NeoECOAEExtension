@@ -26,6 +26,45 @@ import static org.mockito.Mockito.*;
 class AERecipeCircuitTest {
     @BeforeAll static void bootstrap() { cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize(); }
 
+    @Test void reservedCatalystsExposeOneVersusManyConcurrentUses() throws Exception {
+        AEKey catalyst = AEItemKey.of(Items.DIAMOND), product = AEItemKey.of(Items.EMERALD);
+        AEKey fuel = AEFluidKey.of(Fluids.WATER);
+        var recipe = recipe(0, Map.of(catalyst, 1L, fuel, 1000L), Map.of(product, 1L), Map.of(catalyst, 1L));
+        for (long copies : new long[] {1, 32}) {
+            var result = solve(List.of(catalyst), List.of(recipe), product, 1_000_000,
+                Map.of(catalyst, copies), fuel);
+            assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
+            assertEquals(copies, result.requiredSeed().get(catalyst));
+            assertEquals(copies, result.seedParallelism(result.requiredSeed()).get(catalyst));
+            assertEquals(1_000_000_000L, result.externalDemand().get(fuel));
+            assertTrue(result.executionPlan().size() <= 2);
+        }
+    }
+
+    @Test void splitMergeCircuitUsesBalanceEvenWithOneSearchState() throws Exception {
+        AEKey a = mock(AEKey.class), b = mock(AEKey.class), c = mock(AEKey.class), product = mock(AEKey.class);
+        var split = recipe(0, Map.of(a, 2L), Map.of(b, 3L, c, 1L), Map.of());
+        var merge = recipe(1, Map.of(b, 3L, c, 1L), Map.of(a, 2L, product, 1L), Map.of());
+        var component = new CycleComponent(0, List.of(a, b, c), List.of(split, merge), List.of(), List.of(), List.of());
+        var result = new BoundedCycleSolver().solve(new CycleSolveRequest(component, Map.of(product, 1_000_000_000L),
+            Map.of(a, 2L), List.of(), new CycleSolveRequest.PlannerOptions(new CycleSolveLimits(8, 16, 1, 1, 0))),
+            ECOCancellation.NONE);
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
+        assertEquals(1_000_000_000L, result.patternTimes().get(split.details()));
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code() == CycleSolveDiagnostic.Code.STATE_EQUATION_WITNESS));
+        assertTrue(result.executionPlan().size() <= 3);
+    }
+
+    @Test void growingInternalInventoryCannotHideFiniteFuelInfeasibility() throws Exception {
+        AEKey a = mock(AEKey.class), fuel = mock(AEKey.class), product = mock(AEKey.class);
+        var grow = recipe(0, Map.of(a, 1L), Map.of(a, 2L), Map.of());
+        var consume = recipe(1, Map.of(a, 1L, fuel, 1L), Map.of(product, 1L), Map.of());
+        var result = solve(List.of(a), List.of(grow, consume), product, 5, Map.of(a, 1L, fuel, 4L), null);
+        assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, result.status(), result.summary());
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code() == CycleSolveDiagnostic.Code.STATE_EQUATION_INFEASIBLE));
+        assertEquals(0, result.metrics().statesVisited());
+    }
+
     @Test void trillionProductsReuseOneBucketAndChargeEveryMillibucket() {
         assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
             AEKey empty = AEItemKey.of(Items.BUCKET), full = AEItemKey.of(Items.WATER_BUCKET);
