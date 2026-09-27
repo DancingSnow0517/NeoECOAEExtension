@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.CraftingPlanningModeButton;
@@ -28,7 +29,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.AlignContent;
@@ -174,9 +174,9 @@ public final class CraftingHostPanelUI {
 
     public static List<Button> createToolbarButtons(Config config) {
         return List.of(
-            toolbarButton(config.toggleOverclocked, Icon.POWER_UNIT_AE, () -> Component.translatable(
+            toolbarButton(config.toggleOverclocked, ECOIcon.POWER_UNIT_AE, () -> Component.translatable(
                 config.overclocked.getAsBoolean() ? "gui.neoecoae.crafting.overclock.on" : "gui.neoecoae.crafting.overclock.off")),
-            toolbarButton(config.toggleActiveCooling, Icon.TYPE_FILTER_ALL, () -> Component.translatable(
+            toolbarButton(config.toggleActiveCooling, ECOIcon.TYPE_FILTER_ALL, () -> Component.translatable(
                 config.activeCooling.getAsBoolean() ? "gui.neoecoae.crafting.active_cooling.on" : "gui.neoecoae.crafting.active_cooling.off")),
             CraftingPlanningModeButton.create(
                 config.ignoringPatternSubstitutions,
@@ -189,13 +189,13 @@ public final class CraftingHostPanelUI {
 
     private static Button networkFrequencyButton(Config config) {
         Button button = HostSideButtonBar.createButton().noText()
-            .addPreIcon(AETextures.icon(Icon.SCHEDULING_ROUND_ROBIN))
+            .addPreIcon(AETextures.icon(ECOIcon.SCHEDULING_ROUND_ROBIN))
             .setOnServerClick(event -> {
                 if (event.button == 0) config.adjustNetworkFrequency.accept(1);
                 else if (event.button == 1) config.adjustNetworkFrequency.accept(-1);
             });
-        button.buttonStyle(style -> style.baseTexture(Sprites.RECT_RD)
-            .hoverTexture(Sprites.RECT_RD_LIGHT).pressedTexture(Sprites.RECT_RD_DARK));
+        button.buttonStyle(style -> style.baseTexture(NETextures.RECT_RD)
+            .hoverTexture(NETextures.RECT_RD_LIGHT).pressedTexture(NETextures.RECT_RD_DARK));
         button.addClass("eco-host-toolbar-button");
         button.layout(layout -> layout.width(TOOLBAR_BUTTON_SIZE).height(TOOLBAR_BUTTON_SIZE));
         BindableValue<Component> syncedTooltip = syncedComponent(
@@ -207,15 +207,15 @@ public final class CraftingHostPanelUI {
         return button;
     }
 
-    private static Button toolbarButton(Runnable action, Icon icon, Supplier<Component> tooltip) {
+    private static Button toolbarButton(Runnable action, ECOIcon icon, Supplier<Component> tooltip) {
         Button button = HostSideButtonBar.createButton()
             .noText()
             .addPreIcon(AETextures.icon(icon))
             .setOnServerClick(event -> action.run());
         button.buttonStyle(style -> style
-            .baseTexture(Sprites.RECT_RD)
-            .hoverTexture(Sprites.RECT_RD_LIGHT)
-            .pressedTexture(Sprites.RECT_RD_DARK));
+            .baseTexture(NETextures.RECT_RD)
+            .hoverTexture(NETextures.RECT_RD_LIGHT)
+            .pressedTexture(NETextures.RECT_RD_DARK));
         button.addClass("eco-host-toolbar-button");
         button.layout(layout -> layout.width(TOOLBAR_BUTTON_SIZE).height(TOOLBAR_BUTTON_SIZE));
 

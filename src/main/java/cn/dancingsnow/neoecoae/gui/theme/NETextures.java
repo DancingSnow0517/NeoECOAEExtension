@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.gui.theme;
 
-import appeng.core.AppEng;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinResourceProvider;
@@ -9,7 +8,6 @@ import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.UIResourceTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.math.Size;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
@@ -36,7 +34,18 @@ public class NETextures {
     public static IGuiTexture NBT_BENCH = SpriteTexture.of(NeoECOAE.id("textures/gui/nbtbench.png"))
         .setSprite(0, 0, 176, 253);
 
-    public static IGuiTexture HOST_PANEL_BORDER = Sprites.BORDER_THICK_RT1;
+    private static final net.minecraft.resources.ResourceLocation LDLIB_ATLAS =
+        NeoECOAE.id("textures/gui/ldlib/gdp_styles.png");
+    public static IGuiTexture RECT_RD = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(1, 29, 13, 13).setBorder(4, 4, 4, 4);
+    public static IGuiTexture RECT_RD_LIGHT = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(1, 15, 13, 13).setBorder(4, 4, 4, 4);
+    public static IGuiTexture RECT_RD_DARK = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(1, 43, 13, 13).setBorder(4, 4, 4, 4);
+    public static IGuiTexture RECT_RD_T = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(15, 29, 13, 13).setBorder(4, 4, 4, 4);
+    public static IGuiTexture HOST_PANEL_BORDER = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(205, 154, 16, 16).setBorder(6, 6, 6, 6);
 
     public static IGuiTexture BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/button.png"))
         .setSpriteSize(Size.of(20, 20))
@@ -51,53 +60,48 @@ public class NETextures {
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 3, 2, 5);
 
-    // AE2's priority panel uses its own atlas instead of the mod's generic controls.
-    public static IGuiTexture AE2_BUTTON = SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button.png"))
+    // Priority controls use the bundled AE2 artwork in our own namespace.
+    public static IGuiTexture AE2_BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/sprites/button.png"))
         .setSprite(0, 0, 200, 20)
         .setBorder(3);
     public static IGuiTexture AE2_BUTTON_HIGHLIGHTED =
-        SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button_highlighted.png"))
+        SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/sprites/button_highlighted.png"))
             .setSprite(0, 0, 200, 20)
             .setBorder(3);
     public static IGuiTexture AE2_BUTTON_DISABLED =
-        SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button_disabled.png"))
+        SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/sprites/button_disabled.png"))
             .setSprite(0, 0, 200, 20)
             .setBorder(3);
     public static IGuiTexture PRIORITY_BACKGROUND =
-        SpriteTexture.of(AppEng.makeId("textures/guis/priority.png"))
+        SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/priority.png"))
             .setSprite(0, 0, 176, 125);
     public static IGuiTexture PRIORITY_TEXT_FIELD =
-        SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
+        SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/text_field.png"))
             .setSprite(0, 0, 128, 12)
             .setBorder(1, 0, 1, 0);
     public static IGuiTexture PRIORITY_TEXT_FIELD_DISABLED =
-        SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
+        SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/text_field.png"))
             .setSprite(0, 12, 128, 12)
             .setBorder(1, 0, 1, 0);
     public static IGuiTexture PRIORITY_TEXT_FIELD_FOCUS =
-        SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
+        SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/text_field.png"))
             .setSprite(0, 24, 128, 12)
             .setBorder(1, 0, 1, 0);
     public static IGuiTexture AE2_TOOLBOX =
         SpriteTexture.of(NeoECOAE.id("textures/gui/eco_extra_panels.png"))
             .setSprite(0, 0, 61, 66);
 
-    public static IGuiTexture SWITCH_OFF = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
+    public static IGuiTexture SWITCH_OFF = SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/checkbox.png"))
         .setSprite(0,28, 22, 12);
-    public static IGuiTexture SWITCH_OFF_HOVER = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
+    public static IGuiTexture SWITCH_OFF_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/checkbox.png"))
         .setSprite(22, 28, 22, 12);
-    public static IGuiTexture SWITCH_ON = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
+    public static IGuiTexture SWITCH_ON = SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/checkbox.png"))
         .setSprite(0, 40, 22, 12);
-    public static IGuiTexture SWITCH_ON_HOVER = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
+    public static IGuiTexture SWITCH_ON_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/checkbox.png"))
         .setSprite(22, 40, 22, 12);
 
     public static IGuiTexture AE_SCROLLBAR_TRACK = CARD_BACKGROUND;
     public static IGuiTexture AE_SCROLLBAR_THUMB = BUTTON;
-
-    public static IGuiTexture aeIcon(int x, int y, int width, int height) {
-        return SpriteTexture.of(AppEng.makeId("textures/guis/states.png"))
-            .setSprite(x, y, width, height);
-    }
 
     public static IGuiTexture ITEM_SLOT = SpriteTexture.of(NeoECOAE.id("textures/gui/slot.png"))
         .setSpriteSize(Size.of(18, 18))

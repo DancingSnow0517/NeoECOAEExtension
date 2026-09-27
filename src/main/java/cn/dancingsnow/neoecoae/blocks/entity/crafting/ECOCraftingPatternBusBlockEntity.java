@@ -11,7 +11,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.helpers.patternprovider.PatternContainer;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
@@ -1019,7 +1019,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
                 UIElement slot = new PatternItemSlot(new ItemHandlerSlot(pageItemHandler, slotIndex))
-                    .slotStyle(style -> style.slotOverlay(AETextures.icon(Icon.BACKGROUND_BLANK_PATTERN)))
+                    .slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_BLANK_PATTERN)))
                     .addClass("eco-pattern-slot");
                 rowInv.addChild(slot);
             }

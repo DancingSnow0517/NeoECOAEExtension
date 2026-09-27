@@ -31,7 +31,7 @@ import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import appeng.menu.implementations.CellWorkbenchMenu;
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOImportJeiBookmarksC2SPacket;
 import net.minecraft.client.gui.components.Button;
@@ -98,14 +98,11 @@ public class NeoECOAEClient {
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             int yOffset = isHovered() ? 1 : 0;
-            Icon background = isHovered()
-                ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER
-                : isFocused() ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
-                : Icon.TOOLBAR_BUTTON_BACKGROUND;
-            background.getBlitter()
-                .dest(getX() - 1, getY() + yOffset, 18, 20)
-                .zOffset(100)
-                .blit(graphics);
+            ECOIcon background = isHovered()
+                ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
+                : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
+                : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
+            background.blit(graphics, getX() - 1, getY() + yOffset, 100);
 
             graphics.blit(ICON_TEXTURE, getX(), getY() + 2 + yOffset,
                 200, 0, 0, 16, 16, 16, 16);

@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -8,7 +10,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -16,8 +17,8 @@ import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 
 public final class CraftingPlanningModeButton {
-    private static final IGuiTexture SUBSTITUTIONS_INCLUDED = NETextures.aeIcon(64, 80, 16, 16);
-    private static final IGuiTexture SUBSTITUTIONS_IGNORED = NETextures.aeIcon(80, 80, 16, 16);
+    private static final IGuiTexture SUBSTITUTIONS_INCLUDED = AETextures.icon(ECOIcon.PATTERN_ACCESS_SHOW);
+    private static final IGuiTexture SUBSTITUTIONS_IGNORED = AETextures.icon(ECOIcon.PATTERN_ACCESS_HIDE);
 
     private CraftingPlanningModeButton() {
     }
@@ -32,9 +33,9 @@ public final class CraftingPlanningModeButton {
             .noText()
             .addPreIcon(planningModeIcon(ignoringSubstitutions.getAsBoolean()));
         button.buttonStyle(style -> style
-            .baseTexture(Sprites.RECT_RD)
-            .hoverTexture(Sprites.RECT_RD_LIGHT)
-            .pressedTexture(Sprites.RECT_RD_DARK));
+            .baseTexture(NETextures.RECT_RD)
+            .hoverTexture(NETextures.RECT_RD_LIGHT)
+            .pressedTexture(NETextures.RECT_RD_DARK));
         button.addClass("eco-host-planning-mode-button");
         button.layout(layout -> layout.width(size).height(size));
 

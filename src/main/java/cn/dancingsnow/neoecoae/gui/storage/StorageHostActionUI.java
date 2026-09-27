@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
@@ -92,7 +92,7 @@ public final class StorageHostActionUI {
     private static Button createBulkMarkingButton(Config config) {
         Button button = HostSideButtonBar.createButton()
             .noText()
-            .addPostIcon(AETextures.icon(Icon.TYPE_FILTER_ALL))
+            .addPostIcon(AETextures.icon(ECOIcon.TYPE_FILTER_ALL))
             .setOnServerClick(event -> {
                 if (event.button == 1) config.autoMarkBulkCells().accept(event.isShiftDown());
             });

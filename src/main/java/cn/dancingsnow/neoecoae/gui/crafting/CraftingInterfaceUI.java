@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
@@ -19,7 +21,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -48,11 +49,11 @@ public final class CraftingInterfaceUI {
     private static final int PREVIEW_SCROLLBAR_TRACK_WIDTH = 6;
     private static final int PREVIEW_SCROLLBAR_THUMB_HEIGHT = 15;
     static final int PREVIEW_QUERY_MAX_LENGTH = 128;
-    private static final IGuiTexture SUBSTITUTION_ENABLED = NETextures.aeIcon(224, 208, 8, 8);
-    private static final IGuiTexture SUBSTITUTION_DISABLED = NETextures.aeIcon(232, 208, 8, 8);
-    private static final IGuiTexture FLUID_SUBSTITUTION_ENABLED = NETextures.aeIcon(224, 216, 8, 8);
-    private static final IGuiTexture FLUID_SUBSTITUTION_DISABLED = NETextures.aeIcon(232, 216, 8, 8);
-    private static final IGuiTexture PATTERN_ACCESS_SHOW = NETextures.aeIcon(64, 80, 16, 16);
+    private static final IGuiTexture SUBSTITUTION_ENABLED = AETextures.icon(ECOIcon.SUBSTITUTION_ENABLED);
+    private static final IGuiTexture SUBSTITUTION_DISABLED = AETextures.icon(ECOIcon.SUBSTITUTION_DISABLED);
+    private static final IGuiTexture FLUID_SUBSTITUTION_ENABLED = AETextures.icon(ECOIcon.FLUID_SUBSTITUTION_ENABLED);
+    private static final IGuiTexture FLUID_SUBSTITUTION_DISABLED = AETextures.icon(ECOIcon.FLUID_SUBSTITUTION_DISABLED);
+    private static final IGuiTexture PATTERN_ACCESS_SHOW = AETextures.icon(ECOIcon.PATTERN_ACCESS_SHOW);
 
     private CraftingInterfaceUI() {
     }
@@ -81,7 +82,7 @@ public final class CraftingInterfaceUI {
                 .paddingBottom(7)
                 .gapAll(4)
                 .flexDirection(FlexDirection.COLUMN))
-                .style(style -> style.backgroundTexture(Sprites.BORDER_THICK_RT1));
+                .style(style -> style.backgroundTexture(NETextures.HOST_PANEL_BORDER));
         contentFrame.addChild(statusLabel(() -> Component.translatable("gui.neoecoae.storage_interface.network")
                 .append(": ")
                 .append(Component.translatable(craftingInterface.isTargetOnline()
@@ -119,9 +120,9 @@ public final class CraftingInterfaceUI {
                 .setText(Component.translatable("gui.neoecoae.host.crafting.pattern_transfer"))
                 .setOnServerClick(event -> craftingInterface.startNetworkPatternTransfer());
         button.buttonStyle(style -> style
-                .baseTexture(Sprites.RECT_RD)
-                .hoverTexture(Sprites.RECT_RD_LIGHT)
-                .pressedTexture(Sprites.RECT_RD_DARK));
+                .baseTexture(NETextures.RECT_RD)
+                .hoverTexture(NETextures.RECT_RD_LIGHT)
+                .pressedTexture(NETextures.RECT_RD_DARK));
         button.layout(layout -> layout.widthPercent(100).height(18));
         return button;
     }
@@ -162,7 +163,7 @@ public final class CraftingInterfaceUI {
                 previewState,
                 CraftingPatternPreviewState::showsEmptyRows,
                 PATTERN_ACCESS_SHOW,
-                NETextures.aeIcon(80, 80, 16, 16),
+                AETextures.icon(ECOIcon.PATTERN_ACCESS_HIDE),
                 CraftingPatternPreviewState::toggleEmptyRows,
                 "gui.neoecoae.crafting_interface.preview.empty_rows"));
         header.addChild(patternFilterButton(
@@ -203,7 +204,7 @@ public final class CraftingInterfaceUI {
         public SearchField(Consumer<String> responder) {
             this.responder = responder == null ? value -> { } : responder;
             setFocusable(true);
-            style(style -> style.backgroundTexture(Sprites.RECT_RD));
+            style(style -> style.backgroundTexture(NETextures.RECT_RD));
         }
 
         protected final void updateSearch(String value) {
@@ -227,9 +228,9 @@ public final class CraftingInterfaceUI {
                     style.backgroundTexture(enabled.apply(previewState) ? enabledIcon : disabledIcon));
         });
         button.buttonStyle(style -> style
-                .baseTexture(Sprites.RECT_RD)
-                .hoverTexture(Sprites.RECT_RD_LIGHT)
-                .pressedTexture(Sprites.RECT_RD_DARK));
+                .baseTexture(NETextures.RECT_RD)
+                .hoverTexture(NETextures.RECT_RD_LIGHT)
+                .pressedTexture(NETextures.RECT_RD_DARK));
         button.layout(layout -> layout.width(TOOL_BUTTON_SIZE).height(TOOL_BUTTON_SIZE));
         return HostElements.tooltips(button, Component.translatable(tooltip));
     }
@@ -371,9 +372,9 @@ public final class CraftingInterfaceUI {
                 .addPreIcon(icon)
                 .setOnServerClick(event -> action.run());
         button.buttonStyle(style -> style
-                .baseTexture(Sprites.RECT_RD)
-                .hoverTexture(Sprites.RECT_RD_LIGHT)
-                .pressedTexture(Sprites.RECT_RD_DARK));
+                .baseTexture(NETextures.RECT_RD)
+                .hoverTexture(NETextures.RECT_RD_LIGHT)
+                .pressedTexture(NETextures.RECT_RD_DARK));
         button.layout(layout -> layout.width(TOOL_BUTTON_SIZE).height(TOOL_BUTTON_SIZE));
         return HostElements.tooltips(button, Component.translatable(tooltip));
     }

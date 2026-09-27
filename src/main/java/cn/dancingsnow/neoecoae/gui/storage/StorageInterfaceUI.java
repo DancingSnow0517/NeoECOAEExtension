@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
@@ -18,7 +19,6 @@ import com.lowdragmc.lowdraglib2.utils.animation.Animation;
 import com.lowdragmc.lowdraglib2.math.interpolate.Eases;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -55,7 +55,7 @@ public final class StorageInterfaceUI {
         root.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.storage_interface.title")));
         UIElement contentFrame = new UIElement().layout(layout -> {
             layout.widthPercent(100).flex(1).paddingAll(8).gapAll(5).flexDirection(FlexDirection.COLUMN);
-        }).style(style -> style.backgroundTexture(Sprites.BORDER_THICK_RT1));
+        }).style(style -> style.backgroundTexture(NETextures.HOST_PANEL_BORDER));
         contentFrame.addChild(modeSelector(storageInterface));
         contentFrame.addChild(statusLabel(() -> Component.translatable("gui.neoecoae.storage_interface.structure")
             .append(": ").append(Component.translatable(storageInterface.isInfiniteTransferAvailable()
@@ -80,14 +80,14 @@ public final class StorageInterfaceUI {
         group.layout(layout -> {
             layout.width(segmentWidth * 3).height(selectorHeight).gapAll(0).flexDirection(FlexDirection.ROW);
             layout.marginLeft(30);
-        }).style(style -> style.backgroundTexture(Sprites.RECT_RD_DARK));
+        }).style(style -> style.backgroundTexture(NETextures.RECT_RD_DARK));
 
         UIElement slider = new UIElement().layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(storageInterface.getStorageInterfaceMode().ordinal() * segmentWidth);
             layout.top(0).width(segmentWidth).height(selectorHeight);
         }).style(style -> {
-            style.backgroundTexture(Sprites.RECT_RD);
+            style.backgroundTexture(NETextures.RECT_RD);
             style.transition(new Transition(Map.of(
                 LayoutProperties.LEFT, new Animation(0.12F, 0, Eases.QUAD_OUT)
             )));
@@ -116,7 +116,7 @@ public final class StorageInterfaceUI {
         Toggle toggle = new Toggle().noText();
         toggle.toggleStyle(style -> style
             .baseTexture(IGuiTexture.EMPTY)
-            .hoverTexture(Sprites.RECT_RD_T)
+            .hoverTexture(NETextures.RECT_RD_T)
             .markTexture(IGuiTexture.EMPTY)
             .unmarkTexture(IGuiTexture.EMPTY));
         toggle.toggleButton(button -> {

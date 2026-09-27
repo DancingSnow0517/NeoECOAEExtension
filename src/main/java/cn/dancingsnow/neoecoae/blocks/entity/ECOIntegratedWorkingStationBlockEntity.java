@@ -28,8 +28,7 @@ import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.blockentity.grid.AENetworkedPoweredBlockEntity;
-import appeng.client.gui.Icon;
-import appeng.core.AppEng;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
@@ -132,8 +131,8 @@ import java.util.function.Function;
 @Slf4j
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBlockEntity
     implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
-    private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
-    private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
+    private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(ECOIcon.AUTO_EXPORT_OFF);
+    private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(ECOIcon.AUTO_EXPORT_ON);
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -731,7 +730,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // Clear button to the right of fluid slot, bottom-aligned with the fluid slot
         inputArea.addChild(new Button()
             .noText()
-            .addPostIcon(AETextures.icon(Icon.CLEAR))
+            .addPostIcon(AETextures.icon(ECOIcon.CLEAR))
             .setOnServerClick(e -> clearFluid())
             .layout(layout -> layout.width(8).height(8).alignSelf(AlignItems.FLEX_END).paddingAll(1)));
 
@@ -785,7 +784,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // clear button on the left of output slot, bottom-aligned
         inputArea.addChild(new Button()
             .noText()
-            .addPostIcon(AETextures.icon(Icon.CLEAR))
+            .addPostIcon(AETextures.icon(ECOIcon.CLEAR))
             .setOnServerClick(e -> clearFluidOut())
             .layout(layout -> layout.width(8).height(8).alignSelf(AlignItems.FLEX_END).paddingAll(1)));
         // output fluid
@@ -812,7 +811,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         for (int i = 0; i < 4; i++) {
             upgradeSlots.add(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) this.upgrades.toItemHandler(), i))
                 .slotStyle(style -> style
-                    .slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE))
+                    .slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
                     .showSlotOverlayOnlyEmpty(true))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                     List<Component> tooltips = new ArrayList<>();
@@ -870,7 +869,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 int slot = rowIndex * 3 + columnIndex;
                 row.addChild(new ItemSlot(new ItemHandlerSlot(itemHandler, slot))
                     .slotStyle(style -> style
-                        .slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE))
+                        .slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
                         .showSlotOverlayOnlyEmpty(true))
                     .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
             }
@@ -1006,7 +1005,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     private static final class AE2InscriberProgressBar extends UIElement implements IBindable<Float> {
-        private static final ResourceLocation TEXTURE = AppEng.makeId("textures/guis/inscriber.png");
+        private static final ResourceLocation TEXTURE = NeoECOAE.id("textures/gui/ae2/inscriber.png");
         private static final int TEXTURE_SIZE = 256;
         private static final int BACKGROUND_SOURCE_X = 135;
         private static final int BACKGROUND_SOURCE_Y = 39;
@@ -1086,7 +1085,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         titleBar.addChild(new Button()
             .noText()
-            .addPostIcon(AETextures.icon(Icon.CLEAR))
+            .addPostIcon(AETextures.icon(ECOIcon.CLEAR))
             .setOnClick(e -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
             .layout(layout -> layout.width(12).height(12).paddingAll(1)));
 

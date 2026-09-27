@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.core.definitions.AEParts;
 import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
@@ -147,15 +147,15 @@ public final class ComputationHostPanelUI {
     public static Button createNetworkFrequencyButton(Config config) {
         Button button = HostSideButtonBar.createButton()
                 .noText()
-                .addPreIcon(AETextures.icon(Icon.SCHEDULING_ROUND_ROBIN))
+                .addPreIcon(AETextures.icon(ECOIcon.SCHEDULING_ROUND_ROBIN))
                 .setOnServerClick(event -> {
                     if (event.button == 0) config.adjustNetworkFrequency.accept(1);
                     else if (event.button == 1) config.adjustNetworkFrequency.accept(-1);
                 });
         button.buttonStyle(style -> style
-                .baseTexture(Sprites.RECT_RD)
-                .hoverTexture(Sprites.RECT_RD_LIGHT)
-                .pressedTexture(Sprites.RECT_RD_DARK));
+                .baseTexture(NETextures.RECT_RD)
+                .hoverTexture(NETextures.RECT_RD_LIGHT)
+                .pressedTexture(NETextures.RECT_RD_DARK));
         button.addClass("eco-host-network-frequency-button");
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
 
@@ -179,11 +179,11 @@ public final class ComputationHostPanelUI {
     public static Button createCyclePlanningButton(Config config) {
         Button button = HostSideButtonBar.createButton()
                 .noText()
-                .addPreIcon(NETextures.aeIcon(16, 240, 16, 16));
+                .addPreIcon(AETextures.icon(ECOIcon.SCHEDULING_ROUND_ROBIN));
         button.buttonStyle(style -> style
-                .baseTexture(Sprites.RECT_RD)
-                .hoverTexture(Sprites.RECT_RD_LIGHT)
-                .pressedTexture(Sprites.RECT_RD_DARK));
+                .baseTexture(NETextures.RECT_RD)
+                .hoverTexture(NETextures.RECT_RD_LIGHT)
+                .pressedTexture(NETextures.RECT_RD_DARK));
         button.addClass("eco-host-cycle-planning-button");
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
         button.setOnServerClick(event -> config.toggleCyclePlanning.run());
@@ -203,11 +203,11 @@ public final class ComputationHostPanelUI {
     public static Button createFastPlannerButton(Config config) {
         Button button = HostSideButtonBar.createButton()
                 .noText()
-                .addPreIcon(AETextures.icon(config.fastPlannerEnabled.getAsBoolean() ? Icon.COG : Icon.COG_DISABLED));
+                .addPreIcon(AETextures.icon(config.fastPlannerEnabled.getAsBoolean() ? ECOIcon.COG : ECOIcon.COG_DISABLED));
         button.buttonStyle(style -> style
-                .baseTexture(Sprites.RECT_RD)
-                .hoverTexture(Sprites.RECT_RD_LIGHT)
-                .pressedTexture(Sprites.RECT_RD_DARK));
+                .baseTexture(NETextures.RECT_RD)
+                .hoverTexture(NETextures.RECT_RD_LIGHT)
+                .pressedTexture(NETextures.RECT_RD_DARK));
         button.addClass("eco-host-fast-planner-button");
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
         button.setOnServerClick(event -> config.toggleFastPlanner.run());
@@ -216,7 +216,7 @@ public final class ComputationHostPanelUI {
         BindableValue<Boolean> syncedEnabled = new BindableValue<>(config.fastPlannerEnabled.getAsBoolean());
         syncedEnabled.bind(DataBindingBuilder.boolS2C(config.fastPlannerEnabled::getAsBoolean).build());
         syncedEnabled.registerValueListener(value -> icon.style(style -> style.backgroundTexture(
-                AETextures.icon(Boolean.TRUE.equals(value) ? Icon.COG : Icon.COG_DISABLED))));
+                AETextures.icon(Boolean.TRUE.equals(value) ? ECOIcon.COG : ECOIcon.COG_DISABLED))));
         syncedEnabled.setDisplay(false);
         button.addChild(syncedEnabled);
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
@@ -229,7 +229,7 @@ public final class ComputationHostPanelUI {
 
     private static IGuiTexture cpuSelectionModeIcon(CpuSelectionMode mode) {
         return switch (mode) {
-            case ANY -> AETextures.icon(Icon.CRAFT_HAMMER);
+            case ANY -> AETextures.icon(ECOIcon.CRAFT_HAMMER);
             case PLAYER_ONLY -> new ItemStackTexture(new ItemStack(AEParts.TERMINAL));
             case MACHINE_ONLY -> new ItemStackTexture(new ItemStack(AEParts.EXPORT_BUS));
         };

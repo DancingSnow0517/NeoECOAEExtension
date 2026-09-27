@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.core.AppEng;
 import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -22,7 +22,7 @@ public final class GuideButton {
     public static Button create(Player player, String page) {
         Button button = HostSideButtonBar.createButton()
             .noText()
-            .addPostIcon(AETextures.icon(Icon.HELP));
+            .addPostIcon(AETextures.icon(ECOIcon.HELP));
         button.setOnServerClick(ignored -> GuidesCommon.openGuide(
                 player, AppEng.makeId("guide"), PageAnchor.parse(page)))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(

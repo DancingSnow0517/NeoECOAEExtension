@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.config.Actionable;
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
@@ -1171,11 +1171,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
         root.addChild(HostSideButtonBar.left(
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/large_integrated_working_station.md"),
-            settingButton(Icon.ARROW_LEFT, this::returnStoredInputs, () -> Component.translatable(
+            settingButton(ECOIcon.ARROW_LEFT, this::returnStoredInputs, () -> Component.translatable(
                 "gui.neoecoae.large_integrated_working_station.return_inputs")),
-            settingButton(Icon.POWER_UNIT_AE, this::toggleOverclocked, () -> Component.translatable(
+            settingButton(ECOIcon.POWER_UNIT_AE, this::toggleOverclocked, () -> Component.translatable(
                 overclocked ? "gui.neoecoae.crafting.overclock.on" : "gui.neoecoae.crafting.overclock.off")),
-            settingButton(Icon.TYPE_FILTER_ALL, this::toggleActiveCooling, () -> Component.translatable(
+            settingButton(ECOIcon.TYPE_FILTER_ALL, this::toggleActiveCooling, () -> Component.translatable(
                 activeCooling ? "gui.neoecoae.crafting.active_cooling.on" : "gui.neoecoae.crafting.active_cooling.off"))
         ));
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(
@@ -1192,7 +1192,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 .left(left).top(20).width(18).height(60));
     }
 
-    private static Button settingButton(Icon icon, Runnable action, java.util.function.Supplier<Component> tooltip) {
+    private static Button settingButton(ECOIcon icon, Runnable action, java.util.function.Supplier<Component> tooltip) {
         Button button = HostSideButtonBar.createButton().noText()
             .addPostIcon(AETextures.icon(icon)).setOnServerClick(event -> action.run());
         BindableValue<Component> text = new BindableValue<>(tooltip.get());
@@ -1205,7 +1205,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public Button createAutoBuildButton(Player player) {
-        return settingButton(Icon.CRAFT_HAMMER, () -> autoBuild(player),
+        return settingButton(ECOIcon.CRAFT_HAMMER, () -> autoBuild(player),
             () -> Component.translatable("gui.neoecoae.large_integrated_working_station.auto_build"));
     }
 

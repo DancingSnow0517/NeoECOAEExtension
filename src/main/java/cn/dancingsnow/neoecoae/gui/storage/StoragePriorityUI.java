@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -99,7 +99,7 @@ public final class StoragePriorityUI {
     public static Button createInlineOpenButton(UIElement window) {
         Button button = HostSideButtonBar.createButton()
             .noText()
-            .addPostIcon(AETextures.icon(Icon.PRIORITY))
+            .addPostIcon(AETextures.icon(ECOIcon.PRIORITY))
             .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
         button.getChildren().get(button.getChildren().size() - 1).layout(layout -> layout
             .width(14)
@@ -247,8 +247,8 @@ public final class StoragePriorityUI {
         @Override
         public void drawBackgroundAdditional(GUIContext guiContext) {
             IGuiTexture texture = isFocused()
-                ? AETextures.icon(Icon.TAB_BUTTON_BACKGROUND_FOCUS)
-                : AETextures.icon(Icon.TAB_BUTTON_BACKGROUND);
+                ? AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS)
+                : AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND);
             float size = isFocused() ? 22 : 20;
             guiContext.drawTexture(texture, getPositionX(), getPositionY(), size, size);
         }
@@ -256,7 +256,7 @@ public final class StoragePriorityUI {
         @Override
         public void drawContents(GUIContext guiContext) {
             super.drawContents(guiContext);
-            guiContext.drawTexture(AETextures.icon(Icon.BACK),
+            guiContext.drawTexture(AETextures.icon(ECOIcon.BACK),
                 getPositionX() + 2,
                 getPositionY() + 1,
                 16,

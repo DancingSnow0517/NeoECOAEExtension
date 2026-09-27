@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
@@ -129,7 +129,7 @@ public final class StorageMegaPanelUI {
         UIElement row = new UIElement().layout(layout -> layout
             .width(ARROW_BUTTON_WIDTH * 2 + LABEL_WIDTH + CONTROL_GAP * 2)
             .height(CONTROL_HEIGHT));
-        row.addChild(arrowButton(Icon.ARROW_LEFT, previous)
+        row.addChild(arrowButton(ECOIcon.ARROW_LEFT, previous)
             .layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(0).top(0)
@@ -139,7 +139,7 @@ public final class StorageMegaPanelUI {
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(ARROW_BUTTON_WIDTH + CONTROL_GAP).top(0)
                 .width(LABEL_WIDTH).height(CONTROL_HEIGHT)));
-        row.addChild(arrowButton(Icon.ARROW_RIGHT, next)
+        row.addChild(arrowButton(ECOIcon.ARROW_RIGHT, next)
             .layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(ARROW_BUTTON_WIDTH + CONTROL_GAP + LABEL_WIDTH + CONTROL_GAP).top(0)
@@ -147,7 +147,7 @@ public final class StorageMegaPanelUI {
         return row;
     }
 
-    private static Button arrowButton(Icon icon, Runnable action) {
+    private static Button arrowButton(ECOIcon icon, Runnable action) {
         Button button = new Button().noText().setOnServerClick(event -> action.run());
         button.addChild(new UIElement()
             .style(style -> style.backgroundTexture(AETextures.icon(icon)))

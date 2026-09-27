@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
-import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -28,12 +28,9 @@ public class UploadButton extends Button {
     @Override
     protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         int yOffset = isHovered() ? 1 : 0;
-        Icon bgIcon = isHovered() ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER
-            : isFocused() ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS : Icon.TOOLBAR_BUTTON_BACKGROUND;
-        bgIcon.getBlitter()
-            .dest(getX() - 1, getY() + yOffset, 18, 20)
-            .zOffset(100)
-            .blit(guiGraphics);
+        ECOIcon bgIcon = isHovered() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
+            : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
+        bgIcon.blit(guiGraphics, getX() - 1, getY() + yOffset, 100);
 
         guiGraphics.blit(
             ICON_TEXTURE,

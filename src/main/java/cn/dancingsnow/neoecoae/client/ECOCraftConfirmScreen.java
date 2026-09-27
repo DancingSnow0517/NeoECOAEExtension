@@ -8,7 +8,7 @@ import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.IconButton;
 import appeng.client.gui.widgets.Scrollbar;
-import appeng.core.AppEng;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
@@ -298,11 +298,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     private void drawCyclePlanningStatus(GuiGraphics graphics, boolean enabled, boolean cycleDetected) {
-        var texture = AppEng.makeId("textures/guis/states.png");
-        int sourceX = cycleDetected && enabled ? 16 : 32;
-        // states.png is a 16px cell atlas; the requested icons are row 16, columns 2/3.
-        graphics.blit(texture, CYCLE_STATUS_X, CYCLE_STATUS_Y,
-            0, sourceX, 15 * 16, 16, 16, 256, 256);
+        var icon = cycleDetected && enabled
+            ? ECOIcon.CYCLE_ENABLED
+            : ECOIcon.CYCLE_DISABLED;
+        icon.blit(graphics, CYCLE_STATUS_X, CYCLE_STATUS_Y, 0);
         String labelKey = !cycleDetected
             ? "gui.neoecoae.crafting_report.cycle_not_detected"
             : enabled
@@ -479,7 +478,20 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
         @Override
         protected Icon getIcon() {
-            return Icon.CRAFT_HAMMER;
+            // IconButton requires this method; rendering uses our bundled atlas below.
+            return null;
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            int yOffset = isHovered() ? 1 : 0;
+            var background = isHovered()
+                ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
+                : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
+                : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
+            background.blit(graphics, getX() - 1, getY() + yOffset, 2);
+            ECOIcon.CRAFT_HAMMER.blit(
+                graphics, getX(), getY() + 1 + yOffset, 3);
         }
     }
 

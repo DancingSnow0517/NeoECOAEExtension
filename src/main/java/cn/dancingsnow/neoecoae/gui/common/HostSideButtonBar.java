@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -179,9 +179,9 @@ public final class HostSideButtonBar {
         public void drawBackgroundAdditional(GUIContext guiContext) {
             IGuiTexture background = switch (getState()) {
                 case DEFAULT -> isFocused()
-                    ? AETextures.icon(Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS)
-                    : AETextures.icon(Icon.TOOLBAR_BUTTON_BACKGROUND);
-                case HOVERED, PRESSED -> AETextures.icon(Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER);
+                    ? AETextures.icon(ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS)
+                    : AETextures.icon(ECOIcon.TOOLBAR_BUTTON_BACKGROUND);
+                case HOVERED, PRESSED -> AETextures.icon(ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER);
             };
             guiContext.drawTexture(background, getPositionX() - 1, getPositionY(), 18, 20);
         }
