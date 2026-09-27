@@ -150,6 +150,18 @@ dependencies {
     // Optional OmniSequence v1 batch API. Compile against the upstream classes without installing the mod at runtime.
     compileOnly("curse.maven:omnisequence-transfinite-1624558:8622739") { transitive = false }
 
+    // Optional pattern-disk API: AE2 Pattern Disk publishes PatternDiskApi for integrations whose
+    // machines hold pattern disks. Only its api package is compiled against, and the mod stays optional
+    // at runtime - the integration stands down when it is absent.
+    //
+    // 0.6.3 is the first release carrying the api this integration needs (the disk contents record, the
+    // terminal view and the disk host collector); anything older lacks those types entirely.
+    //
+    // Sourced from CurseForge rather than Modrinth: this project does not resolve through Modrinth's maven
+    // at all - both the version number and the version id answer 404 there while the file itself downloads
+    // from its CDN - and CI hit exactly that. The file id is the 0.6.3 upload of project 1698612.
+    compileOnly("curse.maven:ae2-pattern-disk-1698612:8988576") { transitive = false }
+
     // Optional integration target. 4.11.0 is the verified 1.21.1 build (AE2 >= 19.2.15).
     compileOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }
     runtimeOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }
