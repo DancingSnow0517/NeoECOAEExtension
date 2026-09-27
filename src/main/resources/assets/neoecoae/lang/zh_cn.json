@@ -605,6 +605,8 @@
   "gui.neoecoae.crafting.virtual_reason.high_energy_switch": "存在未安装高能网络交换模块的主机",
   "gui.neoecoae.crafting.virtual_reason.max_length": "存在长度未达到最大值的主机",
   "gui.neoecoae.crafting.virtual_reason.topology": "网络拓扑条件未满足",
+  "gui.neoecoae.crafting.virtual_status.title": "无限模式状态",
+  "gui.neoecoae.crafting.virtual_status.infinite": "已处于无限模式状态",
   "gui.neoecoae.crafting.overclock.on": "关闭超频",
   "gui.neoecoae.crafting.overclock.off": "开启超频",
   "gui.neoecoae.crafting.active_cooling.on": "关闭主动冷却",

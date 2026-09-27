@@ -242,6 +242,8 @@
   "gui.neoecoae.crafting.virtual_reason.max_length": "A host has not reached maximum length",
   "gui.neoecoae.crafting.virtual_reason.overclock": "Overclocking is disabled",
   "gui.neoecoae.crafting.virtual_reason.topology": "Network topology requirements are not met",
+  "gui.neoecoae.crafting.virtual_status.infinite": "Infinite Mode Active",
+  "gui.neoecoae.crafting.virtual_status.title": "Infinite Mode Status",
   "gui.neoecoae.crafting_graph.action.expand": "Expand",
   "gui.neoecoae.crafting_graph.breadcrumb.cluster": "ECO Plan  >  Cycle Cluster #%s",
   "gui.neoecoae.crafting_graph.breadcrumb.cycle": "ECO Plan  >  Cycle #%s",

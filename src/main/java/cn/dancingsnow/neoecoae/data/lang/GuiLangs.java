@@ -341,6 +341,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.virtual_reason.high_energy_switch", "A host lacks a high-energy network switch");
         provider.add("gui.neoecoae.crafting.virtual_reason.max_length", "A host has not reached maximum length");
         provider.add("gui.neoecoae.crafting.virtual_reason.topology", "Network topology requirements are not met");
+        provider.add("gui.neoecoae.crafting.virtual_status.title", "Infinite Mode Status");
+        provider.add("gui.neoecoae.crafting.virtual_status.infinite", "Infinite Mode Active");
         provider.add("gui.neoecoae.crafting_report.cycle_not_detected", "No cycles detected");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle detected");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");

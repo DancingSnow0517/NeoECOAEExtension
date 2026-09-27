@@ -13,8 +13,10 @@ import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.task.HostTaskListElement;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
@@ -33,10 +35,10 @@ import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -83,7 +85,6 @@ public final class CraftingHostPanelUI {
     private static final int PANEL_VALUE = 0xFF8377FF;
     private static final int PANEL_TIME_VALUE = 0xFF55A7FF;
     private static final int PANEL_SUCCESS = 0xFF55FF8A;
-    private static final int PANEL_WARNING = 0xFFFF6A75;
     private static final ThreadLocal<DecimalFormat> PERFORMANCE_MS_FORMAT = ThreadLocal.withInitial(() ->
         new DecimalFormat("#,##0.###", DecimalFormatSymbols.getInstance(Locale.US)));
 
@@ -92,11 +93,9 @@ public final class CraftingHostPanelUI {
 
     public record Config(
         Supplier<Component> title,
-        Supplier<Component> virtualModeReason,
         Supplier<Component> statusNotice,
         IntSupplier networkMultiplier,
         BooleanSupplier networkConnected,
-        BooleanSupplier formed,
         BooleanSupplier overclocked,
         Runnable toggleOverclocked,
         BooleanSupplier activeCooling,
@@ -154,18 +153,7 @@ public final class CraftingHostPanelUI {
         titleBlock.addChild(HostNetworkStatusElement.createWithNotice(
             config.networkMultiplier,
             config.networkConnected,
-            () -> {
-                MutableComponent formed = Component.translatable("gui.neoecoae.machine.formed")
-                .append(": ")
-                .append(Component.translatable(config.formed.getAsBoolean()
-                    ? "gui.neoecoae.common.yes"
-                    : "gui.neoecoae.common.no")
-                    .withColor(config.formed.getAsBoolean() ? PANEL_SUCCESS : PANEL_WARNING));
-                Component reason = config.virtualModeReason.get();
-                return reason == null || reason.getString().isEmpty()
-                    ? formed
-                    : formed.append(" - ").append(reason);
-            },
+            null,
             config.statusNotice));
 
         header.addChild(titleBlock);
@@ -185,6 +173,32 @@ public final class CraftingHostPanelUI {
                 TOOLBAR_BUTTON_SIZE),
             networkFrequencyButton(config)
         );
+    }
+
+    public static UIElement createMaintenanceStatusIcon(Supplier<Component> maintenanceStatus) {
+        BindableValue<Component> syncedStatus = syncedComponent(maintenanceStatus);
+        syncedStatus.setDisplay(false);
+        UIElement icon = new UIElement()
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                List<Component> tooltipLines = new ArrayList<>();
+                Component status = syncedStatus.getValue();
+                String[] textLines = status.getString().split("\\R", -1);
+                var headingColor = status.getStyle().getColor();
+                int firstLineColor = headingColor == null ? 0xFFD8B4FE : headingColor.getValue();
+                for (int i = 0; i < textLines.length; i++) {
+                    if (!textLines[i].isEmpty()) {
+                        tooltipLines.add(Component.literal(textLines[i]).withColor(
+                            i == 0 ? firstLineColor : 0xFFFF5555));
+                    }
+                }
+                event.hoverTooltips = new HoverTooltips(tooltipLines, null, null, null);
+            })
+            .addChild(syncedStatus);
+        icon.style(style -> style.backgroundTexture(
+            SpriteTexture.of(NeoECOAE.id("textures/gui/information.png"))));
+        icon.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+            .right(-25).top(4).width(21).height(21));
+        return icon;
     }
 
     private static Button networkFrequencyButton(Config config) {

@@ -53,6 +53,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.Util;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -728,7 +729,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     private int getCraftingNetworkMemberCount() {
         return cluster != null && cluster.getNetworkCluster() != null
-            ? cluster.getNetworkCluster().getMembers().size()
+            ? Math.max(1, cluster.getNetworkCluster().getMembers().size())
             : 1;
     }
 
@@ -739,61 +740,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             .append("/")
             .append(Integer.toString(NEFrequencyAllocator.HOST_LIMIT))
             .append(")");
-    }
-
-    private Component getVirtualCraftingModeReason() {
-        if (!formed || getCapabilitySnapshot().virtualMode()) {
-            return Component.empty();
-        }
-        List<Component> reasons = new ArrayList<>();
-        if (!isOverclocked()) {
-            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.overclock"));
-        }
-        if (!isActiveCooling()) {
-            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.cooling"));
-        }
-
-        NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
-        List<NECraftingCluster> members = network == null ? List.of() : network.getMembers();
-        if (members.size() != NEFrequencyAllocator.HOST_LIMIT) {
-            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.host_count", members.size(),
-                NEFrequencyAllocator.HOST_LIMIT));
-        }
-        boolean missingHighEnergySwitch = false;
-        boolean wrongTier = false;
-        boolean shortHost = false;
-        if (network != null) {
-            for (NECraftingCluster member : members) {
-                ECOCraftingSystemBlockEntity controller = member.getController();
-                if (controller == null) {
-                    continue;
-                }
-                missingHighEnergySwitch |= !controller.hasHighEnergyNetworkSwitch();
-                wrongTier |= controller.getTier().getTier() != cn.dancingsnow.neoecoae.api.ECOTier.L9.getTier();
-                shortHost |= member.getWorkers().size() != controller.getMaxBuildLength();
-            }
-        } else {
-            missingHighEnergySwitch = !hasHighEnergyNetworkSwitch();
-            wrongTier = getTier().getTier() != cn.dancingsnow.neoecoae.api.ECOTier.L9.getTier();
-            shortHost = cluster == null || cluster.getWorkers().size() != getMaxBuildLength();
-        }
-        if (wrongTier) {
-            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.f9"));
-        }
-        if (missingHighEnergySwitch) {
-            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.high_energy_switch"));
-        }
-        if (shortHost) {
-            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.max_length"));
-        }
-        if (reasons.isEmpty()) {
-            return Component.translatable("gui.neoecoae.crafting.virtual_reason.topology");
-        }
-        Component result = reasons.getFirst();
-        for (int i = 1; i < reasons.size(); i++) {
-            result = result.copy().append("、").append(reasons.get(i));
-        }
-        return result;
     }
 
     public int getDisplayedCoolantAmount() {
@@ -886,6 +832,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         sideButtons.add(MultiblockBuilderUI.createInlineOpenButton(buildWindow));
         sideButtons.addAll(CraftingHostPanelUI.createToolbarButtons(panelConfig));
         root.addChild(HostSideButtonBar.left(sideButtons));
+        root.addChild(CraftingHostPanelUI.createMaintenanceStatusIcon(this::getMaintenanceStatusTooltip));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
@@ -893,11 +840,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private CraftingHostPanelUI.Config createCraftingPanelConfig(Player player) {
         return new CraftingHostPanelUI.Config(
             this::getCraftingDisplayTitle,
-            this::getVirtualCraftingModeReason,
             this::getModeSwitchBlockedNotice,
             () -> Math.max(1, getCapabilitySnapshot().networkMultiplier()),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
-            () -> formed,
             this::isOverclocked,
             () -> setOverclocked(player, !isOverclocked()),
             this::isActiveCooling,
@@ -961,6 +906,48 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return Util.getMillis() < modeSwitchBlockedNoticeUntilMs
             ? Component.translatable("gui.neoecoae.crafting.mode_switch_blocked")
             : Component.empty();
+    }
+
+    private Component getMaintenanceStatusTooltip() {
+        List<Component> lines = new ArrayList<>();
+        CraftingCapabilitySnapshot snapshot = getCapabilitySnapshot();
+        if (formed && snapshot.virtualMode()) {
+            return Component.translatable("gui.neoecoae.crafting.virtual_status.infinite")
+                .withColor(0xFF55FF8A);
+        }
+        MutableComponent title = Component.translatable("gui.neoecoae.crafting.virtual_status.title")
+            .withColor(0xFFD8B4FE);
+        if (!isOverclocked()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.overclock"));
+        if (!isActiveCooling()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.cooling"));
+        NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
+        List<NECraftingCluster> members = network == null ? List.of() : network.getMembers();
+        int hostCount = getCraftingNetworkMemberCount();
+        if (hostCount != NEFrequencyAllocator.HOST_LIMIT) {
+            lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.host_count", hostCount, NEFrequencyAllocator.HOST_LIMIT));
+        }
+        boolean highEnergy = false, wrongTier = false, shortHost = false;
+        if (network != null) for (NECraftingCluster member : members) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            if (controller != null) {
+                highEnergy |= !controller.hasHighEnergyNetworkSwitch();
+                wrongTier |= controller.getTier().getTier() != cn.dancingsnow.neoecoae.api.ECOTier.L9.getTier();
+                shortHost |= member.getWorkers().size() != controller.getMaxBuildLength();
+            }
+        }
+        if (network == null) {
+            highEnergy = !hasHighEnergyNetworkSwitch();
+            wrongTier = getTier().getTier() != cn.dancingsnow.neoecoae.api.ECOTier.L9.getTier();
+            shortHost = cluster == null || cluster.getWorkers().size() != getMaxBuildLength();
+        }
+        if (wrongTier) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.f9"));
+        if (highEnergy) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.high_energy_switch"));
+        if (shortHost) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.max_length"));
+        if (lines.isEmpty()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.topology"));
+        MutableComponent result = title;
+        for (Component line : lines) {
+            result.append("\n").append(line.copy().withColor(0xFFFF5555));
+        }
+        return result;
     }
 
     private void clearExpiredModeSwitchBlockedNotice() {
