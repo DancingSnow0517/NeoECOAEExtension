@@ -4,6 +4,7 @@ import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
+import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -199,7 +200,11 @@ final class CraftingPatternPreviewState {
     }
 
     boolean quickMoveFromInventory(Slot source) {
-        if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)) return false;
+        // An encoded pattern or a pattern disk: a bus takes either in the same slot. Which host a stack would
+        // go to is resolved on the server, so this only has to tell whether the move is worth sending - a stack
+        // no bus takes simply finds no slot over there.
+        if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)
+                && !PatternDiskSupport.isAuxiliaryContainer(source.getItem())) return false;
         if (!player.level().isClientSide || revision < 0 || pending != null
                 || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return false;
         for (PatternPreviewEntry entry : entries) {

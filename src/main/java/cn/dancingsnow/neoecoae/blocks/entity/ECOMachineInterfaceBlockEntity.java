@@ -962,13 +962,21 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return false;
         }
         ItemStack source = player.getInventory().getItem(inventorySlot);
-        if (source.isEmpty() || !PatternDetailsHelper.isEncodedPattern(source)
-                || !(PatternDetailsHelper.decodePattern(source, level) instanceof IMolecularAssemblerSupportedPattern)) {
+        if (source.isEmpty()) {
             return false;
         }
+        // A pattern disk is not an encoded pattern, which is why the pattern test cannot be a precondition
+        // here: a bus holds one in the same slot, and its own screen accepts it. So neither kind gates the
+        // search - every slot below asks its own bus whether it takes this stack, and a stack no bus takes
+        // finds no slot.
+        boolean encodedPattern = PatternDetailsHelper.isEncodedPattern(source)
+                && PatternDetailsHelper.decodePattern(source, level) instanceof IMolecularAssemblerSupportedPattern;
         ensurePatternInterfaceMapping();
         for (int slot = 0; slot < patternSlotRefs.size(); slot++) {
             PatternSlotRef ref = patternSlotRefs.get(slot);
+            if (!encodedPattern && !ref.bus().ownsAuxiliary(source)) {
+                continue;
+            }
             if (!getPatternStack(slot).isEmpty() || hasDuplicatePattern(ref, source)) {
                 continue;
             }
@@ -1499,7 +1507,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         private PatternSlotRef sourceRef(int index) {
             PatternCatalog.PatternLocation location = records.get(index).location();
-            return new PatternSlotRef(java.util.Objects.requireNonNull(location.bus()), location.physicalSlot());
+            // The preview mapping only ever collects buses, so a record here always came from one.
+            return new PatternSlotRef(
+                    (ECOCraftingPatternBusBlockEntity) java.util.Objects.requireNonNull(location.bus()),
+                    location.physicalSlot());
         }
 
         private boolean matches(List<PatternSlotRef> currentRefs) {
