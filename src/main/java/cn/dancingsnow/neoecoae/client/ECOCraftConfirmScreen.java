@@ -222,7 +222,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         graph.active = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && (!mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty()
                 || mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0);
-        bookmarkMissing.active = exactMaterials().stream().anyMatch(node -> node.missingBigInteger().signum() > 0);
+        bookmarkMissing.active = JeiBookmarkAccess.isAvailable()
+            && exactMaterials().stream().anyMatch(node -> node.missingBigInteger().signum() > 0);
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()) {
             start.active = false;
             graph.active = false;

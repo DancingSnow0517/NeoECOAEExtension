@@ -79,6 +79,11 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
     public static IJeiRuntime runtime() { return runtime; }
 
     @Override
+    public void onRuntimeUnavailable() {
+        runtime = null;
+    }
+
+    @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
         registration.addRecipeTransferHandler(new MultiBlockRecipeTransferHandler(), MULTIBLOCK_TYPE);
     }

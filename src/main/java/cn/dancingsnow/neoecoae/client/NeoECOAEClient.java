@@ -76,11 +76,14 @@ public class NeoECOAEClient {
     public static Button createJeiBookmarkButton(CellWorkbenchMenu menu) {
         Button importButton = new JeiBookmarkButton(
             Component.translatable("gui.neoecoae.import_jei_bookmarks"), ignored -> {
+                if (!JeiBookmarkAccess.isAvailable()) return;
                 var keys = JeiBookmarkAccess.itemBookmarks().stream()
                     .map(stack -> appeng.api.stacks.AEItemKey.of(stack))
                     .filter(java.util.Objects::nonNull).map(key -> (appeng.api.stacks.AEKey) key).toList();
                 PacketDistributor.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
             });
+        importButton.active = JeiBookmarkAccess.isAvailable();
+        importButton.visible = importButton.active;
         importButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
             Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip")));
         return importButton;
