@@ -12,7 +12,7 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.crafting.execution.CraftingCpuHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import appeng.hooks.ticking.TickHandler;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -49,7 +49,7 @@ final class ECOCraftingProviderDispatcher {
     boolean isEligible(ICraftingProvider provider, ECOCraftingDispatchBudget budget) {
         return budget.canAttemptOrdinary()
                 || fastPath.supportsBatch(provider)
-                || provider instanceof ECOParallelCraftingProvider
+                || ECOParallelCraftingProviders.find(provider) != null
                 || cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(provider) != null
                 || processing.supports(provider, null);
     }
@@ -176,7 +176,8 @@ final class ECOCraftingProviderDispatcher {
             ECODispatchStallDiagnostics diagnostics,
             Consumer<ICraftingProvider> markProviderAttempt,
             Runnable markNormalResume) {
-        if (!(provider instanceof ECOParallelCraftingProvider parallelProvider)) {
+        var parallelProvider = ECOParallelCraftingProviders.find(provider);
+        if (parallelProvider == null) {
             return null;
         }
 

@@ -11,7 +11,7 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
@@ -45,7 +45,7 @@ public final class ECOExternalCpuFastPath {
     /** Native ECO workers and workstation queues own atomic batch admission. */
     private static boolean isEcoFastPathProvider(Object provider) {
         return provider instanceof ECOFastPathDispatchProvider
-            || provider instanceof ECOParallelCraftingProvider;
+            || ECOParallelCraftingProviders.find(provider) != null;
     }
 
     public int execute(Object owner, Object job, ListCraftingInventory inventory, int maxPatterns,
@@ -68,7 +68,8 @@ public final class ECOExternalCpuFastPath {
                 if (!isEcoFastPathProvider(provider)) continue;
                 if (provider.isBusy()) continue;
                 double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
-                var batch = provider instanceof ECOParallelCraftingProvider parallel
+                var parallel = ECOParallelCraftingProviders.find(provider);
+                var batch = parallel != null
                     ? ECOFastPathFacade.prepareParallel(parallel, task.getKey(), inputs, outputs, remainders,
                         inventory, limit, singlePower, power, level, access.neoecoae$link().getCraftingID())
                     : ECOFastPathFacade.prepare(provider, task.getKey(), inputs, outputs, remainders,

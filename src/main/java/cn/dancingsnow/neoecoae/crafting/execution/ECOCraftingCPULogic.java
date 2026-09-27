@@ -66,7 +66,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOSingleCraftingExecutor;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
@@ -284,7 +284,8 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                     request.job().link.getCraftingID());
         }
 
-        if (provider instanceof ECOParallelCraftingProvider parallelProvider) {
+        var parallelProvider = ECOParallelCraftingProviders.find(provider);
+        if (parallelProvider != null) {
             return parallelProvider.eco$pushPatternBatch(
                     request.pattern(), request.inputs(), 1L, request.job().link.getCraftingID());
         }
