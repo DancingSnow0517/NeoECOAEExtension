@@ -22,6 +22,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 
 /** Configuration surface for the computation host's fast-planning item match rules. */
 public final class ComputationInterfaceUI {
@@ -52,7 +53,7 @@ public final class ComputationInterfaceUI {
             .width(ROOT_WIDTH)
             .height(ROOT_HEIGHT)
         ).style(style -> style.backgroundTexture(NETextures.NBT_BENCH));
-        root.addChild(title());
+        root.addChild(title(computationInterface));
         root.addChild(fuzzyHint());
         root.addChild(fuzzyItemSlots(computationInterface));
         root.addChild(playerInventory());
@@ -62,9 +63,10 @@ public final class ComputationInterfaceUI {
         );
     }
 
-    private static UIElement title() {
+    private static UIElement title(ECOMachineInterfaceBlockEntity<?> blockEntity) {
         return new TextElement()
-            .setText(Component.translatable("block.neoecoae.computation_interface"))
+            .setText(GuiTitleProvider.title(blockEntity.getBlockState(),
+                Component.translatable("block.neoecoae.computation_interface")))
             .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
                 .textWrap(TextWrap.NONE).textColor(0x3F3D52).textShadow(false))
             .layout(layout -> layout

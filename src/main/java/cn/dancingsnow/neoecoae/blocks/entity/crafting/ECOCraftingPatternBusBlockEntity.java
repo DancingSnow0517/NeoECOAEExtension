@@ -996,7 +996,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             layout.height(showPageControls ? HEADER_HEIGHT : SINGLE_PAGE_HEADER_HEIGHT);
         });
         row.addChild(new TextElement()
-            .setText(Component.translatable("block.neoecoae.crafting_pattern_bus"))
+            .setText(cn.dancingsnow.neoecoae.gui.GuiTitleProvider.title(getBlockState(),
+                Component.translatable("block.neoecoae.crafting_pattern_bus")))
             .textStyle(textStyle -> textStyle
                 .textWrap(TextWrap.HOVER_ROLL)
                 .adaptiveHeight(true))
