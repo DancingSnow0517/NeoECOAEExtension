@@ -2,8 +2,12 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.inventories.InternalInventory;
+import appeng.util.inv.AppEngInternalInventory;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
@@ -11,6 +15,7 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
+import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -30,18 +35,50 @@ import org.jetbrains.annotations.Nullable;
  * of being pushed into an adjacent inventory.</p>
  */
 public final class LargeWorkstationPatternProvider extends PatternProviderLogic implements ECOParallelCraftingProvider {
-    private static final int PATTERN_SLOT_COUNT = 36;
+    static final int PATTERN_SLOT_COUNT = 36;
 
     private final ECOLargeIntegratedWorkingStationInterfaceBlockEntity host;
     private List<IPatternDetails> compatiblePatterns = List.of();
+    private Set<AEItemKey> advertisedKeys = Set.of();
+    private int advertisementRevision;
     private boolean compatiblePatternsDirty = true;
     private Object lastRecipes;
     @Nullable
     private ECOLargeIntegratedWorkingStationBlockEntity lastController;
+    /** Disk contents the cached list was built from; a change invalidates it the way a recipe change does. */
+    private long lastDiskRevision = Long.MIN_VALUE;
 
     public LargeWorkstationPatternProvider(ECOLargeIntegratedWorkingStationInterfaceBlockEntity host) {
         super(host.getMainNode(), host, PATTERN_SLOT_COUNT);
         this.host = host;
+    }
+
+    /**
+     * @return the interface these slots belong to. Its menu needs it to decide what a pattern slot takes: the
+     *         host is what knows whether a stack is one of its pattern disks.
+     */
+    public ECOLargeIntegratedWorkingStationInterfaceBlockEntity getWorkstationInterface() {
+        return host;
+    }
+
+    public int getAdvertisementRevision() {
+        getAvailablePatterns();
+        return advertisementRevision;
+    }
+
+    public boolean advertises(net.minecraft.world.item.ItemStack stack) {
+        getAvailablePatterns();
+        AEItemKey key = AEItemKey.of(stack);
+        return key != null && advertisedKeys.contains(key);
+    }
+
+    public boolean accepts(net.minecraft.world.item.ItemStack stack) {
+        var controller = controller();
+        if (controller == null || host.getLevel() == null) {
+            return false;
+        }
+        IPatternDetails pattern = PatternDetailsHelper.decodePattern(stack, host.getLevel());
+        return pattern != null && controller.acceptPattern(pattern, null, false);
     }
 
     @Override
@@ -62,6 +99,14 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         if (before != getCraftingLockedReason()) {
             requestProviderUpdate();
         }
+    }
+
+    @Override
+    public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+        super.onChangeInventory(inv, slot);
+        // The host is the storage the grid indexes, but its patterns live in this logic's inventory. Without
+        // this the catalog's revision for the host never moves, so a slot cleared here stays counted forever.
+        host.onPatternSlotsChanged();
     }
 
     @Override
@@ -90,20 +135,45 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     public List<IPatternDetails> getAvailablePatterns() {
         var controller = controller();
         if (host.getLevel() == null || controller == null) {
+            if (lastController != null || !compatiblePatterns.isEmpty()) {
+                advertisementRevision++;
+            }
             lastController = null;
             compatiblePatterns = List.of();
+            advertisedKeys = Set.of();
             return List.of();
         }
         Object recipes = LargeWorkstationRecipes.getAll(host.getLevel());
-        if (!compatiblePatternsDirty && lastController == controller && lastRecipes == recipes) return compatiblePatterns;
+        long diskRevision = host.diskRevision();
+        if (!compatiblePatternsDirty && lastController == controller && lastRecipes == recipes
+            && lastDiskRevision == diskRevision) {
+            return compatiblePatterns;
+        }
         List<IPatternDetails> result = new ArrayList<>();
         for (var pattern : super.getAvailablePatterns()) {
             if (controller.acceptPattern(pattern, null, false)) result.add(pattern);
         }
+        // Patterns on a disk go through the same compatibility gate as the ones in slots: a recipe this
+        // workstation would refuse should not be advertised just because it arrived on a disk.
+        for (var pattern : PatternDiskSupport.decodeAuxiliary(host.getWorkstationProvider().getPatternInv(),
+            host.getLevel())) {
+            if (controller.acceptPattern(pattern, null, false)) result.add(pattern);
+        }
+        boolean sourceChanged = lastController != controller || lastRecipes != recipes
+            || lastDiskRevision != diskRevision;
         compatiblePatterns = List.copyOf(result);
+        Set<AEItemKey> keys = new HashSet<>();
+        for (IPatternDetails pattern : result) {
+            keys.add(pattern.getDefinition());
+        }
+        advertisedKeys = Set.copyOf(keys);
+        if (sourceChanged) {
+            advertisementRevision++;
+        }
         compatiblePatternsDirty = false;
         lastController = controller;
         lastRecipes = recipes;
+        lastDiskRevision = diskRevision;
         return compatiblePatterns;
     }
 

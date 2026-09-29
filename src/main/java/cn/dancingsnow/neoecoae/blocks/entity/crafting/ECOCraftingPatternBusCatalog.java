@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier;
 import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
+import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -17,7 +18,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
-import java.util.Locale;
 
 /** Owns decoded pattern data, capacity indexing and the quiet-window catalog refresh policy. */
 final class ECOCraftingPatternBusCatalog {
@@ -315,7 +315,7 @@ final class ECOCraftingPatternBusCatalog {
             patternDetails.clear();
             for (int slot = 0; slot < slotCount; slot++) {
                 IPatternDetails details = decodedPatternDetails[slot];
-                patternSearchKeywords[slot] = buildPatternSearchKeywords(inventory.getStackInSlot(slot), details);
+                patternSearchKeywords[slot] = PatternSearchKeywords.build(inventory.getStackInSlot(slot), details);
                 if (details instanceof IMolecularAssemblerSupportedPattern) {
                     ECORecipeClassifier.classify(details);
                     if (host.shouldValidateNetGrowthPatterns()) {
@@ -424,39 +424,5 @@ final class ECOCraftingPatternBusCatalog {
 
     private void clearPatternBatchState() {
         patternBatchChangedSlots.clear();
-    }
-
-    /**
-     * Search keywords for one pattern: its own name plus everything it is built from and produces.
-     *
-     * <p>Package-private because the bus's auxiliary keyword list pairs a container's encoded patterns with the
-     * same decode, and a terminal only finds a recipe through these keywords.</p>
-     */
-    static String buildPatternSearchKeywords(
-        ItemStack stack,
-        @Nullable IPatternDetails details
-    ) {
-        if (stack.isEmpty()) {
-            return "";
-        }
-        StringBuilder keywords = new StringBuilder(stack.getHoverName().getString());
-        if (details != null) {
-            for (var output : details.getOutputs()) {
-                if (output != null) {
-                    keywords.append('\n').append(output.what().getDisplayName().getString());
-                }
-            }
-            for (var input : details.getInputs()) {
-                if (input == null) {
-                    continue;
-                }
-                for (var possible : input.getPossibleInputs()) {
-                    if (possible != null) {
-                        keywords.append('\n').append(possible.what().getDisplayName().getString());
-                    }
-                }
-            }
-        }
-        return keywords.toString().toLowerCase(Locale.ROOT);
     }
 }
