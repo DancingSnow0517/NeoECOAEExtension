@@ -76,9 +76,13 @@ public final class NEComputationNetworkCluster {
                             && !member.getLowerDrives().isEmpty()
                             && java.util.stream.Stream.concat(
                                             member.getUpperDrives().stream(), member.getLowerDrives().stream())
-                                    .allMatch(drive -> !drive.getCellStack().isEmpty()
-                                            && drive.getCellStack().getItem()
-                                                    instanceof cn.dancingsnow.neoecoae.items.ECOComputationCellItem);
+                                    .allMatch(drive -> {
+                                        var cellStack = drive.getCellStack();
+                                        return cellStack != null
+                                                && !cellStack.isEmpty()
+                                                && cellStack.getItem()
+                                                        instanceof cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+                                    });
                 });
     }
 
