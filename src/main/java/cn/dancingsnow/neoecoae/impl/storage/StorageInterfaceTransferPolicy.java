@@ -2,11 +2,9 @@ package cn.dancingsnow.neoecoae.impl.storage;
 
 public final class StorageInterfaceTransferPolicy {
     public static boolean shouldImportNetworkAmount(long amount, boolean allowInfiniteStorageImport) {
-        return amount > 0L && (allowInfiniteStorageImport || !isInfiniteNetworkAmount(amount));
-    }
-
-    private static boolean isInfiniteNetworkAmount(long amount) {
-        return amount == Long.MAX_VALUE || amount == Integer.MAX_VALUE;
+        // Amounts alone do not identify a creative source: finite cells may contain these exact values.
+        // The ME mount filter checks IECOUnboundedSource instead.
+        return amount > 0L;
     }
 
     private StorageInterfaceTransferPolicy() {}

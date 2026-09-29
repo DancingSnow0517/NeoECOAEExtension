@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.google.common.math.LongMath;
@@ -27,11 +28,12 @@ import com.mojang.logging.LogUtils;
 import java.math.RoundingMode;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
-public class ECOStorageCell implements IECOStorageCell {
+public class ECOStorageCell implements IECOStorageMigrationCell {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Nullable private final ISaveProvider container;
@@ -61,13 +63,17 @@ public class ECOStorageCell implements IECOStorageCell {
     private final IECOTier tier;
 
     public ECOStorageCell(ItemStack cellStack, @Nullable ISaveProvider container) {
+        this(cellStack, container, true);
+    }
+
+    protected ECOStorageCell(ItemStack cellStack, @Nullable ISaveProvider container, boolean finiteBackend) {
         this.container = container;
         this.cellStack = cellStack;
 
         if (cellStack.getItem() instanceof IBasicECOCellItem c) {
             keyType = c.getKeyType();
             maxItemTypes = c.getTotalTypes();
-            this.backend = ECOInfiniteStorageMember.isMember(cellStack)
+            this.backend = !finiteBackend || ECOInfiniteStorageMember.isMember(cellStack)
                     ? null
                     : ECOCellStorageManager.getOrCreate(cellStack, c, container);
             this.cellType = c;
@@ -215,6 +221,11 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     protected void saveChanges() {
+        if (ECOCellMutationBatch.defer(this)) return;
+        flushBatchedChanges();
+    }
+
+    void flushBatchedChanges() {
         updateSummary();
         if (this.container == null) {
             this.persist();
@@ -258,7 +269,7 @@ public class ECOStorageCell implements IECOStorageCell {
         // In the event that a void card is being used on a (full) unformatted cell,
         // ensure it doesn't void any items
         // that the cell isn't even storing and cannot store to begin with
-        if (partitionList.isEmpty() && hasVoidUpgrade && !canHoldNewItem()) {
+        if (partitionList.isEmpty() && hasVoidUpgrade && (!canHoldNewItem() || inserted == 0L)) {
             return contains(what) ? amount : inserted;
         }
 
@@ -278,6 +289,11 @@ public class ECOStorageCell implements IECOStorageCell {
             return 0L;
         }
         return innerInsert(what, amount, mode);
+    }
+
+    @Override
+    public long insertForMigration(AEKey what, long amount, Actionable mode, IActionSource source) {
+        return insertForMigration(what, amount, mode);
     }
 
     /**
@@ -304,32 +320,34 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
-        long unusedItemCount =
-                storedItemCount % amountPerByte == 0L ? 0L : amountPerByte - storedItemCount % amountPerByte;
-        long roundedItemCount = LongMath.saturatedAdd(storedItemCount, unusedItemCount);
-        long bytesForItems = roundedItemCount / amountPerByte;
-        long typeBytes = LongMath.saturatedMultiply(storedTypes, getBytesPerType());
-        long usedBytes = LongMath.saturatedAdd(typeBytes, bytesForItems);
-        long freeBytes = Math.max(0L, getTotalBytes() - usedBytes);
-        long remainingItemCount =
-                LongMath.saturatedAdd(LongMath.saturatedMultiply(freeBytes, amountPerByte), unusedItemCount);
+        java.math.BigInteger usedBytes = StorageByteAccounting.usedBytes(storedTypes,
+                java.math.BigInteger.valueOf(storedItemCount), amountPerByte, getBytesPerType());
+        long freeBytes = java.math.BigInteger.valueOf(getTotalBytes()).subtract(usedBytes)
+                .max(java.math.BigInteger.ZERO).longValue();
+        long remainingItemCount = StorageByteAccounting.remainingForCell(
+                getTotalBytes(), storedTypes, java.math.BigInteger.valueOf(storedItemCount),
+                currentAmount, amountPerByte, getBytesPerType());
         long remainingTypes = Math.min(
                 getTotalItemTypes() - Math.min(getTotalItemTypes(), storedTypes),
                 getBytesPerType() <= 0 ? 0L : freeBytes / getBytesPerType());
 
         if (currentAmount <= 0L) {
-            boolean canHoldNewType =
-                    (freeBytes > getBytesPerType() || freeBytes == getBytesPerType() && unusedItemCount > 0L)
-                            && remainingTypes > 0L;
+            boolean canHoldNewType = freeBytes > getBytesPerType() && remainingTypes > 0L;
             if (!canHoldNewType) {
                 return 0L;
             }
-            remainingItemCount = Math.max(0L, remainingItemCount - (long) getBytesPerType() * amountPerByte);
         }
 
         remainingItemCount =
                 Math.min(remainingItemCount, Math.max(0L, maxItemsPerType - Math.min(maxItemsPerType, currentAmount)));
         return Math.min(amount, remainingItemCount);
+    }
+
+    @Override
+    public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents,
+                                            long simulatedTypes, long simulatedAmount) {
+        if (simulatedContents == null) return 0L;
+        return simulateInsertForMigration(what, amount, simulatedContents);
     }
 
     public long getUsedBytesForMigration(KeyCounter contents) {
@@ -345,11 +363,23 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
-        long unusedItemCount =
-                storedItemCount % amountPerByte == 0L ? 0L : amountPerByte - storedItemCount % amountPerByte;
-        long roundedItemCount = LongMath.saturatedAdd(storedItemCount, unusedItemCount);
-        long bytesForItems = roundedItemCount / amountPerByte;
-        return LongMath.saturatedAdd(LongMath.saturatedMultiply(storedTypes, getBytesPerType()), bytesForItems);
+        return StorageByteAccounting.usedBytes(storedTypes, java.math.BigInteger.valueOf(storedItemCount),
+                amountPerByte, getBytesPerType()).min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+    }
+
+    @Override
+    public void getMigrationStacks(KeyCounter out) {
+        if (backend != null) backend.getAvailableStacks(out);
+    }
+
+    @Override
+    public void clearMigrationStacks() {
+        clearAllStoredStacks();
+    }
+
+    @Override
+    public void persistMigrationContents(ServerLevel level) {
+        persist();
     }
 
     public void clearAllStoredStacks() {
@@ -417,18 +447,16 @@ public class ECOStorageCell implements IECOStorageCell {
         if (currentAmount == 0L && !canStoreKeyInsideStorageCell(what)) {
             return 0;
         }
-        long remainingItemCount = this.getRemainingItemCount();
+        long remainingItemCount = StorageByteAccounting.remainingForCell(
+                getTotalBytes(), getStoredItemTypes(), backend.getStoredAmount().toBigInteger(),
+                currentAmount, keyType.getAmountPerByte(), getBytesPerType());
 
         if (currentAmount <= 0) {
-            if (!canHoldNewItem()) {
+            if (getRemainingItemTypes() <= 0) {
                 // No space for more types
                 return 0;
             }
-
-            remainingItemCount -= (long) this.getBytesPerType() * keyType.getAmountPerByte();
-            if (remainingItemCount <= 0) {
-                return 0;
-            }
+            if (remainingItemCount <= 0) return 0;
         }
 
         remainingItemCount = Math.max(0, Math.min(maxItemsPerType - currentAmount, remainingItemCount));

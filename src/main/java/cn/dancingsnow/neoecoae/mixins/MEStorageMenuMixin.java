@@ -5,6 +5,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.menu.me.common.MEStorageMenu;
 import cn.dancingsnow.neoecoae.api.me.ECOExactStorageMenu;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
 import cn.dancingsnow.neoecoae.network.BoundedData;
 import cn.dancingsnow.neoecoae.network.ECOExactStoragePayload;
@@ -13,7 +14,6 @@ import cn.dancingsnow.neoecoae.network.NetworkMenu;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import io.netty.buffer.Unpooled;
-import java.math.BigInteger;
 import java.util.Map;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,11 +29,11 @@ public abstract class MEStorageMenuMixin implements ECOExactStorageMenu, Network
     @Shadow
     protected abstract boolean canInteractWithGrid();
 
-    @Unique private Map<AEKey, BigInteger> neoecoae$exactAmounts = Map.of();
+    @Unique private Map<AEKey, ExactAmount> neoecoae$exactAmounts = Map.of();
 
-    @Unique private Map<AEKey, BigInteger> neoecoae$listedAmounts = Map.of();
+    @Unique private Map<AEKey, ExactAmount> neoecoae$listedAmounts = Map.of();
 
-    @Unique private Map<AEKey, BigInteger> neoecoae$sentAmounts = Map.of();
+    @Unique private Map<AEKey, ExactAmount> neoecoae$sentAmounts = Map.of();
 
     @Unique private final MenuDataSync neoecoae$dataSync = new MenuDataSync();
 
@@ -65,12 +65,12 @@ public abstract class MEStorageMenuMixin implements ECOExactStorageMenu, Network
     }
 
     @Override
-    public Map<AEKey, BigInteger> neoecoae$getExactAmounts() {
+    public Map<AEKey, ExactAmount> neoecoae$getExactAmounts() {
         return neoecoae$exactAmounts;
     }
 
     @Override
-    public void neoecoae$setExactAmounts(Map<AEKey, BigInteger> amounts) {
+    public void neoecoae$setExactAmounts(Map<AEKey, ExactAmount> amounts) {
         neoecoae$exactAmounts = Map.copyOf(amounts);
     }
 
@@ -104,7 +104,7 @@ public abstract class MEStorageMenuMixin implements ECOExactStorageMenu, Network
     private void neoecoae$syncExactStorage(CallbackInfo ci) {
         MEStorageMenu menu = (MEStorageMenu) (Object) this;
         if (!(menu.getPlayer() instanceof ServerPlayer player)) return;
-        Map<AEKey, BigInteger> next = canInteractWithGrid() && menu.isPowered() ? neoecoae$listedAmounts : Map.of();
+        Map<AEKey, ExactAmount> next = canInteractWithGrid() && menu.isPowered() ? neoecoae$listedAmounts : Map.of();
         next = next.entrySet().stream()
                 .filter(entry -> menu.isKeyVisible(entry.getKey()))
                 .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));

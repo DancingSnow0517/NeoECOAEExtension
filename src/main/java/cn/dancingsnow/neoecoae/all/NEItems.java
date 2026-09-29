@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import cn.dancingsnow.neoecoae.items.ECOInfiniteResourceCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -969,6 +970,21 @@ public class NEItems {
             })
             .lang("ECO - LE9 Item Storage Matrix")
             .model(ItemModelUtil.cellModel("item", "256m"))
+            .register();
+
+    public static final ItemEntry<ECOInfiniteResourceCellItem> ECO_INFINITE_ITEM_CELL = REGISTRATE
+            .item("eco_infinite_item_cell", p -> new ECOInfiniteResourceCellItem(
+                    p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.ITEM))
+            .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
+                    .require(Items.WATER_BUCKET)
+                    .require(Items.LAVA_BUCKET)
+                    .require(NEItems.ECO_CELL_COMPONENT_256M)
+                    .require(NEItems.CRYSTAL_MATRIX)
+                    .itemOutput(ctx.get())
+                    .energy(144_000)
+                    .save(prov))
+            .lang("ECO Infinite Base Resource Storage Matrix")
+            .model(ItemModelUtil.infiniteCellModel("eco_infinite_cell_housing"))
             .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_16M = REGISTRATE

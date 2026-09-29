@@ -27,13 +27,13 @@ record ECOCellCapacity(
 
     long usedBytes() {
         long roundedItemCount = LongMath.saturatedAdd(storedItemCount, unusedItemCount());
-        long bytesForItemCount = roundedItemCount / keyType.getAmountPerByte();
+        long bytesForItemCount = roundedItemCount / Math.max(1L, keyType.getAmountPerByte());
         long typeBytes = LongMath.saturatedMultiply(storedItemTypes, bytesPerType);
         return LongMath.saturatedAdd(typeBytes, bytesForItemCount);
     }
 
     long freeBytes() {
-        return totalBytes - usedBytes();
+        return Math.max(0L, totalBytes - usedBytes());
     }
 
     int unusedItemCount() {
@@ -51,9 +51,9 @@ record ECOCellCapacity(
     }
 
     long remainingItemTypes() {
-        long basedOnStorage = freeBytes() / bytesPerType;
-        long basedOnTotal = totalItemTypes - storedItemTypes;
-        return Math.min(basedOnStorage, basedOnTotal);
+        long basedOnStorage = bytesPerType <= 0 ? 0L : freeBytes() / bytesPerType;
+        long basedOnTotal = Math.max(0L, totalItemTypes - storedItemTypes);
+        return Math.max(0L, Math.min(basedOnStorage, basedOnTotal));
     }
 
     boolean canHoldNewItem() {

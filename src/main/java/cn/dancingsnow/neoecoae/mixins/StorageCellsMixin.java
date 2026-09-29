@@ -4,6 +4,7 @@ import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -15,7 +16,9 @@ public class StorageCellsMixin {
     @Inject(method = "getCellInventory", at = @At("RETURN"), cancellable = true)
     private static void neoecoae$getEcoCellInventory(
             ItemStack stack, ISaveProvider saveProvider, CallbackInfoReturnable<StorageCell> cir) {
-        if (cir.getReturnValue() == null) {
+        if (ECOCreativeCell.Handler.INSTANCE.isCell(stack)) {
+            cir.setReturnValue(ECOCreativeCell.Handler.INSTANCE.getCellInventory(stack, saveProvider));
+        } else if (cir.getReturnValue() == null) {
             cir.setReturnValue(ECOStorageCells.getCellInventory(stack, saveProvider));
         }
     }

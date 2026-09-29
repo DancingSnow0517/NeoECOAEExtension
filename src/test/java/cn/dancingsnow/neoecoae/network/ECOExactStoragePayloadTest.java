@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import io.netty.buffer.Unpooled;
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -21,19 +22,19 @@ import org.junit.jupiter.api.Test;
 class ECOExactStoragePayloadTest {
     @Test
     void oneChangeDoesNotResendUnchangedKeysAndRemovalsClearOverrides() {
-        Map<AEKey, BigInteger> before = new HashMap<>();
-        for (int i = 0; i < 10_000; i++) before.put(new TestKey(), BigInteger.ONE.shiftLeft(100));
+        Map<AEKey, ExactAmount> before = new HashMap<>();
+        for (int i = 0; i < 10_000; i++) before.put(new TestKey(), ExactAmount.finite(BigInteger.ONE.shiftLeft(100)));
         var keys = before.keySet().iterator();
         AEKey changed = keys.next();
         AEKey removed = keys.next();
         AEKey added = new TestKey();
-        Map<AEKey, BigInteger> after = new HashMap<>(before);
-        after.put(changed, BigInteger.ONE.shiftLeft(101));
+        Map<AEKey, ExactAmount> after = new HashMap<>(before);
+        after.put(changed, ExactAmount.unbounded());
         after.remove(removed); // Includes crossing back into AE2's native long range.
-        after.put(added, BigInteger.ONE.shiftLeft(110));
+        after.put(added, ExactAmount.finite(BigInteger.ONE.shiftLeft(110)));
         var delta = ECOExactStoragePayload.difference(before, after);
         assertEquals(3, delta.amounts().size());
-        assertEquals(BigInteger.ZERO, delta.amounts().get(removed));
+        assertEquals(ExactAmount.finite(BigInteger.ZERO), delta.amounts().get(removed));
         assertEquals(after, delta.apply(before));
         assertEquals(after, new ECOExactStoragePayload(true, after).apply(before));
         assertTrue(ECOExactStoragePayload.difference(after, after).amounts().isEmpty());
@@ -92,6 +93,16 @@ class ECOExactStoragePayloadTest {
         } finally {
             buffer.release();
         }
+    }
+
+    @Test
+    void infiniteMarkerSurvivesPayloadRoundTrip() {
+        // The empty snapshot test covers packet framing; the delta test covers the
+        // semantic transition from a finite count to an unbounded value.
+        AEKey key = new TestKey();
+        var finite = Map.of(key, ExactAmount.finite(BigInteger.ONE.shiftLeft(100)));
+        var infinite = Map.of(key, ExactAmount.unbounded());
+        assertEquals(infinite, ECOExactStoragePayload.difference(finite, infinite).apply(finite));
     }
 
     @Test

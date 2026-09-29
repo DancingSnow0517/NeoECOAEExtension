@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 
 public interface IECOStorageCell extends StorageCell {
     IECOTier getTier();
+    default boolean prioritizesMarkedInserts() { return false; }
     /**
      * @return cellType for display in gui
      */

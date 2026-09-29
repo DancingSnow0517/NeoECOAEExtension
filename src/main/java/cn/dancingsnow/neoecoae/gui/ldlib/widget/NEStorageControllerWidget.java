@@ -39,6 +39,8 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     private final NEStorageHeaderPanel headerPanel = new NEStorageHeaderPanel();
     private final NEStorageMetricsPanel metricsPanel = new NEStorageMetricsPanel();
     private final NEStorageUsagePanel usagePanel = new NEStorageUsagePanel();
+    private static final int FAULT_ICON_X = PRIORITY_BUTTON_X - 17;
+    private static final int FAULT_ICON_Y = 4;
 
     public NEStorageControllerWidget(ECOStorageSystemBlockEntity storage, Player player) {
         this(storage, player, new StoragePageSession());
@@ -132,6 +134,9 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     @Override
     protected void drawMachineForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         headerPanel.draw(graphics, font(), title, currentState(), this::absX, this::absY);
+        if (currentState().faultCount() > 0) {
+            drawLocalString(graphics, Component.literal("!"), FAULT_ICON_X, FAULT_ICON_Y, 0xFFE05050);
+        }
         if (hasInfiniteLayout()) {
             drawLocalString(
                     graphics,
@@ -146,6 +151,15 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (isMouseIn(FAULT_ICON_X, FAULT_ICON_Y, 10, 12, mouseX, mouseY)
+                && currentState().faultCount() > 0) {
+            java.util.ArrayList<Component> lines = new java.util.ArrayList<>();
+            lines.add(Component.translatable("gui.neoecoae.storage.fault_count", currentState().faultCount()));
+            lines.add(Component.literal(currentState().firstFaultReason()));
+            lines.add(Component.translatable("gui.neoecoae.storage.fault_log"));
+            graphics.renderComponentTooltip(font(), lines, mouseX, mouseY);
+            return;
+        }
         if (isMouseIn(PRIORITY_BUTTON_X, PRIORITY_BUTTON_Y, PRIORITY_BUTTON_W, PRIORITY_BUTTON_H, mouseX, mouseY)) {
             graphics.renderComponentTooltip(font(), List.of(GuiText.Priority.text()), mouseX, mouseY);
             return;

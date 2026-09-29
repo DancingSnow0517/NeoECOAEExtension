@@ -197,7 +197,7 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
                     font(),
                     List.of(
                             Component.translatable(stateKey),
-                            Component.translatable("gui.neoecoae.storage_interface.infinite_import.tooltip")),
+                            Component.translatable("gui.neoecoae.storage_interface.unbounded_import.description")),
                     mouseX,
                     mouseY);
             return;

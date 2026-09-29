@@ -25,7 +25,25 @@ public record NEStorageUiState(
         int infiniteComponentCount,
         boolean canTakeInfiniteComponent,
         boolean infiniteDomainEmpty,
-        String infiniteDomainState) {
+        String infiniteDomainState,
+        int faultCount,
+        String firstFaultReason) {
+    public NEStorageUiState {
+        if (faultCount < 0 || faultCount > 64) throw new IllegalArgumentException("Invalid storage fault count");
+        firstFaultReason = firstFaultReason == null ? "" : firstFaultReason;
+    }
+    public NEStorageUiState(
+            BlockPos pos, List<NEStorageUiTypeState> typeStates, List<NEStorageUiMatrixState> matrixStates,
+            List<NEStorageHugeStackState> hugeStacks, int hugeStackPage, int hugeStackPageCount,
+            int hugeStackTotalCount, long storedEnergy, long maxEnergy, long performanceAverageNanos,
+            long energyUsage, boolean formed, boolean infiniteSlotVisible, boolean infiniteMode,
+            boolean migratingToInfinite, int infiniteMigrationProgress, int infiniteComponentCount,
+            boolean canTakeInfiniteComponent, boolean infiniteDomainEmpty, String infiniteDomainState) {
+        this(pos, typeStates, matrixStates, hugeStacks, hugeStackPage, hugeStackPageCount, hugeStackTotalCount,
+                storedEnergy, maxEnergy, performanceAverageNanos, energyUsage, formed, infiniteSlotVisible,
+                infiniteMode, migratingToInfinite, infiniteMigrationProgress, infiniteComponentCount,
+                canTakeInfiniteComponent, infiniteDomainEmpty, infiniteDomainState, 0, "");
+    }
     public NEStorageUiState(
             BlockPos pos,
             List<NEStorageUiTypeState> typeStates,
@@ -66,7 +84,7 @@ public record NEStorageUiState(
                 infiniteComponentCount,
                 canTakeInfiniteComponent,
                 infiniteDomainEmpty,
-                "READY");
+                "READY", 0, "");
     }
 
     public static NEStorageUiState empty(BlockPos pos) {
@@ -94,7 +112,7 @@ public record NEStorageUiState(
                 0,
                 true,
                 true,
-                "READY");
+                "READY", 0, "");
     }
 
     public long totalUsedTypes() {

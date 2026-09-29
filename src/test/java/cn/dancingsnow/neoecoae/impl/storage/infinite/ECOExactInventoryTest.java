@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
 import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
 import java.lang.reflect.Proxy;
@@ -35,7 +36,7 @@ class ECOExactInventoryTest {
             }
         };
         assertEquals(
-                exact.add(BigInteger.valueOf(25)),
+                ExactAmount.finite(exact.add(BigInteger.valueOf(25))),
                 exactAmounts(new Network(List.of(first, alias, ordinary))).get(key));
     }
 
@@ -68,7 +69,15 @@ class ECOExactInventoryTest {
     }
 
     @Test
-    void nestedNetworksDoNotDoubleCountAndOrdinaryOnlyKeysNeverGetAnOverlay() {
+    void ordinaryMountedCellsGetExactAggregateWhenTheirSumExceedsLong() {
+        AEKey key = new TestKey();
+        var network = new Network(List.of(storage(key, Long.MAX_VALUE), storage(key, 25)));
+        assertEquals(ExactAmount.finite(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(25))),
+                exactAmounts(network).get(key));
+    }
+
+    @Test
+    void nestedNetworksDoNotDoubleCountAndOrdinaryKeysGetAnOverlayWhenCombinedBeyondLong() {
         AEKey ecoKey = new TestKey();
         AEKey ordinaryKey = new TestKey();
         BigInteger amount = BigInteger.TEN.pow(30);
@@ -76,7 +85,10 @@ class ECOExactInventoryTest {
         MEStorage ordinary = storage(ordinaryKey, Long.MAX_VALUE);
         var nested = new Network(List.of(new Network(List.of(eco, ordinary)), storage(ecoKey, 64), ordinary));
         var listing = ExactAmountCollector.collect(nested, nested::getAvailableStacks);
-        assertEquals(Map.of(ecoKey, amount.add(BigInteger.valueOf(64))), listing.amounts());
+        assertEquals(Map.of(
+                ecoKey, ExactAmount.finite(amount.add(BigInteger.valueOf(64))),
+                ordinaryKey, ExactAmount.finite(BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TWO))),
+                listing.amounts());
         assertEquals(Long.MAX_VALUE, listing.stacks().get(ecoKey));
         assertEquals(Long.MAX_VALUE, listing.stacks().get(ordinaryKey));
     }
@@ -96,7 +108,7 @@ class ECOExactInventoryTest {
         var engine = engine(key, amount);
         var hidden = new ECOInfiniteStorage(engine, Component.empty(), () -> false);
         var visible = new ECOInfiniteStorage(engine, Component.empty());
-        assertEquals(Map.of(key, amount), exactAmounts(new Network(List.of(hidden, visible))));
+        assertEquals(Map.of(key, ExactAmount.finite(amount)), exactAmounts(new Network(List.of(hidden, visible))));
     }
 
     @Test
@@ -104,7 +116,7 @@ class ECOExactInventoryTest {
         AEKey key = new TestKey();
         var eco = new ECOInfiniteStorage(engine(key, BigInteger.TEN), Component.empty());
         assertEquals(
-                BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.TEN),
+                ExactAmount.finite(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.TEN)),
                 exactAmounts(new Network(List.of(storage(key, Long.MAX_VALUE), eco)))
                         .get(key));
     }
@@ -119,10 +131,10 @@ class ECOExactInventoryTest {
                     throw new IllegalStateException("listing failed");
                 }));
         assertTrue(exactAmounts(storage(key, Long.MAX_VALUE)).isEmpty());
-        assertEquals(BigInteger.TEN.pow(30), exactAmounts(eco).get(key));
+        assertEquals(ExactAmount.finite(BigInteger.TEN.pow(30)), exactAmounts(eco).get(key));
     }
 
-    private static Map<AEKey, BigInteger> exactAmounts(MEStorage storage) {
+    private static Map<AEKey, ExactAmount> exactAmounts(MEStorage storage) {
         return ExactAmountCollector.collect(storage, storage::getAvailableStacks)
                 .amounts();
     }

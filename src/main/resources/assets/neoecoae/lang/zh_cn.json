@@ -1,4 +1,10 @@
 {
+  "gui.neoecoae.storage_interface.infinite_import.enabled": "允许创造与无限源吸入：开启",
+  "gui.neoecoae.storage_interface.infinite_import.disabled": "允许创造与无限源吸入：关闭",
+  "gui.neoecoae.storage_interface.unbounded_import.description": "仅输入模式生效；关闭时跳过创造盘和无限资源盘，防止无限循环吸入",
+  "gui.neoecoae.storage.status.domain_partial": "部分存储成员故障（悬停查看日志）",
+  "gui.neoecoae.storage.fault_count": "存储故障：%s",
+  "gui.neoecoae.storage.fault_log": "详细原因见服务器日志",
   "gui.neoecoae.storage_interface.ignore_creative.on": "忽略创造盘吸入：开启",
   "gui.neoecoae.storage_interface.ignore_creative.off": "忽略创造盘吸入：关闭",
   "gui.neoecoae.storage_interface.ignore_creative.description": "仅吸入模式生效：抽取后库存数量不变的资源视为创造盘资源并跳过",

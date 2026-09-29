@@ -6,12 +6,17 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOUnboundedSource;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MarkResult;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.Status;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaLongBulkStorageCellItem;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOCreativeExtractionFilter;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.StorageExtractionExclusions;
 import gripe._90.megacells.misc.CompressionChain;
 import gripe._90.megacells.misc.CompressionService;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -71,6 +76,11 @@ public final class MegaBulkMarkingService {
             return result(Status.NO_BULK_CELL);
         }
         KeyCounter available = host.collectLocalStorageStacksForIntegration();
+        var grid = host.getMainNode().getGrid();
+        if (grid != null && !host.isStorageInterfaceTransferMode()) {
+            available = new KeyCounter();
+            grid.getStorageService().getInventory().getAvailableStacks(available);
+        }
         List<Candidate> candidates = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : available) {
             if (entry.getLongValue() <= threshold || !(entry.getKey() instanceof AEItemKey itemKey)) {
@@ -174,33 +184,44 @@ public final class MegaBulkMarkingService {
 
         IActionSource actionSource = IActionSource.ofMachine(host);
         long transferred = 0L;
-        for (ECODriveBlockEntity drive : drives.stream()
-                .sorted(Comparator.comparingLong(value -> value.getBlockPos().asLong()))
-                .toList()) {
-            ItemStack stack = drive.getCellStack();
-            if (stack == null
-                    || stack.isEmpty()
-                    || stack.getItem() instanceof ECOMegaLongBulkStorageCellItem
-                    || host.isInfiniteMemberCell(stack)) {
-                continue;
-            }
-            IECOStorageCell sourceStorage = drive.getCellInventory();
-            if (sourceStorage == null || host.getTier().compareTo(sourceStorage.getTier()) < 0) {
-                continue;
-            }
-
-            KeyCounter available = new KeyCounter();
-            sourceStorage.getAvailableStacks(available);
-            for (Object2LongMap.Entry<AEKey> entry : available) {
-                if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey itemKey)) {
+        try (ECOCellMutationBatch ignored = ECOCellMutationBatch.open()) {
+            for (ECODriveBlockEntity drive : drives.stream()
+                    .sorted(Comparator.comparingLong(value -> value.getBlockPos().asLong()))
+                    .toList()) {
+                ItemStack stack = drive.getCellStack();
+                if (stack == null || stack.isEmpty()
+                        || stack.getItem() instanceof ECOMegaLongBulkStorageCellItem
+                        || host.isInfiniteMemberCell(stack)) {
                     continue;
                 }
-                CompressionChain chain = chainFor(itemKey);
-                ChainTarget target = findTarget(chainTargets, chain);
-                if (target != null) {
-                    transferred = saturatingAdd(
-                            transferred,
+                IECOStorageCell sourceStorage = drive.getCellInventory();
+                if (sourceStorage == null || sourceStorage instanceof IECOUnboundedSource
+                        || host.getTier().compareTo(sourceStorage.getTier()) < 0) {
+                    continue;
+                }
+                KeyCounter available = new KeyCounter();
+                sourceStorage.getAvailableStacks(available);
+                for (Object2LongMap.Entry<AEKey> entry : available) {
+                    if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey itemKey)) continue;
+                    ChainTarget target = findTarget(chainTargets, chainFor(itemKey));
+                    if (target != null) transferred = saturatingAdd(transferred,
                             transfer(sourceStorage, target.storage(), itemKey, entry.getLongValue(), actionSource));
+                }
+            }
+        }
+        var grid = host.getMainNode().getGrid();
+        if (grid != null && !host.isStorageInterfaceTransferMode()) {
+            MEStorage network = grid.getStorageService().getInventory();
+            KeyCounter available = new KeyCounter();
+            network.getAvailableStacks(available);
+            try (StorageExtractionExclusions ignored = StorageExtractionExclusions.open(
+                    targets.stream().map(TargetCell::storage).toList());
+                 ECOCellMutationBatch batch = ECOCellMutationBatch.open()) {
+                for (var entry : available) {
+                    if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey key)) continue;
+                    ChainTarget target = findTarget(chainTargets, chainFor(key));
+                    if (target != null) transferred = saturatingAdd(transferred, transfer(
+                            network, target.storage(), key, entry.getLongValue(), actionSource));
                 }
             }
         }
@@ -229,7 +250,7 @@ public final class MegaBulkMarkingService {
     }
 
     private static long transfer(
-            IECOStorageCell from,
+            MEStorage from,
             ECOMegaLongBulkStorageCell to,
             AEItemKey key,
             long amount,
@@ -239,7 +260,9 @@ public final class MegaBulkMarkingService {
         long accepted = to.insert(key, available, Actionable.SIMULATE, actionSource);
         if (accepted <= 0L) return 0L;
 
-        long extracted = from.extract(key, accepted, Actionable.MODULATE, actionSource);
+        long extracted = from instanceof IECOStorageCell
+                ? from.extract(key, accepted, Actionable.MODULATE, actionSource)
+                : ECOCreativeExtractionFilter.extract(from, key, accepted, actionSource);
         if (extracted < 0L || extracted > accepted) {
             throw new IllegalStateException("Invalid internal-transfer source acknowledgement");
         }

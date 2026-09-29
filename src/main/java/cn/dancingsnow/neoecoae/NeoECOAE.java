@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.event.ECOStorageCommands;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.event.NELightningTransformEvents;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNetwork;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
@@ -95,6 +96,7 @@ public class NeoECOAE {
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerAboutToStart);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageCommands::register);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
+        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, NELightningTransformEvents::onEntityJoinLevel);
     }
 
@@ -138,6 +140,7 @@ public class NeoECOAE {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOStorageCellItem.ItemCellHandler.INSTANCE);
             ECOStorageCells.register(ECOStorageCellItem.FluidCellHandler.INSTANCE);
+            ECOStorageCells.register(ECOCreativeCell.Handler.INSTANCE);
         });
     }
 

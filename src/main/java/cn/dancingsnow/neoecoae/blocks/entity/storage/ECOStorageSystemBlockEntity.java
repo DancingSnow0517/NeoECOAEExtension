@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGridNode;
-import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
@@ -18,7 +17,6 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
-import appeng.api.storage.StorageHelper;
 import appeng.helpers.IPriorityHost;
 import appeng.hooks.ticking.TickHandler;
 import appeng.menu.ISubMenu;
@@ -31,6 +29,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOUnboundedSource;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
@@ -41,10 +40,13 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
 import cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStoragePaging;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
-import cn.dancingsnow.neoecoae.impl.storage.StorageInterfaceTransferPolicy;
+import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
+import cn.dancingsnow.neoecoae.impl.storage.StorageFaults;
 import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteDomainState;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -94,7 +96,10 @@ import org.jetbrains.annotations.Nullable;
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
         implements IGridTickable, IStorageProvider, INEMultiblockBuildHost, IPriorityHost, NEBlockEntityUIHolder {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
-    private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
+    private final ECOIOPortTransfer ioPortTransfer = new ECOIOPortTransfer();
+    private final StorageFaults storageFaults = new StorageFaults();
+
+    public List<StorageFaults.Fault> storageFailures() { return storageFaults.snapshot(); }
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int LEGACY_INFINITE_MEMBER_REQUIRED = 16;
     private static final int INFINITE_MEMBER_REQUIRED = 12;
@@ -343,7 +348,17 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         try {
             updateInfiniteStorageMode();
             flushInfiniteEngineBudgeted();
-            long transferred = transferStorageInterfaceContents();
+            long transferred;
+            try (ECOCellMutationBatch ignored = ECOCellMutationBatch.open()) {
+                try {
+                    transferred = transferStorageInterfaceContents();
+                    storageFaults.recovered("transfer");
+                } catch (RuntimeException failure) {
+                    storageFaults.report("transfer", failure.getMessage(),
+                            level == null ? 0L : level.getGameTime(), failure);
+                    transferred = 0L;
+                }
+            }
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
                 storageInterface.recordStorageInterfaceExport(transferred);
@@ -1488,7 +1503,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 infiniteComponentHandler.getStackInSlot(0).getCount(),
                 canTakeInfiniteStorageComponent(),
                 engine == null || engine.isEmpty(),
-                getInfiniteDomainStateForUi(engine));
+                getInfiniteDomainStateForUi(engine),
+                storageFaults.snapshot().size(),
+                storageFaults.snapshot().isEmpty() ? "" : storageFaults.snapshot().get(0).reason());
     }
 
     private long networkEnergyUsage() {
@@ -1791,261 +1808,81 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private long transferStorageInterfaceContents() {
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
-        if (storageInterface == null) {
-            return 0L;
+        if (!formed || cluster == null || storageInterface == null
+                || !storageInterface.isStorageTransferMode() || !storageInterface.isTargetOnline()) return 0L;
+        var grid = storageInterface.getMainNode().getGrid();
+        if (grid == null) return 0L;
+        MEStorage local = getStorageInterfaceHostStorage();
+        if (local == null) return 0L;
+        long moved = ioPortTransfer.transfer(grid, local, storageInterface.isStorageInputMode(),
+                !storageInterface.allowsInfiniteStorageImport(), IActionSource.ofMachine(storageInterface));
+        if (moved > 0L) {
+            markStorageStatsDirty();
+            setChanged();
+            markForUpdate();
         }
-        if (storageInterface.isStorageInputMode()) {
-            return importStorageInterfaceContents(storageInterface);
-        }
-        if (storageInterface.isStorageOutputMode()) {
-            return exportStorageInterfaceContents(storageInterface);
-        }
-        return 0L;
+        return moved;
     }
 
-    private long exportStorageInterfaceContents(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
-        if (!formed || cluster == null) {
-            return 0L;
-        }
-        if (storageInterface == null || !storageInterface.getMainNode().isOnline()) {
-            return 0L;
-        }
-        var grid = storageInterface.getMainNode().getGrid();
-        if (grid == null) {
-            return 0L;
-        }
-
-        MEStorage target = grid.getStorageService().getInventory();
-        IEnergySource energy = grid.getEnergyService();
-        IActionSource source = IActionSource.ofMachine(storageInterface);
-        long exported = 0L;
-        int remainingKeys = STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK;
+    @Nullable private MEStorage getStorageInterfaceHostStorage() {
+        if (hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE) return null;
+        List<MEStorage> cells = new ArrayList<>();
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine != null && canUseHostDomainStorage() && remainingKeys > 0) {
-            ExportResult result = exportFromStorageLimited(
-                    new ECOInfiniteStorage(engine, getBlockState().getBlock().getName()),
-                    target,
-                    source,
-                    remainingKeys);
-            exported = saturatedAdd(exported, result.exported());
-            remainingKeys -= result.keysVisited();
+        if (engine != null && canUseHostDomainStorage()) {
+            cells.add(new ECOInfiniteStorage(engine, getBlockState().getBlock().getName()));
         }
+        if (cluster == null) return null;
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            if (remainingKeys <= 0) {
-                break;
-            }
-            IECOStorageCell cell = drive.getCellInventory();
-            if (cell == null || !canExportDriveCell(drive)) {
-                continue;
-            }
-            ExportResult result = exportFromStorageLimited(cell, target, source, remainingKeys, energy);
-            exported = saturatedAdd(exported, result.exported());
-            remainingKeys -= result.keysVisited();
-        }
-        if (exported > 0L) {
-            markStorageStatsDirty();
-            setChanged();
-            markForUpdate();
-        }
-        return exported;
-    }
-
-    private long importStorageInterfaceContents(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
-        if (!formed || cluster == null) {
-            return 0L;
-        }
-        if (storageInterface == null || !storageInterface.getMainNode().isOnline()) {
-            return 0L;
-        }
-        var grid = storageInterface.getMainNode().getGrid();
-        if (grid == null) {
-            return 0L;
-        }
-
-        MEStorage sourceStorage = grid.getStorageService().getInventory();
-        IEnergySource energy = grid.getEnergyService();
-        IActionSource source = IActionSource.ofMachine(storageInterface);
-        appeng.api.stacks.KeyCounter available = new appeng.api.stacks.KeyCounter();
-        sourceStorage.getAvailableStacks(available);
-
-        long imported = 0L;
-        int keysVisited = 0;
-        for (Object2LongMap.Entry<AEKey> entry : available) {
-            if (keysVisited >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) {
-                break;
-            }
-            long amount = entry.getLongValue();
-            if (!StorageInterfaceTransferPolicy.shouldImportNetworkAmount(
-                    amount, storageInterface.allowsInfiniteStorageImport())) {
-                continue;
-            }
-            keysVisited++;
-            long moved = importKey(sourceStorage, energy, source, entry.getKey(), amount);
-            if (moved > 0L) {
-                imported = saturatedAdd(imported, moved);
+            if (canExportDriveCell(drive)) {
+                IECOStorageCell cell = drive.getCellInventory();
+                if (!(cell instanceof IECOUnboundedSource)) cells.add(cell);
             }
         }
-        if (imported > 0L) {
-            markStorageStatsDirty();
-            setChanged();
-            markForUpdate();
-        }
-        return imported;
+        return cells.isEmpty() ? null : new CombinedStorage(cells);
     }
 
     private boolean canExportDriveCell(ECODriveBlockEntity drive) {
-        if (!formed || cluster == null) {
-            return false;
-        }
         ItemStack stack = drive.getCellStack();
-        if (stack == null || stack.isEmpty()) {
-            return false;
-        }
-        if (isInfiniteMemberCell(stack)) {
-            return false;
-        }
+        if (stack == null || stack.isEmpty() || isInfiniteMemberCell(stack)) return false;
         IECOStorageCell cell = drive.getCellInventory();
         return cell != null && tier.compareTo(cell.getTier()) >= 0;
     }
 
-    private ExportResult exportFromStorageLimited(
-            MEStorage sourceStorage, MEStorage targetStorage, IActionSource source, int maxKeys) {
-        return exportFromStorageLimited(sourceStorage, targetStorage, source, maxKeys, null);
-    }
+    private record CombinedStorage(List<MEStorage> inventories)
+            implements MEStorage, ECOIOPortTransfer.HostInventories {
+        CombinedStorage { inventories = List.copyOf(inventories); }
 
-    private ExportResult exportFromStorageLimited(
-            MEStorage sourceStorage,
-            MEStorage targetStorage,
-            IActionSource source,
-            int maxKeys,
-            @Nullable IEnergySource energy) {
-        if (maxKeys <= 0) {
-            return new ExportResult(0L, 0);
-        }
-        if (sourceStorage instanceof ECOStorageCell storageCell) {
-            storageCell.ensureRuntimeLoaded();
-        }
-        appeng.api.stacks.KeyCounter available = new appeng.api.stacks.KeyCounter();
-        sourceStorage.getAvailableStacks(available);
-        long exported = 0L;
-        int keysVisited = 0;
-        for (Object2LongMap.Entry<AEKey> entry : available) {
-            if (keysVisited >= maxKeys) {
-                break;
-            }
-            long amount = entry.getLongValue();
-            if (amount <= 0L) {
-                continue;
-            }
-            keysVisited++;
-            long moved = energy == null
-                    ? exportKey(sourceStorage, targetStorage, source, entry.getKey(), amount)
-                    : transferPowered(sourceStorage, targetStorage, source, entry.getKey(), amount, energy);
-            if (moved > 0L) {
-                exported = saturatedAdd(exported, moved);
-            }
-        }
-        return new ExportResult(exported, keysVisited);
-    }
-
-    private long exportKey(
-            MEStorage sourceStorage, MEStorage targetStorage, IActionSource source, AEKey key, long availableAmount) {
-        long request = Math.max(0L, availableAmount);
-        if (request <= 0L) {
-            return 0L;
-        }
-        long accepted = targetStorage.insert(key, request, Actionable.SIMULATE, source);
-        if (accepted <= 0L) {
-            return 0L;
-        }
-        long extracted = sourceStorage.extract(key, Math.min(request, accepted), Actionable.MODULATE, source);
-        if (extracted <= 0L) {
-            return 0L;
-        }
-        long inserted = targetStorage.insert(key, extracted, Actionable.MODULATE, source);
-        if (inserted < extracted) {
-            long remainder = extracted - Math.max(0L, inserted);
-            sourceStorage.insert(key, remainder, Actionable.MODULATE, source);
-        }
-        return Math.max(0L, inserted);
-    }
-
-    private long importKey(
-            MEStorage sourceStorage, IEnergySource energy, IActionSource source, AEKey key, long availableAmount) {
-        long remaining = Math.max(0L, availableAmount);
-        long inserted = 0L;
-        if (remaining <= 0L || cluster == null) {
-            return 0L;
-        }
-
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            if (remaining <= 0L) {
-                break;
-            }
-            IECOStorageCell cell = drive.getCellInventory();
-            if (cell == null || !canExportDriveCell(drive)) {
-                continue;
-            }
-            long moved = transferPowered(sourceStorage, cell, source, key, remaining, energy);
-            if (moved > 0L) {
-                inserted = saturatedAdd(inserted, moved);
-                remaining -= Math.min(remaining, moved);
-            }
-        }
-
-        if (remaining > 0L) {
-            ECOInfiniteStorageEngine engine = getInfiniteEngine();
-            if (engine != null && canUseHostDomainStorage()) {
-                long moved = new ECOInfiniteStorage(
-                                engine, getBlockState().getBlock().getName())
-                        .insert(key, remaining, Actionable.SIMULATE, source);
-                if (moved > 0L) {
-                    long extracted =
-                            sourceStorage.extract(key, Math.min(remaining, moved), Actionable.MODULATE, source);
-                    if (extracted > 0L) {
-                        long accepted = new ECOInfiniteStorage(
-                                        engine, getBlockState().getBlock().getName())
-                                .insert(key, extracted, Actionable.MODULATE, source);
-                        if (accepted < extracted) {
-                            sourceStorage.insert(key, extracted - Math.max(0L, accepted), Actionable.MODULATE, source);
-                        }
-                        inserted = saturatedAdd(inserted, Math.max(0L, accepted));
-                    }
+        @Override public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
+            long inserted = 0L;
+            for (int pass = 0; pass < 2 && inserted < amount; pass++) {
+                for (MEStorage inventory : inventories) {
+                    if (inserted >= amount) break;
+                    boolean bulk = inventory instanceof IECOStorageCell cell && cell.prioritizesMarkedInserts();
+                    if (bulk != (pass == 0)) continue;
+                    inserted = saturatedAdd(inserted, inventory.insert(key, amount - inserted, mode, source));
                 }
             }
+            return inserted;
         }
 
-        return inserted;
-    }
+        @Override public long extract(AEKey key, long amount, Actionable mode, IActionSource source) {
+            long extracted = 0L;
+            for (MEStorage inventory : inventories) {
+                if (extracted >= amount) break;
+                extracted = saturatedAdd(extracted, inventory.extract(key, amount - extracted, mode, source));
+            }
+            return extracted;
+        }
 
-    private static long transferPowered(
-            MEStorage sourceStorage,
-            MEStorage targetStorage,
-            IActionSource source,
-            AEKey key,
-            long amount,
-            IEnergySource energy) {
-        long request = Math.max(0L, amount);
-        if (request <= 0L) {
-            return 0L;
+        @Override public void getAvailableStacks(KeyCounter out) {
+            for (MEStorage inventory : inventories) {
+                KeyCounter contribution = new KeyCounter();
+                inventory.getAvailableStacks(contribution);
+                SaturatingStackAccumulator.addAll(out, contribution);
+            }
         }
-        long extractable = sourceStorage.extract(key, request, Actionable.SIMULATE, source);
-        if (extractable <= 0L) {
-            return 0L;
-        }
-        long accepted = targetStorage.insert(key, extractable, Actionable.SIMULATE, source);
-        if (accepted <= 0L) {
-            return 0L;
-        }
-        long extracted = sourceStorage.extract(key, accepted, Actionable.MODULATE, source);
-        if (extracted <= 0L) {
-            return 0L;
-        }
-        long inserted = StorageHelper.poweredInsert(energy, targetStorage, key, extracted, source);
-        if (inserted < extracted) {
-            sourceStorage.insert(key, extracted - Math.max(0L, inserted), Actionable.MODULATE, source);
-        }
-        return Math.max(0L, inserted);
+
+        @Override public Component getDescription() { return Component.literal("ECO storage host"); }
     }
 
     private void requestProviderUpdates() {
@@ -2108,7 +1945,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return Math.max(reg != null ? reg.size() : 1, 1);
     }
 
-    private record ExportResult(long exported, int keysVisited) {}
 
     private static long saturatedAdd(long left, long right) {
         return LongMath.saturatedAdd(left, right);

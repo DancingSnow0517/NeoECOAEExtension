@@ -1,4 +1,10 @@
 {
+  "gui.neoecoae.storage_interface.infinite_import.enabled": "Allow creative and infinite source import: On",
+  "gui.neoecoae.storage_interface.infinite_import.disabled": "Allow creative and infinite source import: Off",
+  "gui.neoecoae.storage_interface.unbounded_import.description": "Input mode only; turn off to skip creative and infinite cells and avoid endless import",
+  "gui.neoecoae.storage.status.domain_partial": "Some storage members failed (see log for details)",
+  "gui.neoecoae.storage.fault_count": "Storage faults: %s",
+  "gui.neoecoae.storage.fault_log": "See the server log for details",
   "block.neoecoae.aluminum_alloy_block": "Aluminum Alloy Block",
   "block.neoecoae.aluminum_alloy_casing": "Aluminum Alloy Casing",
   "block.neoecoae.aluminum_block": "Aluminum Block",

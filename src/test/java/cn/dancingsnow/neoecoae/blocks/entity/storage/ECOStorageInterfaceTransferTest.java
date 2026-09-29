@@ -8,9 +8,9 @@ import org.junit.jupiter.api.Test;
 
 class ECOStorageInterfaceTransferTest {
     @Test
-    void infiniteSentinelsRequireExplicitOptIn() {
-        assertFalse(StorageInterfaceTransferPolicy.shouldImportNetworkAmount(Long.MAX_VALUE, false));
-        assertFalse(StorageInterfaceTransferPolicy.shouldImportNetworkAmount(Integer.MAX_VALUE, false));
+    void finiteAmountsAtFormerSentinelsRemainImportable() {
+        assertTrue(StorageInterfaceTransferPolicy.shouldImportNetworkAmount(Long.MAX_VALUE, false));
+        assertTrue(StorageInterfaceTransferPolicy.shouldImportNetworkAmount(Integer.MAX_VALUE, false));
         assertTrue(StorageInterfaceTransferPolicy.shouldImportNetworkAmount(Long.MAX_VALUE, true));
         assertTrue(StorageInterfaceTransferPolicy.shouldImportNetworkAmount(Integer.MAX_VALUE, true));
     }

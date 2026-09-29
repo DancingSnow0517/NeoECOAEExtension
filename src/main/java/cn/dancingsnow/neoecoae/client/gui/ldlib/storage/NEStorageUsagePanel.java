@@ -173,6 +173,7 @@ public final class NEStorageUsagePanel {
             case "QUARANTINED" -> Component.translatable("gui.neoecoae.storage.status.domain_quarantined");
             case "CLOSED" -> Component.translatable("gui.neoecoae.storage.status.domain_closed");
             case "UNAVAILABLE" -> Component.translatable("gui.neoecoae.storage.status.domain_unavailable");
+            case "PARTIAL" -> Component.translatable("gui.neoecoae.storage.status.domain_partial");
             default -> Component.empty();
         };
     }

@@ -518,6 +518,9 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
 
     @Override
     protected void drawMachineForeground(GuiGraphics g, int mx, int my, float partial) {
+        if (currentState().faultCount() > 0) {
+            small(g, Component.literal("!"), WIDTH - 15, 5, 10, 1.0F, false, 0xFFE05050);
+        }
         if (panel == 0) {
             small(g, title, 8, 6, 160, 0.65F, false, 0xFF3F3D52);
             small(
@@ -715,6 +718,13 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
 
     @Override
     protected void drawMachineTooltips(GuiGraphics g, int x, int y) {
+        if (currentState().faultCount() > 0 && isMouseIn(WIDTH - 17, 3, 15, 15, x, y)) {
+            g.renderComponentTooltip(font(), List.of(
+                    Component.translatable("gui.neoecoae.storage.fault_count", currentState().faultCount()),
+                    Component.literal(currentState().firstFaultReason()),
+                    Component.translatable("gui.neoecoae.storage.fault_log")), x, y);
+            return;
+        }
         if (isMouseIn(-17, 3, 16, 16, x, y)) {
             g.renderComponentTooltip(
                     font(),

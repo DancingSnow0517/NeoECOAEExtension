@@ -20,6 +20,7 @@ public final class NEItemColors {
                 NEItems.ECO_ITEM_CELL_16M.get(),
                 NEItems.ECO_ITEM_CELL_64M.get(),
                 NEItems.ECO_ITEM_CELL_256M.get(),
+                NEItems.ECO_INFINITE_ITEM_CELL.get(),
                 NEItems.ECO_FLUID_CELL_16M.get(),
                 NEItems.ECO_FLUID_CELL_64M.get(),
                 NEItems.ECO_FLUID_CELL_256M.get());
@@ -30,11 +31,15 @@ public final class NEItemColors {
     }
 
     private static int getEcoCellColor(ItemStack stack, int tintIndex) {
-        if (tintIndex != STATUS_LIGHT_TINT_INDEX) {
+        int statusIndex = stack.getItem() == NEItems.ECO_INFINITE_ITEM_CELL.get() ? 1 : STATUS_LIGHT_TINT_INDEX;
+        if (tintIndex != statusIndex) {
             return DEFAULT_COLOR;
         }
 
         if (stack.getItem() instanceof ECOStorageCellItem item) {
+            if (stack.getItem() == NEItems.ECO_INFINITE_ITEM_CELL.get()) {
+                return 0xFF000000 | CellState.FULL.getStateColor();
+            }
             long storedTypes = ECOCellHandle.getStoredTypesSummary(stack);
             long storedAmount = ECOCellHandle.getStoredAmountSummary(stack);
             if (storedTypes <= 0L) {

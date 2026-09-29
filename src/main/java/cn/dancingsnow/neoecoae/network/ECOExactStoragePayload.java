@@ -1,13 +1,14 @@
 package cn.dancingsnow.neoecoae.network;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.network.FriendlyByteBuf;
 
 /** Logical transaction carried by bounded fragments. Zero is a deletion, never a visible amount. */
-public record ECOExactStoragePayload(boolean reset, Map<AEKey, BigInteger> amounts) {
+public record ECOExactStoragePayload(boolean reset, Map<AEKey, ExactAmount> amounts) {
     private static final int MAX_ENTRIES = 1_000_000;
     private static final int MAX_INTEGER_BYTES = 65536;
 
@@ -15,21 +16,21 @@ public record ECOExactStoragePayload(boolean reset, Map<AEKey, BigInteger> amoun
         amounts = Map.copyOf(amounts);
     }
 
-    public static ECOExactStoragePayload difference(Map<AEKey, BigInteger> before, Map<AEKey, BigInteger> after) {
-        Map<AEKey, BigInteger> delta = new HashMap<>();
+    public static ECOExactStoragePayload difference(Map<AEKey, ExactAmount> before, Map<AEKey, ExactAmount> after) {
+        Map<AEKey, ExactAmount> delta = new HashMap<>();
         after.forEach((key, value) -> {
             if (!value.equals(before.get(key))) delta.put(key, value);
         });
         before.keySet().forEach(key -> {
-            if (!after.containsKey(key)) delta.put(key, BigInteger.ZERO);
+            if (!after.containsKey(key)) delta.put(key, ExactAmount.finite(BigInteger.ZERO));
         });
         return new ECOExactStoragePayload(false, delta);
     }
 
-    public Map<AEKey, BigInteger> apply(Map<AEKey, BigInteger> previous) {
-        Map<AEKey, BigInteger> result = reset ? new HashMap<>() : new HashMap<>(previous);
+    public Map<AEKey, ExactAmount> apply(Map<AEKey, ExactAmount> previous) {
+        Map<AEKey, ExactAmount> result = reset ? new HashMap<>() : new HashMap<>(previous);
         amounts.forEach((key, value) -> {
-            if (value.signum() == 0) result.remove(key);
+            if (!value.infinite() && value.value().signum() == 0) result.remove(key);
             else result.put(key, value);
         });
         return Map.copyOf(result);
@@ -40,10 +41,11 @@ public record ECOExactStoragePayload(boolean reset, Map<AEKey, BigInteger> amoun
         buffer.writeBoolean(payload.reset);
         buffer.writeVarInt(payload.amounts.size());
         payload.amounts.forEach((key, amount) -> {
-            if (amount.signum() < 0 || amount.toByteArray().length > MAX_INTEGER_BYTES)
+            if (amount.value().toByteArray().length > MAX_INTEGER_BYTES)
                 throw new IllegalArgumentException("Invalid exact amount");
             AEKey.writeKey(buffer, key);
-            buffer.writeByteArray(amount.toByteArray());
+            buffer.writeBoolean(amount.infinite());
+            buffer.writeByteArray(amount.value().toByteArray());
         });
     }
 
@@ -51,11 +53,13 @@ public record ECOExactStoragePayload(boolean reset, Map<AEKey, BigInteger> amoun
         boolean reset = buffer.readBoolean();
         int size = buffer.readVarInt();
         if (size < 0 || size > MAX_ENTRIES) throw new IllegalArgumentException("Invalid exact inventory size");
-        Map<AEKey, BigInteger> amounts = new HashMap<>();
+        Map<AEKey, ExactAmount> amounts = new HashMap<>();
         for (int i = 0; i < size; i++) {
             AEKey key = AEKey.readKey(buffer);
+            boolean infinite = buffer.readBoolean();
             BigInteger amount = new BigInteger(buffer.readByteArray(MAX_INTEGER_BYTES));
-            if (key == null || amount.signum() < 0 || amounts.put(key, amount) != null)
+            if (key == null || amount.signum() < 0 || amounts.put(key,
+                    infinite ? ExactAmount.unbounded() : ExactAmount.finite(amount)) != null)
                 throw new IllegalArgumentException("Invalid exact inventory entry");
         }
         return new ECOExactStoragePayload(reset, amounts);

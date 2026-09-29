@@ -6,6 +6,7 @@ import appeng.api.config.SortDir;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.menu.me.common.GridInventoryEntry;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +27,7 @@ class ExactAmountComparatorTest {
         var larger = entry(2, Long.MAX_VALUE, 1);
         var ordinary = entry(3, 64, 1);
         BigInteger huge = BigInteger.TEN.pow(400);
-        var amounts = Map.of(smaller.getWhat(), huge, larger.getWhat(), huge.add(BigInteger.ONE));
+        var amounts = Map.of(smaller.getWhat(), ExactAmount.finite(huge), larger.getWhat(), ExactAmount.finite(huge.add(BigInteger.ONE)));
 
         var entries = new ArrayList<>(List.of(larger, ordinary, smaller));
         entries.sort(ExactAmountComparator.create(amounts, SortDir.ASCENDING));
@@ -44,9 +45,9 @@ class ExactAmountComparatorTest {
         BigInteger huge = BigInteger.TEN.pow(100);
         var amounts = Map.of(
                 item.getWhat(),
-                huge,
+                ExactAmount.finite(huge),
                 fluid.getWhat(),
-                huge.multiply(BigInteger.valueOf(1000)).add(BigInteger.ONE));
+                ExactAmount.finite(huge.multiply(BigInteger.valueOf(1000)).add(BigInteger.ONE)));
 
         assertTrue(ExactAmountComparator.create(amounts, SortDir.ASCENDING).compare(item, fluid) < 0);
         assertTrue(ExactAmountComparator.create(amounts, SortDir.DESCENDING).compare(item, fluid) > 0);
@@ -56,7 +57,7 @@ class ExactAmountComparatorTest {
     void anExactFluidAmountCanSortBelowAnOrdinaryItemAmount() {
         var item = entry(1, Long.MAX_VALUE, 1);
         var fluid = entry(2, Long.MAX_VALUE, 1000);
-        var amounts = Map.of(fluid.getWhat(), BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE));
+        var amounts = Map.of(fluid.getWhat(), ExactAmount.finite(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE)));
 
         assertTrue(ExactAmountComparator.create(amounts, SortDir.ASCENDING).compare(fluid, item) < 0);
         assertTrue(ExactAmountComparator.create(amounts, SortDir.DESCENDING).compare(fluid, item) > 0);
@@ -77,7 +78,7 @@ class ExactAmountComparatorTest {
         var item = entry(1, Long.MAX_VALUE, 1);
         var fluid = entry(2, Long.MAX_VALUE, 1000);
         BigInteger huge = BigInteger.TEN.pow(100);
-        var amounts = Map.of(item.getWhat(), huge, fluid.getWhat(), huge.multiply(BigInteger.valueOf(1000)));
+        var amounts = Map.of(item.getWhat(), ExactAmount.finite(huge), fluid.getWhat(), ExactAmount.finite(huge.multiply(BigInteger.valueOf(1000))));
 
         for (SortDir direction : SortDir.values()) {
             assertEquals(0, ExactAmountComparator.create(amounts, direction).compare(item, fluid));
@@ -99,9 +100,9 @@ class ExactAmountComparatorTest {
         var second = entry(2, Long.MAX_VALUE, 1);
         BigInteger huge = BigInteger.TEN.pow(100);
         var previous = ExactAmountComparator.create(
-                Map.of(first.getWhat(), huge, second.getWhat(), huge.add(BigInteger.ONE)), SortDir.ASCENDING);
+                Map.of(first.getWhat(), ExactAmount.finite(huge), second.getWhat(), ExactAmount.finite(huge.add(BigInteger.ONE))), SortDir.ASCENDING);
         var updated = ExactAmountComparator.create(
-                Map.of(first.getWhat(), huge.add(BigInteger.TWO), second.getWhat(), huge.add(BigInteger.ONE)),
+                Map.of(first.getWhat(), ExactAmount.finite(huge.add(BigInteger.TWO)), second.getWhat(), ExactAmount.finite(huge.add(BigInteger.ONE))),
                 SortDir.ASCENDING);
 
         assertTrue(previous.compare(first, second) < 0);
@@ -109,6 +110,16 @@ class ExactAmountComparatorTest {
         assertTrue(previous.compare(first, second) < 0, "Comparators belong to their own menu snapshot");
         assertEquals(
                 0, ExactAmountComparator.create(Map.of(), SortDir.ASCENDING).compare(first, second));
+    }
+
+    @Test
+    void infiniteQuantitySortsBeyondEveryFiniteQuantity() {
+        var finite = entry(1, Long.MAX_VALUE, 1);
+        var infinite = entry(2, Long.MAX_VALUE, 1);
+        var amounts = Map.of(finite.getWhat(), ExactAmount.finite(BigInteger.TEN.pow(400)),
+                infinite.getWhat(), ExactAmount.unbounded());
+        assertTrue(ExactAmountComparator.create(amounts, SortDir.ASCENDING).compare(finite, infinite) < 0);
+        assertTrue(ExactAmountComparator.create(amounts, SortDir.DESCENDING).compare(finite, infinite) > 0);
     }
 
     private static GridInventoryEntry entry(long serial, long stored, int amountPerUnit) {

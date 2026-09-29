@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.event;
 
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
 import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
 import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -11,6 +12,7 @@ import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
+import net.minecraftforge.event.TickEvent;
 
 public final class ECOStorageLifecycleEvents {
     private ECOStorageLifecycleEvents() {}
@@ -33,6 +35,8 @@ public final class ECOStorageLifecycleEvents {
 
     public static void onServerStopping(ServerStoppingEvent event) {
         try {
+            ECOCellMutationBatch.clearThreadState();
+            ECOCellMutationBatch.drainRetries();
             NELogicalNetworkManager.onServerStopping();
             NELogicalNetworkManager.clearAll();
             ECOCellStorageManager.closeAll();
@@ -46,6 +50,13 @@ public final class ECOStorageLifecycleEvents {
                     ECOSavedDataPersistence.clear();
                 }
             }
+        }
+    }
+
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            ECOCellMutationBatch.retry();
+            ECOCellMutationBatch.assertClean();
         }
     }
 }

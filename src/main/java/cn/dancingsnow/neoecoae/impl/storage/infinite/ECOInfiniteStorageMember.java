@@ -15,6 +15,11 @@ public final class ECOInfiniteStorageMember {
 
     private ECOInfiniteStorageMember() {}
 
+    /** A sealed matrix cannot expose generated contents while a migration is pending. */
+    public static boolean isSealed(@Nullable ItemStack stack) {
+        return isMember(stack);
+    }
+
     public static boolean isMember(@Nullable ItemStack stack) {
         return stack != null
                 && !stack.isEmpty()
