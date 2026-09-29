@@ -1,2 +1,2 @@
 Manifest-Version: 1.0
-MixinConfigs: neoecoae.mixins.json
+MixinConfigs: neoecoae.mixins.json,neoecoae.compat.advanced_ae.mixins.json

@@ -2,7 +2,9 @@
   "required": false,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins.compat.advancedae",
-  "compatibilityLevel": "JAVA_21",
+  "refmap": "neoecoae.refmap.json",
+  "compatibilityLevel": "JAVA_17",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.compat.advancedae.AdvancedAeMixinPlugin",
   "mixins": [
     "accessor.AdvancedAeCraftingJobAccessor",
     "accessor.AdvancedAeElapsedTimeTrackerInvoker",
@@ -16,6 +18,6 @@
     "defaultRequire": 1
   },
   "mixinextras": {
-    "minVersion": "0.5.3"
+    "minVersion": "0.4.1"
   }
 }
