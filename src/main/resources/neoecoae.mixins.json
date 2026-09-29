@@ -21,9 +21,12 @@
     "StorageCellsMixin",
     "ae2.AECraftingPatternAccessor",
     "ae2.ElapsedTimeTrackerAccessor",
+    "ae2.Ae2CraftingCpuFastPathMixin",
     "ae2.ExecutingCraftingJobAccessor",
+    "ae2.ExecutingCraftingJobMixin",
     "ae2.PatternProviderLogicAccessor",
     "ae2.TaskProgressAccessor",
+    "ae2.TaskProgressMixin",
     "aae.ContainerExIOPortMixin",
     "aae.TileExIOPortMixin"
   ],

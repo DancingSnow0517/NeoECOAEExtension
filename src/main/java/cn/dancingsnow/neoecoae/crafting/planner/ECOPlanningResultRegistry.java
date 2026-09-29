@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.planner;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingPlan;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity.Signature;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionContract;
@@ -132,6 +133,23 @@ public final class ECOPlanningResultRegistry {
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
             return uniqueEntry(RESULTS.getAndMoveToLast(signature));
+        }
+    }
+
+    /** A missing or ambiguous execution contract must not make an ECO plan look like a vanilla plan. */
+    public static boolean isECOOwnedPlan(@Nullable ICraftingPlan plan) {
+        if (plan == null) return false;
+        if (plan instanceof ECOExternalCpuSupport.OwnedPlan owned && owned.neoecoae$isECOOwnedPlan()) {
+            return true;
+        }
+        SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
+        if (alias != null && PlanIdentity.matches(alias.confirmedSignature(), plan)) return true;
+        Signature signature = PlanIdentity.of(plan);
+        if (signature == null) return false;
+        synchronized (RESULTS) {
+            removeExpired(System.nanoTime());
+            List<Entry> entries = RESULTS.get(signature);
+            return entries != null && !entries.isEmpty();
         }
     }
 

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -44,6 +45,18 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         if (jobId == null) return;
         var data = get(level);
         if (data != null && data.terminatedJobs.putIfAbsent(jobId, completed) == null) data.setDirty();
+    }
+
+    /** Publish cancellation before an external CPU clears its job, then wake loaded workers holding its batches. */
+    public static void cancelAndRecover(@Nullable Level level, @Nullable UUID jobId) {
+        if (jobId == null) return;
+        finish(level, jobId, false);
+        if (level == null || level.getServer() == null) return;
+        for (var worker : ECOCraftingWorkerBlockEntity.getLoadedServerWorkers()) {
+            if (worker.getLevel() != null && worker.getLevel().getServer() == level.getServer()) {
+                worker.recoverTerminatedJob(jobId);
+            }
+        }
     }
 
     /** Works without decoding a plan, so even a quarantined CPU can terminate its worker ownership. */

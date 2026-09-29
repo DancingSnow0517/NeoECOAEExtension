@@ -1,8 +1,10 @@
 package cn.dancingsnow.neoecoae.crafting.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -69,6 +71,9 @@ class ECOPlanningResultRegistryTest {
         ECOPlanningResultRegistry.register(plan, result(plan, UUID.randomUUID()));
         assertEquals(2, ECOPlanningResultRegistry.registeredMetadataCount());
         assertNull(ECOPlanningResultRegistry.find(plan));
+        assertTrue(ECOPlanningResultRegistry.isECOOwnedPlan(plan));
+        ECOPlanningResultRegistry.clear();
+        assertFalse(ECOPlanningResultRegistry.isECOOwnedPlan(plan));
     }
 
     @Test

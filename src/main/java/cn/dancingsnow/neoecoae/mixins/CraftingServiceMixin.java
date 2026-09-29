@@ -15,11 +15,14 @@ import appeng.api.stacks.AEKey;
 import appeng.crafting.CraftingLink;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.api.me.ECOAdvancedAeCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchFairSchedulingControl;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingServiceTicker;
+import cn.dancingsnow.neoecoae.api.me.ECOJobOutputReceiver;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
@@ -62,6 +65,15 @@ public abstract class CraftingServiceMixin
     @Override
     public long neoecoae$insertIntoCpuForJob(java.util.UUID craftingJobId, AEKey what, long amount, Actionable type) {
         if (craftingJobId == null || what == null || amount <= 0L) return 0L;
+        for (var nativeCpu : craftingCPUClusters) {
+            long inserted = ((ECOJobOutputReceiver) nativeCpu.craftingLogic)
+                    .neoecoae$insertWorkerOutput(craftingJobId, what, amount, type);
+            if (inserted > 0L) return inserted;
+        }
+        if (this instanceof ECOAdvancedAeCraftingOutputRouter advancedRouter) {
+            long inserted = advancedRouter.neoecoae$insertIntoAdvancedAeCpuForJob(craftingJobId, what, amount, type);
+            if (inserted > 0L) return inserted;
+        }
         for (var cluster : NeoECOCraftingServiceBridge.getComputationClusters(grid)) {
             for (var cpu : cluster.getActiveCPUs(grid)) {
                 if (cpu.getLogic().hasCraftingJob(craftingJobId)) {
@@ -75,6 +87,10 @@ public abstract class CraftingServiceMixin
     @Shadow
     @Final
     private IGrid grid;
+
+    @Shadow
+    @Final
+    private Set<CraftingCPUCluster> craftingCPUClusters;
 
     @Shadow
     @Final
@@ -252,7 +268,9 @@ public abstract class CraftingServiceMixin
             CraftingCPUCluster nativeCpu,
             MutableObject<UnsuitableCpus> unsuitableCpus) {
         if (target == null) {
-            this.neoecoae$handleSubmitJob(job, requestingMachine, null, src, cir);
+            if (nativeCpu == null || !ECOExternalCpuSupport.supportsPlan(job)) {
+                this.neoecoae$handleSubmitJob(job, requestingMachine, null, src, cir);
+            }
         }
     }
 
