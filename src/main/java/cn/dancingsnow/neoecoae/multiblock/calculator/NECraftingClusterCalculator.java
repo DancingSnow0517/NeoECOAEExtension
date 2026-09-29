@@ -81,7 +81,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         return false;
     }
 
-    private boolean verifyStructure(
+    protected boolean verifyStructure(
         ServerLevel level,
         BlockPos controllerPos,
         IECOTier tier,

@@ -82,7 +82,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         return false;
     }
 
-    private boolean verifyStructure(
+    protected boolean verifyStructure(
         ServerLevel level,
         BlockPos controllerPos,
         IECOTier tier,
