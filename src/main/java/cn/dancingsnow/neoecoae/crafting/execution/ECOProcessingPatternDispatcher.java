@@ -16,7 +16,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOProcessingExecutionPattern;
 import cn.dancingsnow.neoecoae.compat.mekenergistics.ECOMekEnergisticsBatchCapability;
-import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
 import cn.dancingsnow.neoecoae.compat.advanced_ae.ECOAdvancedAEPatternScaling;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
@@ -82,6 +82,7 @@ final class ECOProcessingPatternDispatcher {
 
     @Nullable ECOCraftingDispatchResult tryDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider,
             double onePower, IEnergyService service, Consumer<ICraftingProvider> mark) {
+        if (ECOExternalProviderBlocking.isEnabled(provider)) return null;
         Contract c = Contract.forProvider(provider);
         if (c == null) return null;
         IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
@@ -139,7 +140,8 @@ final class ECOProcessingPatternDispatcher {
     @Nullable ECOCraftingDispatchResult tryScaledDispatch(ECOCraftingDispatchRequest request,
             ICraftingProvider provider, double onePower, IEnergyService service,
             Consumer<ICraftingProvider> mark, ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
-        if (isScaledAttemptBudgetExhausted() || isScaledDispatchDeferred(request, provider)
+        if (ECOExternalProviderBlocking.isEnabled(provider)
+                || isScaledAttemptBudgetExhausted() || isScaledDispatchDeferred(request, provider)
                 || !supportsScaledDispatchCached(request, provider)) return null;
         var direct = ECOAe2LtDirectDispatch.open(provider);
         Object logic = direct == null ? providerLogic(provider) : null;
@@ -247,6 +249,7 @@ final class ECOProcessingPatternDispatcher {
      * Acceptance transfers the entire chunk; the send buffer separately determines capacity proof.
      */
     static boolean supportsScaledDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+        if (ECOExternalProviderBlocking.isEnabled(provider)) return false;
         if (provider instanceof ECOParallelCraftingProvider) return false;
         if (Contract.forProvider(provider) != null) return false;
         // A successful push can still own overflow. Require a live observation of AE2's send buffer.
@@ -269,17 +272,6 @@ final class ECOProcessingPatternDispatcher {
                 || request.pattern().getInputs().length == 0
                 || request.pattern().getOutputs().isEmpty()
                 || !request.pattern().supportsPushInputsToExternalInventory()) return false;
-        try {
-            // EAEP checks input presence rather than quantity. Scaling preserves the input keys,
-            // and every offer still passes through the provider's own pushPattern blocking check.
-            boolean blocking = ae2Logic ? ((PatternProviderLogic) providerLogic).isBlocking()
-                    : ECOAdvancedAEPatternScaling.isBlocking(providerLogic);
-            var config = ae2Logic ? ((PatternProviderLogic) providerLogic).getConfigManager()
-                    : ECOAdvancedAEPatternScaling.configManager(providerLogic);
-            if (blocking && (config == null || !ECOExtendedAEPlusBlocking.isEnabled(config))) return false;
-        } catch (RuntimeException unavailable) {
-            return false;
-        }
         // Known directional/wireless provider modes split one push across targets and are not atomic here.
         for (String method : new String[]{"getProviderMode", "getWirelessDispatchMode", "getPushDirection"}) {
             try {

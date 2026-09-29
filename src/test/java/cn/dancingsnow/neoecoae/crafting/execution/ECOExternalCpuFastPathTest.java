@@ -12,6 +12,7 @@ import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
+import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.api.me.provider.*;
 import cn.dancingsnow.neoecoae.mixins.ae2.crafting.*;
 import cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.*;
@@ -130,6 +131,18 @@ class ECOExternalCpuFastPathTest {
         assertEquals(0, inventory.list.get(input));
         assertEquals(2048, waiting.list.get(output));
         verify(provider, never()).pushPattern(any(), any());
+    }
+
+    @Test void blockingExternalProviderSkipsEcoBatch() {
+        setup("ae2");
+        var blocked = mock(PatternProviderLogic.class,
+                withSettings().extraInterfaces(ECOFastPathDispatchProvider.class));
+        when(blocked.isBlocking()).thenReturn(true);
+        when(service.getProviders(pattern)).thenReturn(List.of(blocked));
+        assertEquals(0, dispatch(1));
+        assertEquals(2048, inventory.list.get(input));
+        assertEquals(1024, remaining.get());
+        verify((ECOFastPathDispatchProvider) blocked, never()).eco$prepareFastPath(any());
     }
 
     @Test void taskAndActualMaterialsBoundBatch() {

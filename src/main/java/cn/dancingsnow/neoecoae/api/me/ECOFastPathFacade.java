@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOStatefulBatchPlanner;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOParallelProviderAdapter;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
@@ -61,6 +62,7 @@ public final class ECOFastPathFacade {
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter remainders, ListCraftingInventory inventory,
             long maxCrafts, double singlePower, IEnergyService energy, Level level, @Nullable UUID jobId,
             boolean exactOrder) {
+        if (ECOExternalProviderBlocking.isEnabled(provider)) return null;
         var target = resolveProvider(provider);
         if (target == null) return null;
         var batch = ECOStatefulBatchPlanner.prepare(target, pattern, inputs, outputs, remainders,
@@ -73,6 +75,7 @@ public final class ECOFastPathFacade {
     public static PreparedBatch prepareParallel(ECOParallelCraftingProvider provider, IPatternDetails pattern,
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter remainders, ListCraftingInventory inventory,
             long maxCrafts, double singlePower, IEnergyService energy, Level level, @Nullable UUID jobId) {
+        if (provider instanceof ICraftingProvider crafting && ECOExternalProviderBlocking.isEnabled(crafting)) return null;
         var batch = ECOStatefulBatchPlanner.prepare(new ECOParallelProviderAdapter(provider), pattern,
             inputs, outputs, remainders, inventory, maxCrafts, singlePower, energy, level, jobId);
         return batch == null ? null : new PreparedBatch(batch, inventory);

@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 
@@ -66,6 +67,7 @@ public final class ECOExternalCpuFastPath {
             if (inputs == null) continue;
             for (var provider : crafting.getProviders(task.getKey())) {
                 if (!isEcoFastPathProvider(provider)) continue;
+                if (ECOExternalProviderBlocking.isEnabled(provider)) continue;
                 if (provider.isBusy()) continue;
                 double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
                 var parallel = ECOParallelCraftingProviders.find(provider);

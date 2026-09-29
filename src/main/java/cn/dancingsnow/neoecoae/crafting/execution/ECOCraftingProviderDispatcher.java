@@ -13,6 +13,7 @@ import appeng.crafting.execution.CraftingCpuHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
 import appeng.hooks.ticking.TickHandler;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -47,6 +48,7 @@ final class ECOCraftingProviderDispatcher {
     }
 
     boolean isEligible(ICraftingProvider provider, ECOCraftingDispatchBudget budget) {
+        if (ECOExternalProviderBlocking.isEnabled(provider)) return budget.canAttemptOrdinary();
         return budget.canAttemptOrdinary()
                 || fastPath.supportsBatch(provider)
                 || ECOParallelCraftingProviders.find(provider) != null
@@ -61,23 +63,24 @@ final class ECOCraftingProviderDispatcher {
         double singlePower = CraftingCpuHelper.calculatePatternPower(request.inputs());
 
         for (var provider : providers) {
-            if (request.job().exactOrder) {
+            boolean blocking = ECOExternalProviderBlocking.isEnabled(provider);
+            if (!blocking && request.job().exactOrder) {
                 var exact = fastPath.tryExactDispatch(request, provider, singlePower, energyService, markProviderAttempt);
                 if (exact != null) return Result.accepted(
                     cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(exact), true);
                 if (request.job().suspended) return Result.none();
             }
             // Processing providers get the CPU-owned batch attempt before other optional dispatch paths.
-            var processingResult = processing.tryDispatch(
+            var processingResult = blocking ? null : processing.tryDispatch(
                     request, provider, singlePower, energyService, markProviderAttempt);
             if (processingResult != null) {
                 return Result.accepted(processingResult.acceptedCrafts(), true);
             }
             if (request.job().suspended) return Result.none();
             // Native batch providers already own their one-copy fallback and target recovery.
-            if (processing.supports(provider, request.pattern())) continue;
+            if (!blocking && processing.supports(provider, request.pattern())) continue;
 
-            boolean scaledProvider = processing.supportsScaledDispatchCached(request, provider);
+            boolean scaledProvider = !blocking && processing.supportsScaledDispatchCached(request, provider);
             if (scaledProvider) {
                 if (processing.isScaledAttemptBudgetExhausted()) continue;
                 if (processing.isScaledFallbackDeferred(request, provider)) continue;
@@ -96,14 +99,14 @@ final class ECOCraftingProviderDispatcher {
                 // an overloaded provider becomes completely undispatchable.
             }
 
-            var fastResult = fastPath.tryDispatch(
+            var fastResult = blocking ? null : fastPath.tryDispatch(
                     request, provider, singlePower, energyService, diagnostics, markProviderAttempt);
             if (fastResult != null) {
                 return Result.accepted(fastResult.acceptedCrafts(), true);
             }
             if (request.job().suspended) return Result.none();
 
-            var parallelResult = tryDispatchOrdinaryBatch(
+            var parallelResult = blocking ? null : tryDispatchOrdinaryBatch(
                     request, provider, singlePower, energyService, budget, diagnostics,
                     markProviderAttempt, markNormalResume);
             if (parallelResult != null) {
