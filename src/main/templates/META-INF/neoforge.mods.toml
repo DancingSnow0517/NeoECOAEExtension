@@ -136,6 +136,20 @@ file="META-INF/accesstransformer.cfg"
         curseforge="ldlib"
 
 [[dependencies.${mod_id}]]
+    modId="ae2_pattern_disk"
+    type="optional"
+    # No version range on purpose. A range on an optional dependency is not a hint: the
+    # loader aborts the game when that dependency is installed outside it, while this
+    # integration is built to stand down instead. The 0.7.1 (api 9) floor lives in that
+    # path - the integration probes the api for maxPatterns and logs one line - so the
+    # loader must not raise a second, fatal gate here.
+    # ordering is NONE on purpose - AE2 Pattern Disk declares itself AFTER neoecoae, and
+    # AFTER on both sides would be a cycle.
+    versionRange="[0,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
     modId="ae2omnicells"
     type="optional"
     versionRange="[1.1.6,)"
