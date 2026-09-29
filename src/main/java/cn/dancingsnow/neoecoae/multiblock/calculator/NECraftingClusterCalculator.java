@@ -50,7 +50,41 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     }
 
     @Override
+    public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
+        NECraftingClusterCalculator controller = candidateControllerCalculator(min, max);
+        return controller != null && controller != this
+            ? controller.checkMultiblockScale(min, max)
+            : super.checkMultiblockScale(min, max);
+    }
+
+    private NECraftingClusterCalculator candidateControllerCalculator(BlockPos min, BlockPos max) {
+        if (!(target.getLevel() instanceof ServerLevel level)) {
+            return null;
+        }
+        return findCandidateController(level, min, max, ECOCraftingSystemBlockEntity.class)
+            .map(ECOCraftingSystemBlockEntity::getCalculator)
+            .filter(NECraftingClusterCalculator.class::isInstance)
+            .map(NECraftingClusterCalculator.class::cast)
+            .orElse(null);
+    }
+
+    private NECraftingClusterCalculator controllerCalculator(BlockPos min, BlockPos max) {
+        if (!(target.getLevel() instanceof ServerLevel level)) {
+            return null;
+        }
+        return findUniqueController(level, min, max, ECOCraftingSystemBlockEntity.class)
+            .map(context -> context.controller().getCalculator())
+            .filter(NECraftingClusterCalculator.class::isInstance)
+            .map(NECraftingClusterCalculator.class::cast)
+            .orElse(null);
+    }
+
+    @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
+        NECraftingClusterCalculator controllerCalculator = controllerCalculator(min, max);
+        if (controllerCalculator != null && controllerCalculator != this) {
+            return controllerCalculator.verifyInternalStructure(level, min, max);
+        }
         Optional<ControllerContext<ECOCraftingSystemBlockEntity>> contextResult = findUniqueController(
             level, min, max, ECOCraftingSystemBlockEntity.class
         );
@@ -81,7 +115,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         return false;
     }
 
-    private boolean verifyStructure(
+    protected boolean verifyStructure(
         ServerLevel level,
         BlockPos controllerPos,
         IECOTier tier,

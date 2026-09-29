@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingControlle
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
@@ -51,7 +52,41 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     }
 
     @Override
+    public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
+        NEComputationClusterCalculator controller = candidateControllerCalculator(min, max);
+        return controller != null && controller != this
+            ? controller.checkMultiblockScale(min, max)
+            : super.checkMultiblockScale(min, max);
+    }
+
+    private NEComputationClusterCalculator candidateControllerCalculator(BlockPos min, BlockPos max) {
+        if (!(target.getLevel() instanceof ServerLevel level)) {
+            return null;
+        }
+        return findCandidateController(level, min, max, ECOComputationSystemBlockEntity.class)
+            .map(ECOComputationSystemBlockEntity::getCalculator)
+            .filter(NEComputationClusterCalculator.class::isInstance)
+            .map(NEComputationClusterCalculator.class::cast)
+            .orElse(null);
+    }
+
+    private NEComputationClusterCalculator controllerCalculator(BlockPos min, BlockPos max) {
+        if (!(target.getLevel() instanceof ServerLevel level)) {
+            return null;
+        }
+        return findUniqueController(level, min, max, ECOComputationSystemBlockEntity.class)
+            .map(context -> context.controller().getCalculator())
+            .filter(NEComputationClusterCalculator.class::isInstance)
+            .map(NEComputationClusterCalculator.class::cast)
+            .orElse(null);
+    }
+
+    @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
+        NEComputationClusterCalculator controllerCalculator = controllerCalculator(min, max);
+        if (controllerCalculator != null && controllerCalculator != this) {
+            return controllerCalculator.verifyInternalStructure(level, min, max);
+        }
         Optional<ControllerContext<ECOComputationSystemBlockEntity>> contextResult = findUniqueController(
             level, min, max, ECOComputationSystemBlockEntity.class
         );
@@ -69,11 +104,13 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         Direction right = context.right();
         if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left, right, false)) {
             controller.setMirrored(false);
+            setCoolingControllersMirrored(level, min, max, false);
             syncNetworkSwitchState(level, controllerPos, controllerState, false);
             return true;
         }
         if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right, left, true)) {
             controller.setMirrored(true);
+            setCoolingControllersMirrored(level, min, max, true);
             syncNetworkSwitchState(level, controllerPos, controllerState, true);
             return true;
         }
@@ -82,7 +119,15 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         return false;
     }
 
-    private boolean verifyStructure(
+    private static void setCoolingControllersMirrored(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
+        for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
+            if (level.getBlockEntity(pos) instanceof ECOComputationCoolingControllerBlockEntity cooler) {
+                cooler.setMirrored(mirrored);
+            }
+        }
+    }
+
+    protected boolean verifyStructure(
         ServerLevel level,
         BlockPos controllerPos,
         IECOTier tier,
@@ -211,10 +256,6 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         )) {
             return false;
         }
-        if (level.getBlockEntity(coolerPos) instanceof cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity cooler) {
-            cooler.setMirrored(mirrored);
-        }
-
         return validateBlocks(level, tailCasings, BlockState::is, NEBlocks.COMPUTATION_CASING);
     }
 

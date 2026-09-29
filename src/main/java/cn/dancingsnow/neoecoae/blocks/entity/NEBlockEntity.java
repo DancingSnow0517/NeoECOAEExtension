@@ -35,6 +35,8 @@ import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
     extends AENetworkedBlockEntity implements IAEMultiBlock<C> {
@@ -57,9 +59,41 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     @Getter
     protected final NEClusterCalculator<C> calculator;
 
+    /**
+     * Calculators chosen per block entity type instead of per block entity class.
+     *
+     * <p>An addon that registers its own {@link BlockEntityType} still has to use this mod's block entity
+     * classes, because AE2 files grid nodes under {@code owner.getClass()} and looks machines up by that
+     * exact key - so the only place left where an addon can reach the multiblock logic is the type, which
+     * it does own. Without this the addon has to replace the whole {@code verifyInternalStructure}, and
+     * every side effect that method grows later (mirrored flags, network switch state) is silently lost.
+     */
+    private static final Map<BlockEntityType<?>, NEClusterCalculator.Factory<?>> CALCULATOR_FACTORIES =
+        new ConcurrentHashMap<>();
+
+    /**
+     * Uses {@code factory} instead of this mod's own calculator for one block entity type. The factory is
+     * called with the block entity the same way the built-in one is, so implementations are free to
+     * subclass {@code NEComputationClusterCalculator} / {@code NECraftingClusterCalculator} and override
+     * only {@code verifyStructure}.
+     */
+    public static <C extends NECluster<C>> void registerCalculatorFactory(
+        BlockEntityType<?> type, NEClusterCalculator.Factory<C> factory) {
+        CALCULATOR_FACTORIES.put(type, factory);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <C extends NECluster<C>> NEClusterCalculator<C> createCalculator(
+        BlockEntityType<?> type, NEBlockEntity<C, ?> blockEntity, NEClusterCalculator.Factory<C> fallback) {
+        NEClusterCalculator.Factory<?> registered = CALCULATOR_FACTORIES.get(type);
+        NEClusterCalculator.Factory<C> factory =
+            registered == null ? fallback : (NEClusterCalculator.Factory<C>) registered;
+        return factory.create(blockEntity);
+    }
+
     public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {
         super(type, pos, blockState);
-        this.calculator = calculator.create(this);
+        this.calculator = createCalculator(type, this, calculator);
         getMainNode().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)
             .addService(IGridMultiblock.class, this::getMultiblockNodes);
         onGridConnectableSidesChanged();
