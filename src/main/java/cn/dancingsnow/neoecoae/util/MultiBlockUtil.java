@@ -4,6 +4,7 @@ import lombok.NoArgsConstructor;
 import net.minecraft.core.BlockPos;
 
 import java.util.Set;
+import java.util.List;
 
 @NoArgsConstructor
 public class MultiBlockUtil {
@@ -21,20 +22,20 @@ public class MultiBlockUtil {
     }
 
     private static Set<BlockPos> allXPossibleController(BlockPos min, BlockPos max) {
-        return Set.of(
+        return Set.copyOf(List.of(
             new BlockPos(min.getX() + 1, min.getY() + 1, min.getZ()),
             new BlockPos(min.getX() + 1, min.getY() + 1, min.getZ() + 1),
             new BlockPos(max.getX() - 1, min.getY() + 1, min.getZ()),
             new BlockPos(max.getX() - 1, min.getY() + 1, min.getZ() + 1)
-        );
+        ));
     }
 
     private static Set<BlockPos> allYPossibleController(BlockPos min, BlockPos max) {
-        return Set.of(
+        return Set.copyOf(List.of(
             new BlockPos(min.getX(), min.getY() + 1, min.getZ() + 1),
             new BlockPos(min.getX() + 1, min.getY() + 1, min.getZ() + 1),
             new BlockPos(min.getX(), min.getY() + 1, max.getZ() - 1),
             new BlockPos(min.getX() + 1, min.getY() + 1, max.getZ() - 1)
-        );
+        ));
     }
 }

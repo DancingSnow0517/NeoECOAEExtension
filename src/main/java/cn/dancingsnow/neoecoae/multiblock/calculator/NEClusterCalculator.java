@@ -280,6 +280,15 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         ));
     }
 
+    protected final <T extends NEBlockEntity<?, ?>> Optional<T> findCandidateController(
+        ServerLevel level, BlockPos min, BlockPos max, Class<T> controllerType
+    ) {
+        return findUnique(MultiBlockUtil.allPossibleController(min, max), pos -> {
+            BlockEntity candidate = level.getBlockEntity(pos);
+            return controllerType.isInstance(candidate) ? controllerType.cast(candidate) : null;
+        });
+    }
+
     static <T> Optional<T> findUnique(Iterable<BlockPos> positions, Function<BlockPos, T> finder) {
         T found = null;
         for (BlockPos pos : positions) {
