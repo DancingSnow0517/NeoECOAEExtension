@@ -1,6 +1,6 @@
 # Architecture reference for AI and maintainers
 
-> Snapshot: `21.2.0-beta4`, Minecraft `1.21.1`, NeoForge `21.1.233`, AE2 `19.2.17`. This document is deliberately explicit and redundant enough for an AI coding agent to choose the correct ownership boundary before editing code.
+> Snapshot: `21.2.0-beta4`, Minecraft `1.21.1`, NeoForge `21.1.233`, AE2 `19.2.18`. This document is deliberately explicit and redundant enough for an AI coding agent to choose the correct ownership boundary before editing code.
 
 ## 1. System purpose
 

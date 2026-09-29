@@ -22,7 +22,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(CPUSelectionList.class)
 public class CpuSelectionListMixin {
@@ -54,13 +53,15 @@ public class CpuSelectionListMixin {
         }
     }
 
-    @Inject(
-        method = "formatStorage",
-        at = @At("RETURN"),
-        cancellable = true
+    @WrapOperation(
+        method = "drawBackgroundLayer",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/core/localization/Tooltips;getByteAmount(J)Lappeng/core/localization/Tooltips$Amount;"
+        )
     )
-    private void onFormatStorage(CraftingStatusMenu.CraftingCpuListEntry cpu, CallbackInfoReturnable<String> cir) {
-        cir.setReturnValue(NEByteFormatter.formatCpuStorage(cpu.storage()));
+    private Tooltips.Amount wrapStorageAmount(long storage, Operation<Tooltips.Amount> original) {
+        return new Tooltips.Amount(NEByteFormatter.formatCpuStorage(storage), "");
     }
 
     @WrapOperation(
