@@ -505,10 +505,14 @@ public class ExecutingCraftingJob {
         }
 
         void accept(long count) {
-            if (count < 0 || BigInteger.valueOf(count).compareTo(remainingExact()) > 0)
+            accept(BigInteger.valueOf(count));
+        }
+
+        void accept(BigInteger count) {
+            if (count.signum() < 0 || count.compareTo(remainingExact()) > 0)
                 throw new IllegalArgumentException("Dispatch exceeds remaining task");
-            if (exactRemaining == null) value -= count;
-            else setExact(exactTotal, exactRemaining.subtract(BigInteger.valueOf(count)));
+            if (exactRemaining == null) value -= count.longValueExact();
+            else setExact(exactTotal, exactRemaining.subtract(count));
         }
     }
 

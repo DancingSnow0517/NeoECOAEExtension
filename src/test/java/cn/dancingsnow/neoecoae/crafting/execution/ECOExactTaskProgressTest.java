@@ -27,4 +27,14 @@ class ECOExactTaskProgressTest {
         assertEquals(0, restored.value);
         assertThrows(IllegalArgumentException.class, () -> restored.accept(1));
     }
+
+    @Test
+    void exactBatchCanCommitMoreThanLongMaxAtOnce() {
+        BigInteger total = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(9));
+        var progress = new ExecutingCraftingJob.TaskProgress();
+        progress.setExact(total, total);
+        progress.accept(total.subtract(BigInteger.ONE));
+        assertEquals(BigInteger.ONE, progress.remainingExact());
+        assertEquals(1L, progress.value);
+    }
 }

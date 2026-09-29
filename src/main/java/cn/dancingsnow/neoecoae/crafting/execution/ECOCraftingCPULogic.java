@@ -24,7 +24,8 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
+import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
+import cn.dancingsnow.neoecoae.api.me.ECOExactBatchProvider;
 import cn.dancingsnow.neoecoae.api.me.ECOPatternPushDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
@@ -34,6 +35,9 @@ import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOMissingCraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchEnergyLedger;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOExactBatchPlanner;
 import cn.dancingsnow.neoecoae.crafting.execution.bigorder.ECOBigCraftingOrders;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingExecutor;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
@@ -44,6 +48,8 @@ import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import com.google.common.base.Preconditions;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashSet;
@@ -94,6 +100,7 @@ public class ECOCraftingCPULogic {
     @Nullable private CraftingLink requesterLink;
 
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
+    private final ECOBatchEnergyLedger batchEnergy = new ECOBatchEnergyLedger(this::markCpuDirty);
     private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
     // Per-call result, consumed by tickCraftingLogic after each executeCrafting invocation.
     private int normalPushProbesThisPass;
@@ -210,6 +217,11 @@ public class ECOCraftingCPULogic {
             return;
         }
         cantStoreItems = false;
+        try {
+            batchEnergy.refundPending(eg);
+        } catch (RuntimeException failure) {
+            LOGGER.warn("Deferred crafting energy refund remains pending", failure);
+        }
         // 无任务时只需尝试清空物品。
         if (this.job == null) {
             this.storeItems();
@@ -396,7 +408,7 @@ public class ECOCraftingCPULogic {
                 : Math.max(MIN_NORMAL_PROBES_PER_TICK, ordinaryLimit);
         int totalPushed = 0;
         BitSet blockedOrderedPhases = new BitSet();
-        while (job == current) {
+        while (job == current && !current.suspended) {
             var candidates = current.executionRuntime == null
                     ? nativeDispatchCandidates(current)
                     : current.executionRuntime.candidates();
@@ -436,7 +448,8 @@ public class ECOCraftingCPULogic {
                             boolean eligible = (ordinaryLimit > 0
                                             && lastAcceptedNormalPushes < ordinaryLimit
                                             && normalPushProbesThisPass < probeLimit)
-                                    || providerCandidate instanceof ECOBatchCapacityProvider;
+                                    || ECOBatchCraftingExecutor.canBatch(providerCandidate)
+                                    || current.exactOrder && providerCandidate instanceof ECOExactBatchProvider;
                             return eligible;
                         });
                 if (providers.isEmpty()) {
@@ -460,61 +473,66 @@ public class ECOCraftingCPULogic {
                     long craftCount = 1L;
                     double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
                     double power = singlePower;
-                    var capacityProvider =
-                            provider instanceof ECOBatchCapacityProvider nativeProvider ? nativeProvider : null;
-                    var batch = capacityProvider != null
-                            ? ECOBatchCraftingExecutor.prepare(
-                                    capacityProvider,
-                                    pattern,
-                                    inputs,
-                                    outputs,
-                                    containers,
-                                    inventory,
-                                    allowedCount,
-                                    energyService,
-                                    level,
-                                    current.link.getCraftingID())
-                            : null;
-                    if (batch == null) {
-                        batch = ECOBatchCraftingExecutor.prepareGtlAutoExpand(
-                                provider,
-                                pattern,
-                                inputs,
-                                outputs,
-                                containers,
-                                inventory,
-                                allowedCount,
-                                energyService,
-                                level,
-                                current.link.getCraftingID());
+                    BigInteger exactAccepted = tryExactBatch(
+                            current,
+                            candidate,
+                            progress,
+                            provider,
+                            pattern,
+                            inputs,
+                            outputs,
+                            containers,
+                            energyService,
+                            level);
+                    if (current.suspended) break;
+                    if (exactAccepted != null) {
+                        if (exactAccepted.signum() > 0) {
+                            providerCursor.advanceAfter(pattern, provider);
+                            resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
+                            totalPushed = addPushed(totalPushed, exactAccepted);
+                            acceptedInPass = true;
+                            break;
+                        }
                     }
+                    var batch = ECOBatchCraftingExecutor.prepare(
+                            provider,
+                            pattern,
+                            inputs,
+                            outputs,
+                            containers,
+                            inventory,
+                            allowedCount,
+                            energyService,
+                            level,
+                            current.link.getCraftingID());
                     if (batch != null) {
                         craftCount = batch.craftCount();
                         {
                             power = batch.power();
-                            boolean acceptedBatch;
+                            ECOBatchAdmission admission;
                             try {
                                 providerCursor.advanceAfter(pattern, provider);
-                                acceptedBatch = batch.push(inventory);
+                                admission = batch.submit(inventory, energyService, batchEnergy);
                             } catch (ECOIndeterminateBatchException indeterminate) {
                                 providerCursor.suppressIndeterminate(provider);
                                 LOGGER.error(
                                         "Batch dispatch result is indeterminate; suppressing provider for this pass",
                                         indeterminate);
-                                acceptedBatch = false;
+                                current.suspended = true;
+                                markCpuDirty();
+                                break;
                             } catch (RuntimeException failure) {
                                 LOGGER.warn(
                                         "Atomic batch rejected; inputs restored, trying ordinary provider push",
                                         failure);
-                                acceptedBatch = false;
+                                admission = ECOBatchAdmission.rejected();
                             }
-                            if (acceptedBatch) {
-                                // Once accepted, the worker owns the inputs even if the energy service fails.
-                                chargeAcceptedEnergy(energyService, power);
-                                for (var output : batch.outputs()) {
+                            if (admission.status() == ECOBatchAdmission.Status.ACCEPTED) {
+                                craftCount = admission.acceptedCrafts();
+                                for (var output : batch.outputsForAccepted(craftCount)) {
                                     current.waitingFor.insert(output.what(), output.amount(), Actionable.MODULATE);
                                 }
-                                for (var remainder : batch.remainders()) {
+                                for (var remainder : batch.remaindersForAccepted(craftCount)) {
                                     current.waitingFor.insert(
                                             remainder.what(), remainder.amount(), Actionable.MODULATE);
                                     current.timeTracker.addMaxItems(
@@ -624,6 +642,93 @@ public class ECOCraftingCPULogic {
 
     private static int addPushed(int current, long accepted) {
         return (int) Math.min(Integer.MAX_VALUE, (long) current + Math.max(0L, accepted));
+    }
+
+    private static int addPushed(int current, BigInteger accepted) {
+        return (int) Math.min(
+                Integer.MAX_VALUE,
+                Math.min(
+                        (long) Integer.MAX_VALUE,
+                        (long) current
+                                + accepted.min(BigInteger.valueOf(Integer.MAX_VALUE))
+                                        .longValueExact()));
+    }
+
+    @Nullable private BigInteger tryExactBatch(
+            ExecutingCraftingJob current,
+            ECOExecutionRuntime.DispatchCandidate candidate,
+            ExecutingCraftingJob.TaskProgress progress,
+            ICraftingProvider provider,
+            IPatternDetails pattern,
+            KeyCounter[] inputs,
+            KeyCounter outputs,
+            KeyCounter containers,
+            IEnergyService energyService,
+            Level level) {
+        if (!current.exactOrder
+                || !(provider instanceof ECOExactBatchProvider exactProvider)
+                || !((ECOExactInventory) inventory).isEnabled()) return null;
+        BigInteger requested = progress.remainingExact();
+        if (current.executionRuntime != null) {
+            requested = requested.min(BigInteger.valueOf(candidate.maxDispatchCount()));
+        }
+        if (requested.signum() <= 0) return BigInteger.ZERO;
+        double unitPower = CraftingCpuHelper.calculatePatternPower(inputs);
+        if (!Double.isFinite(unitPower) || unitPower < 0.0D) return BigInteger.ZERO;
+        if (unitPower > 0.0D) {
+            BigDecimal desired = new BigDecimal(unitPower).multiply(new BigDecimal(requested));
+            double offered = Math.min(Double.MAX_VALUE, desired.doubleValue());
+            double available = energyService.extractAEPower(offered, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+            if (!Double.isFinite(available) || available <= 0.0D) return BigInteger.ZERO;
+            requested = requested.min(new BigDecimal(available)
+                    .divideToIntegralValue(new BigDecimal(unitPower))
+                    .toBigInteger());
+        }
+        if (requested.signum() <= 0) return BigInteger.ZERO;
+        var context = ECOBatchDispatchContext.create(
+                pattern, inputs, outputs, containers, level, current.link.getCraftingID());
+        ECOExactBatchPlanner.PreparedBatch batch;
+        try {
+            batch = ECOExactBatchPlanner.prepare(
+                    exactProvider, context, (ECOExactInventory) inventory, requested, Map.of());
+        } catch (RuntimeException failure) {
+            LOGGER.debug("Exact batch preparation unavailable", failure);
+            return BigInteger.ZERO;
+        }
+        if (batch == null) return BigInteger.ZERO;
+        var energy = batchEnergy.reserve(energyService, unitPower, batch.craftCount());
+        if (energy == null) return BigInteger.ZERO;
+        ECOBatchAdmission admission;
+        try {
+            admission = batch.submit(energy);
+        } catch (ECOIndeterminateBatchException failure) {
+            providerCursor.suppressIndeterminate(provider);
+            current.suspended = true;
+            markCpuDirty();
+            LOGGER.error("Exact batch ownership is uncertain; job suspended", failure);
+            return BigInteger.ZERO;
+        }
+        if (admission.status() != ECOBatchAdmission.Status.ACCEPTED) return BigInteger.ZERO;
+        try {
+            ((ECOExactInventory) current.waitingFor).restore(batch.outputs());
+            ((ECOExactInventory) current.waitingFor).restore(batch.remainders());
+            progress.accept(batch.craftCount());
+            if (current.executionRuntime != null
+                    && batch.craftCount().compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0) {
+                current.executionRuntime.onAccepted(
+                        candidate, batch.craftCount().longValueExact(), inputs);
+            } else if (current.executionRuntime != null) {
+                throw new IllegalStateException("Exact runtime cannot represent a wide batch");
+            }
+            for (var output : pattern.getOutputs()) postChange(output.what());
+            markCpuDirty();
+        } catch (RuntimeException failure) {
+            current.suspended = true;
+            markCpuDirty();
+            LOGGER.error("Accepted exact batch could not be accounted; job suspended", failure);
+            return BigInteger.ZERO;
+        }
+        return batch.craftCount();
     }
 
     private void clearProviderDiagnostics(ICraftingProvider provider) {
@@ -835,6 +940,7 @@ public class ECOCraftingCPULogic {
     }
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
+        batchEnergy.readFromNBT(data);
         providerCursor.clear();
         resumeDispatchPattern = null;
         dispatchStrategy.reset();
@@ -862,6 +968,7 @@ public class ECOCraftingCPULogic {
     }
 
     public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
+        batchEnergy.writeToNBT(data);
         data.put("inventory", this.inventory.writeToNBT());
         if (this.job != null) {
             data.put("job", this.job.writeToNBT(registries));

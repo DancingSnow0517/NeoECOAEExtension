@@ -12,8 +12,10 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -276,6 +278,38 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         boolean accepted = thread.pushBatch(verified, controller);
         if (accepted) {
             refreshDisplayedJob();
+        }
+        return accepted;
+    }
+
+    public boolean pushExactVirtualBatch(ECOVerifiedFastPathRecipe recipe, BigInteger count, UUID job) {
+        if (recipe == null
+                || count == null
+                || count.signum() <= 0
+                || job == null
+                || !NEConfig.ecoAe2FastPathEnabled
+                || NEConfig.postCraftingEvent
+                || cluster == null
+                || cluster.getController() == null
+                || isWorking()) return false;
+        ECOCraftingSystemBlockEntity controller = cluster.getController();
+        if (!controller.isFullVirtualCraftingMode() || !recipe.isIssuedBy(getFastPathCache())) return false;
+        for (int index = 0; index < craftingThreads.size(); index++) {
+            ECOCraftingThread thread = craftingThreads.get(index);
+            if (thread.isFree() && thread.pushExactVirtualBatch(recipe, count, job, controller)) {
+                nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
+                refreshDisplayedJob();
+                return true;
+            }
+        }
+        if (craftingThreads.size() >= controller.getThreadCountPerWorker()) return false;
+        ECOCraftingThread thread = new ECOCraftingThread(this);
+        craftingThreads.add(thread);
+        boolean accepted = thread.pushExactVirtualBatch(recipe, count, job, controller);
+        if (accepted) {
+            refreshDisplayedJob();
+            setChanged();
+            markForUpdate();
         }
         return accepted;
     }

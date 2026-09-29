@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
+import cn.dancingsnow.neoecoae.api.me.ECOExactBatchProvider;
 import cn.dancingsnow.neoecoae.api.me.ECOStatefulBatchProvider;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -56,6 +57,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 PatternContainer,
                 IECOPatternStorage,
                 ECOStatefulBatchProvider,
+                ECOExactBatchProvider,
                 NEBlockEntityUIHolder {
 
     public static final int ROW_SIZE = 9;
@@ -236,6 +238,21 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         }
         var verified = offer.recipe().withBatch((int) craftCount, context.craftingJobId());
         return verified != null && offer.worker().pushBatch(verified);
+    }
+
+    @Override
+    public @Nullable ExactPreparation eco$prepareExactBatch(
+            ECOBatchDispatchContext context, java.math.BigInteger requested) {
+        if (requested == null || requested.signum() <= 0 || context.craftingJobId() == null) return null;
+        BatchFastPathOffer offer = findBatchFastPathOffer(context, 1L);
+        if (offer == null
+                || offer.recipe().reusableStateModel() != null
+                || offer.recipe().durabilityModel() != null
+                || !offer.recipe().batchSafe()) return null;
+        var controller = offer.worker().getCluster().getController();
+        if (controller == null || !controller.isFullVirtualCraftingMode()) return null;
+        return new ExactPreparation(requested, () -> offer.worker()
+                .pushExactVirtualBatch(offer.recipe(), requested, context.craftingJobId()));
     }
 
     @Override

@@ -227,6 +227,7 @@ dependencies {
     testImplementation fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
     testImplementation fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
     testImplementation "io.github.llamalad7:mixinextras-common:${mixinextras_version}"
+    testImplementation "org.mockito:mockito-core:5.18.0"
 
     compileOnly fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
     jarJar(fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")) {

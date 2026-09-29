@@ -289,6 +289,22 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return acceptBatch(work, controller);
     }
 
+    public boolean pushExactVirtualBatch(
+            ECOVerifiedFastPathRecipe recipe, BigInteger count, UUID job, ECOCraftingSystemBlockEntity controller) {
+        if (count.signum() <= 0
+                || job == null
+                || recipe.reusableStateModel() != null
+                || recipe.durabilityModel() != null) return false;
+        ECOExactVirtualLedger ledger = new ECOExactVirtualLedger(
+                count, recipe.inputsPerCraft(), recipe.outputsPerCraft(), recipe.remainingPerCraft());
+        ECOVerifiedVirtualExecution unit = recipe.withVirtualBatch(1L, job);
+        if (unit == null || !pushVirtualBatch(unit, controller)) return false;
+        exactVirtual = ledger;
+        craftCount = count.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+        setChanged();
+        return true;
+    }
+
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified, ECOCraftingSystemBlockEntity controller) {
         if (isBusy || !controller.isFullVirtualCraftingMode()) {
             return false;
