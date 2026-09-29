@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 
 public final class NECommands {
     private NECommands() {}
@@ -95,7 +96,7 @@ public final class NECommands {
         }
         Set<NEComputationCluster> clusters = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         for (IGrid grid : grids) {
-            for (ECOComputationSystemBlockEntity host : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
+            for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
                 if (host.getCluster() != null) {
                     clusters.add(host.getCluster());
                 }
