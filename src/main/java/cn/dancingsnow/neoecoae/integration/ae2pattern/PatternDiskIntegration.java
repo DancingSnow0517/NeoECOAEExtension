@@ -45,9 +45,11 @@ public class PatternDiskIntegration {
     /**
      * The api entry points this integration needs, each with its parameter count.
      *
-     * <p>{@code removeAt} is in the list as a version floor rather than a call site: it arrived with the newest
-     * revision of this api, and any build that has it has the shapes the other entries are checked for. The rest
-     * are the methods this integration actually calls.</p>
+     * <p>{@code maxPatterns} and {@code removeAt} are version floors rather than call sites - this integration
+     * calls neither. {@code maxPatterns} arrived with revision 9 (0.7.1) and stands for the revision this
+     * integration is meant to pair with; {@code removeAt} arrived with revision 7 and stays for the same reason.
+     * Naming the newest entry point as the floor means a build too old to have it is refused before anything
+     * else is even asked.</p>
      *
      * <p>Checked by name and arity rather than by constant: the version is inlined by javac, and a build new
      * enough for one method says nothing about the others. Arity catches an entry point being replaced by one
@@ -61,7 +63,8 @@ public class PatternDiskIntegration {
             "canAccept", 3,
             "insert", 4,
             "terminalView", 5,
-            "registerDiskHost", 1
+            "registerDiskHost", 1,
+            "maxPatterns", 1
     );
 
     public void apply() {
@@ -72,7 +75,7 @@ public class PatternDiskIntegration {
         if (missing != null) {
             LOGGER.warn(
                     "[NEO ECO] AE2 Pattern Disk is present but its api has no {}(); the pattern-disk integration "
-                            + "stands down. This build needs a newer AE2 Pattern Disk.",
+                            + "stands down. This build needs AE2 Pattern Disk 0.7.1 or newer.",
                     missing);
             return;
         }
