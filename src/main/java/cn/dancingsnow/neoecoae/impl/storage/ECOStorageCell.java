@@ -19,7 +19,6 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
@@ -320,13 +319,19 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
             }
         }
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
-        java.math.BigInteger usedBytes = StorageByteAccounting.usedBytes(storedTypes,
-                java.math.BigInteger.valueOf(storedItemCount), amountPerByte, getBytesPerType());
-        long freeBytes = java.math.BigInteger.valueOf(getTotalBytes()).subtract(usedBytes)
-                .max(java.math.BigInteger.ZERO).longValue();
+        java.math.BigInteger usedBytes = StorageByteAccounting.usedBytes(
+                storedTypes, java.math.BigInteger.valueOf(storedItemCount), amountPerByte, getBytesPerType());
+        long freeBytes = java.math.BigInteger.valueOf(getTotalBytes())
+                .subtract(usedBytes)
+                .max(java.math.BigInteger.ZERO)
+                .longValue();
         long remainingItemCount = StorageByteAccounting.remainingForCell(
-                getTotalBytes(), storedTypes, java.math.BigInteger.valueOf(storedItemCount),
-                currentAmount, amountPerByte, getBytesPerType());
+                getTotalBytes(),
+                storedTypes,
+                java.math.BigInteger.valueOf(storedItemCount),
+                currentAmount,
+                amountPerByte,
+                getBytesPerType());
         long remainingTypes = Math.min(
                 getTotalItemTypes() - Math.min(getTotalItemTypes(), storedTypes),
                 getBytesPerType() <= 0 ? 0L : freeBytes / getBytesPerType());
@@ -344,8 +349,8 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     @Override
-    public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents,
-                                            long simulatedTypes, long simulatedAmount) {
+    public long simulateInsertForMigration(
+            AEKey what, long amount, KeyCounter simulatedContents, long simulatedTypes, long simulatedAmount) {
         if (simulatedContents == null) return 0L;
         return simulateInsertForMigration(what, amount, simulatedContents);
     }
@@ -363,8 +368,10 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
             }
         }
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
-        return StorageByteAccounting.usedBytes(storedTypes, java.math.BigInteger.valueOf(storedItemCount),
-                amountPerByte, getBytesPerType()).min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+        return StorageByteAccounting.usedBytes(
+                        storedTypes, java.math.BigInteger.valueOf(storedItemCount), amountPerByte, getBytesPerType())
+                .min(java.math.BigInteger.valueOf(Long.MAX_VALUE))
+                .longValue();
     }
 
     @Override
@@ -448,8 +455,12 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
             return 0;
         }
         long remainingItemCount = StorageByteAccounting.remainingForCell(
-                getTotalBytes(), getStoredItemTypes(), backend.getStoredAmount().toBigInteger(),
-                currentAmount, keyType.getAmountPerByte(), getBytesPerType());
+                getTotalBytes(),
+                getStoredItemTypes(),
+                backend.getStoredAmount().toBigInteger(),
+                currentAmount,
+                keyType.getAmountPerByte(),
+                getBytesPerType());
 
         if (currentAmount <= 0) {
             if (getRemainingItemTypes() <= 0) {

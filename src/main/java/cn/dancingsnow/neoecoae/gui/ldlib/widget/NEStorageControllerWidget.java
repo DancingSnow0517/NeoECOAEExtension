@@ -154,7 +154,8 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         if (isMouseIn(FAULT_ICON_X, FAULT_ICON_Y, 10, 12, mouseX, mouseY)
                 && currentState().faultCount() > 0) {
             java.util.ArrayList<Component> lines = new java.util.ArrayList<>();
-            lines.add(Component.translatable("gui.neoecoae.storage.fault_count", currentState().faultCount()));
+            lines.add(Component.translatable(
+                    "gui.neoecoae.storage.fault_count", currentState().faultCount()));
             lines.add(Component.literal(currentState().firstFaultReason()));
             lines.add(Component.translatable("gui.neoecoae.storage.fault_log"));
             graphics.renderComponentTooltip(font(), lines, mouseX, mouseY);

@@ -102,7 +102,8 @@ class ECOExactStoragePayloadTest {
         AEKey key = new TestKey();
         var finite = Map.of(key, ExactAmount.finite(BigInteger.ONE.shiftLeft(100)));
         var infinite = Map.of(key, ExactAmount.unbounded());
-        assertEquals(infinite, ECOExactStoragePayload.difference(finite, infinite).apply(finite));
+        assertEquals(
+                infinite, ECOExactStoragePayload.difference(finite, infinite).apply(finite));
     }
 
     @Test

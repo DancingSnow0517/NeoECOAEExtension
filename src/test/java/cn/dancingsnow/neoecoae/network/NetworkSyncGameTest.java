@@ -6,10 +6,10 @@ import appeng.api.stacks.KeyCounter;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingCpuMenuBridge;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.crafting.execution.ElapsedTimeTracker;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import io.netty.buffer.Unpooled;
 import java.math.BigInteger;
@@ -53,7 +53,8 @@ public final class NetworkSyncGameTest {
         var buffer = new FriendlyByteBuf(Unpooled.wrappedBuffer(complete));
         try {
             var result = ECOExactStoragePayload.decode(buffer).apply(Map.of());
-            helper.assertTrue(result.get(key).equals(ExactAmount.finite(amount)), "real NBT key or exact amount was corrupted");
+            helper.assertTrue(
+                    result.get(key).equals(ExactAmount.finite(amount)), "real NBT key or exact amount was corrupted");
             var removal = ECOExactStoragePayload.difference(result, Map.of());
             helper.assertTrue(removal.apply(result).isEmpty(), "stale exact override remains after removal");
         } finally {

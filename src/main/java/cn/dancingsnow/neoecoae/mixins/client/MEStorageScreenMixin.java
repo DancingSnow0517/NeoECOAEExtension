@@ -67,12 +67,18 @@ public abstract class MEStorageScreenMixin {
      * creative/unbounded entries whose projected long is saturated. */
     @ModifyExpressionValue(
             method = "renderGridInventoryEntryTooltip",
-            at = @At(value = "INVOKE", target = "Lappeng/api/stacks/AEKey;formatAmount(JLappeng/api/stacks/AmountFormat;)Ljava/lang/String;"),
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/api/stacks/AEKey;formatAmount(JLappeng/api/stacks/AmountFormat;)Ljava/lang/String;"),
             require = 0,
             allow = 1,
             remap = false)
     private String neoecoae$exactRequestableTooltip(String original, @Local(argsOnly = true) GridInventoryEntry entry) {
         ExactAmount amount = neoecoae$exact(entry);
-        return amount == null ? original : ExactAmountFormatter.full(amount, entry.getWhat().getAmountPerUnit());
+        return amount == null
+                ? original
+                : ExactAmountFormatter.full(amount, entry.getWhat().getAmountPerUnit());
     }
 }

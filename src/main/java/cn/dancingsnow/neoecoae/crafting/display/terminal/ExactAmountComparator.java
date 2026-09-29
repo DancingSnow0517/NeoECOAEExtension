@@ -21,7 +21,8 @@ public final class ExactAmountComparator {
         ExactAmount leftExact = amounts.get(left.getWhat());
         ExactAmount rightExact = amounts.get(right.getWhat());
         if (leftExact != null && leftExact.infinite() || rightExact != null && rightExact.infinite()) {
-            return Boolean.compare(leftExact != null && leftExact.infinite(), rightExact != null && rightExact.infinite());
+            return Boolean.compare(
+                    leftExact != null && leftExact.infinite(), rightExact != null && rightExact.infinite());
         }
         int leftUnit = left.getWhat().getAmountPerUnit();
         int rightUnit = right.getWhat().getAmountPerUnit();

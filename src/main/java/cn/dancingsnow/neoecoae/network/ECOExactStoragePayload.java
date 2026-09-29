@@ -58,8 +58,9 @@ public record ECOExactStoragePayload(boolean reset, Map<AEKey, ExactAmount> amou
             AEKey key = AEKey.readKey(buffer);
             boolean infinite = buffer.readBoolean();
             BigInteger amount = new BigInteger(buffer.readByteArray(MAX_INTEGER_BYTES));
-            if (key == null || amount.signum() < 0 || amounts.put(key,
-                    infinite ? ExactAmount.unbounded() : ExactAmount.finite(amount)) != null)
+            if (key == null
+                    || amount.signum() < 0
+                    || amounts.put(key, infinite ? ExactAmount.unbounded() : ExactAmount.finite(amount)) != null)
                 throw new IllegalArgumentException("Invalid exact inventory entry");
         }
         return new ECOExactStoragePayload(reset, amounts);

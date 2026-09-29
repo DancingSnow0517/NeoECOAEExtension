@@ -154,25 +154,44 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
 
     @WrapOperation(
             method = "extract",
-            at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;extract(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J"),
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/api/storage/MEStorage;extract(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J"),
             require = 1)
-    private long neoecoae$filterTransferSource(MEStorage storage, AEKey key, long amount,
-            Actionable mode, IActionSource source, Operation<Long> original) {
+    private long neoecoae$filterTransferSource(
+            MEStorage storage,
+            AEKey key,
+            long amount,
+            Actionable mode,
+            IActionSource source,
+            Operation<Long> original) {
         if (StorageExtractionExclusions.contains(storage)) return 0L;
-        return ECOCreativeExtractionFilter.extractSource(storage, key, mode,
-                () -> original.call(storage, key, amount, mode, source));
+        return ECOCreativeExtractionFilter.extractSource(
+                storage, key, mode, () -> original.call(storage, key, amount, mode, source));
     }
 
     @WrapOperation(
             method = "insert",
-            at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;insert(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J"),
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/api/storage/MEStorage;insert(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J"),
             require = 1)
-    private long neoecoae$avoidTransferDestination(MEStorage storage, AEKey key, long amount,
-            Actionable mode, IActionSource source, Operation<Long> original) {
+    private long neoecoae$avoidTransferDestination(
+            MEStorage storage,
+            AEKey key,
+            long amount,
+            Actionable mode,
+            IActionSource source,
+            Operation<Long> original) {
         return StorageExtractionExclusions.contains(storage)
                         || ECOCreativeExtractionFilter.isActive()
                                 && ECOCreativeExtractionFilter.isKnownUnbounded(storage)
-                ? 0L : original.call(storage, key, amount, mode, source);
+                ? 0L
+                : original.call(storage, key, amount, mode, source);
     }
 
     @WrapOperation(

@@ -72,7 +72,8 @@ class ECOExactInventoryTest {
     void ordinaryMountedCellsGetExactAggregateWhenTheirSumExceedsLong() {
         AEKey key = new TestKey();
         var network = new Network(List.of(storage(key, Long.MAX_VALUE), storage(key, 25)));
-        assertEquals(ExactAmount.finite(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(25))),
+        assertEquals(
+                ExactAmount.finite(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(25))),
                 exactAmounts(network).get(key));
     }
 
@@ -85,9 +86,12 @@ class ECOExactInventoryTest {
         MEStorage ordinary = storage(ordinaryKey, Long.MAX_VALUE);
         var nested = new Network(List.of(new Network(List.of(eco, ordinary)), storage(ecoKey, 64), ordinary));
         var listing = ExactAmountCollector.collect(nested, nested::getAvailableStacks);
-        assertEquals(Map.of(
-                ecoKey, ExactAmount.finite(amount.add(BigInteger.valueOf(64))),
-                ordinaryKey, ExactAmount.finite(BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TWO))),
+        assertEquals(
+                Map.of(
+                        ecoKey, ExactAmount.finite(amount.add(BigInteger.valueOf(64))),
+                        ordinaryKey,
+                                ExactAmount.finite(
+                                        BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TWO))),
                 listing.amounts());
         assertEquals(Long.MAX_VALUE, listing.stacks().get(ecoKey));
         assertEquals(Long.MAX_VALUE, listing.stacks().get(ordinaryKey));
@@ -131,7 +135,8 @@ class ECOExactInventoryTest {
                     throw new IllegalStateException("listing failed");
                 }));
         assertTrue(exactAmounts(storage(key, Long.MAX_VALUE)).isEmpty());
-        assertEquals(ExactAmount.finite(BigInteger.TEN.pow(30)), exactAmounts(eco).get(key));
+        assertEquals(
+                ExactAmount.finite(BigInteger.TEN.pow(30)), exactAmounts(eco).get(key));
     }
 
     private static Map<AEKey, ExactAmount> exactAmounts(MEStorage storage) {

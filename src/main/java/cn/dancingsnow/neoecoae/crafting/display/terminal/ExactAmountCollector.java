@@ -28,8 +28,9 @@ public final class ExactAmountCollector {
         try {
             KeyCounter stacks = listing.get();
             Map<AEKey, ExactAmount> exact = resolve(storage, stacks, state);
-            exact.entrySet().removeIf(entry -> !entry.getValue().infinite()
-                    && entry.getValue().value().compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0);
+            exact.entrySet()
+                    .removeIf(entry -> !entry.getValue().infinite()
+                            && entry.getValue().value().compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0);
             return new Listing(stacks, Map.copyOf(exact));
         } finally {
             if (previous == null) ACTIVE.remove();
@@ -61,7 +62,9 @@ public final class ExactAmountCollector {
                 ExactAmount amount = exact.get(key);
                 if (amount != null) parent.exactKeys.add(key);
                 parent.totals.merge(
-                        key, amount != null ? amount : ExactAmount.finite(BigInteger.valueOf(entry.getLongValue())), ExactAmount::add);
+                        key,
+                        amount != null ? amount : ExactAmount.finite(BigInteger.valueOf(entry.getLongValue())),
+                        ExactAmount::add);
             }
         } finally {
             ACTIVE.set(parent);
@@ -77,8 +80,8 @@ public final class ExactAmountCollector {
                 ExactAmount amount = source.neoecoae$getDisplayAmount(key);
                 if (amount != null && (amount.infinite() || amount.value().signum() > 0)) result.put(key, amount);
             } else if (state.exactKeys.contains(key)
-                    || state.totals.containsKey(key) && state.totals.get(key).value()
-                            .compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+                    || state.totals.containsKey(key)
+                            && state.totals.get(key).value().compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
                 result.put(key, state.totals.get(key));
             }
         }

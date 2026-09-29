@@ -21,10 +21,10 @@ public final class ItemModelUtil {
     }
 
     /** Untiered matrix: housing plus the AE2 status light, with no level overlay. */
-    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelProvider> infiniteCellModel(
-            String housing) {
-        return (ctx, prov) -> prov.generated(
-                ctx::get, prov.modLoc("item/" + housing), prov.modLoc("item/eco_cell_status_light"));
+    public static <T extends Item>
+            NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelProvider> infiniteCellModel(String housing) {
+        return (ctx, prov) ->
+                prov.generated(ctx::get, prov.modLoc("item/" + housing), prov.modLoc("item/eco_cell_status_light"));
     }
 
     public static <T extends Item>

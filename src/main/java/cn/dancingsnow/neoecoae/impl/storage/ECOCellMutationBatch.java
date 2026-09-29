@@ -13,8 +13,15 @@ public final class ECOCellMutationBatch implements AutoCloseable {
     private final Set<ECOStorageCell> changed = new LinkedHashSet<>();
     private boolean closed;
 
-    private ECOCellMutationBatch() { parent = ACTIVE.get(); ACTIVE.set(this); }
-    public static ECOCellMutationBatch open() { return new ECOCellMutationBatch(); }
+    private ECOCellMutationBatch() {
+        parent = ACTIVE.get();
+        ACTIVE.set(this);
+    }
+
+    public static ECOCellMutationBatch open() {
+        return new ECOCellMutationBatch();
+    }
+
     static boolean defer(ECOStorageCell cell) {
         ECOCellMutationBatch batch = ACTIVE.get();
         if (batch == null) return false;
@@ -22,7 +29,8 @@ public final class ECOCellMutationBatch implements AutoCloseable {
         return true;
     }
 
-    @Override public void close() {
+    @Override
+    public void close() {
         if (closed) return;
         closed = true;
         if (parent != null) {
@@ -42,11 +50,14 @@ public final class ECOCellMutationBatch implements AutoCloseable {
             flush(cell);
         }
     }
+
     public static void drainRetries() {
         for (ECOStorageCell cell : new ArrayList<>(RETRY)) flush(cell);
-        if (!RETRY.isEmpty()) LoggerFactory.getLogger(ECOCellMutationBatch.class)
-                .error("{} ECO cell save callback(s) still failed at server shutdown", RETRY.size());
+        if (!RETRY.isEmpty())
+            LoggerFactory.getLogger(ECOCellMutationBatch.class)
+                    .error("{} ECO cell save callback(s) still failed at server shutdown", RETRY.size());
     }
+
     public static void clearThreadState() {
         ECOCellMutationBatch batch = ACTIVE.get();
         ACTIVE.remove();
@@ -59,6 +70,7 @@ public final class ECOCellMutationBatch implements AutoCloseable {
         }
         pending.forEach(ECOCellMutationBatch::flush);
     }
+
     public static void assertClean() {
         if (ACTIVE.get() != null) throw new IllegalStateException("ECOCellMutationBatch scope leaked across a tick");
     }
@@ -68,8 +80,9 @@ public final class ECOCellMutationBatch implements AutoCloseable {
             cell.flushBatchedChanges();
             RETRY.remove(cell);
         } catch (RuntimeException failure) {
-            if (RETRY.add(cell)) LoggerFactory.getLogger(ECOCellMutationBatch.class)
-                    .error("ECO cell host save failed; contents retained for retry", failure);
+            if (RETRY.add(cell))
+                LoggerFactory.getLogger(ECOCellMutationBatch.class)
+                        .error("ECO cell host save failed; contents retained for retry", failure);
         }
     }
 }

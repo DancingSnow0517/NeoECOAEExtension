@@ -39,14 +39,13 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
 import cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStoragePaging;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
-import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
 import cn.dancingsnow.neoecoae.impl.storage.StorageFaults;
 import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
-import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteDomainState;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -54,6 +53,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
@@ -99,7 +99,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private final ECOIOPortTransfer ioPortTransfer = new ECOIOPortTransfer();
     private final StorageFaults storageFaults = new StorageFaults();
 
-    public List<StorageFaults.Fault> storageFailures() { return storageFaults.snapshot(); }
+    public List<StorageFaults.Fault> storageFailures() {
+        return storageFaults.snapshot();
+    }
+
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int LEGACY_INFINITE_MEMBER_REQUIRED = 16;
     private static final int INFINITE_MEMBER_REQUIRED = 12;
@@ -354,8 +357,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     transferred = transferStorageInterfaceContents();
                     storageFaults.recovered("transfer");
                 } catch (RuntimeException failure) {
-                    storageFaults.report("transfer", failure.getMessage(),
-                            level == null ? 0L : level.getGameTime(), failure);
+                    storageFaults.report(
+                            "transfer", failure.getMessage(), level == null ? 0L : level.getGameTime(), failure);
                     transferred = 0L;
                 }
             }
@@ -1505,7 +1508,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 engine == null || engine.isEmpty(),
                 getInfiniteDomainStateForUi(engine),
                 storageFaults.snapshot().size(),
-                storageFaults.snapshot().isEmpty() ? "" : storageFaults.snapshot().get(0).reason());
+                storageFaults.snapshot().isEmpty()
+                        ? ""
+                        : storageFaults.snapshot().get(0).reason());
     }
 
     private long networkEnergyUsage() {
@@ -1808,14 +1813,21 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private long transferStorageInterfaceContents() {
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
-        if (!formed || cluster == null || storageInterface == null
-                || !storageInterface.isStorageTransferMode() || !storageInterface.isTargetOnline()) return 0L;
+        if (!formed
+                || cluster == null
+                || storageInterface == null
+                || !storageInterface.isStorageTransferMode()
+                || !storageInterface.isTargetOnline()) return 0L;
         var grid = storageInterface.getMainNode().getGrid();
         if (grid == null) return 0L;
         MEStorage local = getStorageInterfaceHostStorage();
         if (local == null) return 0L;
-        long moved = ioPortTransfer.transfer(grid, local, storageInterface.isStorageInputMode(),
-                !storageInterface.allowsInfiniteStorageImport(), IActionSource.ofMachine(storageInterface));
+        long moved = ioPortTransfer.transfer(
+                grid,
+                local,
+                storageInterface.isStorageInputMode(),
+                !storageInterface.allowsInfiniteStorageImport(),
+                IActionSource.ofMachine(storageInterface));
         if (moved > 0L) {
             markStorageStatsDirty();
             setChanged();
@@ -1850,9 +1862,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private record CombinedStorage(List<MEStorage> inventories)
             implements MEStorage, ECOIOPortTransfer.HostInventories {
-        CombinedStorage { inventories = List.copyOf(inventories); }
+        CombinedStorage {
+            inventories = List.copyOf(inventories);
+        }
 
-        @Override public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
+        @Override
+        public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
             long inserted = 0L;
             for (int pass = 0; pass < 2 && inserted < amount; pass++) {
                 for (MEStorage inventory : inventories) {
@@ -1865,7 +1880,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return inserted;
         }
 
-        @Override public long extract(AEKey key, long amount, Actionable mode, IActionSource source) {
+        @Override
+        public long extract(AEKey key, long amount, Actionable mode, IActionSource source) {
             long extracted = 0L;
             for (MEStorage inventory : inventories) {
                 if (extracted >= amount) break;
@@ -1874,7 +1890,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return extracted;
         }
 
-        @Override public void getAvailableStacks(KeyCounter out) {
+        @Override
+        public void getAvailableStacks(KeyCounter out) {
             for (MEStorage inventory : inventories) {
                 KeyCounter contribution = new KeyCounter();
                 inventory.getAvailableStacks(contribution);
@@ -1882,7 +1899,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
 
-        @Override public Component getDescription() { return Component.literal("ECO storage host"); }
+        @Override
+        public Component getDescription() {
+            return Component.literal("ECO storage host");
+        }
     }
 
     private void requestProviderUpdates() {
@@ -1944,7 +1964,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         var reg = NERegistries.cellTypeRegistry();
         return Math.max(reg != null ? reg.size() : 1, 1);
     }
-
 
     private static long saturatedAdd(long left, long right) {
         return LongMath.saturatedAdd(left, right);

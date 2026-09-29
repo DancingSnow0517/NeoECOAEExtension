@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.crafting.display.format;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.math.BigInteger;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import java.math.BigInteger;
 import org.junit.jupiter.api.Test;
 
 class ExactAmountFormatterTest {

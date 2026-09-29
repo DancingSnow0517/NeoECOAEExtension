@@ -19,7 +19,9 @@ public final class BigNumberFormatter {
         BigDecimal scaled = value.movePointLeft(group * 3);
         int integerDigits = Math.max(1, scaled.precision() - scaled.scale());
         int decimals = Math.max(0, SIGNIFICANT_DIGITS - integerDigits);
-        String mantissa = scaled.setScale(decimals, RoundingMode.DOWN).stripTrailingZeros().toPlainString();
+        String mantissa = scaled.setScale(decimals, RoundingMode.DOWN)
+                .stripTrailingZeros()
+                .toPlainString();
         // Keep the established AE2 suffixes for quantities beyond the vanilla range.
         String suffix = group < UNITS.length ? UNITS[group] : "×10^" + (group * 3);
         return mantissa + suffix;
@@ -49,7 +51,8 @@ public final class BigNumberFormatter {
 
     private static BigDecimal units(BigInteger amount, int amountPerUnit) {
         BigInteger safe = amount == null || amount.signum() < 0 ? BigInteger.ZERO : amount;
-        return new BigDecimal(safe).divide(BigDecimal.valueOf(Math.max(1, amountPerUnit)), 12, RoundingMode.DOWN)
+        return new BigDecimal(safe)
+                .divide(BigDecimal.valueOf(Math.max(1, amountPerUnit)), 12, RoundingMode.DOWN)
                 .stripTrailingZeros();
     }
 }

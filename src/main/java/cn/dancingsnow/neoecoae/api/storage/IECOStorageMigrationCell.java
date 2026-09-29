@@ -18,7 +18,9 @@ public interface IECOStorageMigrationCell extends IECOStorageCell {
         return contents.get(key);
     }
 
-    default void persistMigrationContents(ServerLevel level) { persist(); }
+    default void persistMigrationContents(ServerLevel level) {
+        persist();
+    }
 
     default Iterator<Object2LongMap.Entry<AEKey>> migrationEntries() {
         KeyCounter contents = new KeyCounter();
@@ -30,8 +32,8 @@ public interface IECOStorageMigrationCell extends IECOStorageCell {
 
     long insertForMigration(AEKey what, long amount, Actionable mode, IActionSource source);
 
-    long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents,
-                                    long simulatedTypes, long simulatedAmount);
+    long simulateInsertForMigration(
+            AEKey what, long amount, KeyCounter simulatedContents, long simulatedTypes, long simulatedAmount);
 
     long getUsedBytesForMigration(KeyCounter simulatedContents);
 }

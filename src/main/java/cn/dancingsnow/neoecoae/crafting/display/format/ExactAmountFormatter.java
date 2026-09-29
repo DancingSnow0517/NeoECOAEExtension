@@ -31,6 +31,11 @@ public final class ExactAmountFormatter {
         return full(amount, 1);
     }
 
-    public static String full(BigInteger amount, int amountPerUnit) { return BigNumberFormatter.formatTooltip(amount, amountPerUnit); }
-    public static String compact(BigInteger amount, int amountPerUnit) { return BigNumberFormatter.formatSI(amount, amountPerUnit); }
+    public static String full(BigInteger amount, int amountPerUnit) {
+        return BigNumberFormatter.formatTooltip(amount, amountPerUnit);
+    }
+
+    public static String compact(BigInteger amount, int amountPerUnit) {
+        return BigNumberFormatter.formatSI(amount, amountPerUnit);
+    }
 }

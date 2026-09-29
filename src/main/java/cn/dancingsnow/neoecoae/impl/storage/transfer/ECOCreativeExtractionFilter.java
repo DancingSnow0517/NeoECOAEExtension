@@ -27,16 +27,23 @@ public final class ECOCreativeExtractionFilter {
         }
     }
 
-    public static boolean isActive() { return ACTIVE.get() != null; }
+    public static boolean isActive() {
+        return ACTIVE.get() != null;
+    }
 
     public static Scope allowAll() {
         State previous = ACTIVE.get();
         ACTIVE.set(new State(false));
-        return () -> { if (previous == null) ACTIVE.remove(); else ACTIVE.set(previous); };
+        return () -> {
+            if (previous == null) ACTIVE.remove();
+            else ACTIVE.set(previous);
+        };
     }
 
-    @FunctionalInterface public interface Scope extends AutoCloseable {
-        @Override void close();
+    @FunctionalInterface
+    public interface Scope extends AutoCloseable {
+        @Override
+        void close();
     }
 
     public static long returnRemainder(MEStorage storage, AEKey key, long amount, IActionSource source) {

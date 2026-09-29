@@ -21,15 +21,16 @@ public final class ECOIOPortTransfer {
     private Object previousHostIdentity;
     private boolean previousFillHost;
 
-    public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
-            boolean ignoreCreativeInput, IActionSource source) {
+    public long transfer(
+            IGrid grid, MEStorage hostStorage, boolean fillHost, boolean ignoreCreativeInput, IActionSource source) {
         MEStorage network = grid.getStorageService().getInventory();
         MEStorage from = fillHost ? network : hostStorage;
         MEStorage destination = fillHost ? hostStorage : network;
         KeyCounter available = new KeyCounter();
         from.getAvailableStacks(available);
         Object hostIdentity = hostStorage instanceof HostInventories host ? host.inventories() : hostStorage;
-        if (!hostIdentity.equals(previousHostIdentity) || previousFillHost != fillHost
+        if (!hostIdentity.equals(previousHostIdentity)
+                || previousFillHost != fillHost
                 || fillHost && from != previousSource) {
             previousSource = from;
             previousHostIdentity = hostIdentity;
@@ -50,8 +51,9 @@ public final class ECOIOPortTransfer {
             if (amount <= 0L) continue;
             long possible;
             try (StorageExtractionExclusions ignored = !fillHost
-                    ? StorageExtractionExclusions.open(hostStorage instanceof HostInventories host
-                            ? host.inventories() : List.of(hostStorage)) : StorageExtractionExclusions.open(List.of())) {
+                    ? StorageExtractionExclusions.open(
+                            hostStorage instanceof HostInventories host ? host.inventories() : List.of(hostStorage))
+                    : StorageExtractionExclusions.open(List.of())) {
                 possible = checked(amount, destination.insert(key, amount, Actionable.SIMULATE, source));
             }
             if (possible <= 0L) {
@@ -60,38 +62,44 @@ public final class ECOIOPortTransfer {
             }
             long extracted;
             try (StorageExtractionExclusions ignored = fillHost
-                    ? StorageExtractionExclusions.open(hostStorage instanceof HostInventories host
-                            ? host.inventories() : List.of(hostStorage)) : StorageExtractionExclusions.open(List.of())) {
+                    ? StorageExtractionExclusions.open(
+                            hostStorage instanceof HostInventories host ? host.inventories() : List.of(hostStorage))
+                    : StorageExtractionExclusions.open(List.of())) {
                 if (fillHost && !ignoreCreativeInput) {
                     try (var allowed = ECOCreativeExtractionFilter.allowAll()) {
                         extracted = checked(possible, from.extract(key, possible, Actionable.MODULATE, source));
                     }
                 } else {
-                    extracted = checked(possible, fillHost
-                            ? ECOCreativeExtractionFilter.extract(from, key, possible, source)
-                            : from.extract(key, possible, Actionable.MODULATE, source));
+                    extracted = checked(
+                            possible,
+                            fillHost
+                                    ? ECOCreativeExtractionFilter.extract(from, key, possible, source)
+                                    : from.extract(key, possible, Actionable.MODULATE, source));
                 }
             }
             if (extracted <= 0L) continue;
             long inserted;
             try (StorageExtractionExclusions ignored = !fillHost
-                    ? StorageExtractionExclusions.open(hostStorage instanceof HostInventories host
-                            ? host.inventories() : List.of(hostStorage)) : StorageExtractionExclusions.open(List.of())) {
-                inserted = checked(extracted, StorageHelper.poweredInsert(
-                        grid.getEnergyService(), destination, key, extracted, source));
+                    ? StorageExtractionExclusions.open(
+                            hostStorage instanceof HostInventories host ? host.inventories() : List.of(hostStorage))
+                    : StorageExtractionExclusions.open(List.of())) {
+                inserted = checked(
+                        extracted,
+                        StorageHelper.poweredInsert(grid.getEnergyService(), destination, key, extracted, source));
             }
             if (inserted < extracted) {
                 long remainder = extracted - inserted;
                 long restored;
                 try (StorageExtractionExclusions ignored = StorageExtractionExclusions.open(
-                        fillHost && hostStorage instanceof HostInventories host
-                                ? host.inventories() : List.of())) {
-                    restored = checked(remainder, fillHost && ignoreCreativeInput
-                            ? ECOCreativeExtractionFilter.returnRemainder(from, key, remainder, source)
-                            : from.insert(key, remainder, Actionable.MODULATE, source));
+                        fillHost && hostStorage instanceof HostInventories host ? host.inventories() : List.of())) {
+                    restored = checked(
+                            remainder,
+                            fillHost && ignoreCreativeInput
+                                    ? ECOCreativeExtractionFilter.returnRemainder(from, key, remainder, source)
+                                    : from.insert(key, remainder, Actionable.MODULATE, source));
                 }
-                if (restored != remainder) throw new IllegalStateException(
-                        "ME IO transfer return incomplete: " + restored + "/" + remainder);
+                if (restored != remainder)
+                    throw new IllegalStateException("ME IO transfer return incomplete: " + restored + "/" + remainder);
             }
             moved = Long.MAX_VALUE - moved < inserted ? Long.MAX_VALUE : moved + inserted;
             if (inserted < amount) enqueue(key);
@@ -104,8 +112,8 @@ public final class ECOIOPortTransfer {
     }
 
     private static long checked(long offered, long result) {
-        if (result < 0L || result > offered) throw new IllegalStateException(
-                "Invalid ME IO transfer acknowledgement: " + result + "/" + offered);
+        if (result < 0L || result > offered)
+            throw new IllegalStateException("Invalid ME IO transfer acknowledgement: " + result + "/" + offered);
         return result;
     }
 

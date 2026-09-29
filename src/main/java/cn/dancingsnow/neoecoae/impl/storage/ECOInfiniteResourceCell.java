@@ -28,38 +28,98 @@ public final class ECOInfiniteResourceCell extends ECOStorageCell implements IEC
         return ECOInfiniteResourceCellItem.isLockedKey(key) && !ECOInfiniteStorageMember.isSealed(stack);
     }
 
-    @Override public boolean isInfiniteStorageEligible() { return false; }
-    @Override public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+    @Override
+    public boolean isInfiniteStorageEligible() {
+        return false;
+    }
+
+    @Override
+    public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
         return amount > 0 && serves(what) ? amount : 0L;
     }
-    @Override public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+
+    @Override
+    public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
         return amount > 0 && serves(what) ? amount : 0L;
     }
-    @Override public void getAvailableStacks(KeyCounter out) {
+
+    @Override
+    public void getAvailableStacks(KeyCounter out) {
         if (ECOInfiniteStorageMember.isSealed(stack)) return;
         for (AEKey key : ECOInfiniteResourceCellItem.lockedKeys()) {
             // A direct combined listing may already contain finite stock. Never wrap it negative.
             out.set(key, Long.MAX_VALUE);
         }
     }
-    @Override public void getMigrationStacks(KeyCounter out) {}
-    @Override public void clearMigrationStacks() {}
-    @Override public long simulateInsertForMigration(AEKey key, long amount, KeyCounter contents) { return 0L; }
-    @Override public long simulateInsertForMigration(AEKey key, long amount, KeyCounter contents,
-                                                      long types, long total) { return 0L; }
-    @Override public long insertForMigration(AEKey key, long amount, Actionable mode) { return 0L; }
-    @Override public long getUsedBytesForMigration(KeyCounter contents) { return 0L; }
-    @Override public long getStoredItemTypes() { return ECOInfiniteResourceCellItem.lockedKeys().size(); }
-    @Override public long getStoredItemCount() { return Long.MAX_VALUE; }
-    @Override public long getUsedBytes() { return 0L; }
-    @Override public CellState getStatus() { return CellState.NOT_EMPTY; }
-    @Override public boolean canFitInsideCell() { return false; }
-    @Override public boolean isPreferredStorageFor(AEKey key, IActionSource source) { return serves(key); }
-    @Override public BigInteger neoecoae$getExactAmount(AEKey key) {
+
+    @Override
+    public void getMigrationStacks(KeyCounter out) {}
+
+    @Override
+    public void clearMigrationStacks() {}
+
+    @Override
+    public long simulateInsertForMigration(AEKey key, long amount, KeyCounter contents) {
+        return 0L;
+    }
+
+    @Override
+    public long simulateInsertForMigration(AEKey key, long amount, KeyCounter contents, long types, long total) {
+        return 0L;
+    }
+
+    @Override
+    public long insertForMigration(AEKey key, long amount, Actionable mode) {
+        return 0L;
+    }
+
+    @Override
+    public long getUsedBytesForMigration(KeyCounter contents) {
+        return 0L;
+    }
+
+    @Override
+    public long getStoredItemTypes() {
+        return ECOInfiniteResourceCellItem.lockedKeys().size();
+    }
+
+    @Override
+    public long getStoredItemCount() {
+        return Long.MAX_VALUE;
+    }
+
+    @Override
+    public long getUsedBytes() {
+        return 0L;
+    }
+
+    @Override
+    public CellState getStatus() {
+        return CellState.NOT_EMPTY;
+    }
+
+    @Override
+    public boolean canFitInsideCell() {
+        return false;
+    }
+
+    @Override
+    public boolean isPreferredStorageFor(AEKey key, IActionSource source) {
+        return serves(key);
+    }
+
+    @Override
+    public BigInteger neoecoae$getExactAmount(AEKey key) {
         return serves(key) ? BigInteger.valueOf(Long.MAX_VALUE) : BigInteger.ZERO;
     }
-    @Override public ExactAmount neoecoae$getDisplayAmount(AEKey key) {
+
+    @Override
+    public ExactAmount neoecoae$getDisplayAmount(AEKey key) {
         return serves(key) ? ExactAmount.unbounded() : ExactAmount.finite(BigInteger.ZERO);
     }
-    @Override public Object neoecoae$exactInventoryIdentity() { return stack; }
+
+    @Override
+    public Object neoecoae$exactInventoryIdentity() {
+        return stack;
+    }
 }

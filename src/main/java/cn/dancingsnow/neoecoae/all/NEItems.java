@@ -973,8 +973,10 @@ public class NEItems {
             .register();
 
     public static final ItemEntry<ECOInfiniteResourceCellItem> ECO_INFINITE_ITEM_CELL = REGISTRATE
-            .item("eco_infinite_item_cell", p -> new ECOInfiniteResourceCellItem(
-                    p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.ITEM))
+            .item(
+                    "eco_infinite_item_cell",
+                    p -> new ECOInfiniteResourceCellItem(
+                            p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.ITEM))
             .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
                     .require(Items.WATER_BUCKET)
                     .require(Items.LAVA_BUCKET)

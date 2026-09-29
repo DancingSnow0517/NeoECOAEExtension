@@ -26,40 +26,62 @@ import org.jetbrains.annotations.Nullable;
 
 /** Hard-locked source and sink for water, cobblestone, and lava. */
 public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
-    private static final List<AEKey> LOCKED_KEYS = List.of(
-            AEFluidKey.of(Fluids.WATER), AEItemKey.of(Items.COBBLESTONE), AEFluidKey.of(Fluids.LAVA));
+    private static final List<AEKey> LOCKED_KEYS =
+            List.of(AEFluidKey.of(Fluids.WATER), AEItemKey.of(Items.COBBLESTONE), AEFluidKey.of(Fluids.LAVA));
 
     public ECOInfiniteResourceCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> cellType) {
-        super(properties, tier, AEKeyType.items(), cellType, Long.MAX_VALUE,
-                1 << (12 + tier.getTier()), LOCKED_KEYS.size(),
+        super(
+                properties,
+                tier,
+                AEKeyType.items(),
+                cellType,
+                Long.MAX_VALUE,
+                1 << (12 + tier.getTier()),
+                LOCKED_KEYS.size(),
                 (double) tier.getStorageTotalBytes() / (1 << 20));
     }
 
-    public static List<AEKey> lockedKeys() { return LOCKED_KEYS; }
-    public static boolean isLockedKey(@Nullable AEKey key) { return key != null && LOCKED_KEYS.contains(key); }
+    public static List<AEKey> lockedKeys() {
+        return LOCKED_KEYS;
+    }
 
-    @Override public Set<AEKeyType> getKeyTypes() {
+    public static boolean isLockedKey(@Nullable AEKey key) {
+        return key != null && LOCKED_KEYS.contains(key);
+    }
+
+    @Override
+    public Set<AEKeyType> getKeyTypes() {
         return Set.of(AEKeyType.items(), AEKeyType.fluids());
     }
-    @Override public boolean isBlackListed(ItemStack stack, AEKey key) { return !isLockedKey(key); }
 
-    @Override public ConfigInventory getConfigInventory(ItemStack stack) {
+    @Override
+    public boolean isBlackListed(ItemStack stack, AEKey key) {
+        return !isLockedKey(key);
+    }
+
+    @Override
+    public ConfigInventory getConfigInventory(ItemStack stack) {
         // Fixed workbench view: edits to this object never persist into the item.
-        ConfigInventory config = ConfigInventory.configTypes(ECOInfiniteResourceCellItem::isLockedKey,
-                LOCKED_KEYS.size(), () -> {});
+        ConfigInventory config =
+                ConfigInventory.configTypes(ECOInfiniteResourceCellItem::isLockedKey, LOCKED_KEYS.size(), () -> {});
         for (int slot = 0; slot < LOCKED_KEYS.size(); slot++) {
             config.setStack(slot, new appeng.api.stacks.GenericStack(LOCKED_KEYS.get(slot), 1));
         }
         return config;
     }
-    @Override public IUpgradeInventory getUpgrades(ItemStack stack) {
+
+    @Override
+    public IUpgradeInventory getUpgrades(ItemStack stack) {
         return UpgradeInventories.forItem(stack, 4);
     }
-    @Override protected ECOInfiniteResourceCell createCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+
+    @Override
+    protected ECOInfiniteResourceCell createCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
         return new ECOInfiniteResourceCell(stack, host);
     }
-    @Override public void appendHoverText(ItemStack stack, @Nullable Level level,
-                                          List<Component> lines, TooltipFlag flag) {
+
+    @Override
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> lines, TooltipFlag flag) {
         if (ECOInfiniteStorageMember.isMember(stack)) {
             lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
