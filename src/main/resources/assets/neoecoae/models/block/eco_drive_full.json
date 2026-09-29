@@ -19,7 +19,7 @@
 			"rotation": {"angle": 0, "axis": "y", "origin": [4, 8, 8.5]},
 			"faces": {
 				"north": {"uv": [0, 0, 7, 16], "texture": "#2", "cullface": "north"},
-				"east": {"uv": [0, 0, 15, 16], "texture": "#5", "cullface": "east"},
+				"east": {"uv": [0, 0, 16, 16], "texture": "#5", "cullface": "east"},
 				"south": {"uv": [9, 0, 16, 16], "texture": "#6", "cullface": "south"},
 				"west": {"uv": [0, 0, 16, 16], "texture": "#0"},
 				"up": {"uv": [9, 0, 16, 16], "texture": "#0", "cullface": "up"},
@@ -144,9 +144,9 @@
 		},
 		{
 			"name": "body_connector",
-			"shade": false,
 			"from": [8, 0, 1],
 			"to": [9, 16, 16],
+			"shade": false,
 			"faces": {
 				"north": {"uv": [7, 0, 8, 16], "texture": "#2"},
 				"south": {"uv": [8, 0, 9, 16], "texture": "#6", "cullface": "south"},
