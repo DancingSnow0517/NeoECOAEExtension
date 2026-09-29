@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 
 /** Control surface for browsing network patterns and moving compatible ones into ECO crafting buses. */
 public final class CraftingInterfaceUI {
@@ -72,7 +73,8 @@ public final class CraftingInterfaceUI {
                 .gapAll(5)
                 .flexDirection(FlexDirection.COLUMN))
                 .addClass("panel_bg");
-        root.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.crafting_interface.title")));
+        root.addChild(boundLabel(() -> GuiTitleProvider.title(craftingInterface.getBlockState(),
+            Component.translatable("gui.neoecoae.crafting_interface.title"))));
 
         UIElement contentFrame = new UIElement().layout(layout -> layout
                 .widthPercent(100)

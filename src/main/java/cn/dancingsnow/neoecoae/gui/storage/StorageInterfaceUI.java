@@ -32,6 +32,7 @@ import java.util.function.Supplier;
 import java.util.Map;
 import java.text.NumberFormat;
 import java.util.Locale;
+import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 
 public final class StorageInterfaceUI {
     private static final int STATUS_CONNECTED = 0x55CC77;
@@ -52,7 +53,8 @@ public final class StorageInterfaceUI {
 
         var transferred = new cn.dancingsnow.neoecoae.gui.common.SampledValue<>(
             () -> player.level().getGameTime(), storageInterface::getTransferredLastTick, 5);
-        root.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.storage_interface.title")));
+        root.addChild(boundLabel(() -> GuiTitleProvider.title(storageInterface.getBlockState(),
+            Component.translatable("gui.neoecoae.storage_interface.title"))));
         UIElement contentFrame = new UIElement().layout(layout -> {
             layout.widthPercent(100).flex(1).paddingAll(8).gapAll(5).flexDirection(FlexDirection.COLUMN);
         }).style(style -> style.backgroundTexture(NETextures.HOST_PANEL_BORDER));
