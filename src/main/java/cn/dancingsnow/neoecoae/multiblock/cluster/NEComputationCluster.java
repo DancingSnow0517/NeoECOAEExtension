@@ -483,7 +483,13 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
     }
 
-    private void updateGridForChangedCpu() {
+    /**
+     * Tells AE2's CraftingService to rebuild its CPU cache after this custom cluster
+     * becomes visible or changes availability.  Unlike a native CraftingCPU, an ECO
+     * cluster is not represented by a grid node owned by CraftingService, so cluster
+     * formation must explicitly publish the change.
+     */
+    public void notifyGridCpuChange() {
         boolean posted = false;
 
         for (var r : this.blockEntities) {
@@ -494,5 +500,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             }
         }
 
+    }
+
+    private void updateGridForChangedCpu() {
+        notifyGridCpuChange();
     }
 }

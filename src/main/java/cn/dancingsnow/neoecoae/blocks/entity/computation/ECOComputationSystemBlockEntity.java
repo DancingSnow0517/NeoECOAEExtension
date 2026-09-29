@@ -390,6 +390,11 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         if (!isServerStopping()) {
             // Becoming online does not necessarily change the grid identity.
             onMainNodeGridChanged();
+            if (cluster != null) {
+                // Custom ECO CPUs are not discovered from the node state change by
+                // AE2's native CPU cache; publish the transition explicitly.
+                cluster.notifyGridCpuChange();
+            }
         }
     }
 

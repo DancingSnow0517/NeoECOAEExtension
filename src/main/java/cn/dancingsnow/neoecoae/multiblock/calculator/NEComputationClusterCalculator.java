@@ -49,6 +49,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     @Override
     protected void onClusterAttached(NEComputationCluster cluster) {
         NELogicalNetworkManager.attach(cluster);
+        // The AE2 crafting service may have already rebuilt its CPU list before the
+        // multiblock calculator finished attaching all members. Publish the custom
+        // CPU now so it cannot remain absent until a world reload.
+        cluster.notifyGridCpuChange();
     }
 
     @Override
