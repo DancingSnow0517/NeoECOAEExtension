@@ -109,11 +109,35 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     @Override
     public List<ItemStack> getAuxiliaryEncodedPatterns() {
         AuxiliaryPatternHolder holder = diskHolder();
-        return holder == null ? List.of() : holder.getAuxiliaryEncodedPatterns();
+        if (holder == null) {
+            return List.of();
+        }
+        List<ItemStack> advertised = new ArrayList<>();
+        for (ItemStack pattern : holder.getAuxiliaryEncodedPatterns()) {
+            if (workstationProvider.advertises(pattern)) {
+                advertised.add(pattern);
+            }
+        }
+        return List.copyOf(advertised);
     }
 
     @Override
     public long getAuxiliaryRevision() {
+        long diskRevision = diskRevision();
+        int advertisementRevision = workstationProvider.getAdvertisementRevision();
+        if (lastAuxiliaryDiskRevision != diskRevision || lastAuxiliaryAdvertisementRevision != advertisementRevision) {
+            lastAuxiliaryDiskRevision = diskRevision;
+            lastAuxiliaryAdvertisementRevision = advertisementRevision;
+            auxiliaryRevision++;
+        }
+        return auxiliaryRevision;
+    }
+
+    private long lastAuxiliaryDiskRevision = Long.MIN_VALUE;
+    private int lastAuxiliaryAdvertisementRevision = Integer.MIN_VALUE;
+    private long auxiliaryRevision;
+
+    long diskRevision() {
         AuxiliaryPatternHolder holder = diskHolder();
         return holder == null ? 0L : holder.getAuxiliaryRevision();
     }
@@ -129,7 +153,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         // working-station interface is - its disks are reached through the disk terminals instead, and those
         // find a recipe by the terminal's own filter rather than by these keywords. Decoded on demand rather
         // than cached, because a cache here would need its own revision for no current caller.
-        List<ItemStack> patterns = holder.getAuxiliaryEncodedPatterns();
+        List<ItemStack> patterns = getAuxiliaryEncodedPatterns();
         List<String> keywords = new ArrayList<>(patterns.size());
         for (ItemStack pattern : patterns) {
             keywords.add(PatternSearchKeywords.build(pattern, PatternDetailsHelper.decodePattern(pattern, getLevel())));
@@ -141,11 +165,15 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     @Override
     public boolean canAcceptIntoAuxiliary(ItemStack pattern) {
-        return PatternDiskSupport.canAcceptAuxiliary(patternInventory(), pattern, getLevel());
+        return workstationProvider.accepts(pattern)
+            && PatternDiskSupport.canAcceptAuxiliary(patternInventory(), pattern, getLevel());
     }
 
     @Override
     public ECOPatternInsertionResult insertIntoAuxiliary(ItemStack pattern, @Nullable ECOPreparedPattern prepared) {
+        if (!workstationProvider.accepts(pattern)) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
+        }
         boolean inserted = PatternDiskSupport.insertAuxiliary(patternInventory(), pattern, getLevel());
         return inserted ? ECOPatternInsertionResult.INSERTED : ECOPatternInsertionResult.NO_TARGET;
     }
@@ -210,7 +238,10 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         if (slot < 0 || slot >= inventory.size()) {
             return null;
         }
-        return PatternDetailsHelper.decodePattern(inventory.getStackInSlot(slot), getLevel());
+        ItemStack stack = inventory.getStackInSlot(slot);
+        return workstationProvider.advertises(stack)
+            ? PatternDetailsHelper.decodePattern(stack, getLevel())
+            : null;
     }
 
     @Override
@@ -276,7 +307,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
      * does for the same reason.</p>
      */
     private void refreshDiskAdvertisement() {
-        long revision = getAuxiliaryRevision();
+        long revision = diskRevision();
         if (advertisedDiskRevision == revision) {
             return;
         }
@@ -335,18 +366,27 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
      * player an undecodable disk item and let them pull it out mid-craft. The disk-aware view replaces it with
      * the patterns the disks hold, and charges the network a blank pattern for each one taken back.</p>
      *
-     * <p>That view carries the disk rows only, so this machine's slot-side patterns are deliberately absent
-     * from a pattern access terminal: it shows disk contents, and this machine's own menu is where its slots
-     * are managed.</p>
+     * <p>Ordinary slot patterns remain visible ahead of the disk rows. Occupied disk slots are hidden so the
+     * terminal cannot take a disk as though it were an encoded pattern.</p>
      */
     @Nullable
     private PatternDiskSupport.TerminalView diskTerminalView;
     private long diskTerminalViewRevision = Long.MIN_VALUE;
+    private InternalInventory terminalPatternInventory;
+    private long terminalPatternInventoryRevision = Long.MIN_VALUE;
 
     @Override
     public InternalInventory getTerminalPatternInventory() {
         PatternDiskSupport.TerminalView view = diskTerminalView();
-        return view != null ? view.view() : PatternProviderLogicHost.super.getTerminalPatternInventory();
+        if (view == null) {
+            return PatternProviderLogicHost.super.getTerminalPatternInventory();
+        }
+        long revision = diskRevision();
+        if (terminalPatternInventory == null || terminalPatternInventoryRevision != revision) {
+            terminalPatternInventory = view.withHostRows(patternInventory());
+            terminalPatternInventoryRevision = revision;
+        }
+        return terminalPatternInventory;
     }
 
     /**
@@ -359,7 +399,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
             // A grid is a server concept, and the view charges it; the client has nothing to attach to.
             return null;
         }
-        long revision = getAuxiliaryRevision();
+        long revision = diskRevision();
         PatternDiskSupport.TerminalView current = diskTerminalView;
         if (current != null) {
             if (diskTerminalViewRevision == revision) {
@@ -400,7 +440,12 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
      */
     @Override
     public int getPatternContentRevision() {
-        return patternSlotRevision;
+        return patternSlotRevision + workstationProvider.getAdvertisementRevision();
+    }
+
+    @Override
+    public boolean shouldIndexPattern(ItemStack pattern) {
+        return workstationProvider.advertises(pattern);
     }
 
     @Override

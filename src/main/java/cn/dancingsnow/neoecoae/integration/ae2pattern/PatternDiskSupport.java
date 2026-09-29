@@ -40,6 +40,9 @@ public final class PatternDiskSupport {
         /** @return the inventory to expose in place of the raw slots */
         InternalInventory view();
 
+        /** @return the host's ordinary pattern slots followed by this disk view's rows */
+        InternalInventory withHostRows(InternalInventory hostRows);
+
         /** Rebuilds the row layout after the disks changed. */
         void invalidate();
     }

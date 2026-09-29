@@ -921,6 +921,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             if (!busPatternRevisions.containsKey(bus)
                     || busPatternRevisions.getInt(bus) != bus.getPatternContentRevision()) {
                 rebuildBusPatternIndex(bus);
+                bus.refreshAdvertisedPatterns();
                 changed = true;
                 continue;
             }
@@ -996,7 +997,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             ItemStack current = slot >= 0 && slot < inventory.size()
                     ? inventory.getStackInSlot(slot)
                     : ItemStack.EMPTY;
-            if (!current.isEmpty() && !bus.ownsAuxiliary(current)) {
+            if (!current.isEmpty() && !bus.ownsAuxiliary(current) && bus.shouldIndexPattern(current)) {
                 AEItemKey key = AEItemKey.of(current);
                 if (key != null) {
                     busCounts.addTo(key, 1);
@@ -1043,6 +1044,9 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             // because the per-slot delta reads "no record" as "was empty".
             if (bus.ownsAuxiliary(stack)) {
                 auxiliarySlots.set(slot);
+                continue;
+            }
+            if (!bus.shouldIndexPattern(stack)) {
                 continue;
             }
             AEItemKey key = AEItemKey.of(stack);

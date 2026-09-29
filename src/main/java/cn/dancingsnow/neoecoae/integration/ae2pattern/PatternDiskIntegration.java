@@ -10,6 +10,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlock
 
 import io.github.lounode.ae2pattern.api.IPatternDiskHost;
 import io.github.lounode.ae2pattern.api.PatternDiskApi;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -126,10 +129,10 @@ public class PatternDiskIntegration {
         // the other way: after a chunk reload the block entity at that position is a different object, and
         // handing out the old adapter would let the terminal read and write an inventory that is no longer in
         // the level. Entries whose machine is gone are dropped, so the map does not hold block entities alive.
-        Map<Long, MachineDiskHostAdapter> adapters = new HashMap<>();
+        Map<HostPosition, MachineDiskHostAdapter> adapters = new HashMap<>();
         PatternDiskApi.registerDiskHost(grid -> {
             List<IPatternDiskHost> hosts = new ArrayList<>();
-            Set<Long> present = new HashSet<>();
+            Set<HostPosition> present = new HashSet<>();
             for (var bus : grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class)) {
                 addHost(adapters, hosts, present, bus, bus::getPatternSlotInventory);
             }
@@ -148,12 +151,12 @@ public class PatternDiskIntegration {
      * that is gone.
      */
     private static void addHost(
-            Map<Long, MachineDiskHostAdapter> adapters,
+            Map<HostPosition, MachineDiskHostAdapter> adapters,
             List<IPatternDiskHost> hosts,
-            Set<Long> present,
+            Set<HostPosition> present,
             BlockEntity machine,
             Supplier<InternalInventory> diskSlots) {
-        long position = machine.getBlockPos().asLong();
+        HostPosition position = new HostPosition(machine.getLevel().dimension(), machine.getBlockPos());
         present.add(position);
         MachineDiskHostAdapter adapter = adapters.get(position);
         if (adapter == null || !adapter.speaksFor(machine)) {
@@ -163,5 +166,8 @@ public class PatternDiskIntegration {
             adapters.put(position, adapter);
         }
         hosts.add(adapter);
+    }
+
+    private record HostPosition(ResourceKey<Level> dimension, BlockPos pos) {
     }
 }

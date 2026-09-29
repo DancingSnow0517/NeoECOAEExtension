@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.ae2pattern;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.inventories.InternalInventory;
+import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionHost;
 
@@ -9,6 +10,7 @@ import cn.dancingsnow.neoecoae.api.AuxiliaryPatternHolder;
 
 import io.github.lounode.ae2pattern.api.PatternDiskApi;
 import io.github.lounode.ae2pattern.api.PatternDiskContents;
+import io.github.lounode.ae2pattern.api.PatternDiskHostView;
 import io.github.lounode.ae2pattern.api.PatternDiskTerminalView;
 
 import java.util.ArrayList;
@@ -49,10 +51,70 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
             }
 
             @Override
+            public InternalInventory withHostRows(InternalInventory hostRows) {
+                return PatternDiskHostView.of(new PatternSlotsWithoutDisks(hostRows), created);
+            }
+
+            @Override
             public void invalidate() {
                 created.invalidate();
             }
         };
+    }
+
+    private static final class PatternSlotsWithoutDisks extends BaseInternalInventory {
+        private final InternalInventory slots;
+
+        private PatternSlotsWithoutDisks(InternalInventory slots) {
+            this.slots = slots;
+        }
+
+        private boolean diskAt(int slot) {
+            return slot >= 0 && slot < slots.size()
+                && PatternDiskApi.isPatternDisk(slots.getStackInSlot(slot));
+        }
+
+        @Override
+        public int size() {
+            return slots.size();
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return diskAt(slot) ? ItemStack.EMPTY : slots.getStackInSlot(slot);
+        }
+
+        @Override
+        public InternalInventory getSlotInv(int slot) {
+            return diskAt(slot) ? InternalInventory.empty() : super.getSlotInv(slot);
+        }
+
+        @Override
+        public void setItemDirect(int slot, ItemStack stack) {
+            if (!diskAt(slot)) {
+                slots.setItemDirect(slot, stack);
+            }
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return diskAt(slot) ? ItemStack.EMPTY : slots.extractItem(slot, amount, simulate);
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            return diskAt(slot) ? stack : slots.insertItem(slot, stack, simulate);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return !diskAt(slot) && slots.isItemValid(slot, stack);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return slots.getSlotLimit(slot);
+        }
     }
 
     /**

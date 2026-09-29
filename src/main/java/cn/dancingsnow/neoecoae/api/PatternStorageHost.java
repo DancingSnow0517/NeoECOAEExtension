@@ -6,6 +6,7 @@ import appeng.api.inventories.InternalInventory;
 import java.util.List;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.ItemStack;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -46,6 +47,11 @@ public interface PatternStorageHost extends AuxiliaryPatternHolder {
      *         different things for each
      */
     int getPatternContentRevision();
+
+    /** Whether this slot pattern is currently offered by the host's crafting provider. */
+    default boolean shouldIndexPattern(ItemStack pattern) {
+        return true;
+    }
 
     /**
      * Tells the grid to re-read this host's advertised patterns.
