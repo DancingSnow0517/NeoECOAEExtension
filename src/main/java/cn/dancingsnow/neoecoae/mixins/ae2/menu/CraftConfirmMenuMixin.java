@@ -56,6 +56,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 
 // Include Data Energistics' merged long-amount planning entry point (priority 1000).
 @Mixin(value = CraftConfirmMenu.class, priority = 1100)
@@ -427,7 +428,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
 
         if (!useEco) {
-            var hosts = getGrid().getMachines(ECOComputationSystemBlockEntity.class);
+            var hosts = NEMachineLookup.getMachines(getGrid(), ECOComputationSystemBlockEntity.class);
             long formedHosts = hosts.stream().filter(ECOComputationSystemBlockEntity::isFormed).count();
             long onlineHosts = hosts.stream().filter(host -> host.getMainNode().isOnline()).count();
             long eligibleHosts = hosts.stream()
