@@ -430,7 +430,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private void onUpdateCPUClusters(CallbackInfo ci) {
         this.neoecoae$computationClusters.clear();
 
-        for (ECOComputationSystemBlockEntity blockEntity : this.NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity blockEntity : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null) {
                 this.neoecoae$computationClusters.add(cluster);
@@ -484,7 +484,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         // A newly submitted CPU can finish a virtual batch before CraftingService has run updateCPUClusters.
         // Consult the live grid as a fallback so the output is retained for the right job during that window.
         Set<NEComputationCluster> liveClusters = new HashSet<>();
-        for (ECOComputationSystemBlockEntity host : this.NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             if (host.getCluster() != null) {
                 liveClusters.add(host.getCluster());
             }
