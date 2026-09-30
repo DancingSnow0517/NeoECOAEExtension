@@ -136,15 +136,17 @@ public class NEBlocks {
                         .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
                 } else {
                     boolean crafting = name.equals("crafting_high_energy_network_switch");
-                    IntegratedWorkingStationRecipe.builder()
+                    var recipe = IntegratedWorkingStationRecipe.builder()
                         .require(crafting ? NEBlocks.CRAFTING_NETWORK_SWITCH : NEBlocks.COMPUTATION_NETWORK_SWITCH, 2)
                         .require(AEItems.SINGULARITY, 8)
                         .require(NEItems.SUPERCONDUCTING_PROCESSOR, 32)
                         .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
                         .require(NEBlocks.BLACK_TUNGSTEN_ALLOY_BLOCK, 16)
-                        .require(NEItems.ECO_CELL_COMPONENT_256M, 2)
-                        .require(NEItems.CRYSTAL_MATRIX, 4)
-                        .require(AEItems.CELL_COMPONENT_256K, 64)
+                        .require(NEItems.ECO_CELL_COMPONENT_256M, 2);
+                    if (crafting) {
+                        recipe.require(NEItems.CRYSTAL_MATRIX, 4);
+                    }
+                    recipe.require(AEItems.CELL_COMPONENT_256K, 64)
                         .energy(8_000_000)
                         .itemOutput(ctx.get())
                         .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
