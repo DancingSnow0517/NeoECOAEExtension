@@ -4,6 +4,32 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("neoecoae.configuration.ecoCraftConfirmDebug", "Crafting Confirmation Start Diagnostics");
+        provider.add(
+                "neoecoae.configuration.ecoCraftConfirmDebug.tooltip",
+                "Log diagnostics when a completed crafting plan cannot start. Includes plan status, the selected CPU, all AE2 CPUs and ECO cluster filtering reasons. Submission failures are logged separately.");
+        provider.add("gui.neoecoae.crafting_report.bookmark_missing", "Bookmark Missing");
+        provider.add("gui.neoecoae.import_jei_bookmarks", "★");
+        provider.add(
+                "gui.neoecoae.import_jei_bookmarks.tooltip", "Import all JEI bookmarks into the cell configuration");
+        provider.add(
+                "tooltip.neoecoae.big_order.requires_cpu",
+                "The amount uses arbitrary precision; provide an idle, online ECO crafting CPU");
+        provider.add("config.jade.plugin_neoecoae.eco_storage_system", "ECO Storage System");
+        provider.add("gui.neoecoae.crafting.virtual_reason.overclock", "Overclock is disabled");
+        provider.add("gui.neoecoae.crafting.virtual_reason.cooling", "Active cooling is disabled");
+        provider.add("gui.neoecoae.crafting.virtual_reason.host_count", "Network host count: %d/%d");
+        provider.add("gui.neoecoae.crafting.virtual_reason.f9", "Not all hosts are F9");
+        provider.add(
+                "gui.neoecoae.crafting.virtual_reason.high_energy_switch",
+                "A host is missing a high-energy network switch");
+        provider.add("gui.neoecoae.crafting.virtual_reason.max_length", "A host is shorter than the maximum length");
+        provider.add("gui.neoecoae.crafting.virtual_reason.topology", "Network topology requirements are not met");
+        provider.add("gui.neoecoae.crafting.planning_log.on", "Planning stage logging: Enabled");
+        provider.add("gui.neoecoae.crafting.planning_log.off", "Planning stage logging: Disabled");
+        provider.add("gui.neoecoae.crafting.submission_log.on", "Order submission logging: Enabled");
+        provider.add("gui.neoecoae.crafting.submission_log.off", "Order submission logging: Disabled");
+        provider.add("block.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
         provider.add("gui.neoecoae.exact_stored_amount", "Stored: %s");
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
@@ -126,12 +152,6 @@ public class NELangGenerator {
         provider.add("emi.category.neoecoae.cooling", "Cooling");
 
         // Additional item and block names
-        provider.add("block.neoecoae.fx_monitor_core", "ECO - FX Monitor Core");
-        provider.add("item.neoecoae.eco_lightning_cell_16m", "ECO - LE4 Lightning Storage Matrix");
-        provider.add("item.neoecoae.eco_lightning_cell_256m", "ECO - LE9 Lightning Storage Matrix");
-        provider.add("item.neoecoae.eco_lightning_cell_64m", "ECO - LE6 Lightning Storage Matrix");
-        provider.add("item.neoecoae.eco_lightning_cell_housing", "ECO Lightning Storage Matrix Housing");
-
         provider.add("tooltip.neoecoae.holdshift", "Hold [Shift] for more info");
         provider.add("tooltip.neoecoae.max_lenth", "§7§oMax structure length: %s");
 
