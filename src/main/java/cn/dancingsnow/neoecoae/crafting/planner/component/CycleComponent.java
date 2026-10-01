@@ -15,11 +15,11 @@ public record CycleComponent(
     List<ComponentDependency> outgoingDependencies
 ) implements PlanningComponent {
     public CycleComponent {
-        members = List.copyOf(members);
-        patterns = List.copyOf(patterns);
-        internalEdges = List.copyOf(internalEdges);
-        incomingDependencies = List.copyOf(incomingDependencies);
-        outgoingDependencies = List.copyOf(outgoingDependencies);
+
+
+
+
+
         if (members.isEmpty()) throw new IllegalArgumentException("Cycle component must not be empty");
     }
 }

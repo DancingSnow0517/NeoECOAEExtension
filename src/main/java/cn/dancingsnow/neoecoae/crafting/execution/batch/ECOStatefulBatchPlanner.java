@@ -129,13 +129,14 @@ public final class ECOStatefulBatchPlanner {
 
         @Override public List<GenericStack> inputTotal() {
             return exactInputs.isEmpty() ? inputTotal : exactInputs.entrySet().stream()
-                .map(entry -> new GenericStack(entry.getKey(), entry.getValue().longValueExact())).toList();
+                .map(entry -> new GenericStack(entry.getKey(), entry.getValue().longValueExact()))
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         }
         public PreparedBatch {
-            exactInputs = Map.copyOf(exactInputs);
-            inputTotal = List.copyOf(inputTotal);
-            outputs = List.copyOf(outputs);
-            remainders = List.copyOf(remainders);
+
+
+
+
             BooleanSupplier target = dispatch;
             AtomicBoolean submitted = new AtomicBoolean();
             dispatch = () -> {

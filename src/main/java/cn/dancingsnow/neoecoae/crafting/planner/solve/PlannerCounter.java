@@ -20,7 +20,7 @@ final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> 
 
     boolean isUnbounded(AEKey key) { return unbounded.contains(key); }
 
-    java.util.Set<AEKey> unboundedKeys() { return java.util.Set.copyOf(unbounded); }
+    java.util.Set<AEKey> unboundedKeys() { return unbounded; }
 
     PlannerAmount available(AEKey key, PlannerAmount requested) {
         return isUnbounded(key) ? requested : requested.min(get(key));
@@ -58,7 +58,7 @@ final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> 
     }
 
     Map<AEKey, PlannerAmount> asMap() {
-        return Collections.unmodifiableMap(values);
+        return values;
     }
 
     /**
@@ -67,7 +67,7 @@ final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> 
      * Read quantities through available/get at the time of consumption instead.
      */
     java.util.List<AEKey> keysSnapshot() {
-        return java.util.List.copyOf(values.keySet());
+        return new java.util.ArrayList<>(values.keySet());
     }
 
     PlannerCounter copy() {

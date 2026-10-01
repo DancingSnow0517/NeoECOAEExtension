@@ -96,7 +96,7 @@ public final class NELogicalNetworkManager {
         if (state == null || level.getServer().isStopped() || state.pendingGridRefresh.isEmpty()) {
             return;
         }
-        List<NECluster<?>> pending = List.copyOf(state.pendingGridRefresh);
+        List<NECluster<?>> pending = new ArrayList<>(state.pendingGridRefresh);
         state.pendingGridRefresh.clear();
         for (NECluster<?> cluster : pending) {
             if (!cluster.isDestroyed() && getLevel(cluster) == level) {
@@ -118,7 +118,7 @@ public final class NELogicalNetworkManager {
     }
 
     public static void clearAll() {
-        for (ServerLevel level : List.copyOf(LEVELS.keySet())) {
+        for (ServerLevel level : new ArrayList<>(LEVELS.keySet())) {
             clear(level);
         }
     }

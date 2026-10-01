@@ -51,7 +51,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
         return logic;
     }
 
-    /** Immutable progress view for monitors and external integrations. */
+    /** Progress view for monitors and external integrations. */
     public ECOCraftingProgressView getProgressView() {
         return logic.getProgressView();
     }

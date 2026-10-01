@@ -76,7 +76,7 @@ public final class PlanIdentity {
             if (existing != null && Long.MAX_VALUE - existing < entry.getValue()) return null;
             result.put(identity, existing == null ? entry.getValue() : existing + entry.getValue());
         }
-        return Map.copyOf(result);
+        return result;
     }
 
     public static long executionCount(@Nullable Map<IPatternDetails, Long> tasks) {
@@ -104,7 +104,7 @@ public final class PlanIdentity {
         if (counter == null) return Map.of();
         Map<AEKey, Long> result = new LinkedHashMap<>();
         for (var value : counter) result.put(value.getKey(), value.getLongValue());
-        return Map.copyOf(result);
+        return result;
     }
 
     private static @Nullable PatternIdentity patternIdentity(IPatternDetails pattern) {
@@ -126,7 +126,7 @@ public final class PlanIdentity {
                     alternatives.add(new StackIdentity(candidate.what(), candidate.amount()));
                     remaining.put(candidate.what(), input.getRemainingKey(candidate.what()));
                 }
-                inputs.add(new PatternInputIdentity(List.copyOf(alternatives), input.getMultiplier(), remaining));
+                inputs.add(new PatternInputIdentity(alternatives, input.getMultiplier(), remaining));
             }
 
             List<StackIdentity> outputs = new ArrayList<>();
@@ -137,7 +137,7 @@ public final class PlanIdentity {
                 outputs.add(new StackIdentity(output.what(), output.amount()));
             }
             return new PatternIdentity(Kind.STRUCTURAL,
-                new StructuralIdentity(pattern.getClass().getName(), List.copyOf(inputs), List.copyOf(outputs)));
+                new StructuralIdentity(pattern.getClass().getName(), inputs, outputs));
         } catch (RuntimeException rejected) {
             return objectIdentity(pattern);
         }
@@ -165,10 +165,10 @@ public final class PlanIdentity {
             Map<AEKey, Long> usedItems, Map<AEKey, Long> emittedItems, Map<AEKey, Long> missingItems) {
         public Signature {
             Objects.requireNonNull(finalWhat, "finalWhat");
-            patternTimes = Map.copyOf(patternTimes);
-            usedItems = Map.copyOf(usedItems);
-            emittedItems = Map.copyOf(emittedItems);
-            missingItems = Map.copyOf(missingItems);
+
+
+
+
         }
 
         public long executionCount() {
@@ -192,9 +192,8 @@ public final class PlanIdentity {
     private record PatternInputIdentity(List<StackIdentity> alternatives, long multiplier,
             Map<AEKey, AEKey> remaining) {
         private PatternInputIdentity {
-            alternatives = List.copyOf(alternatives);
-            // A null remainder is meaningful in the public AE2 contract; keep it while freezing the map.
-            remaining = Collections.unmodifiableMap(new LinkedHashMap<>(remaining));
+
+            // A null remainder is meaningful in the public AE2 contract.
         }
     }
 
@@ -202,8 +201,8 @@ public final class PlanIdentity {
             List<StackIdentity> outputs) {
         private StructuralIdentity {
             Objects.requireNonNull(implementationClass, "implementationClass");
-            inputs = List.copyOf(inputs);
-            outputs = List.copyOf(outputs);
+
+
         }
     }
 

@@ -12,7 +12,7 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternEx
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
-/** Immutable concrete input/output contract for one complete pattern copy, never batch totals. */
+/** Internal concrete input/output contract for one complete pattern copy, never batch totals. */
 public final class ECOBatchDispatchContext {
     private final IPatternDetails pattern;
     private final List<List<GenericStack>> inputs;
@@ -31,9 +31,9 @@ public final class ECOBatchDispatchContext {
             List<GenericStack> outputs, List<GenericStack> containerItems, Level level,
             @Nullable UUID craftingJobId) {
         this.pattern = Objects.requireNonNull(pattern);
-        this.inputs = inputs.stream().map(List::copyOf).toList();
-        this.outputs = List.copyOf(outputs);
-        this.containerItems = List.copyOf(containerItems);
+        this.inputs = inputs;
+        this.outputs = outputs;
+        this.containerItems = containerItems;
         this.level = level;
         this.craftingJobId = craftingJobId;
         var totalInputs = new KeyCounter();
@@ -56,7 +56,8 @@ public final class ECOBatchDispatchContext {
     public static ECOBatchDispatchContext create(IPatternDetails pattern, KeyCounter[] inputs,
             KeyCounter outputs, KeyCounter containers, Level level, @Nullable UUID jobId) {
         return new ECOBatchDispatchContext(pattern,
-            java.util.Arrays.stream(inputs).map(ECOFastPathStacks::copyCounter).toList(),
+            java.util.Arrays.stream(inputs).map(ECOFastPathStacks::copyCounter)
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new)),
             ECOFastPathStacks.copyCounter(outputs), ECOFastPathStacks.copyCounter(containers), level, jobId);
     }
 

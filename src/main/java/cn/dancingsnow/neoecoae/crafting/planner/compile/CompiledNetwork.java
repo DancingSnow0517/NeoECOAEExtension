@@ -25,14 +25,14 @@ public record CompiledNetwork(
         Map<AEKey, List<CompiledPattern>> fast = new LinkedHashMap<>();
         multiplePaths = false;
         for (var entry : producers.entrySet()) {
-            List<CompiledPattern> patterns = List.copyOf(entry.getValue());
+            List<CompiledPattern> patterns = entry.getValue();
             all.put(entry.getKey(), patterns);
             fast.put(entry.getKey(), patterns.stream().filter(CompiledPattern::fastSupported).toList());
             multiplePaths |= patterns.size() > 1;
         }
-        producers = Map.copyOf(all);
-        fastProducers = Map.copyOf(fast);
-        emittable = Set.copyOf(emittable);
+        producers = all;
+        fastProducers = fast;
+
     }
 
     public Set<AEKey> keys() { return producers.keySet(); }

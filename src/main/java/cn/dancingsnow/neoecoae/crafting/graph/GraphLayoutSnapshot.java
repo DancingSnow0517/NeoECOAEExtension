@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Immutable layout and uniform-grid spatial index. */
+/** Layout and uniform-grid spatial index. */
 public final class GraphLayoutSnapshot {
     public static final int MATERIAL_WIDTH = 132;
     public static final int MATERIAL_HEIGHT = 76;
@@ -59,13 +59,13 @@ public final class GraphLayoutSnapshot {
 
     GraphLayoutSnapshot(Map<Integer, Box> boxes, List<ClientCraftingGraph.Link> links,
             Map<ClientCraftingGraph.Link, List<Point>> edgeRoutes, Bounds bounds, long layoutNanos, long version) {
-        this.boxes = Map.copyOf(boxes);
+        this.boxes = boxes;
         this.bounds = bounds;
         this.version = version;
-        this.links = List.copyOf(links);
+        this.links = links;
         Map<ClientCraftingGraph.Link, List<Point>> frozenRoutes = new HashMap<>();
-        edgeRoutes.forEach((link, points) -> frozenRoutes.put(link, List.copyOf(points)));
-        this.edgeRoutes = Map.copyOf(frozenRoutes);
+        edgeRoutes.forEach((link, points) -> frozenRoutes.put(link, points));
+        this.edgeRoutes = frozenRoutes;
         long spatialStarted = System.nanoTime();
         Map<Long, List<Integer>> mutable = new HashMap<>();
         for (Box box : boxes.values()) {
@@ -79,7 +79,7 @@ public final class GraphLayoutSnapshot {
         }
         Map<Long, int[]> frozen = new HashMap<>();
         mutable.forEach((key, ids) -> frozen.put(key, ids.stream().mapToInt(Integer::intValue).toArray()));
-        this.grid = Map.copyOf(frozen);
+        this.grid = frozen;
 
         Map<Integer, List<Integer>> mutableEdges = new HashMap<>();
         for (int i = 0; i < links.size(); i++) {
@@ -89,7 +89,7 @@ public final class GraphLayoutSnapshot {
         }
         Map<Integer, int[]> frozenEdges = new HashMap<>();
         mutableEdges.forEach((key, ids) -> frozenEdges.put(key, ids.stream().mapToInt(Integer::intValue).toArray()));
-        this.edgesByNode = Map.copyOf(frozenEdges);
+        this.edgesByNode = frozenEdges;
         this.layoutNanos = layoutNanos;
         this.spatialIndexNanos = System.nanoTime() - spatialStarted;
     }

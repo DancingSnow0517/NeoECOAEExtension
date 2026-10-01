@@ -189,9 +189,9 @@ final class ECOCraftingFastPathVerifier {
     record PreparedWork(List<ItemStack> outputs, List<ItemStack> inputs, List<ItemStack> remaining,
             String reason) {
         PreparedWork {
-            outputs = List.copyOf(outputs);
-            inputs = List.copyOf(inputs);
-            remaining = List.copyOf(remaining);
+
+
+
         }
     }
 }

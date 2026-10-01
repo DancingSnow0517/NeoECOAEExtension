@@ -271,7 +271,7 @@ public final class CraftingGraphSnapshotFactory {
                 result.add(new Relationship(nodeIds.get(edge.to()), edge.amount()));
             }
         }
-        return List.copyOf(result);
+        return result;
     }
 
     private static List<Relationship> outputs(IPatternDetails pattern, Map<AEKey, Integer> nodeIds) {
@@ -284,7 +284,7 @@ public final class CraftingGraphSnapshotFactory {
         } catch (RuntimeException ignored) {
             // Malformed candidates remain explainable without leaking the exception into the menu sync.
         }
-        return List.copyOf(result);
+        return result;
     }
 
     private static List<Relationship> inputs(IPatternDetails pattern, Map<AEKey, Integer> nodeIds) {
@@ -300,7 +300,7 @@ public final class CraftingGraphSnapshotFactory {
         } catch (RuntimeException ignored) {
             // A malformed/rejected candidate is still represented, but without unsafe relationship data.
         }
-        return List.copyOf(result);
+        return result;
     }
 
     private static int componentFor(AEKey key, List<cn.dancingsnow.neoecoae.crafting.planner.trace.ComponentTrace> components) {

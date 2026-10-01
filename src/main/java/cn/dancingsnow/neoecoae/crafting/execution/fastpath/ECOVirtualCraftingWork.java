@@ -17,9 +17,9 @@ public record ECOVirtualCraftingWork(
         if (craftCount <= 0L) {
             throw new IllegalArgumentException("virtual craftCount must be positive");
         }
-        inputTotal = List.copyOf(inputTotal);
-        outputTotal = List.copyOf(outputTotal);
-        remainingTotal = List.copyOf(remainingTotal);
+
+
+
         // Verified state models may return a partially worn tool when the last batch does not exhaust it.
         if (!ECOFastPathStacks.areValidItemStacks(inputTotal, Long.MAX_VALUE, false,
                 ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT)

@@ -9,7 +9,7 @@ public class MultiBlockBuildSession {
     private int waitTicks;
 
     public MultiBlockBuildSession(List<WorldPlannedBlock> pendingBlocks, int initialDelay) {
-        this.pendingBlocks = List.copyOf(pendingBlocks);
+        this.pendingBlocks = pendingBlocks;
         this.totalBlocks = pendingBlocks.size();
         this.waitTicks = Math.max(0, initialDelay);
     }

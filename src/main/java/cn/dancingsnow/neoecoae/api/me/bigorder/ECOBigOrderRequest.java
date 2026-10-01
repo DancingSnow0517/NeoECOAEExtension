@@ -40,7 +40,7 @@ public record ECOBigOrderRequest(AEKey goal, BigInteger requested, boolean force
     public ECOBigOrderRequest {
         java.util.Objects.requireNonNull(goal);
         java.util.Objects.requireNonNull(options);
-        pendingPreview = Map.copyOf(pendingPreview);
+
         ECOBigCraftingOrder.checked(requested);
         if (requested.signum() <= 0) throw new IllegalArgumentException("Empty order");
     }

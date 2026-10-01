@@ -406,7 +406,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (batch == null || batch.progress >= MAX_PROCESSING_STEPS) {
             return List.of();
         }
-        return List.copyOf(counterEntries(batch.inputTotal));
+        return counterEntries(batch.inputTotal);
     }
 
     private void setPauseReason(PauseReason reason) {

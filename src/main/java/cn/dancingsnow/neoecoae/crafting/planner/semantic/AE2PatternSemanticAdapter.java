@@ -35,7 +35,7 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
         AEItemKey definition = null;
         try {
             definition = pattern.getDefinition();
-            List<GenericStack> outputs = pattern.getOutputs() == null ? List.of() : List.copyOf(pattern.getOutputs());
+            List<GenericStack> outputs = pattern.getOutputs() == null ? List.of() : pattern.getOutputs();
             List<PatternSemantics.Input> inputs = new ArrayList<>();
             List<GenericStack> returned = new ArrayList<>();
             List<PatternSemantics.FeedbackEdge> feedback = new ArrayList<>();

@@ -401,9 +401,9 @@ final class ECOCraftingTaskScheduler {
             physical.put(key, physicalInsertGenerations.getLong(key));
             startupSeeds.put(key, runtime.startupSeedGeneration(key));
         }
-        // These snapshots are privately owned; wrap without copying back into boxed JDK maps.
+        // These snapshots are privately owned by the epoch.
         return new InputAvailabilityEpoch(precise, physicalInsertGeneration, runtime.startupSeedGeneration(),
-                Object2LongMaps.unmodifiable(physical), Object2LongMaps.unmodifiable(startupSeeds),
+                physical, startupSeeds,
                 AE2PatternIntrospection.reloadGeneration());
     }
 

@@ -28,7 +28,8 @@ final class JeiBookmarkAccessImpl {
             Object list = listField.get(overlay);
             Method elements = list.getClass().getMethod("getElements");
             List<?> result = (List<?>) elements.invoke(list);
-            return result.stream().map(JeiBookmarkAccessImpl::elementStack).filter(s -> !s.isEmpty()).toList();
+            return result.stream().map(JeiBookmarkAccessImpl::elementStack).filter(s -> !s.isEmpty())
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         } catch (ReflectiveOperationException | RuntimeException ignored) {
             return List.of();
         }

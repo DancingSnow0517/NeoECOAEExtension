@@ -5,11 +5,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/** An immutable delta; absence and removal are deliberately different operations. */
+/** A map delta; absence and removal are deliberately different operations. */
 public record MapDelta<K, V>(Map<K, V> updates, Set<K> removed) {
     public MapDelta {
-        updates = Map.copyOf(updates);
-        removed = Set.copyOf(removed);
+
+
     }
 
     public static <K, V> MapDelta<K, V> between(Map<K, V> previous, Map<K, V> current) {
@@ -28,6 +28,6 @@ public record MapDelta<K, V>(Map<K, V> updates, Set<K> removed) {
         Map<K, V> next = new HashMap<>(previous);
         removed.forEach(next::remove);
         next.putAll(updates);
-        return Map.copyOf(next);
+        return next;
     }
 }

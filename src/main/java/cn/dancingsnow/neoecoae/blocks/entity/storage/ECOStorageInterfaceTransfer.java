@@ -94,7 +94,7 @@ final class ECOStorageInterfaceTransfer {
     record CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description)
         implements MEStorage {
         CombinedStorage {
-            inventories = List.copyOf(inventories);
+
         }
 
         @Override

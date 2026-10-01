@@ -23,9 +23,9 @@ public final class ECOFastPathResult {
         String rejectReason
     ) {
         this.negative = negative;
-        this.outputEntries = List.copyOf(outputEntries);
-        this.remainingEntries = List.copyOf(remainingEntries);
-        this.inputEntries = List.copyOf(inputEntries);
+        this.outputEntries = outputEntries;
+        this.remainingEntries = remainingEntries;
+        this.inputEntries = inputEntries;
         this.reusableStateModel = reusableStateModel;
         this.rejectReason = rejectReason == null ? "" : rejectReason;
         this.createdTick = lastAccessTick;

@@ -18,9 +18,9 @@ public record ECOVerifiedVirtualExecution(
         if (craftCount <= 0L) {
             throw new IllegalArgumentException("virtual craftCount must be positive");
         }
-        inputTotal = List.copyOf(inputTotal);
-        outputTotal = List.copyOf(outputTotal);
-        remainingTotal = List.copyOf(remainingTotal);
+
+
+
     }
 
     public boolean isCurrent(long reloadGeneration) {

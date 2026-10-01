@@ -30,10 +30,10 @@ public record PatternSemantics(
 ) {
     public PatternSemantics {
         Objects.requireNonNull(physicalPattern, "physicalPattern");
-        consumedInputs = List.copyOf(consumedInputs);
-        producedOutputs = List.copyOf(producedOutputs);
-        returnedOutputs = List.copyOf(returnedOutputs);
-        feedbackEdges = List.copyOf(feedbackEdges);
+
+
+
+
         Objects.requireNonNull(matchingMode, "matchingMode");
         Objects.requireNonNull(executionRestriction, "executionRestriction");
     }
@@ -61,19 +61,19 @@ public record PatternSemantics(
     public Set<AEKey> consumedKeys() {
         Set<AEKey> keys = new LinkedHashSet<>();
         for (Input input : consumedInputs) if (input.key() != null) keys.add(input.key());
-        return Set.copyOf(keys);
+        return keys;
     }
 
     public Set<AEKey> producedKeys() {
         Set<AEKey> keys = new LinkedHashSet<>();
         for (GenericStack output : producedOutputs) if (output != null && output.what() != null) keys.add(output.what());
-        return Set.copyOf(keys);
+        return keys;
     }
 
     public Set<AEKey> returnedKeys() {
         Set<AEKey> keys = new LinkedHashSet<>();
         for (GenericStack output : returnedOutputs) if (output != null && output.what() != null) keys.add(output.what());
-        return Set.copyOf(keys);
+        return keys;
     }
 
     public static PatternSemantics unsupported(IPatternDetails pattern, @Nullable Object definition,

@@ -496,7 +496,7 @@ public final class ComponentPlanner {
                         } else {
                             // PlannerCounter exposes an immutable view, not an immutable snapshot. Freeze it before
                             // replaceWith() so the component projection observes the committed delta exactly once.
-                            Map<AEKey, PlannerAmount> usedBefore = Map.copyOf(acyclic.state().usedAmounts());
+                            Map<AEKey, PlannerAmount> usedBefore = new LinkedHashMap<>(acyclic.state().usedAmounts());
                             boolean hasFirings = hasPositiveFirings(cycleResult);
                             if (!hasFirings && !stockCoversRequiredOutputs(requiredOutputs, initialReservations)) {
                                 cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
@@ -638,8 +638,8 @@ public final class ComponentPlanner {
             }
         }
         validateProvenanceCoverage(network, acyclic.state(), componentResults, trace);
-        return new Outcome(status, acyclic.state(), trace, List.copyOf(cycleDiagnostics),
-                List.copyOf(componentResults), activeCondensation.executionOrder().stream()
+        return new Outcome(status, acyclic.state(), trace, cycleDiagnostics,
+                componentResults, activeCondensation.executionOrder().stream()
                 .map(c -> c.componentId()).toList());
     }
 
@@ -872,7 +872,7 @@ public final class ComponentPlanner {
             if (state.stored.isUnbounded(key)) result.put(key, Long.MAX_VALUE);
             else result.merge(key, reserved, Math::addExact);
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     private static Set<AEKey> delegatedCycleInputs(CompiledNetwork network, CondensationGraph condensation,
@@ -884,7 +884,7 @@ public final class ComponentPlanner {
                 delegated.add(key);
             }
         });
-        return Set.copyOf(delegated);
+        return delegated;
     }
 
     private static Map<AEKey, Long> mergeDemands(Map<AEKey, Long> first, Map<AEKey, Long> second) {
@@ -892,7 +892,7 @@ public final class ComponentPlanner {
         second.forEach((key, amount) -> {
             if (amount != null && amount > 0L) result.merge(key, amount, Math::addExact);
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     private static @Nullable CycleComponent cyclicSupplier(CompiledNetwork network, CondensationGraph condensation,
@@ -935,7 +935,7 @@ public final class ComponentPlanner {
                 }
             }
         }
-        return Set.copyOf(result);
+        return result;
     }
 
     private static Set<IPatternDetails> selectedCycleExecutionPatterns(@Nullable CycleSolveResult result) {
@@ -973,7 +973,7 @@ public final class ComponentPlanner {
             // AE2 asks the CPU to craft the final output anew, even when copies are already stored.
             result.put(key, amount.add(Math.max(0L, relevantStock.getOrDefault(key, 0L))));
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     /**
@@ -999,7 +999,7 @@ public final class ComponentPlanner {
             long stockBacked = initial - Math.min(initial, endingSurplus);
             if (stockBacked > 0L) reservations.merge(key, stockBacked, Math::max);
         });
-        return Map.copyOf(reservations);
+        return reservations;
     }
 
     private static Map<AEKey, Long> reservationDelta(Map<AEKey, PlannerAmount> before,
@@ -1009,7 +1009,7 @@ public final class ComponentPlanner {
             PlannerAmount difference = amount.subtract(before.getOrDefault(key, PlannerAmount.ZERO));
             if (difference.signum() > 0) delta.put(key, difference.longValueExact());
         });
-        return Map.copyOf(delta);
+        return delta;
     }
 
     /**
@@ -1029,7 +1029,7 @@ public final class ComponentPlanner {
                 result.put(key, reserved.fitsLong() ? reserved.longValueExact() : Long.MAX_VALUE);
             }
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     private static Map<AEKey, Long> reservationRemainder(Map<AEKey, Long> required,
@@ -1039,13 +1039,13 @@ public final class ComponentPlanner {
             long remainder = amount - Math.min(amount, alreadyOwned.getOrDefault(key, 0L));
             if (remainder > 0L) result.put(key, remainder);
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     private static Map<AEKey, Long> mergeReservations(Map<AEKey, Long> first, Map<AEKey, Long> second) {
         Map<AEKey, Long> result = new LinkedHashMap<>(first);
         second.forEach((key, amount) -> result.merge(key, amount, Math::addExact));
-        return Map.copyOf(result);
+        return result;
     }
 
     private static boolean stockCoversRequiredOutputs(Map<AEKey, Long> required,
@@ -1152,7 +1152,7 @@ public final class ComponentPlanner {
         }
         addWideCycleDiagnostics(trace, exactNet, "cycle net output");
         addWideCycleDiagnostics(trace, exactTotal, "cycle total net output");
-        return new CycleDiagnostic(List.copyOf(diagnosticKeys),
+        return new CycleDiagnostic(new ArrayList<>(diagnosticKeys),
                 cycle.patterns().stream().map(p -> p.details()).toList(),
                 exactNet, exactTotal, Map.of(),
                 cycleResult == null ? cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge.UNKNOWN

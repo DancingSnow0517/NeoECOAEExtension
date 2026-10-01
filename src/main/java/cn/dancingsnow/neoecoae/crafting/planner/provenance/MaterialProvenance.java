@@ -179,7 +179,7 @@ public final class MaterialProvenance {
         if (remaining.signum() > 0) {
             throw new IllegalStateException("Crafted credit and provenance ledger diverged for " + key);
         }
-        return Map.copyOf(consumed);
+        return consumed;
     }
 
     public void supplied(AEKey key, MaterialSource source, PlannerAmount amount) {

@@ -13,7 +13,7 @@ import java.math.BigInteger;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
-/** Immutable planning answer. Its execution plan is interpreted at most once, on first access when needed. */
+/** Planning answer. Its execution plan is interpreted at most once, on first access when needed. */
 public final class ECOPlanningResult {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ECOPlanningResult.class);
     private final PlanningStatus status;
@@ -45,11 +45,11 @@ public final class ECOPlanningResult {
         this.plan = plan;
         var firings = new java.util.LinkedHashMap<IPatternDetails, PlannerAmount>();
         if (plan != null) plan.patternTimes().forEach((pattern, count) -> firings.put(pattern, PlannerAmount.of(count)));
-        this.exactPatternTimes = java.util.Map.copyOf(firings);
+        this.exactPatternTimes = firings;
         this.trace = trace;
-        this.cycles = List.copyOf(cycles);
-        this.components = List.copyOf(components);
-        this.executionComponentOrder = List.copyOf(executionComponentOrder);
+        this.cycles = cycles;
+        this.components = components;
+        this.executionComponentOrder = executionComponentOrder;
         this.calculationNanos = Math.max(0L, calculationNanos);
         this.planningId = planningId == null ? UUID.randomUUID() : planningId;
         this.provenance = provenance;
@@ -140,14 +140,14 @@ public final class ECOPlanningResult {
     /** Final committed firing vector for reports, including counts that cannot fit an AE2 plan. */
     public java.util.Map<IPatternDetails, PlannerAmount> exactPatternTimes() { return exactPatternTimes; }
     public void setExactPatternTimes(java.util.Map<IPatternDetails, PlannerAmount> counts) {
-        exactPatternTimes = java.util.Map.copyOf(counts);
+        exactPatternTimes = counts;
     }
     public void setExactMaterials(java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> used,
             java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> emitted,
             java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> missing) {
-        exactUsedItems = java.util.Map.copyOf(used);
-        exactEmittedItems = java.util.Map.copyOf(emitted);
-        exactMissingItems = java.util.Map.copyOf(missing);
+        exactUsedItems = used;
+        exactEmittedItems = emitted;
+        exactMissingItems = missing;
     }
     public java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactUsedItems() { return exactUsedItems; }
     public java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactEmittedItems() { return exactEmittedItems; }
@@ -157,7 +157,7 @@ public final class ECOPlanningResult {
     }
     public Set<ResourceLocation> fuzzyPlanningItemIds() { return fuzzyPlanningItemIds; }
     public void setFuzzyPlanningItemIds(Set<ResourceLocation> itemIds) {
-        fuzzyPlanningItemIds = itemIds == null ? Set.of() : Set.copyOf(itemIds);
+        fuzzyPlanningItemIds = itemIds == null ? Set.of() : itemIds;
     }
     public UUID planningId() { return planningId; }
     public ECOExecutionRequirement executionRequirement() { return executionRequirement; }
@@ -184,7 +184,8 @@ public final class ECOPlanningResult {
     /** Expanded compatibility projection; compressed cycles deliberately do not expand here. */
     public List<IPatternDetails> cycleWitness() {
         return executionSchedule().phases().stream().filter(p -> p.type() == ECOExecutionSchedule.Type.CYCLE)
-            .flatMap(p -> p.cycleWitness().stream()).toList();
+            .flatMap(p -> p.cycleWitness().stream())
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 
     public ECOExecutionContract executionContract() {

@@ -5,11 +5,11 @@ import appeng.api.stacks.KeyCounter;
 
 import java.util.List;
 
-/** Immutable denomination table. The first item is one atom; quantities never use saturation. */
+/** Denomination table. The first item is one atom; quantities never use saturation. */
 public record BulkUnits(List<AEItemKey> items, List<Long> factors) {
     public BulkUnits {
-        items = List.copyOf(items);
-        factors = List.copyOf(factors);
+
+
         if (items.isEmpty() || items.size() != factors.size() || factors.getFirst() != 1L
                 || items.stream().distinct().count() != items.size()) {
             throw new IllegalArgumentException("Invalid bulk unit definition");

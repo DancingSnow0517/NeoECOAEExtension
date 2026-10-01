@@ -41,7 +41,7 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
         return context.getRequiredItems().stream()
             .filter(requiredItem -> !requiredItem.isEmpty())
             .map(requiredItem -> (EmiIngredient) EmiStack.of(requiredItem.stackWithCount()))
-            .toList();
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 
     @Override

@@ -832,7 +832,7 @@ public final class StorageHostUI {
                         Math.max(0L, amounts[i * 4 + 2]), amounts[i * 4 + 3],
                         flags[i] != 0));
                 }
-                return List.copyOf(result);
+                return result;
             }
             // Accept the old representation while clients with an older menu are still connected.
             ListTag cells = tag.getList(NBT_CELLS, Tag.TAG_COMPOUND);
@@ -850,7 +850,7 @@ public final class StorageHostUI {
                     cell.getBoolean(NBT_INFINITE)
                 ));
             }
-            return List.copyOf(result);
+                return result;
         }
     }
 

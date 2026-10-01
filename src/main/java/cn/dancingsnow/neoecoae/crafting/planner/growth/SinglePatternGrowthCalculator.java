@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveRequest;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphEdge;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -260,7 +261,7 @@ public final class SinglePatternGrowthCalculator {
     private static Map<AEKey, Long> toLongMap(Map<AEKey, PlannerAmount> amounts) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
         amounts.forEach((key, amount) -> result.put(key, amount.longValueExact()));
-        return Map.copyOf(result);
+        return result;
     }
 
     private static Map<AEKey, Long> representableMap(Map<AEKey, PlannerAmount> amounts) {
@@ -268,7 +269,7 @@ public final class SinglePatternGrowthCalculator {
         amounts.forEach((key, amount) -> {
             if (amount.fitsLong()) result.put(key, amount.longValueExact());
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     private static SinglePatternGrowthResult declined(SinglePatternGrowthResult.Reason reason, String message) {
@@ -286,7 +287,7 @@ public final class SinglePatternGrowthCalculator {
             byDetails.putIfAbsent(pattern.details(), pattern);
         }
         Set<CompiledPattern> distinct = new LinkedHashSet<>(byDetails.values());
-        return List.copyOf(distinct);
+        return new ArrayList<>(distinct);
     }
 
     private static boolean sameTransition(CompiledPattern left, CompiledPattern right) {

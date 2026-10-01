@@ -20,10 +20,10 @@ public class MultiBlockPlacementPlan {
         List<RequiredItem> requiredItems,
         int reusedBlockCount
     ) {
-        this.allBlocks = List.copyOf(allBlocks);
-        this.missingBlocks = List.copyOf(missingBlocks);
-        this.conflictPositions = List.copyOf(conflictPositions);
-        this.requiredItems = List.copyOf(requiredItems);
+        this.allBlocks = allBlocks;
+        this.missingBlocks = missingBlocks;
+        this.conflictPositions = conflictPositions;
+        this.requiredItems = requiredItems;
         this.reusedBlockCount = reusedBlockCount;
     }
 

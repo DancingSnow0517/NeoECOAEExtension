@@ -17,7 +17,7 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Immutable execution context for exactly one logical pattern dispatch.
+ * Execution context for exactly one logical pattern dispatch.
  *
  * <p>Everything derived from the extracted crafting container is normalized once here: the fast-path key
  * (including its per-slot {@code EntrySignature} sorting), the expected outputs, the expected container
@@ -25,8 +25,8 @@ import org.jetbrains.annotations.Nullable;
  * batch ceiling implied by the per-craft amounts. Every later stage of the same dispatch - offer search,
  * verification, batch push - reuses this one object instead of rebuilding the same data.
  *
- * <p>The three expected-stack lists are unmodifiable and were validated once in {@link #create}; callers
- * must never re-copy or re-validate them. {@link #craftingContainer()} is the single {@code KeyCounter[]}
+ * <p>The three expected-stack lists are validated once in {@link #create}; callers must never re-copy or
+ * re-validate them. {@link #craftingContainer()} is the single {@code KeyCounter[]}
  * the CPU still owns for this dispatch (it is what {@code fillCraftingGrid} reads and what a rollback
  * reinjects), so it is intentionally shared by reference and must stay on the server thread for the
  * duration of the dispatch.
@@ -60,11 +60,10 @@ public final class ECOExtractedPatternExecution {
     ) {
         this.details = details;
         this.craftingContainer = craftingContainer;
-        // copyCounter/copyCounters already return unmodifiable lists, so List.copyOf is a no-op for them and
-        // only guards the List.of() literals used by the slow-path factory.
-        this.expectedOutputs = List.copyOf(expectedOutputs);
-        this.expectedContainerItems = List.copyOf(expectedContainerItems);
-        this.inputItems = List.copyOf(inputItems);
+        // Counter results are owned by this execution object and passed through directly.
+        this.expectedOutputs = expectedOutputs;
+        this.expectedContainerItems = expectedContainerItems;
+        this.inputItems = inputItems;
         this.classification = classification;
         this.patternEligibility = patternEligibility;
         this.key = key;

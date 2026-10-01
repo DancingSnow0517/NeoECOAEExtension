@@ -27,7 +27,7 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
     private final long maxBatchSize;
 
     private ECOStateTransitionBatchModel(List<Transition> transitions) {
-        this.transitions = List.copyOf(transitions);
+        this.transitions = transitions;
         long max = Long.MAX_VALUE;
         for (Transition transition : transitions) max = Math.min(max, transition.maxCrafts());
         this.maxBatchSize = max;
@@ -210,7 +210,7 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
                     return Optional.empty();
                 }
             }
-            return Optional.of(new NumericCompoundDelta(before.copy(), Map.copyOf(deltas), Map.copyOf(children)));
+            return Optional.of(new NumericCompoundDelta(before.copy(), deltas, children));
         }
 
         private CompoundTag apply(long crafts) {

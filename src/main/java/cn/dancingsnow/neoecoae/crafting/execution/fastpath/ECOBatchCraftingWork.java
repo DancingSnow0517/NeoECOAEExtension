@@ -14,9 +14,9 @@ public record ECOBatchCraftingWork(
 ) {
     public ECOBatchCraftingWork {
         ECOBatchCraftingHelper.validateBatchSize(batchSize);
-        inputTotal = List.copyOf(inputTotal);
-        outputTotal = List.copyOf(outputTotal);
-        remainingTotal = List.copyOf(remainingTotal);
+
+
+
         // Match the verified mutation model: a batch remainder can legitimately carry non-zero damage.
         if (!ECOFastPathStacks.areValidItemStacks(
                 inputTotal,

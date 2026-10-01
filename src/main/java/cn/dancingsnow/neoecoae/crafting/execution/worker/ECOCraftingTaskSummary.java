@@ -33,7 +33,7 @@ public final class ECOCraftingTaskSummary {
         for (Aggregate aggregate : aggregates.values()) {
             entries.add(aggregate.toEntry(controllerPos, index++));
         }
-        return List.copyOf(entries);
+        return entries;
     }
 
     private record TaskKey(@Nullable UUID jobId, ItemStack output) {

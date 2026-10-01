@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.storage;
 
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -38,5 +38,5 @@ public final class StorageFaults {
     }
 
     public void recovered(String component) { faults.remove(component); }
-    public List<Fault> snapshot() { return List.copyOf(faults.values()); }
+    public Collection<Fault> snapshot() { return faults.values(); }
 }

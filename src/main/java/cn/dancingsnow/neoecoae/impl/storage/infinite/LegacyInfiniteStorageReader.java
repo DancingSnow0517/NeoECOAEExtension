@@ -71,7 +71,7 @@ final class LegacyInfiniteStorageReader {
         ListTag migrations = new ListTag();
         migrations.addAll(receipts);
         result.put("migrations", migrations);
-        return new ReadResult(result, List.copyOf(failures));
+        return new ReadResult(result, failures);
     }
 
     private static Path storePath(Path dataFile) {

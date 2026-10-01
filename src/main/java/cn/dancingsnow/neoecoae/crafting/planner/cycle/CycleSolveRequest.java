@@ -30,10 +30,10 @@ public record CycleSolveRequest(
             Map<AEKey, PlannerAmount> plannerRequiredOutputs, Map<AEKey, Long> availableRelevantStock,
             List<ComponentDependency> externalResourceBoundary, PlannerOptions options) {
         this.component = component;
-        this.requiredOutputs = Map.copyOf(requiredOutputs);
-        this.plannerRequiredOutputs = Map.copyOf(plannerRequiredOutputs);
-        this.availableRelevantStock = Map.copyOf(availableRelevantStock);
-        this.externalResourceBoundary = List.copyOf(externalResourceBoundary);
+        this.requiredOutputs = requiredOutputs;
+        this.plannerRequiredOutputs = plannerRequiredOutputs;
+        this.availableRelevantStock = availableRelevantStock;
+        this.externalResourceBoundary = externalResourceBoundary;
         this.options = options == null ? new PlannerOptions() : options;
     }
 

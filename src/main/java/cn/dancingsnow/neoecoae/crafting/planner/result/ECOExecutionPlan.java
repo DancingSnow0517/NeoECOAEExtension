@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.cycle.RepeatLayout;
 import java.util.List;
 import java.util.Objects;
 
-/** Immutable, fully validated hand-off from the planner to the crafting CPU. */
+/** Fully validated hand-off from the planner to the crafting CPU. */
 public record ECOExecutionPlan(
         PlanIdentity.Signature signature,
         ExecutionMode mode,
@@ -19,8 +19,8 @@ public record ECOExecutionPlan(
     public ECOExecutionPlan {
         Objects.requireNonNull(signature, "signature");
         Objects.requireNonNull(mode, "mode");
-        tasks = List.copyOf(tasks);
-        phases = List.copyOf(phases);
+
+
         Objects.requireNonNull(schedule, "schedule");
         validateShape(tasks, phases, mode);
     }
@@ -40,7 +40,7 @@ public record ECOExecutionPlan(
             Objects.requireNonNull(pattern, "pattern");
             Objects.requireNonNull(runtimeInfo, "runtimeInfo");
             Objects.requireNonNull(kind, "kind");
-            inputAllocations = List.copyOf(inputAllocations);
+
             if (id < 0 || totalCount <= 0 || phaseIndex < 0) {
                 throw new IllegalArgumentException("Invalid execution task");
             }
@@ -56,7 +56,7 @@ public record ECOExecutionPlan(
             List<GenericStack> outputs) {
         public PatternRuntimeInfo {
             if (inputSlots < 0) throw new IllegalArgumentException("Negative input slot count");
-            outputs = List.copyOf(outputs);
+
         }
 
         public static PatternRuntimeInfo from(IPatternDetails pattern) {
@@ -72,11 +72,11 @@ public record ECOExecutionPlan(
         public PhaseSpec {
             if (index < 0) throw new IllegalArgumentException("Negative phase index");
             Objects.requireNonNull(type, "type");
-            taskIds = List.copyOf(taskIds);
-            steps = List.copyOf(steps);
-            dependencies = List.copyOf(dependencies);
-            dynamicFirings = java.util.Map.copyOf(dynamicFirings);
-            initialSeed = java.util.Map.copyOf(initialSeed);
+
+
+
+
+
             for (var entry : dynamicFirings.entrySet()) {
                 Integer taskId = entry.getKey();
                 Long count = entry.getValue();

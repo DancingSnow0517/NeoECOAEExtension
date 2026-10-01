@@ -221,7 +221,7 @@ final class ECOBigOrderController {
                 || order.state() == ECOBigOrderState.RUNNING_CHILD) return java.util.Map.of();
         var result = new java.util.HashMap<>(pendingPreview);
         result.merge(goal, order.remaining(), java.math.BigInteger::max);
-        return java.util.Map.copyOf(result);
+        return result;
     }
 
     /** Called after actual final output delivery, before any child-level terminal side effects. */
@@ -354,7 +354,7 @@ final class ECOBigOrderController {
             var stack = GenericStack.readTag(registries, entry.getCompound("key"));
             if (stack != null) amounts.put(stack.what(), ECOBigCraftingOrder.decode(entry.getString("amount")));
         }
-        pendingPreview = java.util.Map.copyOf(amounts);
+        pendingPreview = amounts;
         bindStandaloneLink();
     }
 }

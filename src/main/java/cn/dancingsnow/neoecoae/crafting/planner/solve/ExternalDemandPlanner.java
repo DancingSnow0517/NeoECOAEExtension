@@ -123,8 +123,8 @@ final class ExternalDemandPlanner {
             }
         }
         if (failed != null) return failure(failed.status(), missing, failed.diagnostic());
-        return new Outcome(CycleExternalDemandStatus.SOLVED, direct, List.copyOf(states), Map.of(),
-            Set.copyOf(selected), Map.copyOf(delegated), delegated.isEmpty()
+        return new Outcome(CycleExternalDemandStatus.SOLVED, direct, states, Map.of(),
+            selected, delegated, delegated.isEmpty()
                 ? "External demand solved through inventory and acyclic routes"
                 : "External demand solved through inventory, acyclic routes, and delegated cycle components");
     }
@@ -134,7 +134,7 @@ final class ExternalDemandPlanner {
             ECOCancellation cancellation) throws InterruptedException {
         Set<IPatternDetails> forbiddenPatterns = cycle.patterns().stream()
             .map(pattern -> pattern.details()).collect(java.util.stream.Collectors.toSet());
-        Set<AEKey> forbiddenMembers = Set.copyOf(cycle.members());
+        List<AEKey> forbiddenMembers = cycle.members();
         Map<AEKey, List<cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern>> producers =
             new LinkedHashMap<>();
         // A cycle member may have an independent alternate producer. Exclude only this component's physical
@@ -196,7 +196,7 @@ final class ExternalDemandPlanner {
     }
 
     private static Outcome failure(CycleExternalDemandStatus status, Map<AEKey, Long> missing, String diagnostic) {
-        return new Outcome(status, new KeyCounter(), List.of(), Map.copyOf(missing), Set.of(), Map.of(), diagnostic);
+        return new Outcome(status, new KeyCounter(), List.of(), missing, Set.of(), Map.of(), diagnostic);
     }
     private static KeyCounter remainingInventory(KeyCounter inventory, SolveState base) {
         KeyCounter result = new KeyCounter();
@@ -216,6 +216,6 @@ final class ExternalDemandPlanner {
     private static Map<AEKey, Long> positive(KeyCounter counter) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
         for (var entry : counter) if (entry.getLongValue() > 0) result.put(entry.getKey(), entry.getLongValue());
-        return Map.copyOf(result);
+        return result;
     }
 }

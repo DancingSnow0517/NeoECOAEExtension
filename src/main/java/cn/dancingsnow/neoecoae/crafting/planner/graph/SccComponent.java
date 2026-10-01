@@ -11,8 +11,8 @@ public record SccComponent(
     boolean cyclic
 ) {
     public SccComponent {
-        members = List.copyOf(members);
-        internalEdges = List.copyOf(internalEdges);
+
+
         if (members.isEmpty()) throw new IllegalArgumentException("SCC must have at least one member");
     }
 }

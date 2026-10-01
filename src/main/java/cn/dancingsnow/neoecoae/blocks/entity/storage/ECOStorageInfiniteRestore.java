@@ -362,7 +362,7 @@ final class ECOStorageInfiniteRestore {
 
     private record RestorePlan(boolean canRestore, List<RestoreTarget> targets, String reason) {
         private static RestorePlan allowed(List<RestoreTarget> targets) {
-            return new RestorePlan(true, List.copyOf(targets), "");
+            return new RestorePlan(true, targets, "");
         }
 
         private static RestorePlan blocked(String reason) {

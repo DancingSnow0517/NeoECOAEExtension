@@ -53,7 +53,7 @@ public final class ECOPlannerInventory {
                 }
             }
         }
-        return Set.copyOf(unbounded);
+        return unbounded;
     }
 
     private static void markUnbounded(ExactAmountSource source, Set<AEKey> target) {

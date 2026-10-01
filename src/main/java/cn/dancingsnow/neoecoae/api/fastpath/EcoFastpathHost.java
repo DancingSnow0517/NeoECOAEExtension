@@ -23,7 +23,6 @@ public interface EcoFastpathHost {
             Objects.requireNonNull(targetCapabilityId, "targetCapabilityId");
             Objects.requireNonNull(nonce, "nonce");
             if (requestedAmount <= 0L) throw new IllegalArgumentException("requestedAmount must be positive");
-            inputsPerCraft = List.copyOf(inputsPerCraft.stream().map(List::copyOf).toList());
         }
     }
 
@@ -44,7 +43,7 @@ public interface EcoFastpathHost {
         public FastpathSubmission {
             Objects.requireNonNull(status, "status");
             Objects.requireNonNull(rejectionReason, "rejectionReason");
-            resultSnapshot = List.copyOf(resultSnapshot);
+
             if (acceptedAmount < 0L || unacceptedAmount < 0L) throw new IllegalArgumentException("invalid amounts");
         }
     }

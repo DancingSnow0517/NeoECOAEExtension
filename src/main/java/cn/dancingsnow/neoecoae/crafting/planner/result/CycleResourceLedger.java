@@ -24,10 +24,10 @@ public final class CycleResourceLedger {
         });
     }
     public int componentId() { return componentId; }
-    public Map<AEKey, Long> bootstrapReserve() { return Map.copyOf(bootstrapReserve); }
-    public Map<AEKey, Long> internalConsumed() { return Map.copyOf(internalConsumed); }
-    public Map<AEKey, Long> generated() { return Map.copyOf(generated); }
-    public Map<AEKey, Long> releasedSurplus() { return Map.copyOf(releasedSurplus); }
+    public Map<AEKey, Long> bootstrapReserve() { return bootstrapReserve; }
+    public Map<AEKey, Long> internalConsumed() { return internalConsumed; }
+    public Map<AEKey, Long> generated() { return generated; }
+    public Map<AEKey, Long> releasedSurplus() { return releasedSurplus; }
     public long reserve(AEKey key) { return bootstrapReserve.getOrDefault(key, 0L); }
     public long generated(AEKey key) { return generated.getOrDefault(key, 0L); }
     public long released(AEKey key) { return releasedSurplus.getOrDefault(key, 0L); }

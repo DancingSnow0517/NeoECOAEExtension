@@ -17,9 +17,9 @@ public final class ECOPlanTrace {
     public void addComponent(ComponentTrace component) { components.add(component); }
     public void addCycle(CycleTrace cycle) { cycles.add(cycle); }
     public void addDiagnostic(PlannerDiagnostic diagnostic) { diagnostics.add(diagnostic); }
-    public List<PlanTraceNode> nodes() { return Collections.unmodifiableList(nodes); }
-    public List<PlanTraceEdge> edges() { return Collections.unmodifiableList(edges); }
-    public List<ComponentTrace> components() { return Collections.unmodifiableList(components); }
-    public List<CycleTrace> cycles() { return Collections.unmodifiableList(cycles); }
-    public List<PlannerDiagnostic> diagnostics() { return Collections.unmodifiableList(diagnostics); }
+    public List<PlanTraceNode> nodes() { return nodes; }
+    public List<PlanTraceEdge> edges() { return edges; }
+    public List<ComponentTrace> components() { return components; }
+    public List<CycleTrace> cycles() { return cycles; }
+    public List<PlannerDiagnostic> diagnostics() { return diagnostics; }
 }

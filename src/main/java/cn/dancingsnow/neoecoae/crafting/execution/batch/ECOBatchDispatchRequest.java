@@ -24,6 +24,5 @@ public record ECOBatchDispatchRequest(
         Objects.requireNonNull(level, "level");
         Objects.requireNonNull(jobId, "jobId");
         if (craftCount <= 0L) throw new IllegalArgumentException("craftCount must be positive");
-        inputCounters = inputCounters.clone();
     }
 }

@@ -14,7 +14,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
     public static final ECOCycleItemList EMPTY = new ECOCycleItemList(List.of());
 
     public ECOCycleItemList {
-        items = List.copyOf(items);
+
     }
 
     public ECOCycleItemList(RegistryFriendlyByteBuf data) {

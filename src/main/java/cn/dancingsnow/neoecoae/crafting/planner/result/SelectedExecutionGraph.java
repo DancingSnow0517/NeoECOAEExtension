@@ -12,8 +12,8 @@ import java.util.Set;
 /** Final physical dependency graph. It is built from selected task semantics, never structural candidates. */
 public record SelectedExecutionGraph(Set<IPatternDetails> tasks, List<ExecutionDependency> dependencies) {
     public SelectedExecutionGraph {
-        tasks = Set.copyOf(tasks);
-        dependencies = List.copyOf(dependencies);
+
+
     }
 
     public static SelectedExecutionGraph build(Map<IPatternDetails, PatternSemantics> selected) {

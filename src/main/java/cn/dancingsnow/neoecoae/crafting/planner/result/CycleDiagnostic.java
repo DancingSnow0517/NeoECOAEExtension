@@ -35,13 +35,13 @@ public record CycleDiagnostic(
     }
 
     public CycleDiagnostic {
-        keys = List.copyOf(keys);
-        patterns = List.copyOf(patterns);
-        netOutputs = Map.copyOf(netOutputs);
-        totalNetOutputs = Map.copyOf(totalNetOutputs);
-        availableAmounts = Map.copyOf(availableAmounts);
-        exactNetOutputs = Map.copyOf(exactNetOutputs);
-        exactTotalNetOutputs = Map.copyOf(exactTotalNetOutputs);
+
+
+
+
+
+
+
         executionCountKnowledge = executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN
             : executionCountKnowledge;
         solveStatus = solveStatus == null ? CycleSolveStatus.NOT_IMPLEMENTED : solveStatus;
@@ -59,13 +59,13 @@ public record CycleDiagnostic(
     private static Map<AEKey, ExactCycleAmount> exact(Map<AEKey, Long> values) {
         Map<AEKey, ExactCycleAmount> result = new LinkedHashMap<>();
         values.forEach((key, value) -> result.put(key, ExactCycleAmount.of(value)));
-        return Map.copyOf(result);
+        return result;
     }
 
     private static Map<AEKey, ExactCycleAmount> exactAmounts(Map<AEKey, PlannerAmount> values) {
         Map<AEKey, ExactCycleAmount> result = new LinkedHashMap<>();
         values.forEach((key, value) -> result.put(key, ExactCycleAmount.of(value)));
-        return Map.copyOf(result);
+        return result;
     }
 
     private static Map<AEKey, Long> representable(Map<AEKey, PlannerAmount> values) {
@@ -73,6 +73,6 @@ public record CycleDiagnostic(
         values.forEach((key, value) -> {
             if (value.fitsLong()) result.put(key, value.longValueExact());
         });
-        return Map.copyOf(result);
+        return result;
     }
 }

@@ -59,7 +59,7 @@ public class NEComputationNetworkCluster {
     }
 
     public List<NEComputationCluster> getMembers() {
-        return List.copyOf(members);
+        return members;
     }
 
     public boolean isLeader(NEComputationCluster member) {

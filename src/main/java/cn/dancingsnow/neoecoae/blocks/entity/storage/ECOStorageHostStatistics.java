@@ -68,7 +68,7 @@ final class ECOStorageHostStatistics {
                 lines.add(infiniteStorageTypeLine(keyType, id));
             }
         }
-        return List.copyOf(lines);
+        return lines;
     }
 
     private StorageHostUI.StorageTypeLine infiniteStorageTypeLine(AEKeyType keyType, int id) {
@@ -214,8 +214,8 @@ final class ECOStorageHostStatistics {
             storedEnergy,
             maxEnergy,
             energyConsumePerTick,
-            Map.copyOf(storageTypes),
-            List.copyOf(cellEntries)
+            storageTypes,
+            cellEntries
         );
     }
 
@@ -248,7 +248,7 @@ final class ECOStorageHostStatistics {
                 for (AEKeyType keyType : item.getKeyTypes()) keyTypes.add(keyType);
             }
             DriveUiSnapshot next = new DriveUiSnapshot(inventory, revision, tick, type, inventory.getTier().getTier(),
-                List.copyOf(keyTypes), member,
+                keyTypes, member,
                 member ? 0L : inventory.getStoredItemTypes(), member ? 0L : inventory.hasInfiniteTypeCapacity() ? -1L : inventory.getTotalItemTypes(),
                 member || infiniteResource ? 0L : inventory.getUsedBytes(),
                 member || infiniteResource ? 0L : inventory.getTotalBytes(), infiniteResource);

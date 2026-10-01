@@ -27,7 +27,7 @@ public final class ECOLinearBatchExecutionView implements ECOBatchExecutionView 
         this.level = Objects.requireNonNull(level, "level");
         this.inputs = Arrays.stream(inputCounters)
                 .map(counter -> ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(counter), craftCount))
-                .toList();
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         this.outputs = ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(outputCounter), craftCount);
         this.remainders = ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(remainderCounter), craftCount);
     }

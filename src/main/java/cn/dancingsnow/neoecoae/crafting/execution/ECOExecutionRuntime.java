@@ -92,11 +92,11 @@ public final class ECOExecutionRuntime {
     ECOExecutionRuntime(ECOExecutionPlan plan, IPatternDetails[] patternsById,
             ExecutingCraftingJob.TaskProgress[] progressByTaskId) {
         this.plan = Objects.requireNonNull(plan, "plan");
-        this.patternsById = Objects.requireNonNull(patternsById, "patternsById").clone();
+        this.patternsById = Objects.requireNonNull(patternsById, "patternsById");
         if (this.patternsById.length != plan.tasks().size()) {
             throw new IllegalArgumentException("Execution pattern binding shape changed");
         }
-        this.progressByTaskId = progressByTaskId == null ? null : progressByTaskId.clone();
+        this.progressByTaskId = progressByTaskId;
         if (this.progressByTaskId != null && this.progressByTaskId.length != plan.tasks().size()) {
             throw new IllegalArgumentException("Execution progress binding shape changed");
         }
@@ -139,7 +139,7 @@ public final class ECOExecutionRuntime {
             startupSeedRemainingByPhase.add(new Object2LongLinkedOpenHashMap<>(phase.initialSeed()));
         }
         for (IPatternDetails pattern : this.patternsById) {
-            inputKeysByTaskId.add(Collections.unmodifiableSet(inputKeys(pattern)));
+            inputKeysByTaskId.add(inputKeys(pattern));
         }
         rebuildProgressState();
         logSharedProgressAliases();
@@ -793,7 +793,7 @@ public final class ECOExecutionRuntime {
                 result.mergeLong(entry.getKey(), entry.getLongValue(), NEMath::saturatingAdd);
             }
         }
-        return result.isEmpty() ? Map.of() : Map.copyOf(result);
+        return result.isEmpty() ? Map.of() : result;
     }
 
     boolean preservesStartupSeeds(DispatchCandidate candidate, List<GenericStack> inputs,

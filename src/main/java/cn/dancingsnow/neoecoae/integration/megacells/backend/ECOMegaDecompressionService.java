@@ -139,7 +139,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
-        return installedModules > 0 ? List.copyOf(patterns) : List.of();
+        return installedModules > 0 ? patterns : List.of();
     }
 
     @Override

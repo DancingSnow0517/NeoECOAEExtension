@@ -21,7 +21,7 @@ public final class PatternSemanticAdapters {
         adapters.add(new UselessPatternSemanticAdapter());
         adapters.add(new ExtendedAEPlusPatternSemanticAdapter());
         adapters.add(new AE2PatternSemanticAdapter());
-        return List.copyOf(adapters);
+        return adapters;
     }
 
     public static PatternSemanticAdapter find(List<PatternSemanticAdapter> adapters, IPatternDetails pattern) {
@@ -32,7 +32,7 @@ public final class PatternSemanticAdapters {
     public static List<PatternSemanticAdapter> copy(List<PatternSemanticAdapter> adapters) {
         List<PatternSemanticAdapter> result = new ArrayList<>(adapters);
         if (result.isEmpty()) throw new IllegalArgumentException("At least one pattern semantic adapter is required");
-        return List.copyOf(result);
+        return result;
     }
 
     private static boolean classPresent(String name) {

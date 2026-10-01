@@ -22,7 +22,7 @@ public final class ECOBatchMaterialized {
         this.identity = Objects.requireNonNull(identity, "identity");
         this.originalPattern = identity.originalPattern();
         this.craftCount = craftCount;
-        this.inputCounters = inputCounters.clone();
+        this.inputCounters = inputCounters;
         this.outputCounter = outputCounter;
         this.remainderCounter = remainderCounter;
         this.inputLease = Objects.requireNonNull(inputLease, "inputLease");
@@ -32,7 +32,7 @@ public final class ECOBatchMaterialized {
     public ECOPatternIdentity identity() { return identity; }
     public IPatternDetails originalPattern() { return originalPattern; }
     public long craftCount() { return craftCount; }
-    public KeyCounter[] inputCounters() { ensureOpen(); return inputCounters.clone(); }
+    public KeyCounter[] inputCounters() { ensureOpen(); return inputCounters; }
     public KeyCounter outputCounter() { ensureOpen(); return outputCounter; }
     public KeyCounter remainderCounter() { ensureOpen(); return remainderCounter; }
     public ECOBatchInputLease inputLease() { ensureOpen(); return inputLease; }

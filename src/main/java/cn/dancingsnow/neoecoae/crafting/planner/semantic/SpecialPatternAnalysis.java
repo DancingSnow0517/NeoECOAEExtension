@@ -9,7 +9,7 @@ public record SpecialPatternAnalysis(List<Requirement> requirements) {
     public static final SpecialPatternAnalysis NONE = new SpecialPatternAnalysis(List.of());
 
     public SpecialPatternAnalysis {
-        requirements = List.copyOf(requirements);
+
     }
 
     public boolean special() {

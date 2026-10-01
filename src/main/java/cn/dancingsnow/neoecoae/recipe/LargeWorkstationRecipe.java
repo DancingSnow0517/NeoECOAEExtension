@@ -16,7 +16,7 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
                                      long energy, List<GenericStack> extraInputs) {
     public LargeWorkstationRecipe {
         if (energy < 0) throw new IllegalArgumentException("Negative recipe energy");
-        extraInputs = List.copyOf(extraInputs);
+
     }
 
     public boolean matches(KeyCounter inputs, KeyCounter outputs) {

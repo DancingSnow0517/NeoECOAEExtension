@@ -199,7 +199,7 @@ public final class HostText {
             lines.add(Component.literal(exact.substring(start, end)).withColor(color));
             start = end;
         }
-        return List.copyOf(lines);
+        return lines;
     }
 
     public static UsedTotal fullTypeProgress(long used, long max) {

@@ -56,11 +56,11 @@ public record ComponentPlanningResult(
     }
 
     public ComponentPlanningResult {
-        requiredOutputs = Map.copyOf(requiredOutputs);
-        patterns = Set.copyOf(patterns);
-        executionPatterns = Set.copyOf(executionPatterns);
-        externalMissingItems = Map.copyOf(externalMissingItems);
+
+
+
+
         java.util.Objects.requireNonNull(cycleDisposition, "cycleDisposition");
-        stockReservations = Map.copyOf(stockReservations);
+
     }
 }

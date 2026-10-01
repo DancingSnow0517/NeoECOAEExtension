@@ -31,7 +31,7 @@ public final class ECOFastPathKey {
         this.patternKey = new ECOFastPathPatternKey(patternIdentity, reloadGeneration);
         this.dimension = dimension;
         this.reloadGeneration = reloadGeneration;
-        this.slots = List.copyOf(slots);
+        this.slots = slots;
         this.hash = Objects.hash(patternKey, dimension, this.slots);
     }
 
@@ -155,7 +155,7 @@ public final class ECOFastPathKey {
 
     private record SlotSignature(List<EntrySignature> entries) {
         private SlotSignature {
-            entries = List.copyOf(entries);
+
         }
     }
 

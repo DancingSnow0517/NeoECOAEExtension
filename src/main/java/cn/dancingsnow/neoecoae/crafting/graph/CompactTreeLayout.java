@@ -175,7 +175,7 @@ public final class CompactTreeLayout implements GraphLayoutEngine {
         append(points, startX, middleY);
         append(points, endX, middleY);
         append(points, endX, endY);
-        return List.copyOf(points);
+        return points;
     }
 
     private static void append(List<GraphLayoutSnapshot.Point> points, float x, float y) {

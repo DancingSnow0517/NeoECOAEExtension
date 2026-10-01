@@ -429,7 +429,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             }
             index++;
         }
-        return List.copyOf(tasks);
+        return tasks;
     }
 
     private @Nullable ComputationTaskEntry createTaskEntry(ECOCraftingCPU cpu, int index) {

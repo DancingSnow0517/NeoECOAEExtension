@@ -30,7 +30,7 @@ public final class ECOCraftingStackCodec {
                 && !(allowFluid && entry.getKey() instanceof AEFluidKey)) return List.of();
             stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
         }
-        return List.copyOf(stacks);
+        return stacks;
     }
 
     public static boolean canRetain(List<GenericStack> stacks, boolean allowFluid) {

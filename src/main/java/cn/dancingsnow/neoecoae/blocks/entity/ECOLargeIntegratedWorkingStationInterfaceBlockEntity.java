@@ -118,7 +118,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
                 advertised.add(pattern);
             }
         }
-        return List.copyOf(advertised);
+        return advertised;
     }
 
     @Override

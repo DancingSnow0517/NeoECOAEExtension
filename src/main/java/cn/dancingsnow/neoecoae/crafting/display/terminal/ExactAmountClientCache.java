@@ -16,7 +16,7 @@ public final class ExactAmountClientCache {
 
     public static void replace(int id, Map<AEKey, ExactAmount> replacement) {
         containerId = id;
-        amounts = Map.copyOf(replacement);
+        amounts = replacement;
         revision++;
     }
 

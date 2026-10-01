@@ -76,7 +76,7 @@ public final class TarjanSccAnalyzer {
                         onStack.remove(member);
                         members.add(member);
                     } while (!member.equals(frame.node));
-                    memberSets.add(List.copyOf(members));
+                    memberSets.add(members);
                 }
             }
         }
@@ -96,6 +96,6 @@ public final class TarjanSccAnalyzer {
                 .anyMatch(edge -> edge.producer().equals(edge.requiredInput()));
             result.add(new SccComponent(id++, members, internal, cyclic));
         }
-        return List.copyOf(result);
+        return result;
     }
 }

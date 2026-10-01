@@ -143,7 +143,7 @@ final class ECOCraftingThreadOutputDiagnostics {
             amount = NEMath.saturatingAdd(amount, lane.pendingAmount());
             unknown |= lane.pendingUnknown();
         }
-        return new Aggregated(jobId, blockedTicks, List.copyOf(reasons), positions.size(), threads,
+        return new Aggregated(jobId, blockedTicks, new ArrayList<>(reasons), positions.size(), threads,
                 summarize(positions), keys, amount, unknown);
     }
 
@@ -155,7 +155,7 @@ final class ECOCraftingThreadOutputDiagnostics {
             result.add(position);
         }
         if (positions.size() > result.size()) result.add("+" + (positions.size() - result.size()) + " more");
-        return List.copyOf(result);
+        return result;
     }
 
     private static String position(ECOCraftingWorkerBlockEntity worker) {

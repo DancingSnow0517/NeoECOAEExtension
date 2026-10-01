@@ -36,7 +36,7 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
                 counts.put(pattern, bounded(amount.toBigInteger()));
             }
         });
-        tasks = Map.copyOf(exact);
+        tasks = exact;
         var stockAmounts = new LinkedHashMap<AEKey, PlannerAmount>();
         stockAmounts.putAll(result.exactUsedItems());
         // Cycle solvers record startup reservations on the component. They are part of the same
@@ -53,10 +53,10 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         KeyCounter initialEmitted = split(result.exactEmittedItems(), emitted);
         if (forced) result.exactMissingItems().forEach((key, amount) ->
             stock.merge(key, amount.toBigInteger(), BigInteger::add));
-        deferredStock = Map.copyOf(stock);
-        deferredEmitted = Map.copyOf(emitted);
+        deferredStock = stock;
+        deferredEmitted = emitted;
         projection = new appeng.crafting.CraftingPlan(result.plan().finalOutput(), 0,
-            false, result.plan().multiplePaths(), initial, initialEmitted, new KeyCounter(), Map.copyOf(counts));
+            false, result.plan().multiplePaths(), initial, initialEmitted, new KeyCounter(), counts);
         // Interpret the full selected graph once. Cycle witnesses and seed protections remain mandatory.
         var interpreted = new ECOPlanningResult(PlanningStatus.SUCCESS,
             (appeng.crafting.CraftingPlan) projection, result.trace(), result.cycles(), result.components(),

@@ -76,7 +76,7 @@ final class ECOProviderCursor {
         if (cursor == null || (!(service instanceof ECOCraftingProviderRevision) && cursor.tick != tick)) {
             var snapshot = new ArrayList<ICraftingProvider>();
             providers.get().forEach(snapshot::add);
-            cursor = new Cursor(List.copyOf(snapshot), tick);
+            cursor = new Cursor(snapshot, tick);
             // Refresh fallback snapshots each tick while preserving the next live provider by identity.
             if (previous != null && !previous.providers.isEmpty()) {
                 var nextProvider = previous.providers.get(previous.next);

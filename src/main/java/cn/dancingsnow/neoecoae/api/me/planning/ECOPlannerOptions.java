@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Immutable options captured for one explicit ECO planning request.
+ * Options captured for one explicit ECO planning request.
  *
  * <p>The legacy {@code planningLogEnabled} component remains for compatibility, but stage logging is now controlled
  * by the global {@code Debug > Calculating} configuration.</p>
@@ -16,7 +16,7 @@ import org.jetbrains.annotations.Nullable;
 public record ECOPlannerOptions(boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                                 Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
     public ECOPlannerOptions {
-        fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : Set.copyOf(fuzzyPlanningItemIds);
+        fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : fuzzyPlanningItemIds;
     }
 
     public ECOPlannerOptions(boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,

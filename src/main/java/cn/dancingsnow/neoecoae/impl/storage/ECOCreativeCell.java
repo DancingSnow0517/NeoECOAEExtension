@@ -30,7 +30,7 @@ public final class ECOCreativeCell implements IECOStorageCell {
 
     ECOCreativeCell(StorageCell delegate, int configSlots) {
         this.delegate = delegate;
-        this.configured = Set.copyOf(delegate.getAvailableStacks().keySet());
+        this.configured = delegate.getAvailableStacks().keySet();
         this.configSlots = configSlots;
     }
 

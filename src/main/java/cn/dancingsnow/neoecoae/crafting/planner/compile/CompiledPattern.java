@@ -35,8 +35,8 @@ public record CompiledPattern(
     SpecialPatternAnalysis specialAnalysis
 ) {
     public CompiledPattern {
-        inputs = List.copyOf(inputs);
-        outputs = List.copyOf(outputs);
+
+
         if (semantics == null) semantics = new AE2PatternSemanticAdapter().analyze(details);
         if (specialAnalysis == null) specialAnalysis = SpecialPatternAnalysis.NONE;
     }
@@ -72,6 +72,6 @@ public record CompiledPattern(
         if (semantics.returnedOutputs().isEmpty()) return outputs;
         List<GenericStack> result = new ArrayList<>(outputs);
         result.addAll(semantics.returnedOutputs());
-        return List.copyOf(result);
+        return result;
     }
 }

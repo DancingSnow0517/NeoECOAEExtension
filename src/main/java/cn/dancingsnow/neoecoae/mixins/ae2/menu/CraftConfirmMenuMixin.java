@@ -581,7 +581,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                     }
                 }
             }
-            neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));
+            neoecoae$cycleItems = new ECOCycleItemList(new java.util.ArrayList<>(cycleItems.values()));
         }
     }
 
@@ -638,7 +638,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
 
         Collections.sort(entries);
-        ((CraftingPlanSummaryAccessor) (Object) summary).neoecoae$setEntries(List.copyOf(entries));
+        ((CraftingPlanSummaryAccessor) (Object) summary).neoecoae$setEntries(entries);
         return summary;
     }
 

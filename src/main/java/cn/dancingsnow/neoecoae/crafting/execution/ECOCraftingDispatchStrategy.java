@@ -43,6 +43,6 @@ public final class ECOCraftingDispatchStrategy {
     }
 
     int[] usedOperationsForTest() {
-        return usedOperations.clone();
+        return usedOperations;
     }
 }

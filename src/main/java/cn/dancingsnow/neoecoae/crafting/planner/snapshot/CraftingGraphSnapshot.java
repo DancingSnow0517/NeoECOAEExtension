@@ -19,7 +19,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
-/** Immutable, solver-free network DTO consumed by the crafting graph client. */
+/** Solver-free network DTO consumed by the crafting graph client. */
 public record CraftingGraphSnapshot(
     int rootNodeId,
     List<MaterialNode> nodes,
@@ -35,11 +35,11 @@ public record CraftingGraphSnapshot(
         List.of(), List.of(), new Summary("EMPTY", 0, 0, 0, 0, 0));
 
     public CraftingGraphSnapshot {
-        nodes = List.copyOf(nodes);
-        patterns = List.copyOf(patterns);
-        edges = List.copyOf(edges);
-        cycleGroups = List.copyOf(cycleGroups);
-        fuzzyPlanningItemIds = List.copyOf(fuzzyPlanningItemIds);
+
+
+
+
+
     }
 
     public CraftingGraphSnapshot(RegistryFriendlyByteBuf data) {
@@ -196,8 +196,8 @@ public record CraftingGraphSnapshot(
             List<Relationship> outputs,
             long firingCount, CandidateStatus status, @Nullable String rejectionReason, int componentId) {
         public PatternNode {
-            inputs = List.copyOf(inputs);
-            outputs = List.copyOf(outputs);
+
+
         }
 
         private static PatternNode read(RegistryFriendlyByteBuf data) {
@@ -283,18 +283,18 @@ public record CraftingGraphSnapshot(
         }
 
         public CycleGroup {
-            memberNodeIds = List.copyOf(memberNodeIds);
-            internalEdges = List.copyOf(internalEdges);
-            requiredOutputs = List.copyOf(requiredOutputs);
-            externalInputs = List.copyOf(externalInputs);
-            requiredSeed = List.copyOf(requiredSeed);
-            patternTimes = List.copyOf(patternTimes);
-            executionWitness = List.copyOf(executionWitness);
-            singleNetOutputs = List.copyOf(singleNetOutputs);
-            totalNetOutputs = List.copyOf(totalNetOutputs);
-            availableAmounts = List.copyOf(availableAmounts);
-            exactSingleNetOutputs = List.copyOf(exactSingleNetOutputs);
-            exactTotalNetOutputs = List.copyOf(exactTotalNetOutputs);
+
+
+
+
+
+
+
+
+
+
+
+
         }
 
         private static CycleGroup read(RegistryFriendlyByteBuf data) {

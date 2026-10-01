@@ -463,7 +463,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private static List<ItemStack> copyStacks(List<ItemStack> source) {
         List<ItemStack> copy = new ArrayList<>();
         copyStacks(source, copy);
-        return List.copyOf(copy);
+        return copy;
     }
 
     private List<ItemStack> snapshotCraftingInputs() {
@@ -967,7 +967,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         List<GenericStack> stacks = new ArrayList<>(batchOutputItems.size() + batchRemainingItems.size());
         stacks.addAll(batchOutputItems);
         stacks.addAll(batchRemainingItems);
-        return List.copyOf(stacks);
+        return stacks;
     }
 
     private void clearWork() {

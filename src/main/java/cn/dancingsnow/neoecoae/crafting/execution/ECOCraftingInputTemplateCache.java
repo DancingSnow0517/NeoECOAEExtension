@@ -39,7 +39,7 @@ final class ECOCraftingInputTemplateCache {
                 templates.add(new InputTemplate(key, stack.amount()));
             }
         }
-        var result = List.copyOf(templates);
+        var result = templates;
         if (result.size() <= MAX_TEMPLATES) {
             if (entries.size() >= MAX_INPUTS || templateCount + result.size() > MAX_TEMPLATES) {
                 entries.clear();

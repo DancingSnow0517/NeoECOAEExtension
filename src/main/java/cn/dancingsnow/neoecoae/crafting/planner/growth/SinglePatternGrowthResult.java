@@ -93,20 +93,20 @@ public record SinglePatternGrowthResult(
     }
 
     public SinglePatternGrowthResult {
-        requiredSeed = Map.copyOf(requiredSeed);
-        seedShortfall = Map.copyOf(seedShortfall);
-        externalDemand = Map.copyOf(externalDemand);
-        producedOutputs = Map.copyOf(producedOutputs);
-        netDelta = Map.copyOf(netDelta);
-        deliverableOutputs = Map.copyOf(deliverableOutputs);
-        executionPlan = List.copyOf(executionPlan);
+
+
+
+
+
+
+
         exactFirings = exactFirings == null ? PlannerAmount.ZERO : exactFirings;
-        exactRequiredSeed = Map.copyOf(exactRequiredSeed);
-        exactSeedShortfall = Map.copyOf(exactSeedShortfall);
-        exactExternalDemand = Map.copyOf(exactExternalDemand);
-        exactProducedOutputs = Map.copyOf(exactProducedOutputs);
-        exactNetDelta = Map.copyOf(exactNetDelta);
-        exactDeliverableOutputs = Map.copyOf(exactDeliverableOutputs);
+
+
+
+
+
+
         if (status == SinglePatternGrowthStatus.SUCCESS && !seedShortfall.isEmpty()) {
             throw new IllegalArgumentException("A successful growth result cannot report a seed shortfall");
         }

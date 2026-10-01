@@ -53,18 +53,18 @@ public record CycleSolveResult(
     public CycleSolveResult {
         executionCountKnowledge = executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN
             : executionCountKnowledge;
-        exactPatternTimes = Map.copyOf(exactPatternTimes);
-        patternTimes = Map.copyOf(patternTimes);
-        externalDemand = Map.copyOf(externalDemand);
-        requiredSeed = Map.copyOf(requiredSeed);
-        seedShortfall = Map.copyOf(seedShortfall);
-        producedOutputs = Map.copyOf(producedOutputs);
-        deliverableOutputs = Map.copyOf(deliverableOutputs);
-        executionWitness = List.copyOf(executionWitness);
-        executionPlan = List.copyOf(executionPlan);
+
+
+
+
+
+
+
+
+
         RepeatLayout.multipliers(executionPlan);
-        diagnostics = List.copyOf(diagnostics);
-        startupCandidates = startupCandidates.stream().map(Map::copyOf).toList();
+
+        startupCandidates = startupCandidates == null ? List.of() : startupCandidates;
         if (status == CycleSolveStatus.SUCCESS && !seedShortfall.isEmpty()) {
             throw new IllegalArgumentException("A successful cycle solve cannot report a seed shortfall");
         }
@@ -125,7 +125,7 @@ public record CycleSolveResult(
             count = 1;
         }
         if (current != null) runs.add(new PatternRun(current, count));
-        return List.copyOf(runs);
+        return runs;
     }
 
     private static long totalRunCount(List<PatternRun> runs) {
@@ -194,7 +194,7 @@ public record CycleSolveResult(
         externalDemand.forEach((key, amount) -> {
             if (amount != null && amount > 0) result.put(key, amount);
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     public boolean hasExactExecutionCounts() {
@@ -233,13 +233,13 @@ public record CycleSolveResult(
                     .divide(use).longValueExact());
             }
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     private static Map<IPatternDetails, PlannerAmount> exact(Map<IPatternDetails, Long> values) {
         Map<IPatternDetails, PlannerAmount> result = new LinkedHashMap<>();
         values.forEach((pattern, count) -> result.put(pattern, PlannerAmount.of(count == null ? 0L : count)));
-        return Map.copyOf(result);
+        return result;
     }
 
     private static ExecutionCountKnowledge inferredKnowledge(CycleSolveStatus status,

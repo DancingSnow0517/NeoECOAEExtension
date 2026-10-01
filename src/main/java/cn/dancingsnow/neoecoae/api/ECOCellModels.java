@@ -57,6 +57,6 @@ public class ECOCellModels {
 
     public static Map<Item, ResourceLocation> getDeferredModels() {
         runDeferredRegistration();
-        return Map.copyOf(registry);
+        return registry;
     }
 }

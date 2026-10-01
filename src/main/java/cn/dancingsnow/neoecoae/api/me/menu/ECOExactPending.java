@@ -8,7 +8,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Exact display-only quantities, scoped to the selected CPU menu. */
 public record ECOExactPending(Map<AEKey, BigInteger> amounts) implements PacketWritable {
-    public ECOExactPending { amounts = Map.copyOf(amounts); }
+    public ECOExactPending {  }
     public ECOExactPending(RegistryFriendlyByteBuf buf) { this(read(buf)); }
     private static Map<AEKey, BigInteger> read(RegistryFriendlyByteBuf buf) {
         int size = buf.readVarInt();

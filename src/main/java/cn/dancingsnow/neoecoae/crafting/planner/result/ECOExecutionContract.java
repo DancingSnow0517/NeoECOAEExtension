@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
-/** Immutable hand-off between planning/confirmation and CPU execution. */
+/** Hand-off between planning/confirmation and CPU execution. */
 public record ECOExecutionContract(UUID planningId, PlanIdentity.Signature planSignature,
         ExecutionMode mode, @Nullable ECOExecutionPlan executionPlan, @Nullable String error) {
     public ECOExecutionContract {
@@ -18,7 +18,7 @@ public record ECOExecutionContract(UUID planningId, PlanIdentity.Signature planS
         if ((mode == ExecutionMode.PHASED_DAG || mode == ExecutionMode.ORDERED_CYCLE
                 || mode == ExecutionMode.DYNAMIC_CYCLE)
                 && executionPlan == null) {
-            throw new IllegalArgumentException("Phased execution requires an immutable execution plan");
+            throw new IllegalArgumentException("Phased execution requires an execution plan");
         }
     }
 

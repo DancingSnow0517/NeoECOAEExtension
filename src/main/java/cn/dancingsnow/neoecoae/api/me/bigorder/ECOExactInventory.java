@@ -43,7 +43,7 @@ public final class ECOExactInventory extends ListCraftingInventory {
     public Map<AEKey, BigInteger> snapshot() {
         var result = new LinkedHashMap<AEKey, BigInteger>();
         for (var entry : list) if (entry.getLongValue() > 0) result.put(entry.getKey(), amount(entry.getKey()));
-        return Map.copyOf(result);
+        return result;
     }
 
     private void set(AEKey key, BigInteger amount) {
@@ -107,7 +107,7 @@ public final class ECOExactInventory extends ListCraftingInventory {
             if (stack.amount() <= 0) throw new IllegalArgumentException("Invalid stack");
             result.merge(stack.what(), BigInteger.valueOf(stack.amount()).multiply(copies), BigInteger::add);
         }
-        return Map.copyOf(result);
+        return result;
     }
 
     @Override public void clear() {

@@ -161,12 +161,12 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         }
         boolean sourceChanged = lastController != controller || lastRecipes != recipes
             || lastDiskRevision != diskRevision;
-        compatiblePatterns = List.copyOf(result);
+        compatiblePatterns = result;
         Set<AEItemKey> keys = new HashSet<>();
         for (IPatternDetails pattern : result) {
             keys.add(pattern.getDefinition());
         }
-        advertisedKeys = Set.copyOf(keys);
+        advertisedKeys = keys;
         if (sourceChanged) {
             advertisementRevision++;
         }

@@ -112,7 +112,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 "Relevant stock already covers every required output; the structural cycle is cut by inventory"));
             diagnostics.add(metrics(stockMetrics));
             return new CycleSolveResult(CycleSolveStatus.SUCCESS, Map.of(), Map.of(), Map.of(), Map.of(), Map.of(),
-                deliverable(model, model.stock), List.of(), List.copyOf(diagnostics), stockMetrics);
+                deliverable(model, model.stock), List.of(), diagnostics, stockMetrics);
         }
 
         CycleStateEquation.Result balance = supportsRecipeCircuits(model)
@@ -180,7 +180,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.NO_PRODUCTIVE_FIRING,
                 "Every SCC pattern stays fireable yet no reachable marking increases the required outputs"));
             diagnostics.add(metrics(deadMetrics));
-            return CycleSolveResult.failure(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, List.copyOf(diagnostics),
+            return CycleSolveResult.failure(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, diagnostics,
                 deadMetrics);
         }
 
@@ -237,8 +237,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         diagnostics.add(metrics(ladderMetrics));
         return new CycleSolveResult(unrepresentable ? CycleSolveStatus.UNREPRESENTABLE
                 : CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(),
-            Map.copyOf(seed), shortfall, Map.of(), deliverable(model, model.stock), List.of(),
-            List.copyOf(diagnostics), ladderMetrics).withStartupCandidates(startupCandidates(model));
+            seed, shortfall, Map.of(), deliverable(model, model.stock), List.of(),
+            diagnostics, ladderMetrics).withStartupCandidates(startupCandidates(model));
     }
 
     // ---------------------------------------------------------------------------------------------------
@@ -263,7 +263,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 .sorted(Comparator.comparingInt(CompiledPattern::id)).toList()) {
             unique.putIfAbsent(pattern.details(), pattern);
         }
-        List<CompiledPattern> transitions = List.copyOf(unique.values());
+        List<CompiledPattern> transitions = new ArrayList<>(unique.values());
         if (transitions.size() > limits.maxPatterns()) {
             return CycleSolveResult.failure(CycleSolveStatus.TOO_COMPLEX,
                 CycleSolveDiagnostic.Code.PATTERN_LIMIT_EXCEEDED,
@@ -299,7 +299,7 @@ public final class BoundedCycleSolver implements CycleSolver {
 
         int n = index.size();
         int t = transitions.size();
-        List<AEKey> keys = List.copyOf(index.keySet());
+        List<AEKey> keys = new ArrayList<>(index.keySet());
         Set<AEKey> members = new LinkedHashSet<>(request.component().members());
         boolean[] suppliable = new boolean[n];
         for (ComponentDependency dependency : request.externalResourceBoundary()) {
@@ -483,7 +483,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         List<BatchFiring> witness = new ArrayList<>();
         for (int macro = 0; macro < MAX_EQUATION_WITNESS_STEPS; macro++) {
             cancellation.checkpoint();
-            if (isZero(remaining)) return List.copyOf(witness);
+            if (isZero(remaining)) return witness;
             int lapStart = witness.size();
             for (int t = 0; t < model.transitionCount(); t++) {
                 PlannerAmount safe = maximumSafeBatch(model, marking, t).min(remaining[t]);
@@ -648,7 +648,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             if (satisfied(marking, model.required)) {
                 Search result = new Search();
                 result.kind = Search.Kind.REACHED;
-                result.witness = List.copyOf(witness);
+                result.witness = witness;
                 result.statesVisited = seen.size();
                 result.statesExpanded = witness.size();
                 copyHeuristicMetrics(result, budget);
@@ -765,7 +765,7 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static Search reachedSearch(List<BatchFiring> witness, Set<Marking> seen) {
         Search result = new Search();
         result.kind = Search.Kind.REACHED;
-        result.witness = List.copyOf(witness);
+        result.witness = witness;
         result.statesVisited = seen.size();
         result.statesExpanded = witness.size();
         return result;
@@ -875,7 +875,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             reversed.addFirst(node.firing);
             cursor = node.parent;
         }
-        return List.copyOf(reversed);
+        return new ArrayList<>(reversed);
     }
 
     private static PlannerAmount[] fireBatch(Model model, PlannerAmount[] marking, int transition, long batch) {
@@ -939,7 +939,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             search.greedyCandidates, search.lookaheadNodes, search.heuristicMacroSteps,
             search.heuristicBudgetExhausted);
         diagnostics.add(metrics(metrics));
-        return CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET, List.copyOf(diagnostics), metrics);
+        return CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET, diagnostics, metrics);
     }
 
     private CycleSolveResult witnessResult(Model model, PlannerAmount[] start, List<BatchFiring> witness,
@@ -958,7 +958,7 @@ public final class BoundedCycleSolver implements CycleSolver {
 
         Simulation bare = simulate(model, zeroes(model.keyCount()), witness);
         Map<AEKey, PlannerAmount> exactRequiredSeed = new Object2ObjectLinkedOpenHashMap<>(bare.lazySeed);
-        Map<AEKey, PlannerAmount> exactExternalDemand = Map.copyOf(bare.lazyImport);
+        Map<AEKey, PlannerAmount> exactExternalDemand = bare.lazyImport;
         CircuitSummary summary = summarize(model, witness);
         // Sequential prefix replay needs only one returned catalyst, but a planned batch may use more.
         // Reserve those already available copies explicitly so the reported and executable concurrency agree.
@@ -1030,7 +1030,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         // ordered batch plan instead, avoiding an allocation proportional to the number of crafts.
         List<CycleFiring> firings = expandWitness(model, witness);
 
-        Map<AEKey, PlannerAmount> exactProduced = Map.copyOf(bare.produced);
+        Map<AEKey, PlannerAmount> exactProduced = bare.produced;
         Map<AEKey, PlannerAmount> exactDeliverable = exactDeliverable(model, actual.marking);
         // Produced/deliverable totals are theoretical cycle bookkeeping. Only seed, external demand and
         // shortfall become AE2-facing material counters at this boundary.
@@ -1060,10 +1060,10 @@ public final class BoundedCycleSolver implements CycleSolver {
         return new CycleSolveResult(
             unrepresentable ? CycleSolveStatus.UNREPRESENTABLE
                 : exactShortfall.isEmpty() ? CycleSolveStatus.SUCCESS : CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT,
-            ExecutionCountKnowledge.EXACT, Map.copyOf(exactPatternTimes), Map.copyOf(patternTimes),
-            externalDemand, requiredSeed, Map.copyOf(shortfall),
-            representable(exactProduced), representable(exactDeliverable), List.copyOf(firings),
-            List.copyOf(executionPlan), List.copyOf(explanation), metrics);
+            ExecutionCountKnowledge.EXACT, exactPatternTimes, patternTimes,
+            externalDemand, requiredSeed, shortfall,
+            representable(exactProduced), representable(exactDeliverable), firings,
+            executionPlan, explanation, metrics);
     }
 
     /** Exact prefix inventory for AE's concrete input keys and normalized container/catalyst returns. */
@@ -1119,9 +1119,9 @@ public final class BoundedCycleSolver implements CycleSolver {
         for (PlannerAmount[] missing : frontier) {
             Map<AEKey, Long> candidate = new java.util.LinkedHashMap<>();
             for (int i = 0; i < missing.length; i++) if (missing[i].signum() > 0) candidate.put(model.keys.get(i), missing[i].longValueExact());
-            candidates.add(Map.copyOf(candidate));
+            candidates.add(candidate);
         }
-        return List.copyOf(candidates);
+        return candidates;
     }
 
     private static CircuitSummary summarizePlain(Model model, List<BatchFiring> witness, int start, int end) {
@@ -1284,7 +1284,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             if (firing.repetitions().compareTo(PlannerAmount.ONE) > 0 && --laps[index] > 0) index -= firing.repeatWidth() - 1;
             else index++;
         }
-        return List.copyOf(result);
+        return result;
     }
 
     private static int expandedWitnessLength(List<BatchFiring> witness) {
@@ -1311,7 +1311,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         for (int i = 0; i < model.keyCount(); i++) {
             if (model.required[i].signum() > 0) result.put(model.keys.get(i), marking[i]);
         }
-        return Map.copyOf(result);
+        return result;
     }
 
     private static Map<AEKey, Long> representable(Map<AEKey, PlannerAmount> amounts) {
@@ -1319,7 +1319,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         amounts.forEach((key, amount) -> {
             if (amount.fitsLong()) result.put(key, amount.longValueExact());
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     @SafeVarargs

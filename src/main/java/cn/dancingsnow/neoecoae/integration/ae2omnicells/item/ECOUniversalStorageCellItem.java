@@ -88,7 +88,7 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
 
     @Override
     public Set<AEKeyType> getKeyTypes() {
-        return Set.copyOf(AEKeyTypes.getAll());
+        return AEKeyTypes.getAll();
     }
 
     @Override

@@ -24,9 +24,9 @@ public record CycleTrace(
     }
 
     public CycleTrace {
-        members = List.copyOf(members);
-        internalEdges = List.copyOf(internalEdges);
-        externalEdges = List.copyOf(externalEdges);
-        requiredOutputs = Map.copyOf(requiredOutputs);
+
+
+
+
     }
 }

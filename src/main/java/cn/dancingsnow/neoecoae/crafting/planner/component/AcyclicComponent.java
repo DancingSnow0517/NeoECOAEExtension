@@ -8,7 +8,7 @@ import java.util.List;
 public record AcyclicComponent(int componentId, AEKey key, List<CompiledPattern> patterns)
         implements PlanningComponent {
     public AcyclicComponent {
-        patterns = List.copyOf(patterns);
+
     }
 
     @Override public List<AEKey> members() { return List.of(key); }

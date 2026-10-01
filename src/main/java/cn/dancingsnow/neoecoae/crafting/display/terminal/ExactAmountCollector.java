@@ -50,7 +50,7 @@ public final class ExactAmountCollector {
                 result.put(key, amount);
             }
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     public static void abort() { ACTIVE.remove(); }

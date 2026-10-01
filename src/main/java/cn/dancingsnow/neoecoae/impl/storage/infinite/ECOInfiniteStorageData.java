@@ -153,7 +153,7 @@ public final class ECOInfiniteStorageData extends SavedData {
                     }
                     if (!validRestorePlan(amount, targets, plan))
                         throw new IllegalArgumentException("Incomplete restore allocation");
-                    restore = new Restore(entry.getUUID("restore"), Set.copyOf(targets), entry.getString("restoreFailure"), Map.copyOf(plan));
+                    restore = new Restore(entry.getUUID("restore"), targets, entry.getString("restoreFailure"), plan);
                 }
                 if (amount.isZero() && restore != null) throw new IllegalArgumentException("Empty reserved entry");
                 // Decode all metadata before changing the authoritative quantity.
@@ -425,7 +425,7 @@ public final class ECOInfiniteStorageData extends SavedData {
             if (!existing.plan().isEmpty()) return true;
             // Old reservations have no target quantities. Upgrade them before touching any target.
         }
-        restores.put(key, new Restore(transaction, Set.copyOf(targets), "", Map.copyOf(plan)));
+        restores.put(key, new Restore(transaction, targets, "", plan));
         setDirty();
         return true;
     }

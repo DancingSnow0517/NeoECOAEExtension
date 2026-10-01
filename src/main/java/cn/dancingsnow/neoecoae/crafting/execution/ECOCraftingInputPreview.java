@@ -87,7 +87,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         this.primaryInputs = metadata.primaryInputs();
         this.possibleInputs = metadata.possibleInputs();
         this.reusableTemplates = metadata.reusableTemplates();
-        this.protectedAmounts = Map.copyOf(protectedAmounts);
+        this.protectedAmounts = protectedAmounts;
     }
 
     private static PatternMetadata metadata(IPatternDetails pattern, ECOCraftingRemainderCache remainderCache) {
@@ -116,8 +116,8 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
                 }
             }
         }
-        return new PatternMetadata(reloadGeneration, Set.copyOf(primaryInputs),
-            Set.copyOf(possibleInputs), Set.copyOf(reusableTemplates));
+        return new PatternMetadata(reloadGeneration, primaryInputs,
+            possibleInputs, reusableTemplates);
     }
 
     private static boolean isReusableTemplate(IPatternDetails.IInput input, AEKey key,
@@ -228,7 +228,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         for (var candidate : source.findFuzzyTemplates(key)) {
             if (key.equals(candidate) && primaryInputs.contains(candidate)) result.add(candidate);
         }
-        return List.copyOf(result);
+        return result;
     }
 
     private record PatternMetadata(long reloadGeneration, Set<AEKey> primaryInputs,

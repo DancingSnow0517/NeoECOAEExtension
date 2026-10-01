@@ -57,6 +57,6 @@ public final class ECOBatchMaterializer {
     private static List<GenericStack> flatten(KeyCounter[] counters) {
         List<GenericStack> result = new ArrayList<>();
         for (KeyCounter counter : counters) result.addAll(ECOFastPathStacks.copyCounter(counter));
-        return List.copyOf(result);
+        return result;
     }
 }

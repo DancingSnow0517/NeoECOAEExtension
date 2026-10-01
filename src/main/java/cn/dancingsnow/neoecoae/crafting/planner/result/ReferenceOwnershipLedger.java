@@ -45,7 +45,7 @@ public final class ReferenceOwnershipLedger {
             onHand.put(key, onHand(key) - amount);
             futureNeed.put(key, Math.max(0L, futureNeed(key) - amount));
         });
-        events.add(new OwnershipEvent(OwnershipEvent.Type.DISPATCH_COMMITTED, Map.copyOf(consumed), 1L));
+        events.add(new OwnershipEvent(OwnershipEvent.Type.DISPATCH_COMMITTED, consumed, 1L));
     }
 
     public void acceptOutput(Object key, long amount) {
@@ -74,7 +74,7 @@ public final class ReferenceOwnershipLedger {
         throw new IllegalArgumentException("Unknown choice group " + id);
     }
 
-    public List<OwnershipEvent> events() { return List.copyOf(events); }
-    public Map<Object, Long> onHandSnapshot() { return Map.copyOf(onHand); }
-    public Map<Object, Long> futureNeedSnapshot() { return Map.copyOf(futureNeed); }
+    public List<OwnershipEvent> events() { return events; }
+    public Map<Object, Long> onHandSnapshot() { return onHand; }
+    public Map<Object, Long> futureNeedSnapshot() { return futureNeed; }
 }

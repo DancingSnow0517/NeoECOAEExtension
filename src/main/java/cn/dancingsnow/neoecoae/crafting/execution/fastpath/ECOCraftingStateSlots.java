@@ -63,6 +63,6 @@ public final class ECOCraftingStateSlots {
                 expanded.set(gridIndex, positionedSlots.get(inputIndex));
             }
         }
-        return List.copyOf(expanded);
+        return expanded;
     }
 }

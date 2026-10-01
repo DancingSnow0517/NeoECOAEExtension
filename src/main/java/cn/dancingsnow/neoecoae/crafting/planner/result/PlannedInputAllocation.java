@@ -9,7 +9,7 @@ import java.util.Objects;
 public record PlannedInputAllocation(int slot, List<Run> runs) {
     public PlannedInputAllocation {
         if (slot < 0) throw new IllegalArgumentException("Negative input slot");
-        runs = List.copyOf(runs);
+
         if (runs.isEmpty()) throw new IllegalArgumentException("Empty allocation");
     }
 

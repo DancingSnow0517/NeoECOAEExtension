@@ -78,7 +78,7 @@ public final class ECOCraftingPlannerService {
             this.inventory = inventorySnapshot.toKeyCounter();
             this.cyclePlanningEnabled = cyclePlanningEnabled;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
-            this.fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : Set.copyOf(fuzzyPlanningItemIds);
+            this.fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : fuzzyPlanningItemIds;
         }
 
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation)

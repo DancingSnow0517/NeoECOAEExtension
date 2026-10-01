@@ -82,13 +82,13 @@ public final class CycleClusterProjection {
             }
             if (members.size() < 2) continue;
             members.sort(Integer::compareTo);
-            Set<Integer> memberSet = Set.copyOf(members);
+            Set<Integer> memberSet = new LinkedHashSet<>(members);
             List<InterCycleFlow> clusterFlows = flows.stream()
                 .filter(flow -> memberSet.contains(flow.fromComponentId()) && memberSet.contains(flow.toComponentId()))
                 .toList();
             result.add(new CycleCluster(members.getFirst(), members, clusterFlows));
         }
-        return List.copyOf(result);
+        return result;
     }
 
     private record Endpoint(int componentId, int patternId, long amount) {}

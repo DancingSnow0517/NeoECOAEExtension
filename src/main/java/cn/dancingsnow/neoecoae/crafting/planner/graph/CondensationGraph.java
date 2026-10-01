@@ -31,10 +31,10 @@ public final class CondensationGraph {
             Map<AEKey, Integer> componentByKey, List<ComponentDependency> dependencies,
             List<PlanningComponent> topologicalOrder) {
         this.source = source;
-        this.components = Map.copyOf(components);
-        this.componentByKey = Map.copyOf(componentByKey);
-        this.dependencies = List.copyOf(dependencies);
-        this.topologicalOrder = List.copyOf(topologicalOrder);
+        this.components = components;
+        this.componentByKey = componentByKey;
+        this.dependencies = dependencies;
+        this.topologicalOrder = topologicalOrder;
     }
 
     public static CondensationGraph build(CraftingDependencyGraph graph, List<SccComponent> sccs,
@@ -73,10 +73,10 @@ public final class CondensationGraph {
                 for (AEKey member : scc.members()) patterns.addAll(graph.nodes().get(member).candidatePatterns());
             }
             PlanningComponent component = scc.cyclic()
-                ? new CycleComponent(scc.componentId(), scc.members(), List.copyOf(patterns), scc.internalEdges(),
+                ? new CycleComponent(scc.componentId(), scc.members(), new ArrayList<>(patterns), scc.internalEdges(),
                     incoming.getOrDefault(scc.componentId(), List.of()),
                     outgoing.getOrDefault(scc.componentId(), List.of()))
-                : new AcyclicComponent(scc.componentId(), scc.members().getFirst(), List.copyOf(patterns));
+                : new AcyclicComponent(scc.componentId(), scc.members().getFirst(), new ArrayList<>(patterns));
             components.put(scc.componentId(), component);
         }
 
@@ -115,6 +115,7 @@ public final class CondensationGraph {
         return topologicalOrder.reversed();
     }
     public List<CycleComponent> cycles() {
-        return topologicalOrder.stream().filter(CycleComponent.class::isInstance).map(CycleComponent.class::cast).toList();
+        return topologicalOrder.stream().filter(CycleComponent.class::isInstance).map(CycleComponent.class::cast)
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 }

@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.impl.storage.StorageFaults;
 import net.minecraft.world.level.Level;
 
 import java.util.HashMap;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 
 /** Owns retry handling for storage-host stages. */
@@ -36,7 +36,7 @@ final class ECOStorageStageRunner {
         }
     }
 
-    List<StorageFaults.Fault> failures() {
+    Collection<StorageFaults.Fault> failures() {
         return faults.snapshot();
     }
 

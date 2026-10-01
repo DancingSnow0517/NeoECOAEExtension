@@ -8,7 +8,7 @@ import java.util.UUID;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-/** Immutable input to the thread work-installation state transition. */
+/** Input to the thread work-installation state transition. */
 record ECOCraftingThreadWork(
     List<ItemStack> itemOutputs,
     List<ItemStack> itemInputs,
@@ -32,9 +32,9 @@ record ECOCraftingThreadWork(
     ) {
         ItemStack eventOutput = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0).copy();
         return new ECOCraftingThreadWork(
-            List.copyOf(outputs),
-            List.copyOf(inputs),
-            List.copyOf(remaining),
+            outputs,
+            inputs,
+            remaining,
             List.of(),
             List.of(),
             List.of(),
@@ -52,9 +52,9 @@ record ECOCraftingThreadWork(
             List.of(),
             List.of(),
             List.of(),
-            List.copyOf(work.outputTotal()),
-            List.copyOf(work.inputTotal()),
-            List.copyOf(work.remainingTotal()),
+            work.outputTotal(),
+            work.inputTotal(),
+            work.remainingTotal(),
             work.craftingJobId(),
             work.batchSize(),
             work.batchSize(),
@@ -69,9 +69,9 @@ record ECOCraftingThreadWork(
             List.of(),
             List.of(),
             List.of(),
-            List.copyOf(work.outputTotal()),
-            List.copyOf(work.inputTotal()),
-            List.copyOf(work.remainingTotal()),
+            work.outputTotal(),
+            work.inputTotal(),
+            work.remainingTotal(),
             work.craftingJobId(),
             1,
             work.craftCount(),

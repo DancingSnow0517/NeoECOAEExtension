@@ -54,7 +54,7 @@ public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushD
         var level = be.getLevel();
         String location = (level == null ? "unknown" : level.dimension().location().toString())
             + "@" + be.getBlockPos().toShortString();
-        return new Snapshot(location, Set.copyOf(reasons), sendList.size(),
+        return new Snapshot(location, reasons, sendList.size(),
             sendDirection == null ? "none" : sendDirection.getName());
     }
 

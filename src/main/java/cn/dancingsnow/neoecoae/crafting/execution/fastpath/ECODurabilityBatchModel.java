@@ -25,7 +25,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
     private final long maxBatchSize;
 
     private ECODurabilityBatchModel(List<Transition> transitions) {
-        this.transitions = List.copyOf(transitions);
+        this.transitions = transitions;
         long max = Long.MAX_VALUE;
         for (Transition transition : transitions) {
             if (transition.damageDelta() > 0) {
@@ -181,7 +181,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         result.sort(Comparator
             .comparingInt((ToolStock stock) -> stock.stack().getDamageValue()).reversed()
             .thenComparing(stock -> ECOFastPathStacks.keySortId(stock.key())));
-        return result.size() <= entryLimit ? List.copyOf(result) : List.copyOf(result.subList(0, entryLimit));
+        return result.size() <= entryLimit ? result : result.subList(0, entryLimit);
     }
 
     private static KeyCounter multiplyCounter(KeyCounter source, long multiplier) {
@@ -195,8 +195,8 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
     record ToolPoolBatch(long craftCount, List<GenericStack> inputs, List<GenericStack> remainders) {
         ToolPoolBatch {
             if (craftCount <= 0L) throw new IllegalArgumentException("craftCount must be positive");
-            inputs = List.copyOf(inputs);
-            remainders = List.copyOf(remainders);
+
+
         }
     }
 

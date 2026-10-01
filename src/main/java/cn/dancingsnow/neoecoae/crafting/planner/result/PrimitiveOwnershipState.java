@@ -16,8 +16,8 @@ public final class PrimitiveOwnershipState {
         if (onHand.length != resourceCount || futureNeed.length != resourceCount || eventCapacity < 0) {
             throw new IllegalArgumentException("Invalid ownership vector shape");
         }
-        this.onHand = onHand.clone();
-        this.futureNeed = futureNeed.clone();
+        this.onHand = onHand;
+        this.futureNeed = futureNeed;
         this.pendingEventType = new byte[eventCapacity];
         this.pendingEventResource = new int[eventCapacity];
         this.pendingEventAmount = new long[eventCapacity];

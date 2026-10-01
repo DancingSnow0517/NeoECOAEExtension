@@ -10,7 +10,7 @@ public record ECOPatternEligibility(boolean supported, List<InputType> inputType
     }
 
     public ECOPatternEligibility {
-        inputTypes = List.copyOf(inputTypes);
+
         rejectReason = rejectReason == null ? "" : rejectReason;
     }
 

@@ -304,7 +304,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
                 result.addAll(chain.getDecompressionPatterns(effectiveCutoff(key, units, context)));
             }
         }
-        return List.copyOf(result);
+        return new ArrayList<>(result);
     }
 
     private BulkUnits definition(AEItemKey key, LookupContext context) {
@@ -647,13 +647,14 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
     }
 
     public List<AEItemKey> getEffectiveConfiguredFilters() {
-        return List.copyOf(configuredFilters());
+        return configuredFilters();
     }
 
     /** One representative per occupied chain, without expanding compression variants. */
     public List<AEItemKey> getStoredChainFilters() {
         LookupContext context = lookupContext();
-        return storedUnits.keySet().stream().map(key -> storageFormFor(key, context)).toList();
+        return storedUnits.keySet().stream().map(key -> storageFormFor(key, context))
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 
     public int getUnresolvedEntryCount() {
@@ -662,7 +663,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
 
     /** Returns the persisted storage entries for the item tooltip. */
     public Map<AEItemKey, Long> getStoredEntries() {
-        return Map.copyOf(storedUnits);
+        return storedUnits;
     }
 
     public boolean isCompressionEnabled() {

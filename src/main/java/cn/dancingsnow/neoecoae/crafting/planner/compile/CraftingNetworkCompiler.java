@@ -63,7 +63,7 @@ public final class CraftingNetworkCompiler {
     public CompiledNetwork compile(ICraftingService service, AEKey goal, boolean cyclePlanningEnabled,
             Set<ResourceLocation> fuzzyPlanningItemIds, ECOCancellation cancellation) throws InterruptedException {
         Set<ResourceLocation> ignoredItemIds = fuzzyPlanningItemIds == null ? Set.of()
-            : Set.copyOf(fuzzyPlanningItemIds);
+            : fuzzyPlanningItemIds;
         Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();
         Set<AEKey> emittable = new HashSet<>();
         Set<AEKey> queued = new HashSet<>();
@@ -114,7 +114,7 @@ public final class CraftingNetworkCompiler {
                     if (queued.add(feedback.dependentOutput())) work.addLast(feedback.dependentOutput());
                 }
             }
-            producers.put(key, List.copyOf(compiled));
+            producers.put(key, compiled);
         }
         return new CompiledNetwork(goal, producers, emittable, nextPatternId, edgeCount);
     }
@@ -124,18 +124,18 @@ public final class CraftingNetworkCompiler {
      * component-insensitive dependency. The selected physical pattern remains unchanged; only its planner-facing
      * primary output is aliased to the dependency key below.
      */
-    private static List<IPatternDetails> craftingFor(ICraftingService service, AEKey key,
+    private static Iterable<IPatternDetails> craftingFor(ICraftingService service, AEKey key,
             boolean componentInsensitiveOutput) {
         LinkedHashSet<IPatternDetails> result = new LinkedHashSet<>(service.getCraftingFor(key));
         if (!componentInsensitiveOutput || !(key instanceof AEItemKey wanted)) {
-            return List.copyOf(result);
+            return result;
         }
 
         service.getCraftables(candidate -> candidate instanceof AEItemKey itemKey
                 && itemKey.getItem() == wanted.getItem()).stream()
             .sorted(Comparator.comparing(AEKey::toString))
             .forEach(candidate -> result.addAll(service.getCraftingFor(candidate)));
-        return List.copyOf(result);
+        return result;
     }
 
     /** Encoded definitions include quantities, components and matching settings; IO alone is not an identity. */
@@ -258,7 +258,7 @@ public final class CraftingNetworkCompiler {
             aliased.add(output != null && physicalPrimaryOutput.equals(output.what())
                 ? new GenericStack(plannerKey, output.amount()) : output);
         }
-        return List.copyOf(aliased);
+        return aliased;
     }
 
     private static boolean sameItem(AEKey left, AEKey right) {
@@ -285,7 +285,7 @@ public final class CraftingNetworkCompiler {
                 if (possible == null || possible.what() == null || possible.what().equals(input.key())) continue;
                 if (input.source().getRemainingKey(possible.what()) != null) alternatives.add(possible.what());
             }
-            return List.copyOf(alternatives);
+            return alternatives;
         } catch (RuntimeException ignored) {
             return List.of();
         }
@@ -330,7 +330,7 @@ public final class CraftingNetworkCompiler {
             inputs.add(new CompiledInput(input.source(), preferredKey, input.amountPerPattern(), fastSupported, reason,
                 input.returnedKey(), input.returnedAmountPerPattern(), ignoresComponents));
         }
-        return List.copyOf(inputs);
+        return inputs;
     }
 
     private static int indexOfInput(PatternSemantics semantics, PatternSemantics.Input target) {
@@ -373,7 +373,7 @@ public final class CraftingNetworkCompiler {
 
     private static List<GenericStack> safeOutputs(IPatternDetails details) {
         try {
-            return details.getOutputs() == null ? List.of() : List.copyOf(details.getOutputs());
+            return details.getOutputs() == null ? List.of() : details.getOutputs();
         } catch (RuntimeException ignored) {
             return List.of();
         }

@@ -72,8 +72,8 @@ public final class ECOStatefulBatchCalculator {
     public record BatchContract(long craftCount, List<GenericStack> inputs, List<GenericStack> remainders) {
         public BatchContract {
             if (craftCount <= 0L) throw new IllegalArgumentException("craftCount must be positive");
-            inputs = List.copyOf(inputs);
-            remainders = List.copyOf(remainders);
+
+
         }
     }
 }

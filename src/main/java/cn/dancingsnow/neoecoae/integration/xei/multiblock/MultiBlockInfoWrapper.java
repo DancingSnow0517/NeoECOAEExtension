@@ -188,7 +188,7 @@ public class MultiBlockInfoWrapper {
     public List<RequiredItem> getRequiredItems() {
         var context = MultiBlockContext.dummyDelegated(expand, new TrackedDummyWorld());
         definition.createLevel(context);
-        return List.copyOf(context.getRequiredItems());
+        return context.getRequiredItems();
     }
 
     private void onSelect(BlockPos blockPos, Direction direction) {

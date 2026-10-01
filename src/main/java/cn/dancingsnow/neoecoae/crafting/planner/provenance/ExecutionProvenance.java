@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.crafting.planner.provenance;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -11,7 +10,7 @@ import java.util.UUID;
 import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 
-/** Immutable material attribution passed from numeric planning to phase construction. */
+/** Material attribution passed from numeric planning to phase construction. */
 public record ExecutionProvenance(Map<AEKey, Map<MaterialSource, PlannerAmount>> suppliers,
         Map<UUID, MaterialDemand> demands, List<SupplyAllocation> allocations) {
     public static final ExecutionProvenance ABSENT = new ExecutionProvenance(Map.of());
@@ -22,12 +21,6 @@ public record ExecutionProvenance(Map<AEKey, Map<MaterialSource, PlannerAmount>>
     }
 
     public ExecutionProvenance {
-        Map<AEKey, Map<MaterialSource, PlannerAmount>> frozen = new LinkedHashMap<>();
-        suppliers.forEach((key, sources) -> frozen.put(key,
-            Collections.unmodifiableMap(new LinkedHashMap<>(sources))));
-        suppliers = Collections.unmodifiableMap(frozen);
-        demands = Collections.unmodifiableMap(new LinkedHashMap<>(demands));
-        allocations = List.copyOf(allocations);
         Map<UUID, PlannerAmount> totals = new LinkedHashMap<>();
         for (var entry : demands.entrySet()) {
             if (!entry.getKey().equals(entry.getValue().id())) {
@@ -60,7 +53,8 @@ public record ExecutionProvenance(Map<AEKey, Map<MaterialSource, PlannerAmount>>
         if (!demand.equals(demands.get(demand.id()))) {
             throw new IllegalArgumentException("Unknown demand: " + demand.id());
         }
-        return allocations.stream().filter(a -> a.demandId().equals(demand.id())).toList();
+        return allocations.stream().filter(a -> a.demandId().equals(demand.id()))
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 
     public List<SupplyAllocation> allocationsFor(IPatternDetails consumer) {
@@ -68,7 +62,7 @@ public record ExecutionProvenance(Map<AEKey, Map<MaterialSource, PlannerAmount>>
             MaterialDemand demand = demands.get(a.demandId());
             return demand.kind() == MaterialDemand.Kind.INPUT
                 && PlanIdentity.samePattern(demand.consumer(), consumer);
-        }).toList();
+        }).collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 
     /** Completeness is exact and independent of the legacy per-material diagnostic totals. */

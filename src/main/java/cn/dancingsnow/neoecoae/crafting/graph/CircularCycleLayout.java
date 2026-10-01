@@ -94,7 +94,7 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
      */
     private static List<Integer> ringOrder(ClientCraftingGraph graph, List<Integer> coreIds) {
         if (coreIds.size() <= 1) return coreIds;
-        Set<Integer> core = Set.copyOf(coreIds);
+        Set<Integer> core = new LinkedHashSet<>(coreIds);
         List<Integer> starts = new ArrayList<>(coreIds);
         starts.sort(Comparator.comparingInt(id -> id == graph.rootId() ? Integer.MIN_VALUE : id));
         List<Integer> cycle = new ArrayList<>();
@@ -131,7 +131,7 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
             }
         } while (progress && placed.size() < coreIds.size());
         for (int id : coreIds) if (placed.add(id)) cycle.add(id);
-        return List.copyOf(cycle);
+        return cycle;
     }
 
     private static List<Integer> findDirectedCycle(ClientCraftingGraph graph, int start, Set<Integer> core) {
@@ -362,7 +362,7 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
                     GraphPortAllocator.evenlySpacedPoint(core, side, i, links.size()), side));
             }
         }
-        return Map.copyOf(result);
+        return result;
     }
 
     private static double boundaryOrder(GraphLayoutSnapshot.Box satellite, GraphPortAllocator.Side side) {
@@ -386,7 +386,7 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
                 inverse * inverse * start.x() + 2 * inverse * t * control.x() + t * t * end.x(),
                 inverse * inverse * start.y() + 2 * inverse * t * control.y() + t * t * end.y()));
         }
-        return List.copyOf(result);
+        return result;
     }
 
     private static float distance(GraphLayoutSnapshot.Point one, GraphLayoutSnapshot.Point two) {
@@ -413,7 +413,7 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
                     + 3 * inverse * t * t * secondControl.y()
                     + t * t * t * end.y()));
         }
-        return List.copyOf(result);
+        return result;
     }
 
     private static GraphLayoutSnapshot.Point radialPoint(float centerX, float centerY, float radius, double angle) {

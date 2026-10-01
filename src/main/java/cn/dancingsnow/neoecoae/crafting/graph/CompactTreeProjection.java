@@ -138,7 +138,7 @@ public final class CompactTreeProjection {
     private static List<String> reconstructPath(PathFrame frame) {
         Deque<String> result = new ArrayDeque<>();
         for (PathFrame current = frame; current != null; current = current.parent()) result.addFirst(current.path());
-        return List.copyOf(result);
+        return new ArrayList<>(result);
     }
 
     private static int addVisibleNode(ClientCraftingGraph source, int sourceId, int parentId, String path, int depth,
@@ -242,7 +242,7 @@ public final class CompactTreeProjection {
             LinkedHashSet<String> dedupe = new LinkedHashSet<>();
             children.removeIf(value -> !dedupe.add(value.childId() + ":" + value.amount() + ":" + value.kind()
                 + ":" + value.materialNodeId()));
-            result.put(node.id(), List.copyOf(children));
+            result.put(node.id(), children);
         }
         return result;
     }

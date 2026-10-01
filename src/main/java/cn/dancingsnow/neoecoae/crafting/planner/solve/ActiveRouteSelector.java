@@ -32,9 +32,9 @@ public final class ActiveRouteSelector {
         boolean budgetExhausted
     ) {
         public Selection {
-            choices = Map.copyOf(choices);
-            cyclicComponents = List.copyOf(cyclicComponents);
-            deferredCyclicCandidates = List.copyOf(deferredCyclicCandidates);
+
+
+
         }
 
         /** Compatibility constructor for callers that do not need budget diagnostics. */
@@ -193,7 +193,7 @@ public final class ActiveRouteSelector {
         // remain in the list so a later change in another member can make their old path disappear; this preserves
         // complete bounded combination search instead of turning the precheck into an unsafe pruning rule.
         hopeful.addAll(definiteCycle);
-        return new CandidateBranches(List.copyOf(hopeful), false);
+        return new CandidateBranches(hopeful, false);
     }
 
     private static Precheck definitelyCyclic(CraftingDependencyGraph active, AEKey member,
@@ -271,7 +271,7 @@ public final class ActiveRouteSelector {
     private static List<Integer> choiceVector(CraftingDependencyGraph universe, Map<AEKey, Integer> choices) {
         List<Integer> vector = new ArrayList<>(universe.nodes().size());
         for (AEKey key : universe.nodes().keySet()) vector.add(choices.getOrDefault(key, 0));
-        return List.copyOf(vector);
+        return vector;
     }
 
     private static List<CraftingGraphEdge> patternEdges(AEKey key, CompiledPattern pattern) {

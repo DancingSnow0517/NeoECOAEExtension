@@ -41,9 +41,9 @@ public final class ECOVerifiedFastPathExecution {
         this.recipe = recipe;
         this.batchSize = batchSize;
         this.craftingJobId = craftingJobId;
-        this.inputTotal = List.copyOf(inputTotal);
-        this.outputTotal = List.copyOf(outputTotal);
-        this.remainingTotal = List.copyOf(remainingTotal);
+        this.inputTotal = inputTotal;
+        this.outputTotal = outputTotal;
+        this.remainingTotal = remainingTotal;
     }
 
     static ECOVerifiedFastPathExecution trusted(

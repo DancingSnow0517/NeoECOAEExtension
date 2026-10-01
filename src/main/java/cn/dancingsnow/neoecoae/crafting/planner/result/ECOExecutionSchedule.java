@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.Map;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -26,14 +25,14 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
 
     public ECOExecutionSchedule {
-        phases = List.copyOf(phases);
-        dependencies = List.copyOf(dependencies);
+
+
     }
     public ECOExecutionSchedule(List<ComponentExecutionPhase> phases) { this(phases, List.of()); }
     public record PhaseDependency(int producerPhase, int consumerPhase) { }
     public record ComponentExecutionPhase(int componentId, Type type, Set<IPatternDetails> patternSet,
             List<IPatternDetails> cycleWitness) {
-        public ComponentExecutionPhase { patternSet = Set.copyOf(patternSet); cycleWitness = List.copyOf(cycleWitness); }
+        public ComponentExecutionPhase {  }
     }
     public enum Type { DAG, CYCLE, DYNAMIC_CYCLE }
 
@@ -262,7 +261,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         dependencies.sort(java.util.Comparator.comparingInt(PhaseDependency::consumerPhase)
             .thenComparingInt(PhaseDependency::producerPhase));
         validateScheduleTopology(dependencies);
-        return new OrderedSchedule(List.copyOf(ordered), List.copyOf(dependencies));
+        return new OrderedSchedule(ordered, dependencies);
     }
 
     private record OrderedSchedule(List<ComponentExecutionPhase> phases,
@@ -437,7 +436,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         }
 
         private List<IPatternDetails> patterns() {
-            return Collections.unmodifiableList(entries);
+            return entries;
         }
 
         private void add(IPatternDetails pattern) {

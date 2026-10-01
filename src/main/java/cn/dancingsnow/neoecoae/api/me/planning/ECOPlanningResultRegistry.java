@@ -90,7 +90,7 @@ public final class ECOPlanningResultRegistry {
             // A complete plan signature is the execution identity. Keeping multiple planning IDs for the same
             // identity made a second identical calculation poison recovery for both submissions. Replace the
             // value atomically; the submitted pattern objects are rebound below before execution.
-            RESULTS.putAndMoveToLast(signature, new Entry(result, signature, Map.copyOf(plan.patternTimes()),
+            RESULTS.putAndMoveToLast(signature, new Entry(result, signature, plan.patternTimes(),
                     inspection.executionPlan(), inspection.cycleExpected(), recoveryState,
                     inspection.reason(), planningId, now));
             trimEntries();
@@ -185,7 +185,7 @@ public final class ECOPlanningResultRegistry {
         boolean expected = cycleExpected(result);
         if (!expected && executionPlan == null) return null;
         return new SubmissionAlias(confirmedSignature, result.planningId(), executionPlan,
-            Map.copyOf(result.plan().patternTimes()), expected, "ECO");
+            result.plan().patternTimes(), expected, "ECO");
     }
 
     /** Metadata is visible only if the submitted plan proves the same complete identity as the confirmation plan. */

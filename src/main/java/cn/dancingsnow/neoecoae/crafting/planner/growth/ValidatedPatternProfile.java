@@ -47,10 +47,10 @@ public final class ValidatedPatternProfile {
             Map<AEKey, Long> remainder, NetGrowthRejection netGrowthRejection) {
         this.issuer = issuer;
         this.pattern = pattern;
-        this.capabilities = Set.copyOf(capabilities);
-        this.consumption = Map.copyOf(consumption);
-        this.production = Map.copyOf(production);
-        this.remainder = Map.copyOf(remainder);
+        this.capabilities = capabilities;
+        this.consumption = consumption;
+        this.production = production;
+        this.remainder = remainder;
         this.netGrowthRejection = netGrowthRejection;
     }
 
@@ -134,7 +134,7 @@ public final class ValidatedPatternProfile {
         Set<AEKey> keys = new LinkedHashSet<>(consumption.keySet());
         keys.addAll(production.keySet());
         keys.addAll(remainder.keySet());
-        return List.copyOf(keys);
+        return new ArrayList<>(keys);
     }
 
     /**
@@ -146,7 +146,7 @@ public final class ValidatedPatternProfile {
         for (AEKey key : touchedKeys()) {
             if (consumptionOf(key) > 0 && grossProductionOf(key) > 0) result.add(key);
         }
-        return List.copyOf(result);
+        return result;
     }
 
     /** Net change of the whole contract per firing, positive and negative entries alike. */
@@ -156,7 +156,7 @@ public final class ValidatedPatternProfile {
             long delta = netDeltaPerFiring(key);
             if (delta != 0) result.put(key, delta);
         }
-        return Map.copyOf(result);
+        return result;
     }
 
     @Override

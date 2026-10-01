@@ -77,13 +77,13 @@ public final class ClientCraftingGraph {
         this.focusedCycleId = focusedCycleId;
         this.focusedCluster = focusedCluster;
         this.focusedMaterialId = focusedMaterialId;
-        this.nodes = Map.copyOf(nodes);
-        this.links = List.copyOf(links);
-        this.compactTreeNodes = Map.copyOf(compactTreeNodes);
+        this.nodes = nodes;
+        this.links = links;
+        this.compactTreeNodes = compactTreeNodes;
         this.compactTree = compactTree;
-        this.boundaryMaterialIds = Set.copyOf(boundaryMaterialIds);
-        this.externalInputIds = Set.copyOf(externalInputIds);
-        this.boundaryOutputIds = Set.copyOf(boundaryOutputIds);
+        this.boundaryMaterialIds = boundaryMaterialIds;
+        this.externalInputIds = externalInputIds;
+        this.boundaryOutputIds = boundaryOutputIds;
         Map<Integer, Set<Integer>> up = new HashMap<>();
         Map<Integer, Set<Integer>> down = new HashMap<>();
         for (Link link : links) {
@@ -167,7 +167,7 @@ public final class ClientCraftingGraph {
             @Nullable AEKey focusedMaterial) {
         var cycle = snapshot.cycleGroups().stream().filter(value -> value.componentId() == componentId).findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Unknown cycle component " + componentId));
-        Set<Integer> members = Set.copyOf(cycle.memberNodeIds());
+        List<Integer> members = cycle.memberNodeIds();
         Map<Integer, CraftingGraphSnapshot.PatternNode> cyclePatterns = new LinkedHashMap<>();
         Set<Integer> externalInputIds = new LinkedHashSet<>();
         Set<Integer> boundaryOutputIds = new LinkedHashSet<>();
@@ -246,7 +246,7 @@ public final class ClientCraftingGraph {
     /** Builds a multi-SCC focus while retaining every component's independent ring membership. */
     public static ClientCraftingGraph cluster(CraftingGraphSnapshot snapshot, CycleCluster cluster,
             boolean advanced) {
-        Set<Integer> componentIds = Set.copyOf(cluster.componentIds());
+        List<Integer> componentIds = cluster.componentIds();
         Set<Integer> memberIds = new LinkedHashSet<>();
         for (var cycle : snapshot.cycleGroups()) if (componentIds.contains(cycle.componentId())) {
             memberIds.addAll(cycle.memberNodeIds());
@@ -270,7 +270,7 @@ public final class ClientCraftingGraph {
             List<CraftingGraphSnapshot.PatternNode> expanded = new ArrayList<>(patterns);
             for (var pattern : snapshot.patterns()) if (componentIds.contains(pattern.componentId())
                     && !visibleComponents.contains(pattern.componentId())) expanded.add(pattern);
-            patterns = List.copyOf(expanded);
+            patterns = expanded;
         }
         for (var pattern : patterns) nodes.put(pattern.patternNodeId(), patternNode(pattern.patternNodeId(), pattern));
 
@@ -424,7 +424,7 @@ public final class ClientCraftingGraph {
 
     private static Map<Integer, Set<Integer>> freeze(Map<Integer, Set<Integer>> values) {
         Map<Integer, Set<Integer>> result = new HashMap<>();
-        values.forEach((key, value) -> result.put(key, Set.copyOf(value)));
-        return Map.copyOf(result);
+        values.forEach((key, value) -> result.put(key, value));
+        return result;
     }
 }

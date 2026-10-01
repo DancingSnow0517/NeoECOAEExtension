@@ -130,7 +130,7 @@ public final class ECOFastPathStacks {
                 return Optional.empty();
             }
         }
-        return Optional.of(List.copyOf(result));
+        return Optional.of(result);
     }
 
     static boolean areValidItemStacks(
@@ -299,7 +299,7 @@ public final class ECOFastPathStacks {
                     validation)) {
                 return Optional.empty();
             }
-            return Optional.of(List.copyOf(stacks));
+            return Optional.of(stacks);
         } catch (RuntimeException e) {
             return Optional.empty();
         }
@@ -322,7 +322,7 @@ public final class ECOFastPathStacks {
         for (SortableStack entry : sortable) {
             stacks.add(entry.stack());
         }
-        return List.copyOf(stacks);
+        return stacks;
     }
 
     private record SortableStack(String sortId, GenericStack stack) {}

@@ -58,11 +58,11 @@ public final class SolveState {
     public Map<AEKey, PlannerAmount> missingAmounts() { return missing.asMap(); }
     /** Exact planner view of pattern firing counts. */
     public Map<IPatternDetails, PlannerAmount> plannerPatternTimes() {
-        return Collections.unmodifiableMap(new LinkedHashMap<>(patternTimes));
+        return patternTimes;
     }
     /** Exact planner view of material demand. */
     public Map<AEKey, PlannerAmount> plannerDemands() {
-        return Collections.unmodifiableMap(new LinkedHashMap<>(demand));
+        return demand;
     }
     /** AE2-facing view retained for existing consumers. */
     public Map<IPatternDetails, Long> patternTimes() { return exactLongMap(patternTimes, "pattern times"); }
@@ -117,7 +117,7 @@ public final class SolveState {
             }
         }
         if (!bytes.fitsLong()) issues.add(new ExecutionAmountIssue(null, null, bytes, "plan bytes"));
-        return List.copyOf(issues);
+        return issues;
     }
 
     public record ExecutionAmountIssue(AEKey key, IPatternDetails producer, PlannerAmount amount, String stage) {}
@@ -262,7 +262,7 @@ public final class SolveState {
             }
             result.put(entry.getKey(), entry.getValue().longValueExact());
         }
-        return Map.copyOf(result);
+        return result;
     }
 
     private static void replaceCounter(PlannerCounter target, PlannerCounter source) {

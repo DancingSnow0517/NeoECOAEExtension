@@ -77,17 +77,18 @@ public interface ECOFastPathDispatchProvider {
         @Override public List<GenericStack> inputTotal() {
             if (inputTotal.isEmpty() && !exactInputTotal.isEmpty()) {
                 return exactInputTotal.entrySet().stream()
-                    .map(entry -> new GenericStack(entry.getKey(), entry.getValue().longValueExact())).toList();
+                    .map(entry -> new GenericStack(entry.getKey(), entry.getValue().longValueExact()))
+                    .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
             }
             return inputTotal;
         }
 
         public Batch {
             if (craftCount <= 0L) throw new IllegalArgumentException("craftCount must be positive");
-            exactInputTotal = Map.copyOf(exactInputTotal);
-            inputTotal = List.copyOf(inputTotal);
-            outputTotal = List.copyOf(outputTotal);
-            remainingTotal = List.copyOf(remainingTotal);
+
+
+
+
         }
     }
 }

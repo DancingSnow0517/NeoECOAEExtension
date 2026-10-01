@@ -13,6 +13,6 @@ public record OwnershipEvent(Type type, Object resource, long amount) {
             if (!(value instanceof Long amountValue)) throw new IllegalArgumentException("Invalid consumed event");
             result.put(key, amountValue);
         });
-        return Map.copyOf(result);
+        return result;
     }
 }

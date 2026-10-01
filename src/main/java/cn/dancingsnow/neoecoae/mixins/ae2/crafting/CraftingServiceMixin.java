@@ -406,7 +406,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                 result.addAll(machineInterface.getFuzzyPlanningItemIds());
             }
         }
-        return Set.copyOf(result);
+        return result;
     }
 
     @Unique

@@ -109,9 +109,9 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         }
     }
 
-    public static List<ECOCraftingWorkerBlockEntity> getLoadedServerWorkers() {
+    public static Set<ECOCraftingWorkerBlockEntity> getLoadedServerWorkers() {
         synchronized (LOADED_SERVER_WORKERS) {
-            return List.copyOf(LOADED_SERVER_WORKERS);
+            return LOADED_SERVER_WORKERS;
         }
     }
 
@@ -358,7 +358,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 snapshots.add(snapshot);
             }
         }
-        return List.copyOf(snapshots);
+        return snapshots;
     }
 
     private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {
@@ -510,7 +510,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         setChanged();
         markForUpdate();
         wakeTickingDevice();
-        return new ClearResult(busyThreads, Set.copyOf(jobIds));
+        return new ClearResult(busyThreads, jobIds);
     }
 
     public record ClearResult(int threadCount, Set<UUID> jobIds) {}

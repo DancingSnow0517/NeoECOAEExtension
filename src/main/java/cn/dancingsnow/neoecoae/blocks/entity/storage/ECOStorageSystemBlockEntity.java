@@ -64,6 +64,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 
@@ -237,7 +238,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
     }
 
-    public List<cn.dancingsnow.neoecoae.impl.storage.StorageFaults.Fault> storageFailures() {
+    public Collection<cn.dancingsnow.neoecoae.impl.storage.StorageFaults.Fault> storageFailures() {
         return stageRunner.failures();
     }
 
@@ -494,7 +495,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
      * Stable snapshot of the drives belonging to this storage host.
      */
     public List<ECODriveBlockEntity> getStorageDrivesForIntegration() {
-        return cluster == null ? List.of() : List.copyOf(cluster.getDrives());
+        return cluster == null ? List.of() : cluster.getDrives();
     }
 
     /**

@@ -32,7 +32,7 @@ public final class ECOProviderPatternIntrospection {
             result.add(current);
             current = ACCESSORS.get(current.getClass()).next(current);
         }
-        return List.copyOf(result);
+        return result;
     }
 
     @Nullable

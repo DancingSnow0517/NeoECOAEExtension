@@ -57,7 +57,7 @@ public final class ExactMapSync {
     public static Map<AEKey, ExactAmount> finite(Map<AEKey, BigInteger> amounts) {
         Map<AEKey, ExactAmount> result = new HashMap<>();
         amounts.forEach((key, value) -> result.put(key, ExactAmount.finite(value)));
-        return Map.copyOf(result);
+        return result;
     }
 
     public static Map<AEKey, BigInteger> integers(Map<AEKey, ExactAmount> amounts) {
@@ -66,7 +66,7 @@ public final class ExactMapSync {
             if (value.infinite()) throw new IllegalArgumentException("Infinite CPU quantity");
             result.put(key, value.value());
         });
-        return Map.copyOf(result);
+        return result;
     }
 
     private static int readCount(RegistryFriendlyByteBuf buf) {

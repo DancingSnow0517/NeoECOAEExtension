@@ -263,8 +263,8 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
         }
         if (orderChanged) payload.put(NBT_ORDER, writeOrder(currentOrder));
 
-        lastServerTasks = Map.copyOf(currentById);
-        lastServerOrder = List.copyOf(currentOrder);
+        lastServerTasks = currentById;
+        lastServerOrder = currentOrder;
         lastServerTotalTasks = current.totalTasks();
         lastSyncPayload = payload;
         return payload;
@@ -321,7 +321,7 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
         if (payload.contains(NBT_ORDER, Tag.TAG_LIST)) {
             syncedTasks = orderTasks(entriesById, payload.getList(NBT_ORDER, Tag.TAG_STRING));
         } else {
-            syncedTasks = List.copyOf(entriesById.values());
+            syncedTasks = new ArrayList<>(entriesById.values());
         }
         syncedTotalTasks = payload.contains(NBT_TOTAL, Tag.TAG_INT) ? payload.getInt(NBT_TOTAL) : syncedTasks.size();
         scrollOffset = clampTaskScrollOffset(scrollOffset, syncedTasks.size());
@@ -344,7 +344,7 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
             }
         }
         ordered.addAll(entriesById.values());
-        return List.copyOf(ordered);
+        return ordered;
     }
 
     private String taskCountText() {

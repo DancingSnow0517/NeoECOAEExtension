@@ -18,14 +18,14 @@ public final class ECOBatchInputLease {
 
     private ECOBatchInputLease(ListCraftingInventory inventory, List<GenericStack> inputs) {
         this.inventory = inventory;
-        this.inputs = List.copyOf(inputs);
+        this.inputs = inputs;
         this.exactInputs = Map.of();
     }
 
     private ECOBatchInputLease(ECOExactInventory inventory, Map<AEKey, BigInteger> inputs) {
         this.inventory = inventory;
         this.inputs = List.of();
-        this.exactInputs = Map.copyOf(inputs);
+        this.exactInputs = inputs;
     }
 
     public static ECOBatchInputLease acquire(ListCraftingInventory inventory, List<GenericStack> inputs) {

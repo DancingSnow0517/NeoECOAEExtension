@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.api.me.attachment;
 
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobResult;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +36,7 @@ public final class ECOCraftingJobAttachments {
     public void load(CompoundTag jobData, HolderLookup.Provider registries, ECOCraftingJobContext context) {
         initialize(context);
         CompoundTag persisted = jobData.getCompound("attachments");
-        for (var entry : List.copyOf(bound.entrySet())) {
+        for (var entry : new ArrayList<>(bound.entrySet())) {
             String id = entry.getKey().toString();
             if (!persisted.contains(id, Tag.TAG_COMPOUND)) continue;
             try {
@@ -85,7 +86,7 @@ public final class ECOCraftingJobAttachments {
     }
 
     public void clear(ECOCraftingJobResult result) {
-        for (var attachment : List.copyOf(bound.values())) {
+        for (var attachment : new ArrayList<>(bound.values())) {
             try {
                 attachment.clear(result);
             } catch (RuntimeException failure) {
@@ -97,7 +98,7 @@ public final class ECOCraftingJobAttachments {
 
     private void resolveUnbound(HolderLookup.Provider registries, ECOCraftingJobContext context) {
         if (unboundData.isEmpty()) return;
-        for (var entry : List.copyOf(unboundData.entrySet())) {
+        for (var entry : new ArrayList<>(unboundData.entrySet())) {
             if (bound.containsKey(entry.getKey())) continue;
             var attachment = ECOCraftingJobAttachmentRegistry.create(entry.getKey(), context);
             if (attachment == null) continue;

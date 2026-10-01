@@ -182,7 +182,7 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
                 decoded.addAll(PatternDiskApi.decodePatterns(contents, level));
             }
         }
-        return List.copyOf(decoded);
+        return decoded;
     }
 
     @Override
@@ -279,14 +279,14 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
             if (sameContents(currentContents, contents)) {
                 return;
             }
-            contents = List.copyOf(currentContents);
+            contents = currentContents;
             List<ItemStack> collected = new ArrayList<>();
             for (PatternDiskContents diskContents : contents) {
                 if (diskContents != null) {
                     collected.addAll(diskContents.patterns());
                 }
             }
-            patterns = List.copyOf(collected);
+            patterns = collected;
             revision++;
         }
 

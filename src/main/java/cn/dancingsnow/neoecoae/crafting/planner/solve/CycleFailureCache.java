@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolver;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphEdge;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,11 +47,11 @@ final class CycleFailureCache {
             Set<CraftingGraphEdge> internalEdges, Set<CraftingGraphEdge> boundaryEdges,
             Map<AEKey, PlannerAmount> required, Map<AEKey, Long> stock, CycleSolveLimits limits) {
         static Fingerprint of(CycleSolveRequest request) {
-            return new Fingerprint(Set.copyOf(request.component().members()),
+            return new Fingerprint(new HashSet<>(request.component().members()),
                 request.component().patterns().stream().sorted(Comparator.comparingInt(CompiledPattern::id)).toList(),
-                Set.copyOf(request.component().internalEdges()),
+                new HashSet<>(request.component().internalEdges()),
                 request.externalResourceBoundary().stream().flatMap(edge -> edge.relationships().stream())
-                    .collect(Collectors.toUnmodifiableSet()),
+                    .collect(Collectors.toSet()),
                 request.plannerRequiredOutputs(), request.availableRelevantStock(), request.options().limits());
         }
     }

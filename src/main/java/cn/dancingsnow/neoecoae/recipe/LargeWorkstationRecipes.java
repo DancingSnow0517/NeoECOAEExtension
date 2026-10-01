@@ -77,7 +77,7 @@ public final class LargeWorkstationRecipes {
             }
         }
         recipes.sort(Comparator.comparing(recipe -> recipe.id().toString()));
-        var result = List.copyOf(recipes);
+        var result = recipes;
         CACHE.put(manager, new Cache(sources, result));
         return result;
     }
@@ -177,7 +177,7 @@ public final class LargeWorkstationRecipes {
             default -> throw new IllegalArgumentException("Unsupported recipe type: " + type);
         }
         if (result.isEmpty() && fluidResult.isEmpty()) throw new IllegalArgumentException("Empty output");
-        var display = new IntegratedWorkingStationRecipe(List.copyOf(items), fluid, result, fluidResult,
+        var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
         return new LargeWorkstationRecipe(id, display, energy, extras);
     }

@@ -7,7 +7,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 
 /**
- * Immutable result shared by the ordinary and verified batch dispatch paths.
+ * Result shared by the ordinary and verified batch dispatch paths.
  *
  * <p>The CPU only needs to know how many crafts were accepted and which output/remainder
  * stacks must enter {@code waitingFor}. Batch capacity, extraction, and rollback stay
@@ -19,8 +19,8 @@ record ECOCraftingDispatchResult(long acceptedCrafts, List<GenericStack> outputs
         if (acceptedCrafts <= 0L) {
             throw new IllegalArgumentException("acceptedCrafts must be positive");
         }
-        outputs = List.copyOf(outputs);
-        remainders = List.copyOf(remainders);
+
+
     }
 
     static ECOCraftingDispatchResult single(KeyCounter outputs, KeyCounter remainders) {

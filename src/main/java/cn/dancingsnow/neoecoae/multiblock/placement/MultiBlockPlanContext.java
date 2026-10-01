@@ -33,7 +33,8 @@ public class MultiBlockPlanContext extends MultiBlockContext {
 
     @Override
     public List<BlockPos> allBlocks() {
-        return plannedBlocks.stream().map(PlannedBlock::relativePos).toList();
+        return plannedBlocks.stream().map(PlannedBlock::relativePos)
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 
     @Override

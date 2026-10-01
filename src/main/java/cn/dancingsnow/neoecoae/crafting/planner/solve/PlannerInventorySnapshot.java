@@ -14,7 +14,7 @@ public final class PlannerInventorySnapshot {
     private PlannerInventorySnapshot(AEKey[] keys, PlannerAmount[] amounts, java.util.Set<AEKey> unboundedKeys) {
         this.keys = keys;
         this.amounts = amounts;
-        this.unboundedKeys = java.util.Set.copyOf(unboundedKeys);
+        this.unboundedKeys = unboundedKeys;
     }
 
     public static PlannerInventorySnapshot of(KeyCounter inventory) {

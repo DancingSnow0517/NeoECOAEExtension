@@ -35,7 +35,7 @@ public final class AcyclicCraftingSolver {
             this(status, state, trace, Map.of());
         }
         public Outcome {
-            cyclicRouteChoices = Map.copyOf(cyclicRouteChoices);
+
         }
     }
     private final CandidateResolver candidates = new CandidateResolver();
@@ -235,7 +235,7 @@ public final class AcyclicCraftingSolver {
                 if (remaining == 0) ready.addLast(dependency);
             }
         }
-        return ordered.size() == reachable.size() ? List.copyOf(ordered) : null;
+        return ordered.size() == reachable.size() ? ordered : null;
     }
 
     private static CompiledPattern selectedPattern(CompiledNetwork network, AEKey key,

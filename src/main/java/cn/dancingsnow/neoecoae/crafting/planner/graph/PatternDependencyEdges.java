@@ -36,6 +36,6 @@ public final class PatternDependencyEdges {
                     : pattern.inputs().getFirst());
             edges.add(new CraftingGraphEdge(feedback.returnedKey(), feedback.dependentOutput(), pattern, input));
         }
-        return List.copyOf(edges);
+        return edges;
     }
 }
