@@ -237,7 +237,7 @@ Java builder 可用于数据生成；存在 KubeJS 时，同名 id 会注册 Kub
 
 ## 12. 发布前检查清单
 
-1. 使用 Java 21、Minecraft 1.21.1、NeoForge 21.1.x、AE2 19.2.18+ 和精确 ECO JAR 编译。
+1. 使用 Java 21、Minecraft 1.21.1、NeoForge 21.1.x、AE2 19.2.17+ 和精确 ECO JAR 编译。同时支持 AE2 19.2.17 和 19.2.18，默认开发依赖为 19.2.18。
 2. optional 依赖必须分别测试存在和缺少 ECO 的环境。
 3. 测试专用服务端，保证客户端模型/UI 类不会被加载。
 4. 测试服务端重启、区块卸载/重载、任务取消、Provider 拒绝以及产物存储已满。

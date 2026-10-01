@@ -57,11 +57,22 @@ public class CpuSelectionListMixin {
         method = "drawBackgroundLayer",
         at = @At(
             value = "INVOKE",
-            target = "Lappeng/core/localization/Tooltips;getByteAmount(J)Lappeng/core/localization/Tooltips$Amount;"
+            target = "Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IFII)V",
+            ordinal = 1
         )
     )
-    private Tooltips.Amount wrapStorageAmount(long storage, Operation<Tooltips.Amount> original) {
-        return new Tooltips.Amount(NEByteFormatter.formatCpuStorage(storage), "");
+    private void wrapStorageAdd(
+        InfoBar instance,
+        String text,
+        int color,
+        float scale,
+        int xPos,
+        int yPos,
+        Operation<Void> original,
+        @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
+    ) {
+        // Both AE2 19.2.17 and 19.2.18 use this call after formatting storage differently.
+        original.call(instance, NEByteFormatter.formatCpuStorage(cpu.storage()), color, scale, xPos, yPos);
     }
 
     @WrapOperation(

@@ -139,7 +139,9 @@ dependencies {
     compileOnly("org.appliedenergistics:guideme:21.1.1:api")
     runtimeOnly("org.appliedenergistics:guideme:21.1.1")
 
-    implementation("org.appliedenergistics:appliedenergistics2:19.2.18")
+    implementation("org.appliedenergistics:appliedenergistics2:${ae2_version}") {
+        version { strictly(ae2_version) }
+    }
 
     // Optional alloy-furnace scaled dispatch API; not bundled or installed in the dev runtime.
     // Requires 2.3.7.2+ for AlloyFurnaceBigIntegerTarget public API (introduced 2026-09-18)

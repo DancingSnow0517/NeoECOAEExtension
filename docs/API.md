@@ -235,7 +235,7 @@ Avoid dependencies on `impl`, `mixins`, `blocks.entity`, `multiblock`, or `compa
 
 ## 12. Pre-release integration checklist
 
-1. Compile against Java 21, Minecraft 1.21.1, NeoForge 21.1.x, AE2 19.2.18+, and the exact ECO JAR.
+1. Compile against Java 21, Minecraft 1.21.1, NeoForge 21.1.x, AE2 19.2.17+, and the exact ECO JAR. AE2 19.2.17 and 19.2.18 are supported; the default development dependency is 19.2.18.
 2. Test both with and without ECO if the dependency is optional.
 3. Test a dedicated server; client-only model/UI classes must never load there.
 4. Test server restart, chunk unload/reload, job cancellation, provider rejection, and full output storage.
