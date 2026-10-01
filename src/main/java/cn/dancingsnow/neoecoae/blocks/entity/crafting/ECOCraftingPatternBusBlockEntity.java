@@ -246,8 +246,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 details.add(decoded);
             }
         }
-        auxiliaryEncodedPatterns = List.copyOf(encoded);
-        auxiliaryPatternDetails = List.copyOf(details);
+        auxiliaryEncodedPatterns = encoded;
+        auxiliaryPatternDetails = details;
         // Stamped last on purpose: a decoder that throws would otherwise leave the revision marked as
         // already decoded, freezing the cache on the previous contents until the revision happens to move
         // again.
@@ -498,7 +498,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return null;
     }
 
-    cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster getCraftingCluster() {
+    public cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster getCraftingCluster() {
         return cluster;
     }
 
@@ -734,7 +734,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (cluster == null) {
             return containsPattern(pattern);
         }
-        for (ECOCraftingPatternBusBlockEntity patternBus : cluster.getPatternBuses()) {
+        for (ECOCraftingPatternBusBlockEntity patternBus : cluster.getPatternDomainBuses()) {
             if (patternBus.containsPattern(pattern)) {
                 return true;
             }
@@ -1154,7 +1154,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 // A subclass may return null to mean "append nothing", which is a reasonable thing to want and
                 // would otherwise fail here while a screen is being drawn.
                 List<ItemStack> fromSubclass = terminalAppendedRows();
-                appendedRows = fromSubclass == null ? List.of() : List.copyOf(fromSubclass);
+                appendedRows = fromSubclass == null ? List.of() : fromSubclass;
             }
             return appendedRows;
         }

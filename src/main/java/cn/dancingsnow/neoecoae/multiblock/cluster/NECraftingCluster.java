@@ -39,6 +39,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     private NECraftingNetworkCluster networkCluster;
 
     private final ECOCraftingFastPathCache localFastPathCache = new ECOCraftingFastPathCache();
+    private long localPatternDomainGeneration;
     private final Set<ECOCraftingWorkerBlockEntity> localAvailableWorkers =
         Collections.newSetFromMap(new IdentityHashMap<>());
     private long localAvailabilityTick = Long.MIN_VALUE;
@@ -123,6 +124,23 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         return !localAvailableWorkers.isEmpty();
     }
 
+    /**
+     * Identity of the pattern area visible to this host.  A host without a formed switch domain
+     * owns its own area; only the manager-created network cluster makes several hosts share one.
+     */
+    public Object getPatternDomain() {
+        return networkCluster != null ? networkCluster : this;
+    }
+
+    /** Buses visible from this host's crafting interface. */
+    public List<ECOCraftingPatternBusBlockEntity> getPatternDomainBuses() {
+        return networkCluster == null ? patternBuses : networkCluster.getPatternBuses();
+    }
+
+    public long getPatternDomainGeneration() {
+        return networkCluster == null ? localPatternDomainGeneration : networkCluster.getPatternDomainGeneration();
+    }
+
     /** Keeps the tick-local busy snapshot exact when a worker starts or stops owning work. */
     public void onWorkerAvailabilityChanged(ECOCraftingWorkerBlockEntity worker) {
         NECraftingNetworkCluster network = this.networkCluster;
@@ -185,7 +203,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Override
     public void breakCluster() {
         if (isDestroyed()) return;
-        for (ECOCraftingWorkerBlockEntity worker : List.copyOf(workers)) {
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
             worker.terminateRunningJobs();
         }
         destroy();
@@ -207,6 +225,10 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         }
         if (blockEntity instanceof ECOCraftingPatternBusBlockEntity patternBusBlockEntity) {
             patternBuses.add(patternBusBlockEntity);
+            localPatternDomainGeneration++;
+            if (networkCluster != null) {
+                networkCluster.invalidatePatternDomain();
+            }
         }
         if (blockEntity instanceof ECOCraftingSystemBlockEntity controller) {
             this.controller = controller;

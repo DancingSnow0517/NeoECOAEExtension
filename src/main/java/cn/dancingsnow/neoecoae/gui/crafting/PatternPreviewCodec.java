@@ -20,9 +20,11 @@ public final class PatternPreviewCodec {
         buf.writeVarInt(payload.getInt("menu"));
         buf.writeVarInt(payload.getInt("revision"));
         buf.writeVarInt(payload.getInt("base"));
+        buf.writeLong(payload.getLong("epoch"));
         buf.writeVarInt(payload.getInt("size"));
         buf.writeByte((payload.getBoolean("full") ? 1 : 0)
-                | (payload.getBoolean("first") ? 2 : 0) | (payload.getBoolean("last") ? 4 : 0));
+                | (payload.getBoolean("first") ? 2 : 0) | (payload.getBoolean("last") ? 4 : 0)
+                | (payload.getBoolean("reuse") ? 8 : 0));
         ListTag entries = payload.getList("entries", Tag.TAG_COMPOUND);
         Object2IntOpenHashMap<CompoundTag> dictionary = new Object2IntOpenHashMap<>();
         dictionary.defaultReturnValue(-1);
@@ -71,12 +73,14 @@ public final class PatternPreviewCodec {
         payload.putInt("menu", buf.readVarInt());
         payload.putInt("revision", buf.readVarInt());
         payload.putInt("base", buf.readVarInt());
+        payload.putLong("epoch", buf.readLong());
         int size = bounded(buf.readVarInt(), MAX_SLOTS);
         payload.putInt("size", size);
         int flags = buf.readUnsignedByte();
         payload.putBoolean("full", (flags & 1) != 0);
         payload.putBoolean("first", (flags & 2) != 0);
         payload.putBoolean("last", (flags & 4) != 0);
+        payload.putBoolean("reuse", (flags & 8) != 0);
         int count = bounded(buf.readVarInt(), MAX_PAGE_ENTRIES);
         List<CompoundTag> contents = new ArrayList<>(count);
         NbtAccounter accounting = NbtAccounter.create(32L * 1024 * 1024);

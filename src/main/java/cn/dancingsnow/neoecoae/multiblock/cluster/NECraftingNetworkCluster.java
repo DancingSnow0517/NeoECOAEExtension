@@ -33,6 +33,8 @@ public class NECraftingNetworkCluster {
     public static final long VIRTUAL_CRAFTING_POWER_PER_TICK = 10_000_000L;
 
     private final List<NECraftingCluster> members = new ArrayList<>();
+    /** Changes when membership or one member's pattern-bus inventory changes. */
+    private long patternDomainGeneration;
     private final Set<ECOCraftingWorkerBlockEntity> availableWorkerSnapshot =
         Collections.newSetFromMap(new IdentityHashMap<>());
     private long availabilitySnapshotTick = Long.MIN_VALUE;
@@ -62,6 +64,9 @@ public class NECraftingNetworkCluster {
         capabilityCapacityCache = null;
         invalidateDispatchAvailability();
         boolean membershipChanged = !isSameMembership(newMembers);
+        if (membershipChanged) {
+            patternDomainGeneration++;
+        }
         this.members.clear();
         this.members.addAll(newMembers);
         this.members.sort(Comparator.comparing(
@@ -243,7 +248,30 @@ public class NECraftingNetworkCluster {
     }
 
     public List<NECraftingCluster> getMembers() {
-        return List.copyOf(members);
+        return members;
+    }
+
+    public long getPatternDomainGeneration() {
+        return patternDomainGeneration;
+    }
+
+    /** Invalidates interface mappings when a bus is added after the network was formed. */
+    public void invalidatePatternDomain() {
+        patternDomainGeneration++;
+    }
+
+    /**
+     * Pattern buses that belong to this switch domain.  This is deliberately derived from the
+     * members instead of the AE2 grid: an AE2 grid may carry several independent crafting
+     * subsystems, while the switch domain is the unit that owns a shared pattern area.
+     */
+    public List<cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity> getPatternBuses() {
+        List<cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity> result =
+            new ArrayList<>();
+        for (NECraftingCluster member : members) {
+            result.addAll(member.getPatternBuses());
+        }
+        return result;
     }
 
     public int getNormalSwitchHostCount() {

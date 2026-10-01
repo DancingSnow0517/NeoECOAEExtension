@@ -94,6 +94,46 @@ class PatternPreviewSyncTest {
         return new PatternPreviewEntry(0L, slot, ItemStack.EMPTY, keywords, (byte) 0, List.of(), false);
     }
 
+    @Test void reopeningWithTheSameSessionSnapshotSendsOnlyAReuseMarker() {
+        try (Fixture f = new Fixture(2)) {
+            f.tick();
+            long epoch = f.sent.getFirst().getLong("epoch");
+            f.player.containerMenu = mock(AbstractContainerMenu.class);
+            f.sync.open(f.player, 0, 1, epoch);
+            f.tick();
+            assertEquals(2, f.sent.size());
+            CompoundTag reuse = f.sent.getLast();
+            assertTrue(reuse.getBoolean("reuse"));
+            assertFalse(reuse.getBoolean("full"));
+            assertTrue(reuse.getList("entries", Tag.TAG_COMPOUND).isEmpty());
+        }
+    }
+
+    @Test void reopeningWithAnOldSessionEpochFallsBackToAFullSnapshot() {
+        try (Fixture f = new Fixture(2)) {
+            f.tick();
+            long epoch = f.sent.getFirst().getLong("epoch");
+            f.player.containerMenu = mock(AbstractContainerMenu.class);
+            f.sync.open(f.player, 0, 1, epoch + 1);
+            f.tick();
+            assertEquals(2, f.sent.size());
+            assertTrue(f.sent.getLast().getBoolean("full"));
+            assertEquals(2, f.sent.getLast().getList("entries", Tag.TAG_COMPOUND).size());
+        }
+    }
+
+    @Test void reopeningWithAChangedRevisionFallsBackToAFullSnapshot() {
+        try (Fixture f = new Fixture(2)) {
+            f.tick();
+            long epoch = f.sent.getFirst().getLong("epoch");
+            f.player.containerMenu = mock(AbstractContainerMenu.class);
+            f.sync.open(f.player, 0, 2, epoch);
+            f.tick();
+            assertEquals(2, f.sent.size());
+            assertTrue(f.sent.getLast().getBoolean("full"));
+        }
+    }
+
     @Test void initialPagesAreImmutableAndDirtySlotsSurviveUntilTheNextRevision() {
         try (Fixture f = new Fixture(600)) {
             for (int i = 0; i < 100 && f.sent.isEmpty(); i++) f.tick();

@@ -57,6 +57,6 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
         }
         return new PatternPreviewEntry(tag.getLong("bus"), tag.getInt("slot"),
                 ItemStack.parseOptional(registries, tag.getCompound("stack")),
-                tag.getString("keywords"), tag.getByte("flags"), List.copyOf(held), tag.getBoolean("diskSlot"));
+                tag.getString("keywords"), tag.getByte("flags"), held, tag.getBoolean("diskSlot"));
     }
 }

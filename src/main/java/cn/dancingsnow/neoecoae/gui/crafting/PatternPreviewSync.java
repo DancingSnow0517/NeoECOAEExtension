@@ -13,9 +13,11 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import cn.dancingsnow.neoecoae.network.MenuDataTransport;
 import java.util.function.Consumer;
 
@@ -23,8 +25,19 @@ import java.util.function.Consumer;
 public final class PatternPreviewSync {
     private static final int SLOTS_PER_TICK = 256;
     private static final long BUILD_NANOS = 2_000_000L;
+    private static final int CLIENT_CACHE_LIMIT = 32;
+    private static final long SERVER_VIEWER_RETENTION_TICKS = 1_200L;
+    private static final Map<ClientCacheKey, ClientSnapshot> CLIENT_CACHE =
+            new LinkedHashMap<>(CLIENT_CACHE_LIMIT, 0.75F, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<ClientCacheKey, ClientSnapshot> eldest) {
+                    return size() > CLIENT_CACHE_LIMIT;
+                }
+            };
     private long nextSyncTick;
     private final ECOMachineInterfaceBlockEntity<?> host;
+    /** Changes when this server-side block entity is recreated, preventing stale snapshots after restart. */
+    private final long sessionEpoch = ThreadLocalRandom.current().nextLong();
     private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final List<CompoundTag> cachedEntries = new ArrayList<>();
     private final BitSet dirtySlots = new BitSet();
@@ -35,12 +48,61 @@ public final class PatternPreviewSync {
     private int uncached;
     private WeakReference<Consumer<CompoundTag>> receiver = new WeakReference<>(null);
 
+    private record ClientCacheKey(String dimension, long position) {}
+
+    public record ClientSnapshot(long epoch, int revision, PatternPreviewEntry[] entries) {
+        public ClientSnapshot {
+            entries = entries == null ? new PatternPreviewEntry[0] : entries.clone();
+        }
+        @Override
+        public PatternPreviewEntry[] entries() {
+            return entries.clone();
+        }
+    }
+
     public PatternPreviewSync(ECOMachineInterfaceBlockEntity<?> host) {
         this.host = host;
     }
 
     public void listen(Consumer<CompoundTag> receiver) {
         this.receiver = new WeakReference<>(receiver);
+    }
+
+    /** Restores the last completed client snapshot for this host, if one exists. */
+    public ClientSnapshot clientSnapshot() {
+        if (host.getLevel() == null || !host.getLevel().isClientSide) {
+            return null;
+        }
+        synchronized (CLIENT_CACHE) {
+            return CLIENT_CACHE.get(clientCacheKey());
+        }
+    }
+
+    /** Announces a newly opened menu and the client's cached revision to the server. */
+    public void requestOpen(int menuId, int cachedRevision, long cachedEpoch) {
+        if (host.getLevel() == null || !host.getLevel().isClientSide) {
+            return;
+        }
+        CompoundTag payload = new CompoundTag();
+        payload.putInt("menu", menuId);
+        payload.putInt("revision", cachedRevision);
+        payload.putLong("epoch", cachedEpoch);
+        host.rpcToServer("openPatternPreview", payload);
+    }
+
+    /** Stores a completed client snapshot for reuse by the next menu instance. */
+    public void cacheClientSnapshot(long epoch, int revision, PatternPreviewEntry[] entries) {
+        if (host.getLevel() == null || !host.getLevel().isClientSide || entries == null) {
+            return;
+        }
+        synchronized (CLIENT_CACHE) {
+            CLIENT_CACHE.put(clientCacheKey(), new ClientSnapshot(epoch, revision, entries));
+        }
+    }
+
+    private ClientCacheKey clientCacheKey() {
+        return new ClientCacheKey(host.getLevel().dimension().location().toString(),
+                host.getBlockPos().asLong());
     }
 
     public void receive(CompoundTag payload) {
@@ -58,6 +120,22 @@ public final class PatternPreviewSync {
         MenuDataTransport.cancel(player, MenuDataTransport.Channel.PATTERNS);
     }
 
+    /** Handles the client-side cache probe for a newly opened menu. */
+    public void open(ServerPlayer player, int menuId, int clientRevision, long clientEpoch) {
+        if (!isViewer(player) || player.containerMenu.containerId != menuId) {
+            return;
+        }
+        Viewer viewer = viewers.computeIfAbsent(player.getUUID(), ignored -> new Viewer(player.getUUID(), player.containerMenu));
+        viewer.menu = player.containerMenu;
+        viewer.lastSeenTick = host.getLevel() instanceof ServerLevel level ? level.getGameTime() : 0L;
+        viewer.openRequested = true;
+        viewer.clientRevision = clientRevision;
+        viewer.clientEpoch = clientEpoch;
+        viewer.pending = null;
+        viewer.changed.clear();
+        MenuDataTransport.cancel(player, MenuDataTransport.Channel.PATTERNS);
+    }
+
     public void dirty(int firstSlot, int count) {
         if (firstSlot >= 0 && count > 0) dirtySlots.set(firstSlot, Math.addExact(firstSlot, count));
     }
@@ -72,10 +150,17 @@ public final class PatternPreviewSync {
 
     public void tick(ServerLevel level) {
         List<ServerPlayer> active = level.players().stream().filter(this::isViewer).toList();
-        viewers.keySet().removeIf(id -> active.stream().noneMatch(player -> player.getUUID().equals(id)));
+        for (Viewer viewer : viewers.values()) {
+            if (active.stream().noneMatch(player -> player.getUUID().equals(viewer.playerId))) {
+                viewer.menu = null;
+            }
+        }
+        viewers.entrySet().removeIf(entry -> level.getGameTime() - entry.getValue().lastSeenTick
+                > SERVER_VIEWER_RETENTION_TICKS);
         if (active.isEmpty()) return;
         // Drain immutable pages every tick; refresh the live catalogue at the normal cadence.
-        if (level.getGameTime() < nextSyncTick && !building) {
+        boolean hasPendingOpen = viewers.values().stream().anyMatch(viewer -> viewer.openRequested);
+        if (level.getGameTime() < nextSyncTick && !building && !hasPendingOpen) {
             for (ServerPlayer player : active) drain(player, viewers.get(player.getUUID()));
             return;
         }
@@ -128,10 +213,28 @@ public final class PatternPreviewSync {
         cachedRevision = revision;
         for (ServerPlayer player : active) {
             Viewer viewer = viewers.get(player.getUUID());
-            if (viewer == null || viewer.menu != player.containerMenu) {
+            if (viewer == null) {
                 MenuDataTransport.cancel(player, MenuDataTransport.Channel.PATTERNS);
-                viewer = new Viewer(player.containerMenu);
+                viewer = new Viewer(player.getUUID(), player.containerMenu);
                 viewers.put(player.getUUID(), viewer);
+            } else if (viewer.menu != player.containerMenu) {
+                viewer.menu = player.containerMenu;
+                viewer.pending = null;
+                viewer.changed.clear();
+                // A menu changed without the cache handshake (for example an older client or a
+                // race during screen construction). Fall back to a safe full baseline.
+                viewer.revision = -1;
+            }
+            viewer.lastSeenTick = level.getGameTime();
+            if (viewer.openRequested) {
+                viewer.openRequested = false;
+                if (viewer.clientEpoch == sessionEpoch && viewer.clientRevision == cachedRevision
+                        && viewer.clientRevision >= 0
+                        && cachedEntries.size() == size) {
+                    sendReuse(player, viewer, cachedRevision, size);
+                    continue;
+                }
+                viewer.revision = -1;
             }
             // Finish the immutable snapshot before diffing against it. This avoids starvation while
             // automation keeps changing the live catalogue during a multi-tick initial transfer.
@@ -146,7 +249,7 @@ public final class PatternPreviewSync {
                 }
                 else for (int index = viewer.changed.nextSetBit(0); index >= 0;
                           index = viewer.changed.nextSetBit(index + 1)) changes.add(diskDelta(viewer, index, cachedEntries.get(index)));
-                viewer.pending = new Pending(sendFull, viewer.revision, cachedRevision, size, List.copyOf(changes));
+                viewer.pending = new Pending(sendFull, viewer.revision, cachedRevision, size, changes);
                 viewer.changed.clear();
             }
             drain(player, viewer);
@@ -206,12 +309,39 @@ public final class PatternPreviewSync {
     }
 
     private static final class Viewer {
-        final AbstractContainerMenu menu;
+        final UUID playerId;
+        AbstractContainerMenu menu;
         final BitSet changed = new BitSet();
         final Map<Integer, ListTag> disks = new HashMap<>();
         Pending pending;
         int revision = -1;
-        Viewer(AbstractContainerMenu menu) { this.menu = menu; }
+        int clientRevision = -1;
+        long clientEpoch;
+        boolean openRequested;
+        long lastSeenTick;
+        Viewer(UUID playerId, AbstractContainerMenu menu) {
+            this.menu = menu;
+            this.playerId = playerId;
+        }
+    }
+
+    private void sendReuse(ServerPlayer player, Viewer viewer, int revision, int size) {
+        CompoundTag payload = new CompoundTag();
+        payload.putInt("menu", player.containerMenu.containerId);
+        payload.putInt("revision", revision);
+        payload.putLong("epoch", sessionEpoch);
+        payload.putInt("base", revision);
+        payload.putInt("size", size);
+        payload.putBoolean("full", false);
+        payload.putBoolean("reuse", true);
+        payload.putBoolean("first", true);
+        payload.putBoolean("last", true);
+        payload.put("entries", new ListTag());
+        MenuDataTransport.send(player, MenuDataTransport.Channel.PATTERNS, buf -> {
+            buf.writeBlockPos(host.getBlockPos());
+            PatternPreviewCodec.write(buf, payload);
+        });
+        viewer.revision = revision;
     }
 
     private CompoundTag encode(int index) {
@@ -224,6 +354,7 @@ public final class PatternPreviewSync {
         CompoundTag payload = new CompoundTag();
         payload.putInt("menu", player.containerMenu.containerId);
         payload.putInt("revision", pending.revision);
+        payload.putLong("epoch", sessionEpoch);
         payload.putInt("base", pending.base);
         payload.putInt("size", pending.size);
         payload.putBoolean("full", pending.full);

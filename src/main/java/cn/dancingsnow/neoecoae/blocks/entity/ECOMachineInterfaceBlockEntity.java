@@ -131,6 +131,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private int patternContentRevision;
     private transient List<PatternSlotRef> patternSlotRefs = List.of();
     private transient boolean patternInterfaceMappingInitialized;
+    /** Identity of the local crafting host or its shared Network Switch domain. */
+    private transient Object patternInterfaceDomain;
+    private transient long patternInterfaceDomainGeneration;
     @Getter
     private final transient PatternPreviewSync patternPreviewSync = new PatternPreviewSync(this);
     private transient int migrationScannedThisTick;
@@ -217,7 +220,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 result.add(BuiltInRegistries.ITEM.getKey(stack.getItem()));
             }
         }
-        return Set.copyOf(result);
+        return result;
     }
 
     /** Stores a client-selected filter sample without moving a real item. */
@@ -446,7 +449,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                     index < keywords.size() ? keywords.get(index) : "",
                     patternSearchFlags(patterns.get(index))));
         }
-        return List.copyOf(held);
+        return held;
     }
 
     @Nullable
@@ -477,6 +480,24 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (sender.isServer() && level != null && level.isClientSide && payload != null) {
             patternPreviewSync.receive(payload);
         }
+    }
+
+    /** Client menu handshake used to reuse an unchanged preview snapshot without a full resend. */
+    @RPCMethod
+    public void openPatternPreview(RPCSender sender, CompoundTag payload) {
+        if (sender.isServer() || !(level instanceof ServerLevel) || payload == null
+                || !formed || !supportsPatternPreview()) {
+            return;
+        }
+        ServerPlayer player = sender.asPlayer();
+        if (player == null) {
+            return;
+        }
+        int menuId = payload.getInt("menu");
+        if (player.containerMenu.containerId != menuId || !patternPreviewSync.isViewer(player)) {
+            return;
+        }
+        patternPreviewSync.open(player, menuId, payload.getInt("revision"), payload.getLong("epoch"));
     }
 
     /** Resolve physical identity only when acting; browsing never modifies server state. */
@@ -771,13 +792,26 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private void ensurePatternInterfaceMapping() {
-        if (level == null || level.isClientSide || patternInterfaceMappingInitialized) {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        Object domain = patternDomain();
+        long domainGeneration = patternDomainGeneration();
+        if (patternInterfaceMappingInitialized && patternInterfaceDomain == domain
+                && patternInterfaceDomainGeneration == domainGeneration) {
             return;
         }
         IGrid grid = getMainNode().getGrid();
         List<ECOCraftingPatternBusBlockEntity> buses = new ArrayList<>();
         if (formed && supportsPatternPreview() && grid != null) {
-            buses.addAll(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
+            if (cluster instanceof NECraftingCluster craftingCluster) {
+                // AE2 is only the transport. Pattern visibility follows this host's local
+                // Network Switch domain, so a standalone host does not borrow another host's
+                // slots just because both are attached to the same ME network.
+                buses.addAll(craftingCluster.getPatternDomainBuses());
+            } else {
+                buses.addAll(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
+            }
             buses.removeIf(bus -> bus.getGrid() != grid || bus.isRemoved() || bus.getBlockPos() == null);
             buses.sort(Comparator.comparingLong(bus -> bus.getBlockPos().asLong()));
         }
@@ -802,13 +836,16 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             patternBusSlotCounts = slotCounts;
             patternBusOffsets = offsets;
         }
-        patternSlotRefs = List.copyOf(refs);
+        patternSlotRefs = refs;
+        patternInterfaceDomain = domain;
+        patternInterfaceDomainGeneration = domainGeneration;
         auxiliaryPreviewCache.clear();
         busAuxiliaryPreviewRevisions.clear();
         patternInterfaceMappingInitialized = true;
         patternPreviewSync.reset();
         // Equal positions can still refer to replacement block entities or inventories.
         patternContentRevision = nextPatternContentRevision();
+        markForUpdate();
     }
 
     private int nextPatternContentRevision() {
@@ -874,7 +911,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 ? null
                 : grid.getService(IECOPatternStorageService.class);
         if (service instanceof PatternCatalog catalog) {
-            return catalog.containsPatternOtherThan(target.bus(), target.slot(), candidateKey);
+            return catalog.containsPatternOtherThan(target.bus(), target.slot(), candidateKey, patternDomain());
         }
         for (PatternSlotRef ref : patternSlotRefs) {
             if (ref.equals(target)) {
@@ -933,7 +970,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         clearPatternTransferResults();
         clearPatternOrganizeResults();
         patternOrganizeTask = new PatternOrganizeTask(
-                patternSlotRefs, catalog.occupiedPatterns(), catalog.auxiliaryPatternKeys(), coordinator,
+                patternSlotRefs, catalog.occupiedPatterns(patternDomain()),
+                catalog.auxiliaryPatternKeys(patternDomain()), coordinator,
                 player.getUUID());
         patternOrganizeInProgress = true;
         patternOrganizeScannedSlots = 0;
@@ -1009,11 +1047,27 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return supportsCraftingInterfaceUi();
     }
 
+    /** Pattern visibility scope for this interface. */
+    private Object patternDomain() {
+        return cluster instanceof NECraftingCluster craftingCluster
+                ? craftingCluster.getPatternDomain()
+                : cluster == null ? this : cluster;
+    }
+
+    private long patternDomainGeneration() {
+        return cluster instanceof NECraftingCluster craftingCluster
+                ? craftingCluster.getPatternDomainGeneration()
+                : 0L;
+    }
+
     public void tick() {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
         if (supportsPatternPreview()) {
+            // Network Switch regrouping is asynchronous to this block entity tick. Rebuild the
+            // mapping when the domain identity changes so an open menu cannot retain stale rows.
+            ensurePatternInterfaceMapping();
             refreshAuxiliaryPreviewRows();
             patternPreviewSync.tick(serverLevel);
         }
@@ -1157,7 +1211,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (storageService == null) {
             return null;
         }
-        return new PatternTransferTask(grid, storageService);
+        if (!(storageService instanceof PatternCatalog catalog)) {
+            return null;
+        }
+        return new PatternTransferTask(grid, storageService, catalog, patternDomain());
     }
 
     /**
@@ -1197,7 +1254,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (!canRefundConsumedPattern(replacement)) {
             return false;
         }
-        ECOPatternInsertionResult outcome = catalog.insertPatternIntoAuxiliaryOnly(stack, null);
+        ECOPatternInsertionResult outcome = catalog.insertPatternIntoAuxiliaryOnly(patternDomain(), stack, null);
         if (outcome == null) {
             return false;
         }
@@ -1307,7 +1364,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
             ECOPreparedPattern prepared = new ECOPreparedPattern(stack, details, AEItemKey.of(stack));
             cn.dancingsnow.neoecoae.api.ECOPatternInsertion insertion =
-                    task.storageService().insertPreparedPatternReporting(prepared);
+                    task.catalog().insertPreparedPatternReporting(task.domain(), prepared);
             switch (insertion.result()) {
                 case INSERTED -> {
                     if (!task.isSourceUnchanged(step)) {
@@ -1466,9 +1523,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                                     Set<AEItemKey> auxiliaryPatternKeys,
                                     PatternMigrationCoordinator coordinator,
                                     UUID playerId) {
-            this.refs = List.copyOf(refs);
-            this.records = List.copyOf(records);
-            this.auxiliaryPatternKeys = Set.copyOf(auxiliaryPatternKeys);
+            this.refs = refs;
+            this.records = records;
+            this.auxiliaryPatternKeys = auxiliaryPatternKeys;
             this.coordinator = coordinator;
             this.playerId = playerId;
         }
@@ -1584,6 +1641,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         private static final int CANDIDATE_BATCH_SIZE = 64;
         private final IGrid grid;
         private final IECOPatternStorageService storageService;
+        private final PatternCatalog catalog;
+        private final Object domain;
         private final PatternMigrationCoordinator coordinator;
         private final UUID owner = UUID.randomUUID();
         private final Set<ECOPatternSourceSlot> skippedCandidates = new HashSet<>();
@@ -1598,9 +1657,13 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         private PatternTransferTask(
                 IGrid grid,
-                IECOPatternStorageService storageService) {
+                IECOPatternStorageService storageService,
+                PatternCatalog catalog,
+                Object domain) {
             this.grid = grid;
             this.storageService = storageService;
+            this.catalog = catalog;
+            this.domain = domain;
             this.coordinator = PatternMigrationCoordinator.forGrid(grid);
         }
 
@@ -1610,6 +1673,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         private IECOPatternStorageService storageService() {
             return storageService;
+        }
+
+        private PatternCatalog catalog() {
+            return catalog;
+        }
+
+        private Object domain() {
+            return domain;
         }
 
         private PatternMigrationCoordinator coordinator() {

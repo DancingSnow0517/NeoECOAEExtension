@@ -70,7 +70,7 @@ class PatternPreviewCodecTest {
     @Test void rejectsOversizedCatalogueBeforeAllocatingEntries() {
         var buf = buffer();
         try {
-            buf.writeVarInt(1); buf.writeVarInt(1); buf.writeVarInt(-1);
+            buf.writeVarInt(1); buf.writeVarInt(1); buf.writeVarInt(-1); buf.writeLong(0L);
             buf.writeVarInt(PatternPreviewCodec.MAX_SLOTS + 1);
             assertThrows(IllegalArgumentException.class, () -> PatternPreviewCodec.read(buf));
         } finally { buf.release(); }

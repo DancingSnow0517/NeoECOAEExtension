@@ -42,7 +42,9 @@ final class CraftingPatternPreviewState {
     private final Int2ObjectOpenHashMap<PatternPreviewEntry> pendingChanges = new Int2ObjectOpenHashMap<>();
     private boolean pendingFull;
     private int pendingRevision;
+    private long pendingEpoch;
     private int revision = -1;
+    private long epoch = -1L;
     private int menuId = -1;
     private String search = "";
     private boolean showSubstitution = true;
@@ -63,7 +65,19 @@ final class CraftingPatternPreviewState {
         this.player = player;
         Arrays.fill(displayed, -1);
         Arrays.fill(displayedSubs, -1);
-        if (player.level().isClientSide) craftingInterface.getPatternPreviewSync().listen(receiver);
+        if (player.level().isClientSide) {
+            var sync = craftingInterface.getPatternPreviewSync();
+            sync.listen(receiver);
+            var snapshot = sync.clientSnapshot();
+            if (snapshot != null) {
+                entries = snapshot.entries();
+                revision = snapshot.revision();
+                epoch = snapshot.epoch();
+                menuId = player.containerMenu.containerId;
+                rows.reset(entries);
+            }
+            sync.requestOpen(player.containerMenu.containerId, revision, epoch);
+        }
     }
 
     PatternItemSlot createSlot(int visualSlot) {
@@ -71,6 +85,9 @@ final class CraftingPatternPreviewState {
         PatternItemSlot slot = ClientUIBridge.call("createPatternSlot", Slot.class, local,
                 PatternItemSlot.class, () -> new PatternItemSlot(local));
         slots[visualSlot] = slot;
+        if (visualSlot == slots.length - 1 && revision >= 0) {
+            updateSlots();
+        }
         slot.highlighted(() -> displayed[visualSlot] >= 0 && !search.isBlank()
                 && rows.matches(scrollRow * CraftingInterfaceUI.PREVIEW_COLUMNS + visualSlot));
         slot.dimmed(() -> displayed[visualSlot] >= 0
@@ -231,8 +248,22 @@ final class CraftingPatternPreviewState {
     private void receive(CompoundTag payload) {
         if (!player.level().isClientSide || craftingInterface.getLevel() == null
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
+        long incomingEpoch = payload.getLong("epoch");
+        if (payload.getBoolean("reuse")) {
+            if (revision < 0 || incomingEpoch != epoch || payload.getInt("base") != revision
+                    || payload.getInt("size") != entries.length) {
+                return;
+            }
+            menuId = payload.getInt("menu");
+            revision = payload.getInt("revision");
+            pending = null;
+            rows.reset(entries);
+            updateSlots();
+            return;
+        }
         boolean full = payload.getBoolean("full");
         if (payload.getBoolean("first")) {
+            pendingEpoch = incomingEpoch;
             pending = null;
             pendingChanges.clear();
             receivedEntries = 0;
@@ -244,7 +275,7 @@ final class CraftingPatternPreviewState {
             pendingRevision = payload.getInt("revision");
             menuId = payload.getInt("menu");
         }
-        if (pending == null || payload.getInt("revision") != pendingRevision) return;
+        if (pending == null || incomingEpoch != pendingEpoch || payload.getInt("revision") != pendingRevision) return;
         var batch = payload.getList("entries", Tag.TAG_COMPOUND);
         for (int index = 0; index < batch.size(); index++) {
             CompoundTag entry = batch.getCompound(index);
@@ -272,7 +303,7 @@ final class CraftingPatternPreviewState {
                 }
                 if (disk.contains(null)) { pending = null; return; }
                 decoded = new PatternPreviewEntry(decoded.busPosition(), decoded.physicalSlot(), decoded.stack(),
-                        decoded.keywords(), decoded.flags(), List.copyOf(disk), decoded.auxiliaryDisk());
+                        decoded.keywords(), decoded.flags(), disk, decoded.auxiliaryDisk());
             }
             if (pendingFull) pending[logicalSlot] = decoded;
             else pendingChanges.put(logicalSlot, decoded);
@@ -303,6 +334,8 @@ final class CraftingPatternPreviewState {
         }
         pending = null;
         revision = pendingRevision;
+        epoch = pendingEpoch;
+        craftingInterface.getPatternPreviewSync().cacheClientSnapshot(epoch, revision, entries);
         if (pendingFull) {
             rows.reset(entries);
             rebuildFilter();

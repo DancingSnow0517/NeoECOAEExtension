@@ -145,6 +145,26 @@ class NELogicalNetworkManagerTest {
         clusters.forEach(cluster -> assertNull(cluster.getNetworkCluster()));
     }
 
+    @org.junit.jupiter.api.Test
+    void craftingHostsWithoutNetworkSwitchStayOutsideLogicalPatternDomains() {
+        ServerLevel level = level();
+        IManagedGridNode node = node();
+        when(node.isOnline()).thenReturn(true);
+        for (int i = 0; i < 2; i++) {
+            var controller = controller(ECOCraftingSystemBlockEntity.class, level, node, i);
+            when(controller.hasNetworkSwitch()).thenReturn(false);
+            when(controller.hasNetworkFrequency()).thenReturn(true);
+            when(controller.getNetworkFrequency()).thenReturn(7);
+            var cluster = new NECraftingCluster(BlockPos.ZERO, BlockPos.ZERO);
+            doCallRealMethod().when(controller).updateCluster(cluster);
+            controller.updateCluster(cluster);
+            cluster.addBlockEntity(controller);
+            NELogicalNetworkManager.attach(cluster);
+            assertNull(cluster.getNetworkCluster());
+            assertSame(cluster, cluster.getPatternDomain());
+        }
+    }
+
     private static ServerLevel level() {
         var level = mock(ServerLevel.class);
         when(level.getServer()).thenReturn(mock(MinecraftServer.class));
