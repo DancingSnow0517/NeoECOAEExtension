@@ -128,6 +128,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private boolean activeCooling;
     @DescSynced
     private int pauseReasonId;
+    @DescSynced
+    private int outputBlockedReasonId;
     private double pendingPowerRefund;
 
     public ECOLargeIntegratedWorkingStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
@@ -385,7 +387,17 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public Component getPauseReasonText() {
         PauseReason[] reasons = PauseReason.values();
         int index = Math.max(0, Math.min(pauseReasonId, reasons.length - 1));
-        return Component.translatable(reasons[index].translationKey);
+        PauseReason reason = reasons[index];
+        var result = Component.translatable(reason.translationKey);
+        if (reason == PauseReason.OUTPUT_BLOCKED || reason == PauseReason.INPUT_RETURN_BLOCKED) {
+            OutputBlockedReason[] details = OutputBlockedReason.values();
+            int detailIndex = Math.max(0, Math.min(outputBlockedReasonId, details.length - 1));
+            OutputBlockedReason detail = details[detailIndex];
+            if (detail != OutputBlockedReason.NONE) {
+                result.append(Component.translatable(detail.translationKey));
+            }
+        }
+        return result;
     }
 
     /** Returns the concrete materials accepted for the batch currently at the head of the work queue. */
@@ -398,10 +410,31 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void setPauseReason(PauseReason reason) {
+        setPauseReason(reason, reason == PauseReason.OUTPUT_BLOCKED || reason == PauseReason.INPUT_RETURN_BLOCKED
+            ? OutputBlockedReason.UNKNOWN : OutputBlockedReason.NONE);
+    }
+
+    private void setPauseReason(PauseReason reason, OutputBlockedReason detail) {
+        boolean changed = false;
         if (pauseReasonId != reason.ordinal()) {
             pauseReasonId = reason.ordinal();
+            changed = true;
+        }
+        if (outputBlockedReasonId != detail.ordinal()) {
+            outputBlockedReasonId = detail.ordinal();
+            changed = true;
+        }
+        if (changed) {
             markForUpdate();
         }
+    }
+
+    private void setOutputBlockedReason(OutputBlockedReason detail) {
+        setPauseReason(PauseReason.OUTPUT_BLOCKED, detail);
+    }
+
+    private void setInputReturnBlockedReason() {
+        setPauseReason(PauseReason.INPUT_RETURN_BLOCKED, OutputBlockedReason.INPUT_RETURN);
     }
 
     public IFluidHandler getFluidCombined() {
@@ -668,11 +701,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             boolean cleared = abandonedWithoutOutput
                 ? recoverCounterToNetwork(batch.inputTotal)
                 : deliverBatchOutputs(batch);
+            if (!cleared && abandonedWithoutOutput) {
+                setInputReturnBlockedReason();
+            }
             if (cleared) {
                 if (abandonedWithoutOutput) notifyPatternAborted(batch.unlockStack);
                 removeFirstBatch(batch);
             }
-            setPauseReason(cleared ? PauseReason.NONE : PauseReason.OUTPUT_BLOCKED);
+            if (cleared) setPauseReason(PauseReason.NONE);
             setChanged();
             return cleared ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
         }
@@ -680,7 +716,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (!isCounterEmpty(batch.pendingOutput)) {
             boolean delivered = deliverBatchOutputs(batch);
             if (delivered) removeFirstBatch(batch);
-            setPauseReason(delivered ? PauseReason.NONE : PauseReason.OUTPUT_BLOCKED);
+            if (delivered) setPauseReason(PauseReason.NONE);
             setChanged();
             return delivered ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
         }
@@ -698,7 +734,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             batch.pendingOutput.addAll(batch.outputTotal);
             boolean delivered = deliverBatchOutputs(batch);
             if (delivered) removeFirstBatch(batch);
-            setPauseReason(delivered ? PauseReason.NONE : PauseReason.OUTPUT_BLOCKED);
+            if (delivered) setPauseReason(PauseReason.NONE);
             setChanged();
             return TickRateModulation.URGENT;
         }
@@ -876,7 +912,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private boolean deliverBatchOutputs(PendingBatch batch) {
         if (isCounterEmpty(batch.pendingOutput)) return true;
         IGrid grid = getMainNode().getGrid();
-        if (grid == null) return false;
+        if (grid == null) {
+            setOutputBlockedReason(OutputBlockedReason.NETWORK_UNAVAILABLE);
+            return false;
+        }
 
         MEStorage storage = grid.getStorageService().getInventory();
         Object craftingService = grid.getCraftingService();
@@ -884,7 +923,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             && ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId);
         ECOCraftingOutputRouter ownerRouter = null;
         if (batch.craftingJobId != null && !terminal) {
-            if (!(craftingService instanceof ECOCraftingOutputRouter router)) return false;
+            if (!(craftingService instanceof ECOCraftingOutputRouter router)) {
+                setOutputBlockedReason(OutputBlockedReason.CPU_ROUTE);
+                return false;
+            }
             ownerRouter = router;
         }
 
@@ -899,7 +941,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                     "Invalid large workstation output insertion amount: " + inserted + " for " + requested);
             }
             if (inserted > 0L) batch.pendingOutput.remove(stack.what(), inserted);
-            if (inserted < requested) return false;
+            if (inserted < requested) {
+                setOutputBlockedReason(ownerRouter == null
+                    ? OutputBlockedReason.NETWORK_INSERT : OutputBlockedReason.CPU_INSERT);
+                return false;
+            }
         }
         boolean complete = isCounterEmpty(batch.pendingOutput);
         if (complete) notifyPatternResult(batch.unlockStack);
@@ -1216,7 +1262,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         for (PendingBatch batch : batches) {
             if (batch.progress >= MAX_PROCESSING_STEPS) continue;
             if (!recoverCounterToNetwork(batch.inputTotal)) {
-                setPauseReason(PauseReason.OUTPUT_BLOCKED);
+                setInputReturnBlockedReason();
                 setChanged();
                 return;
             }
@@ -1329,11 +1375,28 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         COOLANT_OUTPUT_BLOCKED("gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked"),
         POWER_MISSING("gui.neoecoae.large_integrated_working_station.pause.power_missing"),
         OUTPUT_BLOCKED("gui.neoecoae.large_integrated_working_station.pause.output_blocked"),
+        INPUT_RETURN_BLOCKED("gui.neoecoae.large_integrated_working_station.pause.input_return_blocked"),
         LIGHTNING_MISSING("gui.neoecoae.large_integrated_working_station.pause.lightning_missing");
 
         private final String translationKey;
 
         PauseReason(String translationKey) {
+            this.translationKey = translationKey;
+        }
+    }
+
+    private enum OutputBlockedReason {
+        NONE(null),
+        UNKNOWN("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.unknown"),
+        CPU_ROUTE("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.cpu_route"),
+        CPU_INSERT("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.cpu_insert"),
+        NETWORK_UNAVAILABLE("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.network_unavailable"),
+        NETWORK_INSERT("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.network_insert"),
+        INPUT_RETURN("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.input_return");
+
+        private final String translationKey;
+
+        OutputBlockedReason(String translationKey) {
             this.translationKey = translationKey;
         }
     }

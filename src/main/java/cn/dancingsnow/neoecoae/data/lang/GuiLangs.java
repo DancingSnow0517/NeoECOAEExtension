@@ -43,7 +43,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_insufficient", "Paused: Coolant low");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked", "Paused: Coolant output full");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.power_missing", "Paused: Low power");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked", "Paused: Output full");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked", "Paused: Output blocked");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.input_return_blocked", "Paused: Input return blocked");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.unknown", " (delivery reason unavailable)");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.cpu_route", " (return to owning CPU failed: CPU route unavailable)");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.cpu_insert", " (return to owning CPU failed: CPU accepted only part of the output)");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.network_unavailable", " (write to ME network failed: network unavailable)");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.network_insert", " (write to ME storage failed: storage accepted only part of the output)");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.input_return", " (return owned inputs failed: ME storage accepted only part of the inputs)");
         provider.add("gui.neoecoae.storage.legacy.cell_info", "%s (%s)");
         provider.add("gui.neoecoae.storage.legacy.cell_info.item", "Item Storage Matrix");
         provider.add("gui.neoecoae.storage.legacy.cell_info.fluid", "Fluid Storage Matrix");
