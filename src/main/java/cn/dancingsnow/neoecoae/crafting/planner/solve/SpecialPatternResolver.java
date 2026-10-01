@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.compat.useless.UselessPatternSemanticAdapter;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
@@ -144,10 +145,11 @@ public final class SpecialPatternResolver {
                 needed = needed.add(simultaneous.getOrDefault(possible.what(), PlannerAmount.ZERO));
                 PlannerAmount reserved = reusableStock.getOrDefault(possible.what(), PlannerAmount.ZERO);
                 PlannerAmount additional = needed.subtract(reserved).max(PlannerAmount.ZERO);
-                if (availableStored(possible.what(), input.ignoresComponents(), additional).compareTo(additional) < 0) continue;
+                if (availableStored(possible.what(), input.ignoresComponents(), additional,
+                        owner.details(), source).compareTo(additional) < 0) continue;
                 if (additional.signum() > 0) {
                     MaterialDemand demand = inputDemand(owner, input.key(), additional);
-                    consumeStored(possible.what(), additional, input.ignoresComponents(), demand);
+                    consumeStored(possible.what(), additional, input.ignoresComponents(), demand, source);
                 }
                 reusableStock.put(possible.what(), reserved.max(needed));
                 simultaneous.put(possible.what(), needed);
@@ -203,7 +205,8 @@ public final class SpecialPatternResolver {
         state.parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).add(owner.producedKey());
 
         MaterialDemand demand = inputDemand(owner, key, requested);
-        PlannerAmount stored = consumeStored(key, requested, ignoreComponents, demand);
+        IPatternDetails.IInput matchingInput = owner.inputs().get(demand.inputSlot()).source();
+        PlannerAmount stored = consumeStored(key, requested, ignoreComponents, demand, matchingInput);
         requested = requested.subtract(stored);
         PlannerAmount crafted = requested.min(state.craftedAmount(key));
         if (crafted.signum() > 0) {
@@ -279,11 +282,13 @@ public final class SpecialPatternResolver {
         return candidates.get(Math.min(choice, candidates.size() - 1));
     }
 
-    private PlannerAmount availableStored(AEKey key, boolean ignoreComponents, PlannerAmount requested) {
+    private PlannerAmount availableStored(AEKey key, boolean ignoreComponents, PlannerAmount requested,
+            IPatternDetails consumer, IPatternDetails.IInput input) {
         if (!ignoreComponents || !(key instanceof AEItemKey wanted)) return state.stored.available(key, requested);
         PlannerAmount available = PlannerAmount.ZERO;
         for (var entry : state.stored.asMap().entrySet()) {
             if (entry.getKey() instanceof AEItemKey candidate && candidate.getItem() == wanted.getItem()) {
+                if (!UselessPatternSemanticAdapter.acceptsComponentVariant(consumer, input, entry.getKey())) continue;
                 if (state.stored.isUnbounded(entry.getKey())) return requested;
                 available = available.add(entry.getValue());
             }
@@ -292,7 +297,7 @@ public final class SpecialPatternResolver {
     }
 
     private PlannerAmount consumeStored(AEKey key, PlannerAmount requested, boolean ignoreComponents,
-            MaterialDemand demand) {
+            MaterialDemand demand, IPatternDetails.IInput input) {
         if (requested.signum() <= 0) return PlannerAmount.ZERO;
         if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
             PlannerAmount exact = state.stored.available(key, requested);
@@ -304,6 +309,7 @@ public final class SpecialPatternResolver {
         for (AEKey storedKey : state.stored.keysSnapshot()) {
             if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
+            if (!UselessPatternSemanticAdapter.acceptsComponentVariant(demand.consumer(), input, storedKey)) continue;
             PlannerAmount take = state.stored.available(storedKey, remaining);
             if (take.signum() <= 0) continue;
             consumeExact(demand, storedKey, take);

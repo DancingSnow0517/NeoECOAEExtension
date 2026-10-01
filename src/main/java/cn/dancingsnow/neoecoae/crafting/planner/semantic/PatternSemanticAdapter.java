@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.crafting.planner.semantic;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingService;
+import appeng.api.stacks.AEKey;
 
 /** Planner-owned boundary for pattern contracts supplied by AE2 or an integration mod. */
 public interface PatternSemanticAdapter {
@@ -15,6 +17,12 @@ public interface PatternSemanticAdapter {
      */
     default boolean ignoresComponents(IPatternDetails pattern, int inputSlot) {
         return false;
+    }
+
+    /** Chooses an accepted, equal-amount child template without changing the physical pattern. */
+    default AEKey preferredInputKey(IPatternDetails pattern, int inputSlot, AEKey encodedKey,
+            ICraftingService craftingService) {
+        return encodedKey;
     }
 
     default String name() {

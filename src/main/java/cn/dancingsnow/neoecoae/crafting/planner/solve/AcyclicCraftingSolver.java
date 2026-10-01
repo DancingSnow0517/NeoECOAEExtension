@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.compat.useless.UselessPatternSemanticAdapter;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
@@ -265,17 +266,24 @@ public final class AcyclicCraftingSolver {
             if (requested.signum() <= 0) continue;
             state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
             boolean ignoreComponents = false;
+            IPatternDetails.IInput matchingInput = null;
             IPatternDetails demandProducer = state.demandProducers.get(key);
             if (demandProducer != null) {
                 for (CompiledPattern candidate : network.producersOf(demandProducer.getOutputs().isEmpty()
                         ? key : demandProducer.getOutputs().getFirst().what())) {
                     if (candidate.details() != demandProducer) continue;
-                    ignoreComponents = candidate.inputs().stream().anyMatch(input ->
-                        input.key().equals(key) && input.ignoresComponents());
+                    for (CompiledInput input : candidate.inputs()) {
+                        if (input.key().equals(key) && input.ignoresComponents()) {
+                            ignoreComponents = true;
+                            matchingInput = input.source();
+                            break;
+                        }
+                    }
                     break;
                 }
             }
-            PlannerAmount stored = consumeStoredForInput(state, key, requested, ignoreComponents);
+            PlannerAmount stored = consumeStoredForInput(state, key, requested, ignoreComponents,
+                null, demandProducer, matchingInput);
             if (stored.signum() > 0) {
                 requested = requested.subtract(stored);
             }
@@ -338,7 +346,8 @@ public final class AcyclicCraftingSolver {
                 MaterialDemand inputDemand = MaterialDemand.input(pattern.details(), slot, input.key(), required);
                 state.provenance.register(inputDemand);
                 if (input.ignoresComponents() && input.key() instanceof AEItemKey) {
-                    PlannerAmount available = consumeStoredForInput(state, input.key(), required, true, inputDemand);
+                    PlannerAmount available = consumeStoredForInput(state, input.key(), required, true,
+                        inputDemand, pattern.details(), input.source());
                     required = required.subtract(available);
                 }
                 PlannerAmount old = state.demand.getOrDefault(input.key(), PlannerAmount.ZERO);
@@ -351,12 +360,8 @@ public final class AcyclicCraftingSolver {
     }
 
     private static PlannerAmount consumeStoredForInput(SolveState state, AEKey key, PlannerAmount requested,
-            boolean ignoreComponents) {
-        return consumeStoredForInput(state, key, requested, ignoreComponents, null);
-    }
-
-    private static PlannerAmount consumeStoredForInput(SolveState state, AEKey key, PlannerAmount requested,
-            boolean ignoreComponents, MaterialDemand demand) {
+            boolean ignoreComponents, MaterialDemand demand, IPatternDetails consumer,
+            IPatternDetails.IInput matchingInput) {
         if (requested.signum() <= 0) return PlannerAmount.ZERO;
         if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
             PlannerAmount exact = state.stored.available(key, requested);
@@ -373,6 +378,7 @@ public final class AcyclicCraftingSolver {
         for (AEKey storedKey : state.stored.keysSnapshot()) {
             if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
+            if (!UselessPatternSemanticAdapter.acceptsComponentVariant(consumer, matchingInput, storedKey)) continue;
             PlannerAmount take = state.stored.available(storedKey, remaining);
             if (take.signum() <= 0) continue;
             state.stored.remove(storedKey, take);

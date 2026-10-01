@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.compat.useless.UselessPatternSemanticAdapter;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
@@ -87,7 +88,7 @@ public final class ECOPlanMaterialValidator {
                     PlannerAmount inputAmount = PlannerAmount.of(primary.amount())
                         .multiply(input.getMultiplier()).multiply(times);
                     if (ignoresComponents(compiledInputs.get(pattern), input)) {
-                        componentInsensitiveDemands.add(new InputDemand(primary.what(), inputAmount));
+                        componentInsensitiveDemands.add(new InputDemand(primary.what(), inputAmount, pattern, input));
                     } else {
                         add(demand, primary.what(), inputAmount);
                     }
@@ -112,7 +113,7 @@ public final class ECOPlanMaterialValidator {
             }
         }
         for (InputDemand entry : componentInsensitiveDemands) {
-            PlannerAmount supplied = consumeSupply(supply, entry.key(), entry.amount(), true);
+            PlannerAmount supplied = consumeSupply(supply, entry.key(), entry.amount(), true, entry);
             if (supplied.compareTo(entry.amount()) < 0) {
                 return new Issue(entry.key(), entry.amount(), supplied, "ID_ONLY_MATERIAL_DEFICIT");
             }
@@ -151,6 +152,11 @@ public final class ECOPlanMaterialValidator {
 
     private static PlannerAmount consumeSupply(Map<AEKey, PlannerAmount> supply, AEKey key,
             PlannerAmount requested, boolean ignoreComponents) {
+        return consumeSupply(supply, key, requested, ignoreComponents, null);
+    }
+
+    private static PlannerAmount consumeSupply(Map<AEKey, PlannerAmount> supply, AEKey key,
+            PlannerAmount requested, boolean ignoreComponents, @Nullable InputDemand demand) {
         if (requested.signum() <= 0) return PlannerAmount.ZERO;
         if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
             PlannerAmount available = supply.getOrDefault(key, PlannerAmount.ZERO);
@@ -163,6 +169,8 @@ public final class ECOPlanMaterialValidator {
         for (var entry : new ArrayList<>(supply.entrySet())) {
             if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
+            if (demand != null && !UselessPatternSemanticAdapter.acceptsComponentVariant(
+                    demand.pattern(), demand.input(), entry.getKey())) continue;
             PlannerAmount taken = remaining.min(entry.getValue());
             remove(supply, entry.getKey(), taken);
             consumed = consumed.add(taken);
@@ -192,5 +200,5 @@ public final class ECOPlanMaterialValidator {
         }
     }
 
-    private record InputDemand(AEKey key, PlannerAmount amount) {}
+    private record InputDemand(AEKey key, PlannerAmount amount, IPatternDetails pattern, IPatternDetails.IInput input) {}
 }

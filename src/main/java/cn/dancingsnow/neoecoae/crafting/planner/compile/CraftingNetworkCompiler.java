@@ -87,7 +87,7 @@ public final class CraftingNetworkCompiler {
                 PatternDefinition definition = patternDefinition(details);
                 if (definition != null && !definitions.add(definition)) continue;
                 CompiledPattern pattern = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
-                    ignoredItemIds, componentInsensitiveOutput);
+                    ignoredItemIds, componentInsensitiveOutput, service);
                 compiled.add(pattern);
                 for (CompiledInput input : pattern.inputs()) {
                     edgeCount++;
@@ -155,7 +155,7 @@ public final class CraftingNetworkCompiler {
 
     private CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,
             boolean cyclePlanningEnabled, Set<ResourceLocation> fuzzyPlanningItemIds,
-            boolean componentInsensitiveOutput) {
+            boolean componentInsensitiveOutput, ICraftingService service) {
         List<CompiledInput> inputs;
         List<GenericStack> outputs;
         PlannerAmount outputPerPattern = PlannerAmount.ZERO;
@@ -213,7 +213,7 @@ public final class CraftingNetworkCompiler {
             }
 
             if (!semantics.consumedInputs().isEmpty()) {
-                inputs = compileInputs(semantics, fastClassification, adapter, fuzzyPlanningItemIds);
+                inputs = compileInputs(semantics, fastClassification, adapter, fuzzyPlanningItemIds, service);
             } else {
                 inputs = compileRawInputs(details, fuzzyPlanningItemIds);
             }
@@ -293,7 +293,7 @@ public final class CraftingNetworkCompiler {
 
     private static List<CompiledInput> compileInputs(PatternSemantics semantics,
             ECORecipeClassifier.Classification classification, PatternSemanticAdapter adapter,
-            Set<ResourceLocation> fuzzyPlanningItemIds) {
+            Set<ResourceLocation> fuzzyPlanningItemIds, ICraftingService service) {
         List<CompiledInput> inputs = new ArrayList<>();
         for (PatternSemantics.Input input : semantics.consumedInputs()) {
             String reason = "";
@@ -321,10 +321,13 @@ public final class CraftingNetworkCompiler {
                 fastSupported = false;
                 reason = "INVALID_INPUT_AMOUNT";
             }
+            int inputSlot = indexOfInput(semantics, input);
             boolean ignoresComponents = ignoresComponents(input.key(), fuzzyPlanningItemIds) || input.source() != null
                 && adapter != null
-                && adapter.ignoresComponents(semantics.physicalPattern(), indexOfInput(semantics, input));
-            inputs.add(new CompiledInput(input.source(), input.key(), input.amountPerPattern(), fastSupported, reason,
+                && adapter.ignoresComponents(semantics.physicalPattern(), inputSlot);
+            AEKey preferredKey = input.source() != null && adapter != null
+                ? adapter.preferredInputKey(semantics.physicalPattern(), inputSlot, input.key(), service) : input.key();
+            inputs.add(new CompiledInput(input.source(), preferredKey, input.amountPerPattern(), fastSupported, reason,
                 input.returnedKey(), input.returnedAmountPerPattern(), ignoresComponents));
         }
         return List.copyOf(inputs);
