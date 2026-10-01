@@ -66,6 +66,18 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
+    protected int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) {
+        return getRenderShape(state) == RenderShape.INVISIBLE ? 0 : super.getLightBlock(state, level, pos);
+    }
+
+    @Override
+    protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
+        return getRenderShape(state) == RenderShape.INVISIBLE
+            ? Shapes.empty()
+            : super.getOcclusionShape(state, level, pos);
+    }
+
+    @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(FORMED);
