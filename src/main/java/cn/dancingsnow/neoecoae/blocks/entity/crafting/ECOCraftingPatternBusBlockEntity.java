@@ -508,7 +508,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public @Nullable IGrid getGrid() {
-        return getGridNode().getGrid();
+        var node = getGridNode();
+        return node == null ? null : node.getGrid();
     }
 
     /**

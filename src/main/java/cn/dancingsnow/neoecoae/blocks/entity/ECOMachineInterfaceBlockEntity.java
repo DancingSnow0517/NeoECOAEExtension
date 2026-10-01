@@ -812,7 +812,13 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             } else {
                 buses.addAll(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
             }
-            buses.removeIf(bus -> bus.getGrid() != grid || bus.isRemoved() || bus.getBlockPos() == null);
+            buses.removeIf(bus -> {
+                var node = bus.getGridNode();
+                return node == null
+                    || node.getGrid() != grid
+                    || bus.isRemoved()
+                    || bus.getBlockPos() == null;
+            });
             buses.sort(Comparator.comparingLong(bus -> bus.getBlockPos().asLong()));
         }
 
