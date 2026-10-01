@@ -413,6 +413,51 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         return ECOExactMaterialTableRenderer.sortMaterials(mode.neoecoae$getCraftingGraphSnapshot().nodes());
     }
 
+    /**
+     * Returns the AE key rendered under the given absolute screen coordinates.
+     *
+     * <p>The report uses custom table renderers instead of vanilla slots, so EMI cannot discover these
+     * stacks through its normal handled-screen fallback. The optional EMI integration calls this method
+     * from its stack provider to expose the same item/ fluid entries to recipe and usage lookups.</p>
+     */
+    public @Nullable AEKey getECOStackAt(int mouseX, int mouseY) {
+        int localX = mouseX - getGuiLeft();
+        int localY = mouseY - getGuiTop();
+
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
+            var cycleEntries = mode.neoecoae$getCycleItems();
+            int cycleX = 237;
+            int cycleY = 27;
+            int cycleWidth = 67;
+            int cycleHeight = 23;
+            if (localX >= cycleX && localX < cycleX + cycleWidth && localY >= cycleY) {
+                int row = (localY - cycleY) / cycleHeight;
+                if (row < 7 && localY < cycleY + row * cycleHeight + cycleHeight - 1) {
+                    int index = cycleScrollbar.getCurrentScroll() + row;
+                    if (index >= 0 && index < cycleEntries.size()) return cycleEntries.get(index).what();
+                }
+            }
+        }
+
+        int tableX = 9;
+        int tableY = 27;
+        int cellWidth = 68;
+        int cellHeight = 23;
+        if (localX < tableX || localX >= tableX + 3 * cellWidth
+                || localY < tableY || localY >= tableY + 7 * cellHeight) return null;
+        int col = (localX - tableX) / cellWidth;
+        int row = (localY - tableY) / cellHeight;
+        int index = scrollbar.getCurrentScroll() * 3 + row * 3 + col;
+        if (index < 0) return null;
+        if (shouldUseExactMaterialTable()) {
+            var entries = exactMaterials();
+            return index < entries.size() ? entries.get(index).key() : null;
+        }
+        CraftingPlanSummary plan = menu.getPlan();
+        if (plan == null || index >= plan.getEntries().size()) return null;
+        return plan.getEntries().get(index).getWhat();
+    }
+
     private boolean isDiagnosticShell() {
         var plan = menu.getPlan();
         return plan != null && (Object) menu instanceof ECOCraftConfirmMenuMode mode

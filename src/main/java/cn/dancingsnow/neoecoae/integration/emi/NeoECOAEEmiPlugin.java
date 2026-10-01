@@ -7,14 +7,21 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.integration.emi.recipe.CoolingEmiRecipe;
 import cn.dancingsnow.neoecoae.integration.emi.recipe.IntegrationWorkingStationEmiRecipe;
 import cn.dancingsnow.neoecoae.integration.emi.recipe.MultiblockEmiRecipe;
+import cn.dancingsnow.neoecoae.client.ECOCraftConfirmScreen;
+import cn.dancingsnow.neoecoae.crafting.graph.client.ECOCraftingGraphScreen;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import net.minecraft.client.Minecraft;
 import dev.emi.emi.api.EmiEntrypoint;
 import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
+import dev.emi.emi.api.stack.EmiStackInteraction;
+import dev.emi.emi.api.neoforge.NeoForgeEmiStack;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
@@ -37,6 +44,13 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
     @Override
     public void register(EmiRegistry registry) {
+        // ECO's planner/report and graph screens draw AE keys directly on a canvas rather than in
+        // vanilla slots. Expose those custom hit regions so EMI's recipe and usage actions work there.
+        registry.addStackProvider(ECOCraftConfirmScreen.class,
+            (screen, x, y) -> interaction(screen.getECOStackAt(x, y)));
+        registry.addStackProvider(ECOCraftingGraphScreen.class,
+            (screen, x, y) -> interaction(screen.getECOStackAt(x, y)));
+
         // multiblock
         registry.addCategory(MULTIBLOCK);
         registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.STORAGE_SYSTEM_L4));
@@ -88,5 +102,17 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
     public static EmiIngredient of(@NotNull SizedFluidIngredient ingredient) {
         List<EmiStack> list = Arrays.stream(ingredient.getFluids()).map(stack -> EmiStack.of(stack.getFluid())).toList();
         return EmiIngredient.of(list, ingredient.amount());
+    }
+
+    private static EmiStackInteraction interaction(AEKey key) {
+        if (key instanceof AEItemKey item) {
+            return new EmiStackInteraction(EmiStack.of(item.toStack()), null, false);
+        }
+        if (key instanceof AEFluidKey fluid) {
+            return new EmiStackInteraction(NeoForgeEmiStack.of(fluid.toStack(1)), null, false);
+        }
+        // EMI has no generic representation for AE2's optional/custom key types (energy, chemicals,
+        // etc.). Leave those untouched so the screen's native tooltip remains authoritative.
+        return EmiStackInteraction.EMPTY;
     }
 }

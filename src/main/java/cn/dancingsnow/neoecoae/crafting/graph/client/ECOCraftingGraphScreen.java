@@ -599,6 +599,18 @@ public final class ECOCraftingGraphScreen extends Screen {
             .orElse(null);
     }
 
+    /**
+     * Returns the material key rendered under the given screen coordinates.
+     *
+     * <p>The graph is drawn as an immediate-mode canvas without inventory slots. The optional EMI
+     * integration uses this hit test to make material nodes available to recipe and usage lookups.</p>
+     */
+    public @Nullable AEKey getECOStackAt(int mouseX, int mouseY) {
+        if (mouseY < graphContentTop() || layout == null) return null;
+        ClientCraftingGraph.Node node = hit(mouseX, mouseY);
+        return node != null && node.kind() == ClientCraftingGraph.Kind.MATERIAL ? node.key() : null;
+    }
+
     private void drawDetailsPanel(GuiGraphics graphics) {
         if (selectedId == null) return;
         var node = graph.nodes().get(selectedId);
