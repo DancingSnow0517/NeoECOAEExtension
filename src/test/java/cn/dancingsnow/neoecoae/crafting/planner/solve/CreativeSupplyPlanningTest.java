@@ -14,9 +14,12 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
+import appeng.blockentity.storage.DriveBlockEntity;
+import appeng.blockentity.storage.MEChestBlockEntity;
 import appeng.me.storage.NetworkStorage;
 import com.glodblock.github.extendedae.common.inventory.InfinityCellInventory;
 import com.glodblock.github.extendedae.common.items.ItemInfinityCell;
+import com.glodblock.github.extendedae.common.tileentities.TileExDrive;
 import com.moakiee.ae2lt.item.FixedInfiniteCellItem;
 import com.moakiee.ae2lt.item.InfiniteStorageCellItem;
 import com.moakiee.ae2lt.me.cell.FixedInfiniteCellInventory;
@@ -46,6 +49,8 @@ import net.neoforged.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 
@@ -53,6 +58,7 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -155,14 +161,17 @@ class CreativeSupplyPlanningTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void thirdPartyInfiniteCellsPlanAndExtractBeyondDisplayedStock(boolean extendedAe) throws Exception {
+    @MethodSource("thirdPartyInfiniteCellHosts")
+    void thirdPartyInfiniteCellsPlanAndExtractBeyondDisplayedStock(Class<? extends IChestOrDrive> hostType,
+                                                                  boolean extendedAe) throws Exception {
         var cell = infiniteCell(extendedAe);
         AEKey input = cell.getAvailableStacks().keySet().iterator().next();
         long listed = cell.getAvailableStacks().get(input);
         long demand = listed + 1;
         try (var mods = optionalMods()) {
-            var grid = cellGrid(cell);
+            var grid = cellGrid(cell, hostType);
+            assertTrue(grid.getMachines(IChestOrDrive.class).isEmpty());
+            assertEquals(1, grid.getMachines(hostType).size());
             var captured = ECOPlannerInventory.capture(grid);
             assertTrue(captured.isUnbounded(input));
             assertEquals(Set.of(input), ECOPlannerInventory.collectUnboundedKeys(grid));
@@ -192,7 +201,7 @@ class CreativeSupplyPlanningTest {
         AEKey input = cell.getAvailableStacks().keySet().iterator().next();
         try (var mods = optionalMods()) {
             var grid = cellGrid(cell);
-            var host = grid.getMachines(IChestOrDrive.class).iterator().next();
+            var host = grid.getMachines(DriveBlockEntity.class).iterator().next();
             var captured = ECOPlannerInventory.capture(grid);
             assertTrue(captured.isUnbounded(input));
             when(host.isPowered()).thenReturn(false);
@@ -287,7 +296,7 @@ class CreativeSupplyPlanningTest {
     private static StorageCell infiniteCell(boolean extendedAe) {
         if (extendedAe) return extendedAeCell(AEItemKey.of(Items.IRON_INGOT));
         var stack = cellStack(mock(FixedInfiniteCellItem.class));
-        FixedInfiniteCellItem.setType(stack, (byte) 0);
+        FixedInfiniteCellItem.setType(stack, (byte) 2);
         return new FixedInfiniteCellInventory(stack, 32, null);
     }
 
@@ -312,8 +321,17 @@ class CreativeSupplyPlanningTest {
         return mocked;
     }
 
+    private static Stream<Arguments> thirdPartyInfiniteCellHosts() {
+        return Stream.of(DriveBlockEntity.class, MEChestBlockEntity.class, TileExDrive.class)
+            .flatMap(hostType -> Stream.of(false, true).map(extendedAe -> Arguments.of(hostType, extendedAe)));
+    }
+
     private static IGrid cellGrid(StorageCell cell) {
-        var host = mock(IChestOrDrive.class);
+        return cellGrid(cell, DriveBlockEntity.class);
+    }
+
+    private static <T extends IChestOrDrive> IGrid cellGrid(StorageCell cell, Class<T> hostType) {
+        var host = mock(hostType);
         when(host.isPowered()).thenReturn(true);
         when(host.getCellCount()).thenReturn(1);
         when(host.getOriginalCellInventory(0)).thenReturn(cell);
@@ -321,8 +339,10 @@ class CreativeSupplyPlanningTest {
         network.mount(0, cell);
         var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);
         when(grid.getStorageService().getInventory()).thenReturn(network);
+        when(grid.getMachineClasses()).thenReturn(Set.of(hostType));
         when(grid.getMachines(ECODriveBlockEntity.class)).thenReturn(Set.of());
-        when(grid.getMachines(IChestOrDrive.class)).thenReturn(Set.of(host));
+        when(grid.getMachines(IChestOrDrive.class)).thenReturn(Set.of());
+        when(grid.getMachines(hostType)).thenReturn(Set.of(host));
         return grid;
     }
 
