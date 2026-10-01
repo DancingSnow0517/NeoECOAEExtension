@@ -230,6 +230,9 @@ dependencies {
 tasks.named('test', Test) {
     useJUnitPlatform()
     maxHeapSize = '2G'
+    systemProperty 'storage.performance', providers.systemProperty('storage.performance').getOrElse('false')
+    systemProperty 'storage.performance.label', providers.systemProperty('storage.performance.label').getOrElse('current')
+    systemProperty 'storage.performance.extended', providers.systemProperty('storage.performance.extended').getOrElse('false')
 }
 
 neoForge {

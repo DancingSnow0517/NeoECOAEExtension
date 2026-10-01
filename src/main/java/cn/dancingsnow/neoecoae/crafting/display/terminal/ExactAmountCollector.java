@@ -20,11 +20,23 @@ public final class ExactAmountCollector {
 
     public static void begin() { ACTIVE.set(new State()); }
 
+    /** Returns false outside terminal collection or for sources that need the ordinary listing callback. */
+    public static boolean collectCombined(MEStorage storage, KeyCounter contribution) {
+        State state = ACTIVE.get();
+        if (state == null || !(storage instanceof CombinedExactAmountSource source)) return false;
+        source.neoecoae$listWithExactAmounts(contribution, (key, exact) -> {
+            state.exactKeys.add(key);
+            state.totals.merge(key, exact, ExactAmount::add);
+        });
+        return true;
+    }
+
     public static void observe(MEStorage storage, KeyCounter contribution) {
         State state = ACTIVE.get();
         if (state == null) return;
-        Map<AEKey, ExactAmount> sourceAmounts = new HashMap<>();
+        Map<AEKey, ExactAmount> sourceAmounts = Map.of();
         if (storage instanceof ExactAmountSource source) {
+            sourceAmounts = new HashMap<>();
             source.neoecoae$visitExactAmounts(sourceAmounts::put);
         }
         for (var entry : contribution) {

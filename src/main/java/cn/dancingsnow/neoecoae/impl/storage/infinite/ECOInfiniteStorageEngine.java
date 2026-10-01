@@ -41,6 +41,17 @@ public interface ECOInfiniteStorageEngine {
 
     HugeAmount getAmount(AEKey key);
 
+    default boolean contains(AEKey key) { return !getAmount(key).isZero(); }
+
+    /** Full visible exact listing, including long-sized keys whose network aggregate may overflow. */
+    default void visitExactAmounts(java.util.function.BiConsumer<AEKey, BigInteger> visitor) {
+        KeyCounter keys = new KeyCounter();
+        getAvailableStacks(keys);
+        for (var entry : keys) visitor.accept(entry.getKey(), getAmount(entry.getKey()).toBigInteger());
+    }
+
+    default boolean canUseMountedStorage() { return isHealthy() && !hasPendingRestore(); }
+
     void getAvailableStacks(KeyCounter out);
 
     boolean isEmpty();

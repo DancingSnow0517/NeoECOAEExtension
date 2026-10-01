@@ -280,6 +280,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         setChanged();
         markForUpdate();
         IStorageProvider.requestUpdate(getMainNode());
+        var controller = getStorageController();
+        if (controller != null) controller.invalidateInfiniteMembers();
     }
 
     @Override
@@ -302,6 +304,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         migrationCell.clearMigrationStacks();
         migrationCell.persistMigrationContents((ServerLevel) level);
         ECOInfiniteStorageMember.markMember(cellStack, domainId);
+        var controller = getStorageController();
+        if (controller != null) controller.invalidateInfiniteMembers();
         setChanged();
         markForUpdate();
     }
@@ -311,6 +315,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             return false;
         }
         ECOInfiniteStorageMember.clearMember(cellStack);
+        var controller = getStorageController();
+        if (controller != null) controller.invalidateInfiniteMembers();
         clearRestoreReceipts();
         setChanged();
         markForUpdate();

@@ -24,20 +24,22 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     private final Map<AEKeyType, MutableTypeStats> typeStats = new HashMap<>();
     private List<TypeStats> snapshot = List.of();
     private boolean statisticsDirty = true;
+    private AEKeyType lastType;
+    private MutableTypeStats lastStats;
 
     public SavedDataInfiniteStorageEngine(ECOInfiniteStorageData data) {
         this.data = data;
         data.amounts.forEach((key, amount) -> {
             MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
             stats.types++;
-            stats.total = stats.total.add(amount);
+            stats.total.add(amount.toBigInteger());
         });
     }
 
     @Override
     public long insert(AEKey key, long amount, Actionable mode) {
         if (key == null || amount <= 0 || !data.canWrite(key)) return 0;
-        if (mode == Actionable.MODULATE) change(key, amount, true);
+        if (mode == Actionable.MODULATE) insertAmount(key, data.amounts.visible(key), amount);
         return amount;
     }
 
@@ -57,7 +59,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         if (transaction == null) return insert(key, amount, Actionable.MODULATE);
         if (data.hasMigrationReceipt(transaction)) return amount;
         if (!data.canWrite(key)) return 0;
-        change(key, amount, true);
+        insertAmount(key, data.amounts.visible(key), amount);
         // Quantity and receipt share an atomic snapshot; a sealed source can safely retry after a restart.
         data.addMigrationReceipt(transaction);
         return amount;
@@ -69,7 +71,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         if (transactions == null || transactions.isEmpty()) return insert(key, amount, Actionable.MODULATE);
         if (transactions.stream().anyMatch(data::hasMigrationReceipt)) return amount;
         if (!data.canWrite(key)) return 0;
-        change(key, amount, true);
+        insertAmount(key, data.amounts.visible(key), amount);
         data.addMigrationReceipts(transactions);
         return amount;
     }
@@ -77,34 +79,51 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     @Override
     public long extract(AEKey key, long amount, Actionable mode) {
         if (key == null || amount <= 0 || !data.canRead(key)) return 0;
-        long extracted = Math.min(amount, data.amounts.visible(key));
+        long current = data.amounts.visible(key);
+        long extracted = Math.min(amount, current);
         if (mode == Actionable.SIMULATE || extracted == 0) return extracted;
-        if (!data.canWrite(key)) return 0;
-        change(key, extracted, false);
+        // canRead(key) already checked the restore lock; only the global write state remains.
+        if (!data.canWrite()) return 0;
+        MutableTypeStats stats = statsFor(key.getType());
+        long remaining = data.amounts.subtract(key, current, extracted);
+        stats.total.subtract(extracted);
+        if (remaining == 0) {
+            if (--stats.types == 0) removeStats(key.getType());
+            data.setDirty();
+        } else data.setDirty(true);
+        statisticsDirty = true;
         return extracted;
     }
 
-    private void change(AEKey key, long amount, boolean added) {
-        MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
-        boolean wasEmpty = data.amounts.visible(key) == 0;
-        if (added) data.add(key, amount);
-        else data.subtract(key, amount);
-        boolean empty = data.amounts.visible(key) == 0;
-        stats.total = added ? stats.total.add(amount) : stats.total.subtract(amount);
-        if (wasEmpty != empty) {
-            stats.types += empty ? -1 : 1;
-            if (stats.types == 0) typeStats.remove(key.getType());
-            // A key appearing or vanishing is a structural change: refresh revision-keyed views right away.
-            data.setDirty();
+    private MutableTypeStats statsFor(AEKeyType type) {
+        if (type != lastType || lastStats == null) {
+            lastType = type;
+            lastStats = typeStats.computeIfAbsent(type, ignored -> new MutableTypeStats());
         }
+        return lastStats;
+    }
+
+    private void removeStats(AEKeyType type) {
+        typeStats.remove(type);
+        if (lastType == type) lastStats = null;
+    }
+
+    private void insertAmount(AEKey key, long current, long amount) {
+        MutableTypeStats stats = statsFor(key.getType());
+        data.amounts.add(key, current, amount);
+        stats.total.add(amount);
+        if (current == 0) {
+            stats.types++;
+            data.setDirty();
+        } else data.setDirty(true);
         statisticsDirty = true;
     }
 
     private void change(AEKey key, BigInteger amount) {
-        MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
-        boolean wasEmpty = data.getAmount(key).isZero();
+        MutableTypeStats stats = statsFor(key.getType());
+        boolean wasEmpty = data.amounts.visible(key) == 0;
         data.add(key, amount);
-        stats.total = stats.total.add(HugeAmount.of(amount));
+        stats.total.add(amount);
         if (wasEmpty) {
             stats.types++;
             data.setDirty();
@@ -118,14 +137,36 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     @Override
+    public boolean contains(AEKey key) {
+        return key != null && data.canRead(key) && data.amounts.visible(key) > 0;
+    }
+
+    @Override
+    public boolean canUseMountedStorage() { return data.canUseMountedStorage(); }
+
+    @Override
+    public void visitExactAmounts(java.util.function.BiConsumer<AEKey, BigInteger> visitor) {
+        if (!data.canRead()) return;
+        if (!data.hasPendingRestore()) data.amounts.visitExact(visitor);
+        else data.amounts.visitExact((key, amount) -> {
+            if (data.canRead(key)) visitor.accept(key, amount);
+        });
+    }
+
+    @Override
     public void getAvailableStacks(KeyCounter out) {
         if (!data.canRead()) return;
+        boolean empty = out.isEmpty();
         if (!data.hasPendingRestore()) {
-            data.amounts.visitVisible((key, amount) -> addVisible(out, key, amount));
+            if (empty) data.amounts.visitVisible(out::set);
+            else data.amounts.visitVisible((key, amount) -> addVisible(out, key, amount));
             return;
         }
         data.amounts.visitVisible((key, amount) -> {
-            if (data.canRead(key)) addVisible(out, key, amount);
+            if (data.canRead(key)) {
+                if (empty) out.set(key, amount);
+                else addVisible(out, key, amount);
+            }
         });
     }
 
@@ -149,7 +190,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     public Collection<TypeStats> getTypeStats() {
         if (statisticsDirty) {
             snapshot = typeStats.entrySet().stream()
-                    .map(e -> new TypeStats(e.getKey(), e.getValue().types, e.getValue().total)).toList();
+                    .map(e -> new TypeStats(e.getKey(), e.getValue().types, e.getValue().total.snapshot())).toList();
             statisticsDirty = false;
         }
         return snapshot;
@@ -266,8 +307,8 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
             HugeAmount remaining = data.getAmount(entry.getKey());
             MutableTypeStats stats = typeStats.get(entry.getKey().getType());
             if (stats != null) {
-                stats.total = stats.total.subtract(previous.subtract(remaining));
-                if (remaining.isZero() && --stats.types == 0) typeStats.remove(entry.getKey().getType());
+                stats.total.subtract(previous.subtract(remaining).toBigInteger());
+                if (remaining.isZero() && --stats.types == 0) removeStats(entry.getKey().getType());
             }
         }
         statisticsDirty = true;
@@ -286,6 +327,6 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     private static final class MutableTypeStats {
         private long types;
-        private HugeAmount total = HugeAmount.ZERO;
+        private final MutableInfiniteStorageTotal total = new MutableInfiniteStorageTotal();
     }
 }

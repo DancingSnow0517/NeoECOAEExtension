@@ -39,6 +39,7 @@ final class ECOInfiniteStorageModeController {
     private boolean updating;
     private long modeCheckTick = Long.MIN_VALUE;
     private long backendGeneration;
+    private boolean hostAccess;
     private int migrationDriveCursor;
 
     @Nullable
@@ -121,7 +122,6 @@ final class ECOInfiniteStorageModeController {
 
     private void syncModeChanges(ECOStorageHostMode previous) {
         if (previous != host.storageHostMode()) {
-            backendGeneration++;
             host.storageInterfaceTransfer().invalidateInfiniteStorageView();
             host.infiniteRestore().invalidateExtractionCheck();
             host.invalidateStorageStatistics();
@@ -401,11 +401,14 @@ final class ECOInfiniteStorageModeController {
             mountedServer = server;
             mountedDomainId = host.infiniteDomainId();
             mountedEngine = ECOInfiniteStorageDomains.acquire(serverLevel, host.infiniteDomainId());
+            refreshHostAccess();
         }
         return mountedEngine;
     }
 
     void release() {
+        backendGeneration++;
+        hostAccess = false;
         transfer.reset();
         preparedSourceSeals.clear();
         if (mountedServer != null && mountedDomainId != null) {
@@ -428,22 +431,30 @@ final class ECOInfiniteStorageModeController {
     }
 
     MEStorage createStorageView(ECOInfiniteStorageEngine engine) {
+        refreshHostAccess();
         long generation = backendGeneration;
         return new ECOInfiniteStorage(engine, host.getBlockState().getBlock().getName(),
                 () -> generation == backendGeneration && engine == mountedEngine
-                        && host.canInsertIntoInfiniteDomain());
+                        && hostAccess && !host.isStorageServerStopping() && engine.canUseMountedStorage());
     }
 
-    boolean canInsertIntoDomain() {
-        return host.isFormed()
+    void hostModeChanged() {
+        backendGeneration++;
+        refreshHostAccess();
+    }
+
+    /** Called synchronously by host transitions; domain health and restore locks are engine-owned. */
+    void refreshHostAccess() {
+        hostAccess = host.isFormed()
                 && !host.isRemoved()
-                && !host.isStorageServerStopping()
                 && host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE
                 && host.infiniteDomainId() != null
                 && !host.isInfiniteExitRequested()
                 && !host.infiniteRestore().isRestoring()
-                && mountedEngine != null
-                && mountedEngine.isHealthy()
-                && !mountedEngine.hasPendingRestore();
+                && mountedEngine != null;
+    }
+
+    boolean canInsertIntoDomain() {
+        return hostAccess && !host.isStorageServerStopping() && mountedEngine.canUseMountedStorage();
     }
 }

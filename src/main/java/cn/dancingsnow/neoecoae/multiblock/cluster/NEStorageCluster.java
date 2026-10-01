@@ -49,6 +49,7 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
         if (blockEntity instanceof ECOStorageSystemBlockEntity systemBlockEntity) {
             controller = systemBlockEntity;
         }
+        if (controller != null) controller.invalidateInfiniteMembers();
         //noinspection rawtypes
         if (blockEntity instanceof ECOMachineCasingBlockEntity casing) {
             //noinspection unchecked
