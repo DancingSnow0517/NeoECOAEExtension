@@ -147,7 +147,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
 
         if (virtualBatch && controller.isFullVirtualCraftingMode()) {
-            if (!controller.tryStartVirtualLaneTick()) {
+            var startResult = controller.tryStartVirtualLaneTickWithResult();
+            if (startResult != ECOCraftingSystemBlockEntity.VirtualLaneStartResult.STARTED) {
+                logBlockedProgress(controller,
+                    startResult == ECOCraftingSystemBlockEntity.VirtualLaneStartResult.COOLANT_UNAVAILABLE
+                        ? "virtual-coolant-unavailable" : "virtual-energy-unavailable",
+                    MAX_PROGRESS, overlockTimes, powerMultiply);
                 return TickRateModulation.SLOWER;
             }
             // Virtual execution has its own explicit one-tick path. It never depends on ordinary overclock.
@@ -655,7 +660,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         LOGGER.warn(
             "ECO crafting progress blocked: worker={} reason={} job={} progress={}/{} attemptedProgress={} "
                 + "batchCrafts={} craftCount={} virtualBatch={} overclockTimes={} powerMultiply={} "
-                + "activeCooling={} coolant={}/{}",
+                + "activeCooling={} coolant={}/{} coolantMaxOverclock={} "
+                + "requiredVirtualOverclock={} requiredVirtualCoolant={} requiredVirtualPower={}",
             worker.getBlockPos(),
             reason,
             craftingJobId,
@@ -669,7 +675,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             powerMultiply,
             controller.isActiveCooling(),
             controller.getDisplayedCoolantAmount(),
-            controller.getDisplayedCoolantCapacity()
+            controller.getDisplayedCoolantCapacity(),
+            controller.getDisplayedCoolingMaxOverclock(),
+            virtualBatch ? ECOCraftingSystemBlockEntity.MAX_OVERCLOCK_TIMES : 0,
+            virtualBatch ? ECOCraftingSystemBlockEntity.VIRTUAL_COOLANT_PER_LANE_TICK : 0,
+            virtualBatch ? cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster.VIRTUAL_CRAFTING_POWER_PER_TICK : 0
         );
     }
 
