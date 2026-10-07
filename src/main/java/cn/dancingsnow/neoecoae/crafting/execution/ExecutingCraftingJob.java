@@ -19,6 +19,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -66,6 +68,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     private static final String NBT_EXECUTION_PLAN = "executionPlan";
     private static final String NBT_EXECUTION_RUNTIME = "executionRuntime";
     private static final String NBT_EXECUTION_PERSISTENCE_FAILED = "executionPersistenceFailed";
+    private static final String NBT_BATCHED_OUTPUTS = "batchedOutputs";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
@@ -86,6 +89,8 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     boolean exactOrder;
     final Map<AEKey, java.math.BigInteger> deferredStock = new LinkedHashMap<>();
     final Map<AEKey, java.math.BigInteger> deferredEmitted = new LinkedHashMap<>();
+    /** Outputs of successful multi-craft dispatches in this job, used by the ECO status page. */
+    final Set<AEKey> batchedOutputs = new HashSet<>();
     @Nullable
     Integer playerId;
     boolean suspended;
@@ -178,6 +183,10 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         this.exactOrder = data.getBoolean("exactOrder");
         this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
+        for (var tag : data.getList(NBT_BATCHED_OUTPUTS, Tag.TAG_COMPOUND)) {
+            var key = AEKey.fromTagGeneric(registries, (CompoundTag) tag);
+            if (key != null) batchedOutputs.add(key);
+        }
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
             this.playerId = data.getInt(NBT_PLAYER_ID);
@@ -302,6 +311,9 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         data.put(NBT_FINAL_OUTPUT, GenericStack.writeTag(registries, finalOutput));
 
         data.put(NBT_WAITING_FOR, waitingFor.writeToNBT(registries));
+        ListTag batched = new ListTag();
+        batchedOutputs.forEach(key -> batched.add(key.toTagGeneric(registries)));
+        data.put(NBT_BATCHED_OUTPUTS, batched);
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
 
         final ListTag list = new ListTag();

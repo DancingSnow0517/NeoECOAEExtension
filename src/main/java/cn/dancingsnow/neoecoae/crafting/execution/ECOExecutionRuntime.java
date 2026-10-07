@@ -887,6 +887,7 @@ public final class ECOExecutionRuntime {
     }
 
     private static long inputAmount(IPatternDetails pattern, AEKey key, long remaining) {
+        if (pattern == null || key == null) return 0L;
         long result = 0L;
         try {
             for (var input : pattern.getInputs()) {
@@ -903,10 +904,33 @@ public final class ECOExecutionRuntime {
         return NEMath.saturatingMultiply(result, remaining);
     }
 
+    private static long outputAmount(IPatternDetails pattern, AEKey key) {
+        if (pattern == null || key == null) return 0L;
+        long result = 0L;
+        try {
+            for (GenericStack output : pattern.getOutputs()) {
+                if (output != null && key.equals(output.what()) && output.amount() > 0L) {
+                    result = NEMath.saturatingAdd(result, output.amount());
+                }
+            }
+        } catch (RuntimeException ignored) {
+            return 0L;
+        }
+        return result;
+    }
+
     Map<AEKey, Long> protectedStartupSeed(@Nullable DispatchCandidate candidate) {
         int ownerPhase = candidate == null ? -1 : candidate.phaseIndex();
         if (ownerPhase < -1 || ownerPhase >= startupSeedRemainingByPhase.size()) {
             return buildProtectedStartupSeed(ownerPhase);
+        }
+        // Dynamic cycles have no solver-provided witness order. Protect their startup stock from a
+        // consumer until a currently live task that can produce that key gets the first chance to run.
+        // Ordered cycles keep the old phase-level ownership rule because their witness already fixes
+        // which task is allowed to consume the seed first.
+        if (candidate != null
+                && plan.phases().get(ownerPhase).type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
+            return buildProtectedDynamicStartupSeed(candidate);
         }
         if (protectedSeedCacheStale) {
             Arrays.fill(protectedSeedByOwner, null);
@@ -929,6 +953,50 @@ public final class ECOExecutionRuntime {
             }
         }
         return result.isEmpty() ? Map.of() : result;
+    }
+
+    private Map<AEKey, Long> buildProtectedDynamicStartupSeed(DispatchCandidate candidate) {
+        Object2LongLinkedOpenHashMap<AEKey> result = new Object2LongLinkedOpenHashMap<>();
+        int ownerPhase = candidate.phaseIndex();
+        for (int phaseIndex = 0; phaseIndex < startupSeedRemainingByPhase.size(); phaseIndex++) {
+            for (var entry : startupSeedRemainingByPhase.get(phaseIndex).object2LongEntrySet()) {
+                if (phaseIndex != ownerPhase || !dynamicCandidateMayConsumeSeed(candidate, entry.getKey())) {
+                    result.mergeLong(entry.getKey(), entry.getLongValue(), NEMath::saturatingAdd);
+                }
+            }
+        }
+        return result.isEmpty() ? Map.of() : result;
+    }
+
+    /**
+     * Selects a safe first consumer for a dynamic cycle's startup key. If a live non-negative producer exists,
+     * only such producers may consume the reserved copy. This prevents a terminal consumer from taking the only
+     * seed before the producer that makes the rest of the cycle reachable. If no producer exists, the key is a
+     * finite external input and may be consumed by the first runnable task.
+     */
+    private boolean dynamicCandidateMayConsumeSeed(DispatchCandidate candidate, AEKey key) {
+        var phase = plan.phases().get(candidate.phaseIndex());
+        IPatternDetails actual = pattern(candidate.taskId());
+        long candidateInput = inputAmount(actual, key, 1L);
+        if (candidateInput <= 0L) return true;
+        long candidateOutput = outputAmount(actual, key);
+        boolean activeProducer = false;
+        boolean nonNegativeProducer = false;
+        for (int taskId : phase.taskIds()) {
+            long live = progressByTaskId == null
+                    ? remainingDynamicFirings.get(candidate.phaseIndex()).getOrDefault(taskId, 0L)
+                    : taskRemaining(taskId, null);
+            if (remainingDynamicFirings.get(candidate.phaseIndex()).getOrDefault(taskId, 0L) <= 0L
+                    || live <= 0L) continue;
+            IPatternDetails other = pattern(taskId);
+            long input = inputAmount(other, key, 1L);
+            long output = outputAmount(other, key);
+            if (output <= 0L) continue;
+            activeProducer = true;
+            if (output >= input) nonNegativeProducer = true;
+        }
+        if (!activeProducer) return true;
+        return candidateOutput > 0L && (candidateOutput >= candidateInput || !nonNegativeProducer);
     }
 
     boolean preservesStartupSeeds(DispatchCandidate candidate, List<GenericStack> inputs,

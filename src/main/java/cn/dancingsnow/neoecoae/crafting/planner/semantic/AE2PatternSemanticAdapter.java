@@ -76,7 +76,10 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
             }
             return new PatternSemantics(pattern, definition, inputs, outputs, returned, feedback, matching,
                 PatternSemantics.ExecutionRestriction.NONE, true,
-                hasRemainder && everyRemainderIsExactReusableStock, null);
+                // Ordinary exact processing recipes have no hidden return state. They must also enter
+                // complete cycle balance/replay; requiring a reusable remainder reduced them to local
+                // deadlock estimates and prevented compact planning of large growing recipe rings.
+                !hasRemainder || everyRemainderIsExactReusableStock, null);
         } catch (RuntimeException rejected) {
             return PatternSemantics.unsupported(pattern, definition, "MALFORMED_PATTERN:" + rejected.getClass().getSimpleName());
         }

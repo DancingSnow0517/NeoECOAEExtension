@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
@@ -78,6 +79,36 @@ class ECOExecutionRuntimeStartupSeedTest {
             List.of(new GenericStack(other, 1L), new GenericStack(other, 1L)), inventory));
     }
 
+    @Test
+    void dynamicCycleProtectsSingleSeedFromTerminalConsumer() {
+        AEKey seed = AEFluidKey.of(Fluids.WATER);
+        AEKey product = AEFluidKey.of(Fluids.LAVA);
+        var consumer = pattern(seed, product, 1L);
+        var producer = pattern(seed, seed, 2L);
+        var tasks = List.of(task(0, consumer, 1L), task(1, producer, 1L));
+        var phase = new ECOExecutionPlan.PhaseSpec(0, 0, ECOExecutionSchedule.Type.DYNAMIC_CYCLE,
+            List.of(0, 1), List.of(), List.of(), Map.of(0, 1L, 1, 1L), Map.of(seed, 1L));
+        var plan = new ECOExecutionPlan(new PlanIdentity.Signature(product, 1, Map.of(), Map.of(), Map.of(), Map.of()),
+            ExecutionMode.DYNAMIC_CYCLE, tasks, List.of(phase), new ECOExecutionSchedule(List.of()));
+        var progress = new ExecutingCraftingJob.TaskProgress[] {new ExecutingCraftingJob.TaskProgress(),
+            new ExecutingCraftingJob.TaskProgress()};
+        progress[0].setExact(BigInteger.ONE, BigInteger.ONE);
+        progress[1].setExact(BigInteger.ONE, BigInteger.ONE);
+        var runtime = new ECOExecutionRuntime(plan, Map.of(0, consumer, 1, producer), progress);
+
+        var candidates = runtime.candidates();
+        assertEquals(0, candidates.getFirst().taskId(), "fixture must put the consumer first");
+        assertEquals(Map.of(seed, 1L), runtime.protectedStartupSeed(candidates.getFirst()));
+        assertEquals(Map.of(), runtime.protectedStartupSeed(candidates.get(1)));
+
+        var inventory = new ListCraftingInventory(ignored -> {});
+        inventory.insert(seed, 1L, Actionable.MODULATE);
+        var blocked = new ECOCraftingInputPreview(inventory, consumer,
+            runtime.protectedStartupSeed(candidates.getFirst()), new ECOCraftingRemainderCache());
+        assertNull(ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(consumer, blocked, null,
+            new KeyCounter(), new KeyCounter(), new ECOCraftingRemainderCache()));
+    }
+
     private record Setup(ECOExecutionRuntime runtime, ExecutingCraftingJob.TaskProgress[] progress) {
         ExecutingCraftingJob.TaskProgress progress(int taskId) {
             return progress[taskId];
@@ -102,6 +133,11 @@ class ECOExecutionRuntimeStartupSeedTest {
         return new Setup(new ECOExecutionRuntime(plan, Map.of(0, first, 1, second), progress), progress);
     }
 
+    private static ECOExecutionPlan.TaskSpec task(int id, IPatternDetails pattern, long count) {
+        return new ECOExecutionPlan.TaskSpec(id, PlanIdentity.patternIdentityFor(pattern), pattern,
+            ECOExecutionPlan.PatternRuntimeInfo.from(pattern), count, 0, ECOExecutionPlan.TaskKind.CYCLE_DYNAMIC);
+    }
+
     private static ECOExecutionPlan.TaskSpec task(int id, IPatternDetails pattern) {
         return new ECOExecutionPlan.TaskSpec(id, PlanIdentity.patternIdentityFor(pattern), pattern,
             ECOExecutionPlan.PatternRuntimeInfo.from(pattern), Long.MAX_VALUE, id, ECOExecutionPlan.TaskKind.DAG);
@@ -111,6 +147,17 @@ class ECOExecutionRuntimeStartupSeedTest {
         var pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
         when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+        return pattern;
+    }
+
+    private static IPatternDetails pattern(AEKey inputKey, AEKey outputKey, long outputAmount) {
+        var pattern = mock(IPatternDetails.class);
+        var input = mock(IPatternDetails.IInput.class);
+        when(input.getPossibleInputs()).thenReturn(new GenericStack[] {new GenericStack(inputKey, 1)});
+        when(input.getMultiplier()).thenReturn(1L);
+        when(input.isValid(any(), any())).thenReturn(true);
+        when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {input});
+        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(outputKey, outputAmount)));
         return pattern;
     }
 }

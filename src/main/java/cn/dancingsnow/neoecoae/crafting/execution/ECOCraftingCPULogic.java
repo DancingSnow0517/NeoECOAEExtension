@@ -597,6 +597,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         return view.getWaitingFor(template);
     }
 
+    /** Whether this output has actually used a multi-craft dispatch in the current job. */
+    public boolean isBatchedOutput(AEKey template) {
+        return view.isBatchedOutput(template);
+    }
+
     public void getAllWaitingFor(Set<AEKey> waitingFor) {
         view.getAllWaitingFor(waitingFor);
     }

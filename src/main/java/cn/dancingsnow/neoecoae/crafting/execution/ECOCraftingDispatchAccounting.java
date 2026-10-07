@@ -53,6 +53,11 @@ final class ECOCraftingDispatchAccounting {
             job.tasks.get(request.pattern()).accept(batch.craftCount());
             if (job.executionRuntime != null)
                 job.executionRuntime.onAcceptedExact(request.candidate(), batch.craftCount(), request.inputs());
+            if (batch.craftCount().compareTo(java.math.BigInteger.ONE) > 0) {
+                batch.outputs().forEach((key, amount) -> {
+                    if (amount.signum() > 0) job.batchedOutputs.add(key);
+                });
+            }
             beforeNotifications.run();
             dispatchEvent.accept(new ECOCraftingDispatchEvent(contextFactory.apply(job), request.pattern(),
                 batch.craftCount(), provider));
@@ -93,6 +98,11 @@ final class ECOCraftingDispatchAccounting {
             job.tasks.get(request.pattern()).accept(result.acceptedCrafts());
             if (job.executionRuntime != null) {
                 job.executionRuntime.onAccepted(request.candidate(), result.acceptedCrafts(), request.inputs());
+            }
+            if (result.acceptedCrafts() > 1L) {
+                for (var output : result.outputs()) {
+                    if (output.amount() > 0L) job.batchedOutputs.add(output.what());
+                }
             }
             beforeNotifications.run();
             if (provider != null) {

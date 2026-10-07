@@ -138,6 +138,7 @@ class ECOExactOrderTest {
             assertEquals(BigInteger.ZERO, inventory.amount(input));
             assertEquals(BigInteger.ZERO, job.tasks.get(pattern).remainingExact());
             assertEquals(HUGE, cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.amount(job.waitingFor, output));
+            assertTrue(job.batchedOutputs.contains(output));
             assertEquals(HUGE, event.get().exactDispatchedCrafts());
             assertTrue(job.executionRuntime.isComplete());
             job.exactOrder = false;

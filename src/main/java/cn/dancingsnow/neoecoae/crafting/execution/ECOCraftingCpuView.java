@@ -29,6 +29,11 @@ final class ECOCraftingCpuView {
             : job.waitingFor.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
     }
 
+    boolean isBatchedOutput(AEKey template) {
+        var job = host.getJob();
+        return job != null && job.batchedOutputs.contains(template);
+    }
+
     void getAllWaitingFor(Set<AEKey> waitingFor) {
         var job = host.getJob();
         if (job != null) {
