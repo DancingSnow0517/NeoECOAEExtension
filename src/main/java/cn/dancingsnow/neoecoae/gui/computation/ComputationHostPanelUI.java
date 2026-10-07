@@ -58,6 +58,7 @@ public final class ComputationHostPanelUI {
         InventorySlots inventory = new InventorySlots();
         inventory.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(7).top(129).width(162).height(77));
+        inventory.hotbar.layout(layout -> layout.marginTop(4));
         inventory.apply(slot -> slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
         inventory.getChildren().forEach(child -> child.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
         main.addChild(inventory);

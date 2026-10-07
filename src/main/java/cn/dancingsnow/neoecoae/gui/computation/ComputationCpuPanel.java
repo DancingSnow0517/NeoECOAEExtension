@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
 import appeng.client.gui.Icon;
+import appeng.client.gui.widgets.Scrollbar;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
@@ -34,7 +35,7 @@ import net.minecraft.network.chat.Component;
 final class ComputationCpuPanel extends BindableValue<CompoundTag> {
     static final int WIDTH = 261, HEIGHT = 214, ROWS = 8;
     private static final int LIST_X = 176, LIST_Y = 21, ROW_WIDTH = 67, ROW_HEIGHT = 22, ROW_STRIDE = 23;
-    private static final int TRACK_X = 249, TRACK_Y = 21, TRACK_HEIGHT = 183;
+    private static final int TRACK_X = 249, TRACK_Y = 21, TRACK_WIDTH = 4, TRACK_HEIGHT = 183, THUMB_HEIGHT = 15;
     private static final IGuiTexture BACKGROUND = sprite(0, 0, WIDTH, HEIGHT);
     private static final IGuiTexture NORMAL = sprite(0, 222, ROW_WIDTH, ROW_HEIGHT);
     private static final IGuiTexture SELECTED = sprite(69, 222, ROW_WIDTH, ROW_HEIGHT);
@@ -69,7 +70,7 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
             if (event.button != 0 || total <= ROWS) return;
             float y = event.y - getPositionY() - TRACK_Y;
             float top = thumbTop();
-            grabOffset = y >= top && y < top + thumbHeight() ? y - top : thumbHeight() / 2.0F;
+            grabOffset = y >= top && y < top + THUMB_HEIGHT ? y - top : THUMB_HEIGHT / 2.0F;
             dragging = true;
             dragTo(event.y);
             event.stopImmediatePropagation();
@@ -143,11 +144,10 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         scrollRequest.setValue(offset);
     }
 
-    private int thumbHeight() { return Math.max(10, TRACK_HEIGHT * ROWS / Math.max(ROWS, total)); }
-    private float thumbTop() { return (TRACK_HEIGHT - thumbHeight()) * offset / (float) Math.max(1, total - ROWS); }
+    private float thumbTop() { return (TRACK_HEIGHT - THUMB_HEIGHT) * offset / (float) Math.max(1, total - ROWS); }
     private void dragTo(float mouseY) {
         float position = mouseY - getPositionY() - TRACK_Y - grabOffset;
-        scrollTo(Math.round(position / Math.max(1, TRACK_HEIGHT - thumbHeight()) * Math.max(0, total - ROWS)));
+        scrollTo(Math.round(position / (TRACK_HEIGHT - THUMB_HEIGHT) * Math.max(0, total - ROWS)));
     }
 
     @Override
@@ -187,9 +187,9 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
             if (entry != null) drawRow(context, font, entry, x + LIST_X, y + LIST_Y + row * ROW_STRIDE);
         }
         int trackLeft = Math.round(x + TRACK_X), trackTop = Math.round(y + TRACK_Y);
-        context.graphics.fill(trackLeft, trackTop, trackLeft + 4, trackTop + TRACK_HEIGHT, 0xFF696D88);
         int thumbY = Math.round(trackTop + thumbTop());
-        context.graphics.fill(trackLeft, thumbY, trackLeft + 4, thumbY + thumbHeight(), 0xFF9A9FB4);
+        context.graphics.blitSprite(total > ROWS ? Scrollbar.SMALL.enabledSprite() : Scrollbar.SMALL.disabledSprite(),
+            trackLeft, thumbY, TRACK_WIDTH, THUMB_HEIGHT);
     }
 
     private void drawRow(GUIContext context, Font font, ComputationCpuEntry entry, float x, float y) {
