@@ -160,6 +160,13 @@ public class GuiLangs {
         provider.add("gui.neoecoae.cpu.status.returning", "Returning items");
         provider.add("gui.neoecoae.cpu.status.error", "Execution blocked");
         provider.add("gui.neoecoae.cpu.remaining", "Remaining: %s");
+        provider.add("gui.neoecoae.computation.settings.title", "Computation System Settings");
+        provider.add("gui.neoecoae.computation.settings.cpu_mode", "CPU Selection Mode");
+        provider.add("gui.neoecoae.computation.settings.substitutions", "Use substitution patterns in planning");
+        provider.add("gui.neoecoae.computation.settings.cycle_planning", "Enable cycle planning");
+        provider.add("gui.neoecoae.computation.settings.fast_planner", "Enable ECO fast planning");
+        provider.add("gui.neoecoae.computation.settings.frequency", "Network frequency: %s / %s");
+        provider.add("gui.neoecoae.computation.settings.back", "Back to CPU List");
 
         // crafting
         provider.add("gui.neoecoae.crafting.tasks", "Crafting Tasks");

@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
-import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -118,17 +117,10 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement buildWindow = buildPanel(holder);
         ComputationHostPanelUI.Config panelConfig = createComputationPanelConfig(holder.player);
-        UIElement root = ComputationHostPanelUI.create(panelConfig);
-        root.addChild(HostSideButtonBar.left(
+        UIElement root = ComputationHostPanelUI.create(panelConfig,
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
             MultiblockBuilderUI.createInlineOpenButton(buildWindow),
-            ComputationHostPanelUI.createCpuSelectionButton(panelConfig),
-            ComputationHostPanelUI.createPlanningModeButton(panelConfig),
-            ComputationHostPanelUI.createCyclePlanningButton(panelConfig),
-            ComputationHostPanelUI.createFastPlannerButton(panelConfig),
-            ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
-        ));
-        root.addChild(buildWindow);
+            buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 

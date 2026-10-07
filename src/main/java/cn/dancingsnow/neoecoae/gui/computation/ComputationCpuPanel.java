@@ -8,6 +8,7 @@ import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -150,16 +151,17 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
     }
 
     @Override
-    public void drawContents(GUIContext context) {
+    public void drawBackgroundAdditional(GUIContext context) {
+        // Leave drawContents to LDLib2 so inventory, toolbar and floating windows are drawn too.
         Font font = Minecraft.getInstance().font;
         float x = getPositionX(), y = getPositionY();
         text(context, font, config.title().get().getString(), x + 8, y + 5, 157, 0.85F, 0x3F3D52);
         text(context, font, GuiText.CPUs.text().getString() + " (" + total + ")", x + LIST_X, y + 7, ROW_WIDTH, 0.75F, 0x3F3D52);
         CompoundTag value = getValue();
-        metric(context, font, "cpu_storage", HostText.ae2Amount(value.getLong("usedBytes")) + " / " + HostText.ae2Amount(value.getLong("totalBytes")), x, y + 27);
+        metric(context, font, "cpu_storage", NEByteFormatter.format(value.getLong("usedBytes")) + " / " + NEByteFormatter.format(value.getLong("totalBytes")), x, y + 27);
         metric(context, font, "thread_usage", HostText.ae2Amount(value.getInt("usedThreads")) + " / " + HostText.ae2Amount(value.getInt("totalThreads")), x, y + 39);
         metric(context, font, "parallel_count", HostText.ae2Amount(value.getInt("parallel")), x, y + 51);
-        metric(context, font, "free_memory", HostText.ae2Amount(value.getLong("availableBytes")), x, y + 63);
+        metric(context, font, "free_memory", NEByteFormatter.format(value.getLong("availableBytes")), x, y + 63);
         context.graphics.fill((int) x + 13, (int) y + 75, (int) x + 162, (int) y + 76, 0xFF484252);
         if (selected == null) {
             text(context, font, GuiText.NoCraftingJobs.text().getString(), x + 13, y + 83, 149, 0.85F, HostText.MUTED);
@@ -171,8 +173,10 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
                 text(context, font, selected.amount(selected.remaining(), false) + " / " + selected.amount(selected.requested(), false),
                     x + 13, y + 105, 149, 0.85F, HostText.VALUE);
             }
-            text(context, font, Tooltips.ofPercent(selected.progress()).getString() + " · " + Tooltips.ofDuration(selected.elapsed(), TimeUnit.NANOSECONDS).getString(),
-                x + 13, y + 115, 149, 0.7F, HostText.MUTED);
+            if (!selected.status().equals("idle")) {
+                text(context, font, Tooltips.ofPercent(selected.progress()).getString() + " · " + Tooltips.ofDuration(selected.elapsed(), TimeUnit.NANOSECONDS).getString(),
+                    x + 13, y + 115, 149, 0.7F, HostText.MUTED);
+            }
         }
         String connection = Component.translatable(value.getBoolean("connected")
             ? "gui.neoecoae.host.network.connected" : "gui.neoecoae.host.network.disconnected").getString();
@@ -209,10 +213,11 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         }
     }
 
-    private static void metric(GUIContext context, Font font, String metric, String value, float x, float y) {
+    static void metric(GUIContext context, Font font, String metric, String value, float x, float y) {
         String label = Component.translatable("gui.neoecoae.host.computation." + metric).getString();
         float scale = 0.8F;
-        int valueWidth = Math.round(font.width(value) * scale);
+        // Rounding down here can clip the final digit or unit when text() unscales the width.
+        int valueWidth = (int) Math.ceil(font.width(value) * scale);
         text(context, font, label, x + 13, y, Math.max(0, 145 - valueWidth), scale, HostText.MUTED);
         text(context, font, value, x + 162 - valueWidth, y, valueWidth, scale, HostText.VALUE);
     }
@@ -270,7 +275,7 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         CompoundTag value = getValue();
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable("gui.neoecoae.host.computation.cpu_storage").append(": ")
-            .append(HostText.expandedNumber(value.getLong("usedBytes")) + " / " + HostText.expandedNumber(value.getLong("totalBytes"))));
+            .append(HostText.fullByteProgress(value.getLong("usedBytes"), value.getLong("totalBytes"))));
         lines.add(Component.translatable("gui.neoecoae.host.computation.thread_usage").append(": ")
             .append(HostText.expandedNumber(value.getInt("usedThreads")) + " / " + HostText.expandedNumber(value.getInt("totalThreads"))));
         lines.add(Component.translatable("gui.neoecoae.host.computation.parallel_count").append(": ").append(HostText.expandedNumber(value.getInt("parallel"))));

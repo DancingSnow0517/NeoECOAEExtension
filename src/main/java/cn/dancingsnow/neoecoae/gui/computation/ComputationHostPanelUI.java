@@ -4,7 +4,6 @@ import appeng.api.config.CpuSelectionMode;
 import appeng.core.definitions.AEParts;
 import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
-import cn.dancingsnow.neoecoae.gui.common.CraftingPlanningModeButton;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -50,14 +49,33 @@ public final class ComputationHostPanelUI {
         IntSupplier networkFrequency, IntConsumer adjustNetworkFrequency
     ) {}
 
-    public static UIElement create(Config config) {
-        UIElement root = new ComputationCpuPanel(config);
+    public static UIElement create(Config config, UIElement guideButton, UIElement buildButton, UIElement buildWindow) {
+        UIElement root = new UIElement().layout(layout -> layout
+            .width(ComputationCpuPanel.WIDTH).height(ComputationCpuPanel.HEIGHT).paddingAll(0));
+        root.setOverflowVisible(true);
+        UIElement main = new ComputationCpuPanel(config);
+        HostElements.absolute(main, 0, 0, ComputationCpuPanel.WIDTH, ComputationCpuPanel.HEIGHT);
         InventorySlots inventory = new InventorySlots();
         inventory.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(7).top(129).width(162).height(77));
         inventory.apply(slot -> slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
         inventory.getChildren().forEach(child -> child.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
-        root.addChild(inventory);
+        main.addChild(inventory);
+        ComputationSettingsPanel settings = new ComputationSettingsPanel(config);
+        settings.setDisplay(false);
+        Button open = HostSideButtonBar.createButton().noText().addPostIcon(AETextures.icon(ECOIcon.COG));
+        open.setId("computation-settings-open");
+        HostElements.tooltips(open, Component.translatable("gui.neoecoae.computation.settings.title"));
+        open.setOnClick(event -> {
+            main.setDisplay(false);
+            settings.setDisplay(true);
+        });
+        settings.addBackButton(() -> {
+            settings.setDisplay(false);
+            main.setDisplay(true);
+        });
+        main.addChildren(HostSideButtonBar.left(guideButton, buildButton, open), buildWindow);
+        root.addChildren(main, settings);
         return root;
     }
 
@@ -111,65 +129,6 @@ public final class ComputationHostPanelUI {
         return button;
     }
 
-    public static Button createPlanningModeButton(Config config) {
-        return CraftingPlanningModeButton.create(
-                config.ignoringPatternSubstitutions,
-                config.substitutionPatternCount,
-                config.toggleIgnoringPatternSubstitutions,
-                CPU_MODE_BUTTON_SIZE);
-    }
-
-    public static Button createCyclePlanningButton(Config config) {
-        Button button = HostSideButtonBar.createButton()
-                .noText()
-                .addPreIcon(AETextures.icon(ECOIcon.SCHEDULING_ROUND_ROBIN));
-        button.buttonStyle(style -> style
-                .baseTexture(NETextures.RECT_RD)
-                .hoverTexture(NETextures.RECT_RD_LIGHT)
-                .pressedTexture(NETextures.RECT_RD_DARK));
-        button.addClass("eco-host-cycle-planning-button");
-        button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
-        button.setOnServerClick(event -> config.toggleCyclePlanning.run());
-
-        BindableValue<Boolean> syncedEnabled = new BindableValue<>(config.cyclePlanningEnabled.getAsBoolean());
-        syncedEnabled.bind(DataBindingBuilder.boolS2C(config.cyclePlanningEnabled::getAsBoolean).build());
-        syncedEnabled.setDisplay(false);
-        button.addChild(syncedEnabled);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
-                        Boolean.TRUE.equals(syncedEnabled.getValue())
-                                ? "gui.neoecoae.crafting.cycle_planning.on"
-                                : "gui.neoecoae.crafting.cycle_planning.off")));
-        return button;
-    }
-
-    public static Button createFastPlannerButton(Config config) {
-        Button button = HostSideButtonBar.createButton()
-                .noText()
-                .addPreIcon(AETextures.icon(config.fastPlannerEnabled.getAsBoolean() ? ECOIcon.COG : ECOIcon.COG_DISABLED));
-        button.buttonStyle(style -> style
-                .baseTexture(NETextures.RECT_RD)
-                .hoverTexture(NETextures.RECT_RD_LIGHT)
-                .pressedTexture(NETextures.RECT_RD_DARK));
-        button.addClass("eco-host-fast-planner-button");
-        button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
-        button.setOnServerClick(event -> config.toggleFastPlanner.run());
-
-        UIElement icon = button.getChildren().getFirst();
-        BindableValue<Boolean> syncedEnabled = new BindableValue<>(config.fastPlannerEnabled.getAsBoolean());
-        syncedEnabled.bind(DataBindingBuilder.boolS2C(config.fastPlannerEnabled::getAsBoolean).build());
-        syncedEnabled.registerValueListener(value -> icon.style(style -> style.backgroundTexture(
-                AETextures.icon(Boolean.TRUE.equals(value) ? ECOIcon.COG : ECOIcon.COG_DISABLED))));
-        syncedEnabled.setDisplay(false);
-        button.addChild(syncedEnabled);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
-                        Boolean.TRUE.equals(syncedEnabled.getValue())
-                                ? "gui.neoecoae.crafting.fast_planner.on"
-                                : "gui.neoecoae.crafting.fast_planner.off")));
-        return button;
-    }
-
     private static IGuiTexture cpuSelectionModeIcon(CpuSelectionMode mode) {
         return switch (mode) {
             case ANY -> AETextures.icon(ECOIcon.CRAFT_HAMMER);
@@ -201,7 +160,7 @@ public final class ComputationHostPanelUI {
         }
     }
 
-    private static Component cpuSelectionModeTooltip(CpuSelectionMode mode) {
+    static Component cpuSelectionModeTooltip(CpuSelectionMode mode) {
         return switch (mode) {
             case ANY -> ButtonToolTips.CpuSelectionModeAny.text();
             case PLAYER_ONLY -> ButtonToolTips.CpuSelectionModePlayersOnly.text();
