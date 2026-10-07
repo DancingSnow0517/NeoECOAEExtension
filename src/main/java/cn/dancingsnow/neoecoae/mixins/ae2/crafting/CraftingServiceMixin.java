@@ -398,6 +398,19 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     }
 
     @Override
+    public boolean neoecoae$hasComputationHost(IActionSource actionSource) {
+        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+            NEComputationCluster cluster = host.getCluster();
+            if (host.isFormed() && host.getMainNode().isOnline()
+                    && cluster != null && cluster.isActive()
+                    && cluster.canBeAutoSelectedFor(actionSource)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds() {
         Set<ResourceLocation> result = new java.util.LinkedHashSet<>();
         for (ECOMachineInterfaceBlockEntity<?> machineInterface

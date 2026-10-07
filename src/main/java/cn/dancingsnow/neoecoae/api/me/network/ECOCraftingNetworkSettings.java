@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.network;
 
 import appeng.api.networking.IGrid;
+import appeng.api.networking.security.IActionSource;
 
 import java.util.Set;
 
@@ -51,6 +52,15 @@ public interface ECOCraftingNetworkSettings {
     }
 
     boolean neoecoae$hasComputationHost();
+
+    /**
+     * Whether this request source has at least one formed, online computation host that accepts it.
+     * The source-aware overload keeps automatic-only/player-only CPU modes from selecting an ECO
+     * planner that cannot later be submitted by the same request.
+     */
+    default boolean neoecoae$hasComputationHost(IActionSource actionSource) {
+        return neoecoae$hasComputationHost();
+    }
 
     /**
      * Item ids selected by computation interfaces for component-insensitive planning.

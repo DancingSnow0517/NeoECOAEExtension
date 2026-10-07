@@ -297,7 +297,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
         var node = actionHost.getActionableNode();
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(node == null ? null : node.getGrid());
-        neoecoae$ecoPlannerAvailable = settings != null && settings.neoecoae$shouldUseFastPlanner();
+        neoecoae$ecoPlannerAvailable = settings != null
+            && settings.neoecoae$isFastPlannerEnabled()
+            && settings.neoecoae$hasComputationHost(getActionSrc());
         neoecoae$showFastPlannerReport = false;
         neoecoae$ecoReportReady = false;
         neoecoae$cyclePlanningEnabled = settings != null && settings.neoecoae$isCyclePlanningEnabled();
@@ -366,14 +368,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             ? ecoSettings
             : null;
         boolean fastPlannerEnabled = settings != null && settings.neoecoae$isFastPlannerEnabled();
-        boolean hasComputationHost = settings != null && settings.neoecoae$hasComputationHost();
+        boolean hasComputationHost = settings != null
+            && settings.neoecoae$hasComputationHost(requester.getActionSource());
         boolean useEco = fastPlannerEnabled && hasComputationHost;
         neoecoae$ecoPlannerAvailable = useEco;
         String routeReason = settings == null
             ? "CRAFTING_SERVICE_HAS_NO_ECO_SETTINGS"
             : !fastPlannerEnabled
                 ? (hasComputationHost ? "FAST_PLANNER_DISABLED" : "FAST_PLANNER_DISABLED_AND_NO_ELIGIBLE_HOST")
-                : !hasComputationHost ? "NO_FORMED_ONLINE_COMPUTATION_HOST" : "ELIGIBLE";
+                : !hasComputationHost
+                    ? (settings.neoecoae$hasComputationHost()
+                        ? "NO_HOST_ACCEPTS_REQUEST_SOURCE" : "NO_FORMED_ONLINE_COMPUTATION_HOST")
+                    : "ELIGIBLE";
         ECOPlanningStageLogger.logRoute(NEConfig.ecoPlanningStageDebug,
             useEco ? "ECO_FAST" : "AE2_NATIVE", routeReason, what, amount);
         if (NEConfig.ecoCraftSubmissionDebug) {
@@ -450,10 +456,13 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             long onlineHosts = hosts.stream().filter(host -> host.getMainNode().isOnline()).count();
             long eligibleHosts = hosts.stream()
                 .filter(host -> host.isFormed() && host.getMainNode().isOnline())
+                .filter(host -> host.getCluster() != null
+                    && host.getCluster().canBeAutoSelectedFor(getActionSrc()))
                 .count();
             String reason = !fastPlannerEnabled
                 ? (hasComputationHost ? "FAST_PLANNER_DISABLED" : "FAST_PLANNER_DISABLED_AND_NO_ELIGIBLE_HOST")
-                : "NO_FORMED_ONLINE_COMPUTATION_HOST";
+                : settings.neoecoae$hasComputationHost()
+                    ? "NO_HOST_ACCEPTS_REQUEST_SOURCE" : "NO_FORMED_ONLINE_COMPUTATION_HOST";
             NEOECOAE_LOGGER.warn(
                 "[ECO-CRAFT-SUBMIT] ECO screen unavailable: reason={}, player={}, output={}, amount={}, "
                     + "fastPlannerEnabled={}, computationHosts(total/formed/online/eligible)={}/{}/{}/{}",
