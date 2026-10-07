@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * Necessary material balance, independent of firing order: stock + (out - in) x >= target, x >= 0.
- * Exact two-phase simplex minimizes total firings; bounded integer branching refines fractional answers.
+ * Exact two-phase simplex minimizes total firings; integer branching refines fractional answers.
  * Infeasibility is a proof only after every branch closes. A feasible vector is never a liveness proof.
  * Boundary ingredients have unlimited imports here; the caller still verifies their real DAG supply.
  */
@@ -18,67 +18,86 @@ final class CycleStateEquation {
     enum Status { OPTIMAL, FEASIBLE, INFEASIBLE, UNKNOWN }
     record Result(Status status, PlannerAmount[] counts) {}
     private record Constraint(BigInteger[] coefficients, BigInteger bound) {}
-    private static final int MAX_NODES = 128;
-    private static final int MAX_PIVOTS = 2_048;
-    private static final int MAX_BITS = 4_096;
 
     static Result solve(long[][] consumed, long[][] produced, boolean[] boundary,
             PlannerAmount[] stock, PlannerAmount[] target, ECOCancellation cancellation) throws InterruptedException {
+        return solve(consumed, produced, boundary, stock, target, cancellation, new CycleMemoryBudget());
+    }
+
+    static Result solve(long[][] consumed, long[][] produced, boolean[] boundary,
+            PlannerAmount[] stock, PlannerAmount[] target, ECOCancellation cancellation, CycleMemoryBudget memory)
+            throws InterruptedException {
         int variables = consumed.length;
         List<Constraint> constraints = new ArrayList<>();
+        long constraintBytes = 0;
         for (int key = 0; key < stock.length; key++) {
+            cancellation.checkpoint();
             if (boundary[key]) continue;
+            boolean changes = false, canRestrict = false;
+            for (int p = 0; p < variables; p++) {
+                changes |= consumed[p][key] != produced[p][key];
+                canRestrict |= consumed[p][key] > produced[p][key];
+            }
+            if (!changes) {
+                if (stock[key].compareTo(target[key]) < 0) return result(Status.INFEASIBLE, null);
+                continue;
+            }
+            if (!canRestrict && stock[key].compareTo(target[key]) >= 0) continue;
+            BigInteger bound = stock[key].subtract(target[key]).toBigInteger();
+            constraintBytes += 64L + 8L * variables + CycleMemoryBudget.integerBytes(bound);
+            memory.check(constraintBytes);
             BigInteger[] row = new BigInteger[variables];
             for (int p = 0; p < variables; p++) {
                 row[p] = BigInteger.valueOf(consumed[p][key]).subtract(BigInteger.valueOf(produced[p][key]));
+                constraintBytes += CycleMemoryBudget.integerBytes(row[p]);
             }
-            constraints.add(new Constraint(row, stock[key].subtract(target[key]).toBigInteger()));
+            memory.check(constraintBytes);
+            constraints.add(new Constraint(row, bound));
         }
-        return minimize(variables, constraints, cancellation);
+        return minimize(variables, constraints, cancellation, memory, constraintBytes);
     }
 
-    private static Result minimize(int variables, List<Constraint> constraints, ECOCancellation cancellation)
+    private static Result minimize(int variables, List<Constraint> constraints, ECOCancellation cancellation,
+            CycleMemoryBudget memory, long constraintBytes)
             throws InterruptedException {
         var pending = new ArrayDeque<List<Constraint>>();
         pending.push(constraints);
         BigInteger[] best = null;
         BigInteger bestCost = null;
-        Budget budget = new Budget(cancellation);
-        int nodes = 0;
-        try {
-            while (!pending.isEmpty()) {
-                if (++nodes > MAX_NODES) throw new Limit();
-                cancellation.checkpoint();
-                List<Constraint> branch = pending.pop();
-                Rational[] vector = new Tableau(variables, branch, budget).solve();
-                if (vector == null) continue;
-                Rational cost = Rational.ZERO;
-                int fractional = -1;
-                for (int p = 0; p < variables; p++) {
-                    cost = cost.add(vector[p]);
-                    if (!vector[p].denominator.equals(BigInteger.ONE) && fractional < 0) fractional = p;
-                }
-                if (bestCost != null && cost.compareTo(Rational.of(bestCost)) >= 0) continue;
-                if (fractional < 0) {
-                    best = Arrays.stream(vector).map(value -> value.numerator).toArray(BigInteger[]::new);
-                    bestCost = cost.numerator;
-                    continue;
-                }
-                BigInteger floor = vector[fractional].numerator.divide(vector[fractional].denominator);
-                BigInteger[] row = new BigInteger[variables];
-                Arrays.fill(row, BigInteger.ZERO);
-                row[fractional] = BigInteger.ONE;
-                var lower = new ArrayList<>(branch);
-                lower.add(new Constraint(row, floor));
-                row = row.clone();
-                row[fractional] = BigInteger.ONE.negate();
-                var upper = new ArrayList<>(branch);
-                upper.add(new Constraint(row, floor.add(BigInteger.ONE).negate()));
-                pending.push(lower);
-                pending.push(upper);
+        Budget budget = new Budget(cancellation, memory, constraintBytes);
+        while (!pending.isEmpty()) {
+            cancellation.checkpoint();
+            List<Constraint> branch = pending.pop();
+            // Branches share constraint rows; account for list references and new split rows.
+            long pendingBytes = 0;
+            for (List<Constraint> queued : pending) pendingBytes += 64L + 8L * queued.size();
+            budget.branchBytes = pendingBytes + 2L * branch.size() * (64L + 80L * variables);
+            Rational[] vector = new Tableau(variables, branch, budget).solve();
+            if (vector == null) continue;
+            Rational cost = Rational.ZERO;
+            int fractional = -1;
+            for (int p = 0; p < variables; p++) {
+                cost = cost.add(vector[p]);
+                if (!vector[p].denominator.equals(BigInteger.ONE) && fractional < 0) fractional = p;
             }
-        } catch (Limit exhausted) {
-            return result(best == null ? Status.UNKNOWN : Status.FEASIBLE, best);
+            if (bestCost != null && cost.compareTo(Rational.of(bestCost)) >= 0) continue;
+            if (fractional < 0) {
+                best = Arrays.stream(vector).map(value -> value.numerator).toArray(BigInteger[]::new);
+                bestCost = cost.numerator;
+                continue;
+            }
+            BigInteger floor = vector[fractional].numerator.divide(vector[fractional].denominator);
+            BigInteger[] row = new BigInteger[variables];
+            Arrays.fill(row, BigInteger.ZERO);
+            row[fractional] = BigInteger.ONE;
+            var lower = new ArrayList<>(branch);
+            lower.add(new Constraint(row, floor));
+            row = row.clone();
+            row[fractional] = BigInteger.ONE.negate();
+            var upper = new ArrayList<>(branch);
+            upper.add(new Constraint(row, floor.add(BigInteger.ONE).negate()));
+            pending.push(lower);
+            pending.push(upper);
         }
         return result(best == null ? Status.INFEASIBLE : Status.OPTIMAL, best);
     }
@@ -88,17 +107,16 @@ final class CycleStateEquation {
             : Arrays.stream(vector).map(PlannerAmount::of).toArray(PlannerAmount[]::new));
     }
 
-    private static final class Limit extends RuntimeException {
-        Limit() { super(null, null, false, false); }
-    }
-
     private static final class Budget {
         final ECOCancellation cancellation;
-        int pivots;
-        Budget(ECOCancellation cancellation) { this.cancellation = cancellation; }
+        final CycleMemoryBudget memory;
+        final long constraintBytes;
+        long branchBytes;
+        Budget(ECOCancellation cancellation, CycleMemoryBudget memory, long constraintBytes) {
+            this.cancellation = cancellation; this.memory = memory; this.constraintBytes = constraintBytes;
+        }
         void pivot() throws InterruptedException {
             cancellation.checkpoint();
-            if (++pivots > MAX_PIVOTS) throw new Limit();
         }
     }
 
@@ -109,12 +127,14 @@ final class CycleStateEquation {
         final Rational[][] d;
         final Budget budget;
 
-        Tableau(int variables, List<Constraint> rows, Budget budget) {
+        Tableau(int variables, List<Constraint> rows, Budget budget) throws InterruptedException {
             m = rows.size(); n = variables; this.budget = budget;
+            budget.memory.check(budget.constraintBytes + budget.branchBytes + 160L * (m + 2L) * (n + 2L));
             basic = new int[m]; nonbasic = new int[n + 1];
             d = new Rational[m + 2][n + 2];
             for (var row : d) Arrays.fill(row, Rational.ZERO);
             for (int i = 0; i < m; i++) {
+                budget.cancellation.checkpoint();
                 for (int j = 0; j < n; j++) d[i][j] = Rational.of(rows.get(i).coefficients[j]);
                 basic[i] = n + i;
                 d[i][n] = Rational.NEGATIVE_ONE;
@@ -126,6 +146,20 @@ final class CycleStateEquation {
             }
             nonbasic[n] = -1;
             d[m + 1][n] = Rational.ONE;
+            checkMemory();
+        }
+
+        void checkMemory() throws InterruptedException {
+            long bytes = budget.constraintBytes + budget.branchBytes + 32L + 16L * (m + n + 4L);
+            for (Rational[] row : d) {
+                budget.cancellation.checkpoint();
+                bytes += 24L + 8L * row.length;
+                for (Rational value : row) {
+                    bytes += 32L + CycleMemoryBudget.integerBytes(value.numerator)
+                        + CycleMemoryBudget.integerBytes(value.denominator);
+                }
+                budget.memory.check(bytes);
+            }
         }
 
         void pivot(int row, int column) throws InterruptedException {
@@ -143,6 +177,7 @@ final class CycleStateEquation {
             for (int i = 0; i < m + 2; i++) if (i != row) d[i][column] = d[i][column].multiply(inverse).negate();
             d[row][column] = inverse;
             int previous = basic[row]; basic[row] = nonbasic[column]; nonbasic[column] = previous;
+            checkMemory();
         }
 
         boolean simplex(int phase) throws InterruptedException {
@@ -173,9 +208,9 @@ final class CycleStateEquation {
             for (int i = 0; i < m; i++) if (row < 0 || d[i][n + 1].compareTo(d[row][n + 1]) < 0) row = i;
             if (row >= 0 && d[row][n + 1].signum() < 0) {
                 pivot(row, n);
-                if (!simplex(1)) throw new Limit();
+                if (!simplex(1)) throw new IllegalStateException("Unbounded phase-one objective");
                 if (d[m + 1][n + 1].signum() < 0) return null;
-                if (d[m + 1][n + 1].signum() != 0) throw new Limit();
+                if (d[m + 1][n + 1].signum() != 0) throw new IllegalStateException("Invalid phase-one basis");
                 for (int i = 0; i < m; i++) {
                     if (basic[i] != -1) continue;
                     int column = -1;
@@ -185,7 +220,7 @@ final class CycleStateEquation {
                     if (column >= 0) pivot(i, column);
                 }
             }
-            if (!simplex(2)) throw new Limit(); // -sum(x), x >= 0 is bounded above by zero.
+            if (!simplex(2)) throw new IllegalStateException("Unbounded nonnegative firing objective");
             Rational[] vector = new Rational[n];
             Arrays.fill(vector, Rational.ZERO);
             for (int i = 0; i < m; i++) if (basic[i] >= 0 && basic[i] < n) vector[basic[i]] = d[i][n + 1];
@@ -200,15 +235,29 @@ final class CycleStateEquation {
             if (denominator.signum() < 0) { numerator = numerator.negate(); denominator = denominator.negate(); }
             BigInteger gcd = numerator.gcd(denominator);
             numerator = numerator.divide(gcd); denominator = denominator.divide(gcd);
-            if (numerator.bitLength() > MAX_BITS || denominator.bitLength() > MAX_BITS) throw new Limit();
         }
         static Rational of(BigInteger value) { return new Rational(value, BigInteger.ONE); }
         int signum() { return numerator.signum(); }
         Rational negate() { return new Rational(numerator.negate(), denominator); }
-        Rational add(Rational other) { return new Rational(numerator.multiply(other.denominator).add(other.numerator.multiply(denominator)), denominator.multiply(other.denominator)); }
+        Rational add(Rational other) {
+            if (other.signum() == 0) return this;
+            if (signum() == 0) return other;
+            BigInteger gcd = denominator.gcd(other.denominator);
+            BigInteger left = other.denominator.divide(gcd), right = denominator.divide(gcd);
+            return new Rational(numerator.multiply(left).add(other.numerator.multiply(right)), denominator.multiply(left));
+        }
         Rational subtract(Rational other) { return add(other.negate()); }
-        Rational multiply(Rational other) { return new Rational(numerator.multiply(other.numerator), denominator.multiply(other.denominator)); }
-        Rational divide(Rational other) { return new Rational(numerator.multiply(other.denominator), denominator.multiply(other.numerator)); }
+        Rational multiply(Rational other) {
+            if (signum() == 0 || other.signum() == 0) return ZERO;
+            BigInteger left = numerator.gcd(other.denominator), right = other.numerator.gcd(denominator);
+            return new Rational(numerator.divide(left).multiply(other.numerator.divide(right)),
+                denominator.divide(right).multiply(other.denominator.divide(left)));
+        }
+        Rational divide(Rational other) {
+            if (other.signum() == 0) throw new ArithmeticException("Zero divisor");
+            if (signum() == 0) return ZERO;
+            return multiply(new Rational(other.denominator, other.numerator));
+        }
         @Override public int compareTo(Rational other) { return numerator.multiply(other.denominator).compareTo(other.numerator.multiply(denominator)); }
     }
 }

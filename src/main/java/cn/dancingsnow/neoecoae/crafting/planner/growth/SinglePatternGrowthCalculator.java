@@ -118,7 +118,7 @@ public final class SinglePatternGrowthCalculator {
 
         ValidatedPatternProfile profile = validator.validate(only);
         SinglePatternGrowthResult result =
-            evaluate(profile, request.requiredOutputs(), request.availableRelevantStock());
+            compute(profile, request.plannerRequiredOutputs(), request.availableRelevantStock());
         if (result.feedbackKey() != null && !member.equals(result.feedbackKey())) {
             return declined(SinglePatternGrowthResult.Reason.FEEDBACK_KEY_MISMATCH,
                 "The feedback key is not the component member");
@@ -136,7 +136,10 @@ public final class SinglePatternGrowthCalculator {
     public SinglePatternGrowthResult evaluate(ValidatedPatternProfile profile, Map<AEKey, Long> requiredOutputs,
             Map<AEKey, Long> availableStock) {
         try {
-            return compute(profile, requiredOutputs, availableStock);
+            Map<AEKey, PlannerAmount> exact = new LinkedHashMap<>();
+            if (requiredOutputs != null) requiredOutputs.forEach((key, amount) ->
+                exact.put(key, PlannerAmount.of(amount == null ? 0L : amount)));
+            return compute(profile, exact, availableStock);
         } catch (ArithmeticException overflow) {
             return SinglePatternGrowthResult.declined(SinglePatternGrowthStatus.NOT_APPLICABLE,
                 SinglePatternGrowthResult.Reason.INTERNAL_ERROR,
@@ -144,7 +147,7 @@ public final class SinglePatternGrowthCalculator {
         }
     }
 
-    private SinglePatternGrowthResult compute(ValidatedPatternProfile profile, Map<AEKey, Long> requiredOutputs,
+    private SinglePatternGrowthResult compute(ValidatedPatternProfile profile, Map<AEKey, PlannerAmount> requiredOutputs,
             Map<AEKey, Long> availableStock) {
         if (profile == null) {
             return declined(SinglePatternGrowthResult.Reason.MISSING_PROFILE, "No validated profile was supplied");
@@ -153,7 +156,7 @@ public final class SinglePatternGrowthCalculator {
             return declined(SinglePatternGrowthResult.Reason.PATTERN_NOT_NET_GROWTH_SAFE,
                 "The pattern is not tagged NET_GROWTH_SAFE (" + profile.netGrowthRejection() + ")");
         }
-        Map<AEKey, Long> required = requiredOutputs == null ? Map.of() : requiredOutputs;
+        Map<AEKey, PlannerAmount> required = requiredOutputs == null ? Map.of() : requiredOutputs;
         Map<AEKey, Long> stock = availableStock == null ? Map.of() : availableStock;
         if (required.isEmpty()) {
             return declined(SinglePatternGrowthResult.Reason.NO_REQUIRED_OUTPUT, "No required output was named");
@@ -182,11 +185,11 @@ public final class SinglePatternGrowthCalculator {
         }
 
         PlannerAmount firings = PlannerAmount.ZERO;
-        for (Map.Entry<AEKey, Long> entry : required.entrySet()) {
-            long want = entry.getValue() == null ? 0L : entry.getValue();
-            if (want <= 0) continue;
+        for (Map.Entry<AEKey, PlannerAmount> entry : required.entrySet()) {
+            PlannerAmount want = entry.getValue() == null ? PlannerAmount.ZERO : entry.getValue();
+            if (want.signum() <= 0) continue;
             PlannerAmount have = PlannerAmount.of(Math.max(0L, stock.getOrDefault(entry.getKey(), 0L)));
-            PlannerAmount outstanding = PlannerAmount.of(want).subtract(have);
+            PlannerAmount outstanding = want.subtract(have);
             if (outstanding.signum() <= 0) continue;
             PlannerAmount perFiring = PlannerAmount.of(profile.netDeltaPerFiring(entry.getKey()));
             if (perFiring.signum() <= 0) {

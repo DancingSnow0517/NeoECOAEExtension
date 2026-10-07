@@ -141,6 +141,11 @@ public class NEConfig {
             "Shared checkpoint work budget; changing routes or startup seeds does not reset it.")
         .defineInRange("ecoPlanningMaxWork", 5_000_000, 1, Integer.MAX_VALUE);
 
+    private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_MEMORY_MIB = BUILDER
+        .comment("循环求解保留数据的估算内存预算（MiB），覆盖矩阵和搜索状态；超限显示未解。",
+            "Estimated retained memory budget in MiB for cycle matrices and search states; exhaustion remains unknown.")
+        .defineInRange("ecoPlanningMaxMemoryMiB", 64, 1, Integer.MAX_VALUE);
+
     static {
         BUILDER.pop();
     }
@@ -220,6 +225,7 @@ public class NEConfig {
     public static int ecoFastPathCacheSize = 512;
     public static int ecoPlanningMaxMillis = 10_000;
     public static int ecoPlanningMaxWork = 5_000_000;
+    public static int ecoPlanningMaxMemoryMiB = 64;
     public static boolean ecoPlanningStageDebug = false;
     public static boolean ecoCraftSubmissionDebug = false;
     public static boolean ecoDispatchWatchdogDebug = false;
@@ -247,6 +253,7 @@ public class NEConfig {
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         ecoPlanningMaxMillis = ECO_PLANNING_MAX_MILLIS.get();
         ecoPlanningMaxWork = ECO_PLANNING_MAX_WORK.get();
+        ecoPlanningMaxMemoryMiB = ECO_PLANNING_MAX_MEMORY_MIB.get();
         ecoPlanningStageDebug = ECO_PLANNING_STAGE_DEBUG.get();
         ecoCraftSubmissionDebug = ECO_CRAFT_SUBMISSION_DEBUG.get();
         ecoDispatchWatchdogDebug = ECO_DISPATCH_WATCHDOG_DEBUG.get();

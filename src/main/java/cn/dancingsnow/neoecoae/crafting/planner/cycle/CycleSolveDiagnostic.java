@@ -36,6 +36,7 @@ public record CycleSolveDiagnostic(Code code, String message) {
         /** The SCC can fire but no firing changes the deficit; it cannot create the required output. */
         NO_PRODUCTIVE_FIRING,
         STATE_BUDGET_EXHAUSTED,
+        MEMORY_BUDGET_EXHAUSTED,
         FIRING_DEPTH_TRUNCATED,
         KEY_LIMIT_EXCEEDED,
         PATTERN_LIMIT_EXCEEDED,

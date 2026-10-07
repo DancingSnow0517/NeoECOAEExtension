@@ -6,6 +6,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningStageLogger;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
@@ -13,7 +14,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.component.AcyclicComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveRequest;
-import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveLimits;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveResult;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolver;
@@ -53,7 +53,6 @@ import org.slf4j.LoggerFactory;
  */
 public final class ComponentPlanner {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComponentPlanner.class);
-    private static final int MAX_ROUTE_ATTEMPTS = 256;
 
     public record Outcome(
             PlanningStatus status,
@@ -72,12 +71,12 @@ public final class ComponentPlanner {
     private final int maxRouteAttempts;
 
     public ComponentPlanner(AcyclicCraftingSolver acyclicSolver, CycleSolver cycleSolver) {
-        this(acyclicSolver, cycleSolver, MAX_ROUTE_ATTEMPTS);
+        this(acyclicSolver, cycleSolver, 0);
     }
 
     /** Package-visible budget override for deterministic route-search tests. */
     ComponentPlanner(AcyclicCraftingSolver acyclicSolver, CycleSolver cycleSolver, int maxRouteAttempts) {
-        if (maxRouteAttempts < 1) throw new IllegalArgumentException("Route attempt budget must be positive");
+        if (maxRouteAttempts < 0) throw new IllegalArgumentException("Route attempt budget must not be negative");
         this.acyclicSolver = acyclicSolver;
         this.cycleSolver = cycleSolver;
         this.activeRouteSelector = new ActiveRouteSelector();
@@ -144,6 +143,7 @@ public final class ComponentPlanner {
     public Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
                         KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
                         boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+        if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
         return plan(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
                 ignorePatternSubstitutions, cancellation, new CycleFailureCache(cycleSolver));
     }
@@ -653,6 +653,7 @@ public final class ComponentPlanner {
                         ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
                         PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
                         ECOCancellation cancellation) throws InterruptedException {
+        if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
         CycleFailureCache failures = new CycleFailureCache(cycleSolver);
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, true,
             ignorePatternSubstitutions, cancellation, failures);
@@ -724,7 +725,7 @@ public final class ComponentPlanner {
                 vector[i] = (baseline.get(key) + offsets[i]) % radices.getInt(i);
             }
             if (!attempted.add(vector)) continue;
-            if (attempts >= maxRouteAttempts) {
+            if (maxRouteAttempts > 0 && attempts >= maxRouteAttempts) {
                 preferred.trace().addDiagnostic(new PlannerDiagnostic(
                     PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED,
                     "Producer route search stopped after " + attempts
@@ -831,22 +832,7 @@ public final class ComponentPlanner {
     }
 
     private static CycleSolveRequest.PlannerOptions cycleSolveOptions(CycleComponent cycle) {
-        Set<AEKey> keys = new ObjectOpenHashSet<>(cycle.members());
-        for (CompiledPattern pattern : cycle.patterns()) {
-            pattern.inputs().forEach(input -> keys.add(input.key()));
-            pattern.grossOutputs().forEach(output -> keys.add(output.what()));
-        }
-        int choices = 0;
-        var patterns = cycle.patterns().stream().collect(java.util.stream.Collectors.toMap(
-            CompiledPattern::details, pattern -> pattern, (first, second) -> first)).values();
-        for (AEKey member : cycle.members()) {
-            long producers = patterns.stream().filter(pattern -> pattern.grossOutputs().stream()
-                .anyMatch(output -> output.what().equals(member))).count();
-            long consumers = patterns.stream().filter(pattern -> pattern.inputs().stream()
-                .anyMatch(input -> input.key().equals(member))).count();
-            choices += (int) (Math.max(0, producers - 1) + Math.max(0, consumers - 1));
-        }
-        return new CycleSolveRequest.PlannerOptions(CycleSolveLimits.forWorkload(keys.size(), patterns.size(), choices));
+        return new CycleSolveRequest.PlannerOptions();
     }
 
     private static CycleExecutionDisposition cycleExecutionDisposition(CycleComponent cycle, CycleSolveResult result) {

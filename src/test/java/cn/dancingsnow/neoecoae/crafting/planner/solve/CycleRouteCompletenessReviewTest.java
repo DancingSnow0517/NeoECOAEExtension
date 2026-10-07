@@ -21,6 +21,29 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class CycleRouteCompletenessReviewTest {
+    @Test
+    void defaultRouteSearchCanReachAFeasibleProducerBeyond256Alternatives() throws Exception {
+        var missing = key("missing");
+        var fuel = key("fuel");
+        var finish = pattern(0, goal, Map.of(a, 2L), Map.of(goal, 1L));
+        var producers = new ArrayList<CompiledPattern>();
+        for (int i = 1; i <= 270; i++) producers.add(pattern(i, a,
+            Map.of(a, 1L, missing, 1L), Map.of(a, 2L)));
+        var available = pattern(271, a, Map.of(a, 1L, fuel, 1L), Map.of(a, 2L));
+        producers.add(available);
+        var network = network(Map.of(goal, List.of(finish), a, producers, missing, List.of(), fuel, List.of()));
+        var stock = new KeyCounter(); stock.add(a, 1L); stock.add(fuel, 1L);
+        var graph = graph(network);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var initial = new ActiveRouteSelector().selectWithChoices(graph.source(), Map.of(a, 0), ECOCancellation.NONE);
+        var result = planner.planWithCycleFallback(network, graph, initial, stock,
+            PlannerInventorySnapshot.of(stock), 1L, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
+        assertTrue(result.state().patternTimes.containsKey(available.details()));
+        assertEquals(1L, stock.get(a));
+        assertEquals(1L, stock.get(fuel));
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {0, 5, 80})
     void sharedBudgetDuringAlternativesKeepsMaterialsThroughSessionAndClientSnapshot(int extraWork) throws Exception {

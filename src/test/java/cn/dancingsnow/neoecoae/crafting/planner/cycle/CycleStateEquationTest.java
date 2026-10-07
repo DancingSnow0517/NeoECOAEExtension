@@ -76,22 +76,47 @@ class CycleStateEquationTest {
         }
     }
 
-    @Test void workloadBudgetDoesNotPromoteNineIngredientsToAMillionStates() {
+    @Test void graphDimensionsDoNotImposeAnArbitrarySearchOrStructureCutoff() {
         var small = CycleSolveLimits.forWorkload(8, 3, 0);
         var wide = CycleSolveLimits.forWorkload(16, 3, 0);
-        assertTrue(wide.maxKeys() >= 16);
-        assertTrue(wide.maxStates() <= small.maxStates());
-        assertTrue(wide.maxStates() <= 100_000);
-        assertTrue(CycleSolveLimits.forWorkload(16, 3, 2).maxStates() > wide.maxStates());
+        assertEquals(CycleSolveLimits.DEFAULT, small);
+        assertEquals(small, wide);
+        assertEquals(wide, CycleSolveLimits.forWorkload(1000, 1000, 1000));
+        assertEquals(0, wide.maxKeys());
+        assertEquals(0, wide.maxPatterns());
+        assertEquals(0, wide.maxStates());
+        assertEquals(0, wide.maxFirings());
     }
 
-    @Test void arithmeticBudgetExhaustionStaysUnknownAndCancellationPropagates() throws Exception {
+    @Test void largeExactIntegersHaveNoBitCutoffAndCancellationPropagates() throws Exception {
         var result = CycleStateEquation.solve(new long[][] {{1}}, new long[][] {{2}}, new boolean[1],
             amounts(1), new PlannerAmount[] {PlannerAmount.of(BigInteger.ONE.shiftLeft(5000))}, ECOCancellation.NONE);
-        assertEquals(CycleStateEquation.Status.UNKNOWN, result.status());
-        assertNull(result.counts());
+        assertEquals(CycleStateEquation.Status.OPTIMAL, result.status());
+        assertEquals(BigInteger.ONE.shiftLeft(5000).subtract(BigInteger.ONE), result.counts()[0].toBigInteger());
         assertThrows(InterruptedException.class, () -> CycleStateEquation.solve(new long[][] {{1}},
             new long[][] {{2}}, new boolean[1], amounts(1), amounts(10), () -> { throw new InterruptedException(); }));
+    }
+
+    @Test void integerBranchingCanProveTheOptimumBeyondTheFormerNodeBudget() throws Exception {
+        int variables = 9;
+        long[][] consumed = new long[variables][variables + 1], produced = new long[variables][variables + 1];
+        long[] stock = new long[variables + 1], target = new long[variables + 1];
+        for (int t = 0; t < variables; t++) {
+            consumed[t][t] = 1;
+            stock[t] = 1;
+            produced[t][variables] = 2;
+        }
+        target[variables] = 9;
+        var result = CycleStateEquation.solve(consumed, produced, new boolean[variables + 1],
+            amounts(stock), amounts(target), ECOCancellation.NONE);
+        assertEquals(CycleStateEquation.Status.OPTIMAL, result.status());
+        assertEquals(5, Arrays.stream(result.counts()).mapToLong(PlannerAmount::longValueExact).sum());
+    }
+
+    @Test void matrixMemoryIsLimitedInBytesRatherThanVariablesOrIntegerBits() {
+        assertThrows(CycleMemoryBudget.Exhausted.class, () -> CycleStateEquation.solve(
+            new long[][] {{1}}, new long[][] {{2}}, new boolean[1], amounts(1), amounts(10),
+            ECOCancellation.NONE, new CycleMemoryBudget(512)));
     }
 
     private static PlannerAmount[] amounts(long... values) {
