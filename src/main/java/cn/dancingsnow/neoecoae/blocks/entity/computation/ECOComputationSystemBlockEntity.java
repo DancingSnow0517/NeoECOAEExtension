@@ -2,22 +2,16 @@ package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGridNodeListener;
-import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
-import cn.dancingsnow.neoecoae.crafting.execution.ElapsedTimeTracker;
-import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
-import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -30,15 +24,11 @@ import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -128,67 +118,27 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement buildWindow = buildPanel(holder);
         ComputationHostPanelUI.Config panelConfig = createComputationPanelConfig(holder.player);
-
-        UIElement root = new UIElement().layout(layout -> layout
-                        .width(340)
-                        .height(242)
-                        .flexDirection(FlexDirection.COLUMN))
-                .addClasses("panel_bg", "eco-computation-host");
-
-        UIElement header = new UIElement().layout(layout -> layout
-                .widthPercent(100)
-                .height(28)
-                .flexDirection(FlexDirection.ROW)
-                .alignItems(AlignItems.CENTER));
-        UIElement titleBlock = new UIElement().layout(layout -> layout.flex(1).height(24)
-                .flexDirection(FlexDirection.COLUMN).gapAll(2));
-        titleBlock.addChild(new TextElement()
-                .setText(getItemFromBlockEntity().getDescription())
-                .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
-                .layout(layout -> layout.widthPercent(100).height(10)));
-        titleBlock.addChild(HostNetworkStatusElement.create(
-                () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
-                () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
-        header.addChild(titleBlock);
-        root.addChild(header);
-
-        UIElement panels = new UIElement().layout(layout -> layout
-                .widthPercent(100)
-                .height(ComputationHostPanelUI.PANEL_HEIGHT)
-                .flexDirection(FlexDirection.ROW)
-                .alignItems(AlignItems.STRETCH)
-                .gapAll(10));
-        UIElement leftColumn = new UIElement().layout(layout -> {
-            layout.width(ComputationHostPanelUI.LEFT_PANEL_WIDTH);
-            layout.height(ComputationHostPanelUI.PANEL_HEIGHT);
-            layout.flexDirection(FlexDirection.COLUMN);
-            layout.gapAll(4);
-        });
-        leftColumn.addChild(ComputationHostPanelUI.createLeftCapacityPanel(panelConfig));
-        leftColumn.addChild(ComputationHostPanelUI.createInventoryPanel());
-        panels.addChild(leftColumn);
-        panels.addChild(ComputationHostPanelUI.createRightPanel(panelConfig));
-
-        root.addChild(panels);
+        UIElement root = ComputationHostPanelUI.create(panelConfig);
         root.addChild(HostSideButtonBar.left(
-                GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
-                MultiblockBuilderUI.createInlineOpenButton(buildWindow),
-                ComputationHostPanelUI.createCpuSelectionButton(panelConfig),
-                ComputationHostPanelUI.createPlanningModeButton(panelConfig),
-                ComputationHostPanelUI.createCyclePlanningButton(panelConfig),
-                ComputationHostPanelUI.createFastPlannerButton(panelConfig),
-                ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
+            MultiblockBuilderUI.createInlineOpenButton(buildWindow),
+            ComputationHostPanelUI.createCpuSelectionButton(panelConfig),
+            ComputationHostPanelUI.createPlanningModeButton(panelConfig),
+            ComputationHostPanelUI.createCyclePlanningButton(panelConfig),
+            ComputationHostPanelUI.createFastPlannerButton(panelConfig),
+            ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
         ));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 
-    private static void titleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
-    }
-
     private ComputationHostPanelUI.Config createComputationPanelConfig(Player player) {
         return new ComputationHostPanelUI.Config(
+                () -> getItemFromBlockEntity().getDescription(),
+                () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
+                () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
+                () -> level == null ? 0L : level.getGameTime(),
+                () -> canPlayerInteract(player),
                 this::getUsedComputationBytes,
                 this::getTotalBytes,
                 this::getAvailableBytes,
@@ -198,7 +148,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 this::getCpuSelectionMode,
                 delta -> adjustCpuSelectionMode(player, delta),
                 this::getRegistryAccessForUi,
-                this::getActiveTaskEntries,
+                this::collectDisplayedCpus,
                 this::isIgnoringPatternSubstitutions,
                 this::getSubstitutionPatternCount,
                 () -> toggleIgnoringPatternSubstitutions(player),
@@ -416,77 +366,20 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 .get();
     }
 
-    private List<ComputationTaskEntry> getActiveTaskEntries() {
-        if (cluster == null) {
-            return List.of();
-        }
-        List<ComputationTaskEntry> tasks = new ArrayList<>();
-        int index = 0;
-        for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
-            ComputationTaskEntry entry = createTaskEntry(cpu, index);
-            if (entry != null) {
-                tasks.add(entry);
+    /** The list and capacity readouts cover the same logical computation network. */
+    private List<ECOCraftingCPU> collectDisplayedCpus() {
+        if (cluster == null || !getMainNode().isOnline()) return List.of();
+        var network = cluster.getNetworkCluster();
+        var members = network == null ? List.of(cluster) : network.getMembers();
+        List<ECOCraftingCPU> cpus = new ArrayList<>();
+        for (NEComputationCluster member : members) {
+            if (!member.isActive()) continue;
+            cpus.addAll(member.getActiveCPUs());
+            if (member.isNetworkRepresentative() && member.getActiveCPUCount() < member.getMaxThreads()) {
+                cpus.add(member.getFakeCPU());
             }
-            index++;
         }
-        return tasks;
-    }
-
-    private @Nullable ComputationTaskEntry createTaskEntry(ECOCraftingCPU cpu, int index) {
-        if (cpu == null) {
-            return null;
-        }
-        ECOCraftingCPULogic logic = cpu.getLogic();
-        GenericStack finalOutput = logic.getFinalJobOutput();
-        if (finalOutput == null && cpu.getPlan() != null) {
-            finalOutput = cpu.getPlan().finalOutput();
-        }
-        if (finalOutput == null) {
-            return null;
-        }
-        if (!(finalOutput.what() instanceof AEItemKey itemKey)) {
-            return null;
-        }
-        ItemStack output = itemKey.toStack(1);
-        if (output.isEmpty()) {
-            return null;
-        }
-        // The task card amount must reflect the *remaining* job output so the number visibly decreases while
-        // the vCPU delivers crafted items. A finished CPU (job already null but still returning leftover items,
-        // so it lingers in getActiveCPUs()) now has nothing left to display and is correctly hidden instead of
-        // showing a stale full total.
-        long remainingAmount = logic.getRemainingJobOutputAmount();
-        if (remainingAmount <= 0L) {
-            return null;
-        }
-        ElapsedTimeTracker tracker = logic.getElapsedTimeTracker();
-        long total = Math.max(1L, tracker.getSyntheticStartItemCount());
-        long remaining = Math.max(0L, Math.min(total, tracker.getSyntheticRemainingItemCount()));
-        ComputationTaskEntry.Status status = !logic.hasJob() || logic.isCantStoreItems() || logic.isJobSuspended()
-                ? ComputationTaskEntry.Status.WAITING_OUTPUT
-                : ComputationTaskEntry.Status.RUNNING;
-        return new ComputationTaskEntry(
-                computationTaskId(cpu, finalOutput, index),
-                output,
-                remainingAmount,
-                1L,
-                total,
-                remaining,
-                status,
-                index + 1,
-                cpu.getName(),
-                cpu.getAvailableStorage(),
-                cpu.getCoProcessors(),
-                cpu.getSelectionMode(),
-                Math.clamp(tracker.getProgress(), 0.0F, 1.0F),
-                tracker.getElapsedTime()
-        );
-    }
-
-    private static String computationTaskId(ECOCraftingCPU cpu, GenericStack output, int index) {
-        BlockPos ownerPos = cpu.getOwner() != null ? cpu.getOwner().getBlockPos() : null;
-        String owner = ownerPos != null ? Long.toString(ownerPos.asLong()) : "proxy";
-        return "cpu:" + owner + ":" + index + ":" + output.what().hashCode();
+        return cpus;
     }
 
     private long getUsedComputationBytes() {

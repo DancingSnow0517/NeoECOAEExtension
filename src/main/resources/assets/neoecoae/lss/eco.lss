@@ -79,10 +79,6 @@ fluid-slot {
   gap-all: 3;
 }
 
-.eco-computation-capacity {
-  gap-all: 1;
-}
-
 
 .eco-host-progress .__progress-bar_bar-container__ {
   background: #1f2f3428;

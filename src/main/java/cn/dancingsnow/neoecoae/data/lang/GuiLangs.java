@@ -154,6 +154,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.computation.parallel_count", "Parallel Count");
         provider.add("gui.neoecoae.host.computation.capacity", "Computation Capacity");
         provider.add("gui.neoecoae.host.computation.free_memory", "Free CPU Memory");
+        provider.add("gui.neoecoae.cpu.status.idle", "Idle");
+        provider.add("gui.neoecoae.cpu.status.running", "Running");
+        provider.add("gui.neoecoae.cpu.status.suspended", "Suspended");
+        provider.add("gui.neoecoae.cpu.status.returning", "Returning items");
+        provider.add("gui.neoecoae.cpu.status.error", "Execution blocked");
+        provider.add("gui.neoecoae.cpu.remaining", "Remaining: %s");
 
         // crafting
         provider.add("gui.neoecoae.crafting.tasks", "Crafting Tasks");
