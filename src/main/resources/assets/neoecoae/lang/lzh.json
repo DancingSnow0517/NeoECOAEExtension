@@ -9,6 +9,7 @@
   "gui.neoecoae.big_order.requested": "所求之數：%s",
   "gui.neoecoae.crafting_report.loading_details": "載合成詳情…",
   "gui.neoecoae.crafting.ui.batch_parallel": "批量",
+  "gui.neoecoae.crafting.smart_doubling": "ECO智能翻倍",
   "gui.neoecoae.crafting.ui.recipe_slots": "槽位",
   "tooltip.neoecoae.infinite_component.unlock": "置六十四組件、十二 L9 儲存矩陣，乃啟無限儲存",
   "gui.neoecoae.force_start": "強制下單",

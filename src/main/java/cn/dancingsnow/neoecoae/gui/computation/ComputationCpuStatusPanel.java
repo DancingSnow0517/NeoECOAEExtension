@@ -49,7 +49,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private static final int ITEM_COLS = 3, ITEM_ROWS = 9, ITEM_STRIDE = 23, ITEM_PAGE = ITEM_COLS * ITEM_ROWS;
     private static final int ITEM_TRACK_X = 306;
     private static final int TEXT = 0x413F54;
-    private static final int BATCH_ICON_SIZE = 16, BATCH_ICON_LEFT = 4;
+    private static final int BATCH_ICON_SIZE = 16, BATCH_ICON_LEFT = 1;
     private static final ResourceLocation BATCH_ICON = NeoECOAE.id("textures/gui/eco_batching.png");
     // The source sheet is 384x384, but only the 326x254 top slice is the page background.
     // The two 67x22 CPU row states live at y=260 in the same sheet.
@@ -188,6 +188,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             ComputationCpuItemEntry item = items.get(cell);
             List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
             lines.addAll(itemDescription(item, true));
+            if (item.batched()) {
+                lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF));
+            }
             event.hoverTooltips = HoverTooltips.empty().append(lines.toArray(Component[]::new));
         });
         return hitbox;

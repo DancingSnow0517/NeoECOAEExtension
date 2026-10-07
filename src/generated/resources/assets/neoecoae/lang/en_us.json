@@ -222,6 +222,7 @@
   "gui.neoecoae.crafting.task.status.queued": "Queued",
   "gui.neoecoae.crafting.task.status.running": "Running",
   "gui.neoecoae.crafting.task.status.waiting_output": "Waiting for output",
+  "gui.neoecoae.crafting.smart_doubling": "ECO Smart Doubling",
   "gui.neoecoae.crafting.tasks": "Crafting Tasks",
   "gui.neoecoae.crafting.ui.batch_parallel": "Batch",
   "gui.neoecoae.crafting.ui.batch_per_thread.detail": "Authoritative Crafting Capability",

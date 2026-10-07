@@ -35,6 +35,7 @@
   "gui.neoecoae.big_order.requires_cpu": "BigInt 订单需要 ECO CPU",
   "tooltip.neoecoae.big_order.requires_cpu": "数量已扩展为超大数类型；请准备空闲且在线的 ECO 合成 CPU",
   "gui.neoecoae.crafting.ui.batch_parallel": "批量",
+  "gui.neoecoae.crafting.smart_doubling": "ECO智能翻倍",
   "gui.neoecoae.crafting.ui.recipe_slots": "槽位",
   "tooltip.neoecoae.infinite_component.unlock": "插入 64 个组件并安装 12 个 L9 存储矩阵以启用无限存储",
   "gui.neoecoae.force_start": "强制下单",
