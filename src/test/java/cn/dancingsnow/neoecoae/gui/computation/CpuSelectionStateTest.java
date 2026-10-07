@@ -74,4 +74,22 @@ class CpuSelectionStateTest {
         assertEquals(1, selection.size());
         assertSame(cpu, selection.selected());
     }
+
+    @Test
+    void viewsWithDifferentRefreshRatesKeepTheSameCpuIdentities() {
+        var identities = new CpuSelectionState.Identities<Cpu>();
+        var main = new CpuSelectionState<Cpu>(8, identities);
+        var details = new CpuSelectionState<Cpu>(9, identities);
+        Cpu first = new Cpu(null, true), removed = new Cpu(null, true), replacement = new Cpu(null, true);
+        main.update(List.of(first, removed), Cpu::busy, Cpu::name);
+        int expired = main.serial(removed);
+        details.update(List.of(replacement, first), Cpu::busy, Cpu::name);
+        main.update(List.of(first, replacement), Cpu::busy, Cpu::name);
+
+        assertEquals(main.serial(first), details.serial(first));
+        assertEquals(main.serial(replacement), details.serial(replacement));
+        assertTrue(details.select(main.serial(replacement)));
+        assertSame(replacement, details.selected());
+        assertFalse(details.select(expired));
+    }
 }

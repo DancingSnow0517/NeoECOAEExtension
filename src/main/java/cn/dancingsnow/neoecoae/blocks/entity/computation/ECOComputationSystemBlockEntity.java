@@ -141,6 +141,14 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 delta -> adjustCpuSelectionMode(player, delta),
                 this::getRegistryAccessForUi,
                 this::collectDisplayedCpus,
+                cpu -> {
+                    if (canPlayerInteract(player)) {
+                        cpu.getLogic().setJobSuspended(!cpu.getLogic().isJobSuspended());
+                    }
+                },
+                cpu -> {
+                    if (canPlayerInteract(player)) cpu.cancelJob();
+                },
                 this::isIgnoringPatternSubstitutions,
                 this::getSubstitutionPatternCount,
                 () -> toggleIgnoringPatternSubstitutions(player),

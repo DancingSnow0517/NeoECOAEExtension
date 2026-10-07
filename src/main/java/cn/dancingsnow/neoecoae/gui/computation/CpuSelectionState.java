@@ -11,15 +11,19 @@ import java.util.function.Predicate;
 /** Menu-local CPU identities survive list changes; removed identities are never reassigned. */
 final class CpuSelectionState<T> {
     private final int rows;
-    private final Map<T, Integer> serials = new IdentityHashMap<>();
+    private final Identities<T> identities;
     private List<T> entries = List.of();
-    private int nextSerial = 1;
     private int selectedSerial = -1;
     private int offset;
 
     CpuSelectionState(int rows) {
+        this(rows, new Identities<>());
+    }
+
+    CpuSelectionState(int rows, Identities<T> identities) {
         if (rows < 1) throw new IllegalArgumentException("rows must be positive");
         this.rows = rows;
+        this.identities = identities;
     }
 
     void update(List<T> cpus, Predicate<T> busy, Function<T, String> name) {
@@ -27,11 +31,10 @@ final class CpuSelectionState<T> {
         List<T> next = new ArrayList<>();
         for (T cpu : cpus) {
             if (present.put(cpu, true) == null) {
-                serials.computeIfAbsent(cpu, ignored -> nextSerial++);
+                identities.register(cpu);
                 next.add(cpu);
             }
         }
-        serials.keySet().removeIf(cpu -> !present.containsKey(cpu));
         next.sort(Comparator.<T, Boolean>comparing(cpu -> name.apply(cpu) == null)
             .thenComparing(cpu -> name.apply(cpu) == null ? "" : name.apply(cpu))
             .thenComparingInt(this::serial));
@@ -55,7 +58,7 @@ final class CpuSelectionState<T> {
     }
 
     int serial(T cpu) {
-        return serials.getOrDefault(cpu, -1);
+        return identities.serials.getOrDefault(cpu, -1);
     }
 
     T selected() {
@@ -69,4 +72,14 @@ final class CpuSelectionState<T> {
     int selectedSerial() { return selectedSerial; }
     int offset() { return offset; }
     int size() { return entries.size(); }
+
+    /** Shared by both views of one menu, so their different sampling rates cannot change CPU IDs. */
+    static final class Identities<T> {
+        private final Map<T, Integer> serials = new IdentityHashMap<>();
+        private int nextSerial = 1;
+
+        private void register(T cpu) {
+            serials.computeIfAbsent(cpu, ignored -> nextSerial++);
+        }
+    }
 }

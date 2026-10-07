@@ -8,7 +8,6 @@ import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
@@ -18,10 +17,10 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
@@ -43,6 +42,7 @@ public final class ComputationHostPanelUI {
         IntSupplier usedThreads, IntSupplier totalThreads, IntSupplier parallelCount,
         Supplier<CpuSelectionMode> cpuSelectionMode, IntConsumer adjustCpuSelectionMode,
         Supplier<HolderLookup.Provider> registries, Supplier<List<ECOCraftingCPU>> cpus,
+        Consumer<ECOCraftingCPU> toggleCpuSuspended, Consumer<ECOCraftingCPU> cancelCpu,
         BooleanSupplier ignoringPatternSubstitutions, IntSupplier substitutionPatternCount,
         Runnable toggleIgnoringPatternSubstitutions, BooleanSupplier cyclePlanningEnabled,
         Runnable toggleCyclePlanning, BooleanSupplier fastPlannerEnabled, Runnable toggleFastPlanner,
@@ -51,10 +51,22 @@ public final class ComputationHostPanelUI {
 
     public static UIElement create(Config config, UIElement guideButton, UIElement buildButton, UIElement buildWindow) {
         UIElement root = new UIElement().layout(layout -> layout
-            .width(ComputationCpuPanel.WIDTH).height(ComputationCpuPanel.HEIGHT).paddingAll(0));
+            .width(ComputationCpuStatusPanel.WIDTH).height(ComputationCpuStatusPanel.HEIGHT).paddingAll(0));
         root.setOverflowVisible(true);
-        UIElement main = new ComputationCpuPanel(config);
-        HostElements.absolute(main, 0, 0, ComputationCpuPanel.WIDTH, ComputationCpuPanel.HEIGHT);
+        var identities = new CpuSelectionState.Identities<ECOCraftingCPU>();
+        ComputationCpuStatusPanel status = new ComputationCpuStatusPanel(config, identities);
+        HostElements.absolute(status, 0, 0, ComputationCpuStatusPanel.WIDTH, ComputationCpuStatusPanel.HEIGHT);
+        status.setDisplay(false);
+        UIElement[] mainRef = new UIElement[1];
+        UIElement main = new ComputationCpuPanel(config, serial -> {
+            mainRef[0].setDisplay(false);
+            status.setDisplay(true);
+            status.open(serial);
+        }, identities);
+        mainRef[0] = main;
+        int mainX = (ComputationCpuStatusPanel.WIDTH - ComputationCpuPanel.WIDTH) / 2;
+        int mainY = (ComputationCpuStatusPanel.HEIGHT - ComputationCpuPanel.HEIGHT) / 2;
+        HostElements.absolute(main, mainX, mainY, ComputationCpuPanel.WIDTH, ComputationCpuPanel.HEIGHT);
         InventorySlots inventory = new InventorySlots();
         inventory.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(7).top(129).width(162).height(77));
@@ -63,6 +75,8 @@ public final class ComputationHostPanelUI {
         inventory.getChildren().forEach(child -> child.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
         main.addChild(inventory);
         ComputationSettingsPanel settings = new ComputationSettingsPanel(config);
+        settings.layout(layout -> layout.left(mainX)
+            .top(mainY + (ComputationCpuPanel.HEIGHT - ComputationSettingsPanel.HEIGHT) / 2));
         settings.setDisplay(false);
         Button open = HostSideButtonBar.createButton().noText().addPostIcon(AETextures.icon(ECOIcon.COG));
         open.setId("computation-settings-open");
@@ -75,12 +89,16 @@ public final class ComputationHostPanelUI {
             settings.setDisplay(false);
             main.setDisplay(true);
         });
+        status.setBackAction(() -> {
+            status.setDisplay(false);
+            main.setDisplay(true);
+        });
         Button cpuMode = createCpuSelectionButton(config);
         cpuMode.setId("computation-cpu-mode");
         Button frequency = createNetworkFrequencyButton(config);
         frequency.setId("computation-frequency");
         main.addChildren(HostSideButtonBar.left(guideButton, buildButton, cpuMode, frequency, open), buildWindow);
-        root.addChildren(main, settings);
+        root.addChildren(main, settings, status);
         return root;
     }
 
@@ -89,7 +107,8 @@ public final class ComputationHostPanelUI {
         button.addClass("eco-host-cpu-mode-button");
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
 
-        CpuSelectionIcon icon = new CpuSelectionIcon(config.cpuSelectionMode.get());
+        UIElement icon = new UIElement().style(style ->
+            style.backgroundTexture(cpuSelectionModeIcon(config.cpuSelectionMode.get())));
         button.addChild(icon);
         button.setOnServerClick(event -> {
             if (event.button == 0) config.adjustCpuSelectionMode.accept(1);
@@ -98,7 +117,8 @@ public final class ComputationHostPanelUI {
 
         BindableValue<Integer> syncedMode = new BindableValue<>(config.cpuSelectionMode.get().ordinal());
         syncedMode.bind(DataBindingBuilder.intValS2C(() -> config.cpuSelectionMode.get().ordinal()).build());
-        syncedMode.registerValueListener(value -> icon.setMode(cpuSelectionModeFromOrdinal(value)));
+        syncedMode.registerValueListener(value -> icon.style(style ->
+            style.backgroundTexture(cpuSelectionModeIcon(cpuSelectionModeFromOrdinal(value)))));
         syncedMode.setDisplay(false);
         button.addChild(syncedMode);
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
@@ -118,10 +138,6 @@ public final class ComputationHostPanelUI {
                     if (event.button == 0) config.adjustNetworkFrequency.accept(1);
                     else if (event.button == 1) config.adjustNetworkFrequency.accept(-1);
                 });
-        button.buttonStyle(style -> style
-                .baseTexture(NETextures.RECT_RD)
-                .hoverTexture(NETextures.RECT_RD_LIGHT)
-                .pressedTexture(NETextures.RECT_RD_DARK));
         button.addClass("eco-host-network-frequency-button");
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
 
@@ -140,29 +156,6 @@ public final class ComputationHostPanelUI {
             case PLAYER_ONLY -> new ItemStackTexture(new ItemStack(AEParts.TERMINAL));
             case MACHINE_ONLY -> new ItemStackTexture(new ItemStack(AEParts.EXPORT_BUS));
         };
-    }
-
-    private static final class CpuSelectionIcon extends UIElement {
-        private IGuiTexture texture;
-
-        private CpuSelectionIcon(CpuSelectionMode mode) {
-            setMode(mode);
-            layout(layout -> layout
-                    .positionType(TaffyPosition.ABSOLUTE)
-                    .left(-3)
-                    .top(-2)
-                    .width(16)
-                    .height(16));
-        }
-
-        private void setMode(CpuSelectionMode mode) {
-            texture = cpuSelectionModeIcon(mode);
-        }
-
-        @Override
-        public void drawBackgroundAdditional(GUIContext guiContext) {
-            guiContext.drawTexture(texture, getPositionX(), getPositionY(), 16, 16);
-        }
     }
 
     static Component cpuSelectionModeTooltip(CpuSelectionMode mode) {

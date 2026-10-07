@@ -19,7 +19,7 @@ import net.minecraft.network.chat.Component;
 
 /** Terminal-style settings page inside the same menu, preserving the selected CPU and inventory. */
 final class ComputationSettingsPanel extends UIElement {
-    private static final int HEIGHT = 132;
+    static final int HEIGHT = 132;
     private static final IGuiTexture BACKGROUND = SpriteTexture.of(AppEng.makeId("textures/guis/background.png"))
         .setSprite(0, 0, 256, 256).setBorder(4, 4, 4, 4);
 
@@ -47,7 +47,7 @@ final class ComputationSettingsPanel extends UIElement {
         addChild(button);
     }
 
-    private static final class BackButton extends Button {
+    static final class BackButton extends Button {
         @Override
         public void drawBackgroundAdditional(GUIContext context) {
             // AE2's box tab changes only with focus and draws both sprites at native size.
