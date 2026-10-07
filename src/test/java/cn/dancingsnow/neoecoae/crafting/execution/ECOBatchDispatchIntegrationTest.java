@@ -27,6 +27,8 @@ import java.util.UUID;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ECOBatchDispatchIntegrationTest {
     @org.junit.jupiter.api.BeforeAll static void bootstrap() {
@@ -94,6 +96,117 @@ class ECOBatchDispatchIntegrationTest {
         assertEquals(2, request.inputs()[0].get(input));
         verify(accounting).apply(eq(request), argThat(r -> r.acceptedCrafts() == 1), any(), eq(second));
         verify(energy).injectPower(1.0, Actionable.MODULATE);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {64, 65, 81})
+    void manyIngredientSinglePushPreservesSlotOrderAndRefundsRejectedAttempt(int ingredientCount) {
+        var wide = manyIngredientRequest(ingredientCount, pattern);
+        var first = mock(ICraftingProvider.class);
+        var second = mock(ICraftingProvider.class);
+        int[] attempts = {0};
+        var result = dispatcher.dispatchCandidate(wide, List.of(first, second),
+                new ECOCraftingDispatchBudget(64, 64), energy, mock(ECODispatchStallDiagnostics.class),
+                ignored -> {}, () -> {}, (attempt, provider) -> {
+                    attempts[0]++;
+                    assertSame(pattern, attempt.pattern());
+                    assertEquals(ingredientCount, attempt.inputs().length);
+                    for (int slot = 0; slot < ingredientCount; slot++) {
+                        var key = wide.pattern().getInputs()[slot].getPossibleInputs()[0].what();
+                        assertEquals(slot + 1, attempt.inputs()[slot].get(key));
+                        assertEquals(9L * (slot + 1), inventory.list.get(key));
+                        attempt.inputs()[slot].clear();
+                    }
+                    return provider == second;
+                });
+        assertTrue(result.accepted());
+        assertEquals(1, result.acceptedCrafts());
+        assertEquals(2, attempts[0]);
+        assertRemainingIngredients(wide, 9);
+        verify(accounting).apply(eq(wide), argThat(r -> r.acceptedCrafts() == 1), any(), eq(second));
+        verify(energy).injectPower(ingredientCount * (ingredientCount + 1) / 2.0, Actionable.MODULATE);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {65, 81})
+    void manyIngredientParallelPushUsesProviderCapacity(int ingredientCount) {
+        var wide = manyIngredientRequest(ingredientCount, pattern);
+        var provider = mock(Parallel.class);
+        when(provider.eco$getAvailableParallelSlots()).thenReturn(4);
+        when(provider.eco$pushPatternBatch(eq(pattern), any(), eq(4L), any())).thenAnswer(call -> {
+            KeyCounter[] counters = call.getArgument(1);
+            assertEquals(ingredientCount, counters.length);
+            for (int slot = 0; slot < ingredientCount; slot++) {
+                var key = pattern.getInputs()[slot].getPossibleInputs()[0].what();
+                assertEquals(4L * (slot + 1), counters[slot].get(key));
+                assertEquals(6L * (slot + 1), inventory.list.get(key));
+                counters[slot].clear();
+            }
+            return true;
+        });
+        var result = dispatcher.dispatchCandidate(wide, List.of(provider),
+                new ECOCraftingDispatchBudget(64, 64), energy, mock(ECODispatchStallDiagnostics.class),
+                ignored -> {}, () -> {}, (attempt, target) -> fail("Accepted batch must not be replayed"));
+        assertTrue(result.accepted());
+        assertEquals(4, result.acceptedCrafts());
+        assertRemainingIngredients(wide, 6);
+        verify(accounting).apply(eq(wide), argThat(r -> r.acceptedCrafts() == 4), any(), eq(provider));
+    }
+
+    @Test void manyIngredientProcessingPushGrowsBatchesWithoutChangingSlotOrder() {
+        var processingPattern = mock(AEProcessingPattern.class);
+        when(processingPattern.getDefinition()).thenReturn(AEItemKey.of(Items.STONE));
+        when(processingPattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 3)));
+        when(processingPattern.supportsPushInputsToExternalInventory()).thenReturn(true);
+        var wide = manyIngredientRequest(81, processingPattern);
+        var provider = mock(Ae2LogicProvider.class);
+        var logic = mock(PatternProviderLogic.class,
+                withSettings().extraInterfaces(PatternProviderLogicAccessor.class));
+        when(provider.getLogic()).thenReturn(logic);
+        when(((PatternProviderLogicAccessor) logic).neoecoae$getSendList()).thenReturn(List.of());
+        dispatcher.beginTick(0);
+        var offers = new java.util.ArrayList<Long>();
+        var result = dispatcher.dispatchCandidate(wide, List.of(provider),
+                new ECOCraftingDispatchBudget(64, 64), energy, mock(ECODispatchStallDiagnostics.class),
+                ignored -> {}, () -> {}, (attempt, target) -> {
+                    offers.add(attempt.allowedCrafts());
+                    assertEquals(81, attempt.inputs().length);
+                    for (int slot = 0; slot < attempt.inputs().length; slot++) {
+                        var key = processingPattern.getInputs()[slot].getPossibleInputs()[0].what();
+                        assertEquals(attempt.allowedCrafts() * (slot + 1), attempt.inputs()[slot].get(key));
+                    }
+                    return true;
+                });
+        assertTrue(result.accepted());
+        assertEquals(10, result.acceptedCrafts());
+        assertEquals(List.of(1L, 2L, 4L, 3L), offers);
+        assertRemainingIngredients(wide, 0);
+    }
+
+    private ECOCraftingDispatchRequest manyIngredientRequest(int ingredientCount, IPatternDetails details) {
+        var counters = new KeyCounter[ingredientCount];
+        var slots = new IPatternDetails.IInput[ingredientCount];
+        for (int slot = 0; slot < ingredientCount; slot++) {
+            var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
+            when(key.getAmountPerOperation()).thenReturn(1);
+            counters[slot] = new KeyCounter();
+            counters[slot].add(key, slot + 1);
+            slots[slot] = mock(IPatternDetails.IInput.class);
+            when(slots[slot].getMultiplier()).thenReturn(1L);
+            when(slots[slot].getPossibleInputs()).thenReturn(new GenericStack[]{new GenericStack(key, slot + 1)});
+            inventory.insert(key, 10L * (slot + 1), Actionable.MODULATE);
+        }
+        when(details.getInputs()).thenReturn(slots);
+        return new ECOCraftingDispatchRequest(request.job(), null, details, counters, request.outputs(),
+                request.remainders(), 10, inventory, request.level());
+    }
+
+    private void assertRemainingIngredients(ECOCraftingDispatchRequest wide, long remainingCrafts) {
+        for (int slot = 0; slot < wide.inputs().length; slot++) {
+            var key = wide.pattern().getInputs()[slot].getPossibleInputs()[0].what();
+            assertEquals(remainingCrafts * (slot + 1), inventory.list.get(key));
+            assertEquals(slot + 1, wide.inputs()[slot].get(key));
+        }
     }
 
     @Test void parallelAdapterReceivesOnePlannedBatchAndAccountsItsTotals() {

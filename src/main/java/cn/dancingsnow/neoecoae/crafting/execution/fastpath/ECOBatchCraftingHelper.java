@@ -15,7 +15,7 @@ import java.util.function.IntFunction;
 import java.util.function.LongFunction;
 
 public final class ECOBatchCraftingHelper {
-    /** Maximum number of distinct item entries in one batch. */
+    /** Entry limit for verified and persisted fast-path host contracts, not general provider dispatch. */
     public static final int MAX_BATCH_STACK_ENTRIES = 64;
     /**
      * Per-entry amount limit for a multiplied batch total, and therefore the only hard ceiling a batch
@@ -89,7 +89,6 @@ public final class ECOBatchCraftingHelper {
     }
 
     private static long maxBatchSizeForStacks(List<GenericStack> perCraft) {
-        if (perCraft.size() > MAX_BATCH_STACK_ENTRIES) return 0L;
         Object2LongOpenHashMap<AEKey> totals = new Object2LongOpenHashMap<>();
         try {
             for (GenericStack stack : perCraft) {
@@ -120,7 +119,6 @@ public final class ECOBatchCraftingHelper {
             return List.of();
         }
         KeyCounter counter = new KeyCounter();
-        if (stacks.size() > MAX_BATCH_STACK_ENTRIES) throw new IllegalArgumentException("Too many batch entries");
         for (GenericStack stack : stacks) {
             if (stack == null || stack.amount() <= 0L) throw new IllegalArgumentException("Invalid batch amount");
             long amount = multiplyExact(stack.amount(), multiplier);

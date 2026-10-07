@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -23,6 +24,26 @@ class ECOBigBatchSafetyTest {
         assertThrows(ArithmeticException.class, () -> ECOBatchCraftingHelper.multiply(same, Long.MAX_VALUE));
         assertEquals(Long.MAX_VALUE / 3, ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
             List.of(), List.of(), List.of(new GenericStack(key, 3))));
+    }
+
+    @Test void manyIngredientArithmeticFollowsAmountsInsteadOfFastPathEntryLimit() {
+        var ingredients = new ArrayList<GenericStack>();
+        for (int slot = 0; slot < 81; slot++) {
+            ingredients.add(new GenericStack(mock(AEKey.class, RETURNS_DEEP_STUBS), 1));
+        }
+        assertEquals(Long.MAX_VALUE, ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
+                ingredients, List.of(), List.of()));
+        var multiplied = ECOBatchCraftingHelper.multiply(ingredients, 2);
+        assertEquals(81, multiplied.size());
+        for (var ingredient : multiplied) assertEquals(2, ingredient.amount());
+    }
+
+    @Test void manyRepeatedSlotsAggregateBeforeDebitingAndStillRejectOverflow() {
+        var repeated = java.util.Collections.nCopies(81, new GenericStack(key, 1));
+        assertEquals(Long.MAX_VALUE / 81, ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
+                repeated, List.of(), List.of()));
+        assertEquals(List.of(new GenericStack(key, 162)), ECOBatchCraftingHelper.multiply(repeated, 2));
+        assertThrows(ArithmeticException.class, () -> ECOBatchCraftingHelper.multiply(repeated, Long.MAX_VALUE / 81 + 1));
     }
     @Test void nonzeroEnergyCanReachLongMaxAndZeroEnergyDoesNotProbeTheNetwork() {
         assertEquals(Long.MAX_VALUE, ECOBatchCraftingHelper.maxAffordableCrafts(2, Long.MAX_VALUE, amount -> amount));

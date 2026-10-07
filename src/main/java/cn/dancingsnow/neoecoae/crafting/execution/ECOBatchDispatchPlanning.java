@@ -42,11 +42,11 @@ final class ECOBatchDispatchPlanning {
             long limit;
             try {
                 // These are lookup totals only. Physical counters retain the pattern's sparse slot order.
+                // Fast-path host entry limits do not constrain ordinary or external provider dispatch.
                 for (var counter : request.inputs()) accumulate(counter, inputs);
                 accumulate(request.outputs(), waitingPerCraft);
                 accumulate(request.remainders(), waitingPerCraft);
-                limit = waitingPerCraft.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES ? 0L
-                        : Math.min(arithmeticLimit(inputs), arithmeticLimit(waitingPerCraft));
+                limit = Math.min(arithmeticLimit(inputs), arithmeticLimit(waitingPerCraft));
             } catch (ArithmeticException overflow) {
                 limit = 0L;
             }
@@ -64,7 +64,6 @@ final class ECOBatchDispatchPlanning {
         }
 
         private static long arithmeticLimit(Object2LongOpenHashMap<AEKey> totals) {
-            if (totals.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES) return 0L;
             long limit = Long.MAX_VALUE;
             for (var it = totals.values().iterator(); it.hasNext();) {
                 limit = Math.min(limit, ECOBatchCraftingHelper.maxBatchSizeForAmount(it.nextLong()));
