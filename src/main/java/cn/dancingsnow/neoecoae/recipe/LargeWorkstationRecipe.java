@@ -24,21 +24,54 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
     }
 
     public boolean matchesOutputs(KeyCounter outputs) {
-        KeyCounter expected = new KeyCounter();
-        if (display.hasItemOutput()) expected.add(AEItemKey.of(display.itemOutput()), display.itemOutput().getCount());
-        if (display.hasFluidOutput()) expected.add(AEFluidKey.of(display.fluidOutput()), display.fluidOutput().getAmount());
+        KeyCounter expected = outputAmounts();
         expected.removeAll(outputs);
         for (var entry : expected) if (entry.getLongValue() != 0) return false;
         return true;
     }
 
+    /** Returns the common positive integer scale of the complete pattern contract, or zero if it differs. */
+    public long matchingMultiplier(KeyCounter inputs, KeyCounter outputs) {
+        KeyCounter expected = outputAmounts();
+        long multiplier = 0;
+        for (var entry : expected) {
+            long amount = entry.getLongValue();
+            long supplied = outputs.get(entry.getKey());
+            if (amount <= 0 || supplied < amount || supplied % amount != 0) return 0;
+            long scale = supplied / amount;
+            if (multiplier != 0 && multiplier != scale) return 0;
+            multiplier = scale;
+        }
+        for (var entry : outputs) {
+            if (entry.getLongValue() != 0 && expected.get(entry.getKey()) == 0) return 0;
+        }
+        if (multiplier == 0) return 0;
+        try {
+            return matchesInputs(inputs, multiplier) ? multiplier : 0;
+        } catch (ArithmeticException overflow) {
+            return 0;
+        }
+    }
+
+    private KeyCounter outputAmounts() {
+        KeyCounter expected = new KeyCounter();
+        if (display.hasItemOutput()) expected.add(AEItemKey.of(display.itemOutput()), display.itemOutput().getCount());
+        if (display.hasFluidOutput()) expected.add(AEFluidKey.of(display.fluidOutput()), display.fluidOutput().getAmount());
+        return expected;
+    }
+
     public boolean matchesInputs(KeyCounter inputs) {
+        return matchesInputs(inputs, 1);
+    }
+
+    private boolean matchesInputs(KeyCounter inputs, long multiplier) {
         KeyCounter remaining = new KeyCounter();
         remaining.addAll(inputs);
         for (var extra : extraInputs) {
             long supplied = remaining.get(extra.what());
             // Upstream processing patterns omit lightning; missing costs are acquired from ME.
-            if (supplied != 0 && supplied != extra.amount()) return false;
+            long required = Math.multiplyExact(extra.amount(), multiplier);
+            if (supplied != 0 && supplied != required) return false;
             remaining.remove(extra.what(), supplied);
         }
         List<GenericStack> items = new ArrayList<>();
@@ -55,13 +88,15 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
                 fluidAmount = Math.addExact(fluidAmount, amount);
             } else return false;
         }
-        if (fluidAmount != (display.inputFluid().ingredient().isEmpty() ? 0 : display.inputFluid().amount())) return false;
+        long requiredFluid = display.inputFluid().ingredient().isEmpty() ? 0
+            : Math.multiplyExact((long) display.inputFluid().amount(), multiplier);
+        if (fluidAmount != requiredFluid) return false;
 
         // Integral max flow handles overlapping tags without greedy allocation failures, and
         // keeps large ingredient quantities compact instead of expanding them into 64-item stacks.
         var required = display.inputItems();
         long[] supplied = items.stream().mapToLong(GenericStack::amount).toArray();
-        long[] needed = required.stream().mapToLong(r -> r.count()).toArray();
+        long[] needed = required.stream().mapToLong(r -> Math.multiplyExact((long) r.count(), multiplier)).toArray();
         boolean[][] accepts = new boolean[items.size()][required.size()];
         for (int i = 0; i < items.size(); i++) {
             var stack = ((AEItemKey) items.get(i).what()).toStack();

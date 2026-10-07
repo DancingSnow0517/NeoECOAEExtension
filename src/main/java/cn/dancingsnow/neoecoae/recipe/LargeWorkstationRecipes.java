@@ -95,6 +95,24 @@ public final class LargeWorkstationRecipes {
         return fallback;
     }
 
+    /** Prefer an exact recipe before interpreting an encoded pattern as multiple recipe operations. */
+    @Nullable
+    public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs) {
+        var exact = find(level, inputs, outputs);
+        if (exact != null) return new PatternMatch(exact, 1);
+        PatternMatch fallback = null;
+        for (var recipe : getAll(level)) {
+            long multiplier = recipe.matchingMultiplier(inputs, outputs);
+            if (multiplier == 0) continue;
+            var match = new PatternMatch(recipe, multiplier);
+            if (recipe.extraInputs().isEmpty()) return match;
+            if (fallback == null) fallback = match;
+        }
+        return fallback;
+    }
+
+    public record PatternMatch(LargeWorkstationRecipe recipe, long multiplier) {}
+
     private static String typeId(RecipeType<?> type) {
         var id = BuiltInRegistries.RECIPE_TYPE.getKey(type);
         return id == null ? type.toString() : id.toString();

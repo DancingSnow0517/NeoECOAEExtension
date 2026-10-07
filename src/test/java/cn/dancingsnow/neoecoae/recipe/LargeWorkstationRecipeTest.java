@@ -74,6 +74,67 @@ class LargeWorkstationRecipeTest {
         assertTrue(recipe.matchesInputs(input));
     }
 
+    @Test void scaledItemAndFluidOutputsMustShareTheSameIntegerMultiplier() {
+        var recipe = decode("ae2cs:crystal_aggregator_recipe", """
+            {"input_a":{"item":"minecraft:iron_ingot","count":128},
+             "result":{"id":"minecraft:diamond","count":8},"energy_cost":12345,
+             "fluid_input":{"fluid":"minecraft:water","amount":1000},
+             "fluid_output":{"id":"minecraft:lava","amount":250}}
+            """);
+        var inputs = items(Items.IRON_INGOT, 256);
+        inputs.add(AEFluidKey.of(Fluids.WATER), 2000);
+        var outputs = items(Items.DIAMOND, 16);
+        outputs.add(AEFluidKey.of(Fluids.LAVA), 500);
+        assertEquals(2, recipe.matchingMultiplier(inputs, outputs));
+        outputs.remove(AEFluidKey.of(Fluids.LAVA), 250);
+        assertEquals(0, recipe.matchingMultiplier(inputs, outputs));
+        outputs.add(AEFluidKey.of(Fluids.LAVA), 250);
+        inputs.remove(AEFluidKey.of(Fluids.WATER), 1);
+        assertEquals(0, recipe.matchingMultiplier(inputs, outputs));
+        inputs.add(AEFluidKey.of(Fluids.WATER), 1);
+        outputs.add(AEItemKey.of(Items.STONE), 1);
+        assertEquals(0, recipe.matchingMultiplier(inputs, outputs));
+    }
+
+    @Test void fractionalOutputsOrDifferentInputScaleAreRejected() {
+        var recipe = nativeRecipe(new ItemStack(Items.DIAMOND, 2));
+        assertEquals(0, recipe.matchingMultiplier(items(Items.IRON_INGOT, 6), items(Items.DIAMOND, 3)));
+        assertEquals(0, recipe.matchingMultiplier(items(Items.IRON_INGOT, 4), items(Items.DIAMOND, 4)));
+        assertEquals(0, recipe.matchingMultiplier(items(Items.IRON_INGOT, 9), items(Items.DIAMOND, 4)));
+    }
+
+    @Test void scaledOverlappingIngredientsAllowDifferentConcreteItemsPerRecipeOperation() {
+        var recipe = new LargeWorkstationRecipe(ResourceLocation.parse("test:mixed"), new IntegratedWorkingStationRecipe(
+            List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT, Items.GOLD_INGOT), 4),
+                new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 1)),
+            new SizedFluidIngredient(FluidIngredient.empty(), 1), new ItemStack(Items.DIAMOND),
+            FluidStack.EMPTY, 100), 100, List.of());
+        var inputs = items(Items.IRON_INGOT, 3);
+        inputs.add(AEItemKey.of(Items.GOLD_INGOT), 7);
+        assertEquals(2, recipe.matchingMultiplier(inputs, items(Items.DIAMOND, 2)));
+        inputs.remove(AEItemKey.of(Items.IRON_INGOT), 2);
+        inputs.add(AEItemKey.of(Items.GOLD_INGOT), 2);
+        assertEquals(0, recipe.matchingMultiplier(inputs, items(Items.DIAMOND, 2)));
+    }
+
+    @Test void scaledLightningMustBeOmittedOrFullySuppliedAtTheRequiredTier() {
+        var base = nativeRecipe(new ItemStack(Items.DIAMOND, 2));
+        var lightning = com.moakiee.ae2lt.me.key.LightningKey.EXTREME_HIGH_VOLTAGE;
+        var wrongTier = com.moakiee.ae2lt.me.key.LightningKey.HIGH_VOLTAGE;
+        var recipe = new LargeWorkstationRecipe(base.id(), base.display(), base.energy(),
+            List.of(new GenericStack(lightning, 4)));
+        var inputs = items(Items.IRON_INGOT, 8);
+        var outputs = items(Items.DIAMOND, 4);
+        assertEquals(2, recipe.matchingMultiplier(inputs, outputs));
+        inputs.add(lightning, 7);
+        assertEquals(0, recipe.matchingMultiplier(inputs, outputs));
+        inputs.add(lightning, 1);
+        assertEquals(2, recipe.matchingMultiplier(inputs, outputs));
+        inputs.remove(lightning, 8);
+        inputs.add(wrongTier, 8);
+        assertEquals(0, recipe.matchingMultiplier(inputs, outputs));
+    }
+
     @ParameterizedTest
     @ValueSource(strings={"ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation"})
     void rebornRecipesKeepLightningTierCountsAndLongEnergy(String type) {

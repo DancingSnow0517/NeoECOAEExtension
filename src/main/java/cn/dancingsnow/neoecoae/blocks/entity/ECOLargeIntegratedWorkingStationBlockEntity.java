@@ -1001,7 +1001,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         LargeWorkstationOverclock profile = getCurrentBatchProfile();
         if (!profile.acceptsCraftCount(craftCount)) return null;
         // Inputs delivered by AE2 are retained in the workstation's unbounded ledger while
-        // the batch runs.  Recipe lookup is performed against one craft's actual input set,
+        // the batch runs. Recipe lookup is performed against one encoded pattern's actual input set,
         // while the owned ledger keeps the complete scaled amount for cancellation/refund.
         KeyCounter totalInputs = collectInputTotals(pattern, holders);
         if (totalInputs == null || isCounterEmpty(totalInputs)) return null;
@@ -1010,25 +1010,38 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
         KeyCounter outputPerCraft = collectPatternOutputs(pattern);
         if (outputPerCraft == null) return null;
-        var adapted = LargeWorkstationRecipes.find(level, perCraftInputs, outputPerCraft);
-        if (adapted == null) return null;
+        var match = LargeWorkstationRecipes.findScaled(level, perCraftInputs, outputPerCraft);
+        if (match == null) return null;
+        var adapted = match.recipe();
 
         KeyCounter remainderTotal = collectRemainderTotals(pattern, holders);
         if (remainderTotal == null) return null;
-        KeyCounter outputTotal = scaleCounter(outputPerCraft, craftCount);
+        long energyPerCraft;
+        KeyCounter outputTotal;
+        KeyCounter missingExtras = new KeyCounter();
+        try {
+            // craftCount counts encoded pattern executions. Each multiplied pattern must pay for
+            // all of its base recipe operations, including extras absent from the encoded inputs.
+            energyPerCraft = Math.multiplyExact(adapted.energy(), match.multiplier());
+            outputTotal = scaleCounter(outputPerCraft, craftCount);
+            for (var extra : adapted.extraInputs()) {
+                if (perCraftInputs.get(extra.what()) == 0) {
+                    long perPattern = Math.multiplyExact(extra.amount(), match.multiplier());
+                    missingExtras.add(extra.what(), Math.multiplyExact(perPattern, craftCount));
+                }
+            }
+        } catch (ArithmeticException overflow) {
+            return null;
+        }
         outputTotal.addAll(remainderTotal);
         if (isCounterEmpty(outputTotal)) return null;
         PendingBatch batch = new PendingBatch(
-            craftCount, adapted.energy(), profile.coolingTier(), profile.energyMultiplier(), totalInputs, outputTotal,
+            craftCount, energyPerCraft, profile.coolingTier(), profile.energyMultiplier(), totalInputs, outputTotal,
             craftingJobId, adapted.id(), adapted.display(), unlockStack, level.getGameTime());
         // Compatibility-only inputs (for example AE2LT lightning) are not represented by
         // ordinary AE2 pattern holders.  Keep them in the pending ledger so the actual
         // adapted recipe still charges them from the ME network before processing.
-        for (var extra : adapted.extraInputs()) {
-            if (perCraftInputs.get(extra.what()) == 0) {
-                batch.missingExtras.add(extra.what(), Math.multiplyExact(extra.amount(), craftCount));
-            }
-        }
+        batch.missingExtras.addAll(missingExtras);
         return batch;
     }
 
