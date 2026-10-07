@@ -8,6 +8,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.util.SettingsFrom;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity.VirtualLaneStartResult;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
@@ -348,6 +349,18 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     public boolean isControlledBy(ECOCraftingSystemBlockEntity controller) {
         return cluster != null && cluster.getController() == controller;
+    }
+
+    public VirtualLaneStartResult getVirtualCraftingBlockedResult(long currentTick) {
+        ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
+        if (controller == null || !controller.isFullVirtualCraftingMode()) return VirtualLaneStartResult.STARTED;
+        VirtualLaneStartResult result = VirtualLaneStartResult.STARTED;
+        for (ECOCraftingThread thread : craftingThreads) {
+            VirtualLaneStartResult blocked = thread.getVirtualCraftingBlockedResult(controller, currentTick);
+            if (blocked == VirtualLaneStartResult.COOLANT_UNAVAILABLE) return blocked;
+            if (blocked == VirtualLaneStartResult.ENERGY_UNAVAILABLE) result = blocked;
+        }
+        return result;
     }
 
     public List<ECOCraftingThread.Snapshot> getThreadSnapshots() {

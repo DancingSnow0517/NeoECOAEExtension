@@ -83,7 +83,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public static final int MAX_COOLANT = 1_000_000;
     public static final int VIRTUAL_COOLANT_PER_LANE_TICK = 10_000;
     private static final long MODE_SWITCH_NOTICE_DURATION_MS = 3_000L;
-    private static final long VIRTUAL_BLOCKED_NOTICE_DURATION_TICKS = 100L;
     /** Highest overclock level the progress model can represent: 10 + 9 * 10 == MAX_PROGRESS. */
     public static final int MAX_OVERCLOCK_TIMES = 9;
 
@@ -126,9 +125,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     @Getter(AccessLevel.NONE)
     private int runningThreadCount = 0;
     private long modeSwitchBlockedNoticeUntilMs = 0L;
-    // Diagnostic state only: never persisted and never used to admit or advance a batch.
-    private VirtualLaneStartResult lastVirtualLaneStartResult = VirtualLaneStartResult.STARTED;
-    private long lastVirtualLaneStartTick = Long.MIN_VALUE;
 
     @Getter(AccessLevel.NONE)
     private int threadCount = 0;
@@ -431,19 +427,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                     >= VIRTUAL_COOLANT_PER_LANE_TICK;
         }
         if (!hasCoolant) {
-            return recordVirtualLaneStartResult(VirtualLaneStartResult.COOLANT_UNAVAILABLE);
+            return VirtualLaneStartResult.COOLANT_UNAVAILABLE;
         }
         if (!tryConsumeVirtualCraftingPower()) {
-            return recordVirtualLaneStartResult(VirtualLaneStartResult.ENERGY_UNAVAILABLE);
+            return VirtualLaneStartResult.ENERGY_UNAVAILABLE;
         }
-        return recordVirtualLaneStartResult(tryConsumeVirtualLaneCoolant()
-            ? VirtualLaneStartResult.STARTED : VirtualLaneStartResult.COOLANT_UNAVAILABLE);
-    }
-
-    private VirtualLaneStartResult recordVirtualLaneStartResult(VirtualLaneStartResult result) {
-        lastVirtualLaneStartResult = result;
-        lastVirtualLaneStartTick = TickHandler.instance().getCurrentTick();
-        return result;
+        return tryConsumeVirtualLaneCoolant()
+            ? VirtualLaneStartResult.STARTED : VirtualLaneStartResult.COOLANT_UNAVAILABLE;
     }
 
     public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
@@ -944,16 +934,26 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             return Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_tier",
                 coolantTier, MAX_OVERCLOCK_TIMES);
         }
-        // Show actual execution failures, not an energy simulation after the tick has already been paid.
-        // Stop advertising an old failure after cancellation, a mode change, or a long gap between attempts.
-        if (getRunningThreadCount() <= 0 || lastVirtualLaneStartTick == Long.MIN_VALUE) return Component.empty();
-        long elapsed = TickHandler.instance().getCurrentTick() - lastVirtualLaneStartTick;
-        if (elapsed < 0L || elapsed > VIRTUAL_BLOCKED_NOTICE_DURATION_TICKS) return Component.empty();
-        return switch (lastVirtualLaneStartResult) {
+        return switch (getVirtualCraftingBlockedResult()) {
             case COOLANT_UNAVAILABLE -> Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant");
             case ENERGY_UNAVAILABLE -> Component.translatable("gui.neoecoae.crafting.virtual_blocked.energy");
             case STARTED -> Component.empty();
         };
+    }
+
+    private VirtualLaneStartResult getVirtualCraftingBlockedResult() {
+        if (!isFullVirtualCraftingMode() || getRunningThreadCount() <= 0) return VirtualLaneStartResult.STARTED;
+        // Use the same network-wide worker population as the task list. Successful lanes cannot hide a
+        // different lane's failure, and querying diagnostics never probes or charges resources again.
+        long tick = TickHandler.instance().getCurrentTick();
+        VirtualLaneStartResult result = VirtualLaneStartResult.STARTED;
+        for (ECOCraftingWorkerBlockEntity worker : collectDisplayedWorkers()) {
+            if (worker.isRemoved()) continue;
+            VirtualLaneStartResult blocked = worker.getVirtualCraftingBlockedResult(tick);
+            if (blocked == VirtualLaneStartResult.COOLANT_UNAVAILABLE) return blocked;
+            if (blocked == VirtualLaneStartResult.ENERGY_UNAVAILABLE) result = blocked;
+        }
+        return result;
     }
 
     Component getMaintenanceStatusTooltip() {
@@ -969,9 +969,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                         MAX_OVERCLOCK_TIMES, VIRTUAL_COOLANT_PER_LANE_TICK))
                     .append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.energy_required",
                         NECraftingNetworkCluster.VIRTUAL_CRAFTING_POWER_PER_TICK));
-                if (lastVirtualLaneStartResult == VirtualLaneStartResult.COOLANT_UNAVAILABLE
-                    || getDisplayedCoolingMaxOverclock() < MAX_OVERCLOCK_TIMES) {
+                int coolantTier = getDisplayedCoolingMaxOverclock();
+                // Only lower-tier buffers need to be emptied outside virtual execution.
+                if (coolantTier >= 0 && coolantTier < MAX_OVERCLOCK_TIMES) {
                     result.append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_hint"));
+                    result.append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_recovery"));
                 }
                 return result;
             }
