@@ -28,7 +28,7 @@ public final class CraftingGraphBuilder {
             nodes.put(key, new CraftingGraphNode(key, patterns));
             for (CompiledPattern pattern : patterns) {
                 cancellation.checkpoint();
-                for (CraftingGraphEdge edge : PatternDependencyEdges.of(key, pattern)) {
+                for (CraftingGraphEdge edge : PatternDependencyEdges.of(key, pattern, network::producersOf)) {
                     edges.add(edge);
                     if (reachable.add(edge.producer())) work.addLast(edge.producer());
                     if (reachable.add(edge.requiredInput())) work.addLast(edge.requiredInput());

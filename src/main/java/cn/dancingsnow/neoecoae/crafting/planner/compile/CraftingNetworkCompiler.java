@@ -122,7 +122,7 @@ public final class CraftingNetworkCompiler {
     /**
      * Keep AE2's exact producer order first, then add deterministic same-item producers for an explicitly
      * component-insensitive dependency. The selected physical pattern remains unchanged; only its planner-facing
-     * primary output is aliased to the dependency key below.
+     * matching outputs are aliased to the dependency key below.
      */
     private static Iterable<IPatternDetails> craftingFor(ICraftingService service, AEKey key,
             boolean componentInsensitiveOutput) {
@@ -181,22 +181,25 @@ public final class CraftingNetworkCompiler {
             if (outputs.isEmpty()) {
                 unsupported = "NO_OUTPUTS";
             }
-            GenericStack primaryOutput = details.getPrimaryOutput();
+            // Compile the view offered by the service, including secondary outputs from extended services.
+            // Matching stacks contribute together to both the firing ratio and the solver's output credit.
+            List<GenericStack> plannerOutputs = new ArrayList<>(outputs.size());
             for (GenericStack output : outputs) {
                 if (output == null || output.what() == null || output.amount() <= 0) {
                     unsupported = "INVALID_OUTPUT";
+                    plannerOutputs.add(output);
+                    continue;
                 }
-            }
-            // AE2 indexes a pattern by getPrimaryOutput(); all remaining entries in getOutputs() are
-            // byproducts and must not change the firing ratio or make a byproduct look craftable on its own.
-            if (primaryOutput != null && primaryOutput.what() != null && primaryOutput.amount() > 0L
-                    && (producedKey.equals(primaryOutput.what())
-                        || componentInsensitiveOutput && sameItem(producedKey, primaryOutput.what()))) {
-                outputPerPattern = PlannerAmount.of(primaryOutput.amount());
-                if (!producedKey.equals(primaryOutput.what())) {
-                    outputs = aliasPrimaryOutput(outputs, primaryOutput.what(), producedKey);
+                if (producedKey.equals(output.what())
+                        || componentInsensitiveOutput && sameItem(producedKey, output.what())) {
+                    outputPerPattern = outputPerPattern.add(PlannerAmount.of(output.amount()));
+                    if (!producedKey.equals(output.what())) {
+                        output = new GenericStack(producedKey, output.amount());
+                    }
                 }
+                plannerOutputs.add(output);
             }
+            outputs = plannerOutputs;
             if (outputPerPattern.signum() <= 0) {
                 unsupported = "PRIMARY_OUTPUT_MISMATCH";
             }
@@ -249,16 +252,6 @@ public final class CraftingNetworkCompiler {
             id, details, producedKey, outputPerPattern, inputs, outputs, unsupported == null,
             recordedReason, netGrowthValidated, semantics, specialAnalysis
         );
-    }
-
-    private static List<GenericStack> aliasPrimaryOutput(List<GenericStack> outputs,
-            AEKey physicalPrimaryOutput, AEKey plannerKey) {
-        List<GenericStack> aliased = new ArrayList<>(outputs.size());
-        for (GenericStack output : outputs) {
-            aliased.add(output != null && physicalPrimaryOutput.equals(output.what())
-                ? new GenericStack(plannerKey, output.amount()) : output);
-        }
-        return aliased;
     }
 
     private static boolean sameItem(AEKey left, AEKey right) {
