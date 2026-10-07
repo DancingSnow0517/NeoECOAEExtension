@@ -103,7 +103,11 @@ public final class ComputationInterfaceUI {
             );
             for (int column = 0; column < GRID_COLUMNS; column++) {
                 int slot = row * GRID_COLUMNS + column;
-                ItemSlot itemSlot = new FuzzyPlanningItemSlot(computationInterface, slot).xeiPhantom();
+                ItemSlot itemSlot = new FuzzyPlanningItemSlot(computationInterface, slot);
+                // Phantom handlers load client-only recipe-viewer classes.
+                if (computationInterface.getLevel() != null && computationInterface.getLevel().isClientSide()) {
+                    itemSlot.xeiPhantom();
+                }
                 itemSlot.layout(layout -> layout.width(SLOT_SIZE).height(SLOT_SIZE));
                 line.addChild(itemSlot);
             }

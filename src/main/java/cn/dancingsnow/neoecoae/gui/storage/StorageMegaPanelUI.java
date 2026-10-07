@@ -189,7 +189,11 @@ public final class StorageMegaPanelUI {
                 .flexDirection(FlexDirection.ROW));
             for (int column = 0; column < GRID_COLUMNS; column++) {
                 int slotIndex = rowIndex * GRID_COLUMNS + column;
-                ItemSlot slot = new MegaFilterItemSlot(host, filterInventory, slotIndex).xeiPhantom();
+                ItemSlot slot = new MegaFilterItemSlot(host, filterInventory, slotIndex);
+                // Phantom handlers load client-only recipe-viewer classes.
+                if (host.getLevel() != null && host.getLevel().isClientSide()) {
+                    slot.xeiPhantom();
+                }
                 slot.getStyle().backgroundTexture(IGuiTexture.EMPTY);
                 slot.slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
                 slot.layout(layout -> layout.width(SLOT_SIZE).height(SLOT_SIZE));
