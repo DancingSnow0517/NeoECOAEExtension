@@ -150,7 +150,7 @@ dependencies {
     // Optional transfer fast path. Never place this on the default runtime classpath.
 
     // Optional OmniSequence v1 batch API. Compile against the upstream classes without installing the mod at runtime.
-    compileOnly("curse.maven:omnisequence-transfinite-1624558:8622739") { transitive = false }
+    compileOnly("curse.maven:omnisequence-transfinite-1624558:8991983") { transitive = false }
 
     // Pattern-disk API: AE2 Pattern Disk publishes PatternDiskApi for integrations whose machines hold pattern
     // disks. The integration still does not require the mod - the guard in PatternDiskIntegration stands it down
@@ -169,6 +169,7 @@ dependencies {
     // at all - both the version number and the version id answer 404 there while the file itself downloads
     // from its CDN - and CI hit exactly that. The file id is the 0.7.1 upload of project 1698612.
     implementation("curse.maven:ae2-pattern-disk-1698612:9009050") { transitive = false }
+    runtimeOnly("maven.modrinth:applied-energistics-2-wireless-terminals:19.5.1") { transitive = false }
 
     // Optional integration target. 4.11.0 is the verified 1.21.1 build (AE2 >= 19.2.15).
     compileOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }
