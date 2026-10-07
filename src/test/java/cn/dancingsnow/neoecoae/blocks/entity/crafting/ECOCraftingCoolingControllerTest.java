@@ -117,4 +117,24 @@ class ECOCraftingCoolingControllerTest {
         assertEquals(0, amount);
         assertEquals(16000, input.getFluidAmount());
     }
+
+    @Test
+    void higherTierReplacementNeedsTheOldBufferConsumedByOrdinaryCrafting() {
+        amount = 60000;
+        tier = 2;
+        fluid = new FluidStack(Fluids.LAVA, 1);
+        when(host.isLocallyActiveCooling()).thenReturn(true);
+        assertEquals(0, cooling.getLocalAvailableCoolant(10000, 9));
+        assertFalse(cooling.tryConsumeLocalCoolant(10000, 9));
+        cooling.tick();
+        assertEquals(60000, amount);
+        assertEquals(16000, input.getFluidAmount());
+        // Ordinary execution can spend the lower-tier buffer without requiring tier 9.
+        assertTrue(cooling.tryConsumeLocalCoolant(60000, 2));
+        assertEquals(0, amount);
+        cooling.tick();
+        assertEquals(ECOCraftingSystemBlockEntity.MAX_COOLANT, amount);
+        assertEquals(9, tier);
+        assertEquals(Fluids.WATER, fluid.getFluid());
+    }
 }

@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathEx
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVirtualCraftingWork;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity.VirtualLaneStartResult;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.NeoECOAE;
@@ -61,6 +62,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private static final int MAX_SERIALIZED_ITEM_STACK_COUNT = 99;
     private static final int MAX_PERSISTED_ITEM_STACK_ENTRIES = 256;
     private static final long BLOCKED_PROGRESS_LOG_INTERVAL_TICKS = 100L;
+    private static final long VIRTUAL_BLOCKED_NOTICE_DURATION_TICKS = 100L;
     private static final long OWNING_CPU_RECOVERY_TIMEOUT_TICKS = 2_400L;
 
     private enum RecoveryState {
@@ -108,6 +110,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private long lastEjectionFailureLogTick = Long.MIN_VALUE;
     private long lastRecoveryFailureLogTick = Long.MIN_VALUE;
     private long lastBlockedProgressLogTick = Long.MIN_VALUE;
+    // Batch-owned diagnostics only: never serialized and never used to admit or advance work.
+    private VirtualLaneStartResult lastVirtualLaneStartResult = VirtualLaneStartResult.STARTED;
+    private long lastVirtualLaneStartTick = Long.MIN_VALUE;
+    private @Nullable Object lastVirtualLaneStartScope;
     private long owningCpuMissingSinceGameTime = Long.MIN_VALUE;
     private final ECOCraftingThreadOutputDiagnostics outputDiagnostics =
         new ECOCraftingThreadOutputDiagnostics();
@@ -147,7 +153,15 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
 
         if (virtualBatch && controller.isFullVirtualCraftingMode()) {
-            if (!controller.tryStartVirtualLaneTick()) {
+            var startResult = controller.tryStartVirtualLaneTickWithResult();
+            lastVirtualLaneStartResult = startResult;
+            lastVirtualLaneStartTick = TickHandler.instance().getCurrentTick();
+            lastVirtualLaneStartScope = controller.getDispatchScope();
+            if (startResult != ECOCraftingSystemBlockEntity.VirtualLaneStartResult.STARTED) {
+                logBlockedProgress(controller,
+                    startResult == ECOCraftingSystemBlockEntity.VirtualLaneStartResult.COOLANT_UNAVAILABLE
+                        ? "virtual-coolant-unavailable" : "virtual-energy-unavailable",
+                    MAX_PROGRESS, overlockTimes, powerMultiply);
                 return TickRateModulation.SLOWER;
             }
             // Virtual execution has its own explicit one-tick path. It never depends on ordinary overclock.
@@ -157,6 +171,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return ejectOutputsSafely();
         }
 
+        clearVirtualCraftingDiagnostic();
         int bonusValue = calculateProgressPerTick(overlockTimes);
         int attemptedProgress = calculateRequestedProgress(
             ticksSinceLastCall,
@@ -186,6 +201,25 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     public boolean isFree() {
         return !isBusy;
+    }
+
+    public VirtualLaneStartResult getVirtualCraftingBlockedResult(
+        ECOCraftingSystemBlockEntity controller, long currentTick
+    ) {
+        if (lastVirtualLaneStartResult == VirtualLaneStartResult.STARTED || !isBusy || !virtualBatch
+            || outputsReady || recoveryState != RecoveryState.ACTIVE
+            || lastVirtualLaneStartScope != controller.getDispatchScope()
+            || ECOCraftingJobLifecycle.isTerminated(worker.getLevel(), craftingJobId)
+            || lastVirtualLaneStartTick == Long.MIN_VALUE) return VirtualLaneStartResult.STARTED;
+        long elapsed = currentTick - lastVirtualLaneStartTick;
+        return elapsed < 0L || elapsed > VIRTUAL_BLOCKED_NOTICE_DURATION_TICKS
+            ? VirtualLaneStartResult.STARTED : lastVirtualLaneStartResult;
+    }
+
+    private void clearVirtualCraftingDiagnostic() {
+        lastVirtualLaneStartResult = VirtualLaneStartResult.STARTED;
+        lastVirtualLaneStartTick = Long.MIN_VALUE;
+        lastVirtualLaneStartScope = null;
     }
 
     /** Recovery must also run while the worker has no formed crafting controller. */
@@ -416,6 +450,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void installWork(ECOCraftingThreadWork work) {
+        clearVirtualCraftingDiagnostic();
         worker.markDisplayDirty();
         outputItems.clear();
         copyStacks(work.itemOutputs(), outputItems);
@@ -655,7 +690,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         LOGGER.warn(
             "ECO crafting progress blocked: worker={} reason={} job={} progress={}/{} attemptedProgress={} "
                 + "batchCrafts={} craftCount={} virtualBatch={} overclockTimes={} powerMultiply={} "
-                + "activeCooling={} coolant={}/{}",
+                + "activeCooling={} coolant={}/{} coolantMaxOverclock={} "
+                + "requiredVirtualOverclock={} requiredVirtualCoolant={} requiredVirtualPower={}",
             worker.getBlockPos(),
             reason,
             craftingJobId,
@@ -669,7 +705,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             powerMultiply,
             controller.isActiveCooling(),
             controller.getDisplayedCoolantAmount(),
-            controller.getDisplayedCoolantCapacity()
+            controller.getDisplayedCoolantCapacity(),
+            controller.getDisplayedCoolingMaxOverclock(),
+            virtualBatch ? ECOCraftingSystemBlockEntity.MAX_OVERCLOCK_TIMES : 0,
+            virtualBatch ? ECOCraftingSystemBlockEntity.VIRTUAL_COOLANT_PER_LANE_TICK : 0,
+            virtualBatch ? cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster.VIRTUAL_CRAFTING_POWER_PER_TICK : 0
         );
     }
 
@@ -935,6 +975,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void markRecoveryPending(boolean recoverOutputs) {
+        clearVirtualCraftingDiagnostic();
         if (!recoverOutputs && (!outputItems.isEmpty() || !batchOutputItems.isEmpty())) {
             worker.markDisplayDirty();
         }
@@ -971,6 +1012,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void clearWork() {
+        clearVirtualCraftingDiagnostic();
         boolean availabilityChanged = isBusy;
         exactVirtual = null;
         finishBlockedOutputDiagnostic();
@@ -1220,6 +1262,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     @Override
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+        clearVirtualCraftingDiagnostic();
         worker.markDisplayDirty();
         exactVirtual = nbt.contains("exactVirtual", Tag.TAG_COMPOUND)
             ? ECOExactVirtualLedger.read(nbt.getCompound("exactVirtual"), provider) : null;

@@ -363,6 +363,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.virtual_reason.topology", "Network topology requirements are not met");
         provider.add("gui.neoecoae.crafting.virtual_status.title", "Infinite Mode Status");
         provider.add("gui.neoecoae.crafting.virtual_status.infinite", "Infinite Mode Active");
+        provider.add("gui.neoecoae.crafting.virtual_blocked.title", "Infinite Mode: Execution Blocked");
+        provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_tier", "Virtual crafting: coolant tier %d/%d");
+        provider.add("gui.neoecoae.crafting.virtual_blocked.coolant", "Virtual crafting: tier-9 coolant unavailable");
+        provider.add("gui.neoecoae.crafting.virtual_blocked.energy", "Virtual crafting: insufficient AE power");
+        provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_required", "Requires tier-%d coolant: %d points per FX tick");
+        provider.add("gui.neoecoae.crafting.virtual_blocked.energy_required", "Requires %d AE per network tick, paid in full");
+        provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_hint", "Cancel the job, leave Infinite Mode, and stop feeding the old coolant.");
+        provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_recovery", "Consume the old buffer with normal crafting, then restore tier-9 cooling and Infinite Mode.");
         provider.add("gui.neoecoae.crafting_report.cycle_not_detected", "No cycles detected");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle detected");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");
