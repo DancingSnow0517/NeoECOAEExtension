@@ -768,18 +768,20 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Inject(
             method = "getRequestedAmount",
             at = @At("RETURN"),
+            cancellable = true,
             order = 500
     )
     private void onGetRequestedAmount(
             AEKey what,
-            CallbackInfoReturnable<Long> cir,
-            @Local(name = "requested") LocalLongRef requested
+            CallbackInfoReturnable<Long> cir
     ) {
+        long requested = cir.getReturnValueJ();
         for (var cluster : this.neoecoae$computationClusters) {
             for (var cpu : cluster.getActiveCPUs()) {
-                requested.set(requested.get() + cpu.getLogic().getWaitingFor(what));
+                requested += cpu.getLogic().getWaitingFor(what);
             }
         }
+        cir.setReturnValue(requested);
     }
 
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
