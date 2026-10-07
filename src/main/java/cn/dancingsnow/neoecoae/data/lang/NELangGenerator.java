@@ -19,6 +19,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.big_order.reason.planner_busy", "Planner busy");
         provider.add("gui.neoecoae.big_order.reason.planning_failed", "Planning failed");
         provider.add("gui.neoecoae.big_order.total", "Total %s");
+        provider.add("gui.neoecoae.big_order.requested", "Requested: %s");
         provider.add("gui.neoecoae.big_order.done", "Completed %s");
         provider.add("gui.neoecoae.big_order.remaining", "Remaining %s");
         provider.add("gui.neoecoae.big_order.child", "Segment %s · remaining %s");

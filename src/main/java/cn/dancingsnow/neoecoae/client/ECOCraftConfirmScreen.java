@@ -69,7 +69,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant,
             this::isFuzzyPlanningItem);
         exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant,
-            this::isMissingStartupSeed, this::isFuzzyPlanningItem);
+            this::isMissingStartupSeed, this::isEstimatedStartupSeed, this::isFuzzyPlanningItem);
         cycleItems = new ECOCycleItemListRenderer(this, 237, 27);
         scrollbar = widgets.addScrollBar("scrollbar", Scrollbar.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", Scrollbar.BIG);
@@ -177,7 +177,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 && mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED) {
             boolean retainedMaterials = !mode.neoecoae$getCraftingGraphSnapshot().nodes().isEmpty()
                 || plan != null && !plan.getEntries().isEmpty();
-            cpuDetails = Component.translatable(retainedMaterials
+            boolean seedEstimate = mode.neoecoae$getCycleItems().stream()
+                .anyMatch(ECOCycleItemList.Entry::seedShortfallIsEstimate);
+            cpuDetails = Component.translatable(seedEstimate
+                    ? "gui.neoecoae.crafting_report.seed_requirement_unknown" : retainedMaterials
                     ? "gui.neoecoae.crafting_report.search_incomplete"
                     : "gui.neoecoae.crafting_report.planning_failed")
                 .withColor(0xAA6600);
@@ -202,7 +205,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
         setTextContent("complex_tree_hint", (Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED
-            ? Component.translatable("gui.neoecoae.crafting_report.complex_tree_hint").withColor(0xFFCC66)
+            ? Component.translatable(mode.neoecoae$getCycleItems().stream()
+                    .anyMatch(ECOCycleItemList.Entry::seedShortfallIsEstimate)
+                    ? "gui.neoecoae.crafting_report.seed_requirement_unknown"
+                    : "gui.neoecoae.crafting_report.complex_tree_hint").withColor(0xFFCC66)
             : Component.empty());
         setTextContent("plan_summary", planSummary);
         setTextContent("cycle_status", Component.empty());
@@ -506,6 +512,12 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                     && entry.solveStatus() == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
                     && entry.exactSingleNetOutput().signum() == 0
                     && entry.exactTotalNetOutput().signum() == 0);
+    }
+
+    private boolean isEstimatedStartupSeed(AEKey key) {
+        return (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && mode.neoecoae$getCycleItems().stream()
+                .anyMatch(entry -> entry.what().equals(key) && entry.seedShortfallIsEstimate());
     }
 
     private boolean isFuzzyPlanningItem(AEKey key) {

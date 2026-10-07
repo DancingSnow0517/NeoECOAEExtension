@@ -1,8 +1,12 @@
 {
+  "gui.neoecoae.crafting_report.seed_shortfall_estimate": "啓環之材至少尚需：%s",
+  "gui.neoecoae.crafting_report.seed_shortfall_estimate_hint": "此數乃下限，補足能否成其所求，尚未驗明。",
+  "gui.neoecoae.crafting_report.seed_requirement_unknown": "啓環所需之材尚未定",
   "gui.neoecoae.storage_interface.ignore_creative.on": "忽略創造盤吸入：開啟",
   "gui.neoecoae.storage_interface.ignore_creative.off": "忽略創造盤吸入：關閉",
   "gui.neoecoae.storage_interface.ignore_creative.description": "僅吸入模式生效：抽取後庫存數量不變的資源視為創造盤資源並跳過",
   "gui.neoecoae.big_order.single_task": "ECO CPU：整單作為一个任務執行",
+  "gui.neoecoae.big_order.requested": "所求之數：%s",
   "gui.neoecoae.crafting_report.loading_details": "載合成詳情…",
   "gui.neoecoae.crafting.ui.batch_parallel": "批量",
   "gui.neoecoae.crafting.ui.recipe_slots": "槽位",

@@ -96,7 +96,9 @@ final class ECOCycleItemListRenderer {
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.seed_parallelism", entry.seedParallelism()));
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.seed_parallelism_hint"));
                 }
-                if (isMissingStartupSeed(entry)) {
+                if (entry.seedShortfallIsEstimate()) {
+                    tooltip.add(Component.translatable("gui.neoecoae.crafting_report.seed_shortfall_estimate_hint"));
+                } else if (isMissingStartupSeed(entry)) {
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.missing_startup_seed"));
                 }
                 hoveredTooltip = tooltip;
@@ -120,7 +122,9 @@ final class ECOCycleItemListRenderer {
 
     private static Component totalLine(ECOCycleItemList.Entry entry, AmountFormat format) {
         if (entry.exactMissing().signum() > 0) {
-            return Component.translatable("gui.neoecoae.crafting_graph.details.missing",
+            return Component.translatable(entry.seedShortfallIsEstimate()
+                    ? "gui.neoecoae.crafting_report.seed_shortfall_estimate"
+                    : "gui.neoecoae.crafting_graph.details.missing",
                 formatAmount(entry.exactMissing(), format));
         }
         if (!entry.totalNetOutputKnown() && entry.displayedTotal().signum() == 0) {

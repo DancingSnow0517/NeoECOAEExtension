@@ -48,14 +48,16 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     private static final int FUZZY_PLANNING_OVERLAY = 0x264CAF70;
     private final Predicate<AEKey> cycleParticipant;
     private final Predicate<AEKey> missingStartupSeed;
+    private final Predicate<AEKey> estimatedStartupSeed;
     private final Predicate<AEKey> fuzzyPlanningItem;
 
     ECOExactMaterialTableRenderer(AEBaseScreen<?> screen, int x, int y,
             Predicate<AEKey> cycleParticipant, Predicate<AEKey> missingStartupSeed,
-            Predicate<AEKey> fuzzyPlanningItem) {
+            Predicate<AEKey> estimatedStartupSeed, Predicate<AEKey> fuzzyPlanningItem) {
         super(screen, x, y, 7);
         this.cycleParticipant = cycleParticipant;
         this.missingStartupSeed = missingStartupSeed;
+        this.estimatedStartupSeed = estimatedStartupSeed;
         this.fuzzyPlanningItem = fuzzyPlanningItem;
     }
 
@@ -69,9 +71,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             lines.add(GuiText.FromStorage.text(formatAmount(entry.key(), stored, AmountFormat.SLOT)));
         }
         if (missing.signum() > 0) {
-            lines.add(isMissingStartupSeed(entry.key())
-                ? Component.literal("缺少启动种子数量：" + formatAmount(entry.key(), missing, AmountFormat.SLOT))
-                : GuiText.Missing.text(formatAmount(entry.key(), missing, AmountFormat.SLOT)));
+            lines.add(missingDescription(entry.key(), missing, AmountFormat.SLOT));
         }
         if (craft.signum() > 0) {
             lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.SLOT)));
@@ -97,9 +97,10 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             lines.add(GuiText.FromStorage.text(formatAmount(entry.key(), stored, AmountFormat.FULL)));
         }
         if (missing.signum() > 0) {
-            lines.add(isMissingStartupSeed(entry.key())
-                ? Component.literal("缺少启动种子数量：" + formatAmount(entry.key(), missing, AmountFormat.FULL))
-                : GuiText.Missing.text(formatAmount(entry.key(), missing, AmountFormat.FULL)));
+            lines.add(missingDescription(entry.key(), missing, AmountFormat.FULL));
+            if (isEstimatedStartupSeed(entry.key())) {
+                lines.add(Component.translatable("gui.neoecoae.crafting_report.seed_shortfall_estimate_hint"));
+            }
         }
         if (craft.signum() > 0) {
             lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.FULL)));
@@ -137,6 +138,19 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
 
     private boolean isMissingStartupSeed(AEKey key) {
         return missingStartupSeed != null && missingStartupSeed.test(key);
+    }
+
+    private boolean isEstimatedStartupSeed(AEKey key) {
+        return estimatedStartupSeed != null && estimatedStartupSeed.test(key);
+    }
+
+    private Component missingDescription(AEKey key, BigInteger missing, AmountFormat format) {
+        String amount = formatAmount(key, missing, format);
+        if (isEstimatedStartupSeed(key)) {
+            return Component.translatable("gui.neoecoae.crafting_report.seed_shortfall_estimate", amount);
+        }
+        return isMissingStartupSeed(key)
+            ? Component.literal("缺少启动种子数量：" + amount) : GuiText.Missing.text(amount);
     }
 
     private static String formatAmount(AEKey key, BigInteger amount, AmountFormat format) {

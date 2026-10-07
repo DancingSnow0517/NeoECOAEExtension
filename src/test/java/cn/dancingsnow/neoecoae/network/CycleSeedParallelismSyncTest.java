@@ -14,6 +14,18 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class CycleSeedParallelismSyncTest {
+    @Test void missingSeedWithoutAnExactOrderIsOnlyAnEstimate() {
+        AEKey key = mock(AEKey.class);
+        var estimate = new ECOCycleItemList.Entry(key, BigInteger.ZERO, BigInteger.ZERO,
+            BigInteger.ZERO, BigInteger.ZERO, BigInteger.ONE, ExecutionCountKnowledge.UNKNOWN,
+            CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, 3);
+        assertTrue(estimate.seedShortfallIsEstimate());
+        var verified = new ECOCycleItemList.Entry(key, BigInteger.ZERO, BigInteger.ZERO,
+            BigInteger.ZERO, BigInteger.ZERO, BigInteger.ONE, ExecutionCountKnowledge.EXACT,
+            CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, 3);
+        assertFalse(verified.seedShortfallIsEstimate());
+    }
+
     @Test void packetPreservesUnknownSerialAndParallelSeedsAlongsideExactAmounts() {
         AEKey key = mock(AEKey.class);
         var wide = BigInteger.TEN.pow(50);

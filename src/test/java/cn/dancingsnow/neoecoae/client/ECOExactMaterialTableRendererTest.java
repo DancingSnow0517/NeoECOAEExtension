@@ -13,6 +13,28 @@ import static org.mockito.Mockito.*;
 
 class ECOExactMaterialTableRendererTest {
     @Test
+    void unverifiedSeedUsesLowerBoundTextInTheMaterialTableAndTooltip() throws Exception {
+        AEKey key = mock(AEKey.class);
+        when(key.formatAmount(anyLong(), any())).thenAnswer(call -> Long.toString(call.getArgument(0)));
+        var node = new CraftingGraphSnapshot.MaterialNode(0, key, 1, 0, 0, 1,
+            CraftingGraphSnapshot.MaterialStatus.MISSING);
+        var renderer = mock(ECOExactMaterialTableRenderer.class, CALLS_REAL_METHODS);
+        var predicate = ECOExactMaterialTableRenderer.class.getDeclaredField("estimatedStartupSeed");
+        predicate.setAccessible(true);
+        predicate.set(renderer, (java.util.function.Predicate<AEKey>) candidate -> candidate.equals(key));
+        var description = renderer.getEntryDescription(node);
+        var contents = (net.minecraft.network.chat.contents.TranslatableContents) description.getFirst().getContents();
+        assertEquals("gui.neoecoae.crafting_report.seed_shortfall_estimate", contents.getKey());
+        assertArrayEquals(new Object[] {"1"}, contents.getArgs());
+        try (var rendering = mockStatic(AEKeyRendering.class)) {
+            rendering.when(() -> AEKeyRendering.getTooltip(key)).thenReturn(new ArrayList<>());
+            var tooltip = renderer.getEntryTooltip(node);
+            var hint = (net.minecraft.network.chat.contents.TranslatableContents) tooltip.get(1).getContents();
+            assertEquals("gui.neoecoae.crafting_report.seed_shortfall_estimate_hint", hint.getKey());
+        }
+    }
+
+    @Test
     void materialAmountsContinuePastQAndRespectFluidUnits() throws Exception {
         var formatAmount = ECOExactMaterialTableRenderer.class.getDeclaredMethod(
             "formatAmount", AEKey.class, java.math.BigInteger.class, AmountFormat.class);

@@ -94,6 +94,12 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         public long totalNetOutput() { return exactTotalNetOutput.longValue(); }
         public boolean totalNetOutputKnown() { return executionCountKnowledge == ExecutionCountKnowledge.EXACT; }
 
+        /** An incomplete cycle search only certifies a local unblock amount, not the whole order's seed. */
+        public boolean seedShortfallIsEstimate() {
+            return exactMissing.signum() > 0 && solveStatus == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
+                && !totalNetOutputKnown();
+        }
+
         /** A positive net change makes this item an output of the cycle; all other members feed the cycle. */
         public boolean isCycleProduct() { return exactTotalNetOutput.signum() > 0; }
 
