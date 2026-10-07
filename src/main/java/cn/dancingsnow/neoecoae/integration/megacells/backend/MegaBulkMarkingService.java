@@ -23,6 +23,8 @@ import gripe._90.megacells.misc.CompressionService;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,6 +34,8 @@ import java.util.Set;
 
 /** Writes host-wide compression-chain filters into ECO MEGA long bulk cells. */
 public final class MegaBulkMarkingService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MegaBulkMarkingService.class);
+
     private MegaBulkMarkingService() {
     }
 
@@ -237,8 +241,14 @@ public final class MegaBulkMarkingService {
                     }
                     for (ChainTarget target : chainTargets) {
                         if (sameMarker(target.marker(), itemKey)) {
-                            transferred = saturatingAdd(transferred, transfer(
-                                sourceStorage, target.storage(), itemKey, entry.getLongValue(), actionSource));
+                            // One misbehaving inventory must not abandon the remaining chains.
+                            try {
+                                transferred = saturatingAdd(transferred, transfer(
+                                    sourceStorage, target.storage(), itemKey, entry.getLongValue(), actionSource));
+                            } catch (RuntimeException failure) {
+                                LOGGER.error("Bulk migration failed for {} from drive {}",
+                                    itemKey, drive.getBlockPos(), failure);
+                            }
                         }
                     }
                 }
@@ -257,8 +267,12 @@ public final class MegaBulkMarkingService {
                         || !(entry.getKey() instanceof AEItemKey key)) continue;
                     for (ChainTarget target : chainTargets) {
                         if (sameMarker(target.marker(), key)) {
-                            transferred = saturatingAdd(transferred, transfer(
-                                network, target.storage(), key, entry.getLongValue(), actionSource));
+                            try {
+                                transferred = saturatingAdd(transferred, transfer(
+                                    network, target.storage(), key, entry.getLongValue(), actionSource));
+                            } catch (RuntimeException failure) {
+                                LOGGER.error("Bulk migration failed for {} from the network", key, failure);
+                            }
                         }
                     }
                 }
@@ -281,6 +295,12 @@ public final class MegaBulkMarkingService {
         return result;
     }
 
+    /**
+     * Moves as much of {@code amount} as the destination accepts. The destination is filled
+     * before the source is drained so that a short source extraction rolls back inside the
+     * destination, where the vacated capacity is guaranteed, instead of inserting into an
+     * aggregate source that may answer from a different inventory than it was drained from.
+     */
     private static long transfer(
         MEStorage from,
         ECOMegaLongBulkStorageCell to,
@@ -288,28 +308,37 @@ public final class MegaBulkMarkingService {
         long amount,
         IActionSource actionSource
     ) {
+        if (amount <= 0L) return 0L;
         long available = from.extract(key, amount, Actionable.SIMULATE, actionSource);
         if (available <= 0L) return 0L;
-        long accepted = to.insert(key, available, Actionable.SIMULATE, actionSource);
+        long accepted = to.insert(key, Math.min(available, amount), Actionable.SIMULATE, actionSource);
         if (accepted <= 0L) return 0L;
 
-        long extracted = from.extract(key, accepted, Actionable.MODULATE, actionSource);
-        if (extracted < 0L || extracted > accepted) {
-            throw new IllegalStateException("Invalid internal-transfer source acknowledgement");
-        }
-        long inserted = to.insert(key, extracted, Actionable.MODULATE, actionSource);
-        if (inserted < 0L || inserted > extracted) {
-            throw new IllegalStateException("Invalid internal-transfer destination acknowledgement");
-        }
-        if (inserted < extracted) {
-            long remainder = extracted - inserted;
-            long restored = from.insert(key, remainder, Actionable.MODULATE, actionSource);
+        long inserted = acknowledge(to.insert(key, accepted, Actionable.MODULATE, actionSource), accepted);
+        if (inserted <= 0L) return 0L;
+        long extracted = acknowledge(from.extract(key, inserted, Actionable.MODULATE, actionSource), inserted);
+        if (extracted < inserted) {
+            long remainder = inserted - extracted;
+            long restored = acknowledge(to.extract(key, remainder, Actionable.MODULATE, actionSource), remainder);
             if (restored != remainder) {
-                throw new IllegalStateException(
-                    "Internal-transfer rollback incomplete: " + restored + "/" + remainder);
+                LOGGER.error("Bulk migration could not return {} of {} {} to the source",
+                    remainder - restored, remainder, key);
             }
         }
-        return inserted;
+        return extracted;
+    }
+
+    /** Clamps an inventory acknowledgement instead of aborting a batch that already moved items. */
+    private static long acknowledge(long ack, long requested) {
+        if (ack < 0L) {
+            LOGGER.error("Storage inventory acknowledged {} of {} moved units", ack, requested);
+            return 0L;
+        }
+        if (ack > requested) {
+            LOGGER.error("Storage inventory acknowledged {} of {} moved units", ack, requested);
+            return requested;
+        }
+        return ack;
     }
 
     private static long saturatingAdd(long left, long right) {
