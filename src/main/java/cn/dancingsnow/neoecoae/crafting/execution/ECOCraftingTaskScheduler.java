@@ -292,8 +292,14 @@ final class ECOCraftingTaskScheduler {
                     continue;
                 }
 
+                if (current.executionRuntime != null) {
+                    allowedCount = current.executionRuntime.limitCycleBatch(candidate, inputs, inventory, allowedCount);
+                }
+                var dispatchCandidate = allowedCount == candidate.maxDispatchCount() ? candidate
+                    : new ECOExecutionRuntime.DispatchCandidate(candidate.taskId(), candidate.phaseIndex(), pattern,
+                        allowedCount, candidate.blocksOrderedPhase(), candidate.orderedStepIndex());
                 var request = new ECOCraftingDispatchRequest(
-                        current, candidate, pattern, inputs, outputs, remainders, allowedCount, inventory, level);
+                        current, dispatchCandidate, pattern, inputs, outputs, remainders, allowedCount, inventory, level);
                 var dispatch = providerDispatcher.dispatchCandidate(
                         request,
                         providers,

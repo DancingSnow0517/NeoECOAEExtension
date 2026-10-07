@@ -36,6 +36,31 @@ import org.junit.jupiter.api.Test;
 
 class ECOProcessingDispatchIntegrationTest {
     @Test
+    void scaledProcessingRemaindersRemainInTheWaitingLedgerForEveryAcceptedChunk() {
+        var f = new Fixture();
+        f.request.remainders().add(f.key, 1);
+        var progress = new ExecutingCraftingJob.TaskProgress();
+        progress.value = 16;
+        f.request.job().tasks.put(f.request.pattern(), progress);
+        var accounting = new ECOCraftingDispatchAccounting(ignored -> {}, () -> {},
+            current -> new cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext(
+                mock(appeng.api.networking.crafting.ICraftingCPU.class), current.link.getCraftingID(),
+                current.finalOutput, 16, current.remainingAmount), ignored -> {});
+        var dispatcher = new ECOProcessingPatternDispatcher(null,
+            new ECOCraftingEnergyTransaction(() -> {}, () -> 0), accounting);
+        dispatcher.beginTick(0);
+        var offers = new ArrayList<Long>();
+        var result = dispatcher.tryScaledDispatch(f.request, f.provider, 1, f.energy, ignored -> {},
+            (request, provider) -> { offers.add(request.allowedCrafts()); return true; });
+        assertEquals(List.of(1L, 2L, 4L, 8L, 1L), offers);
+        assertEquals(16, result.acceptedCrafts());
+        assertEquals(16, result.remainders().getFirst().amount());
+        assertEquals(32, f.request.job().waitingFor.list.get(f.key));
+        assertEquals(0, progress.value);
+        assertEquals(84, f.inventory.list.get(f.key));
+    }
+
+    @Test
     void directTransportPartialAcceptanceRefundsOnlyUnownedCopiesAndStopsRamp() {
         var f = new Fixture();
         var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);

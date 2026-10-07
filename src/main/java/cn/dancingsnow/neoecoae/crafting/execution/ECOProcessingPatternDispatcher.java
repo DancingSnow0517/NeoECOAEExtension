@@ -222,7 +222,8 @@ final class ECOProcessingPatternDispatcher {
 
     private static ECOCraftingDispatchResult scaledResult(ECOCraftingDispatchRequest request, long copies) {
         return ECOCraftingDispatchResult.batch(copies,
-                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), copies), List.of());
+                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), copies),
+                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), copies));
     }
 
     private static boolean fullyInserted(Object logic) {
@@ -256,7 +257,6 @@ final class ECOProcessingPatternDispatcher {
         if (ECOAe2LtDirectDispatch.isProvider(provider)) {
             return ECOAe2LtDirectDispatch.open(provider) != null
                     && isProcessingPattern(ECOProviderPatternIntrospection.unwrap(request.pattern()))
-                    && request.remainders().isEmpty()
                     && request.pattern().getInputs().length > 0 && !request.pattern().getOutputs().isEmpty()
                     && request.pattern().supportsPushInputsToExternalInventory();
         }
@@ -268,7 +268,7 @@ final class ECOProcessingPatternDispatcher {
         IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
         if (!isProcessingPattern(base)
                 || (ECOAdvancedAEPatternScaling.isAdvancedPattern(base) && !advancedLogic)
-                || base != request.pattern() || request.remainders().size() != 0
+                || base != request.pattern()
                 || request.pattern().getInputs().length == 0
                 || request.pattern().getOutputs().isEmpty()
                 || !request.pattern().supportsPushInputsToExternalInventory()) return false;

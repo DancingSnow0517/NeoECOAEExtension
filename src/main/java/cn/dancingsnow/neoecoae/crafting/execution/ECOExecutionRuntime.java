@@ -60,6 +60,9 @@ public final class ECOExecutionRuntime {
     private final int[] dynamicCursor;
     private final List<long[]> remainingSteps;
     private final List<long[]> remainingLaps;
+    // Accepted future copies of each repeated step. They become current progress as laps advance.
+    private final List<long[]> aheadSteps;
+    private final List<int[]> batchGroupEnds;
     private final List<Int2LongLinkedOpenHashMap> remainingDynamicFirings;
     private final BitSet completedPhases;
     private final int[] unfinishedTasksByPhase;
@@ -104,6 +107,8 @@ public final class ECOExecutionRuntime {
         this.dynamicCursor = new int[plan.phases().size()];
         this.remainingSteps = new ArrayList<>(plan.phases().size());
         this.remainingLaps = new ArrayList<>(plan.phases().size());
+        this.aheadSteps = new ArrayList<>(plan.phases().size());
+        this.batchGroupEnds = new ArrayList<>(plan.phases().size());
         this.remainingDynamicFirings = new ArrayList<>(plan.phases().size());
         this.completedPhases = new BitSet(plan.phases().size());
         this.inputKeysByTaskId = new ArrayList<>(plan.tasks().size());
@@ -135,6 +140,8 @@ public final class ECOExecutionRuntime {
             long[] laps = new long[steps.length];
             for (int i = 0; i < laps.length; i++) laps[i] = phase.steps().get(i).repetitions();
             remainingLaps.add(laps);
+            aheadSteps.add(new long[steps.length]);
+            batchGroupEnds.add(batchGroupEnds(phase));
             remainingDynamicFirings.add(new Int2LongLinkedOpenHashMap(phase.dynamicFirings()));
             startupSeedRemainingByPhase.add(new Object2LongLinkedOpenHashMap<>(phase.initialSeed()));
         }
@@ -151,7 +158,11 @@ public final class ECOExecutionRuntime {
 
     /** Candidate returned by the scheduler for one provider attempt. */
     public record DispatchCandidate(int taskId, int phaseIndex, IPatternDetails pattern,
-            long maxDispatchCount, boolean blocksOrderedPhase) {
+            long maxDispatchCount, boolean blocksOrderedPhase, int orderedStepIndex) {
+        public DispatchCandidate(int taskId, int phaseIndex, IPatternDetails pattern,
+                long maxDispatchCount, boolean blocksOrderedPhase) {
+            this(taskId, phaseIndex, pattern, maxDispatchCount, blocksOrderedPhase, -1);
+        }
         public DispatchCandidate {
             Objects.requireNonNull(pattern, "pattern");
             if (taskId < 0 || phaseIndex < 0 || maxDispatchCount <= 0L) {
@@ -209,10 +220,9 @@ public final class ECOExecutionRuntime {
     /**
      * Returns all currently legal candidates in deterministic phase/task order.
      *
-     * <p>An ordered phase contributes only its current step. Other ready phases remain eligible, so an unrelated
-     * independent phase is not held hostage by a busy provider in one ordered phase. Dynamic phases rotate after a
-     * successful firing; this prevents one branch from consuming every copy of a shared startup seed before another
-     * currently runnable branch gets a chance.</p>
+     * <p>An ordered phase contributes its current step, including future copies in a fixed processing circuit.
+     * Physical stock and competing consumers bound the batch at input resolution. Other ready phases remain
+     * eligible when this provider is busy. Dynamic phases rotate after an accepted firing.</p>
      */
     public List<DispatchCandidate> candidates() {
         requireProgressBinding();
@@ -239,9 +249,10 @@ public final class ECOExecutionRuntime {
                 if (stepCursor[phaseIndex] < phase.steps().size()) {
                     var step = phase.steps().get(stepCursor[phaseIndex]);
                     long remaining = taskRemaining(step.taskId(), remainingTasks);
-                    long allowed = Math.min(remainingSteps.get(phaseIndex)[stepCursor[phaseIndex]], remaining);
+                    long allowed = Math.min(orderedAllowance(phaseIndex, stepCursor[phaseIndex]), remaining);
                     if (allowed > 0L) {
-                        result.add(candidate(phaseIndex, step.taskId(), allowed, true));
+                        result.add(new DispatchCandidate(step.taskId(), phaseIndex, pattern(step.taskId()),
+                            allowed, true, stepCursor[phaseIndex]));
                     }
                 } else {
                     addAllPhaseTasks(result, phaseIndex, phase.taskIds(), remainingTasks, false);
@@ -266,13 +277,9 @@ public final class ECOExecutionRuntime {
                 }
                 if (activeCount == 0) continue;
                 int start = Math.floorMod(dynamicCursor[phaseIndex], activeCount);
-                boolean sharedInput = activeCount > 1;
                 for (int offset = 0; offset < activeCount; offset++) {
                     int taskId = activeTaskBuffer[(start + offset) % activeCount];
                     long allowed = Math.min(dynamic.getOrDefault(taskId, 0L), taskRemaining(taskId, remainingTasks));
-                    if (sharedInput && sharesInputWithAnother(taskId, activeTaskBuffer, activeCount)) {
-                        allowed = Math.min(allowed, 1L);
-                    }
                     if (allowed > 0L) result.add(candidate(phaseIndex, taskId, allowed, false));
                 }
                 continue;
@@ -327,14 +334,29 @@ public final class ECOExecutionRuntime {
         }
         int phaseIndex = candidate.phaseIndex();
         var phase = plan.phases().get(phaseIndex);
+        if (candidate.orderedStepIndex() >= 0 && stepCursor[phaseIndex] >= phase.steps().size()) {
+            throw new IllegalArgumentException("Accepted ordered circuit is already complete");
+        }
         if (phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.steps().isEmpty()
                 && stepCursor[phaseIndex] < phase.steps().size()) {
-            var step = phase.steps().get(stepCursor[phaseIndex]);
+            int index = candidate.orderedStepIndex() < 0 ? stepCursor[phaseIndex] : candidate.orderedStepIndex();
+            if (index >= phase.steps().size()) throw new IllegalArgumentException("Invalid accepted ordered step");
+            var step = phase.steps().get(index);
             if (step.taskId() != candidate.taskId()) {
-                throw new IllegalStateException("Accepted task is not the current ordered step");
+                throw new IllegalStateException("Accepted task does not match its ordered step");
+            }
+            int groupEnd = batchGroupEnds.get(phaseIndex)[index];
+            if (index != stepCursor[phaseIndex] && (groupEnd < 0
+                    || batchGroupEnds.get(phaseIndex)[stepCursor[phaseIndex]] != groupEnd)) {
+                throw new IllegalStateException("Accepted task is outside the active ordered circuit");
+            }
+            if (count > orderedAllowance(phaseIndex, index)) {
+                throw new IllegalArgumentException("Accepted dispatch exceeds remaining ordered work");
             }
             long[] steps = remainingSteps.get(phaseIndex);
-            steps[stepCursor[phaseIndex]] -= count;
+            long current = Math.min(steps[index], count);
+            steps[index] -= current;
+            aheadSteps.get(phaseIndex)[index] = Math.addExact(aheadSteps.get(phaseIndex)[index], count - current);
             advanceFinishedSteps(phaseIndex);
         } else if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
             Int2LongMap dynamic = remainingDynamicFirings.get(phaseIndex);
@@ -522,6 +544,7 @@ public final class ECOExecutionRuntime {
             CompoundTag phase = new CompoundTag();
             phase.putLongArray("steps", remainingSteps.get(phaseIndex));
             phase.putLongArray("laps", remainingLaps.get(phaseIndex));
+            phase.putLongArray("ahead", aheadSteps.get(phaseIndex));
             ListTag dynamic = new ListTag();
             for (var entry : remainingDynamicFirings.get(phaseIndex).int2LongEntrySet()) {
                 CompoundTag firing = new CompoundTag();
@@ -585,6 +608,17 @@ public final class ECOExecutionRuntime {
                 System.arraycopy(laps, 0, runtime.remainingLaps.get(phaseIndex), 0, laps.length);
             } else if (plan.phases().get(phaseIndex).steps().stream().anyMatch(step -> step.repetitions() > 1L)) {
                 throw new IllegalArgumentException("Repeated circuit is missing its runtime cursor");
+            }
+            if (phase.contains("ahead")) {
+                long[] ahead = phase.getLongArray("ahead");
+                if (ahead.length != steps.length) throw new IllegalArgumentException("Execution ahead-step shape changed");
+                for (int i = 0; i < ahead.length; i++) {
+                    int end = runtime.batchGroupEnds.get(phaseIndex)[i];
+                    long maximum = end < 0 ? 0L : Math.multiplyExact(runtime.remainingLaps.get(phaseIndex)[end] - 1L,
+                        plan.phases().get(phaseIndex).steps().get(i).count());
+                    if (ahead[i] < 0L || ahead[i] > maximum) throw new IllegalArgumentException("Invalid accepted-ahead work");
+                }
+                System.arraycopy(ahead, 0, runtime.aheadSteps.get(phaseIndex), 0, ahead.length);
             }
             Int2LongMap dynamic = runtime.remainingDynamicFirings.get(phaseIndex);
             dynamic.clear();
@@ -683,14 +717,71 @@ public final class ECOExecutionRuntime {
             var step = steps.get(end);
             long[] laps = remainingLaps.get(phaseIndex);
             if (laps[end] > 1L) {
-                laps[end]--;
                 int start = end - step.repeatWidth() + 1;
-                for (int i = start; i <= end; i++) remaining[i] = steps.get(i).count();
+                long[] ahead = aheadSteps.get(phaseIndex);
+                long skip = laps[end] - 1L;
+                for (int i = start; i <= end; i++) skip = Math.min(skip, ahead[i] / steps.get(i).count());
+                for (int i = start; i <= end; i++) ahead[i] -= skip * steps.get(i).count();
+                laps[end] -= skip;
+                if (laps[end] == 1L) {
+                    stepCursor[phaseIndex]++;
+                    continue;
+                }
+                laps[end]--;
+                for (int i = start; i <= end; i++) {
+                    long consumed = Math.min(ahead[i], steps.get(i).count());
+                    remaining[i] = steps.get(i).count() - consumed;
+                    ahead[i] -= consumed;
+                }
                 stepCursor[phaseIndex] = start;
             } else {
                 stepCursor[phaseIndex]++;
             }
         }
+    }
+
+    private long orderedAllowance(int phaseIndex, int index) {
+        long current = remainingSteps.get(phaseIndex)[index];
+        int end = batchGroupEnds.get(phaseIndex)[index];
+        if (end < 0) return current;
+        long future = Math.multiplyExact(remainingLaps.get(phaseIndex)[end] - 1L,
+            plan.phases().get(phaseIndex).steps().get(index).count());
+        return Math.addExact(current, future - aheadSteps.get(phaseIndex)[index]);
+    }
+
+    private int[] batchGroupEnds(ECOExecutionPlan.PhaseSpec phase) {
+        int[] ends = new int[phase.steps().size()];
+        Arrays.fill(ends, -1);
+        for (int end = 0; end < ends.length; end++) {
+            var last = phase.steps().get(end);
+            if (last.repetitions() <= 1L) continue;
+            int start = end - last.repeatWidth() + 1;
+            var tasks = new java.util.HashSet<Integer>();
+            boolean safe = true;
+            for (int i = start; i <= end; i++) {
+                int taskId = phase.steps().get(i).taskId();
+                safe &= tasks.add(taskId) && fixedProcessingInputs(pattern(taskId));
+            }
+            if (safe) Arrays.fill(ends, start, end + 1, end);
+        }
+        return ends;
+    }
+
+    // Reordering fixed processing copies is safe only while competing consumers retain their inputs.
+    // Unknown substitutions and crafting/tool mutations continue to follow the original ordered witness.
+    private static boolean fixedProcessingInputs(IPatternDetails pattern) {
+        try {
+            if (!pattern.supportsPushInputsToExternalInventory() || pattern.getInputs() == null) return false;
+            for (var input : pattern.getInputs()) {
+                if (input == null) return false;
+                var possible = input.getPossibleInputs();
+                if (possible == null || possible.length != 1 || possible[0] == null
+                        || possible[0].amount() <= 0L || input.getMultiplier() <= 0L) return false;
+            }
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+        return true;
     }
 
     private void addAllPhaseTasks(List<DispatchCandidate> result, int phaseIndex, List<Integer> taskIds,
@@ -719,16 +810,60 @@ public final class ECOExecutionRuntime {
         return remaining == null ? 0L : Math.max(0L, remaining);
     }
 
-    private boolean sharesInputWithAnother(int taskId, int[] active, int activeCount) {
-        Set<AEKey> keys = inputKeysByTaskId.get(taskId);
-        if (keys.isEmpty()) return false;
-        for (int index = 0; index < activeCount; index++) {
-            int otherId = active[index];
-            if (otherId == taskId) continue;
-            Set<AEKey> otherKeys = inputKeysByTaskId.get(otherId);
-            for (AEKey key : keys) if (otherKeys.contains(key)) return true;
+    /** Keep the witnessed first firing, but let surplus stock fund additional copies without starving peers. */
+    long limitCycleBatch(DispatchCandidate candidate, KeyCounter[] inputs,
+            appeng.crafting.inv.ListCraftingInventory inventory, long upper) {
+        int phaseIndex = candidate.phaseIndex();
+        var phase = plan.phases().get(phaseIndex);
+        if (phase.type() == ECOExecutionSchedule.Type.DAG) return upper;
+        int index = candidate.orderedStepIndex();
+        int end = index < 0 ? -1 : batchGroupEnds.get(phaseIndex)[index];
+        if (phase.type() == ECOExecutionSchedule.Type.CYCLE && end < 0) return upper;
+        long witnessed = phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE ? 1L
+            : remainingSteps.get(phaseIndex)[index];
+        var totals = new Object2LongOpenHashMap<AEKey>();
+        for (var input : inputs) {
+            for (var entry : input) {
+                if (entry.getLongValue() > 0L) totals.mergeLong(entry.getKey(), entry.getLongValue(), Math::addExact);
+            }
         }
-        return false;
+        var reserved = new LinkedHashMap<AEKey, java.math.BigInteger>();
+        boolean dynamic = phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE;
+        int start = dynamic ? 0 : end - phase.steps().get(end).repeatWidth() + 1;
+        int finish = dynamic ? phase.taskIds().size() : end + 1;
+        for (int position = start; position < finish; position++) {
+            int otherId = dynamic ? phase.taskIds().get(position) : phase.steps().get(position).taskId();
+            if (otherId == candidate.taskId()) continue;
+            long pending = dynamic ? remainingDynamicFirings.get(phaseIndex).getOrDefault(otherId, 0L)
+                : orderedAllowance(phaseIndex, position);
+            if (pending <= 0L) continue;
+            var other = pattern(otherId);
+            for (AEKey key : totals.keySet()) {
+                if (!inputKeysByTaskId.get(otherId).contains(key)) continue;
+                if (!fixedProcessingInputs(other)) return Math.min(upper, witnessed);
+                for (var input : other.getInputs()) {
+                    var selected = input.getPossibleInputs()[0];
+                    if (key.equals(selected.what())) {
+                        var amount = java.math.BigInteger.valueOf(selected.amount())
+                            .multiply(java.math.BigInteger.valueOf(input.getMultiplier()))
+                            .multiply(java.math.BigInteger.valueOf(pending));
+                        reserved.merge(key, amount, java.math.BigInteger::add);
+                    }
+                }
+            }
+        }
+        if (reserved.isEmpty()) return upper;
+        var protectedSeeds = protectedStartupSeed(candidate);
+        long safe = upper;
+        for (var entry : reserved.entrySet()) {
+            var available = cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.amount(inventory, entry.getKey())
+                .subtract(java.math.BigInteger.valueOf(protectedSeeds.getOrDefault(entry.getKey(), 0L)))
+                .subtract(entry.getValue()).max(java.math.BigInteger.ZERO);
+            long crafts = available.divide(java.math.BigInteger.valueOf(totals.getLong(entry.getKey())))
+                .min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+            safe = Math.min(safe, crafts);
+        }
+        return Math.min(upper, Math.max(witnessed, safe));
     }
 
     private static boolean hasDynamicFirings(Int2LongMap dynamic) {
@@ -1125,6 +1260,8 @@ public final class ECOExecutionRuntime {
         var steps = plan.phases().get(phaseIndex).steps();
         long[] remaining = remainingSteps.get(phaseIndex);
         long[] laps = remainingLaps.get(phaseIndex);
+        long[] ahead = aheadSteps.get(phaseIndex);
+        Arrays.fill(ahead, 0L);
         int[] groupEnd = new int[steps.size()];
         for (int i = 0; i < groupEnd.length; i++) groupEnd[i] = i;
         for (int end = 0; end < steps.size(); end++) {
@@ -1146,13 +1283,22 @@ public final class ECOExecutionRuntime {
             }
             laps[end] = Math.max(1L, repetitions - complete);
             if (complete < repetitions) {
+                boolean batchable = batchGroupEnds.get(phaseIndex)[start] == end;
+                boolean groupPending = false;
                 for (int i = start; i <= end; i++) {
                     var step = steps.get(i);
-                    long consumed = prefix ? Math.min(step.count(), completedByTask[step.taskId()]) : 0L;
-                    remaining[i] -= consumed;
+                    long limit = batchable ? Math.multiplyExact(step.count(), laps[end]) : step.count();
+                    long consumed = prefix ? Math.min(limit, completedByTask[step.taskId()]) : 0L;
+                    long current = Math.min(step.count(), consumed);
+                    remaining[i] -= current;
+                    ahead[i] = consumed - current;
                     completedByTask[step.taskId()] -= consumed;
-                    if (remaining[i] > 0L) prefix = false;
+                    if (remaining[i] > 0L) {
+                        groupPending = true;
+                        if (!batchable) prefix = false;
+                    }
                 }
+                if (groupPending) prefix = false;
             }
             start = end + 1;
         }

@@ -59,6 +59,22 @@ class ECORepeatedCircuitRuntimeTest {
         });
     }
 
+    @Test void batchCreditsKeepPartialLapAndDoNotConsumeThePrefixOrTail() {
+        var fixture = fixture(3, 0, 0, true);
+        var runtime = fixture.runtime;
+        accept(runtime, fixture, 0, 5, 5);
+        accept(runtime, fixture, 0, 6, 3);
+        accept(runtime, fixture, 1, 3, 1);
+        var saved = new CompoundTag();
+        var registries = mock(HolderLookup.Provider.class);
+        runtime.writeToNBT(saved, registries);
+        runtime = ECOExecutionRuntime.fromNBT(fixture.plan, fixture.patterns, fixture.progress, saved, registries);
+        accept(runtime, fixture, 0, 3, 3);
+        accept(runtime, fixture, 1, 2, 2);
+        accept(runtime, fixture, 0, 3, 3);
+        assertTrue(runtime.isComplete());
+    }
+
     @Test void persistedPlanKeepsCircuitBoundariesAndLegacyStepsRemainReadable() {
         var fixture = fixture(1_000_000_000_000L, 0, 0);
         var registries = mock(HolderLookup.Provider.class);
@@ -107,8 +123,14 @@ class ECORepeatedCircuitRuntimeTest {
             ExecutingCraftingJob.TaskProgress[] progress, ECOExecutionRuntime runtime) {}
 
     private static Fixture fixture(long laps, long acceptedFirst, long acceptedSecond) {
+        return fixture(laps, acceptedFirst, acceptedSecond, false);
+    }
+
+    private static Fixture fixture(long laps, long acceptedFirst, long acceptedSecond, boolean processing) {
         var first = pattern();
         var second = pattern();
+        when(first.supportsPushInputsToExternalInventory()).thenReturn(processing);
+        when(second.supportsPushInputsToExternalInventory()).thenReturn(processing);
         var patterns = Map.of(0, first, 1, second);
         long[] totals = {Math.addExact(Math.multiplyExact(laps, 2L), 8L), laps};
         var tasks = java.util.stream.IntStream.range(0, 2).mapToObj(id -> new ECOExecutionPlan.TaskSpec(id,

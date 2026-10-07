@@ -75,6 +75,10 @@ final class ECOBatchDispatchPlanning {
         ECOBatchPlan plan(long capacity, long quota, double singlePower, IEnergyService energy, ECOBatchMode mode) {
             long upper = Math.min(request.allowedCrafts(), Math.min(arithmetic,
                     Math.min(Math.max(0, capacity), Math.max(0, quota))));
+            if (request.job().executionRuntime != null && request.candidate() != null) {
+                upper = request.job().executionRuntime.limitCycleBatch(request.candidate(), request.inputs(),
+                    request.inventory(), upper);
+            }
             if (mode == ECOBatchMode.SINGLE) upper = Math.min(upper, 1L);
             if (upper <= 0) return null;
             long material = upper;
