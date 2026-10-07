@@ -81,10 +81,16 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
-    private static final int VIRTUAL_COOLANT_PER_LANE_TICK = 10_000;
+    public static final int VIRTUAL_COOLANT_PER_LANE_TICK = 10_000;
     private static final long MODE_SWITCH_NOTICE_DURATION_MS = 3_000L;
     /** Highest overclock level the progress model can represent: 10 + 9 * 10 == MAX_PROGRESS. */
-    static final int MAX_OVERCLOCK_TIMES = 9;
+    public static final int MAX_OVERCLOCK_TIMES = 9;
+
+    public enum VirtualLaneStartResult {
+        STARTED,
+        COOLANT_UNAVAILABLE,
+        ENERGY_UNAVAILABLE
+    }
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -409,6 +415,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     /** Checks the flat lane coolant before paying the once-per-network-tick virtual power charge. */
     public boolean tryStartVirtualLaneTick() {
+        return tryStartVirtualLaneTickWithResult() == VirtualLaneStartResult.STARTED;
+    }
+
+    public VirtualLaneStartResult tryStartVirtualLaneTickWithResult() {
         boolean hasCoolant = true;
         if (isActiveCooling()) {
             hasCoolant = cluster != null && cluster.getNetworkCluster() != null
@@ -417,9 +427,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                     >= VIRTUAL_COOLANT_PER_LANE_TICK;
         }
         if (!hasCoolant) {
-            return false;
+            return VirtualLaneStartResult.COOLANT_UNAVAILABLE;
         }
-        return tryConsumeVirtualCraftingPower() && tryConsumeVirtualLaneCoolant();
+        if (!tryConsumeVirtualCraftingPower()) {
+            return VirtualLaneStartResult.ENERGY_UNAVAILABLE;
+        }
+        return tryConsumeVirtualLaneCoolant()
+            ? VirtualLaneStartResult.STARTED : VirtualLaneStartResult.COOLANT_UNAVAILABLE;
     }
 
     public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
@@ -840,7 +854,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private CraftingHostPanelUI.Config createCraftingPanelConfig(Player player) {
         return new CraftingHostPanelUI.Config(
             this::getCraftingDisplayTitle,
-            this::getModeSwitchBlockedNotice,
+            this::getCraftingStatusNotice,
             () -> Math.max(1, getCapabilitySnapshot().networkMultiplier()),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             this::isOverclocked,
@@ -908,10 +922,61 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             : Component.empty();
     }
 
-    private Component getMaintenanceStatusTooltip() {
+    Component getCraftingStatusNotice() {
+        Component modeNotice = getModeSwitchBlockedNotice();
+        return modeNotice.getString().isEmpty() ? getVirtualCraftingBlockedNotice() : modeNotice;
+    }
+
+    Component getVirtualCraftingBlockedNotice() {
+        if (!isFullVirtualCraftingMode()) return Component.empty();
+        int coolantTier = getDisplayedCoolingMaxOverclock();
+        if (isActiveCooling() && coolantTier >= 0 && coolantTier < MAX_OVERCLOCK_TIMES) {
+            return Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_tier",
+                coolantTier, MAX_OVERCLOCK_TIMES);
+        }
+        return switch (getVirtualCraftingBlockedResult()) {
+            case COOLANT_UNAVAILABLE -> Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant");
+            case ENERGY_UNAVAILABLE -> Component.translatable("gui.neoecoae.crafting.virtual_blocked.energy");
+            case STARTED -> Component.empty();
+        };
+    }
+
+    private VirtualLaneStartResult getVirtualCraftingBlockedResult() {
+        if (!isFullVirtualCraftingMode() || getRunningThreadCount() <= 0) return VirtualLaneStartResult.STARTED;
+        // Use the same network-wide worker population as the task list. Successful lanes cannot hide a
+        // different lane's failure, and querying diagnostics never probes or charges resources again.
+        long tick = TickHandler.instance().getCurrentTick();
+        VirtualLaneStartResult result = VirtualLaneStartResult.STARTED;
+        for (ECOCraftingWorkerBlockEntity worker : collectDisplayedWorkers()) {
+            if (worker.isRemoved()) continue;
+            VirtualLaneStartResult blocked = worker.getVirtualCraftingBlockedResult(tick);
+            if (blocked == VirtualLaneStartResult.COOLANT_UNAVAILABLE) return blocked;
+            if (blocked == VirtualLaneStartResult.ENERGY_UNAVAILABLE) result = blocked;
+        }
+        return result;
+    }
+
+    Component getMaintenanceStatusTooltip() {
         List<Component> lines = new ArrayList<>();
         CraftingCapabilitySnapshot snapshot = getCapabilitySnapshot();
         if (formed && snapshot.virtualMode()) {
+            Component blocked = getVirtualCraftingBlockedNotice();
+            if (!blocked.getString().isEmpty()) {
+                MutableComponent result = Component.translatable("gui.neoecoae.crafting.virtual_blocked.title")
+                    .withColor(0xFFFF5555)
+                    .append("\n").append(blocked)
+                    .append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_required",
+                        MAX_OVERCLOCK_TIMES, VIRTUAL_COOLANT_PER_LANE_TICK))
+                    .append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.energy_required",
+                        NECraftingNetworkCluster.VIRTUAL_CRAFTING_POWER_PER_TICK));
+                int coolantTier = getDisplayedCoolingMaxOverclock();
+                // Only lower-tier buffers need to be emptied outside virtual execution.
+                if (coolantTier >= 0 && coolantTier < MAX_OVERCLOCK_TIMES) {
+                    result.append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_hint"));
+                    result.append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_recovery"));
+                }
+                return result;
+            }
             return Component.translatable("gui.neoecoae.crafting.virtual_status.infinite")
                 .withColor(0xFF55FF8A);
         }
