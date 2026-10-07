@@ -58,7 +58,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 
-// Include Data Energistics' merged long-amount planning entry point (priority 1000).
+// Include Data Energistics, OmniSequence, and AppliedEnhancements merged long-amount planning entry points (priority 1000).
 @Mixin(value = CraftConfirmMenu.class, priority = 1100)
 public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
@@ -303,7 +303,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$cyclePlanningEnabled = settings != null && settings.neoecoae$isCyclePlanningEnabled();
     }
 
-    @Inject(method = {"planJob", "data_energistics$planJob"}, at = @At("HEAD"))
+    @Inject(
+        method = {
+            "planJob",
+            "data_energistics$planJob",
+            "molecularmanipulator$planLong",
+            "appliedenhancements$planLong",
+            "appliedenhancements$planRequested",
+            "appliedenhancements$planExact"
+        },
+        at = @At("HEAD"),
+        require = 0
+    )
     private void resetPlannerDiagnostics(CallbackInfoReturnable<Boolean> cir) {
         neoecoae$planningDiagnostic = "";
         neoecoae$showFastPlannerReport = false;
@@ -325,7 +336,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
      * Disabled requests retain the original service path.
      */
     @WrapOperation(
-        method = {"planJob", "data_energistics$planJob"},
+        method = {
+            "planJob",
+            "data_energistics$planJob",
+            "molecularmanipulator$planLong",
+            "appliedenhancements$planRequested"
+        },
         at = @At(
             value = "INVOKE",
             target = "Lappeng/api/networking/crafting/ICraftingService;beginCraftingCalculation("
@@ -335,7 +351,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 + "J"
                 + "Lappeng/api/networking/crafting/CalculationStrategy;"
                 + ")Ljava/util/concurrent/Future;"
-        )
+        ),
+        require = 0
     )
     private Future<ICraftingPlan> neoecoae$routeEcoPlanningRequest(
             ICraftingService service,

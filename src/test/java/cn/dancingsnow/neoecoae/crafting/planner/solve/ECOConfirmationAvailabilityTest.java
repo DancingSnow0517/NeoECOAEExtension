@@ -39,4 +39,34 @@ class ECOConfirmationAvailabilityTest {
         assertEquals(21864722041L, entries.getValue().getFirst().getStoredAmount());
         assertEquals(115481708064L, entries.getValue().getFirst().getMissingAmount());
     }
+
+    @Test
+    void confirmMenuInterceptsModdedLongPlanningEntryPoints() throws Exception {
+        var resetMethod = CraftConfirmMenuMixin.class.getDeclaredMethod(
+            "resetPlannerDiagnostics",
+            org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable.class
+        );
+        var inject = resetMethod.getAnnotation(org.spongepowered.asm.mixin.injection.Inject.class);
+        assertNotNull(inject);
+        List<String> injectTargets = List.of(inject.method());
+        assertTrue(injectTargets.contains("molecularmanipulator$planLong"));
+        assertTrue(injectTargets.contains("appliedenhancements$planLong"));
+        assertTrue(injectTargets.contains("appliedenhancements$planRequested"));
+
+        var routeMethod = CraftConfirmMenuMixin.class.getDeclaredMethod(
+            "neoecoae$routeEcoPlanningRequest",
+            appeng.api.networking.crafting.ICraftingService.class,
+            net.minecraft.world.level.Level.class,
+            appeng.api.networking.crafting.ICraftingSimulationRequester.class,
+            AEKey.class,
+            long.class,
+            appeng.api.networking.crafting.CalculationStrategy.class,
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation.class
+        );
+        var wrapOp = routeMethod.getAnnotation(com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation.class);
+        assertNotNull(wrapOp);
+        List<String> wrapTargets = List.of(wrapOp.method());
+        assertTrue(wrapTargets.contains("molecularmanipulator$planLong"));
+        assertTrue(wrapTargets.contains("appliedenhancements$planRequested"));
+    }
 }
