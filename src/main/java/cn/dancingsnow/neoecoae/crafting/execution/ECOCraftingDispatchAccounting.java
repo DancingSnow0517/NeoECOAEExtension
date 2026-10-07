@@ -56,6 +56,7 @@ final class ECOCraftingDispatchAccounting {
             beforeNotifications.run();
             dispatchEvent.accept(new ECOCraftingDispatchEvent(contextFactory.apply(job), request.pattern(),
                 batch.craftCount(), provider));
+            cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.flushAfterCpuAccounting(provider);
             batch.outputs().keySet().forEach(postChange);
             batch.remainders().keySet().forEach(postChange);
             markDirty.run();
@@ -97,6 +98,7 @@ final class ECOCraftingDispatchAccounting {
             if (provider != null) {
                 dispatchEvent.accept(new ECOCraftingDispatchEvent(
                         contextFactory.apply(request.job()), request.pattern(), result.acceptedCrafts(), provider));
+                cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.flushAfterCpuAccounting(provider);
             }
             for (var output : request.pattern().getOutputs()) {
                 postChange.accept(output.what());

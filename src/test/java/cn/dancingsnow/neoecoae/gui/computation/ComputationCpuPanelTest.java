@@ -2,8 +2,11 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
@@ -113,16 +116,44 @@ class ComputationCpuPanelTest {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var config = settingsConfig();
-            UIElement settings = new ComputationSettingsPanel(config);
-            for (String id : List.of("computation-settings-cpu-mode", "computation-settings-frequency")) {
-                serverClick(find(settings, id), 0);
-                serverClick(find(settings, id), 1);
+            UIElement root = ComputationHostPanelUI.create(config, new UIElement(), new UIElement(), new UIElement());
+            UIElement main = root.getChildren().getFirst();
+            UIElement settings = find(root, "computation-settings");
+            for (String id : List.of("computation-cpu-mode", "computation-frequency")) {
+                assertNull(find(settings, id));
+                serverClick(find(main, id), 0);
+                serverClick(find(main, id), 1);
             }
 
             verify(config.adjustCpuSelectionMode()).accept(1);
             verify(config.adjustCpuSelectionMode()).accept(-1);
             verify(config.adjustNetworkFrequency()).accept(1);
             verify(config.adjustNetworkFrequency()).accept(-1);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void returnTabUsesAe2NativeSpritesWithoutShrinkingOnHoverOrPress(boolean focused) {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var settings = new ComputationSettingsPanel(settingsConfig());
+            settings.addBackButton(() -> {});
+            Button button = spy((Button) find(settings, "computation-settings-back"));
+            doReturn(focused).when(button).isFocused();
+            doReturn(12F).when(button).getPositionX();
+            doReturn(34F).when(button).getPositionY();
+            ECOIcon background = focused ? ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS : ECOIcon.TAB_BUTTON_BACKGROUND;
+            GUIContext context = mock(GUIContext.class);
+            for (Button.State state : Button.State.values()) {
+                doReturn(state).when(button).getState();
+                clearInvocations(context);
+
+                button.drawBackgroundAdditional(context);
+
+                verify(context).drawTexture(AETextures.icon(background), 12F, 34F, background.width, background.height);
+                verify(context).drawTexture(AETextures.icon(ECOIcon.BACK), 14F, 35F, 16F, 16F);
+            }
         }
     }
 

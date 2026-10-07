@@ -75,7 +75,11 @@ public final class ComputationHostPanelUI {
             settings.setDisplay(false);
             main.setDisplay(true);
         });
-        main.addChildren(HostSideButtonBar.left(guideButton, buildButton, open), buildWindow);
+        Button cpuMode = createCpuSelectionButton(config);
+        cpuMode.setId("computation-cpu-mode");
+        Button frequency = createNetworkFrequencyButton(config);
+        frequency.setId("computation-frequency");
+        main.addChildren(HostSideButtonBar.left(guideButton, buildButton, cpuMode, frequency, open), buildWindow);
         root.addChildren(main, settings);
         return root;
     }
