@@ -477,11 +477,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (batch.recipe != null || level == null) return batch.recipe;
 
         if (batch.recipeId != null) {
-            for (var adapted : LargeWorkstationRecipes.getAll(level)) {
-                if (adapted.id().equals(batch.recipeId)) {
-                    batch.recipe = adapted.display();
-                    return batch.recipe;
-                }
+            var adapted = LargeWorkstationRecipes.getById(level, batch.recipeId);
+            if (adapted != null) {
+                batch.recipe = adapted.display();
+                return batch.recipe;
             }
             var holder = level.getRecipeManager().byKey(batch.recipeId).orElse(null);
             if (holder != null && holder.value() instanceof IntegratedWorkingStationRecipe recipe) {

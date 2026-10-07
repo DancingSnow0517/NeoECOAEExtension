@@ -24,7 +24,7 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
     @Override public Component getTitle() { return Component.translatable("category.neoecoae.large_integrated_working_station"); }
     @Override public IDrawable getIcon() { return layout.getIcon(); }
     @Override public int getWidth() { return layout.getWidth(); }
-    @Override public int getHeight() { return 103; }
+    @Override public int getHeight() { return 139; }
 
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, LargeWorkstationRecipe recipe, IFocusGroup focuses) {
@@ -45,5 +45,6 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
             builder.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_cost",
                 extra.amount(), extra.what().getDisplayName()), 168, 26).setPosition(0, 78).setColor(0x403e53);
         }
+        builder.addText(recipe.sourceTypeDescription(), 168, 34).setPosition(0, 105).setColor(0x403e53);
     }
 }

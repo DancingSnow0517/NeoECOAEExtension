@@ -80,6 +80,17 @@ public class NEConfig {
             "This may add event/listener overhead, especially when mods such as Balm are installed.")
         .define("postCraftingEvent", false);
 
+    private static final ModConfigSpec.BooleanValue LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED = BUILDER
+        .comment(
+            "允许大型集成工作站处理受支持模组的联动配方，默认关闭。",
+            "关闭时仅处理本模组的集成工作站配方。",
+            "修改后重新进入世界或重启服务器，以刷新配方浏览器。",
+            "Allow the large integrated workstation to process supported mods' recipes. Disabled by default.",
+            "When disabled, only native integrated workstation recipes are available.",
+            "Reopen the world or restart the server after changing this option to refresh recipe viewers.")
+        .worldRestart()
+        .define("largeWorkstationCompatRecipesEnabled", false);
+
     private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
         .comment(
             "一个 ECO 智能样板总线提供的样板页数。",
@@ -219,6 +230,7 @@ public class NEConfig {
     public static int storageSystemMaxLength;
     public static long megaBulkAutoMarkThreshold = 20_000L;
     public static boolean postCraftingEvent;
+    public static boolean largeWorkstationCompatRecipesEnabled = false;
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
@@ -247,6 +259,7 @@ public class NEConfig {
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         megaBulkAutoMarkThreshold = MEGA_BULK_AUTO_MARK_THRESHOLD.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
+        largeWorkstationCompatRecipesEnabled = LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);

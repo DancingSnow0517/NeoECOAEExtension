@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
@@ -15,12 +16,18 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -32,6 +39,16 @@ import static org.mockito.Mockito.*;
 
 class LargeWorkstationRecipeTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+
+    private boolean previousCompatEnabled;
+
+    @BeforeEach void saveConfig() {
+        previousCompatEnabled = NEConfig.largeWorkstationCompatRecipesEnabled;
+    }
+
+    @AfterEach void restoreConfig() {
+        NEConfig.largeWorkstationCompatRecipesEnabled = previousCompatEnabled;
+    }
 
     @Test void overlappingTagsCanReassignEarlierAllocations() {
         assertTrue(LargeWorkstationRecipe.matchesQuantities(new long[]{5, 5}, new long[]{5, 5},
@@ -265,7 +282,109 @@ class LargeWorkstationRecipeTest {
         var recipes = LargeWorkstationRecipes.getAll(manager, registries);
         assertEquals(1, recipes.size());
         assertEquals(nativeRecipe, recipes.getFirst());
+        verify(recipe, never()).getType();
         verify(recipe, never()).getSerializer();
+    }
+
+    @Test void enablingCompatRecipesAdaptsRealCodecAndSwitchingInvalidatesCache() {
+        assertFalse(NEConfig.largeWorkstationCompatRecipesEnabled);
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        var ops = registries.createSerializationContext(JsonOps.INSTANCE);
+        var serializer = new com.moakiee.ae2lt.machine.lightningassembly.recipe.LightningAssemblyRecipe.Serializer();
+        var optional = spy(serializer.codec().codec().parse(ops, JsonParser.parseString("""
+            {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
+             "totalEnergy":1000,"result":{"id":"minecraft:diamond","count":2}}
+            """)).getOrThrow());
+        doReturn(RecipeType.simple(ResourceLocation.parse("ae2lt:lightning_assembly"))).when(optional).getType();
+        doReturn(serializer).when(optional).getSerializer();
+        var optionalId = ResourceLocation.parse("test:compat");
+        var nativeRecipe = nativeRecipe(new ItemStack(Items.DIAMOND, 2));
+        var manager = mock(RecipeManager.class);
+        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(optionalId, optional),
+            new RecipeHolder<>(nativeRecipe.id(), nativeRecipe.display())));
+
+        var disabled = LargeWorkstationRecipes.getAll(manager, registries);
+        assertEquals(List.of(nativeRecipe), disabled);
+        verify(optional, never()).getSerializer();
+
+        NEConfig.largeWorkstationCompatRecipesEnabled = true;
+        var enabled = LargeWorkstationRecipes.getAll(manager, registries);
+        assertEquals(1, enabled.size());
+        assertFalse(enabled.contains(nativeRecipe));
+        var adapted = enabled.stream().filter(recipe -> recipe.id().equals(optionalId)).findFirst().orElseThrow();
+        assertTrue(adapted.matches(items(Items.IRON_INGOT, 4), items(Items.DIAMOND, 2)));
+        assertEquals(4, adapted.extraInputs().getFirst().amount());
+        assertEquals(ResourceLocation.parse("ae2lt:lightning_assembly"), adapted.sourceType());
+        assertSame(enabled, LargeWorkstationRecipes.getAll(manager, registries));
+        assertEquals(nativeRecipe, LargeWorkstationRecipes.getById(manager, registries, nativeRecipe.id()));
+        assertSame(adapted, LargeWorkstationRecipes.getById(manager, registries, optionalId));
+
+        NEConfig.largeWorkstationCompatRecipesEnabled = false;
+        var disabledAgain = LargeWorkstationRecipes.getAll(manager, registries);
+        assertEquals(List.of(nativeRecipe), disabledAgain);
+        assertNotSame(enabled, disabledAgain);
+        assertSame(disabledAgain, LargeWorkstationRecipes.getAll(manager, registries));
+        assertNull(LargeWorkstationRecipes.getById(manager, registries, optionalId));
+
+        NEConfig.largeWorkstationCompatRecipesEnabled = true;
+        var enabledAgain = LargeWorkstationRecipes.getAll(manager, registries);
+        assertEquals(enabled.stream().map(LargeWorkstationRecipe::id).toList(),
+            enabledAgain.stream().map(LargeWorkstationRecipe::id).toList());
+        var adaptedAgain = enabledAgain.stream().filter(recipe -> recipe.id().equals(optionalId)).findFirst().orElseThrow();
+        assertTrue(adaptedAgain.matches(items(Items.IRON_INGOT, 4), items(Items.DIAMOND, 2)));
+        assertEquals(adapted.energy(), adaptedAgain.energy());
+        assertEquals(adapted.extraInputs(), adaptedAgain.extraInputs());
+        verify(optional, times(2)).getSerializer();
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void unrelatedRecipesNeverReadTheirSerializers(boolean compatEnabled) {
+        NEConfig.largeWorkstationCompatRecipesEnabled = compatEnabled;
+        var recipe = mock(Recipe.class);
+        doReturn(RecipeType.simple(ResourceLocation.parse("test:unrelated"))).when(recipe).getType();
+        var manager = mock(RecipeManager.class);
+        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(ResourceLocation.parse("test:unrelated"), recipe)));
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        assertTrue(LargeWorkstationRecipes.getAll(manager, registries).isEmpty());
+        verify(recipe, never()).getSerializer();
+    }
+
+    @Test void discardedOptionalRecipeRemainsAddressableWithOriginalCostsUntilReloadRemovesIt() {
+        NEConfig.largeWorkstationCompatRecipesEnabled = true;
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        var ops = registries.createSerializationContext(JsonOps.INSTANCE);
+        var serializer = new com.moakiee.ae2lt.machine.lightningassembly.recipe.LightningAssemblyRecipe.Serializer();
+        var expensive = spy(serializer.codec().codec().parse(ops, JsonParser.parseString("""
+            {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
+             "totalEnergy":2000,"lightningCost":7,"result":{"id":"minecraft:diamond"}}
+            """)).getOrThrow());
+        var cheaper = spy(serializer.codec().codec().parse(ops, JsonParser.parseString("""
+            {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
+             "totalEnergy":1000,"lightningCost":4,"result":{"id":"minecraft:diamond"}}
+            """)).getOrThrow());
+        var type = RecipeType.simple(ResourceLocation.parse("ae2lt:lightning_assembly"));
+        doReturn(type).when(expensive).getType();
+        doReturn(serializer).when(expensive).getSerializer();
+        doReturn(type).when(cheaper).getType();
+        doReturn(serializer).when(cheaper).getSerializer();
+        var expensiveId = ResourceLocation.parse("ae2lt:expensive");
+        var cheaperId = ResourceLocation.parse("ae2lt:cheaper");
+        var manager = mock(RecipeManager.class);
+        var cheaperHolder = new RecipeHolder<>(cheaperId, cheaper);
+        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(expensiveId, expensive), cheaperHolder));
+
+        var listed = LargeWorkstationRecipes.getAll(manager, registries);
+        assertEquals(List.of(cheaperId), listed.stream().map(LargeWorkstationRecipe::id).toList());
+        var savedBatchRecipe = LargeWorkstationRecipes.getById(manager, registries, expensiveId);
+        assertNotNull(savedBatchRecipe);
+        assertTrue(savedBatchRecipe.energy() > listed.getFirst().energy());
+        assertEquals(7, savedBatchRecipe.extraInputs().getFirst().amount());
+        assertSame(savedBatchRecipe, LargeWorkstationRecipes.getById(manager, registries, expensiveId));
+
+        when(manager.getRecipes()).thenReturn(List.of(cheaperHolder));
+        assertNull(LargeWorkstationRecipes.getById(manager, registries, expensiveId));
+        assertEquals(List.of(cheaperId), LargeWorkstationRecipes.getAll(manager, registries).stream()
+            .map(LargeWorkstationRecipe::id).toList());
     }
 
     @Test void nativeRecipesAreDiscoveredAndReloadReplacesCache() {
@@ -280,6 +399,7 @@ class LargeWorkstationRecipeTest {
         assertSame(first, LargeWorkstationRecipes.getAll(manager, registries));
         when(manager.getRecipes()).thenReturn(List.of());
         assertTrue(LargeWorkstationRecipes.getAll(manager, registries).isEmpty());
+        assertNull(LargeWorkstationRecipes.getById(manager, registries, recipe.id()));
     }
 
     private static LargeWorkstationRecipe nativeRecipe(ItemStack output) {

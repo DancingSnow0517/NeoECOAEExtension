@@ -30,6 +30,13 @@ public class ConfigLangs {
             "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n" +
                 "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
         );
+        provider.add("neoecoae.configuration.largeWorkstationCompatRecipesEnabled", "Enable Large Workstation Recipe Compatibility");
+        provider.add(
+            "neoecoae.configuration.largeWorkstationCompatRecipesEnabled.tooltip",
+            "Allow the large integrated workstation to process supported mods' recipes. Disabled by default.\n" +
+                "When disabled, only native integrated workstation recipes are available.\n" +
+                "Reopen the world or restart the server after changing this option to refresh recipe viewers."
+        );
         provider.add("neoecoae.configuration.craftingPatternBusPages", "Crafting Pattern Bus Pages");
         provider.add(
             "neoecoae.configuration.craftingPatternBusPages.tooltip",

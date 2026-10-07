@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.WidgetHolder;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -24,23 +25,25 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
     private final IntegratedWorkingStationRecipe recipe;
     private final long energy;
     private final List<GenericStack> extraInputs;
+    private final Component sourceType;
 
     public IntegrationWorkingStationEmiRecipe(RecipeHolder<IntegratedWorkingStationRecipe> holder) {
-        this(NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION, holder.id(), holder.value(), holder.value().energy(), List.of(), false);
+        this(NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION, holder.id(), holder.value(), holder.value().energy(), List.of(), null);
     }
 
     public IntegrationWorkingStationEmiRecipe(LargeWorkstationRecipe recipe) {
         this(NeoECOAEEmiPlugin.LARGE_WORKING_STATION,
             NeoECOAE.id("/large_workstation/" + recipe.id().getNamespace() + "/" + recipe.id().getPath()),
-            recipe.display(), recipe.energy(), recipe.extraInputs(), true);
+            recipe.display(), recipe.energy(), recipe.extraInputs(), recipe.sourceTypeDescription());
     }
 
     private IntegrationWorkingStationEmiRecipe(EmiRecipeCategory category, ResourceLocation id,
-        IntegratedWorkingStationRecipe recipe, long energy, List<GenericStack> extraInputs, boolean large) {
-        super(category, id, 168, large ? 103 : 75);
+        IntegratedWorkingStationRecipe recipe, long energy, List<GenericStack> extraInputs, Component sourceType) {
+        super(category, id, 168, sourceType != null ? 139 : 75);
         this.recipe = recipe;
         this.energy = energy;
         this.extraInputs = extraInputs;
+        this.sourceType = sourceType;
 
         // item inputs
         for (SizedIngredient inputItem : recipe.inputItems()) {
@@ -80,6 +83,14 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
             widgets.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_amount",
                 extra.amount()), 0, 79, 0x403e53, false);
             widgets.addText(extra.what().getDisplayName(), 0, 91, 0x403e53, false);
+        }
+        if (sourceType != null) {
+            var font = Minecraft.getInstance().font;
+            var lines = font.split(sourceType, 168);
+            for (int i = 0; i < lines.size(); i++) {
+                widgets.addText(lines.get(i), 0, 105 + i * font.lineHeight, 0x403e53, false);
+            }
+            widgets.addTooltipText(List.of(sourceType), 0, 105, 168, 34);
         }
 
         // input fluid

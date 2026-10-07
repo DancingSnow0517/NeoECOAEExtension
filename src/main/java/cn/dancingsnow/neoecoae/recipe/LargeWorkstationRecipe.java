@@ -4,6 +4,7 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayDeque;
@@ -13,10 +14,22 @@ import java.util.List;
 
 /** Runtime-only recipe contract. Never registered in the single-block recipe type. */
 public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
-                                     long energy, List<GenericStack> extraInputs) {
+                                     long energy, List<GenericStack> extraInputs, ResourceLocation sourceType) {
+    public static final ResourceLocation NATIVE_TYPE = ResourceLocation.parse("neoecoae:integrated_working_station");
+
+    public LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
+                                  long energy, List<GenericStack> extraInputs) {
+        this(id, display, energy, extraInputs, NATIVE_TYPE);
+    }
+
     public LargeWorkstationRecipe {
         if (energy < 0) throw new IllegalArgumentException("Negative recipe energy");
+    }
 
+    public Component sourceTypeDescription() {
+        return Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_type",
+            Component.translatable("recipe_type.neoecoae." + sourceType.getNamespace() + "."
+                + sourceType.getPath().replace('/', '.')));
     }
 
     public boolean matches(KeyCounter inputs, KeyCounter outputs) {

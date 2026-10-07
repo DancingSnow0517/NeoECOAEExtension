@@ -10,6 +10,17 @@ public class GuiLangs {
         provider.add("gui.neoecoae.large_integrated_working_station.lightning_cost", "ME: %s \u00d7 %s");
         provider.add("gui.neoecoae.large_integrated_working_station.lightning_amount", "Lightning from ME: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy", "Energy: %s AE");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_type", "Source recipe type: %s");
+        provider.add("recipe_type.neoecoae.neoecoae.integrated_working_station", "ECO: Integrated Working Station");
+        provider.add("recipe_type.neoecoae.ae2lt.overload_processing", "AE2LT: Overload Processing");
+        provider.add("recipe_type.neoecoae.ae2lt.lightning_assembly", "AE2LT: Lightning Assembly");
+        provider.add("recipe_type.neoecoae.ae2lt.lightning_simulation", "AE2LT: Lightning Simulation");
+        provider.add("recipe_type.neoecoae.ae2cs.circuit_etcher_recipe", "AE2CS: Circuit Etching");
+        provider.add("recipe_type.neoecoae.ae2cs.crystal_aggregator_recipe", "AE2CS: Crystal Aggregation");
+        provider.add("recipe_type.neoecoae.appgen.synthesizing", "Applied Generators: Synthesizing");
+        provider.add("recipe_type.neoecoae.advanced_ae.reaction", "AdvancedAE: Reaction Chamber");
+        provider.add("recipe_type.neoecoae.extendedae_plus.crystal_assembler_plus", "ExtendedAE Plus: Crystal Assembling");
+        provider.add("recipe_type.neoecoae.extendedae.crystal_assembler", "ExtendedAE: Crystal Assembling");
         provider.add("gui.neoecoae.large_integrated_working_station.auto_build", "Auto-build Large Integrated Working Station");
         provider.add("gui.neoecoae.large_integrated_working_station.return_inputs", "Return Stored Inputs");
         // integrated working station
