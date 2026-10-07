@@ -16,7 +16,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Useless deliberately permits selected input slots to match by item id or tag. The encoded primary stack is
  * still a valid concrete choice, so ECO may commit the plan to it and record substitution semantics. Dynamic output
  * quantities are also fixed: Useless's CPU output bridge claims actual component variants against the encoded
- * template. These patterns are valid for acyclic planning, but cannot prove an exact component-preserving cycle.
+ * template. Fixed-output recipes without returned inputs can also form a verified cycle using the selected
+ * concrete ingredients. Dynamic output components and relaxed reusable returns still need a separate proof.
  */
 public final class UselessPatternSemanticAdapter implements PatternSemanticAdapter {
     private final AE2PatternSemanticAdapter delegate = new AE2PatternSemanticAdapter();
@@ -49,7 +50,11 @@ public final class UselessPatternSemanticAdapter implements PatternSemanticAdapt
                 base.producedOutputs(), base.returnedOutputs(), base.feedbackEdges(),
                 relaxedInput || dynamicOutputs ? PatternSemantics.MatchingMode.SUBSTITUTION : base.matchingMode(),
                 PatternSemantics.ExecutionRestriction.NONE, true,
-                base.cycleSafe() && !relaxedInput && !dynamicOutputs, null);
+                // Input alternatives broaden what the machine accepts; they do not change a fixed output.
+                // Commit ordinary consumed inputs to concrete keys, while excluding relaxed returned stock
+                // whose component identity could change during a lap.
+                base.cycleSafe() && !dynamicOutputs
+                    && (!relaxedInput || base.returnedOutputs().isEmpty()), null);
         } catch (RuntimeException rejected) {
             return PatternSemantics.unsupported(pattern, base.physicalDefinition(),
                 "USELESS_SEMANTIC_ANALYSIS_FAILED:" + rejected.getClass().getSimpleName());

@@ -29,6 +29,7 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.DynamicComponentPattern;
 import com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.DynamicPatternCpuStateManager;
 import com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.ScaledPattern;
+import com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.OmniversalPatternDetails;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /** Tests the released Useless interfaces without relying on a running Mixin environment. */
 class UselessPatternPlanningTest {
@@ -52,6 +55,63 @@ class UselessPatternPlanningTest {
     private final AEItemKey dust = AEItemKey.of(Items.REDSTONE);
 
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+
+    @ParameterizedTest
+    @CsvSource({"2,1", "2,5000", "8,1", "8,5000", "8,1000000"})
+    void omniversalCrystalCycleVerifiesTheWholeOrderAndReportedSeed(long storedCrystals, long amount) throws Exception {
+        AEKey crystal = AEItemKey.of(Items.DIAMOND);
+        AEKey seed = AEItemKey.of(Items.PUMPKIN_SEEDS);
+        AEKey powder = AEItemKey.of(Items.GLOWSTONE_DUST);
+        var grow = pattern(OmniversalPatternDetails.class, crystal, 1, new GenericStack(seed, 1));
+        var crush = pattern(OmniversalPatternDetails.class, powder, 1, new GenericStack(crystal, 1));
+        var makeSeeds = pattern(OmniversalPatternDetails.class, seed, 32,
+            new GenericStack(powder, 8), new GenericStack(stabilizer, 4), new GenericStack(dust, 4));
+        for (var pattern : List.of(grow, crush, makeSeeds)) {
+            for (int slot = 0; slot < pattern.getInputs().length; slot++) {
+                when(pattern.isItemIdInput(slot)).thenReturn(true);
+            }
+        }
+        when(makeSeeds.isTagInput(1)).thenReturn(true);
+        var service = mock(ICraftingService.class);
+        when(service.getCraftingFor(crystal)).thenReturn(List.of(grow));
+        when(service.getCraftingFor(powder)).thenReturn(List.of(crush));
+        when(service.getCraftingFor(seed)).thenReturn(List.of(makeSeeds));
+        var network = new CraftingNetworkCompiler().compile(service, crystal, true, ECOCancellation.NONE);
+        var inventory = new KeyCounter();
+        inventory.add(crystal, storedCrystals);
+        inventory.add(stabilizer, Long.MAX_VALUE);
+        inventory.add(dust, Long.MAX_VALUE);
+        var outcome = plan(network, inventory, amount);
+        if (storedCrystals < 8) {
+            assertEquals(PlanningStatus.MISSING_ITEMS, outcome.status(), outcome.trace().diagnostics().toString());
+            var cycle = outcome.trace().cycles().getFirst().solveResult();
+            assertTrue(cycle.hasExactExecutionCounts(), cycle.summary());
+            assertTrue(cycle.diagnostics().stream().anyMatch(d -> d.code()
+                == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveDiagnostic.Code.FULL_ORDER_MATERIAL_DEFICIT));
+            assertEquals(6L, outcome.state().missingItems().get(powder));
+            assertEquals(1, outcome.state().missingItems().size());
+            assertFalse(cycle.diagnostics().stream().anyMatch(d -> d.code()
+                == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveDiagnostic.Code.SEED_ESTIMATE_LOWER_BOUND));
+            outcome.state().missingItems().forEach(entry -> inventory.add(entry.getKey(), entry.getLongValue()));
+            outcome = plan(network, inventory, amount);
+        }
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), outcome.trace().diagnostics().toString());
+        assertTrue(outcome.state().missingItems().isEmpty());
+        var cycle = outcome.trace().cycles().getFirst().solveResult();
+        assertTrue(cycle.deliverableOutputs().get(crystal) >= storedCrystals + amount);
+        assertTrue(cycle.executionPlan().size() < 100);
+        outcome.state().executionProvenance().requireComplete();
+    }
+
+    @Test void fixedOutputWithRelaxedOrdinaryInputsCanProveACycle() {
+        var pattern = pattern(OmniversalPatternDetails.class, result, 1,
+            new GenericStack(stabilizer, 1));
+        when(pattern.isItemIdInput(0)).thenReturn(true);
+        assertTrue(adapter.analyze(pattern).cycleSafeForStaticPlanning());
+        when(pattern.usesDynamicOutputs()).thenReturn(true);
+        assertFalse(adapter.analyze(pattern).cycleSafeForStaticPlanning(),
+            "Runtime-dependent output components still require a separate proof");
+    }
 
     @Test void dynamicOutputPreservesDeclaredAmountsAndPhysicalPattern() {
         var pattern = ritual();

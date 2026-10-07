@@ -482,6 +482,89 @@ class ComponentPlannerMissingSeedTest {
     }
 
     @Test
+    void largeSeededTemplateOrderReportsMissingNetherrackInsteadOfUnresolvedCycle() throws Exception {
+        AEKey template = mock(AEKey.class, "netherite_upgrade_smithing_template");
+        AEKey diamond = mock(AEKey.class, "diamond"), netherrack = mock(AEKey.class, "netherrack");
+        for (AEKey key : List.of(template, diamond, netherrack)) when(key.getAmountPerByte()).thenReturn(8);
+        var growth = staticPattern(0, template, 2L, new GenericStack(template, 1L),
+            new GenericStack(diamond, 7L), new GenericStack(netherrack, 1L));
+        var network = new CompiledNetwork(template,
+            Map.of(template, List.of(growth), diamond, List.of(), netherrack, List.of()), Set.of(), 1, 3);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var inventory = new KeyCounter();
+        long amount = 12_312_312L;
+        inventory.add(template, 1L);
+        inventory.add(diamond, 7L * amount);
+        inventory.add(netherrack, 48_180L);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var outcome = planner.planWithCycleFallback(network, condensation,
+            planner.selectRoutes(condensation, true, ECOCancellation.NONE), inventory,
+            PlannerInventorySnapshot.of(inventory), amount, false, ECOCancellation.NONE);
+
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertEquals(12_264_132L, outcome.state().missingItems().get(netherrack));
+        assertEquals(0L, outcome.state().missingItems().get(template));
+        assertEquals(0L, outcome.state().missingItems().get(diamond));
+        var component = outcome.components().stream()
+            .filter(c -> c.type() == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
+            .findFirst().orElseThrow();
+        assertEquals(CycleSolveStatus.SUCCESS, component.cycleResult().status());
+        assertEquals(PlannerAmount.of(amount), component.cycleResult().plannerTotalFirings());
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.CycleExternalDemandStatus.MISSING,
+            component.externalDemandStatus());
+        assertEquals(CycleExecutionDisposition.BLOCKED, component.cycleDisposition());
+        assertTrue(outcome.state().patternTimes().isEmpty(), "Missing cycle must remain uncommitted");
+        var missingPlan = new AE2CraftingPlanBridge().success(template, amount, true, false, outcome.state());
+        assertTrue(missingPlan.simulation());
+        assertEquals(12_264_132L, missingPlan.missingItems().get(netherrack));
+        assertEquals(48_180L, inventory.get(netherrack), "Planning must not consume real inventory");
+
+        inventory.add(netherrack, 12_264_132L);
+        var supplied = planner.plan(network, condensation, inventory, amount, true, ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS, supplied.status());
+        assertTrue(supplied.state().missingItems().isEmpty());
+        assertEquals(amount, supplied.state().patternTimes().get(growth.details()));
+        assertEquals(amount, supplied.state().usedItems().get(netherrack));
+        assertEquals(7L * amount, supplied.state().usedItems().get(diamond));
+        supplied.state().executionProvenance().requireComplete();
+    }
+
+    @Test
+    void provenShortageDoesNotHideAnotherCyclesUnfinishedSearch() throws Exception {
+        AEKey goal = mock(AEKey.class, "goal"), a = mock(AEKey.class, "a"), b = mock(AEKey.class, "b");
+        AEKey fuel = mock(AEKey.class, "fuel");
+        for (AEKey key : List.of(goal, a, b, fuel)) when(key.getAmountPerByte()).thenReturn(8);
+        var finish = staticPattern(0, goal, 1L, new GenericStack(a, 2L), new GenericStack(b, 2L));
+        var growthA = staticPattern(1, a, 2L, a, 1L);
+        var growthB = staticPattern(2, b, 2L, new GenericStack(b, 1L), new GenericStack(fuel, 1L));
+        var network = new CompiledNetwork(goal, Map.of(goal, List.of(finish), a, List.of(growthA),
+            b, List.of(growthB), fuel, List.of()), Set.of(), 3, 5);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = new KeyCounter(); stock.add(a, 1L); stock.add(b, 1L);
+        var bounded = new BoundedCycleSolver();
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), (request, cancellation) ->
+            request.component().members().contains(a)
+                ? CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET,
+                    cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveDiagnostic.Code.STATE_BUDGET_EXHAUSTED,
+                    "Unfinished search in the other required cycle")
+                : bounded.solve(request, cancellation));
+        var outcome = planner.plan(network, condensation, stock, 1L, true, ECOCancellation.NONE);
+
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.PARTIAL,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertEquals(1L, outcome.state().missingItems().get(fuel));
+        assertTrue(outcome.components().stream().anyMatch(c -> c.cycleStatus()
+            == cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus.UNKNOWN_BUDGET));
+        assertFalse(outcome.state().patternTimes().containsKey(growthA.details()));
+        assertFalse(outcome.state().patternTimes().containsKey(growthB.details()));
+    }
+
+    @Test
     void seededGrowthReportsEveryExternalDeficit() throws Exception {
         AEKey seed = mock(AEKey.class);
         AEKey diamond = mock(AEKey.class);
@@ -507,6 +590,8 @@ class ComponentPlannerMissingSeedTest {
             inventory.add(seed, 1L);
             inventory.add(diamond, storedDiamonds);
             var outcome = planner.plan(network, condensation, inventory, 4L, true, ECOCancellation.NONE);
+            assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS,
+                outcome.status(), outcome.trace().diagnostics().toString());
             assertEquals(28L - storedDiamonds, outcome.state().missingItems().get(diamond), outcome.trace().diagnostics().toString());
             assertEquals(4L, outcome.state().missingItems().get(netherrack));
             assertEquals(0L, outcome.state().missingItems().get(seed));

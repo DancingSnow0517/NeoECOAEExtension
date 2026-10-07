@@ -409,7 +409,7 @@ class ComputationCpuPanelTest {
             }
             verify(context.graphics, times(batched ? 1 : 0)).blit(
                 ResourceLocation.parse("neoecoae:textures/gui/eco_batching.png"),
-                11, 23, 0F, 0F, 16, 16, 16, 16);
+                9, 23, 0F, 0F, 16, 16, 16, 16);
             keys.verify(() -> AEKeyRendering.drawInGui(any(), eq(context.graphics), eq(0), eq(0), eq(key)));
         }
     }

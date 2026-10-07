@@ -2,6 +2,7 @@
   "required": false,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins.compat.useless",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.compat.useless.ECOUselessMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "UselessDynamicPatternAccessor",

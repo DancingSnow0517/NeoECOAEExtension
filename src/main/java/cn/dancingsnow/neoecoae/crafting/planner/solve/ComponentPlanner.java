@@ -631,7 +631,11 @@ public final class ComponentPlanner {
             if (!acyclic.state().missingItems().isEmpty() && componentResults.stream()
                     .filter(c -> c.type() == ComponentPlanningResult.Type.CYCLIC)
                     .filter(c -> c.cycleDisposition() == CycleExecutionDisposition.BLOCKED)
-                    .allMatch(c -> completeMaterialDeficit(c.cycleResult())
+                    // A verified full-order witness can be blocked solely by its external ingredients.
+                    // It proves a material shortage just as a full-order deficit witness does.
+                    .allMatch(c -> c.cycleStatus() == CyclePlanningStatus.INSUFFICIENT_EXTERNAL_INPUT
+                        && (c.cycleResult() != null && c.cycleResult().status() == CycleSolveStatus.SUCCESS
+                            || completeMaterialDeficit(c.cycleResult()))
                         && (c.externalDemandStatus() == CycleExternalDemandStatus.MISSING
                             || c.externalDemandStatus() == CycleExternalDemandStatus.FORBIDDEN_ROUTE))) {
                 status = PlanningStatus.MISSING_ITEMS;

@@ -46,6 +46,8 @@ public record CycleSolveDiagnostic(Code code, String message) {
         EXECUTION_AMOUNT_UNREPRESENTABLE,
         CANCELLED,
         NOT_IMPLEMENTED,
-        SEARCH_METRICS
+        SEARCH_METRICS,
+        /** An integration's matching/output contract excludes exact circuit algebra; this is not a budget cut. */
+        STATIC_CYCLE_CONTRACT_UNAVAILABLE
     }
 }

@@ -145,7 +145,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         CycleSolveResult growth = growthWitness(model, growthCalculator.evaluate(request));
         if (growth != null) return growth;
 
-        CycleStateEquation.Result balance = supportsRecipeCircuits(model)
+        boolean recipeCircuits = supportsRecipeCircuits(model);
+        CycleStateEquation.Result balance = recipeCircuits
             ? CycleStateEquation.solve(model.cons, model.prod, model.suppliable, model.stock, model.required, cancellation, memory)
             : new CycleStateEquation.Result(CycleStateEquation.Status.UNKNOWN, null);
         if (balance.status() == CycleStateEquation.Status.INFEASIBLE) {
@@ -167,9 +168,22 @@ public final class BoundedCycleSolver implements CycleSolver {
         CycleSolveResult equation = balance.counts() == null ? null : solveEquationWitness(model, balance, cancellation, memory);
         if (equation != null && (equation.status() == CycleSolveStatus.SUCCESS
                 || equation.status() == CycleSolveStatus.UNREPRESENTABLE)) return equation;
-        if (balance.status() == CycleStateEquation.Status.UNKNOWN || balance.status() == CycleStateEquation.Status.FEASIBLE)
+        if (!recipeCircuits) {
+            String contracts = model.transitions.stream()
+                .filter(pattern -> !pattern.semantics().cycleSafeForStaticPlanning()
+                    || pattern.specialAnalysis().requirements().stream().anyMatch(requirement -> requirement.type()
+                        == cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis.Type.DURABILITY))
+                .map(pattern -> "pattern=" + pattern.id() + " class=" + pattern.details().getClass().getName()
+                    + " matching=" + pattern.semantics().matchingMode() + " cycleSafe=" + pattern.semantics().cycleSafe()
+                    + " restriction=" + pattern.semantics().executionRestriction()
+                    + " special=" + pattern.specialAnalysis().requirements())
+                .collect(java.util.stream.Collectors.joining("; "));
+            diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.STATIC_CYCLE_CONTRACT_UNAVAILABLE,
+                "Exact circuit algebra is unavailable for: " + contracts + "; using bounded marking search"));
+        } else if (balance.status() == CycleStateEquation.Status.UNKNOWN || balance.status() == CycleStateEquation.Status.FEASIBLE) {
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.STATE_EQUATION_BUDGET,
                 "No static firing vector is available; marking search verifies reachability under the same resource budget"));
+        }
 
         int budget = limits.maxStates();
         Search first = search(model, model.stock, budget, limits.maxFirings(), cancellation, memory);
