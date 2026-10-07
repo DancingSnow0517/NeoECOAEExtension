@@ -246,24 +246,37 @@ class LargeWorkstationRecipeTest {
         assertEquals(1, recipe.display().inputFluid().amount());
     }
 
-    @Test void unregisteredRecipeTypesAreDiscoveredAndReloadReplacesCache() {
-        var type = net.minecraft.world.item.crafting.RecipeType.simple(ResourceLocation.parse("extendedae_plus:crystal_assembler_plus"));
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation",
+        "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing",
+        "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler"
+    })
+    void optionalRecipesAreExcludedWithoutReadingTheirSerializers(String typeId) {
+        var type = net.minecraft.world.item.crafting.RecipeType.simple(ResourceLocation.parse(typeId));
         var recipe = mock(net.minecraft.world.item.crafting.Recipe.class);
         doReturn(type).when(recipe).getType();
-        var serializer = mock(net.minecraft.world.item.crafting.RecipeSerializer.class);
-        doReturn(serializer).when(recipe).getSerializer();
-        var data = JsonParser.parseString("""
-            {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"}}],"output":{"id":"minecraft:diamond"}}
-            """).getAsJsonObject();
-        var codec = com.mojang.serialization.Codec.PASSTHROUGH.xmap(
-            dynamic -> recipe, value -> new com.mojang.serialization.Dynamic<>(JsonOps.INSTANCE, data));
-        doReturn(com.mojang.serialization.MapCodec.assumeMapUnsafe(codec)).when(serializer).codec();
         var holder = new net.minecraft.world.item.crafting.RecipeHolder<>(ResourceLocation.parse("test:unregistered"), recipe);
+        var nativeRecipe = nativeRecipe(new ItemStack(Items.DIAMOND, 2));
+        var nativeHolder = new net.minecraft.world.item.crafting.RecipeHolder<>(nativeRecipe.id(), nativeRecipe.display());
+        var manager = mock(net.minecraft.world.item.crafting.RecipeManager.class);
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        when(manager.getRecipes()).thenReturn(List.of(holder, nativeHolder));
+        var recipes = LargeWorkstationRecipes.getAll(manager, registries);
+        assertEquals(1, recipes.size());
+        assertEquals(nativeRecipe, recipes.getFirst());
+        verify(recipe, never()).getSerializer();
+    }
+
+    @Test void nativeRecipesAreDiscoveredAndReloadReplacesCache() {
+        var recipe = nativeRecipe(new ItemStack(Items.DIAMOND, 2));
+        var holder = new net.minecraft.world.item.crafting.RecipeHolder<>(recipe.id(), recipe.display());
         var manager = mock(net.minecraft.world.item.crafting.RecipeManager.class);
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         when(manager.getRecipes()).thenReturn(List.of(holder));
         var first = LargeWorkstationRecipes.getAll(manager, registries);
         assertEquals(1, first.size());
+        assertEquals(recipe, first.getFirst());
         assertSame(first, LargeWorkstationRecipes.getAll(manager, registries));
         when(manager.getRecipes()).thenReturn(List.of());
         assertTrue(LargeWorkstationRecipes.getAll(manager, registries).isEmpty());

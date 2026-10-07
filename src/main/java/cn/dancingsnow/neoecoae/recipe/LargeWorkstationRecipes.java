@@ -37,14 +37,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/** Adapts the loaded recipes through their public data codecs, with no optional recipe-class linkage. */
+/** Lists native workstation recipes; optional recipe adapters are retained for a future integration mechanism. */
 public final class LargeWorkstationRecipes {
     private static final Logger LOGGER = LoggerFactory.getLogger(LargeWorkstationRecipes.class);
-    private static final Set<String> TYPES = Set.of(
-        "neoecoae:integrated_working_station", "ae2lt:overload_processing",
-        "ae2lt:lightning_assembly", "ae2lt:lightning_simulation", "ae2cs:circuit_etcher_recipe",
-        "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing", "advanced_ae:reaction",
-        "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler");
+    // 暂停大型集成工作站的联动配方兼容，保留实现供后续新机制接入。
+    // private static final Set<String> TYPES = Set.of(
+    //     "neoecoae:integrated_working_station", "ae2lt:overload_processing",
+    //     "ae2lt:lightning_assembly", "ae2lt:lightning_simulation", "ae2cs:circuit_etcher_recipe",
+    //     "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing", "advanced_ae:reaction",
+    //     "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler");
     private static final Map<RecipeManager, Cache> CACHE = new WeakHashMap<>();
 
     private LargeWorkstationRecipes() {}
@@ -60,17 +61,18 @@ public final class LargeWorkstationRecipes {
         var previous = CACHE.get(manager);
         if (previous != null && previous.sources == sources) return previous.recipes;
         List<LargeWorkstationRecipe> recipes = new ArrayList<>();
-        DynamicOps<JsonElement> ops = registries.createSerializationContext(JsonOps.INSTANCE);
+        // DynamicOps<JsonElement> ops = registries.createSerializationContext(JsonOps.INSTANCE);
         for (var holder : sources) {
             try {
                 if (holder.value() instanceof IntegratedWorkingStationRecipe nativeRecipe) {
                     recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
-                } else {
-                    String type = typeId(holder.value().getType());
-                    if (!TYPES.contains(type)) continue;
-                    if (type.equals("extendedae:crystal_assembler") && !ModList.get().isLoaded("extendedae_plus")) continue;
-                    recipes.add(decode(holder.id(), type, encode(holder.value(), ops), ops));
                 }
+                // else {
+                //     String type = typeId(holder.value().getType());
+                //     if (!TYPES.contains(type)) continue;
+                //     if (type.equals("extendedae:crystal_assembler") && !ModList.get().isLoaded("extendedae_plus")) continue;
+                //     recipes.add(decode(holder.id(), type, encode(holder.value(), ops), ops));
+                // }
             } catch (RuntimeException failure) {
                 // A changed upstream format must fail closed, never silently omit a cost or result.
                 LOGGER.warn("Cannot adapt large workstation recipe {}", holder.id(), failure);
