@@ -23,14 +23,10 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import gripe._90.megacells.misc.DecompressionPattern;
 import gripe._90.megacells.misc.DecompressionService;
@@ -86,7 +82,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
             ecoDrives.remove(drive);
         }
         if (node.getOwner() instanceof DecompressionModulePart) {
-            installedModules = Math.max(0, installedModules - 1);
+            installedModules--;
         }
     }
 
@@ -108,31 +104,23 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
 
     @Override
     public void onServerEndTick() {
-        if (installedModules <= 0) {
-            // Withdraw previously published patterns once when the last module is removed.
-            if (!patterns.isEmpty()) {
-                patterns.clear();
-                grid.getCraftingService().refreshGlobalCraftingProvider(this);
-            }
-            return;
-        }
+        boolean hadPatterns = !patterns.isEmpty();
+        patterns.clear();
 
-        // Match the module's per-tick update cadence, including in-place cell configuration changes.
-        int previousPriority = patternPriority;
-        syncPatternPriority();
-        Set<IPatternDetails> refreshedPatterns = new LinkedHashSet<>();
-        Set<StorageCell> seenCells = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (IChestOrDrive host : cellHosts) {
-            for (int i = 0; i < host.getCellCount(); i++) {
-                addPatterns(host.getOriginalCellInventory(i), seenCells, refreshedPatterns);
+        if (installedModules > 0) {
+            // The module UI only writes MEGA's service; ECO patterns follow its priority.
+            patternPriority = grid.getService(DecompressionService.class).getPatternPriority();
+            for (IChestOrDrive host : cellHosts) {
+                for (int i = 0; i < host.getCellCount(); i++) {
+                    addPatterns(host.getOriginalCellInventory(i));
+                }
             }
-        }
-        for (ECODriveBlockEntity drive : ecoDrives) {
-            addPatterns(drive.getCellInventory(), seenCells, refreshedPatterns);
-        }
-        if (previousPriority != patternPriority || !new LinkedHashSet<>(patterns).equals(refreshedPatterns)) {
-            patterns.clear();
-            patterns.addAll(refreshedPatterns);
+            for (ECODriveBlockEntity drive : ecoDrives) {
+                addPatterns(drive.getCellInventory());
+            }
+            grid.getCraftingService().refreshGlobalCraftingProvider(this);
+        } else if (hadPatterns) {
+            // Withdraw the published patterns once when the last module is removed.
             grid.getCraftingService().refreshGlobalCraftingProvider(this);
         }
     }
@@ -149,33 +137,14 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         return patternPriority;
     }
 
-    private void syncPatternPriority() {
-        try {
-            DecompressionService megaService = grid.getService(DecompressionService.class);
-            patternPriority = megaService == null ? 0 : megaService.getPatternPriority();
-        } catch (IllegalArgumentException | NullPointerException notReady) {
-            // The native MEGA service may not be visible during an early grid transition. Keep the last
-            // usable value and retry on the next server-end tick.
-        }
-    }
-
     @Override
     public boolean pushPattern(IPatternDetails details, KeyCounter[] inputHolder) {
-        if (installedModules <= 0 || !(details instanceof DecompressionPattern)) {
+        if (!(details instanceof DecompressionPattern)) {
             return false;
         }
 
-        Map<AEKey, Long> accepted = new LinkedHashMap<>();
-        try {
-            for (var output : details.getOutputs()) {
-                if (output.amount() <= 0) return false;
-                long current = accepted.getOrDefault(output.what(), pendingOutputs.getOrDefault(output.what(), 0L));
-                accepted.put(output.what(), Math.addExact(current, output.amount()));
-            }
-        } catch (ArithmeticException overflow) {
-            return false;
-        }
-        pendingOutputs.putAll(accepted);
+        var output = details.getPrimaryOutput();
+        pendingOutputs.merge(output.what(), output.amount(), Long::sum);
         markGridDataDirty();
         return true;
     }
@@ -207,8 +176,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
     }
 
     private long batchCapacity(ECOBatchDispatchContext context) {
-        if (installedModules <= 0 || !(context.pattern() instanceof DecompressionPattern)
-                || !patterns.contains(context.pattern()) || !context.containerItems().isEmpty()) return 0;
+        if (!(context.pattern() instanceof DecompressionPattern) || !patterns.contains(context.pattern()) || !context.containerItems().isEmpty()) return 0;
         var perCopy = new KeyCounter();
         for (var output : context.pattern().getOutputs()) {
             if (output.amount() <= 0) return 0;
@@ -250,15 +218,13 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
 
     @Override
     public boolean isBusy() {
-        return installedModules <= 0;
+        return false;
     }
 
-    private void addPatterns(@Nullable StorageCell cell, Set<StorageCell> seenCells,
-                             Set<IPatternDetails> target) {
-        if (!(cell instanceof ECOMegaLongBulkStorageCell bulk) || !seenCells.add(cell)) {
-            return;
+    private void addPatterns(@Nullable StorageCell cell) {
+        if (cell instanceof ECOMegaLongBulkStorageCell bulk) {
+            patterns.addAll(bulk.getDecompressionPatterns());
         }
-        target.addAll(bulk.getDecompressionPatterns());
     }
 
     private void markGridDataDirty() {
