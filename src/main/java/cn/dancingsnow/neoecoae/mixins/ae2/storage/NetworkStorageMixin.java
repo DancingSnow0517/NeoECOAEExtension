@@ -122,10 +122,7 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
         // Long.MAX_VALUE + a normal disk amount saturate instead of wrapping negative, regardless
         // of mount order (the infinite resource matrix may be visited first or last).
         KeyCounter contribution = new KeyCounter();
-        if (!ExactAmountCollector.collectCombined(storage, contribution)) {
-            original.call(storage, contribution);
-            ExactAmountCollector.observe(storage, contribution);
-        }
+        ExactAmountCollector.collect(storage, contribution, counter -> original.call(storage, counter));
         SaturatingStackAccumulator.addAll(output, contribution);
     }
 }

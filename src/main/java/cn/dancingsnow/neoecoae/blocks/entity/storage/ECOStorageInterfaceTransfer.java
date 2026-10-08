@@ -1,7 +1,10 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -11,6 +14,10 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
+import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -92,7 +99,7 @@ final class ECOStorageInterfaceTransfer {
     }
 
     record CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description)
-        implements MEStorage {
+        implements MEStorage, CombinedExactAmountSource {
         CombinedStorage {
 
         }
@@ -123,7 +130,34 @@ final class ECOStorageInterfaceTransfer {
 
         @Override
         public void getAvailableStacks(KeyCounter out) {
-            for (MEStorage inventory : inventories) inventory.getAvailableStacks(out);
+            for (MEStorage inventory : inventories) {
+                KeyCounter contribution = new KeyCounter();
+                ExactAmountCollector.collect(inventory, contribution, inventory::getAvailableStacks);
+                SaturatingStackAccumulator.addAll(out, contribution);
+            }
+        }
+
+        @Override
+        public void neoecoae$listWithExactAmounts(KeyCounter out, BiConsumer<AEKey, ExactAmount> visitor) {
+            Map<AEKey, ExactAmount> totals = new HashMap<>();
+            for (MEStorage inventory : inventories) {
+                KeyCounter contribution = new KeyCounter();
+                if (inventory instanceof CombinedExactAmountSource source) {
+                    source.neoecoae$listWithExactAmounts(contribution,
+                        (key, amount) -> totals.merge(key, amount, ExactAmount::add));
+                } else {
+                    inventory.getAvailableStacks(contribution);
+                    ExactAmountCollector.visitAmounts(inventory, contribution,
+                        (key, amount) -> totals.merge(key, amount, ExactAmount::add));
+                }
+                SaturatingStackAccumulator.addAll(out, contribution);
+            }
+            totals.forEach(visitor);
+        }
+
+        @Override
+        public void neoecoae$visitExactAmounts(BiConsumer<AEKey, ExactAmount> visitor) {
+            neoecoae$listWithExactAmounts(new KeyCounter(), visitor);
         }
 
         @Override
