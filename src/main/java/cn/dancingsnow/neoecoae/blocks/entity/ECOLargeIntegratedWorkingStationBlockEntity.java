@@ -1193,7 +1193,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        if (!getBlockState().getValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED)) {
+        // The open-menu state can arrive before the client world's block update.
+        BlockState state = holder != null && holder.blockState != null ? holder.blockState : getBlockState();
+        if (!state.getValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED)) {
             return super.createUI(holder);
         }
         UIElement root = new UIElement().layout(layout -> layout.width(176).height(180))
