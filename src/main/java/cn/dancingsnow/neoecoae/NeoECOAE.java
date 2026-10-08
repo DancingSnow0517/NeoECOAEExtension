@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.command.NECommands;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
+import cn.dancingsnow.neoecoae.util.DrainOnlyFluidHandler;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.network.ECONetwork;
@@ -128,7 +129,7 @@ public class NeoECOAE {
         event.registerBlockEntity(
             Capabilities.FluidHandler.BLOCK,
             NEBlockEntities.OUTPUT_HATCH.get(),
-            (be, side) -> be.tank
+            (be, side) -> new DrainOnlyFluidHandler(be.tank)
         );
         event.registerBlockEntity(
             Capabilities.FluidHandler.BLOCK,
@@ -138,7 +139,7 @@ public class NeoECOAE {
         event.registerBlockEntity(
             Capabilities.FluidHandler.BLOCK,
             NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.get(),
-            (be, side) -> be.tank
+            (be, side) -> new DrainOnlyFluidHandler(be.tank)
         );
         event.registerBlockEntity(
             Capabilities.ItemHandler.BLOCK,
