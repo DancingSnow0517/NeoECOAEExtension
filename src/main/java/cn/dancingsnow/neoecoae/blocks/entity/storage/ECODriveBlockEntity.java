@@ -21,6 +21,7 @@ import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBloc
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.core.component.DataComponents;
@@ -108,6 +109,13 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Override
     public boolean canExtractCell() {
         return getCellExtractionBlockReason() == CellExtractionBlockReason.NONE;
+    }
+
+    @Override
+    @Nullable
+    public Component getCellExtractionBlockReasonText() {
+        CellExtractionBlockReason reason = getCellExtractionBlockReason();
+        return reason == CellExtractionBlockReason.NONE ? null : Component.translatable(reason.translationKey());
     }
 
     /** Shared by manual interaction and automation; querying this never releases ownership. */

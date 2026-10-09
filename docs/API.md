@@ -98,6 +98,28 @@ Every policy is a veto, policies fail closed, and an exception denies the tick/p
 
 ## 4. Storage API
 
+### Cell hosts and storage priority
+
+This integration surface was added for issue [#119](https://github.com/DancingSnow0517/NeoECOAEExtension/issues/119), source updated 2026-10-09.
+
+Use `cn.dancingsnow.neoecoae.api.storage.ICellHost` to recognize or implement a single cell slot. ECO storage and computation drives expose it. The existing `util.ICellHost` extends this interface and retains its methods for compatibility; new integrations need only the API type.
+
+- `getCellStack()` returns `null` for an empty slot. Treat a returned stack as read-only.
+- `setCellStack(null)` requests removal. `ItemStack.EMPTY` is rejected, not treated as removal. To insert, pass a valid non-empty stack of exactly one cell.
+- The setter remains `void` for compatibility and may silently reject invalid or locked changes. Check `isItemValid`/`canExtractCell` and re-read the slot before transferring ownership. Remove the previous cell before inserting a replacement.
+- `canExtractCell()` reports restrictions, not presence: an empty slot may return `true`. Storage drives deny removal during infinite migration or while a member is locked outside a formed infinite host.
+- `getCellExtractionBlockReasonText()` returns a nullable, usually translatable `Component`. Storage drives expose the migration/member-lock explanation without requiring their implementation class or nested enum. The default is `null`; use `canExtractCell()` to decide whether extraction is allowed.
+
+Storage controllers expose `api.storage.IECOStoragePriorityHost`, with `getStoragePriority()` and public `setStoragePriority(int)`. The value is the configured signed priority, before per-cell adjustments for marked bulk storage. Changes persist, synchronize, and refresh the controller's and its drives' AE2 mounts; setting the same value does not refresh them. No AE2 submenu is required.
+
+```java
+if (blockEntity instanceof IECOStoragePriorityHost host) {
+    host.setStoragePriority(newPriority);
+}
+```
+
+Run mutations on the owning server thread after the terminal or packet handler validates player/network permissions. These low-level APIs do not authenticate a player. The priority setter ignores client-side and detached hosts. Keep optional-ECO references in an integration class loaded only when `neoecoae` is present.
+
 ### Cell discovery
 
 Implement `IECOCellHandler` and register the singleton from enqueued common setup:

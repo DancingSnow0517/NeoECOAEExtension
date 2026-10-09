@@ -98,6 +98,28 @@ ECOCraftingDispatchPolicyRegistry.register(policy);
 
 ## 4. 存储 API
 
+### 元件座与存储优先级
+
+本接入面对应 issue [#119](https://github.com/DancingSnow0517/NeoECOAEExtension/issues/119)，源码更新于 2026-10-09。
+
+使用 `cn.dancingsnow.neoecoae.api.storage.ICellHost` 识别或实现单个元件槽位。ECO 存储元件座和计算元件座均暴露此接口。原有 `util.ICellHost` 继承新接口并保留原方法，继续兼容已有实现；新集成只需依赖 API 类型。
+
+- `getCellStack()` 在空槽位时返回 `null`。将返回的栈视为只读。
+- `setCellStack(null)` 请求取出元件。`ItemStack.EMPTY` 会被拒绝，不表示清空。放入时传入数量为 1 的有效非空元件栈。
+- 为保持兼容，setter 仍返回 `void`，无效元件或被锁定的修改可能静默拒绝。先检查 `isItemValid` / `canExtractCell`，并在转移物品所有权前重新读取槽位；替换时先取出旧元件，再放入新元件。
+- `canExtractCell()` 表示是否受提取限制，不表示是否存在元件：空槽位也可能返回 `true`。存储元件在无限迁移期间，以及成员受锁定且所属无限存储主机未成型时，禁止取出。
+- `getCellExtractionBlockReasonText()` 返回可空、通常可翻译的 `Component`。存储元件座通过它暴露迁移/成员锁定原因，无需引用实现类及其嵌套枚举。默认返回 `null`；能否取出仍以 `canExtractCell()` 为准。
+
+存储主机暴露 `api.storage.IECOStoragePriorityHost`，提供 `getStoragePriority()` 和公开的 `setStoragePriority(int)`。此值为带符号的配置优先级，不包含标记大宗元件的单独挂载调整。修改后自动持久化、同步，并刷新主机及其元件座的 AE2 挂载；设置相同值不会重复刷新。调用不要求 AE2 子菜单。
+
+```java
+if (blockEntity instanceof IECOStoragePriorityHost host) {
+    host.setStoragePriority(newPriority);
+}
+```
+
+所有修改都须在所属服务端线程执行，由终端或数据包处理器先验证玩家/网络权限。这些底层 API 不自行认证玩家。优先级 setter 忽略客户端和未关联世界的主机。可选依赖应将 ECO 类型引用隔离到仅在 `neoecoae` 存在时加载的集成类中。
+
 ### 元件发现
 
 实现 `IECOCellHandler`，并在 common setup 的排队任务中注册单例：

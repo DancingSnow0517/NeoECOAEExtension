@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOStoragePriorityHost;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
@@ -69,7 +70,8 @@ import java.util.Map;
 import java.util.UUID;
 
 public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster, ECOStorageSystemBlockEntity>
-        implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host {
+        implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host,
+        IECOStoragePriorityHost {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final long STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK = 2_000_000L;
@@ -464,6 +466,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     private void setStoragePriority(Player player, int priority) {
         if (!canPlayerInteract(player)) return;
+        setStoragePriority(priority);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setStoragePriority(int priority) {
+        if (level == null || level.isClientSide()) return;
         if (storagePriority == priority) {
             return;
         }

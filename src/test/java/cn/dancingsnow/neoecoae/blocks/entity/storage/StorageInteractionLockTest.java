@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.api.storage.ICellHost;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,17 +24,22 @@ class StorageInteractionLockTest {
         var field = ECODriveBlockEntity.class.getDeclaredField("cellStack");
         field.setAccessible(true);
         field.set(drive, stack);
+        ICellHost cellHost = drive;
         assertTrue(drive.canExtractCell());
+        assertNull(cellHost.getCellExtractionBlockReasonText());
 
         cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.beginMigration(
             stack, java.util.UUID.randomUUID());
         assertEquals(ECODriveBlockEntity.CellExtractionBlockReason.INFINITE_MIGRATION,
             drive.getCellExtractionBlockReason());
         assertFalse(drive.canExtractCell());
-        drive.setCellStack(null);
+        assertEquals(Component.translatable("tooltip.neoecoae.storage.infinite_migration_locked"),
+            cellHost.getCellExtractionBlockReasonText());
+        cellHost.setCellStack(null);
         assertSame(stack, drive.getCellStack());
         stack.remove(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
         assertTrue(drive.canExtractCell());
+        assertNull(cellHost.getCellExtractionBlockReasonText());
     }
 
     @Test
@@ -42,6 +49,9 @@ class StorageInteractionLockTest {
         assertEquals(ECODriveBlockEntity.CellExtractionBlockReason.INFINITE_MEMBER,
             drive.getCellExtractionBlockReason());
         assertFalse(drive.canExtractCell());
+        ICellHost cellHost = drive;
+        assertEquals(Component.translatable("tooltip.neoecoae.storage.infinite_member_locked"),
+            cellHost.getCellExtractionBlockReasonText());
         drive.setCellStack(null);
         verify(drive, never()).setChanged();
     }
@@ -54,6 +64,7 @@ class StorageInteractionLockTest {
         doReturn(host).when(drive).getStorageController();
         when(host.isFormedInfiniteMode()).thenReturn(true);
         assertTrue(drive.canExtractCell());
+        assertNull(((ICellHost) drive).getCellExtractionBlockReasonText());
         when(host.isFormedInfiniteMode()).thenReturn(false);
         assertFalse(drive.canExtractCell());
     }

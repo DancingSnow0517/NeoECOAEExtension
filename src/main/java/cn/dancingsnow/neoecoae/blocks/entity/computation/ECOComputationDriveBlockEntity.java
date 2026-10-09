@@ -67,7 +67,9 @@ public class ECOComputationDriveBlockEntity
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator::new);
     }
 
+    @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
+        if (cellStack != null && !isItemValid(cellStack)) return;
         this.cellStack = cellStack;
         if (this.cluster != null) {
             this.cluster.recalculateRemainingStorage();
@@ -135,6 +137,6 @@ public class ECOComputationDriveBlockEntity
 
     @Override
     public boolean isItemValid(ItemStack stack) {
-        return stack.getItem() instanceof ECOComputationCellItem;
+        return !stack.isEmpty() && stack.getItem() instanceof ECOComputationCellItem;
     }
 }
