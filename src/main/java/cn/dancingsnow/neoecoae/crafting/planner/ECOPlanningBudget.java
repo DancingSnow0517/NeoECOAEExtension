@@ -29,8 +29,11 @@ public final class ECOPlanningBudget implements ECOCancellation {
     @Override
     public synchronized void checkpoint() throws InterruptedException {
         cancellation.checkpoint();
-        if (++work > maxWork || clock.getAsLong() - started >= maxNanos) {
-            throw new Exhausted("Shared planning allowance exhausted after " + work + " checkpoints; result remains unknown");
+        long elapsed = clock.getAsLong() - started;
+        if (++work > maxWork || elapsed >= maxNanos) {
+            throw new Exhausted("Shared planning allowance exhausted after " + work + " checkpoints; reason="
+                + (work > maxWork ? "WORK_LIMIT" : "TIME_LIMIT") + " elapsedMs=" + elapsed / 1_000_000L
+                + " maxMillis=" + maxNanos / 1_000_000L + " maxWork=" + maxWork + "; result remains unknown");
         }
     }
 

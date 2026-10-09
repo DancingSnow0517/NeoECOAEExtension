@@ -11,14 +11,16 @@ class ECOPlanningBudgetTest {
         ECOCancellation first = budget, second = budget;
         first.checkpoint();
         second.checkpoint();
-        assertThrows(ECOPlanningBudget.Exhausted.class, first::checkpoint);
+        var exhausted = assertThrows(ECOPlanningBudget.Exhausted.class, first::checkpoint);
+        assertTrue(exhausted.getMessage().contains("reason=WORK_LIMIT"));
     }
 
     @Test void wallDeadlineAndCancellationRemainDifferentOutcomes() {
         var clock = new AtomicLong(20);
         var budget = new ECOPlanningBudget(ECOCancellation.NONE, 100, 10, clock::get);
         clock.set(30);
-        assertThrows(ECOPlanningBudget.Exhausted.class, budget::checkpoint);
+        var exhausted = assertThrows(ECOPlanningBudget.Exhausted.class, budget::checkpoint);
+        assertTrue(exhausted.getMessage().contains("reason=TIME_LIMIT"));
         var cancelled = new ECOPlanningBudget(() -> { throw new InterruptedException(); }, 1, 1, () -> 0);
         assertThrows(InterruptedException.class, cancelled::checkpoint);
     }

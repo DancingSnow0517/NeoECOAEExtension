@@ -669,7 +669,8 @@ public final class ComponentPlanner {
             // The interrupted alternative is speculative. The completed route still owns a valid
             // material report and cycle diagnostics; never replace those with an empty shell.
             preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED,
-                exhausted.getMessage() + "; retaining the completed route's material report"));
+                "stage=alternative_routes " + exhausted.getMessage()
+                    + "; retaining the completed route's material report"));
             return new Outcome(PlanningStatus.CYCLE_UNRESOLVED, preferred.state(), preferred.trace(),
                 preferred.cycles(), preferred.components(), preferred.executionComponentOrder());
         }
@@ -682,9 +683,7 @@ public final class ComponentPlanner {
             throws InterruptedException {
         // One route's unsupported ingredient or seed deficit cannot rule out a different recipe.
         // Stop globally only if even optimistic reachability through ALL producers fails.
-        if (preferred.trace().cycles().stream().anyMatch(cycle -> cycle.solveResult() != null
-                    && cycle.solveResult().status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT)
-                && RouteAvailabilityProof.goalUnreachable(network, snapshot, cancellation)) {
+        if (RouteAvailabilityProof.goalUnreachable(network, snapshot, cancellation)) {
             preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_PROVEN_UNREACHABLE,
                     "No producer route can start from the current stock, even with quantities and consumption ignored; "
                             + "retaining the current route's material deficits"));

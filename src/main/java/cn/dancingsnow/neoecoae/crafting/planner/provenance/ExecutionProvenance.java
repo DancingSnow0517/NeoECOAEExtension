@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.provenance;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -63,6 +64,37 @@ public record ExecutionProvenance(Map<AEKey, Map<MaterialSource, PlannerAmount>>
             return demand.kind() == MaterialDemand.Kind.INPUT
                 && PlanIdentity.samePattern(demand.consumer(), consumer);
         }).collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+    }
+
+    /** Actual recipe allocations only; unused byproducts and stock create no dependency. */
+    public boolean hasPatternCycle(Set<IPatternDetails> tasks, ECOCancellation cancellation)
+            throws InterruptedException {
+        Map<IPatternDetails, Set<IPatternDetails>> outgoing = new LinkedHashMap<>();
+        Map<IPatternDetails, Integer> indegree = new LinkedHashMap<>();
+        tasks.forEach(pattern -> indegree.put(pattern, 0));
+        for (SupplyAllocation allocation : allocations) {
+            cancellation.checkpoint();
+            MaterialDemand demand = demands.get(allocation.demandId());
+            if (demand.kind() != MaterialDemand.Kind.INPUT
+                    || !(allocation.source() instanceof MaterialSource.PatternOutput output)
+                    || !tasks.contains(output.pattern()) || !tasks.contains(demand.consumer())) continue;
+            if (outgoing.computeIfAbsent(output.pattern(), ignored -> new java.util.LinkedHashSet<>())
+                    .add(demand.consumer())) {
+                indegree.merge(demand.consumer(), 1, Integer::sum);
+            }
+        }
+        var ready = new java.util.ArrayDeque<IPatternDetails>();
+        indegree.forEach((pattern, count) -> { if (count == 0) ready.add(pattern); });
+        int visited = 0;
+        while (!ready.isEmpty()) {
+            cancellation.checkpoint();
+            IPatternDetails producer = ready.removeFirst();
+            visited++;
+            for (IPatternDetails consumer : outgoing.getOrDefault(producer, Set.of())) {
+                if (indegree.merge(consumer, -1, Integer::sum) == 0) ready.addLast(consumer);
+            }
+        }
+        return visited != tasks.size();
     }
 
     /** Completeness is exact and independent of the legacy per-material diagnostic totals. */

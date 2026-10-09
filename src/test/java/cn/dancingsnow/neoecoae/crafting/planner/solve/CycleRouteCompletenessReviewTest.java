@@ -57,7 +57,9 @@ class CycleRouteCompletenessReviewTest {
         var network = network(Map.of(goal, finishes, a, List.of(growth), missing, List.of()));
         var graph = graph(network);
         var initial = new ActiveRouteSelector().selectWithChoices(graph.source(), Map.of(), ECOCancellation.NONE);
-        var stock = new KeyCounter(); stock.add(a, 1L);
+        // Presence alone cannot prune this quantity deficit. Preserve coverage of budget cuts
+        // during real alternatives now that a completely absent leaf is proved unreachable early.
+        var stock = new KeyCounter(); stock.add(a, 1L); stock.add(missing, 1L);
         var work = new java.util.concurrent.atomic.AtomicLong();
         var completed = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
             .plan(network, initial, stock, 1L, true, work::incrementAndGet);
@@ -75,8 +77,8 @@ class CycleRouteCompletenessReviewTest {
         }
         var result = session.plan(1L, false, ECOCancellation.NONE);
         assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status(), result.trace().diagnostics().toString());
-        assertEquals(5L, result.plan().missingItems().get(missing));
-        assertEquals(PlannerAmount.of(5L), result.exactMissingItems().get(missing));
+        assertEquals(4L, result.plan().missingItems().get(missing));
+        assertEquals(PlannerAmount.of(4L), result.exactMissingItems().get(missing));
         assertTrue(result.plan().simulation());
         assertTrue(result.plan().bytes() > 0);
         assertFalse(result.cycles().isEmpty());
@@ -86,7 +88,7 @@ class CycleRouteCompletenessReviewTest {
         var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
         assertFalse(snapshot.cycleGroups().isEmpty());
         assertTrue(snapshot.nodes().stream().anyMatch(n -> n.key().equals(missing)
-            && n.missingBigInteger().equals(java.math.BigInteger.valueOf(5L))));
+            && n.missingBigInteger().equals(java.math.BigInteger.valueOf(4L))));
     }
 
     private final AEKey a = key("A");

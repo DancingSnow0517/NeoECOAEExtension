@@ -112,6 +112,11 @@ public final class AcyclicCraftingSolver {
                 return cyclicRouteOutcome(network, inventory, choices, trace);
             }
             if (state.missing.isEmpty() && state.unsupported.isEmpty()) {
+                // Joint credit proves quantities, not startup. An actual supplier-to-consumer
+                // cycle must be reclassified for seed solving before publishing DAG success.
+                if (state.executionProvenance().hasPatternCycle(state.patternTimes.keySet(), cancellation)) {
+                    return cyclicRouteOutcome(network, inventory, choices, trace);
+                }
                 addTrace(network, state, amount, trace);
                 if (addExecutionRepresentabilityDiagnostics(state, trace)) {
                     return new Outcome(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, state, trace);
@@ -260,8 +265,21 @@ public final class AcyclicCraftingSolver {
         state.bytes = PlannerAmount.of(route.keys().size()).multiply(8L);
         SpecialPatternResolver specialResolver = new SpecialPatternResolver(
             network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
+        Map<AEKey, CompiledPattern> selected = new LinkedHashMap<>();
         for (AEKey key : route.keys()) {
+            CompiledPattern pattern = selectedPattern(network, key, workspace.candidateChoice());
+            if (pattern != null) selected.put(key, pattern);
+        }
+        // Preserve AE2's primary-output activation and full-output credit contracts. Unlike the
+        // original input-order traversal, postpone a joint-output demand while another requested
+        // primary branch can supply it. No additional producer views or speculative firings exist.
+        JointOutputDemandQueue pending = new JointOutputDemandQueue(route.keys(), selected,
+            deferredPatterns, stockLeaves);
+        Set<AEKey> unsettled = new LinkedHashSet<>();
+        pending.add(network.goal());
+        while (!pending.isEmpty()) {
             cancellation.checkpoint();
+            AEKey key = pending.poll(cancellation);
             PlannerAmount requested = state.provenance.pendingAmount(key);
             if (requested.signum() <= 0) continue;
             state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
@@ -301,12 +319,11 @@ public final class AcyclicCraftingSolver {
             List<CompiledPattern> fast = network.fastProducersOf(key);
             if (stockLeaves.contains(key)) {
                 // Reopen this dependency in a fresh pass instead of producing along an omitted edge.
-                state.unsupported.add(key);
+                unsettled.add(key);
                 continue;
             }
             if (fast.isEmpty()) {
-                if (network.producersOf(key).isEmpty()) addCounter(state.missing, key, requested);
-                else state.unsupported.add(key);
+                unsettled.add(key);
                 continue;
             }
             int choice = workspace.candidateChoice().getOrDefault(key, 0);
@@ -354,7 +371,20 @@ public final class AcyclicCraftingSolver {
                 state.demand.put(input.key(), old.add(required));
                 state.demandProducers.put(input.key(), pattern.details());
                 state.parents.computeIfAbsent(input.key(), ignored -> new java.util.LinkedHashSet<>()).add(key);
+                pending.add(input.key());
             }
+        }
+        // A leaf encountered before its source is not a material deficit yet. Allocate its credit
+        // through the existing demand ledger so scheduling sees the exact physical supplier.
+        for (AEKey key : unsettled) {
+            cancellation.checkpoint();
+            PlannerAmount requested = state.provenance.pendingAmount(key);
+            PlannerAmount credited = requested.min(state.craftedAmount(key));
+            if (credited.signum() > 0) state.consumeCrafted(key, credited);
+            requested = requested.subtract(credited);
+            if (requested.isZero()) continue;
+            if (stockLeaves.contains(key) || !network.producersOf(key).isEmpty()) state.unsupported.add(key);
+            else addCounter(state.missing, key, requested);
         }
         return state;
     }
