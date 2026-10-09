@@ -35,7 +35,7 @@ class ComputationCpuEntryTest {
         when(fluid.getAmountPerUnit()).thenReturn(1000);
         when(fluid.getUnitSymbol()).thenReturn("B");
         IECOTier tier = mock(IECOTier.class);
-        when(tier.getCPUOverlayTexture()).thenReturn(ResourceLocation.parse("neoecoae:textures/gui/cpu_overlay/l4.png"));
+        when(tier.getCPUOverlayTexture()).thenReturn(ResourceLocation.parse("neoecoae:textures/gui/computation/cpu_overlay/l4.png"));
         when(cpu.getTier()).thenReturn(tier);
         when(cpu.getLogic()).thenReturn(logic);
         when(cpu.getProgressView()).thenReturn(view);
@@ -84,7 +84,7 @@ class ComputationCpuEntryTest {
         BigInteger requested = BigInteger.TEN.pow(400);
         ComputationCpuEntry entry = new ComputationCpuEntry(7, "", fluid, requested,
             requested.subtract(BigInteger.ONE), 0.5F, 20, 1024, 32, CpuSelectionMode.PLAYER_ONLY,
-            ResourceLocation.parse("neoecoae:textures/gui/cpu_overlay/l4.png"), "running");
+            ResourceLocation.parse("neoecoae:textures/gui/computation/cpu_overlay/l4.png"), "running");
         CompoundTag fluidTag = new CompoundTag();
         fluidTag.putString("type", "fluid");
         when(fluid.toTagGeneric(RegistryAccess.EMPTY)).thenReturn(fluidTag);

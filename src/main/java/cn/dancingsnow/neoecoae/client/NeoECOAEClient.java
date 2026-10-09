@@ -92,7 +92,7 @@ public class NeoECOAEClient {
     /** Vanilla-screen counterpart of the AE2 toolbar buttons used by the side rails. */
     private static final class JeiBookmarkButton extends Button {
         private static final net.minecraft.resources.ResourceLocation ICON_TEXTURE =
-            NeoECOAE.id("textures/gui/upload.png");
+            NeoECOAE.id("textures/gui/widget/upload.png");
 
         private JeiBookmarkButton(Component message, OnPress onPress) {
             super(0, 0, 16, 16, message, onPress, Button.DEFAULT_NARRATION);

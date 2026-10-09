@@ -195,7 +195,7 @@ public final class CraftingHostPanelUI {
             })
             .addChild(syncedStatus);
         icon.style(style -> style.backgroundTexture(
-            SpriteTexture.of(NeoECOAE.id("textures/gui/information.png"))));
+            SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information.png"))));
         icon.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .right(-25).top(4).width(21).height(21));
         return icon;

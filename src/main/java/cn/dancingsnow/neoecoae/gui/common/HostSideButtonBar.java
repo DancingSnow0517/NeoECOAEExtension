@@ -251,6 +251,6 @@ public final class HostSideButtonBar {
         if (side == Side.RIGHT && contentType == ContentType.SLOT) {
             fileName = "mirrored_" + fileName;
         }
-        return SpriteTexture.of(NeoECOAE.id("textures/gui/" + fileName));
+        return SpriteTexture.of(NeoECOAE.id("textures/gui/common/side_bar/" + fileName));
     }
 }

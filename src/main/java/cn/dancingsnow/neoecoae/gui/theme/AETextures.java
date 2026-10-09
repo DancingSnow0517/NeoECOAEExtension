@@ -16,7 +16,7 @@ public class AETextures {
     );
 
     public static IGuiTexture icon(ECOIcon icon) {
-        return cache.computeIfAbsent(icon, i -> SpriteTexture.of(NeoECOAE.id("textures/gui/ae2/states.png"))
+        return cache.computeIfAbsent(icon, i -> SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/states.png"))
             .setSprite(i.x, i.y, i.width, i.height));
     }
 

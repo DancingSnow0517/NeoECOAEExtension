@@ -109,7 +109,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private static final long MAX_SAVE_STACKS = 50_000L;
     private static final int MAX_POWER_STORAGE = 16_000_000;
     private static final IGuiTexture UI_BACKGROUND = SpriteTexture.of(
-        NeoECOAE.id("textures/gui/large_integrated_working_station.png")
+        NeoECOAE.id("textures/gui/workstation/large_integrated_working_station.png")
     ).setSprite(0, 0, 176, 180);
 
     private final NEIntegratedWorkingStationControllerCalculator calculator;

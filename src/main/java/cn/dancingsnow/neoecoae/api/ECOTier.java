@@ -17,7 +17,7 @@ public enum ECOTier implements IECOTier {
         1 << 26,
         1 << 24,
         10_000_000,
-        NeoECOAE.id("textures/gui/cpu_overlay/l4.png"),
+        NeoECOAE.id("textures/gui/computation/cpu_overlay/l4.png"),
         NETextures.Crafting.F4
     ),
     L6(
@@ -29,7 +29,7 @@ public enum ECOTier implements IECOTier {
         1 << 28,
         1 << 26,
         100_000_000,
-        NeoECOAE.id("textures/gui/cpu_overlay/l6.png"),
+        NeoECOAE.id("textures/gui/computation/cpu_overlay/l6.png"),
         NETextures.Crafting.F6
     ),
     L9(
@@ -41,7 +41,7 @@ public enum ECOTier implements IECOTier {
         1 << 30,
         1 << 28,
         1_000_000_000,
-        NeoECOAE.id("textures/gui/cpu_overlay/l9.png"),
+        NeoECOAE.id("textures/gui/computation/cpu_overlay/l9.png"),
         NETextures.Crafting.F9
     );
     @Getter

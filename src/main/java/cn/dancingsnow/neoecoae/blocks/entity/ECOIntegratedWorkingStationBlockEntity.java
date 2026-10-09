@@ -1005,7 +1005,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     private static final class AE2InscriberProgressBar extends UIElement implements IBindable<Float> {
-        private static final ResourceLocation TEXTURE = NeoECOAE.id("textures/gui/ae2/inscriber.png");
+        private static final ResourceLocation TEXTURE = NeoECOAE.id("textures/gui/vendor/ae2/inscriber.png");
         private static final int TEXTURE_SIZE = 256;
         private static final int BACKGROUND_SOURCE_X = 135;
         private static final int BACKGROUND_SOURCE_Y = 39;

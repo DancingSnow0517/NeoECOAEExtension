@@ -230,7 +230,7 @@ class ComputationCpuPanelTest {
                 .findFirst().orElseThrow();
             SpriteTexture background = assertInstanceOf(SpriteTexture.class,
                 status.getStyleBag().computeCandidate(PropertyRegistry.BACKGROUND));
-            try (var source = getClass().getResourceAsStream("/assets/neoecoae/textures/gui/eco_craftingcpu.png")) {
+            try (var source = getClass().getResourceAsStream("/assets/neoecoae/textures/gui/computation/eco_craftingcpu.png")) {
                 assertNotNull(source);
                 var atlas = ImageIO.read(source);
                 assertTrue(atlas.getWidth() > background.spriteSize.width);
@@ -408,7 +408,7 @@ class ComputationCpuPanelTest {
                 verify(context.graphics, never()).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
             }
             verify(context.graphics, times(batched ? 1 : 0)).blit(
-                ResourceLocation.parse("neoecoae:textures/gui/eco_batching.png"),
+                ResourceLocation.parse("neoecoae:textures/gui/computation/eco_batching.png"),
                 9, 23, 0F, 0F, 16, 16, 16, 16);
             keys.verify(() -> AEKeyRendering.drawInGui(any(), eq(context.graphics), eq(0), eq(0), eq(key)));
         }

@@ -284,7 +284,7 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
     }
 
     private static IGuiTexture sprite(int x, int y, int width, int height) {
-        return SpriteTexture.of(NeoECOAE.id("textures/gui/eco_cpu_controller.png")).setSprite(x, y, width, height);
+        return SpriteTexture.of(NeoECOAE.id("textures/gui/computation/eco_cpu_controller.png")).setSprite(x, y, width, height);
     }
 
     private static UIElement hitbox(int x, int y, int width, int height) {

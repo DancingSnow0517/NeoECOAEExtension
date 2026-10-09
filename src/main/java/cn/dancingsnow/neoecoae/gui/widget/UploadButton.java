@@ -11,7 +11,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.List;
 
 public class UploadButton extends Button {
-    public static final ResourceLocation ICON_TEXTURE = NeoECOAE.id("textures/gui/upload.png");
+    public static final ResourceLocation ICON_TEXTURE = NeoECOAE.id("textures/gui/widget/upload.png");
 
     public UploadButton(int x, int y, OnPress onPress) {
         super(

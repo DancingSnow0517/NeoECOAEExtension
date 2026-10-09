@@ -38,6 +38,6 @@ public final class CreativeStorageInputButton {
     }
 
     private static IGuiTexture icon(boolean ignoring) {
-        return SpriteTexture.of(NeoECOAE.id("textures/gui/ignore_creative_" + (ignoring ? "on" : "off") + ".png"));
+        return SpriteTexture.of(NeoECOAE.id("textures/gui/widget/ignore_creative_" + (ignoring ? "on" : "off") + ".png"));
     }
 }

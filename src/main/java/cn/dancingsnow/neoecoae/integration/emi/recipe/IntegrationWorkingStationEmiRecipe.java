@@ -71,8 +71,8 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
 
     @Override
     public void addWidgets(WidgetHolder widgets) {
-        widgets.addTexture(NeoECOAE.id("textures/gui/jei/integration_working_station.png"), 0, 0, 168, 75, 0, 0, 168, 75, 168, 75);
-        widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/jei/progress_bar.png"), 136, 30, 6, 18, 0, 0, 6, 18, 6, 18, 2000, false, true, false);
+        widgets.addTexture(NeoECOAE.id("textures/gui/recipe/integration_working_station.png"), 0, 0, 168, 75, 0, 0, 168, 75, 168, 75);
+        widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/recipe/progress_bar.png"), 136, 30, 6, 18, 0, 0, 6, 18, 6, 18, 2000, false, true, false);
 
         Component text = category == NeoECOAEEmiPlugin.LARGE_WORKING_STATION
             ? Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy", energy)
