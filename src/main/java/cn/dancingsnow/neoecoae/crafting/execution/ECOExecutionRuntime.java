@@ -439,7 +439,7 @@ public final class ECOExecutionRuntime {
             var phase = plan.phases().get(phaseIndex);
             text.append("phase=").append(phaseIndex)
                 .append(" type=").append(phase.type())
-                .append(" ready=").append(remainingDependencies[phaseIndex] == 0)
+                .append(" ready=").append(dependenciesComplete(phaseIndex))
                 .append(" remainingDependencies=").append(remainingDependencies[phaseIndex])
                 .append(" dependencies=").append(phase.dependencies())
                 .append(" unfinishedTasks=").append(unfinishedTasksByPhase[phaseIndex]);
@@ -697,16 +697,13 @@ public final class ECOExecutionRuntime {
     }
 
     private boolean dependenciesComplete(int phaseIndex) {
-        if (progressByTaskId != null && progressByTaskId.length > 0 && progressByTaskId[0].isExact()) {
-            // DAG producers stream into ready consumers in the same order. Physical input extraction gates
-            // dispatch; solved cycles retain their completion barrier so their feedback seed cannot escape.
-            for (int dependency : plan.phases().get(phaseIndex).dependencies()) {
-                if (plan.phases().get(dependency).type() != ECOExecutionSchedule.Type.DAG
-                        && !completedPhases.get(dependency)) return false;
-            }
-            return true;
+        // DAG producers stream into consumers for both ordinary and exact orders. Physical input extraction
+        // gates dispatch; solved cycles retain their completion barrier so their feedback seed cannot escape.
+        for (int dependency : plan.phases().get(phaseIndex).dependencies()) {
+            if (plan.phases().get(dependency).type() != ECOExecutionSchedule.Type.DAG
+                    && !completedPhases.get(dependency)) return false;
         }
-        return remainingDependencies[phaseIndex] == 0;
+        return true;
     }
 
     private void advanceFinishedSteps(int phaseIndex) {
