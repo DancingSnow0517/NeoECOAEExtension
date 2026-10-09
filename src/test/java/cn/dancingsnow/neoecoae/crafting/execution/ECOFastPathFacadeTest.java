@@ -16,10 +16,17 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
+import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.function.Predicate;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class ECOFastPathFacadeTest {
+    @BeforeAll
+    static void bootstrap() {
+        InventoryTestBootstrap.initialize();
+    }
+
     @Test void unlimitedProviderStillReceivesOnlyLocallySafeLongBatches() {
         var provider = mock(Provider.class);
         when(provider.eco$prepareFastPath(any())).thenReturn(
