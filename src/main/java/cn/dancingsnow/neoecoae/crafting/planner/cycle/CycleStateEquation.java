@@ -80,7 +80,10 @@ final class CycleStateEquation {
                 cost = cost.add(vector[p]);
                 if (!vector[p].denominator.equals(BigInteger.ONE) && fractional < 0) fractional = p;
             }
-            if (bestCost != null && cost.compareTo(Rational.of(bestCost)) >= 0) continue;
+            // Every physical firing count is integral, so the integer objective is at least ceil(LP).
+            // Comparing only the fractional bound keeps exploring equivalent joint-output patterns
+            // even after an optimal integer vector is known (e.g. every split of 10,682.75 firings).
+            if (bestCost != null && cost.ceiling().compareTo(bestCost) >= 0) continue;
             if (fractional < 0) {
                 best = Arrays.stream(vector).map(value -> value.numerator).toArray(BigInteger[]::new);
                 bestCost = cost.numerator;
@@ -238,6 +241,10 @@ final class CycleStateEquation {
         }
         static Rational of(BigInteger value) { return new Rational(value, BigInteger.ONE); }
         int signum() { return numerator.signum(); }
+        BigInteger ceiling() {
+            BigInteger[] quotient = numerator.divideAndRemainder(denominator);
+            return quotient[1].signum() > 0 ? quotient[0].add(BigInteger.ONE) : quotient[0];
+        }
         Rational negate() { return new Rational(numerator.negate(), denominator); }
         Rational add(Rational other) {
             if (other.signum() == 0) return this;

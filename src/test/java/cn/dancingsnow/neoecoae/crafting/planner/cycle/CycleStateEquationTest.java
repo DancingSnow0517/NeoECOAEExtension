@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.cycle;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Random;
@@ -9,6 +10,17 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CycleStateEquationTest {
+    @Test void equivalentJointOutputsPruneFractionalBoundsAtTheIntegerObjective() throws Exception {
+        // Player's two water-electrolysis patterns have the same quantities and opposite output order.
+        // A fractional minimum must not enumerate every split of 10,683 firings between them.
+        var result = CycleStateEquation.solve(new long[][] {{0, 0, 3000}, {0, 0, 3000}},
+            new long[][] {{2000, 1000, 0}, {2000, 1000, 0}}, new boolean[] {false, false, true},
+            amounts(6_249_500, 16_934_750, 0), amounts(27_615_000, 1_503_000, 0),
+            new ECOPlanningBudget(ECOCancellation.NONE, 2000, Long.MAX_VALUE, () -> 0L));
+        assertEquals(CycleStateEquation.Status.OPTIMAL, result.status());
+        assertEquals(10_683, Arrays.stream(result.counts()).mapToLong(PlannerAmount::longValueExact).sum());
+    }
+
     @Test void integerOptimaAgreeWithIndependentExhaustiveEnumeration() throws Exception {
         Random random = new Random(20260926);
         for (int sample = 0; sample < 250; sample++) {

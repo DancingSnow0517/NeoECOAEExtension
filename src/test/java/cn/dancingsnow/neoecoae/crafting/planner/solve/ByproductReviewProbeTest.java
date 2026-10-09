@@ -20,6 +20,7 @@ import appeng.me.helpers.BaseActionSource;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialSource;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
@@ -110,6 +111,43 @@ class ByproductReviewProbeTest {
         assertEquals(PlanningStatus.MISSING_ITEMS, result.status());
         assertTrue(result.exactPatternTimes().isEmpty());
         assertEquals(PlannerAmount.of(3), result.exactMissingItems().get(slag));
+    }
+
+    @Test void equivalentJointPatternsPublishAClosedLargePlanWithinTheSharedBudget() throws Exception {
+        var hydrogenFirst = pattern(List.of(new GenericStack(ore, 3000)),
+            new GenericStack(ingot, 2000), new GenericStack(slag, 1000));
+        var oxygenFirst = pattern(List.of(new GenericStack(ore, 3000)),
+            new GenericStack(slag, 1000), new GenericStack(ingot, 2000));
+        var finish = pattern(List.of(new GenericStack(ingot, 27_615_000),
+            new GenericStack(slag, 1_503_000)), stack(goal));
+        var inventory = stock(ore, 32_049_000);
+        inventory.add(ingot, 6_249_500);
+        inventory.add(slag, 16_934_750);
+        var session = new ECOCraftingPlannerService().createSession(
+            service(hydrogenFirst, oxygenFirst, finish), goal, inventory, true);
+        var field = session.getClass().getDeclaredField("planningBudget");
+        field.setAccessible(true);
+        field.set(session, new ECOPlanningBudget(ECOCancellation.NONE, 5000, Long.MAX_VALUE, () -> 0L));
+        var result = session.plan(1, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
+        long runs = result.plan().patternTimes().getOrDefault(hydrogenFirst, 0L)
+            + result.plan().patternTimes().getOrDefault(oxygenFirst, 0L);
+        assertEquals(10_683L, runs);
+        assertEquals(PlannerAmount.of(32_049_000), result.exactUsedItems().get(ore));
+        assertEquals(1L, result.plan().patternTimes().get(finish));
+        assertTrue(result.exactMissingItems().isEmpty());
+        assertNotNull(result.executionPlan());
+        result.provenance().requireComplete();
+        var schedule = ECOExecutionSchedule.from(result.components(), result.executionComponentOrder(),
+            result.plan().patternTimes(), result.provenance());
+        int supplier = -1, consumer = -1;
+        for (int i = 0; i < schedule.phases().size(); i++) {
+            var tasks = schedule.phases().get(i).patternSet();
+            if (tasks.contains(hydrogenFirst) || tasks.contains(oxygenFirst)) supplier = i;
+            if (tasks.contains(finish)) consumer = i;
+        }
+        assertTrue(supplier >= 0 && consumer > supplier, "Joint supply must execute before its consumer");
+        assertEquals(32_049_000L, inventory.get(ore), "Planning must preserve the network snapshot");
     }
 
     @Test void leftoverJointDemandUsesItsOwnPrimaryRecipeWithoutRepeatingTheSource() throws Exception {

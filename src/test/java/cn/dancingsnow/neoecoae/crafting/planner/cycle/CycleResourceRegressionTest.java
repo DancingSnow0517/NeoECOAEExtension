@@ -25,6 +25,36 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class CycleResourceRegressionTest {
+    @Test void duplicateElectrolysisPatternsProduceACompactLargeOrderWithinTheWorkBudget() throws Exception {
+        AEKey hydrogen = mock(AEKey.class, "modern_industrialization:hydrogen");
+        AEKey oxygen = mock(AEKey.class, "modern_industrialization:oxygen");
+        AEKey water = mock(AEKey.class, "minecraft:water");
+        var firstOutputs = new LinkedHashMap<AEKey, Long>();
+        firstOutputs.put(oxygen, 1000L);
+        firstOutputs.put(hydrogen, 2000L);
+        var secondOutputs = new LinkedHashMap<AEKey, Long>();
+        secondOutputs.put(hydrogen, 2000L);
+        secondOutputs.put(oxygen, 1000L);
+        var first = pattern(0, Map.of(water, 3000L), firstOutputs, false);
+        var second = pattern(1, Map.of(water, 3000L), secondOutputs, false);
+        var boundary = List.of(new ComponentDependency(10, 11,
+            List.of(new CraftingGraphEdge(hydrogen, water, second, second.inputs().getFirst()))));
+        var cycle = new CycleComponent(10, List.of(oxygen, hydrogen), List.of(first, second),
+            List.of(), List.of(), boundary);
+        var request = new CycleSolveRequest(cycle, Map.of(oxygen, 1_503_000L, hydrogen, 27_615_000L),
+            Map.of(oxygen, 16_934_750L, hydrogen, 6_249_500L), boundary, null);
+        var result = new BoundedCycleSolver().solve(request,
+            new ECOPlanningBudget(ECOCancellation.NONE, 2000, Long.MAX_VALUE, () -> 0L));
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
+        assertEquals(10_683L, result.totalFirings());
+        assertEquals(32_049_000L, result.externalDemand().get(water));
+        assertTrue(result.seedShortfall().isEmpty());
+        assertEquals(1, result.executionPlan().size());
+        long firings = result.executionPlan().getFirst().count();
+        assertTrue(6_249_500L + 2000L * firings >= 27_615_000L);
+        assertTrue(16_934_750L + 1000L * firings >= 1_503_000L);
+    }
+
     @Test void markingSearchFindsAnExecutableDetourOutsideTheMinimumBalanceVector() throws Exception {
         AEKey a = mock(AEKey.class), b = mock(AEKey.class), product = mock(AEKey.class);
         var finish = pattern(0, Map.of(a, 1L, b, 1L), Map.of(a, 2L, product, 1L), false);
