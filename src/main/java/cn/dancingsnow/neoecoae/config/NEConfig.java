@@ -102,22 +102,12 @@ public class NEConfig {
     static {
         BUILDER
             .comment(
-                "ECO AE2 快速路径缓存与批量合成选项。",
-                "如果整合包遇到配方兼容问题，可以关闭或调低这些值。",
-                "ECO AE2 fast-path cache and batch crafting options.",
-                "Disable these options or lower their values if a modpack encounters recipe compatibility issues.")
+                "ECO AE2 快速路径缓存与批量合成限制。",
+                "FastPath 默认启用；启用原版合成事件时会回退到逐次合成，以保留事件语义。",
+                "ECO AE2 fast-path cache and batch crafting limits.",
+                "FastPath is enabled by default and falls back to single-craft execution when postCraftingEvent is enabled.")
             .push("fastPath");
     }
-
-    private static final ModConfigSpec.BooleanValue ECO_AE2_FAST_PATH_ENABLED = BUILDER
-        .comment(
-            "启用 ECO AE2 快速路径批量合成缓存。",
-            "可大幅减少重复 pattern 执行开销；如遇到特定整合包配方兼容问题，可关闭此选项回退到慢速路径。",
-            "启用原版合成事件 postCraftingEvent 时，FastPath 会自动禁用以保留事件语义。",
-            "Enable the ECO AE2 fast-path batch crafting cache.",
-            "This greatly reduces repeated pattern execution overhead; disable it to fall back to the slow path if needed.",
-            "FastPath is automatically disabled when postCraftingEvent is enabled to preserve event semantics.")
-        .define("ecoAe2FastPathEnabled", true);
 
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
@@ -232,7 +222,6 @@ public class NEConfig {
     public static boolean postCraftingEvent;
     public static boolean largeWorkstationCompatRecipesEnabled = false;
     public static int craftingPatternBusPages = 1;
-    public static boolean ecoAe2FastPathEnabled = true;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
     public static int ecoPlanningMaxMillis = 10_000;
@@ -261,7 +250,6 @@ public class NEConfig {
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         largeWorkstationCompatRecipesEnabled = LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
-        ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         ecoPlanningMaxMillis = ECO_PLANNING_MAX_MILLIS.get();

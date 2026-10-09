@@ -229,7 +229,6 @@ public final class ECOExtractedPatternExecution {
         ECOPatternEligibility patternEligibility
     ) {
         if (key.isEmpty()) return "KEY_BUILD_FAILED";
-        if (!NEConfig.ecoAe2FastPathEnabled) return "FAST_PATH_DISABLED";
         if (NEConfig.postCraftingEvent) return "POST_CRAFTING_EVENT_ENABLED";
         if (!AE2PatternIntrospection.isAvailable()) return "AE2_INTROSPECTION_UNAVAILABLE";
         if (!AE2PatternIntrospection.isKnownSafePatternType(details)) return "UNSAFE_PATTERN_TYPE";
@@ -317,7 +316,6 @@ public final class ECOExtractedPatternExecution {
     }
 
     public String fastPathReason() {
-        if (!NEConfig.ecoAe2FastPathEnabled) return "FAST_PATH_DISABLED";
         if (NEConfig.postCraftingEvent) return "POST_CRAFTING_EVENT_ENABLED";
         return fastPathRejectionReason == null ? classification.reason() : fastPathRejectionReason;
     }
@@ -342,7 +340,6 @@ public final class ECOExtractedPatternExecution {
     public boolean canUseFastPath() {
         return key != null
             && fastPathRejectionReason == null
-            && NEConfig.ecoAe2FastPathEnabled
             && !NEConfig.postCraftingEvent;
     }
 

@@ -213,7 +213,6 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.fast_path_reason.not_recorded", "No runtime FastPath result recorded yet");
         provider.add("gui.neoecoae.crafting.fast_path_reason.fluid_input_single_craft", "Fluid input requires single-craft execution");
         provider.add("gui.neoecoae.crafting.fast_path_reason.cache_miss", "No verified result in the cache");
-        provider.add("gui.neoecoae.crafting.fast_path_reason.fast_path_disabled", "FastPath is disabled");
         provider.add("gui.neoecoae.crafting.fast_path_reason.post_crafting_event_enabled",
             "Crafting events are enabled, so FastPath is disabled");
         provider.add("gui.neoecoae.crafting.fast_path_reason.key_build_failed", "Cannot build the cache key");

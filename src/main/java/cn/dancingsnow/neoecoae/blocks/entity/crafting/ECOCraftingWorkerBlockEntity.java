@@ -211,7 +211,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     public boolean pushBatch(ECOVerifiedFastPathExecution verified) {
         ECOCraftingFastPathCache cache = getFastPathCache();
-        if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
+        if (NEConfig.postCraftingEvent) {
             return false;
         }
         if (cluster == null || cluster.getController() == null) {
@@ -232,7 +232,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public boolean pushExactVirtualBatch(
             cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe recipe,
             java.math.BigInteger count, java.util.UUID job) {
-        if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent
+        if (NEConfig.postCraftingEvent
                 || cluster == null || cluster.getController() == null || isWorking()) return false;
         var controller = cluster.getController();
         if (!controller.isFullVirtualCraftingMode() || !recipe.isIssuedBy(getFastPathCache())) return false;
@@ -242,7 +242,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified) {
         ECOCraftingFastPathCache cache = getFastPathCache();
-        if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
+        if (NEConfig.postCraftingEvent) {
             return false;
         }
         if (cluster == null || cluster.getController() == null || isWorking()) {

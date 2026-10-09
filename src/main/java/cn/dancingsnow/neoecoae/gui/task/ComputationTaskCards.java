@@ -119,7 +119,6 @@ public final class ComputationTaskCards {
             case "NOT_RECORDED" -> "not_recorded";
             case "FLUID_INPUT_SINGLE_CRAFT" -> "fluid_input_single_craft";
             case "CACHE_MISS" -> "cache_miss";
-            case "FAST_PATH_DISABLED" -> "fast_path_disabled";
             case "POST_CRAFTING_EVENT_ENABLED" -> "post_crafting_event_enabled";
             case "KEY_BUILD_FAILED" -> "key_build_failed";
             case "AE2_INTROSPECTION_UNAVAILABLE" -> "ae2_introspection_unavailable";

@@ -47,15 +47,8 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.fastPath", "Fast Path");
         provider.add(
             "neoecoae.configuration.fastPath.tooltip",
-            "ECO AE2 fast path cache and batch crafting options.\n" +
-                "Disable or lower these values if a modpack has recipe compatibility issues."
-        );
-        provider.add("neoecoae.configuration.ecoAe2FastPathEnabled", "Enable ECO AE2 Fast Path");
-        provider.add(
-            "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip",
-            "Enable ECO AE2 fast path batch crafting cache.\n" +
-                "This can greatly reduce repeated pattern execution cost. If recipe compatibility issues occur in a modpack, disable this option to fall back to the slow path.\n" +
-                "Fast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics."
+            "ECO AE2 fast path cache and batch crafting limits.\n" +
+                "Fast Path is enabled by default and falls back to single-craft execution when Post Crafting Event is enabled."
         );
 
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
