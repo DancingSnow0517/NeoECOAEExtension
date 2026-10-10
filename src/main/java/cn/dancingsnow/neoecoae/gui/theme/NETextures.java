@@ -33,6 +33,12 @@ public class NETextures {
         .setBorder(3, 3, 3, 3);
     public static IGuiTexture NBT_BENCH = SpriteTexture.of(NeoECOAE.id("textures/guis/nbtbench.png"))
         .setSprite(0, 0, 176, 253);
+    public static IGuiTexture PATTERN_MANAGER = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
+        .setSprite(0, 0, 195, 237);
+    public static IGuiTexture PATTERN_MANAGER_SLOT = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
+        .setSprite(7, 210, 18, 18);
+    public static IGuiTexture PATTERN_MANAGER_SCROLLBAR_TRACK = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
+        .setSprite(178, 31, 6, 108).setBorder(1);
 
     private static final net.minecraft.resources.ResourceLocation LDLIB_ATLAS =
         NeoECOAE.id("textures/gui/vendor/ldlib/gdp_styles.png");

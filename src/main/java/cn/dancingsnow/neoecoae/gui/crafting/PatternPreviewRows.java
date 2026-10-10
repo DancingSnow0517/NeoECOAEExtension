@@ -7,50 +7,38 @@ import java.util.List;
 import java.util.Locale;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
-/** Client-only row index. Search retains physical rows and only rechecks rows whose contents changed. */
+/** Compact browse rows contain actual patterns only; each cell retains its original operation address. */
 final class PatternPreviewRows {
     static final int COLUMNS = 9;
     record Cell(int entry, int recipe) {}
-    private final List<Cell[]> rows = new ArrayList<>();
-    private final List<BitSet> matches = new ArrayList<>();
+    private final List<Cell> cells = new ArrayList<>();
     private final BitSet included = new BitSet();
     private final IntArrayList visible = new IntArrayList();
     private PatternPreviewEntry[] entries = new PatternPreviewEntry[0];
-    private int[] physicalRows = new int[0];
-    private List<String> terms = List.of();
-    private boolean substitution = true, fluidSubstitution = true, emptyRows = true;
+    private int[] physicalCells = new int[0];
+    private List<String> inputTerms = List.of(), outputTerms = List.of();
+    private boolean substitution = true, fluidSubstitution = true;
 
     void reset(PatternPreviewEntry[] entries) {
         this.entries = entries;
-        rows.clear();
-        matches.clear();
-        physicalRows = new int[entries.length];
+        cells.clear();
+        physicalCells = new int[entries.length];
         for (int start = 0; start < entries.length;) {
             long bus = entries[start].busPosition();
             int end = start + 1;
             while (end < entries.length && entries[end].busPosition() == bus) end++;
-            Cell[] row = null;
-            int previousRow = -1;
             for (int i = start; i < end; i++) {
-                int physicalRow = entries[i].physicalSlot() / COLUMNS;
-                if (physicalRow != previousRow) {
-                    rows.add(row = new Cell[COLUMNS]);
-                    previousRow = physicalRow;
-                }
-                row[entries[i].physicalSlot() % COLUMNS] = new Cell(i, -1);
-                physicalRows[i] = rows.size() - 1;
+                physicalCells[i] = cells.size();
+                cells.add(new Cell(i, -1));
             }
-            // Disk recipes are read-only rows of their own; they never change physical slot addressing.
+            // Disk recipes keep their read-only recipe address; the disk icon is not itself a pattern.
             for (int i = start; i < end; i++) {
-                int count = entries[i].diskPatterns().size();
-                for (int sub = 0; sub < count; sub++) {
-                    if (sub % COLUMNS == 0) rows.add(row = new Cell[COLUMNS]);
-                    row[sub % COLUMNS] = new Cell(i, sub);
+                for (int recipe = 0; recipe < entries[i].diskPatterns().size(); recipe++) {
+                    cells.add(new Cell(i, recipe));
                 }
             }
             start = end;
         }
-        for (int i = 0; i < rows.size(); i++) matches.add(new BitSet(COLUMNS));
         refilter();
     }
 
@@ -59,67 +47,61 @@ final class PatternPreviewRows {
             reset(entries);
             return;
         }
-        BitSet dirtyRows = new BitSet();
-        for (int i = changed.nextSetBit(0); i >= 0; i = changed.nextSetBit(i + 1)) dirtyRows.set(physicalRows[i]);
         boolean membershipChanged = false;
-        for (int row = dirtyRows.nextSetBit(0); row >= 0; row = dirtyRows.nextSetBit(row + 1)) {
-            boolean before = included.get(row);
-            checkRow(row);
-            membershipChanged |= before != included.get(row);
+        for (int i = changed.nextSetBit(0); i >= 0; i = changed.nextSetBit(i + 1)) {
+            int cell = physicalCells[i];
+            boolean before = included.get(cell);
+            checkCell(cell);
+            membershipChanged |= before != included.get(cell);
         }
         if (membershipChanged) rebuildVisible();
     }
 
-    void filter(String search, boolean substitution, boolean fluidSubstitution, boolean emptyRows) {
-        terms = Arrays.stream(search.trim().toLowerCase(Locale.ROOT).split("\\s+"))
-                .filter(term -> !term.isEmpty()).toList();
+    void filter(String inputs, String output, boolean substitution, boolean fluidSubstitution) {
+        inputTerms = terms(inputs);
+        outputTerms = terms(output);
         this.substitution = substitution;
         this.fluidSubstitution = fluidSubstitution;
-        this.emptyRows = emptyRows;
         refilter();
+    }
+
+    private static List<String> terms(String query) {
+        return Arrays.stream(query.trim().toLowerCase(Locale.ROOT).split("\\s+"))
+                .filter(term -> !term.isEmpty()).toList();
+    }
+
+    private static boolean matchesTerms(List<String> terms, String keywords) {
+        return !terms.isEmpty() && terms.stream().allMatch(keywords::contains);
     }
 
     private void refilter() {
         included.clear();
-        for (int row = 0; row < rows.size(); row++) checkRow(row);
+        for (int cell = 0; cell < cells.size(); cell++) checkCell(cell);
         rebuildVisible();
     }
 
-    private void checkRow(int row) {
-        BitSet matched = matches.get(row);
-        matched.clear();
-        Cell[] cells = rows.get(row);
-        boolean hasContents = false;
-        for (int col = 0; col < COLUMNS; col++) {
-            Cell cell = cells[col];
-            if (cell == null) continue;
-            PatternPreviewEntry entry = entries[cell.entry];
-            boolean occupied = cell.recipe >= 0 || !entry.stack().isEmpty() || entry.auxiliaryDisk();
-            hasContents |= occupied;
-            byte flags = cell.recipe < 0 ? entry.flags() : entry.diskPatterns().get(cell.recipe).flags();
-            String keywords = cell.recipe < 0 ? entry.keywords() : entry.diskPatterns().get(cell.recipe).keywords();
-            if ((!substitution && (flags & 1) != 0) || (!fluidSubstitution && (flags & 2) != 0)) continue;
-            boolean match = terms.isEmpty() || occupied;
-            for (String term : terms) if (!keywords.contains(term)) { match = false; break; }
-            if (match && (terms.isEmpty() && substitution && fluidSubstitution || occupied)) matched.set(col);
-        }
-        included.set(row, !matched.isEmpty() && (emptyRows || hasContents));
+    private void checkCell(int index) {
+        Cell cell = cells.get(index);
+        PatternPreviewEntry entry = entries[cell.entry];
+        var recipe = cell.recipe < 0 ? null : entry.diskPatterns().get(cell.recipe);
+        boolean occupied = recipe == null ? !entry.auxiliaryDisk() && !entry.stack().isEmpty() : !recipe.stack().isEmpty();
+        byte flags = recipe == null ? entry.flags() : recipe.flags();
+        String inputs = recipe == null ? entry.inputKeywords() : recipe.inputKeywords();
+        String output = recipe == null ? entry.outputKeywords() : recipe.outputKeywords();
+        boolean noSearch = inputTerms.isEmpty() && outputTerms.isEmpty();
+        // Either active branch may match; an empty query never makes the other branch match everything.
+        included.set(index, occupied && (substitution || (flags & 1) == 0) && (fluidSubstitution || (flags & 2) == 0)
+                && (noSearch || matchesTerms(inputTerms, inputs) || matchesTerms(outputTerms, output)));
     }
 
     private void rebuildVisible() {
         visible.clear();
-        for (int row = included.nextSetBit(0); row >= 0; row = included.nextSetBit(row + 1)) visible.add(row);
+        for (int cell = included.nextSetBit(0); cell >= 0; cell = included.nextSetBit(cell + 1)) visible.add(cell);
     }
 
     Cell cell(int position) {
-        int row = position / COLUMNS;
-        return row < 0 || row >= visible.size() ? null : rows.get(visible.getInt(row))[position % COLUMNS];
+        return position < 0 || position >= visible.size() ? null : cells.get(visible.getInt(position));
     }
 
-    boolean matches(int position) {
-        int row = position / COLUMNS;
-        return row >= 0 && row < visible.size() && matches.get(visible.getInt(row)).get(position % COLUMNS);
-    }
-
-    int size() { return visible.size(); }
+    int size() { return (visible.size() + COLUMNS - 1) / COLUMNS; }
 }

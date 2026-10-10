@@ -11,7 +11,8 @@ import net.minecraft.world.item.ItemStack;
 
 /** Snapshot data only; never used as the authoritative inventory for an operation. */
 public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack stack,
-                                  String keywords, byte flags, List<PatternPreviewEntry.DiskPattern> diskPatterns,
+                                  String inputKeywords, String outputKeywords, byte flags,
+                                  List<PatternPreviewEntry.DiskPattern> diskPatterns,
                                   boolean auxiliaryDisk) {
 
     /**
@@ -22,7 +23,20 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
      * recipes have no slot of their own to be addressed by. The list rides along with the slot and is expanded
      * for display only.</p>
      */
-    public record DiskPattern(ItemStack stack, String keywords, byte flags) {
+    public record DiskPattern(ItemStack stack, String inputKeywords, String outputKeywords, byte flags) {
+        public CompoundTag encode(HolderLookup.Provider registries) {
+            CompoundTag tag = new CompoundTag();
+            tag.put("stack", stack.saveOptional(registries));
+            if (!inputKeywords.isEmpty()) tag.putString("inputs", inputKeywords);
+            if (!outputKeywords.isEmpty()) tag.putString("output", outputKeywords);
+            tag.putByte("flags", flags);
+            return tag;
+        }
+
+        public static DiskPattern decode(CompoundTag tag, HolderLookup.Provider registries) {
+            return new DiskPattern(ItemStack.parseOptional(registries, tag.getCompound("stack")),
+                    tag.getString("inputs"), tag.getString("output"), tag.getByte("flags"));
+        }
     }
 
     public CompoundTag encode(HolderLookup.Provider registries) {
@@ -30,15 +44,12 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
         tag.putLong("bus", busPosition);
         tag.putInt("slot", physicalSlot);
         tag.put("stack", stack.saveOptional(registries));
-        tag.putString("keywords", keywords);
+        if (!inputKeywords.isEmpty()) tag.putString("inputs", inputKeywords);
+        if (!outputKeywords.isEmpty()) tag.putString("output", outputKeywords);
         tag.putByte("flags", flags);
         ListTag held = new ListTag();
         for (DiskPattern pattern : diskPatterns) {
-            CompoundTag entry = new CompoundTag();
-            entry.put("stack", pattern.stack().saveOptional(registries));
-            entry.putString("keywords", pattern.keywords());
-            entry.putByte("flags", pattern.flags());
-            held.add(entry);
+            held.add(pattern.encode(registries));
         }
         tag.put("disk", held);
         // Carried separately from the recipe list because an empty disk has no recipes yet still is not a slot a
@@ -52,11 +63,10 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
         ListTag encoded = tag.getList("disk", Tag.TAG_COMPOUND);
         for (int index = 0; index < encoded.size(); index++) {
             CompoundTag entry = encoded.getCompound(index);
-            held.add(new DiskPattern(ItemStack.parseOptional(registries, entry.getCompound("stack")),
-                    entry.getString("keywords"), entry.getByte("flags")));
+            held.add(DiskPattern.decode(entry, registries));
         }
         return new PatternPreviewEntry(tag.getLong("bus"), tag.getInt("slot"),
                 ItemStack.parseOptional(registries, tag.getCompound("stack")),
-                tag.getString("keywords"), tag.getByte("flags"), held, tag.getBoolean("diskSlot"));
+                tag.getString("inputs"), tag.getString("output"), tag.getByte("flags"), held, tag.getBoolean("diskSlot"));
     }
 }

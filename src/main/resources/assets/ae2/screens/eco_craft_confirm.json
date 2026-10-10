@@ -39,6 +39,10 @@
     }
   },
   "widgets": {
+    "verticalToolbar": {
+      "left": 1,
+      "top": 1
+    },
     "scrollbar": {
       "left": 218,
       "top": 27,

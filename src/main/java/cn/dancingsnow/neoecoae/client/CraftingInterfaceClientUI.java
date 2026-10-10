@@ -1,9 +1,11 @@
 package cn.dancingsnow.neoecoae.client;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -12,19 +14,69 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.Slot;
 import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 import java.util.function.Consumer;
 
 /** Bridges the shared crafting-interface UI tree to native Minecraft widgets for text-input focus/IME support. */
+@EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT)
 public final class CraftingInterfaceClientUI {
     private static final int TOOL_BUTTON_SIZE = 16;
     private static final int SEARCH_QUERY_MAX_LENGTH = 128;
     private static final int SEARCH_TEXT_INSET_X = 2;
-    private static final int SEARCH_TEXT_INSET_Y = 3;
+    private static final int SEARCH_TEXT_INSET_Y = 2;
 
     private CraftingInterfaceClientUI() {
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onScreenInit(ScreenEvent.Init.Post event) {
+        if (event.getScreen() instanceof AbstractContainerScreen<?> container
+                && container.getMenu() instanceof IModularUIHolder holder) {
+            attachNativeSearchFields(event, holder.getModularUI());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onScreenRender(ScreenEvent.Render.Pre event) {
+        prepareSearchFields(event.getScreen());
+    }
+
+    @SubscribeEvent
+    public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
+        if (!(event.getScreen() instanceof AbstractContainerScreen<?> container)
+                || container.getMenu().getCarried().isEmpty()
+                || !(container.getMenu() instanceof IModularUIHolder holder)) return;
+        var modularUI = holder.getModularUI();
+        if (modularUI == null || !modularUI.isDrawTooltips() || modularUI.getDragHandler().isDragging()
+                || !(modularUI.getLastHoveredElement() instanceof CraftingInterfaceUI.PatternPreview preview)) return;
+        var tooltip = preview.collectHoverTooltips();
+        if (tooltip == null || tooltip.tooltipTexts().isEmpty()) return;
+        // LDLib suppresses its tooltip pass when the cursor carries an item; draw this insertion hint afterwards.
+        event.getGuiGraphics().renderTooltip(Minecraft.getInstance().font, tooltip.tooltipTexts().getFirst(),
+                event.getMouseX(), event.getMouseY());
+    }
+
+    @SubscribeEvent
+    public static void onKeyPressed(ScreenEvent.KeyPressed.Pre event) {
+        if (handleSearchKeyPressed(event.getScreen(), event.getKeyCode(), event.getScanCode(), event.getModifiers())) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onCharTyped(ScreenEvent.CharacterTyped.Pre event) {
+        if (handleSearchCharTyped(event.getScreen(), event.getCodePoint(), event.getModifiers())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void onMousePressed(ScreenEvent.MouseButtonPressed.Post event) {
+        reclaimSearchFieldFocus(event.getScreen());
     }
 
     public static CraftingInterfaceUI.SearchField createSearchField(Consumer<String> responder) {
@@ -71,6 +123,13 @@ public final class CraftingInterfaceClientUI {
 
     public static boolean handleSearchKeyPressed(Screen screen, int keyCode, int scanCode, int modifiers) {
         NativeSearchField field = focusedSearchField(screen);
+        if (field != null && keyCode == GLFW.GLFW_KEY_TAB) {
+            List<NativeSearchField> fields = searchFields(screen).stream()
+                    .filter(NativeSearchField.class::isInstance).map(NativeSearchField.class::cast).toList();
+            int direction = (modifiers & GLFW.GLFW_MOD_SHIFT) == 0 ? 1 : -1;
+            fields.get(Math.floorMod(fields.indexOf(field) + direction, fields.size())).claimNativeFocus(screen);
+            return true;
+        }
         return field != null && field.keyPressedNative(keyCode, scanCode, modifiers);
     }
 
@@ -87,6 +146,12 @@ public final class CraftingInterfaceClientUI {
     }
 
     private static NativeSearchField focusedSearchField(Screen screen) {
+        // Native mouse/Tab focus wins over the previous ModularUI focus until both are reconciled.
+        for (CraftingInterfaceUI.SearchField field : searchFields(screen)) {
+            if (field instanceof NativeSearchField nativeField && screen.getFocused() == nativeField.editBox) {
+                return nativeField;
+            }
+        }
         for (CraftingInterfaceUI.SearchField field : searchFields(screen)) {
             if (field instanceof NativeSearchField nativeField && nativeField.ownsNativeInput(screen)) {
                 return nativeField;
@@ -124,7 +189,22 @@ public final class CraftingInterfaceClientUI {
             editBox.setResponder(this::updateSearch);
             editBox.setVisible(true);
             editBox.active = true;
+            addEventListener(UIEvents.MOUSE_DOWN, event -> {
+                if (event.button != 0 && event.button != 1) return;
+                claimNativeFocus(Minecraft.getInstance().screen);
+                if (event.button == 1) editBox.setValue("");
+                else editBox.mouseClicked(Math.clamp(event.x, editBox.getX(), editBox.getX() + editBox.getWidth() - 1),
+                        Math.clamp(event.y, editBox.getY(), editBox.getY() + editBox.getHeight() - 1), 0);
+                event.hasHandler = true;
+                event.stopImmediatePropagation();
+            });
+        }
 
+        @Override
+        public CraftingInterfaceUI.SearchField setSearchHint(Component hint) {
+            editBox.setHint(hint);
+            editBox.setMessage(hint);
+            return this;
         }
 
         private boolean ownsNativeInput(Screen screen) {
@@ -133,6 +213,7 @@ public final class CraftingInterfaceClientUI {
 
         private void claimNativeFocus(Screen screen) {
             syncNativeBounds();
+            if (!isFocused()) focus();
             if (screen != null && screen.getFocused() != editBox) {
                 screen.setFocused(editBox);
             }
@@ -198,10 +279,12 @@ public final class CraftingInterfaceClientUI {
                 }
                 if (button == 1) {
                     setValue("");
-                    setFocused(true);
+                    claimNativeFocus(Minecraft.getInstance().screen);
                     return true;
                 }
-                return super.mouseClicked(mouseX, mouseY, button);
+                boolean handled = super.mouseClicked(mouseX, mouseY, button);
+                if (handled) claimNativeFocus(Minecraft.getInstance().screen);
+                return handled;
             }
 
             @Override

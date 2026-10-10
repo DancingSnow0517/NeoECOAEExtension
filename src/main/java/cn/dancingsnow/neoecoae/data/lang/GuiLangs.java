@@ -316,9 +316,17 @@ public class GuiLangs {
 
         // crafting interface
         provider.add("gui.neoecoae.crafting_interface.title", "Crafting Interface");
+        provider.add("gui.neoecoae.crafting_interface.preview.put_pattern",
+            "Click to insert the pattern held by the cursor into an available pattern bus.");
         provider.add("gui.neoecoae.crafting_interface.preview.search", "Search ingredients or outputs");
         provider.add("gui.neoecoae.crafting_interface.preview.search.tooltip",
             "Searches pattern ingredients and outputs. Separate terms with spaces; right-click to clear.");
+        provider.add("gui.neoecoae.crafting_interface.preview.search.inputs", "Materials");
+        provider.add("gui.neoecoae.crafting_interface.preview.search.output", "Product");
+        provider.add("gui.neoecoae.crafting_interface.preview.search.inputs.tooltip",
+            "Search ingredients. Separate terms with spaces; right-click to clear. With both fields filled, either may match.");
+        provider.add("gui.neoecoae.crafting_interface.preview.search.output.tooltip",
+            "Search the primary product. Separate terms with spaces; right-click to clear. With both fields filled, either may match.");
         provider.add("gui.neoecoae.crafting_interface.preview.filter_substitutions", "Show/hide substitution patterns");
         provider.add("gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions", "Show/hide fluid substitution patterns");
         provider.add("gui.neoecoae.crafting_interface.preview.organize", "Organize pattern buses");
@@ -355,12 +363,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.total_net_output", "Total change: %s");
         provider.add("gui.neoecoae.crafting_report.total_net_output_unknown", "Total change: unknown");
         provider.add("gui.neoecoae.crafting_report.calculating", "Calculating...");
-        provider.add("gui.neoecoae.crafting_report.bookmark_missing", "Bookmark missing");
+        provider.add("gui.neoecoae.crafting_report.bookmark_missing", "Save Missing");
         provider.add("gui.neoecoae.crafting_report.complex_tree_hint", "Check the patterns in this complex crafting tree");
         provider.add("gui.neoecoae.crafting_report.search_incomplete", "Route search incomplete; calculated materials are retained");
         provider.add("gui.neoecoae.crafting_report.cycle_unsupported", "A cyclic recipe cannot be handled by the current solver.");
-        provider.add("gui.neoecoae.crafting_report.total_consumed", "Total consumed: %s");
-        provider.add("gui.neoecoae.crafting_report.total_produced", "Total produced: %s");
+        provider.add("gui.neoecoae.crafting_report.total_consumed", "Used: %s");
+        provider.add("gui.neoecoae.crafting_report.total_produced", "Output: %s");
         provider.add("gui.neoecoae.crafting.fast_planner.on", "ECO Fast Planning: Enabled");
         provider.add("gui.neoecoae.crafting.fast_planner.off", "ECO Fast Planning: Disabled");
         provider.add("gui.neoecoae.crafting.planning_log.on", "Planning Stage Logs: Enabled");
@@ -384,9 +392,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.virtual_blocked.energy_required", "Requires %d AE per network tick, paid in full");
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_hint", "Cancel the job, leave Infinite Mode, and stop feeding the old coolant.");
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_recovery", "Consume the old buffer with normal crafting, then restore tier-9 cooling and Infinite Mode.");
-        provider.add("gui.neoecoae.crafting_report.cycle_not_detected", "No cycles detected");
-        provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle detected");
-        provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");
+        provider.add("gui.neoecoae.crafting_report.cycle_not_detected", "No cycles");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle found");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycles off");
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
         provider.add("gui.neoecoae.crafting_report.seed_shortfall_estimate", "Startup shortfall: at least %s");
         provider.add("gui.neoecoae.crafting_report.seed_shortfall_estimate_hint", "This is a lower bound; supplying it has not been verified to complete the order.");

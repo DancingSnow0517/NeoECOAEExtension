@@ -1,13 +1,16 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
-import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -16,15 +19,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
@@ -32,367 +33,289 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 
-/** Control surface for browsing network patterns and moving compatible ones into ECO crafting buses. */
+/** Compact pattern-manager view; all operations still address the original physical bus slots. */
 public final class CraftingInterfaceUI {
-    private static final int STATUS_CONNECTED = 0x55CC77;
-    private static final int STATUS_DISCONNECTED = 0xDD5555;
     public static final int PREVIEW_COLUMNS = 9;
-    public static final int PREVIEW_ROWS = 4;
+    public static final int PREVIEW_ROWS = 6;
     private static final int PREVIEW_WIDTH = PREVIEW_COLUMNS * 18;
     private static final int PREVIEW_HEIGHT = PREVIEW_ROWS * 18;
-    private static final int PLAYER_INVENTORY_WIDTH = 9 * 18;
-    private static final int ROOT_SIDE_MARGIN = 7;
-    private static final int TOOL_BUTTON_SIZE = 16;
-    private static final int PREVIEW_SCROLLBAR_WIDTH = 12;
-    private static final int PREVIEW_SCROLLBAR_GAP = 2;
-    private static final int PREVIEW_SCROLLBAR_TRACK_WIDTH = 6;
-    private static final int PREVIEW_SCROLLBAR_THUMB_HEIGHT = 15;
+    private static final int SCROLLBAR_WIDTH = 12;
+    private static final int SCROLLBAR_BORDER = 1;
+    private static final int SCROLLBAR_THUMB_HEIGHT = 15;
+    private static final int SCROLLBAR_TRAVEL = PREVIEW_HEIGHT - SCROLLBAR_BORDER * 2 - SCROLLBAR_THUMB_HEIGHT;
+    private static final ResourceLocation SCROLLBAR_ENABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller");
+    private static final ResourceLocation SCROLLBAR_DISABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller_disabled");
     static final int PREVIEW_QUERY_MAX_LENGTH = 128;
-    private static final IGuiTexture SUBSTITUTION_ENABLED = AETextures.icon(ECOIcon.SUBSTITUTION_ENABLED);
-    private static final IGuiTexture SUBSTITUTION_DISABLED = AETextures.icon(ECOIcon.SUBSTITUTION_DISABLED);
-    private static final IGuiTexture FLUID_SUBSTITUTION_ENABLED = AETextures.icon(ECOIcon.FLUID_SUBSTITUTION_ENABLED);
-    private static final IGuiTexture FLUID_SUBSTITUTION_DISABLED = AETextures.icon(ECOIcon.FLUID_SUBSTITUTION_DISABLED);
-    private static final IGuiTexture PATTERN_ACCESS_SHOW = AETextures.icon(ECOIcon.PATTERN_ACCESS_SHOW);
 
-    private CraftingInterfaceUI() {
-    }
+    private CraftingInterfaceUI() { }
 
-    public static ModularUI create(
-            ECOMachineInterfaceBlockEntity<?> craftingInterface,
-            Player player) {
+    public static ModularUI create(ECOMachineInterfaceBlockEntity<?> craftingInterface, Player player) {
         CraftingPatternPreviewState previewState = new CraftingPatternPreviewState(craftingInterface, player);
+        UIElement root = new UIElement().layout(layout -> layout.width(195).height(237))
+                .style(style -> style.backgroundTexture(NETextures.PATTERN_MANAGER))
+                .setOverflowVisible(true);
+        StatusTooltips operationStatus = new StatusTooltips(craftingInterface);
+        root.addChild(HostElements.absolute(operationStatus, 0, 0, 0, 0));
+        root.addChild(HostElements.absolute(boundLabel(() -> GuiTitleProvider.title(craftingInterface.getBlockState(),
+                Component.translatable("gui.neoecoae.crafting_interface.title"))), 7, 5, 162, 10));
+        Label network = boundLabel(() -> Component.literal("●").withColor(
+                craftingInterface.isTargetOnline() ? 0x55CC77 : 0xDD5555));
+        operationStatus.attach(network);
+        root.addChild(HostElements.absolute(network, 178, 5, 10, 10));
+        root.addChild(patternSearchField(previewState::setInputSearch, "inputs", 21));
+        root.addChild(patternSearchField(previewState::setOutputSearch, "output", 103));
+        root.addChild(HostElements.absolute(patternPreview(previewState), 7, 31, PREVIEW_WIDTH, PREVIEW_HEIGHT));
+        root.addChild(HostElements.absolute(patternPreviewScrollbar(previewState), 174, 31,
+                SCROLLBAR_WIDTH + SCROLLBAR_BORDER * 2, PREVIEW_HEIGHT));
+        root.addChild(sideControls(craftingInterface, previewState, player, operationStatus));
 
-        UIElement root = new UIElement().layout(layout -> layout
-                .width(PLAYER_INVENTORY_WIDTH + PREVIEW_SCROLLBAR_WIDTH + PREVIEW_SCROLLBAR_GAP + ROOT_SIDE_MARGIN * 2)
-                .paddingLeft(ROOT_SIDE_MARGIN)
-                .paddingRight(ROOT_SIDE_MARGIN)
-                .paddingTop(8)
-                .paddingBottom(8)
-                .gapAll(5)
-                .flexDirection(FlexDirection.COLUMN))
-                .addClass("panel_bg");
-        root.addChild(boundLabel(() -> GuiTitleProvider.title(craftingInterface.getBlockState(),
-            Component.translatable("gui.neoecoae.crafting_interface.title"))));
-
-        UIElement contentFrame = new UIElement().layout(layout -> layout
-                .widthPercent(100)
-                .paddingLeft(8)
-                .paddingRight(8)
-                .paddingTop(8)
-                .paddingBottom(7)
-                .gapAll(4)
-                .flexDirection(FlexDirection.COLUMN))
-                .style(style -> style.backgroundTexture(NETextures.HOST_PANEL_BORDER));
-        contentFrame.addChild(statusLabel(() -> Component.translatable("gui.neoecoae.storage_interface.network")
-                .append(": ")
-                .append(Component.translatable(craftingInterface.isTargetOnline()
-                        ? "gui.neoecoae.storage_interface.connected"
-                        : "gui.neoecoae.storage_interface.disconnected")
-                        .withColor(craftingInterface.isTargetOnline() ? STATUS_CONNECTED : STATUS_DISCONNECTED))));
-        contentFrame.addChild(transferButton(craftingInterface));
-        contentFrame.addChild(statusLabel(craftingInterface::getPatternTransferPrimaryStatus));
-        contentFrame.addChild(secondaryStatus(craftingInterface));
-        contentFrame.addChild(patternTransferProgress(craftingInterface));
-        root.addChild(contentFrame);
-        root.addChild(previewSection(craftingInterface, previewState, player));
+        Label status = compactLabel();
+        Component[] previous = {previewState.status()};
+        status.setText(previous[0]);
+        // Browse state belongs to the viewer; binding this text S2C would overwrite their local search/scroll.
+        status.addEventListener(UIEvents.TICK, event -> {
+            Component next = previewState.status();
+            if (!next.equals(previous[0])) status.setText(previous[0] = next);
+        });
+        operationStatus.attach(status);
+        root.addChild(HostElements.absolute(status, 7, 140, PREVIEW_WIDTH, 9));
+        TransferProgress progress = new TransferProgress();
+        progress.bind(DataBindingBuilder.floatValS2C(() -> craftingInterface.isPatternTransferInProgress()
+                ? Math.round(craftingInterface.getPatternTransferProgress() * 100F) / 100F : 0F).build());
+        operationStatus.attach(progress);
+        root.addChild(HostElements.absolute(progress, 7, 149, PREVIEW_WIDTH, 2));
+        root.addChild(playerInventory(previewState));
         root.addEventListener(UIEvents.MOUSE_UP, event -> {
             if (event.button == 0) previewState.endQuickMoveDrag();
         }, true);
         root.addEventListener(UIEvents.TICK,
                 event -> previewState.endQuickMoveDragIfReleased(root.isMouseDown(0)));
-        InventorySlots playerInventory = new InventorySlots();
-        playerInventory.apply(slot -> slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            if (event.isShiftDown() && (event.button == 0 || event.button == 1)
-                    && previewState.quickMoveFromInventory(slot.getSlot())) {
-                event.hasHandler = true;
-                event.stopImmediatePropagation();
-            }
-        }));
-        playerInventory.layout(layout -> layout
-                .width(PLAYER_INVENTORY_WIDTH)
-                .marginTop(2));
-        root.addChild(playerInventory);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player);
     }
 
-    private static Button transferButton(ECOMachineInterfaceBlockEntity<?> craftingInterface) {
-        Button button = new Button()
-                .setText(Component.translatable("gui.neoecoae.host.crafting.pattern_transfer"))
-                .setOnServerClick(event -> craftingInterface.startNetworkPatternTransfer());
-        button.buttonStyle(style -> style
-                .baseTexture(NETextures.RECT_RD)
-                .hoverTexture(NETextures.RECT_RD_LIGHT)
-                .pressedTexture(NETextures.RECT_RD_DARK));
-        button.layout(layout -> layout.widthPercent(100).height(18));
-        return button;
+    private static UIElement sideControls(ECOMachineInterfaceBlockEntity<?> craftingInterface,
+            CraftingPatternPreviewState previewState, Player player, StatusTooltips status) {
+        Button transfer = iconButton(ECOIcon.ARROW_RIGHT, "gui.neoecoae.host.crafting.pattern_transfer",
+                craftingInterface::startNetworkPatternTransfer);
+        Button organize = iconButton(ECOIcon.COG, "gui.neoecoae.crafting_interface.preview.organize", () -> {
+            if (player instanceof ServerPlayer serverPlayer) craftingInterface.organizePatternBuses(serverPlayer);
+        });
+        status.attach(transfer);
+        status.attach(organize);
+        return HostSideButtonBar.grayLeft(transfer, organize,
+                patternFilterButton(previewState, CraftingPatternPreviewState::showsSubstitutionPatterns,
+                        ECOIcon.SUBSTITUTION_ENABLED, ECOIcon.SUBSTITUTION_DISABLED,
+                        CraftingPatternPreviewState::toggleSubstitutionPatterns, "filter_substitutions"),
+                patternFilterButton(previewState, CraftingPatternPreviewState::showsFluidSubstitutionPatterns,
+                        ECOIcon.FLUID_SUBSTITUTION_ENABLED, ECOIcon.FLUID_SUBSTITUTION_DISABLED,
+                        CraftingPatternPreviewState::toggleFluidSubstitutionPatterns, "filter_fluid_substitutions"));
     }
 
-    private static UIElement patternTransferProgress(
-            ECOMachineInterfaceBlockEntity<?> craftingInterface) {
-        UIElement container = HostElements.syncedDisplay(craftingInterface::isPatternTransferInProgress);
-        ProgressBar progressBar = new ProgressBar();
-        progressBar.label(label -> label.setText(""));
-        progressBar.barContainer(element -> element.layout(layout -> layout.paddingAll(1)));
-        progressBar.bind(DataBindingBuilder.floatValS2C(() -> Math.round(craftingInterface.getPatternTransferProgress() * 100.0F) / 100.0F).build());
-        progressBar.addClass("eco-pattern-transfer-progress");
-        progressBar.layout(layout -> layout.widthPercent(100).height(7));
-        container.addChild(progressBar);
-        container.layout(layout -> layout.widthPercent(100).height(7).marginTop(-1));
-        return container;
+    private static SearchField patternSearchField(Consumer<String> responder, String direction, int left) {
+        SearchField field = ClientUIBridge.call("createSearchField", Consumer.class, responder, SearchField.class,
+                () -> new SearchField(responder));
+        String key = "gui.neoecoae.crafting_interface.preview.search." + direction;
+        field.setSearchHint(Component.translatable(key));
+        HostElements.tooltips(field, Component.translatable(key + ".tooltip"));
+        return HostElements.absolute(field, left, 15, 66, 12);
     }
 
-    private static UIElement secondaryStatus(ECOMachineInterfaceBlockEntity<?> craftingInterface) {
-        UIElement container = HostElements.syncedDisplay(craftingInterface::hasPatternTransferSecondaryStatus);
-        container.addChild(statusLabel(craftingInterface::getPatternTransferSecondaryStatus));
-        container.layout(layout -> layout.widthPercent(100).height(12));
-        return container;
-    }
-
-    private static UIElement previewHeader(
-            ECOMachineInterfaceBlockEntity<?> craftingInterface,
-            CraftingPatternPreviewState previewState,
-            Player player) {
-        UIElement header = new UIElement().layout(layout -> layout
-                .widthPercent(100)
-                .height(TOOL_BUTTON_SIZE)
-                .flexDirection(FlexDirection.ROW)
-                .alignItems(AlignItems.CENTER)
-                .gapAll(2));
-        header.addChild(patternSearchField(previewState));
-        header.addChild(patternFilterButton(
-                previewState,
-                CraftingPatternPreviewState::showsEmptyRows,
-                PATTERN_ACCESS_SHOW,
-                AETextures.icon(ECOIcon.PATTERN_ACCESS_HIDE),
-                CraftingPatternPreviewState::toggleEmptyRows,
-                "gui.neoecoae.crafting_interface.preview.empty_rows"));
-        header.addChild(patternFilterButton(
-                previewState,
-                CraftingPatternPreviewState::showsSubstitutionPatterns,
-                SUBSTITUTION_ENABLED,
-                SUBSTITUTION_DISABLED,
-                CraftingPatternPreviewState::toggleSubstitutionPatterns,
-                "gui.neoecoae.crafting_interface.preview.filter_substitutions"));
-        header.addChild(patternFilterButton(
-                previewState,
-                CraftingPatternPreviewState::showsFluidSubstitutionPatterns,
-                FLUID_SUBSTITUTION_ENABLED,
-                FLUID_SUBSTITUTION_DISABLED,
-                CraftingPatternPreviewState::toggleFluidSubstitutionPatterns,
-                "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions"));
-        header.addChild(iconButton(PATTERN_ACCESS_SHOW, "gui.neoecoae.crafting_interface.preview.organize",
-                () -> {
-                    if (player instanceof ServerPlayer serverPlayer) {
-                        craftingInterface.organizePatternBuses(serverPlayer);
-                    }
-                }));
-        return header;
-    }
-
-    private static CraftingInterfaceUI.SearchField patternSearchField(CraftingPatternPreviewState previewState) {
-        SearchField field = ClientUIBridge.call("createSearchField", Consumer.class,
-                (Consumer<String>) previewState::setSearch, SearchField.class,
-                () -> new SearchField(previewState::setSearch));
-        field.layout(layout -> layout.flex(1).height(TOOL_BUTTON_SIZE));
-        return HostElements.tooltips(field,
-                Component.translatable("gui.neoecoae.crafting_interface.preview.search.tooltip"));
-    }
-
+    /** Client bridge supplies the native EditBox; the shared tree also exists on dedicated servers. */
     public static class SearchField extends UIElement {
         private final Consumer<String> responder;
 
         public SearchField(Consumer<String> responder) {
             this.responder = responder == null ? value -> { } : responder;
             setFocusable(true);
-            style(style -> style.backgroundTexture(NETextures.RECT_RD));
         }
 
-        protected final void updateSearch(String value) {
-            responder.accept(value);
-        }
+        public SearchField setSearchHint(Component hint) { return this; }
+        protected final void updateSearch(String value) { responder.accept(value); }
     }
 
-    private static Button patternFilterButton(
-            CraftingPatternPreviewState previewState,
-            Function<CraftingPatternPreviewState, Boolean> enabled,
-            IGuiTexture enabledIcon,
-            IGuiTexture disabledIcon,
-            Consumer<CraftingPatternPreviewState> action,
-            String tooltip) {
-        Button button = new Button()
-                .noText()
-                .addPreIcon(enabled.apply(previewState) ? enabledIcon : disabledIcon);
+    private static Button patternFilterButton(CraftingPatternPreviewState state,
+            Function<CraftingPatternPreviewState, Boolean> enabled, ECOIcon enabledIcon, ECOIcon disabledIcon,
+            Consumer<CraftingPatternPreviewState> action, String tooltip) {
+        Button button = HostSideButtonBar.createButton().noText()
+                .addPreIcon(AETextures.icon(enabled.apply(state) ? enabledIcon : disabledIcon));
         button.setOnClick(event -> {
-            action.accept(previewState);
+            action.accept(state);
             button.getChildren().getFirst().style(style ->
-                    style.backgroundTexture(enabled.apply(previewState) ? enabledIcon : disabledIcon));
+                    style.backgroundTexture(AETextures.icon(enabled.apply(state) ? enabledIcon : disabledIcon)));
         });
-        button.buttonStyle(style -> style
-                .baseTexture(NETextures.RECT_RD)
-                .hoverTexture(NETextures.RECT_RD_LIGHT)
-                .pressedTexture(NETextures.RECT_RD_DARK));
-        button.layout(layout -> layout.width(TOOL_BUTTON_SIZE).height(TOOL_BUTTON_SIZE));
-        return HostElements.tooltips(button, Component.translatable(tooltip));
+        return HostElements.tooltips(button, Component.translatable("gui.neoecoae.crafting_interface.preview." + tooltip));
     }
 
-    private static UIElement previewSection(
-            ECOMachineInterfaceBlockEntity<?> craftingInterface,
-            CraftingPatternPreviewState previewState,
-            Player player) {
-        UIElement section = new UIElement().layout(layout -> layout
-                .widthPercent(100)
-                .gapAll(4)
-                .flexDirection(FlexDirection.COLUMN));
-        section.addChild(previewHeader(craftingInterface, previewState, player));
-        section.addChild(patternPreviewRow(previewState));
-        Label status = new Label();
-        status.textStyle(style -> style.textWrap(TextWrap.NONE).adaptiveWidth(false).adaptiveHeight(true));
-        status.layout(layout -> layout.widthPercent(100).height(12));
-        Component[] previous = {previewState.status()};
-        status.setText(previous[0]);
-        // This is local browse state: never bind it as server-to-client text.
-        status.addEventListener(UIEvents.TICK, event -> {
-            Component next = previewState.status();
-            if (!next.equals(previous[0])) status.setText(previous[0] = next);
+    /** Identifies the insertion surface when the client draws tooltips while carrying an item. */
+    public static final class PatternPreview extends UIElement { }
+
+    static UIElement patternPreview(CraftingPatternPreviewState state) {
+        // UIElement owns child rendering and clipping. Overriding drawContents here hides the pattern items.
+        UIElement preview = new PatternPreview().setOverflowVisible(false);
+        preview.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+            if (state.hasCarriedPattern()) {
+                event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
+                        "gui.neoecoae.crafting_interface.preview.put_pattern"));
+            }
         });
-        section.addChild(status);
-        return section;
-    }
-
-    private static UIElement patternPreviewRow(CraftingPatternPreviewState previewState) {
-        UIElement row = new UIElement().layout(layout -> layout
-                .width(PREVIEW_WIDTH + PREVIEW_SCROLLBAR_GAP + PREVIEW_SCROLLBAR_WIDTH)
-                .height(PREVIEW_HEIGHT)
-                .flexDirection(FlexDirection.ROW)
-                .alignItems(AlignItems.CENTER));
-        row.addChild(patternPreview(previewState));
-        row.addChild(patternPreviewScrollbar(previewState));
-        return row;
-    }
-
-    private static UIElement patternPreview(CraftingPatternPreviewState previewState) {
-        UIElement preview = new UIElement().layout(layout -> layout
-                .width(PREVIEW_WIDTH)
-                .height(PREVIEW_HEIGHT)
-                .alignItems(AlignItems.CENTER))
-                .addClass("panel_border");
-        // Consume ordinary wheel input before AE2 sees it, but leave Shift + wheel
-        // to the individual preview slot so it can retain the quick-move shortcut.
-        preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (event.deltaY != 0 && !event.isShiftDown()) {
-                previewState.scroll(event.deltaY < 0 ? 1 : -1);
+        preview.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (event.target == preview && state.insertCarriedPattern(event.button)) {
+                event.hasHandler = true;
                 event.stopImmediatePropagation();
             }
         });
-        UIElement slotLayer = new UIElement().layout(layout -> layout
-                .width(PREVIEW_WIDTH)
-                .height(PREVIEW_HEIGHT))
-                .setOverflowVisible(false);
-        for (int visualSlot = 0; visualSlot < ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS; visualSlot++) {
-            PatternItemSlot slot = previewState.createSlot(visualSlot);
-            slot.slotStyle(style -> style.slotOverlay(NETextures.PATTERN_OVERLAY));
-            int column = visualSlot % PREVIEW_COLUMNS;
-            int row = visualSlot / PREVIEW_COLUMNS;
-            slot.layout(layout -> layout
-                    .positionType(TaffyPosition.ABSOLUTE)
-                    .left(column * 18)
-                    .top(row * 18)
-                    .width(18)
-                    .height(18));
-            slotLayer.addChild(slot);
+        preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
+            if (event.deltaY != 0 && !event.isShiftDown()) {
+                state.scroll(event.deltaY < 0 ? 1 : -1);
+                event.stopImmediatePropagation();
+            }
+        });
+        for (int visual = 0; visual < ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS; visual++) {
+            PatternItemSlot slot = state.createSlot(visual);
+            slot.getStyle().backgroundTexture(NETextures.PATTERN_MANAGER_SLOT);
+            slot.slotStyle(style -> style.slotOverlay(IGuiTexture.EMPTY));
+            preview.addChild(HostElements.absolute(slot, visual % PREVIEW_COLUMNS * 18,
+                    visual / PREVIEW_COLUMNS * 18, 18, 18));
         }
-        preview.addChild(slotLayer);
         return preview;
     }
 
-    private static UIElement patternPreviewScrollbar(CraftingPatternPreviewState previewState) {
+    static UIElement patternPreviewScrollbar(CraftingPatternPreviewState state) {
         UIElement scrollbar = new UIElement() {
-            @Override
-            public void drawContents(GUIContext guiContext) {
-                int totalRows = previewState.getRowCount();
-                if (totalRows <= PREVIEW_ROWS) {
-                    return;
-                }
-                int height = PREVIEW_HEIGHT;
-                int maxScroll = Math.max(1, previewState.getMaxScrollRow());
-                int thumbY = Math.round((height - PREVIEW_SCROLLBAR_THUMB_HEIGHT)
-                        * (previewState.getScrollRow() / (float) maxScroll));
-                int x = Math.round(getPositionX());
-                int y = Math.round(getPositionY());
-                guiContext.drawTexture(NETextures.AE_SCROLLBAR_TRACK,
-                        x + (PREVIEW_SCROLLBAR_WIDTH - PREVIEW_SCROLLBAR_TRACK_WIDTH) / 2F, y,
-                        PREVIEW_SCROLLBAR_TRACK_WIDTH, height);
-                guiContext.drawTexture(NETextures.AE_SCROLLBAR_THUMB, x, y + thumbY,
-                        PREVIEW_SCROLLBAR_WIDTH, PREVIEW_SCROLLBAR_THUMB_HEIGHT);
+            @Override public void drawBackgroundAdditional(GUIContext context) {
+                int max = state.getMaxScrollRow();
+                float progress = max <= 0 ? 0F : Math.clamp(state.getScrollRow() / (float) max, 0F, 1F);
+                int thumbY = Math.round(SCROLLBAR_TRAVEL * progress);
+                int x = Math.round(getPositionX()) + SCROLLBAR_BORDER;
+                int y = Math.round(getPositionY()) + SCROLLBAR_BORDER + thumbY;
+                // Flush LDLib's track texture before drawing AE2's native sprite on top of it.
+                context.graphics.flush();
+                context.graphics.blitSprite(max > 0 ? SCROLLBAR_ENABLED : SCROLLBAR_DISABLED,
+                        x, y, SCROLLBAR_WIDTH, SCROLLBAR_THUMB_HEIGHT);
             }
-        }.layout(layout -> layout
-                .width(PREVIEW_SCROLLBAR_WIDTH)
-                .height(PREVIEW_HEIGHT)
-                .marginLeft(PREVIEW_SCROLLBAR_GAP));
+        };
+        scrollbar.style(style -> style.backgroundTexture(NETextures.PATTERN_MANAGER_SCROLLBAR_TRACK));
         scrollbar.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            int maxScroll = previewState.getMaxScrollRow();
-            if (event.button == 0 && maxScroll > 0) {
-                float localY = getLocalY(scrollbar, event.x, event.y);
-                float progress = Math.clamp((localY - PREVIEW_SCROLLBAR_THUMB_HEIGHT / 2F)
-                        / (PREVIEW_HEIGHT - PREVIEW_SCROLLBAR_THUMB_HEIGHT), 0F, 1F);
-                previewState.setScrollRow(Math.round(progress * maxScroll));
-                scrollbar.getModularUI().getDragHandler().startDrag(
-                        (float) previewState.getScrollRow(), null, scrollbar);
-                event.stopImmediatePropagation();
-            }
+            int max = state.getMaxScrollRow();
+            if (event.button != 0 || max <= 0) return;
+            float progress = Math.clamp((getLocalY(scrollbar, event.x, event.y)
+                    - SCROLLBAR_BORDER - SCROLLBAR_THUMB_HEIGHT / 2F) / SCROLLBAR_TRAVEL, 0F, 1F);
+            state.setScrollRow(Math.round(progress * max));
+            scrollbar.getModularUI().getDragHandler().startDrag((float) state.getScrollRow(), null, scrollbar);
+            event.stopImmediatePropagation();
         });
         scrollbar.addEventListener(UIEvents.DRAG_SOURCE_UPDATE, event -> {
-            if (event.dragHandler == null || !(event.dragHandler.draggingObject instanceof Float initialRow)) {
-                return;
-            }
-            float deltaY = getLocalY(scrollbar, event.x, event.y)
-                    - getLocalY(scrollbar, event.dragStartX, event.dragStartY);
-            float remainingSpace = PREVIEW_HEIGHT - PREVIEW_SCROLLBAR_THUMB_HEIGHT;
-            float row = initialRow + deltaY / remainingSpace * previewState.getMaxScrollRow();
-            previewState.setScrollRow(Math.round(row));
+            if (event.dragHandler == null || !(event.dragHandler.draggingObject instanceof Float initial)) return;
+            float delta = getLocalY(scrollbar, event.x, event.y) - getLocalY(scrollbar, event.dragStartX, event.dragStartY);
+            state.setScrollRow(Math.round(initial + delta / SCROLLBAR_TRAVEL * state.getMaxScrollRow()));
             event.stopImmediatePropagation();
         });
         scrollbar.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (event.deltaY != 0) {
-                previewState.scroll(event.deltaY < 0 ? 1 : -1);
-                event.stopImmediatePropagation();
-            }
+            if (event.deltaY == 0) return;
+            state.scroll(event.deltaY < 0 ? 1 : -1);
+            event.stopImmediatePropagation();
         });
         return scrollbar;
     }
 
-    /** UIElement#getLocalMouse uses the root UI coordinate space, not this element's layout offset. */
     private static float getLocalY(UIElement element, float x, float y) {
         return element.getLocalMouse(x, y).y - element.getPositionY();
     }
 
-    private static Button iconButton(IGuiTexture icon, String tooltip, Runnable action) {
-        Button button = new Button()
-                .noText()
-                .addPreIcon(icon)
-                .setOnServerClick(event -> action.run());
-        button.buttonStyle(style -> style
-                .baseTexture(NETextures.RECT_RD)
-                .hoverTexture(NETextures.RECT_RD_LIGHT)
-                .pressedTexture(NETextures.RECT_RD_DARK));
-        button.layout(layout -> layout.width(TOOL_BUTTON_SIZE).height(TOOL_BUTTON_SIZE));
-        return HostElements.tooltips(button, Component.translatable(tooltip));
+    private static UIElement playerInventory(CraftingPatternPreviewState state) {
+        InventorySlots inventory = new InventorySlots();
+        inventory.getChildren().forEach(child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY));
+        inventory.hotbar.layout(layout -> layout.marginTop(4));
+        inventory.apply(slot -> {
+            slot.getStyle().backgroundTexture(IGuiTexture.EMPTY);
+            slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+                if (event.isShiftDown() && (event.button == 0 || event.button == 1) && state.quickMoveFromInventory(slot.getSlot())) {
+                    event.hasHandler = true;
+                    event.stopImmediatePropagation();
+                }
+            });
+        });
+        return HostElements.absolute(inventory, 7, 152, PREVIEW_WIDTH, 76);
+    }
+
+    private static Button iconButton(ECOIcon icon, String tooltip, Runnable action) {
+        return HostElements.tooltips(HostSideButtonBar.createButton().noText().addPreIcon(AETextures.icon(icon))
+                .setOnServerClick(event -> action.run()), Component.translatable(tooltip));
+    }
+
+    private static Label compactLabel() {
+        Label label = new Label();
+        label.textStyle(style -> style.textWrap(TextWrap.HOVER_ROLL).textShadow(false)
+                .adaptiveWidth(false).adaptiveHeight(false));
+        return label;
     }
 
     private static Label boundLabel(Supplier<Component> text) {
-        Label label = new Label();
+        Label label = compactLabel();
         label.setText(text.get());
         label.bind(DataBindingBuilder.componentS2C(text).build());
-        label.textStyle(style -> style.textWrap(TextWrap.NONE).adaptiveWidth(false).adaptiveHeight(true));
-        label.layout(layout -> layout.widthPercent(100).height(12));
         return label;
     }
 
-    private static Label statusLabel(Supplier<Component> text) {
-        Label label = boundLabel(text);
-        label.layout(layout -> layout.widthPercent(100).height(12).marginLeft(2));
-        return label;
+    static List<Component> statusTooltipLines(Component network, Component primary, Component secondary) {
+        return List.of(network, primary, secondary).stream().filter(line -> !line.getString().isEmpty()).toList();
+    }
+
+    private static final class StatusTooltips extends UIElement {
+        private final TooltipLine network;
+        private final TooltipLine primary;
+        private final TooltipLine secondary;
+
+        private StatusTooltips(ECOMachineInterfaceBlockEntity<?> host) {
+            network = new TooltipLine(() -> Component.translatable("gui.neoecoae.storage_interface.network").append(": ")
+                    .append(Component.translatable(host.isTargetOnline()
+                            ? "gui.neoecoae.storage_interface.connected" : "gui.neoecoae.storage_interface.disconnected")));
+            primary = new TooltipLine(host::getPatternTransferPrimaryStatus);
+            secondary = new TooltipLine(() -> host.hasPatternTransferSecondaryStatus()
+                    ? host.getPatternTransferSecondaryStatus() : Component.empty());
+            addChild(network);
+            addChild(primary);
+            addChild(secondary);
+        }
+
+        private void attach(UIElement element) {
+            element.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                if (event.hoverTooltips == null) event.hoverTooltips = HoverTooltips.empty();
+                // The tooltip renderer treats every Component as one line; embedded newlines are not split.
+                event.hoverTooltips = event.hoverTooltips.append(statusTooltipLines(
+                        network.getValue(), primary.getValue(), secondary.getValue()).toArray(Component[]::new));
+            });
+        }
+    }
+
+    private static final class TooltipLine extends UIElement implements IBindable<Component> {
+        private Component text;
+
+        private TooltipLine(Supplier<Component> supplier) {
+            text = supplier.get();
+            bind(DataBindingBuilder.componentS2C(supplier).build());
+            setDisplay(false);
+        }
+
+        @Override public Component getValue() { return text; }
+        @Override public IDataSource<Component> setValue(Component value) {
+            text = value == null ? Component.empty() : value;
+            return this;
+        }
+    }
+
+    private static final class TransferProgress extends UIElement implements IBindable<Float> {
+        private float progress;
+        @Override public Float getValue() { return progress; }
+        @Override public IDataSource<Float> setValue(Float value) {
+            progress = value == null ? 0F : Math.clamp(value, 0F, 1F);
+            return this;
+        }
+        @Override public void drawContents(GUIContext context) {
+            if (progress <= 0F) return;
+            int x = Math.round(getPositionX()), y = Math.round(getPositionY());
+            context.graphics.fill(x, y, x + Math.round(getSizeWidth() * progress), y + 2, 0xFF32D6FF);
+        }
     }
 }

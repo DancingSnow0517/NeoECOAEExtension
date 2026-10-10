@@ -49,7 +49,7 @@ class PatternPreviewCodecTest {
         var entries = new ListTag();
         entries.add(encoded(2, new ItemStack(Items.STONE), List.of(), false));
         entries.add(encoded(19, ItemStack.EMPTY, List.of(new PatternPreviewEntry.DiskPattern(
-                new ItemStack(Items.DIAMOND), "diamond", (byte) 3)), true));
+                new ItemStack(Items.DIAMOND), "coal", "diamond", (byte) 3)), true));
         payload.put("entries", entries);
         var buf = buffer();
         try {
@@ -63,6 +63,8 @@ class PatternPreviewCodecTest {
             assertTrue(disk.auxiliaryDisk());
             assertEquals(1, disk.diskPatterns().size());
             assertEquals(3, disk.diskPatterns().getFirst().flags());
+            assertEquals("coal", disk.diskPatterns().getFirst().inputKeywords());
+            assertEquals("diamond", disk.diskPatterns().getFirst().outputKeywords());
             assertTrue(disk.diskPatterns().getFirst().stack().is(Items.DIAMOND));
         } finally { buf.release(); }
     }
@@ -85,7 +87,7 @@ class PatternPreviewCodecTest {
     }
 
     private static CompoundTag encoded(int slot, ItemStack stack, List<PatternPreviewEntry.DiskPattern> disk, boolean readOnly) {
-        var result = new PatternPreviewEntry(42, slot, stack, "", (byte) 0, disk, readOnly).encode(RegistryAccess.EMPTY);
+        var result = new PatternPreviewEntry(42, slot, stack, "", "", (byte) 0, disk, readOnly).encode(RegistryAccess.EMPTY);
         result.putInt("index", slot);
         return result;
     }

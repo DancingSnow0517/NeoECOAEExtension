@@ -54,6 +54,10 @@ public final class HostSideButtonBar {
         return create(Side.LEFT, buttons);
     }
 
+    public static UIElement grayLeft(UIElement... buttons) {
+        return create(Side.LEFT, Arrays.asList(buttons), ContentType.BUTTON, "gray_");
+    }
+
     public static UIElement right(UIElement... buttons) {
         return create(Side.RIGHT, buttons);
     }
@@ -104,6 +108,11 @@ public final class HostSideButtonBar {
     }
 
     private static UIElement create(Side side, List<? extends UIElement> elements, ContentType contentType) {
+        return create(side, elements, contentType, "");
+    }
+
+    private static UIElement create(Side side, List<? extends UIElement> elements, ContentType contentType,
+                                    String texturePrefix) {
         if (elements.isEmpty()) {
             throw new IllegalArgumentException("HostSideButtonBar requires at least one element");
         }
@@ -132,7 +141,7 @@ public final class HostSideButtonBar {
             int segmentIndex = index;
             int segmentTop = segmentTop(segmentIndex, contentType);
             int segmentHeight = segmentHeight(segmentIndex, elementCount);
-            IGuiTexture segmentTexture = texture(segmentIndex, elementCount, side, contentType);
+            IGuiTexture segmentTexture = texture(segmentIndex, elementCount, side, contentType, texturePrefix);
             UIElement segment = new UIElement().layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
                 layout.left(0);
@@ -239,7 +248,8 @@ public final class HostSideButtonBar {
         return index == buttonCount - 1 ? BOTTOM_HEIGHT : MIDDLE_HEIGHT;
     }
 
-    private static IGuiTexture texture(int index, int buttonCount, Side side, ContentType contentType) {
+    private static IGuiTexture texture(int index, int buttonCount, Side side, ContentType contentType,
+                                       String texturePrefix) {
         String fileName;
         if (index == 0) {
             fileName = "button_slot_up.png";
@@ -251,6 +261,6 @@ public final class HostSideButtonBar {
         if (side == Side.RIGHT && contentType == ContentType.SLOT) {
             fileName = "mirrored_" + fileName;
         }
-        return SpriteTexture.of(NeoECOAE.id("textures/gui/common/side_bar/" + fileName));
+        return SpriteTexture.of(NeoECOAE.id("textures/gui/common/side_bar/" + texturePrefix + fileName));
     }
 }

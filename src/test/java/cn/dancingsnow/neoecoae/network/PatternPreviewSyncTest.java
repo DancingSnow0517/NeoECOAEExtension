@@ -76,7 +76,7 @@ class PatternPreviewSyncTest {
             assertEquals(1, delta.getInt("base"));
             assertEquals(2, delta.getInt("revision"));
             assertEquals(1, delta.getList("entries", Tag.TAG_COMPOUND).size());
-            assertEquals("changed", delta.getList("entries", Tag.TAG_COMPOUND).getCompound(0).getString("keywords"));
+            assertEquals("changed", delta.getList("entries", Tag.TAG_COMPOUND).getCompound(0).getString("inputs"));
             when(level.getGameTime()).thenReturn(15L);
             sync.tick(level);
             assertEquals(2, sent.size(), "unchanged previews must not be resent");
@@ -91,7 +91,7 @@ class PatternPreviewSyncTest {
     private static PatternPreviewEntry entry(int slot, String keywords) {
         // 合并后的记录多了「盘内配方行 + 本槽是不是辅助容器」两个分量（样板磁盘那一半），这里按「普通样板槽、
         // 没有盘内行」构造，与测试关心的同步去重/重发语义无关。
-        return new PatternPreviewEntry(0L, slot, ItemStack.EMPTY, keywords, (byte) 0, List.of(), false);
+        return new PatternPreviewEntry(0L, slot, ItemStack.EMPTY, keywords, "", (byte) 0, List.of(), false);
     }
 
     @Test void reopeningWithTheSameSessionSnapshotSendsOnlyAReuseMarker() {
@@ -147,7 +147,7 @@ class PatternPreviewSyncTest {
             assertEquals(4, f.sent.size());
             assertTrue(f.sent.get(2).getBoolean("last"));
             assertEquals(1, f.sent.get(2).getInt("revision"));
-            assertEquals("first", f.sent.get(2).getList("entries", Tag.TAG_COMPOUND).getCompound(87).getString("keywords"));
+            assertEquals("first", f.sent.get(2).getList("entries", Tag.TAG_COMPOUND).getCompound(87).getString("inputs"));
             CompoundTag delta = f.sent.get(3);
             assertFalse(delta.getBoolean("full"));
             assertEquals(1, delta.getInt("base"));
@@ -240,13 +240,13 @@ class PatternPreviewSyncTest {
             verify(f.host, never()).getPatternPreviewEntry(anyInt());
             when(f.level.players()).thenReturn(List.of(f.player));
             List<PatternPreviewEntry.DiskPattern> disk = new ArrayList<>();
-            for (int i = 0; i < 100; i++) disk.add(new PatternPreviewEntry.DiskPattern(ItemStack.EMPTY, "recipe " + i, (byte) 0));
+            for (int i = 0; i < 100; i++) disk.add(new PatternPreviewEntry.DiskPattern(ItemStack.EMPTY, "recipe " + i, "", (byte) 0));
             when(f.host.getPatternPreviewEntry(0)).thenReturn(new PatternPreviewEntry(0, 0, ItemStack.EMPTY,
-                    "", (byte) 0, List.copyOf(disk), true));
+                    "", "", (byte) 0, List.copyOf(disk), true));
             f.tick();
-            disk.set(50, new PatternPreviewEntry.DiskPattern(ItemStack.EMPTY, "new recipe", (byte) 0));
+            disk.set(50, new PatternPreviewEntry.DiskPattern(ItemStack.EMPTY, "new recipe", "primary output", (byte) 0));
             when(f.host.getPatternPreviewEntry(0)).thenReturn(new PatternPreviewEntry(0, 0, ItemStack.EMPTY,
-                    "", (byte) 0, List.copyOf(disk), true));
+                    "", "", (byte) 0, List.copyOf(disk), true));
             when(f.host.getPatternContentRevision()).thenReturn(2);
             f.sync.dirty(0, 1);
             f.tick();
@@ -254,6 +254,8 @@ class PatternPreviewSyncTest {
             assertEquals(100, change.getInt("diskSize"));
             assertEquals(1, change.getList("diskChanges", Tag.TAG_COMPOUND).size());
             assertEquals(50, change.getList("diskChanges", Tag.TAG_COMPOUND).getCompound(0).getInt("recipe"));
+            assertEquals("new recipe", change.getList("diskChanges", Tag.TAG_COMPOUND).getCompound(0).getString("inputs"));
+            assertEquals("primary output", change.getList("diskChanges", Tag.TAG_COMPOUND).getCompound(0).getString("output"));
             assertFalse(change.contains("disk"));
         }
     }

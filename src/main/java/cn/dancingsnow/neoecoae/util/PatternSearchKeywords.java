@@ -20,6 +20,29 @@ public final class PatternSearchKeywords {
     private PatternSearchKeywords() {
     }
 
+    /** Kept separate so an ingredient query cannot match a product (or a pattern item's own name). */
+    public record Directions(String inputs, String output) {
+        public static final Directions EMPTY = new Directions("", "");
+
+        public Directions append(Directions other) {
+            return new Directions(inputs + '\n' + other.inputs, output + '\n' + other.output);
+        }
+    }
+
+    public static Directions directions(@Nullable IPatternDetails details) {
+        if (details == null) return Directions.EMPTY;
+        StringBuilder inputs = new StringBuilder();
+        for (var input : details.getInputs()) {
+            if (input == null) continue;
+            for (var possible : input.getPossibleInputs()) {
+                if (possible != null) inputs.append('\n').append(possible.what().getDisplayName().getString());
+            }
+        }
+        var primary = details.getPrimaryOutput();
+        return new Directions(inputs.toString().toLowerCase(Locale.ROOT),
+                primary == null ? "" : primary.what().getDisplayName().getString().toLowerCase(Locale.ROOT));
+    }
+
     public static String build(ItemStack stack, @Nullable IPatternDetails details) {
         if (stack.isEmpty()) {
             return "";

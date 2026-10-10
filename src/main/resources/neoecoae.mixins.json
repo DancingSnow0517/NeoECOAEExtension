@@ -36,6 +36,7 @@
   ],
   "client": [
     "client.accessor.MenuScreensAccessor",
+    "client.ae2.AEBaseScreenGrayToolbarMixin",
     "client.ae2.CellWorkbenchScreenMixin",
     "client.ae2.CpuSelectionListMixin",
     "client.ae2.CraftConfirmScreenMixin",

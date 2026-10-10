@@ -281,6 +281,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return keywords;
     }
 
+    /** Directional preview terms, built from the same revision-cached details as the advertised recipes. */
+    public List<PatternSearchKeywords.Directions> getAuxiliaryPatternSearchDirections() {
+        refreshAuxiliaryPatterns();
+        return auxiliaryPatternDetails.stream().map(PatternSearchKeywords::directions).toList();
+    }
+
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
         refreshAuxiliaryPatterns();

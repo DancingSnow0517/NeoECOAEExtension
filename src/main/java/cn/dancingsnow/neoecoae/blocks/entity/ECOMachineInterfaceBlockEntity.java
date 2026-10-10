@@ -32,6 +32,7 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
+import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageInterfaceUI;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
@@ -80,7 +81,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private static final int PATTERN_TRANSFER_SAFETY_LIMIT_PER_TICK = 256;
     private static final int PATTERN_ORGANIZE_SAFETY_LIMIT_PER_TICK = 256;
     public static final int FUZZY_PLANNING_SLOT_COUNT = 63;
-    public static final int PATTERN_INTERFACE_VISIBLE_SLOTS = 36;
+    public static final int PATTERN_INTERFACE_VISIBLE_SLOTS = 54;
     private static final String PATTERN_BUS_POSITIONS_SYNC_KEY = "patternBusPositions";
     private static final String PATTERN_BUS_SLOT_COUNTS_SYNC_KEY = "patternBusSlotCounts";
 
@@ -350,8 +351,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return auxiliaryPreviewEntry(ref);
         }
         ItemStack stack = record == null ? ItemStack.EMPTY : record.stack().copy();
+        var keywords = PatternSearchKeywords.directions(record == null ? null : record.details());
         return new PatternPreviewEntry(ref.bus().getBlockPos().asLong(), ref.slot(), stack,
-                record == null ? "" : record.searchKeywords(), patternSearchFlags(stack), List.of(), false);
+                keywords.inputs(), keywords.output(), patternSearchFlags(stack), List.of(), false);
     }
 
     /** Auxiliary revision each bus's preview rows were last drawn from, keyed by bus position. */
@@ -427,7 +429,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         // Render the container icon without synchronizing its embedded recipe data a second time.
         ItemStack icon = new ItemStack(bus.getPatternSlotInventory().getStackInSlot(ref.slot()).getItem());
-        return new PatternPreviewEntry(bus.getBlockPos().asLong(), ref.slot(), icon, "",
+        return new PatternPreviewEntry(bus.getBlockPos().asLong(), ref.slot(), icon, "", "",
                 patternSearchFlags(ItemStack.EMPTY), rows, true);
     }
 
@@ -440,13 +442,13 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
      */
     protected List<PatternPreviewEntry.DiskPattern> auxiliaryPreviewRows(ECOCraftingPatternBusBlockEntity bus) {
         List<ItemStack> patterns = bus.getAuxiliaryEncodedPatterns();
-        List<String> keywords = bus.getAuxiliarySearchKeywords();
+        var keywords = bus.getAuxiliaryPatternSearchDirections();
         List<PatternPreviewEntry.DiskPattern> held = new ArrayList<>(patterns.size());
         for (int index = 0; index < patterns.size(); index++) {
             // Guarded: the two lists come from one store in one pass, but a row built from a short list would
             // otherwise throw while a screen is being drawn.
-            held.add(new PatternPreviewEntry.DiskPattern(patterns.get(index).copy(),
-                    index < keywords.size() ? keywords.get(index) : "",
+            var terms = index < keywords.size() ? keywords.get(index) : PatternSearchKeywords.Directions.EMPTY;
+            held.add(new PatternPreviewEntry.DiskPattern(patterns.get(index).copy(), terms.inputs(), terms.output(),
                     patternSearchFlags(patterns.get(index))));
         }
         return held;
