@@ -59,6 +59,31 @@ public final class BoundedCycleSolver implements CycleSolver {
 
     public BoundedCycleSolver() {}
 
+    /** Verify a caller's fixed integer candidate with existing prefix/repeat algebra, without optimizing it again. */
+    public @Nullable CycleSolveResult verifyFirings(CycleSolveRequest request,
+            Map<IPatternDetails, PlannerAmount> counts, ECOCancellation cancellation) throws InterruptedException {
+        CycleMemoryBudget memory = new CycleMemoryBudget();
+        try {
+            Object prepared = prepare(request, request.options().limits(), cancellation, memory);
+            if (prepared instanceof CycleSolveResult rejected) return rejected;
+            Model model = (Model) prepared;
+            if (!supportsRecipeCircuits(model)) return null;
+            PlannerAmount[] vector = new PlannerAmount[model.transitionCount()];
+            for (int i = 0; i < vector.length; i++) {
+                vector[i] = counts.getOrDefault(model.transitions.get(i).details(), PlannerAmount.ZERO);
+                if (vector[i].signum() < 0) return null;
+            }
+            var result = solveEquationWitness(model,
+                new CycleStateEquation.Result(CycleStateEquation.Status.FEASIBLE, vector), cancellation, memory);
+            // The certificate must verify this exact candidate, not a repaired or truncated vector.
+            if (result != null && !result.exactPatternTimes().equals(counts)) return null;
+            return result;
+        } catch (CycleMemoryBudget.Exhausted exhausted) {
+            return CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET,
+                CycleSolveDiagnostic.Code.MEMORY_BUDGET_EXHAUSTED, exhausted.getMessage());
+        }
+    }
+
     /** Legacy probe tuning no longer truncates planning; all paths share the same search frontier. */
     @Deprecated
     public BoundedCycleSolver(int topK, int candidateEvaluations, int lookaheadNodes, int macroSteps) {

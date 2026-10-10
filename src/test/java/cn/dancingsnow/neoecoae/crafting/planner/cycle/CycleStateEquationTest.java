@@ -6,10 +6,34 @@ import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Random;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CycleStateEquationTest {
+    @Test void optimizationBudgetRetainsTheFirstIntegerCandidateButCancellationPropagates() throws Exception {
+        var columns = List.of(Map.of(0, BigInteger.valueOf(-2), 1, BigInteger.ONE),
+            Map.of(0, BigInteger.valueOf(-3), 2, BigInteger.ONE));
+        var stock = amounts(0, 2, 2);
+        var target = amounts(4, 0, 0);
+        AtomicLong checkpoints = new AtomicLong();
+        var first = CycleStateEquation.solveSparseMaterialBalance(columns, new boolean[3], stock, target,
+            true, () -> checkpoints.incrementAndGet());
+        assertEquals(CycleStateEquation.Status.FEASIBLE, first.status());
+        long firstWork = checkpoints.get();
+        var bounded = CycleStateEquation.solveSparseMaterialBalance(columns, new boolean[3], stock, target,
+            false, new ECOPlanningBudget(ECOCancellation.NONE, firstWork, Long.MAX_VALUE, () -> 0));
+        assertEquals(CycleStateEquation.Status.FEASIBLE, bounded.status());
+        assertArrayEquals(first.counts(), bounded.counts());
+        AtomicLong cancelled = new AtomicLong();
+        assertThrows(InterruptedException.class, () -> CycleStateEquation.solveSparseMaterialBalance(columns,
+            new boolean[3], stock, target, false, () -> {
+                if (cancelled.incrementAndGet() > firstWork) throw new InterruptedException();
+            }));
+    }
+
     @Test void equivalentJointOutputsPruneFractionalBoundsAtTheIntegerObjective() throws Exception {
         // Player's two water-electrolysis patterns have the same quantities and opposite output order.
         // A fractional minimum must not enumerate every split of 10,683 firings between them.

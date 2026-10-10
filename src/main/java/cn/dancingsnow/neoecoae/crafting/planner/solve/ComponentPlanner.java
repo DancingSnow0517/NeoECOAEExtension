@@ -671,12 +671,28 @@ public final class ComponentPlanner {
                         PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
                         ECOCancellation cancellation) throws InterruptedException {
         if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
+        // Large structural universes can exhaust the session before reaching recovery. This is
+        // an ordering heuristic, not a model-size rejection; small routes retain their report first.
+        if (maxRouteAttempts == 0 && network.reachablePatternCount() > 64) {
+            Outcome joint = new JointRouteOptimizer().optimize(network, snapshot, amount, null, true, cancellation);
+            if (joint != null && joint.status() == PlanningStatus.SUCCESS) return joint;
+        }
         CycleFailureCache failures = new CycleFailureCache(cycleSolver);
         ExternalDemandPlanner externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, true,
             ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner);
-        if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
         try {
+            // Preserve the completed route's material report if this proof itself exhausts the session.
+            // It runs before the heavyweight joint model and whole-route alternatives.
+            if (preferred.status() != PlanningStatus.SUCCESS
+                    && RouteAvailabilityProof.goalUnreachable(network, snapshot, cancellation)) {
+                preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_PROVEN_UNREACHABLE,
+                    "No producer route can start from the current stock, even with quantities and consumption ignored"));
+                return preferred;
+            }
+            if (maxRouteAttempts == 0)
+                preferred = new JointRouteOptimizer().optimize(network, snapshot, amount, preferred, true, cancellation);
+            if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
             return searchAlternativeRoutes(network, universe, activeSelection, inventory, snapshot, amount,
                 ignorePatternSubstitutions, cancellation, failures, preferred, externalDemandPlanner);
         } catch (cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget.Exhausted exhausted) {
@@ -696,14 +712,6 @@ public final class ComponentPlanner {
                         ECOCancellation cancellation, CycleFailureCache failures, Outcome preferred,
                         ExternalDemandPlanner externalDemandPlanner)
             throws InterruptedException {
-        // One route's unsupported ingredient or seed deficit cannot rule out a different recipe.
-        // Stop globally only if even optimistic reachability through ALL producers fails.
-        if (RouteAvailabilityProof.goalUnreachable(network, snapshot, cancellation)) {
-            preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_PROVEN_UNREACHABLE,
-                    "No producer route can start from the current stock, even with quantities and consumption ignored; "
-                            + "retaining the current route's material deficits"));
-            return preferred;
-        }
         // Normalize every key so semantically identical choices share one invocation-local cache entry.
         Map<AEKey, Integer> baseline = new Object2ObjectLinkedOpenHashMap<>();
         var preferredChoices = new IntArrayList();
@@ -727,6 +735,27 @@ public final class ComponentPlanner {
                 variableKeys.add(key);
                 radices.add(candidates.size());
                 preferredChoices.add(selected);
+            }
+        }
+        if (maxRouteAttempts == 0) {
+            // Prioritize conflicts actually demanded by this query. Unrelated producer choices
+            // remain in the final cursor; no local failure is promoted to a global exclusion.
+            Map<AEKey, Integer> priority = new LinkedHashMap<>();
+            var pending = new java.util.ArrayDeque<AEKey>();
+            preferred.components().stream().filter(component -> component.status() == ComponentPlanningResult.Status.UNRESOLVED)
+                .forEach(component -> pending.addAll(component.requiredOutputs().keySet()));
+            pending.add(network.goal());
+            while (!pending.isEmpty()) {
+                cancellation.checkpoint();
+                AEKey key = pending.removeFirst();
+                if (priority.putIfAbsent(key, priority.size()) != null) continue;
+                for (var candidate : network.fastProducersOf(key))
+                    candidate.inputs().forEach(input -> pending.addLast(input.key()));
+            }
+            variableKeys.sort(java.util.Comparator.comparingInt(key -> priority.getOrDefault(key, Integer.MAX_VALUE)));
+            radices.clear(); preferredChoices.clear();
+            for (AEKey key : variableKeys) {
+                radices.add(network.fastProducersOf(key).size()); preferredChoices.add(baseline.get(key));
             }
         }
         // Cache compact immutable vectors, not a boxed map of every node for every attempt.

@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.crafting.planner.trace;
 public record PlannerDiagnostic(Code code, String message) {
     public enum Code {
         FAST_DAG,
+        JOINT_ROUTE_OPTIMIZED,
+        ROUTE_OPTIMIZATION_BUDGET,
         NATIVE_FALLBACK,
         CANDIDATE_REJECTED,
         CANDIDATE_DEFERRED_CYCLE,
