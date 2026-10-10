@@ -206,7 +206,7 @@ public final class SolveState {
         }
     }
 
-    private SolveState copy() {
+    SolveState copy() {
         SolveState copy = new SolveState(new KeyCounter());
         copy.stored.replaceFrom(stored); copy.crafted.replaceFrom(crafted);
         copy.used.replaceFrom(used); copy.emitted.replaceFrom(emitted);

@@ -67,7 +67,6 @@ public final class ComponentPlanner {
     private final AcyclicCraftingSolver acyclicSolver;
     private final CycleSolver cycleSolver;
     private final ActiveRouteSelector activeRouteSelector;
-    private final ExternalDemandPlanner externalDemandPlanner;
     private final int maxRouteAttempts;
 
     public ComponentPlanner(AcyclicCraftingSolver acyclicSolver, CycleSolver cycleSolver) {
@@ -80,7 +79,6 @@ public final class ComponentPlanner {
         this.acyclicSolver = acyclicSolver;
         this.cycleSolver = cycleSolver;
         this.activeRouteSelector = new ActiveRouteSelector();
-        this.externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
         this.maxRouteAttempts = maxRouteAttempts;
     }
 
@@ -144,14 +142,15 @@ public final class ComponentPlanner {
                         KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
                         boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
+        ExternalDemandPlanner externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
         return plan(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
-                ignorePatternSubstitutions, cancellation, new CycleFailureCache(cycleSolver));
+                ignorePatternSubstitutions, cancellation, new CycleFailureCache(cycleSolver), externalDemandPlanner);
     }
 
     private Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
                          KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
                          boolean ignorePatternSubstitutions, ECOCancellation cancellation,
-                         CycleFailureCache failures) throws InterruptedException {
+                         CycleFailureCache failures, ExternalDemandPlanner externalDemandPlanner) throws InterruptedException {
         cancellation.checkpoint();
         CondensationGraph activeCondensation;
         AcyclicCraftingSolver.Outcome attempt;
@@ -351,83 +350,97 @@ public final class ComponentPlanner {
                         for (Map<AEKey, Long> candidate : proposal.startupCandidates()) {
                             if (!candidate.isEmpty() && !candidates.contains(candidate)) candidates.add(candidate);
                         }
-                        for (Map<AEKey, Long> candidate : candidates) {
-                            cancellation.checkpoint();
-                            // Do not run the cycle solver for a hypothetical bucket/tool that no
-                            // inventory or external producer can supply. This also preserves failure caching.
-                            Set<AEKey> seedDelegates = delegatedCycleInputs(network, activeCondensation,
-                                activeSelection.choices(), cycle, candidate.keySet());
-                            Map<AEKey, Long> heldSeed = new LinkedHashMap<>();
-                            for (AEKey key : candidate.keySet()) {
-                                long present = stock.getOrDefault(key, 0L);
-                                if (present > 0L) heldSeed.put(key, present);
-                            }
-                            Map<AEKey, Long> seedDemands = candidate;
-                            if (completeMaterialDeficit(proposal) && candidate.equals(proposal.seedShortfall())) {
-                                // Price the entire witness even when its startup ingredient is missing.
-                                // Otherwise missing fuel/raw materials disappear behind the first missing tool.
-                                seedDemands = mergeDemands(candidate, proposal.positiveExternalDemand());
-                                heldSeed = cycleInitialReservations(exactRequiredOutputs, stock, proposal);
-                                seedDelegates = delegatedCycleInputs(network, activeCondensation,
-                                    activeSelection.choices(), cycle, seedDemands.keySet());
-                            }
-                            var seedAttempt = externalDemandPlanner.solveDemands(network, cycle, seedDemands, inventory,
-                                acyclic.state(), reservationRemainder(heldSeed, stockReservations), seedDelegates,
-                                ignorePatternSubstitutions, cancellation);
-                            if (!seedAttempt.solved()) {
-                                if (external == null) {
-                                    external = seedAttempt;
-                                    externalDemandStatus = seedAttempt.status();
-                                    externalMissingItems = seedAttempt.missingLeaves();
+                        for (Map<AEKey, Long> initialCandidate : candidates) {
+                            Map<AEKey, Long> candidate = initialCandidate;
+                            Set<Map<AEKey, Long>> attemptedSeeds = new LinkedHashSet<>();
+                            while (attemptedSeeds.add(Map.copyOf(candidate))) {
+                                cancellation.checkpoint();
+                                // Do not run the cycle solver for a hypothetical bucket/tool that no
+                                // inventory or external producer can supply. This also preserves failure caching.
+                                Set<AEKey> seedDelegates = delegatedCycleInputs(network, activeCondensation,
+                                    activeSelection.choices(), cycle, candidate.keySet());
+                                Map<AEKey, Long> heldSeed = new LinkedHashMap<>();
+                                for (AEKey key : candidate.keySet()) {
+                                    long present = stock.getOrDefault(key, 0L);
+                                    if (present > 0L) heldSeed.put(key, present);
                                 }
-                                continue;
-                            }
-                            // An alternative seed names concrete AE keys. First verify its actual circuit;
-                            // then ask the external DAG to supply this witness's inputs, not the old route's.
-                            Map<AEKey, Long> projectedStock = mergeReservations(stock, candidate);
-                            var candidateTargets = additionalOutputTargets(exactRequiredOutputs, projectedStock, network.goal());
-                            CycleSolveResult recovered = failures.solve(new CycleSolveRequest(cycle,
-                                    representable(candidateTargets), candidateTargets, projectedStock,
-                                    cycle.outgoingDependencies(), cycleSolveOptions(cycle)), cancellation);
-                            CycleSolveResult reservationSource = recovered.status() == CycleSolveStatus.SUCCESS ? recovered : proposal;
-                            Map<AEKey, Long> recoveryDemands = mergeDemands(
-                                reservationSource.positiveExternalDemand(), candidate);
-                            Map<AEKey, Long> recoveryReservations = cycleInitialReservations(
-                                exactRequiredOutputs, stock, reservationSource);
-                            Map<AEKey, Long> recoveryAdditionalReservations = reservationRemainder(
-                                recoveryReservations, stockReservations);
-                            Set<AEKey> delegatedInputs = delegatedCycleInputs(network, activeCondensation,
-                                activeSelection.choices(), cycle, recoveryDemands.keySet());
-                            var recoveryAttempt = externalDemandPlanner.solveDemands(network, cycle, recoveryDemands, inventory,
-                                acyclic.state(), recoveryAdditionalReservations, delegatedInputs,
-                                ignorePatternSubstitutions, cancellation);
-                            if (external == null) {
-                                external = recoveryAttempt;
-                                externalDemandStatus = recoveryAttempt.status();
-                                externalMissingItems = recoveryAttempt.missingLeaves();
-                            }
-                            if (!recoveryAttempt.solved()) continue;
-                            if (recovered.status() != CycleSolveStatus.SUCCESS) {
-                                if (recoveryFailure == null
-                                        && (!completeMaterialDeficit(proposal) || completeMaterialDeficit(recovered))) {
-                                    recoveryFailure = recovered;
-                                    unresolvedSeed = candidate;
+                                Map<AEKey, Long> seedDemands = candidate;
+                                if (completeMaterialDeficit(proposal) && candidate.equals(proposal.seedShortfall())) {
+                                    // Price the entire witness even when its startup ingredient is missing.
+                                    // Otherwise missing fuel/raw materials disappear behind the first missing tool.
+                                    seedDemands = mergeDemands(candidate, proposal.positiveExternalDemand());
+                                    heldSeed = cycleInitialReservations(exactRequiredOutputs, stock, proposal);
+                                    seedDelegates = delegatedCycleInputs(network, activeCondensation,
+                                        activeSelection.choices(), cycle, seedDemands.keySet());
+                                }
+                                var seedAttempt = externalDemandPlanner.solveDemands(network, cycle, seedDemands, inventory,
+                                    acyclic.state(), reservationRemainder(heldSeed, stockReservations), seedDelegates,
+                                    ignorePatternSubstitutions, cancellation);
+                                if (!seedAttempt.solved()) {
+                                    if (external == null) {
+                                        external = seedAttempt;
+                                        externalDemandStatus = seedAttempt.status();
+                                        externalMissingItems = seedAttempt.missingLeaves();
+                                    }
+                                    break;
+                                }
+                                // An alternative seed names concrete AE keys. First verify its actual circuit;
+                                // then ask the external DAG to supply this witness's inputs, not the old route's.
+                                Map<AEKey, Long> projectedStock = mergeReservations(stock, candidate);
+                                var candidateTargets = additionalOutputTargets(exactRequiredOutputs, projectedStock, network.goal());
+                                CycleSolveResult recovered = failures.solve(new CycleSolveRequest(cycle,
+                                        representable(candidateTargets), candidateTargets, projectedStock,
+                                        cycle.outgoingDependencies(), cycleSolveOptions(cycle)), cancellation);
+                                CycleSolveResult reservationSource = recovered.status() == CycleSolveStatus.SUCCESS ? recovered : proposal;
+                                Map<AEKey, Long> recoveryDemands = mergeDemands(
+                                    reservationSource.positiveExternalDemand(), candidate);
+                                Map<AEKey, Long> recoveryReservations = cycleInitialReservations(
+                                    exactRequiredOutputs, stock, reservationSource);
+                                Map<AEKey, Long> recoveryAdditionalReservations = reservationRemainder(
+                                    recoveryReservations, stockReservations);
+                                Set<AEKey> delegatedInputs = delegatedCycleInputs(network, activeCondensation,
+                                    activeSelection.choices(), cycle, recoveryDemands.keySet());
+                                var recoveryAttempt = externalDemandPlanner.solveDemands(network, cycle, recoveryDemands, inventory,
+                                    acyclic.state(), recoveryAdditionalReservations, delegatedInputs,
+                                    ignorePatternSubstitutions, cancellation);
+                                if (external == null) {
                                     external = recoveryAttempt;
                                     externalDemandStatus = recoveryAttempt.status();
                                     externalMissingItems = recoveryAttempt.missingLeaves();
                                 }
-                                continue;
+                                if (!recoveryAttempt.solved()) break;
+                                if (recovered.status() != CycleSolveStatus.SUCCESS) {
+                                    if (recoveryFailure == null
+                                            && (!completeMaterialDeficit(proposal) || completeMaterialDeficit(recovered))) {
+                                        recoveryFailure = recovered;
+                                        unresolvedSeed = candidate;
+                                        external = recoveryAttempt;
+                                        externalDemandStatus = recoveryAttempt.status();
+                                        externalMissingItems = recoveryAttempt.missingLeaves();
+                                    }
+                                    // A startup-sized probe can reveal the complete order's new prefix deficit.
+                                    // Replan from the original inventory with the accumulated concrete supply;
+                                    // no speculative state is committed or used as future free inventory.
+                                    if (recovered.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
+                                            && completeMaterialDeficit(recovered)
+                                            && !recovered.seedShortfall().isEmpty()) {
+                                        candidate = mergeDemands(candidate, recovered.seedShortfall());
+                                        continue;
+                                    }
+                                    break;
+                                }
+                                plannedCycleInputs = candidate;
+                                cycleResult = recovered;
+                                cycleStatus = CyclePlanningStatus.SOLVED;
+                                solveTargets = candidateTargets;
+                                // Every probe was speculative. The common transaction below reserves and
+                                // plans the successful candidate again, once, from the original inventory.
+                                external = null;
+                                diagnostic = "Verified cycle startup through an available concrete seed route";
+                                trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
+                                break;
                             }
-                            plannedCycleInputs = candidate;
-                            cycleResult = recovered;
-                            cycleStatus = CyclePlanningStatus.SOLVED;
-                            solveTargets = candidateTargets;
-                            // Every probe was speculative. The common transaction below reserves and
-                            // plans the successful candidate again, once, from the original inventory.
-                            external = null;
-                            diagnostic = "Verified cycle startup through an available concrete seed route";
-                            trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
-                            break;
+                            if (cycleStatus == CyclePlanningStatus.SOLVED) break;
                         }
                         if (cycleStatus != CyclePlanningStatus.SOLVED && recoveryFailure != null) {
                             cycleResult = recoveryFailure;
@@ -659,12 +672,13 @@ public final class ComponentPlanner {
                         ECOCancellation cancellation) throws InterruptedException {
         if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
         CycleFailureCache failures = new CycleFailureCache(cycleSolver);
+        ExternalDemandPlanner externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, true,
-            ignorePatternSubstitutions, cancellation, failures);
+            ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner);
         if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
         try {
             return searchAlternativeRoutes(network, universe, activeSelection, inventory, snapshot, amount,
-                ignorePatternSubstitutions, cancellation, failures, preferred);
+                ignorePatternSubstitutions, cancellation, failures, preferred, externalDemandPlanner);
         } catch (cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget.Exhausted exhausted) {
             // The interrupted alternative is speculative. The completed route still owns a valid
             // material report and cycle diagnostics; never replace those with an empty shell.
@@ -679,7 +693,8 @@ public final class ComponentPlanner {
     private Outcome searchAlternativeRoutes(CompiledNetwork network, CondensationGraph universe,
                         ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
                         PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
-                        ECOCancellation cancellation, CycleFailureCache failures, Outcome preferred)
+                        ECOCancellation cancellation, CycleFailureCache failures, Outcome preferred,
+                        ExternalDemandPlanner externalDemandPlanner)
             throws InterruptedException {
         // One route's unsupported ingredient or seed deficit cannot rule out a different recipe.
         // Stop globally only if even optimistic reachability through ALL producers fails.
@@ -744,7 +759,7 @@ public final class ComponentPlanner {
             // An upstream change may remove or reduce a cycle demand, or free reserved seed.
             // Deduplicate actual cycle requests after numeric planning, never just changed key names.
             Outcome alternative = plan(network, candidate, inventory, snapshot, amount, true,
-                ignorePatternSubstitutions, cancellation, failures);
+                ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner);
             if (alternative.status() == PlanningStatus.SUCCESS) return alternative;
         }
         return preferred;

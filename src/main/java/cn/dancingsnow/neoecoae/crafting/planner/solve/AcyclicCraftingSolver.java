@@ -72,8 +72,27 @@ public final class AcyclicCraftingSolver {
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, PlannerInventorySnapshot inventory,
             long amount, Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
             boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+        return solveGoals(network, inventory, Map.of(network.goal(), PlannerAmount.of(amount)), true,
+            initialChoices, deferredPatterns, ignorePatternSubstitutions, cancellation);
+    }
+
+    /** Boundary goals share one inventory and output-credit ledger; none is a player's newly crafted goal. */
+    Outcome solveDemands(CompiledNetwork network, PlannerInventorySnapshot inventory, Map<AEKey, Long> demands,
+            Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
+            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+        Map<AEKey, PlannerAmount> goals = new LinkedHashMap<>();
+        demands.forEach((key, amount) -> { if (amount > 0) goals.put(key, PlannerAmount.of(amount)); });
+        return solveGoals(network, inventory, goals, false, initialChoices, deferredPatterns,
+            ignorePatternSubstitutions, cancellation);
+    }
+
+    private Outcome solveGoals(CompiledNetwork network, PlannerInventorySnapshot inventory,
+            Map<AEKey, PlannerAmount> goals, boolean additionalGoal, Map<AEKey, Integer> initialChoices,
+            Set<IPatternDetails> deferredPatterns, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation) throws InterruptedException {
+        long amount = goals.getOrDefault(network.goal(), PlannerAmount.ZERO).longValueExact();
         ECOPlanTrace trace = new ECOPlanTrace();
-        if (amount <= 0) {
+        if (goals.values().stream().anyMatch(value -> value.signum() <= 0)) {
             trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.AMOUNT_OVERFLOW, "Goal amount must be positive"));
             return new Outcome(PlanningStatus.AMOUNT_OVERFLOW, new SolveState(inventory), trace);
         }
@@ -101,12 +120,12 @@ public final class AcyclicCraftingSolver {
                 }
             }
             List<AEKey> currentRoute = selectedRoute(
-                network, choices, deferredPatterns, Set.of(), cancellation);
+                network, choices, deferredPatterns, Set.of(), goals.keySet(), cancellation);
             state = currentRoute == null
-                ? solveStockBackedRoute(network, inventory, choices, amount, deferredPatterns,
+                ? solveStockBackedRoute(network, inventory, choices, goals, additionalGoal, deferredPatterns,
                     ignorePatternSubstitutions, cancellation)
                 : runOnce(network, new AcyclicRoutePlan(currentRoute),
-                    new SolveWorkspace(inventory, choices), amount,
+                    new SolveWorkspace(inventory, choices), goals, additionalGoal,
                     deferredPatterns, Set.of(), ignorePatternSubstitutions, cancellation);
             if (state == null) {
                 return cyclicRouteOutcome(network, inventory, choices, trace);
@@ -169,18 +188,19 @@ public final class AcyclicCraftingSolver {
      * Each retry uses fresh inventory and removes at least one leaf; a remaining cycle still falls back.
      */
     private static SolveState solveStockBackedRoute(CompiledNetwork network, PlannerInventorySnapshot inventory,
-            Map<AEKey, Integer> choices, long amount, Set<IPatternDetails> deferredPatterns,
+            Map<AEKey, Integer> choices, Map<AEKey, PlannerAmount> goals, boolean additionalGoal,
+            Set<IPatternDetails> deferredPatterns,
             boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         PlannerCounter stock = new PlannerCounter();
         inventory.initialize(stock);
         Set<AEKey> stockLeaves = new LinkedHashSet<>(stock.asMap().keySet());
-        stockLeaves.remove(network.goal()); // Stored final output is never a planning input.
+        if (additionalGoal) stockLeaves.remove(network.goal());
         while (!stockLeaves.isEmpty()) {
             cancellation.checkpoint();
-            List<AEKey> route = selectedRoute(network, choices, deferredPatterns, stockLeaves, cancellation);
+            List<AEKey> route = selectedRoute(network, choices, deferredPatterns, stockLeaves, goals.keySet(), cancellation);
             if (route == null) return null;
             SolveState state = runOnce(network, new AcyclicRoutePlan(route),
-                new SolveWorkspace(inventory, choices), amount, deferredPatterns, stockLeaves,
+                new SolveWorkspace(inventory, choices), goals, additionalGoal, deferredPatterns, stockLeaves,
                 ignorePatternSubstitutions, cancellation);
             if (!stockLeaves.removeAll(state.unsupported)) return state;
         }
@@ -197,7 +217,7 @@ public final class AcyclicCraftingSolver {
      */
     private static List<AEKey> selectedRoute(CompiledNetwork network,
             Map<AEKey, Integer> choices, Set<IPatternDetails> deferredPatterns,
-            Set<AEKey> stockLeaves, ECOCancellation cancellation) throws InterruptedException {
+            Set<AEKey> stockLeaves, Set<AEKey> goals, ECOCancellation cancellation) throws InterruptedException {
         Set<AEKey> allowed = network.keys();
         if (!allowed.contains(network.goal())) return List.of();
 
@@ -205,9 +225,11 @@ public final class AcyclicCraftingSolver {
         Map<AEKey, Integer> indegree = new LinkedHashMap<>();
         ArrayDeque<AEKey> discover = new ArrayDeque<>();
         Set<AEKey> reachable = new LinkedHashSet<>();
-        discover.add(network.goal());
-        reachable.add(network.goal());
-        indegree.put(network.goal(), 0);
+        for (AEKey goal : goals) {
+            discover.add(goal);
+            reachable.add(goal);
+            indegree.put(goal, 0);
+        }
 
         while (!discover.isEmpty()) {
             cancellation.checkpoint();
@@ -254,14 +276,17 @@ public final class AcyclicCraftingSolver {
     }
 
     private static SolveState runOnce(CompiledNetwork network, AcyclicRoutePlan route, SolveWorkspace workspace,
-            long amount, Set<IPatternDetails> deferredPatterns, Set<AEKey> stockLeaves,
+            Map<AEKey, PlannerAmount> goals, boolean additionalGoal,
+            Set<IPatternDetails> deferredPatterns, Set<AEKey> stockLeaves,
             boolean ignorePatternSubstitutions,
             ECOCancellation cancellation)
             throws InterruptedException {
         SolveState state = new SolveState(workspace.inventory());
-        state.stored.set(network.goal(), PlannerAmount.ZERO); // AE2 ignores stored final output during planning.
-        state.demand.put(network.goal(), PlannerAmount.of(amount));
-        state.provenance.register(MaterialDemand.goal(network.goal(), PlannerAmount.of(amount)));
+        if (additionalGoal) state.stored.set(network.goal(), PlannerAmount.ZERO);
+        goals.forEach((key, amount) -> {
+            state.demand.put(key, amount);
+            state.provenance.register(MaterialDemand.goal(key, amount));
+        });
         state.bytes = PlannerAmount.of(route.keys().size()).multiply(8L);
         SpecialPatternResolver specialResolver = new SpecialPatternResolver(
             network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
@@ -276,7 +301,7 @@ public final class AcyclicCraftingSolver {
         JointOutputDemandQueue pending = new JointOutputDemandQueue(route.keys(), selected,
             deferredPatterns, stockLeaves);
         Set<AEKey> unsettled = new LinkedHashSet<>();
-        pending.add(network.goal());
+        goals.keySet().forEach(pending::add);
         while (!pending.isEmpty()) {
             cancellation.checkpoint();
             AEKey key = pending.poll(cancellation);

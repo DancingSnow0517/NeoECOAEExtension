@@ -82,6 +82,35 @@ class CycleStartupRecoveryTest {
         assertTrue(outcome.state().missingItems().isEmpty());
     }
 
+    @Test void wholeOrderPrefixDeficitIsFedBackUntilRealExternalSupplyIsSufficient() throws Exception {
+        var network = new CompiledNetwork(seed, Map.of(seed, List.of(growth, bootstrap), raw, List.of(), fuel, List.of()),
+            Set.of(), 2, 3);
+        var selection = new ActiveRouteSelector().select(new CraftingGraphBuilder().build(network, ECOCancellation.NONE),
+            false, ECOCancellation.NONE);
+        var stock = new KeyCounter(); stock.add(raw, 5); stock.add(fuel, 10);
+        var calls = new AtomicInteger();
+        CycleSolver solver = (request, cancellation) -> {
+            int call = calls.getAndIncrement();
+            if (call == 0) return result(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(), Map.of(seed, 1L));
+            if (call == 1) return new CycleSolveResult(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT,
+                Map.of(growth.details(), 10L), Map.of(fuel, 10L), Map.of(seed, 5L), Map.of(seed, 4L),
+                Map.of(seed, 20L), Map.of(seed, 15L), List.of(), List.of(),
+                List.of(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.FULL_ORDER_MATERIAL_DEFICIT, "Full prefix")),
+                CycleSolveMetrics.NONE);
+            assertEquals(5L, request.availableRelevantStock().get(seed));
+            return new CycleSolveResult(CycleSolveStatus.SUCCESS, Map.of(growth.details(), 10L), Map.of(fuel, 10L),
+                Map.of(seed, 5L), Map.of(), Map.of(seed, 20L), Map.of(seed, 15L), List.of(), List.of(), CycleSolveMetrics.NONE);
+        };
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), solver)
+            .plan(network, selection, stock, 10, true, ECOCancellation.NONE);
+        assertEquals(3, calls.get());
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), outcome.trace().diagnostics().toString());
+        assertEquals(Map.of(growth.details(), 10L, bootstrap.details(), 5L), outcome.state().patternTimes());
+        assertEquals(5L, outcome.state().usedItems().get(raw));
+        assertEquals(10L, outcome.state().usedItems().get(fuel));
+        assertEquals(5L, stock.get(raw));
+    }
+
     private static CompiledPattern fastPattern(int id, AEKey output, long amount, GenericStack... inputs) {
         var source = pattern(id, output, amount, inputs);
         return new CompiledPattern(id, source.details(), output, source.outputPerPattern(),
