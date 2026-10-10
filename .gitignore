@@ -45,3 +45,4 @@ src/generated/resources/.cache/
 .codex/config.toml
 logs/
 STORAGE_RELIABILITY.md
+bench/
