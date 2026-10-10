@@ -177,13 +177,17 @@ dependencies {
 
     implementation("curse.maven:omni-cells-1359517:8050965")
 
+    // Optional integration APIs are available for compilation and tests, but not runClient.
     def localAe2LtJar = providers.gradleProperty("ae2lt_local_jar").orNull
     if (localAe2LtJar) {
-        implementation(files(localAe2LtJar))
+        compileOnly(files(localAe2LtJar))
+        testImplementation(files(localAe2LtJar))
     } else {
-        implementation("curse.maven:ae2-lightning-tech-1527395:8823559") { transitive = false }
+        compileOnly("curse.maven:ae2-lightning-tech-1527395:8823559") { transitive = false }
+        testImplementation("curse.maven:ae2-lightning-tech-1527395:8823559") { transitive = false }
     }
-    implementation("curse.maven:thunderbolt-core-1631756:8844639") { transitive = false }
+    compileOnly("curse.maven:thunderbolt-core-1631756:8844639") { transitive = false }
+    testImplementation("curse.maven:thunderbolt-core-1631756:8844639") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }

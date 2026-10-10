@@ -41,8 +41,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         NeoECOAE.id("textures/guis/eco_craftingreport_cycle.png");
     private static final int CPU_TIER_TARGET_X = 38;
     private static final int CPU_TIER_TARGET_Y = 5;
-    private static final int CPU_TIER_GLYPH_WIDTH = 12;
-    private static final int CPU_TIER_GLYPH_HEIGHT = 17;
+    private static final int CPU_TIER_GLYPH_WIDTH = 13;
+    private static final int CPU_TIER_GLYPH_HEIGHT = 18;
     private static final int CPU_TIER_GLYPH_V = 265;
     private static final int CYCLE_STATUS_X = 237;
     private static final int CYCLE_STATUS_Y = 7;
@@ -273,7 +273,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         int sourceX = switch (mode.neoecoae$getSelectedCpuTier()) {
             case 4 -> 67;
             case 6 -> 80;
-            case 9 -> 94;
+            case 9 -> 93;
             default -> -1;
         };
         if (sourceX < 0) return;
