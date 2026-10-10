@@ -1,0 +1,168 @@
+package cn.dancingsnow.neoecoae.gui.crafting;
+
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
+import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import com.lowdragmc.lowdraglib2.LDLib2;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.fluids.FluidStack;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+class CraftingHostPanelRenderingTest {
+    @BeforeAll
+    static void bootstrap() throws ClassNotFoundException {
+        InventoryTestBootstrap.initialize();
+        try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {
+            ModList modList = mock(ModList.class);
+            when(modList.getAllScanData()).thenReturn(List.of());
+            mods.when(ModList::get).thenReturn(modList);
+            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
+            Class.forName(UIElement.class.getName());
+            Class.forName(NETextures.class.getName());
+            AccessorRegistries.init();
+        }
+    }
+
+    @Test
+    void artworkTextAndGaugesFollowTheWindowPosition() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            Font font = installFont(minecraft);
+            UIElement artwork = positioned(artwork(formedState()));
+            GUIContext context = context();
+
+            artwork.drawBackgroundAdditional(context);
+
+            verify(context).drawTexture(NETextures.Crafting.CONTROLLER, 120F, 80F, 253F, 214F);
+            verify(context).drawTexture(any(), eq(143F), eq(85F), eq(13F), eq(18F));
+            verify(context).drawTexture(any(), eq(169F), eq(109F), eq(16F), eq(34F));
+            verify(context).drawTexture(any(), eq(218F), eq(171F), eq(34F), eq(9F));
+            verify(context).drawTexture(any(), eq(218F), eq(193F), eq(17F), eq(9F));
+            verify(context.graphics).drawString(font, "FX: 2", 316, 215, 0xFF302D43, false);
+            verify(context.graphics).fill(316, 181, 331, 203, 0xFFCF72FF);
+            verify(context.graphics).fill(347, 192, 362, 203, 0xFF66C8E8);
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void syncedMetricsReplaceInitialValues() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            installFont(minecraft);
+            UIElement artwork = artwork(formedState());
+            BindableValue<Tag> synced = (BindableValue<Tag>) artwork.getChildren().getFirst();
+            CompoundTag update = formedState().toTag();
+            update.putInt("executionTicks", 10);
+            update.putLong("energyUsage", 0);
+            update.putInt("coolantAmount", 0);
+            update.putInt("coolantCapacity", 100);
+            synced.setValue(update);
+            artwork = positioned(artwork);
+            GUIContext context = context();
+
+            artwork.drawBackgroundAdditional(context);
+
+            verify(context).drawTexture(any(), eq(218F), eq(193F), eq(7F), eq(9F));
+            verify(context.graphics, never()).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
+        }
+    }
+
+    @Test
+    void unformedPanelStillDrawsAtTheWindowPosition() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            UIElement artwork = positioned(artwork(CraftingControllerPanelState.UNFORMED));
+            GUIContext context = context();
+
+            artwork.drawBackgroundAdditional(context);
+
+            verify(context).drawTexture(NETextures.Crafting.CONTROLLER, 120F, 80F, 253F, 214F);
+            verifyNoMoreInteractions(context);
+            verifyNoInteractions(context.graphics);
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void informationTooltipUsesSyncedLinesAndPreservesTheStatusColor() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            UIElement icon = CraftingHostPanelUI.createMaintenanceStatusIcon(() -> Component.literal("initial"));
+            BindableValue<Component> synced = (BindableValue<Component>) icon.getChildren().getFirst();
+            synced.setValue(Component.literal("status\nfirst condition\nsecond condition").withColor(0xD8B4FE), false);
+            UIEvent event = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            event.target = icon;
+            UIEventDispatcher.dispatchEvent(event);
+
+            List<Component> lines = event.hoverTooltips.tooltipTexts();
+            assertEquals(List.of("status", "first condition", "second condition"),
+                lines.stream().map(Component::getString).toList());
+            assertEquals(0xD8B4FE, lines.getFirst().getStyle().getColor().getValue() & 0xFFFFFF);
+            assertEquals(0xFF5555, lines.get(1).getStyle().getColor().getValue() & 0xFFFFFF);
+            var infinite = CraftingHostPanelUI.maintenanceTooltipLines(Component.literal("infinite").withColor(0x55FF8A));
+            assertEquals(1, infinite.size());
+            assertEquals(0x55FF8A, infinite.getFirst().getStyle().getColor().getValue() & 0xFFFFFF);
+        }
+    }
+
+    private static UIElement artwork(CraftingControllerPanelState state) {
+        var config = new CraftingHostPanelUI.Config(
+            Component::empty, Component::empty, () -> 1, () -> true, () -> false, () -> {},
+            () -> false, () -> {}, () -> 1, () -> 2, () -> 1, () -> 1L, () -> 0L,
+            () -> 3, () -> 3, () -> 4, () -> 0L, () -> 500_000L,
+            () -> 25, () -> 100, () -> 9, () -> FluidStack.EMPTY, () -> null, List::of,
+            () -> false, () -> 0, () -> {}, () -> 0, ignored -> {}, () -> state,
+            () -> 1L, Component::empty);
+        return CraftingHostPanelUI.create(config).getChildren().getFirst();
+    }
+
+    private static UIElement positioned(UIElement element) {
+        UIElement artwork = spy(element);
+        doReturn(120F).when(artwork).getPositionX();
+        doReturn(80F).when(artwork).getPositionY();
+        return artwork;
+    }
+
+    private static CraftingControllerPanelState formedState() {
+        return CraftingControllerPanelState.of(3, List.of(1, 2), List.of(3, 1),
+            2, false, true, true, 500, 500);
+    }
+
+    private static Font installFont(org.mockito.MockedStatic<Minecraft> minecraft) throws ReflectiveOperationException {
+        Minecraft client = mock(Minecraft.class);
+        Font font = mock(Font.class);
+        var field = Minecraft.class.getDeclaredField("font");
+        field.setAccessible(true);
+        field.set(client, font);
+        minecraft.when(Minecraft::getInstance).thenReturn(client);
+        when(font.plainSubstrByWidth(anyString(), anyInt())).thenAnswer(call -> call.getArgument(0));
+        return font;
+    }
+
+    private static GUIContext context() {
+        GUIContext context = mock(GUIContext.class);
+        context.graphics = mock(GuiGraphics.class);
+        return context;
+    }
+}

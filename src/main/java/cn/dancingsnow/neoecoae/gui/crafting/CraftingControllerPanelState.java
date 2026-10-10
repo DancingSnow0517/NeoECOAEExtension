@@ -48,6 +48,10 @@ public record CraftingControllerPanelState(
         return cell >= 0 && cell < SLOT_COUNT && (fxCells >> cell & 1) != 0;
     }
 
+    public int fxCount() {
+        return Integer.bitCount(fxCells);
+    }
+
     public int upperTier(int cell) {
         return tierAt(upperCores, cell);
     }

@@ -584,6 +584,15 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         return Math.max(0, runningThreads);
     }
 
+    /** Queue occupancy counts the crafts inside each batch, rather than the number of thread objects. */
+    public long getQueuedCraftCount() {
+        long total = 0L;
+        for (ECOCraftingThread thread : craftingThreads) {
+            total = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(total, thread.getCraftCount());
+        }
+        return total;
+    }
+
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);

@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingControllerPanelState;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
@@ -50,6 +51,9 @@ import lombok.Getter;
 import lombok.AccessLevel;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.Util;
 import net.minecraft.network.chat.Component;
@@ -70,6 +74,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -884,8 +889,62 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getNetworkFrequency,
             delta -> {
                 if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
-            }
+            },
+            this::getCraftingControllerPanelState,
+            this::getDisplayedQueuedCraftCount,
+            this::getCraftingNetworkComposition
         );
+    }
+
+    /** Uses local physical FT positions and the exchange domain's shared runtime counters. */
+    public CraftingControllerPanelState getCraftingControllerPanelState() {
+        if (!formed || cluster == null) {
+            return CraftingControllerPanelState.UNFORMED;
+        }
+        Direction top = OrientationStrategies.horizontalFacing().getSide(getBlockState(), RelativeSide.TOP);
+        Map<BlockPos, Integer> cores = new LinkedHashMap<>();
+        for (ECOCraftingParallelCoreBlockEntity core : cluster.getParallelCores()) {
+            cores.put(core.getBlockPos(), core.getTier().getTier());
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers().stream()
+            .sorted(Comparator.comparingDouble(worker -> worker.getBlockPos().distSqr(getBlockPos())))
+            .limit(CraftingControllerPanelState.SLOT_COUNT)
+            .toList();
+        List<Integer> upper = new ArrayList<>(workers.size());
+        List<Integer> lower = new ArrayList<>(workers.size());
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
+            upper.add(cores.getOrDefault(worker.getBlockPos().relative(top), 0));
+            lower.add(cores.getOrDefault(worker.getBlockPos().relative(top.getOpposite()), 0));
+        }
+        CraftingCapabilitySnapshot snapshot = getCapabilitySnapshot();
+        return CraftingControllerPanelState.of(
+            getTier().getTier(), upper, lower, workers.size(), mirrored,
+            CraftingControllerPanelState.coolantVisible(
+                isActiveCooling(), getDisplayedCoolantFluid(), getDisplayedCoolantAmount()),
+            hasNetworkSwitch(),
+            snapshot.totalBatchCapacity().unlimited() ? CraftingControllerPanelState.FULL
+                : CraftingControllerPanelState.permille(
+                    getDisplayedQueuedCraftCount(), snapshot.totalBatchCapacity().finiteValue()),
+            CraftingControllerPanelState.permille(snapshot.activeFxCount(), snapshot.physicalFxCount())
+        );
+    }
+
+    public long getDisplayedQueuedCraftCount() {
+        long total = 0L;
+        for (ECOCraftingWorkerBlockEntity worker : collectDisplayedWorkers()) {
+            total = NEMath.saturatingAdd(total, worker.getQueuedCraftCount());
+        }
+        return total;
+    }
+
+    private Component getCraftingNetworkComposition() {
+        if (!formed || !hasNetworkSwitch()) {
+            return Component.literal("无交换模块");
+        }
+        NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
+        int normal = network == null ? (hasNormalNetworkSwitch() ? 1 : 0) : network.getNormalSwitchHostCount();
+        int highEnergy = network == null ? (hasHighEnergyNetworkSwitch() ? 1 : 0) : network.getHighEnergySwitchHostCount();
+        return Component.literal("普通 " + normal + " + 高能 " + highEnergy);
     }
 
     private boolean isIgnoringPatternSubstitutions() {
