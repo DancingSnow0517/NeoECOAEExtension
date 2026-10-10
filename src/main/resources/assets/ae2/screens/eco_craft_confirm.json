@@ -15,12 +15,6 @@
     "dialog_title": {
       "position": { "left": 8, "top": 7 }
     },
-    "plan_summary": {
-      "position": { "left": 28, "top": 11 }
-    },
-    "large_cycle_summary": {
-      "position": { "left": 28, "top": 8 }
-    },
     "cycle_status": {
       "position": { "left": 237, "top": 8 },
       "align": "CENTER"

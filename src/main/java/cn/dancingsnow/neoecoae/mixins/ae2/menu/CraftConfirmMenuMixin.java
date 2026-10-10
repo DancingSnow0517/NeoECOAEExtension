@@ -104,6 +104,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique private ECOPlannerOptions neoecoae$originalOptions;
     @Unique @GuiSync(108) private boolean neoecoae$bigOrderCpu;
     @Unique @GuiSync(109) private String neoecoae$planningDiagnostic = "";
+    @Unique @GuiSync(111) private int neoecoae$selectedCpuTier;
 
     @Unique @GuiSync(110) private long neoecoae$diagnosticsVersion;
     @Unique private long neoecoae$receivedDiagnosticsVersion = -1;
@@ -147,10 +148,28 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Override public boolean neoecoae$bigOrderCpuAvailable() { return neoecoae$bigOrderCpu; }
 
+    @Override public int neoecoae$getSelectedCpuTier() { return neoecoae$selectedCpuTier; }
+
     @Inject(method = "broadcastChanges", at = @At("HEAD"))
     private void neoecoae$syncBigOrderCpu(CallbackInfo ci) {
         if (((CraftConfirmMenu) (Object) this).isClientSide()) return;
         neoecoae$bigOrderCpu = neoecoae$resolveBigOrderCpu() != null;
+        neoecoae$selectedCpuTier = neoecoae$reportCpuTier();
+    }
+
+    @Unique
+    private int neoecoae$reportCpuTier() {
+        ICraftingCPU cpu = selectedCpu;
+        if (cpu == null) {
+            cpu = neoecoae$resolveBigOrderCpu();
+        }
+        if (!(cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco)) return 0;
+        return switch (eco.getTier().getTier()) {
+            case 1 -> 4;
+            case 2 -> 6;
+            case 3 -> 9;
+            default -> 0;
+        };
     }
 
     @Unique
