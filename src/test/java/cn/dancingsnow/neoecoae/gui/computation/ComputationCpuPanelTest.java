@@ -230,7 +230,7 @@ class ComputationCpuPanelTest {
                 .findFirst().orElseThrow();
             SpriteTexture background = assertInstanceOf(SpriteTexture.class,
                 status.getStyleBag().computeCandidate(PropertyRegistry.BACKGROUND));
-            try (var source = getClass().getResourceAsStream("/assets/neoecoae/textures/gui/computation/eco_craftingcpu.png")) {
+            try (var source = getClass().getResourceAsStream("/assets/neoecoae/textures/guis/eco_craftingcpu.png")) {
                 assertNotNull(source);
                 var atlas = ImageIO.read(source);
                 assertTrue(atlas.getWidth() > background.spriteSize.width);

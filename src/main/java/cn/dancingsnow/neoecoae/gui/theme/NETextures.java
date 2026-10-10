@@ -31,7 +31,7 @@ public class NETextures {
     public static IGuiTexture CARD_BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/common/card_background.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(3, 3, 3, 3);
-    public static IGuiTexture NBT_BENCH = SpriteTexture.of(NeoECOAE.id("textures/gui/computation/nbtbench.png"))
+    public static IGuiTexture NBT_BENCH = SpriteTexture.of(NeoECOAE.id("textures/guis/nbtbench.png"))
         .setSprite(0, 0, 176, 253);
 
     private static final net.minecraft.resources.ResourceLocation LDLIB_ATLAS =
@@ -67,7 +67,7 @@ public class NETextures {
             .setSprite(0, 0, 200, 20)
             .setBorder(3);
     public static IGuiTexture PRIORITY_BACKGROUND =
-        SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/priority.png"))
+        SpriteTexture.of(NeoECOAE.id("textures/guis/priority.png"))
             .setSprite(0, 0, 176, 125);
     public static IGuiTexture PRIORITY_TEXT_FIELD =
         SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/text_field.png"))
@@ -82,7 +82,7 @@ public class NETextures {
             .setSprite(0, 24, 128, 12)
             .setBorder(1, 0, 1, 0);
     public static IGuiTexture AE2_TOOLBOX =
-        SpriteTexture.of(NeoECOAE.id("textures/gui/workstation/eco_extra_panels.png"))
+        SpriteTexture.of(NeoECOAE.id("textures/guis/eco_extra_panels.png"))
             .setSprite(0, 0, 61, 66);
 
     public static IGuiTexture SWITCH_OFF = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/checkbox.png"))

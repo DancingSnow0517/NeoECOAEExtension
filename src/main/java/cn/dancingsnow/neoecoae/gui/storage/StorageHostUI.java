@@ -893,8 +893,9 @@ public final class StorageHostUI {
     }
 
     private static final class ResourceLocations {
-        private final SpriteTexture infiniteBackground = sprite(
-            "estorage_infinite_controller.png", 0, 0, ROOT_WIDTH, ROOT_HEIGHT);
+        private final SpriteTexture infiniteBackground = SpriteTexture.of(
+            NeoECOAE.id("textures/guis/estorage_infinite_controller.png"))
+            .setSprite(0, 0, ROOT_WIDTH, ROOT_HEIGHT);
         private final SpriteTexture itemPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);
         private final SpriteTexture fluidPercent = sprite("estorage_controller_elements.png", 6, 225, 60, 6);
         private final SpriteTexture gasPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);

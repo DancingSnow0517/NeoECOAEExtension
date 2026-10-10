@@ -54,11 +54,11 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     // The source sheet is 384x384, but only the 326x254 top slice is the page background.
     // The two 67x22 CPU row states live at y=260 in the same sheet.
     private static final IGuiTexture BACKGROUND = SpriteTexture.of(
-        NeoECOAE.id("textures/gui/computation/eco_craftingcpu.png")).setSprite(0, 0, WIDTH, HEIGHT);
+        NeoECOAE.id("textures/guis/eco_craftingcpu.png")).setSprite(0, 0, WIDTH, HEIGHT);
     private static final IGuiTexture CPU_NORMAL = SpriteTexture.of(
-        NeoECOAE.id("textures/gui/computation/eco_craftingcpu.png")).setSprite(0, 260, CPU_WIDTH, CPU_HEIGHT);
+        NeoECOAE.id("textures/guis/eco_craftingcpu.png")).setSprite(0, 260, CPU_WIDTH, CPU_HEIGHT);
     private static final IGuiTexture CPU_SELECTED = SpriteTexture.of(
-        NeoECOAE.id("textures/gui/computation/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
+        NeoECOAE.id("textures/guis/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
 
     private final ComputationHostPanelUI.Config config;
     private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);

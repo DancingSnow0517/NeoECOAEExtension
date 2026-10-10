@@ -52,7 +52,7 @@ public final class StorageMegaPanelUI {
     private static final int TEXT_COLOR = 0x3F3D52;
 
     private static final SpriteTexture BACKGROUND = SpriteTexture.of(
-        NeoECOAE.id("textures/gui/storage/eco_mega_storage.png")
+        NeoECOAE.id("textures/guis/eco_mega_storage.png")
     ).setSprite(0, 0, WIDTH, HEIGHT);
 
     private StorageMegaPanelUI() {
