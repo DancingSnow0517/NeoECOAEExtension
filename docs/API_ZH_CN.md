@@ -1,267 +1,574 @@
-# API 接入指南
+# API 调用与接入指南
 
-> 源码快照：Neo ECO AE Extension `21.2.0-beta4`，2026-09-21。本文描述当前源码，不代表永久兼容承诺。
+[English](API.md) · [文档目录](README.md) · [ECO 规划器说明](ECO_PLANNER_ZH_CN.md)
 
-## 1. 当前接入状态
+适用范围：**Minecraft 1.21.1 / NeoForge**，源码核对日期 **2026-10-10**。构建版本以及当前工作区与已发布产物的区别，见[文档目录](README.md)。
 
-项目已经在 `cn.dancingsnow.neoecoae.api` 下形成较完整的 Java API，覆盖存储元件、ECO 等级和元件类型、样板存储、合成生命周期和任务状态、Provider 调度、产物路由、进度、规划设置以及客户端模型注册。
+## 1. 依赖配置与 API 边界
 
-当前发布条件：
+API 随完整模组 JAR 分发，目前没有独立的 `-api` 产物，也没有长期 API 兼容性承诺。构建中的 Maven 发布地址是本地 `repo/`，没有声明公共 NeoECOAE Maven 仓库。请固定接入方实际拿到的 JAR 及其 Minecraft、NeoForge、AE2 依赖版本。项目许可证为 GPLv3。
 
-- 没有独立 API source set 或 `-api` artifact，完整 Mod JAR 同时承载 API。
-- 项目启用了 `java-library` 和 `maven-publish`，但当前发布目标只是项目内的 `repo` 目录，没有声明公开 Maven 仓库。
-- API 类型直接引用 Minecraft、NeoForge、AE2，少数高级 API 还引用 ECO 实现类型。调用方必须使用匹配版本编译。
-- Mod 使用 GPLv3；分发链接后的衍生作品前应评估许可证要求。
-- 当前版本为 beta，项目没有声明语义化 API 兼容策略。应锁定精确版本，并在升级时回归测试。
-
-使用本地 JAR 时推荐的 Gradle 配置：
+在已经配置 NeoForge、AE2 和 Java 21 的附属模组项目中，将对应 JAR 放入 `libs/`：
 
 ```groovy
-repositories {
-    flatDir { dirs "libs" }
-}
-
 dependencies {
-    implementation("org.appliedenergistics:appliedenergistics2:19.2.18")
-    compileOnly(name: "neoecoae-21.2.0-beta4")
-    localRuntime(name: "neoecoae-21.2.0-beta4") // 仅开发运行环境需要
+    compileOnly files("libs/neoecoae-21.2.1.jar")
+    // ModDevGradle 开发运行使用；若已通过其他方式安装该模组，请省略。
+    localRuntime files("libs/neoecoae-21.2.1.jar")
 }
 ```
 
-依赖名填写实际 JAR 文件名且不带 `.jar`。以后如增加公开 Maven 仓库，应改用发布方给出的正式坐标。再根据代码能否在缺少 ECO 时加载，在 `neoforge.mods.toml` 中声明 required 或 optional 的 `neoecoae` 依赖。
+该示例不会把 NeoECOAE 打包进你的附属模组。如果附属模组离不开 ECO，在 `neoforge.mods.toml` 中声明必需依赖：
 
-## 2. 稳定性分级
+```toml
+[[dependencies.examplemod]]
+modId = "neoecoae"
+type = "required"
+versionRange = "[21.2.1]"
+ordering = "AFTER"
+side = "BOTH"
+```
 
-| 级别 | 范围 | 建议 |
+将 `examplemod` 和版本范围替换为实际模组 ID 及经过测试的版本。可选兼容使用 `type = "optional"`，并且仅在确认安装了 `neoecoae` 后加载引用 ECO 类型的兼容类。只写可选依赖，不能阻止 Java 类链接错误。
+
+| 需求 | 推荐入口 | 源码 |
 | --- | --- | --- |
-| 推荐 | `api.storage` 契约；生命周期监听器和附件注册表；调度策略；进度视图；样板存储服务；Provider 契约 | 预期的扩展边界，但 beta 阶段仍需锁定版本。 |
-| 有条件使用 | `IECOTier`、自定义注册表、模型注册表、规划/网络设置、产物认领、`ECOFastPathFacade` | 严格遵守所有权和生命周期规则；通常对版本敏感。 |
-| 只读桥接 | diagnostics、菜单接口、能力快照、产物路由 | 多由 Mixin 注入 AE2/ECO 对象。通过 `instanceof` 获取；除非契约明确要求，否则不要自行实现。 |
-| 内部实现 | `ECOCraftingCPU`、`ECOCraftingCPULogic`、执行/运行时/持久化/worker 类、集成加载器内部类 | 因实现需要而公开，不是稳定的第三方边界。不要构造、继承或持久化这些类型。 |
+| 明确使用 ECO 规划 | `ECOPlanningService.begin` | [规划服务](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOPlanningService.java) |
+| 标记一次 AE2 计算请求 | `ECOPlannerRequester`、`ECOPlannerOptions` | [请求包装器](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlannerRequester.java) |
+| 读取网络规划设置 | `ECOCraftingNetworkSettings.of(grid)` | [网络设置](../src/main/java/cn/dancingsnow/neoecoae/api/me/network/ECOCraftingNetworkSettings.java) |
+| 监听任务或保存附加状态 | 生命周期监听器、附件工厂 | [生命周期](../src/main/java/cn/dancingsnow/neoecoae/api/me/lifecycle/ECOCraftingLifecycle.java)、[任务附件](../src/main/java/cn/dancingsnow/neoecoae/api/me/attachment/ECOCraftingJobAttachmentRegistry.java) |
+| 接入样板供应器 | 普通并行或 FastPath 接口 | [普通并行](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOParallelCraftingProvider.java)、[FastPath](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOFastPathDispatchProvider.java) |
+| 交付动态产物 | `ECOCraftingOutputClaimSink` | [产物认领](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimSink.java) |
+| 向网络导入样板 | `IECOPatternStorageService` | [样板服务](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorageService.java) |
+| 接入存储盘 | `ICellHost`、`IECOCellHandler`、精确插入 | [盘槽接口](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ICellHost.java)、[存储辅助接口](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOBigIntegerStorage.java) |
 
-目前 `@ApiStatus.Internal` 标记了事件触发和附件创建方法，但并非所有面向实现的 public 类都有标记，因此不能只凭 `public` 或包路径判断稳定性。
+下文使用了 `crafting.planner` 中的部分公开入口，这些入口随版本变化。求解器、运行时、Worker、持久化和兼容加载器属于内部实现。已弃用的 `api.me.ECOCraftingCPU`、`ECOCraftingCPULogic`、`ExecutingCraftingJob` 用于保留已有附属模组的二进制和 Mixin 目标；新接入不要自行创建或继承这些类型。
 
-## 3. 注册与生命周期规则
+## 2. 线程与所有权约定
 
-所有可变注册表都是进程级单例。应在 Mod 构造或 common setup 阶段注册一次；测试环境或可重复装载的宿主还应在结束时注销监听器和策略。除非契约另有说明，游戏回调和 Provider 提交都运行在所属服务端线程。
+规划入口在**所属服务器线程**调用，以便安全读取网络库存快照。入口返回 `Future`；在后续 tick 检查 `isDone()`，完成后再调用 `get()`。提交任务、供应器接收、存储修改和产物记账也在服务器线程执行。
 
-不要从专用服务端类路径调用客户端模型 API。不要从异步规划线程修改 ECO 任务、Provider 库存或 AE 网络。
+开始计算和提交前，都要由调用方检查玩家或机器权限以及网络访问资格。底层 ECO 接口不会代替调用方鉴权。一次计算使用同一网络、动作来源和请求机器。菜单关闭、机器移除或网络失效时，取消被放弃的计算。处理 `ExecutionException`、取消状态以及执行器队列满时的 `RejectedExecutionException`。
 
-### 生命周期观察器
+下列 Java 示例带有完整导入，可以作为接入骨架。抽象方法中的机器事务，以及调用方传入的回调，仍需根据实际机器实现。
+
+## 3. 发起规划、读取结果并只提交一次
+
+`ECOPlanningService.begin(level, grid, source, goal, amount, strategy, options)` 明确选择 ECO，不经过 `ICraftingService.beginCraftingCalculation`，因此不会由其他模组在服务入口处选择规划器。示例采用合成确认界面的资格检查，并确保每个 Future 只消费一次。
+
+使用 `CalculationStrategy.REPORT_MISSING_ITEMS` 保留原请求数量及完整缺料报告。原请求无法执行时，`CRAFT_LESS` 会探测较小数量；读取返回的 `finalOutput().amount()`，不能假设它仍等于原请求。这些探测共享同一会话的库存快照和预算。非 `CRAFT_LESS` 计算已有报告计划时，服务直接返回该计划，不会为了生成模拟报告而重复计算相同数量。
 
 ```java
-private static final ECOCraftingLifecycleListener LISTENER = new ECOCraftingLifecycleListener() {
-    @Override
-    public void onPatternDispatched(ECOCraftingDispatchEvent event) {
-        long crafts = event.dispatchedCrafts();
-        UUID jobId = event.job().craftingJobId();
-        // 只观察，不要在回调中修改任务。
-    }
-};
+import appeng.api.networking.IGrid;
+import appeng.api.networking.crafting.*;
+import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
+import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.planning.*;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
+import cn.dancingsnow.neoecoae.crafting.planner.result.*;
+import net.minecraft.server.level.ServerLevel;
+import java.util.concurrent.*;
 
-public static void register() {
-    ECOCraftingLifecycle.register(LISTENER);
+public final class EcoPlanningExample {
+    private final ServerLevel level;
+    private final IGrid grid;
+    private final IActionSource source;
+    private Future<ICraftingPlan> pending;
+    private ECOPlanningResult lastResult;
+
+    public EcoPlanningExample(ServerLevel level, IGrid grid, IActionSource source) {
+        this.level = level;
+        this.grid = grid;
+        this.source = source;
+    }
+
+    public void begin(AEKey goal, long amount) {
+        checkThread();
+        if (amount <= 0 || pending != null) throw new IllegalStateException("Invalid request");
+        var settings = ECOCraftingNetworkSettings.of(grid);
+        if (settings == null || !settings.neoecoae$isFastPlannerEnabled()
+                || !settings.neoecoae$hasComputationHost(source)) {
+            throw new IllegalStateException("No eligible ECO planning host");
+        }
+        lastResult = null;
+        pending = ECOPlanningService.begin(level, grid, source, goal, amount,
+            CalculationStrategy.REPORT_MISSING_ITEMS, ECOPlannerOptions.from(settings));
+    }
+
+    // Call from a server tick, after rechecking access to the original grid.
+    // Null means no submission: still pending, cancelled, or a diagnostic-only result.
+    public ICraftingSubmitResult poll(ICraftingRequester requester, ICraftingCPU target)
+            throws InterruptedException, ExecutionException {
+        checkThread();
+        var future = pending;
+        if (future == null || !future.isDone()) return null;
+        pending = null; // Consume once: repeated ticks cannot submit the same plan twice.
+        if (future.isCancelled()) return null;
+        var plan = future.get();
+        if (plan == null) return null;
+        lastResult = diagnostics(plan);
+        if (plan.simulation() || lastResult != null && lastResult.status() != PlanningStatus.SUCCESS) {
+            return null;
+        }
+        var contract = ECOPlanningResultRegistry.resolveContract(plan, lastResult);
+        if (lastResult != null && (contract == null || !contract.executable())) return null;
+        return ECOPlanningResultRegistry.withSubmissionAlias(plan, lastResult,
+            () -> grid.getCraftingService().submitJob(plan, requester, target, false, source));
+    }
+
+    public ECOPlanningResult lastResult() { return lastResult; }
+
+    public void cancel() {
+        checkThread();
+        if (pending != null) pending.cancel(true);
+        pending = null;
+    }
+
+    private void checkThread() {
+        if (!level.getServer().isSameThread()) throw new IllegalStateException("Server thread required");
+    }
+
+    public static ECOPlanningResult diagnostics(ICraftingPlan plan) {
+        if (plan instanceof ECOCraftingPlanDiagnostics bridge) {
+            var attached = bridge.neoecoae$getPlanningResult();
+            if (attached != null) return attached;
+        }
+        return ECOPlanningResultRegistry.find(plan);
+    }
 }
 ```
 
-使用 `register`/`unregister`。`addListener`/`removeListener` 只是即将移除的二进制兼容桥。监听器异常会被记录并隔离，不会中断任务。
+每个请求持有者创建一个实例。检查权限后调用 `begin(goal, amount)`，在后续服务器 tick 调用 `poll(requester, target)`。请求机器为 null 表示独立任务；目标 CPU 为 null 时交由 AE2/ECO 选择。检查返回的 `ICraftingSubmitResult.successful()` 和错误信息：快照之后，材料、容量或网络拓扑都可能发生变化。
 
-### 每任务持久化附件
+通过 `lastResult()` 展示 `status()`、`trace().diagnostics()`、`exactMissingItems()`、`theoreticalBytes()`。其他规划器的计划可能没有 ECO 诊断结果。将诊断集合当作只读数据使用。`executionPlan()` 在不存在阶段计划时可能抛异常；优先查询 `resolveContract`，不要假定所有成功的无环计划都有阶段元数据。
+
+`withSubmissionAlias` 只在这次同步提交期间绑定元数据，不替换传入的计划。不要只复制 `finalOutput()`、缩放样板次数，或因为最终产物相同就给另一份计划套用结果。注册表按完整执行身份匹配，元数据十分钟后过期，不承担任务持久化。
+
+### 参数与网络默认值
+
+| 参数 | 含义 |
+| --- | --- |
+| `cyclePlanningEnabled` | 允许不可避开的循环组件进入循环求解器。 |
+| `ignorePatternSubstitutions` | 只按样板编码的首选输入规划，不考虑替代输入。 |
+| `fuzzyPlanningItemIds` | 指定哪些中间物品按忽略组件的方式规划，不等于支持任意模糊配方。 |
+| `planningLogEnabled` | 保留的旧兼容字段，日志现在由服务器调试配置控制。 |
+
+`ECOPlannerOptions.from(settings)` 获取当前默认设置。`from(null)` 关闭循环规划和忽略替代模式，并使用空的模糊规划集合。也可传入 `new ECOPlannerOptions(true, false, Set.of())` 明确指定本次请求选项。
+
+网络设置提供 `neoecoae$setFastPlannerEnabled`、`neoecoae$setCyclePlanningEnabled`、`neoecoae$setIgnoringPatternSubstitutions`。修改会影响共享网络及计算主机，因此必须先检查权限。主机可能只接受玩家或机器请求，资格判断使用带来源的 `neoecoae$hasComputationHost(source)`。
+
+### 从 AE2 计算服务进入
+
+如果接入方需要保留正常 AE2 服务入口，可以包装已有的模拟请求者：
 
 ```java
-ECOCraftingJobAttachmentRegistry.register(
-    ResourceLocation.fromNamespaceAndPath("examplemod", "audit"),
-    context -> new AuditAttachment(context.craftingJobId())
-);
-```
+import appeng.api.networking.IGrid;
+import appeng.api.networking.crafting.*;
+import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.api.me.planning.*;
+import net.minecraft.server.level.ServerLevel;
+import java.util.concurrent.Future;
 
-每个附件实例只属于一个任务，`id()` 必须与注册 id 相同。`save`/`load` 管理附件自己的 `CompoundTag`；`clear` 会收到终态 `SUCCESS`、`FAILURE` 或 `CANCELLED`。工厂抛异常、返回 null 或返回错误 id 时会被忽略并记录。不要调用内部方法 `create`/`createAll`。
-
-### 调度策略
-
-```java
-ECOCraftingDispatchPolicy policy = new ECOCraftingDispatchPolicy() {
-    @Override
-    public boolean mayTick(ECOCraftingCpuContext cpu) {
-        return !maintenanceMode;
+public final class EcoRequesterExample {
+    public static Future<ICraftingPlan> begin(ServerLevel level, IGrid grid,
+            ICraftingSimulationRequester original, AEKey goal, long amount,
+            ECOPlannerOptions options) {
+        var marked = new ECOPlannerRequester(original, options);
+        return grid.getCraftingService().beginCraftingCalculation(
+            level, marked, goal, amount, CalculationStrategy.REPORT_MISSING_ITEMS);
     }
-
-    @Override
-    public boolean isProviderAvailable(ECOCraftingCpuContext cpu, ICraftingProvider provider) {
-        return !provider.isBusy();
-    }
-};
-ECOCraftingDispatchPolicyRegistry.register(policy);
-```
-
-所有策略都是否决器；任一策略拒绝或抛异常都会关闭该 tick/Provider。回调内禁止抽取输入、推送 Provider 或修改任务。
-
-## 4. 存储 API
-
-### 元件座与存储优先级
-
-本接入面对应 issue [#119](https://github.com/DancingSnow0517/NeoECOAEExtension/issues/119)，源码更新于 2026-10-09。
-
-使用 `cn.dancingsnow.neoecoae.api.storage.ICellHost` 识别或实现单个元件槽位。ECO 存储元件座和计算元件座均暴露此接口。原有 `util.ICellHost` 继承新接口并保留原方法，继续兼容已有实现；新集成只需依赖 API 类型。
-
-- `getCellStack()` 在空槽位时返回 `null`。将返回的栈视为只读。
-- `setCellStack(null)` 请求取出元件。`ItemStack.EMPTY` 会被拒绝，不表示清空。放入时传入数量为 1 的有效非空元件栈。
-- 为保持兼容，setter 仍返回 `void`，无效元件或被锁定的修改可能静默拒绝。先检查 `isItemValid` / `canExtractCell`，并在转移物品所有权前重新读取槽位；替换时先取出旧元件，再放入新元件。
-- `canExtractCell()` 表示是否受提取限制，不表示是否存在元件：空槽位也可能返回 `true`。存储元件在无限迁移期间，以及成员受锁定且所属无限存储主机未成型时，禁止取出。
-- `getCellExtractionBlockReasonText()` 返回可空、通常可翻译的 `Component`。存储元件座通过它暴露迁移/成员锁定原因，无需引用实现类及其嵌套枚举。默认返回 `null`；能否取出仍以 `canExtractCell()` 为准。
-
-存储主机暴露 `api.storage.IECOStoragePriorityHost`，提供 `getStoragePriority()` 和公开的 `setStoragePriority(int)`。此值为带符号的配置优先级，不包含标记大宗元件的单独挂载调整。修改后自动持久化、同步，并刷新主机及其元件座的 AE2 挂载；设置相同值不会重复刷新。调用不要求 AE2 子菜单。
-
-```java
-if (blockEntity instanceof IECOStoragePriorityHost host) {
-    host.setStoragePriority(newPriority);
 }
 ```
 
-所有修改都须在所属服务端线程执行，由终端或数据包处理器先验证玩家/网络权限。这些底层 API 不自行认证玩家。优先级 setter 忽略客户端和未关联世界的主机。可选依赖应将 ECO 类型引用隔离到仅在 `neoecoae` 存在时加载的集成类中。
+包装器转发 `getActionSource()`，并标记一次计算。当 AE2 创建 `CraftingCalculation` 时，ECO Mixin 识别该标记。如果其他服务包装器提前返回自己的 Future，ECO 不会取消或替换它。根据实际返回计划的来源，决定是否应用 ECO 规则。
 
-### 元件发现
+原版合成确认**菜单**在开启快速规划且存在合格计算主机时，转向 ECO 直接入口。单纯打开网络开关，不会把所有未标记的附属模组或 AE2 请求强制改成 ECO。明确选择 ECO 的请求遇到不支持的情况时，返回 ECO 诊断结果，不会自动将同一请求交给原版规划器重算。
 
-实现 `IECOCellHandler`，并在 common setup 的排队任务中注册单例：
+## 4. 精确父订单与菜单准入
 
-```java
-event.enqueueWork(() -> ECOStorageCells.register(MyCellHandler.INSTANCE));
-```
+父订单可以保存超过 `Long.MAX_VALUE` 的正整数数量。当前校验最多接受 1024 位十进制数字。使用 `BigInteger` 构造请求，不要先调用 `longValue()` 截断。
 
-第一个返回非 null inventory 的 handler 胜出。`isCell`、`getCellInventory`、释放和运行时缓存清理必须保持一致。handler 可以按 stack/host 缓存，但必须在 `releaseCellInventory` 释放绑定宿主的状态，并在 `clearRuntimeState` 丢弃临时状态。
-
-handler 返回扩展 AE2 `StorageCell` 的 `IECOStorageCell`。只有当内容可以被无损枚举、清空、持久化和重新插入时，才实现 `IECOStorageMigrationCell`，用于可恢复迁移到无限存储域。
-
-元件物品可实现：
-
-- `IECOStorageCellItem`：等级、元件类型和接受的 `AEKeyType`。
-- `IBasicECOCellItem`：标准有限元件契约，包括字节数、每类型字节、类型总数、待机耗电和黑名单判断。
-
-### 等级与元件类型
-
-两个同步自定义注册表：
-
-- `neoecoae:eco_tier`，键 `NERegistries.Keys.ECO_TIER`，值类型 `IECOTier`。
-- `neoecoae:cell_type`，键 `NERegistries.Keys.CELL_TYPE`，值类型 `ECOCellType`。
-
-内置等级为 `l4`、`l6`、`l9`，内置元件类型为 `items`、`fluids`。外部 Mod 应在自定义注册表创建后，通过 NeoForge `RegisterEvent` 注册。自定义等级必须提供合成、计算、存储、能量和覆盖纹理全部参数。`supportsComponentTier` 使用等级顺序判断。注册表 id 和值会同步，因此客户端和服务端注册必须完全一致。
-
-`NERegistrate` 及其 builder 是项目内部便利工具，不应作为跨 Mod 契约。
-
-## 5. 样板存储 API
-
-通过 AE2 获取网络级服务：
+服务器接入若要先异步寻找适合 CPU 字节容量的有界子段，可以调用段探测入口：
 
 ```java
-IECOPatternStorageService service = grid.getService(IECOPatternStorageService.class);
-ECOPatternInsertionResult result = service.insertPreparedPattern(prepared);
-```
+import appeng.api.networking.IGrid;
+import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOBigOrderPlanner;
+import java.util.concurrent.*;
 
-`PatternCatalog` 是网络中样板位置、计数和容量的唯一事实来源。已经解析过样板详情时优先传 `ECOPreparedPattern`。返回值会区分插入成功、已存在、空间不足和不兼容。
+public final class EcoSegmentExample {
+    // Begin on the owning server thread; maximum and bytes describe a single segment.
+    public static Future<ECOBigOrderPlanner.Answer> begin(IGrid grid, AEKey goal,
+            long maximum, long bytes, ECOPlannerOptions options) {
+        return ECOBigOrderPlanner.begin(grid, goal, maximum, bytes, options);
+    }
 
-在 `IGridNodeService` 上实现 `IECOPatternStorage` 可暴露可写目的地。必须正确处理 `KnownUnique` 方法：只有网络目录已经证明唯一时，目标实现才可以跳过重复扫描。`checksLogicalDomainForDuplicates()` 必须反映真实行为。
-
-外部样板索引的 claim/release 方法是服务端线程协调原语。成功、取消或失败时都必须释放 owner UUID 的全部 claim。拓扑变化后不要继续持有 `PatternContainer` 或槽位引用。
-
-## 6. 合成 Provider API
-
-这里有两个互相独立的契约，不能混用。
-
-### 普通并行调度
-
-能原子接收多个普通处理样板的 Provider 实现 `ECOParallelCraftingProvider`：
-
-- `eco$getAvailableParallelSlots()` 返回当前容量。
-- `eco$pushPatternBatch(...)` 收到的是完整 `craftCount` 的输入总量，不是单份输入。
-- 只有完整接管全部输入后才能返回 `true`。
-- 返回 `false` 时不得改变输入或 Provider 状态。
-
-### 已验证 FastPath 调度
-
-同步执行已验证 ECO/F9 批次的 Provider 实现 `ECOFastPathDispatchProvider`。`eco$prepareFastPath(context)` 只能检查和准备，禁止消费资源；返回带正容量和提交 predicate 的 `Preparation`。
-
-提交 predicate 收到输入、输出和容器返还物总量。只有整个批次被接收时才返回 `true`。返回 `false` 或抛普通异常表示没有任何内容被接收，ECO 会回滚输入和能量。若无法确认是否已接收，必须抛 `ECOIndeterminateBatchException`；ECO 会保留资源所有权并停止降级路径，防止复制。
-
-`ECOBatchCapacityProvider` 已弃用，应直接实现 `ECOFastPathDispatchProvider`。
-
-`ECOFastPathFacade` 是非 ECO CPU 的高级边界。必须在该 CPU 所属服务端线程的同一 tick 内完成 prepare 和 submit。`PreparedBatch` 只能使用一次，拒绝也算使用。成功后调用方负责恰好一次的记账；提交阶段的抽取和回滚由 facade 负责。没有持久化能量预留和对账方案时不要使用此 API。
-
-### 动态批量发配（内部行为，不是新增 API）
-
-CPU 的全部发配分支现已接入 `crafting.execution.batch`。线性批量和单次适配器由 `ECOBatchPlanner` 汇总实时限制，经 `ECOBatchMaterializer` 获取实际材料，再由 `ECOBatchExecutor` 提交。`ECOBatchProvider#eco$dispatchBatch` 返回资源接收结果：拒绝时全额回滚，明确部分接收时仅退还未接收的线性批次，接收状态不明时保留资源并暂停任务。规划同时限制待收产物的剩余计数空间，并保护其他执行阶段预留的启动种子。
-
-已验证 FastPath 和有状态配方使用 `ECOStatefulBatchPlanner`，任意精度大订单使用 `ECOExactBatchPlanner`；二者都通过同一执行器和材料管理器提交预先计算的总量，避免重复乘算可复用工具或把精确数量截断到 `long`。`ECOStatefulBatchProvider#eco$dispatchPreparedBatch` 是内部原子提交适配器。CPU 在资源结算成功后才更新任务和产物记账。这些属于内部执行契约，不是新增的第三方注册 API；现有 Provider API 会适配到该链路，不再提供新旧发配切换配置。
-
-普通处理样板的动态/自适应批量发配目前由 ECO CPU 内部执行器完成，不提供新的注册接口或 Provider 接口。探测成功后可在同次访问内连续翻倍，并在下一 tick 继续增长；如果前面成功的批次已将目标填满，后续拒收或积压会结束本轮，并保留本轮已验证的批量。首次拒收只进行有限次数的减半恢复，并暂停向上探测。每次访问和每 CPU 每 tick 分别限制尝试次数，小批量、失败尝试及缩放后的普通回退都消耗额度；缩放探针冷却期间仍可尝试普通单份发配。配方数量使用 fastutil 原始类型计数表，在本次访问内复用，每次投料仍实时检查材料、保护种子、能源和待收产物空间。资格判断也会短时间缓存。ECO CPU 发配时批量大小始终由 ECO 决定；EAEP、AE2LT 等外部智能翻倍策略不会参与该决定。
-
-AE2LT 处理供应器使用可选的直接接收适配器：按 ECO 指定的批次调用底层投料事务，保留阻挡、锁定、目标连接、传输耗能、成功回调、溢出缓存和持久化，不查询原生 `getBatchCapacity`，不调用 `pushBatch`，也不读写自适应开关、倍率限制和探测历史。普通与无线模式都由 ECO 探测批量；定向输入使用其逐份定向事务，每份都计入 ECO 尝试额度，批次数量和记账仍由 ECO 管理。未知版本缺少完整接收契约时不尝试批量，安全回退单份发配。其他 Thunderbolt 原生自适应接口也不再优先于 ECO 的发配策略。
-
-EAEP 1.6.x 的外部计划在进入 ECO CPU 时，将已知自动倍增包装还原为基础样板及精确执行次数，校验输入、输出倍率一致；手动编码数量及其他 Mod 的包装语义保持不变。ECO 自有计划直接使用已验证的执行任务，不经过这一步。普通处理样板的执行包装由 ECO 创建，按原样板的稀疏输入顺序发出总量，不读取 EAEP 翻倍开关或倍率限制。
-
-Mek-Energistics 智能翻倍仍是例外，使用独立的可选适配器（按 3.0.8 API 验证），优先于该 Mod 的 Thunderbolt 和普通并行接口。开启时，ECO 将已扣取的完整批次交给其持久化智能队列，由机器逐步投料；关闭时只发配一份。此路径不要求 Thunderbolt，不改变机器开关，也不按物理输入槽容量截断队列批次。全部路径仍受 ECO 材料、能量、数量溢出、待收产物空间和每 tick 发配额度限制；拒收时回滚材料与能量，接收状态不明时保留资源并暂停任务。
-
-外部 Mod 接入普通批量处理时，使用上面的 `ECOParallelCraftingProvider`；只有已验证的同步 FastPath 才使用 `ECOFastPathDispatchProvider`，不能用它接入普通处理样板。内置自适应缩放支持单输入和多输入，另行检查 Provider 逻辑和发送缓冲区是否可观察、普通样板是否未包装、是否无返还物、是否允许外部库存推送，以及阻挡和方向模式是否兼容。带返还物、可复用工具或无法验证的包装不强制线性缩放，继续使用已验证有状态执行或单份发配。实现现有接口不等于启用这条缩放路径。
-
-不要直接依赖内部动态发配类或探测大小、缓存时长和探测间隔。缩放推送返回成功代表 Provider 接管整个批次，即使仍有内容留在发送缓冲区；缓冲区未清空时不能把本次接收视为扩大批次的容量证明。返回拒绝必须不改变输入或 Provider 状态。
-
-## 7. 产物、进度与 Mixin 桥接
-
-ECO CPU 通过显式 getter 暴露进度和产物认领：
-
-```java
-if (cpu instanceof ECOCraftingCPU ecoCpu) {
-    ECOCraftingProgressView view = ecoCpu.getProgressView();
-    float progress = view.progress();
-
-    ECOCraftingOutputClaimResult result =
-        ecoCpu.getOutputClaimSink().claimCraftingOutput(request);
+    // Poll from the server tick. The caller must consume a completed answer only once.
+    public static ECOBigOrderPlanner.Answer completed(Future<ECOBigOrderPlanner.Answer> future)
+            throws InterruptedException, ExecutionException {
+        if (!future.isDone() || future.isCancelled()) return null;
+        return future.get();
+    }
 }
 ```
 
-从 AE2 `ICraftingCPU` 开始时，这个具体类型检查是目前受支持的发现路径；通用 CPU 不会直接实现 view/sink 接口。不要自行构造或继承 `ECOCraftingCPU`。
+`ECOBigOrderPlanner.begin` 每次调用都捕获新的库存。`maximumChildCrafts` 和 `cpuBytes` 只描述一个有界子段。需要创建账本并协调连续子段时，提交 `ECOBigOrderRequest`：
 
-产物认领是服务端线程上的原子操作。`expectedKey` 是计划预留的键，`actualKey` 是机器实际产生的替代/动态键。应检查返回状态及各去向数量，禁止直接修改 CPU 的 waiting inventory。
+```java
+import appeng.api.networking.IGrid;
+import appeng.api.networking.crafting.*;
+import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
+import java.math.BigInteger;
+import java.util.Objects;
 
-其他桥接包括 `ECOCraftingNetworkSettings`、诊断接口、`ECOCraftingOutputRouter`、`ECOJobOutputReceiver`、菜单扩展和 `ECOCraftingProviderRevision`。通常应对文档指定的 AE2/集成对象做 `instanceof` 获取，其中大部分由 Mixin 注入。由于 Mixin 配置和版本条件可能使接口不存在，调用方必须允许检查失败并正常降级。
+public final class EcoBigOrderExample {
+    // ecoTarget must be an eligible ECO CPU or the grid's idle ECO placeholder.
+    public static ICraftingSubmitResult submit(IGrid grid, IActionSource source,
+            ICraftingRequester requester, ICraftingCPU ecoTarget, AEKey goal,
+            BigInteger amount, ECOPlannerOptions options) {
+        Objects.requireNonNull(ecoTarget, "Select an ECO CPU");
+        var request = new ECOBigOrderRequest(goal, amount, false, options);
+        return request.submit(carrier -> grid.getCraftingService().submitJob(
+            carrier, requester, ecoTarget, false, source));
+    }
+}
+```
 
-## 8. 客户端模型注册
+在服务器线程完成权限和 CPU 资格检查后调用。显式目标必须是已有 ECO CPU，或计算主机在网络中公布的空闲 ECO 占位 CPU；原版 CPU 无法解释父订单载体。只有在能够保证请求会进入 ECO 时，接入方才可改用自动选择。
 
-驱动器元件模型使用 `ECOCellModels.register(holder, model)`；计算元件和线缆使用 `ECOComputationModels`。基于 Holder 的注册可以发生在注册对象解析之前。ECO 会在 `FMLClientSetupEvent` 加载客户端集成后消费延迟注册。
+`request.submit(...)` 创建载体，并在同步回调期间将精确请求绑定到**同一个载体对象**。稍后单独提交 `carrier()`、异步执行回调或复制载体，都会丢失绑定。载体中受 long 限制的最终产物数量不代表精确订单总量。
 
-传入的 `ResourceLocation` 是模型 id，不是纹理 id。调用必须放在客户端代码中。延迟队列处理后再注册虽会更新映射，但可能错过模型烘焙，因此应在客户端 setup/集成加载阶段注册。
+父订单根据新库存规划有界子段，等待材料或容量，并在子段产物完成交付后累计完成量。CPU 暴露进度接口时，通过 `ECOCraftingProgressView.bigOrder()` 读取 `ECOBigOrderProgress`。状态包括 `PLANNING`、`RUNNING_CHILD`、`WAITING_MATERIALS`、`WAITING_CAPACITY`、`COMPLETED`、`CANCELLED`、`FAILED`。
 
-## 9. 可选集成加载器
+`ECOBigOrderAdmission.allows(result, forced)` 用于转换合格的确认诊断：允许 `PLANNED_BUT_AMOUNT_UNREPRESENTABLE`，或者强制模式下的 `MISSING_ITEMS`，同时检查组件状态。未解、不支持、已解但未生成执行内容的组件不能通过。`ECOBigOrderRequest.fromPlanningResult` 从计划的 long 投影读取目标数量；请求总量本身超过 long 时，使用上面的构造方法。强制模式不生成材料，也不能把未知路线变成可执行路线。
 
-标记 `@Integration("目标_mod_id")` 的类会从 Mod 扫描数据中发现。类必须有可访问的无参构造器，可选声明 `public void apply()` 和/或 `public void applyClient()`。只有目标 Mod 已加载时才会实例化。
+当前确认菜单另有完整精确订单路径。大订单按钮检查准入与选中的 ECO CPU，非强制模式还检查当前库存，然后将内部 `ECOExactCraftingPlan` 直接提交给该 CPU。适配器保留完整精确任务向量以及延后获取的库存、发射数量，通过有界 long 窗口调用 AE2。菜单操作不会绑定 `ECOBigOrderRequest`，也不会创建上述分段父订单。该适配器属于内部实现；需要子段规划和父订单进度约定时，使用父订单 API。
 
-这个机制适合项目内部；外部 Mod 通常应使用自己的生命周期和上述公开注册表。加载器依赖反射/MethodHandle，不提供集成之间的顺序 API，异常可能中止加载。
+源码：[父订单请求](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderRequest.java)、[准入检查](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java)、[子段规划器](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOBigOrderPlanner.java)、[确认菜单](../src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftConfirmMenuMixin.java)、[精确适配器](../src/main/java/cn/dancingsnow/neoecoae/crafting/adapter/ae2/ECOExactCraftingPlan.java)。
 
-## 10. 配方与数据 API
+## 5. 任务事件、附件与调度策略
 
-已注册配方类型：
+### 监听任务
 
-- `neoecoae:cooling`：`input`、可选 `output`、`coolant`、可选 `max_overclock`（默认 `0`）。
-- `neoecoae:integrated_working_station`：`inputItems`（0-9 个）、可选 `inputFluid`、可选 `itemOutput`、可选 `fluidOutput`、必填 `energy`。
+在通用初始化中注册一次，并保留实例用于卸载：
 
-Java builder 可用于数据生成；存在 KubeJS 时，同名 id 会注册 KubeJS schema。配方类是公开数据类型，但 serializer/type 由 `NERecipeTypes` 所有。其他 Mod 应生成 JSON/数据配方，不要重复注册 serializer。
+```java
+import cn.dancingsnow.neoecoae.api.me.lifecycle.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-## 11. 网络与兼容注意事项
+public final class EcoLifecycleExample implements AutoCloseable {
+    private static final Logger LOG = LoggerFactory.getLogger("examplemod.eco");
+    private final ECOCraftingLifecycleListener listener = new ECOCraftingLifecycleListener() {
+        @Override public void onJobStarted(ECOCraftingJobContext job) {
+            LOG.info("Job {} started", job.craftingJobId());
+        }
+        @Override public void onPatternDispatched(ECOCraftingDispatchEvent event) {
+            LOG.debug("Job {} accepted {} crafts",
+                event.job().craftingJobId(), event.exactDispatchedCrafts());
+        }
+        @Override public void onJobFinished(ECOCraftingJobContext job, ECOCraftingJobResult result) {
+            LOG.info("Job {} ended: {}", job.craftingJobId(), result.status());
+        }
+    };
 
-`cn.dancingsnow.neoecoae.network` 是私有协议实现。协议版本目前是字面值 `"1"`，包含两个 C2S 和一个 S2C payload。不要直接发送这些包，也不要依赖 payload record 布局。
+    public EcoLifecycleExample() { ECOCraftingLifecycle.register(listener); }
+    @Override public void close() { ECOCraftingLifecycle.unregister(listener); }
+}
+```
 
-避免依赖 `impl`、`mixins`、`blocks.entity`、`multiblock` 或 `compat` 包。特别注意：
+事件分别描述 ECO 任务开始、供应器**已接收**样板批次、任务结束。精确发配次数使用 `exactDispatchedCrafts()`，兼容 long 字段可能是受限投影。任务上下文和结束结果中的数量字段仍是 long 视图。监听器只观察，不在回调中提取输入、推送供应器或修改任务。监听器的运行时异常会被隔离并记录。
 
-- 不要持久化 ECO 实现类名或内部 NBT key。
-- 不要调用事件 `fire*` 或附件 `create*` 方法。
-- 未经 `instanceof` 检查，不要假定 AE2 对象实现了 ECO 桥接。
-- 除非 API 明确允许，不要跨 tick 保存可变 `ItemStack`、`KeyCounter`、grid、Provider 或方块实体引用。
-- 数量必须保持 `long`，不要把存储/合成数量收窄为 `int`。
+### 保存每个任务的附加状态
 
-## 12. 发布前检查清单
+每个附件只属于一个任务，并保存独立的 NBT 数据：
 
-1. 使用 Java 21、Minecraft 1.21.1、NeoForge 21.1.x、AE2 19.2.17+ 和精确 ECO JAR 编译。同时支持 AE2 19.2.17 和 19.2.18，默认开发依赖为 19.2.18。
-2. optional 依赖必须分别测试存在和缺少 ECO 的环境。
-3. 测试专用服务端，保证客户端模型/UI 类不会被加载。
-4. 测试服务端重启、区块卸载/重载、任务取消、Provider 拒绝以及产物存储已满。
-5. Provider API 必须明确测试原子拒绝和“是否接收未知”两种情况。
-6. 使用桥接所针对的精确可选 Mod 版本进行测试。
+```java
+import cn.dancingsnow.neoecoae.api.me.attachment.*;
+import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobResult;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+
+public final class EcoLabelAttachment implements ECOCraftingJobAttachment {
+    private static final ResourceLocation ID =
+        ResourceLocation.fromNamespaceAndPath("examplemod", "label");
+    private String label;
+
+    private EcoLabelAttachment(String label) { this.label = label; }
+
+    public static void register() {
+        ECOCraftingJobAttachmentRegistry.register(ID,
+            context -> new EcoLabelAttachment(context.craftingJobId().toString()));
+    }
+
+    @Override public ResourceLocation id() { return ID; }
+    @Override public CompoundTag save(HolderLookup.Provider registries) {
+        var tag = new CompoundTag();
+        tag.putString("label", label);
+        return tag;
+    }
+    @Override public void load(CompoundTag tag, HolderLookup.Provider registries) {
+        label = tag.getString("label");
+    }
+    @Override public void clear(ECOCraftingJobResult result) { label = ""; }
+}
+```
+
+在通用初始化中调用一次 `EcoLabelAttachment.register()`。注册 ID 必须唯一，工厂返回对象的 `id()` 必须与注册 ID 一致。ECO 调用 `save`、`load`、`clear`；结束状态为 `SUCCESS`、`FAILURE`、`CANCELLED`。未绑定的历史数据会保留，供后续恢复。工厂或载入失败不代表可以丢弃任务物资。创建与绑定附件的方法由 ECO 内部管理。
+
+### 暂停发配
+
+```java
+import cn.dancingsnow.neoecoae.api.me.dispatch.*;
+import java.util.function.BooleanSupplier;
+
+public final class EcoPolicyExample {
+    public static ECOCraftingDispatchPolicy install(BooleanSupplier enabled) {
+        var policy = new ECOCraftingDispatchPolicy() {
+            @Override public boolean mayTick(ECOCraftingCpuContext cpu) {
+                return enabled.getAsBoolean();
+            }
+        };
+        ECOCraftingDispatchPolicyRegistry.register(policy);
+        return policy; // Unregister this same instance during teardown.
+    }
+}
+```
+
+所有已注册策略都必须允许当前 tick 或供应器。需要额外筛选时，重写 `isProviderAvailable(cpu, provider)`；其默认实现检查 `provider.isBusy()`。策略异常会拒绝当前操作。回调不扣输入、不推样板、不改任务。使用 `ECOCraftingDispatchPolicyRegistry.unregister(policy)` 移除同一个实例。
+
+## 6. 样板供应器接入
+
+### 普通并行接收
+
+```java
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
+import java.util.UUID;
+
+public abstract class EcoParallelProviderExample
+        implements ICraftingProvider, ECOParallelCraftingProvider {
+    @Override public int eco$getAvailableParallelSlots() { return freeLanes(); }
+
+    @Override public boolean eco$pushPatternBatch(IPatternDetails pattern,
+            KeyCounter[] inputTotal, long craftCount, UUID jobId) {
+        if (craftCount <= 0 || craftCount > freeLanes()) return false;
+        return acceptWholeBatch(pattern, inputTotal, craftCount, jobId);
+    }
+
+    protected abstract int freeLanes();
+    // Implement one atomic reservation/acceptance of the full batch in your machine.
+    protected abstract boolean acceptWholeBatch(IPatternDetails pattern,
+        KeyCounter[] inputTotal, long craftCount, UUID jobId);
+}
+```
+
+抽象方法由实际机器的队列事务实现。`inputTotal` 是 **`craftCount` 次配方的全部输入总量**，使用 AE2 Key 数量单位。只有完整接收整批输入后才能返回 true。返回 false 时输入保持不变，不能把部分接收当作完整拒绝。任务 ID 可以为 null。
+
+第三方供应器在初始化时调用 `ECOParallelCraftingProviders.register(providerClass, adapter)`。适配器返回该实例的 `ECOParallelCraftingProvider`，或返回 null。通过 `ECOParallelCraftingProviders.find(provider)` 同时支持直接实现和外部适配器。缓存包装器必须查询实时容量。避免给互相重叠的类重复注册：适配器遍历顺序没有优先级承诺。注册在整个会话期间有效。
+
+### FastPath 供应器约定
+
+`ECOFastPathDispatchProvider` 是经过验证的原子 FastPath 执行约定，与普通并行接收分开。准备探测不能移动资源。供应器负责核对具体配方、返还与容器语义、容量和提交目标。
+
+| 方法或数据 | 含义 |
+| --- | --- |
+| `eco$prepareFastPath(context)` | null 表示不支持，否则返回正容量和发配回调。 |
+| `ECOBatchDispatchContext` | **单次样板执行**的具体输入槽、产物及返还物。 |
+| `Preparation.statefulCalculator` | 状态变化或复用材料的可选计算器，必须遵守 `statefulCalculatorRequired`。 |
+| `Batch.inputTotal/outputTotal/remainingTotal` | 已接收批次的完整总量。 |
+| `supportsExactInputs`、`Batch.exactInputTotal` | 显式开启精确输入扣账，不可为旧供应器截断精确输入。 |
+| `eco$prepareExactFastPath(context, requested)` | 独立的精确次数约定，默认不支持。 |
+| `ECOBatchCapacityProvider` | 已弃用的兼容接口，新接入使用 `ECOFastPathDispatchProvider`。 |
+
+完整接收后返回 true。false 或普通异常保证没有接收，因此 CPU 可以回滚。如果可能已经接收、但无法确定，抛出 `ECOIndeterminateBatchException`；事务保留资源，任务停止并等待核对。不能退款后自动重试不确定的接收。
+
+### 外部 CPU 调用 ECO 事务门面
+
+```java
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.networking.energy.IEnergyService;
+import appeng.api.stacks.KeyCounter;
+import appeng.crafting.inv.ListCraftingInventory;
+import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
+import net.minecraft.world.level.Level;
+import java.util.UUID;
+import java.util.function.Consumer;
+
+public final class EcoFastPathExample {
+    // oneCopyInputs/Outputs/Remainders are previews; inputs are still in cpuInventory.
+    public static boolean dispatch(ICraftingProvider provider, IPatternDetails pattern,
+            KeyCounter[] oneCopyInputs, KeyCounter oneCopyOutputs, KeyCounter oneCopyRemainders,
+            ListCraftingInventory cpuInventory, long maxCrafts, double powerPerCraft,
+            IEnergyService energy, Level level, UUID jobId,
+            ECOFastPathFacade.EnergyAccount energyAccount,
+            Consumer<ECOFastPathFacade.PreparedBatch> accountAccepted) {
+        var prepared = ECOFastPathFacade.prepare(provider, pattern,
+            oneCopyInputs, oneCopyOutputs, oneCopyRemainders, cpuInventory,
+            maxCrafts, powerPerCraft, energy, level, jobId);
+        if (prepared == null || !prepared.submit(energyAccount)) return false;
+        // Provider acceptance already happened. Do not retry if accounting throws.
+        accountAccepted.accept(prepared);
+        return true;
+    }
+}
+```
+
+准备与提交在同一个服务器线程 tick 完成。物理输入在门面扣账之前仍位于 CPU 库存，CPU 不再自行提取或退还这些输入。CPU 的 `EnergyAccount.reserve` 返回能量预留对象；`commit()` 不能抛异常，`refund()` 必须将网络无法接收的退款保存在 CPU 的持久化能量余额中。
+
+`PreparedBatch` 只能使用一次，拒绝后也不能重复提交。准备返回 null 或提交返回 false 时，可以在回滚完成后走普通路径。不确定异常必须停任务。返回 true 后，CPU 按门面给出的总量，**仅记账一次**样板次数、产物和返还物；记账失败不能撤销供应器已经完成的接收。
+
+`prepareParallel` 适配普通并行接口。`prepareAllocated` 只适用于已经分配好的、无状态且没有返还输入的等量配方，其所有权约定不同于库存模式。使用前阅读[门面契约](../src/main/java/cn/dancingsnow/neoecoae/api/me/ECOFastPathFacade.java)。
+
+`api.fastpath.EcoFastpathHost` 是另一套 inspect/submit 能力协议。请求携带能力 ID、API 版本、nonce、配方定义和单次输入。通过实际接入获得主机实现；这个接口没有提供全局能力查询，也不替代 CPU 事务。
+
+## 7. 产物交付、虚拟完成与进度
+
+```java
+import appeng.api.config.Actionable;
+import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.api.me.output.*;
+import java.util.UUID;
+
+public final class EcoOutputExample {
+    public static ECOCraftingOutputClaimResult deliver(ECOCraftingOutputClaimSink sink,
+            UUID jobId, AEKey expected, AEKey actual, long offered) {
+        return sink.claimCraftingOutput(new ECOCraftingOutputClaimRequest(
+            jobId, expected, actual, offered, Actionable.MODULATE));
+    }
+}
+```
+
+通过接入的 CPU 或逻辑桥获得接收端；旧 ECO CPU 类型暴露 `getOutputClaimSink()`。动态产物的预期 Key 与实际 Key 可以不同。认领操作一起完成任务身份校验、预期需求扣账、实际产物路由和完成记账。
+
+实际调用后，生产者的物理缓存只移除 `claimedAmount()`，未被接收的部分继续保留。模拟调用只报告匹配需求与预计路由，不消耗资源。目的地已满时，产物仍可能被 CPU 接收；分别查看 `deliveredToRequester()`、`deliveredToNetwork()` 与 `storedInCpu()`。不能再通过另一条路径插入已经认领的数量。
+
+| 接口 | 调用与责任 |
+| --- | --- |
+| `ECOCraftingOutputClaimSink` | `claimCraftingOutput(request)`，读取状态和实际认领数量。 |
+| `ECOCraftingOutputRouter` | `neoecoae$insertIntoCpuForJob(jobId, key, amount, mode)`，按任务路由，并保留未接收部分。 |
+| `ECOJobOutputReceiver` | `neoecoae$insertWorkerOutput(...)`，CPU 接收 Worker 产物，包含多余产物。 |
+| `ECOVirtualCraftingCompletionSink` | `tryCompleteVirtualCrafting(pattern, completedCrafts)`，接受逻辑完成次数不代表整个任务结束。 |
+| `ECOCraftingProgressSink` | `recordCompletedCraftingWork(amount, keyType)`，只报告已经完成的工作量。 |
+| `ECOCraftingProgressView` | 读取 `progress()`、`elapsedTimeNanos()`、各 Key 类型工作量和可选父订单进度。 |
+
+进度记账不交付物理资源。如果产物认领路径已经更新进度，不要重复报告完成。模拟、实际交付和虚拟完成是不同操作。
+
+源码：[认领结果](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimResult.java)、[虚拟完成](../src/main/java/cn/dancingsnow/neoecoae/api/me/completion/ECOVirtualCraftingCompletionSink.java)、[进度视图](../src/main/java/cn/dancingsnow/neoecoae/api/me/progress/ECOCraftingProgressView.java)。
+
+## 8. 样板导入与容器所有权
+
+```java
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.IGrid;
+import appeng.api.stacks.AEItemKey;
+import cn.dancingsnow.neoecoae.api.*;
+import net.minecraft.world.item.ItemStack;
+
+public final class EcoPatternExample {
+    public static ECOPatternInsertion insert(IGrid grid, ItemStack encoded,
+            IPatternDetails decoded) {
+        var service = grid.getService(IECOPatternStorageService.class);
+        var prepared = new ECOPreparedPattern(encoded, decoded, AEItemKey.of(encoded));
+        return service.insertPreparedPatternReporting(prepared);
+    }
+}
+```
+
+传入与编码物品一致的已解析样板，网络服务负责路由和查重：
+
+| 结果 | 调用方行为 |
+| --- | --- |
+| `INSERTED` | 按报告结果提交源物品的转移事务。 |
+| `ALREADY_PRESENT` | 配方已经存在，不能据此认定源物品已被搬走。 |
+| `NO_SPACE` | 保留源物品，容量改变后重试。 |
+| `INCOMPATIBLE`、`NO_TARGET` | 保留源物品，报告不支持或没有目标。 |
+
+目标保存编码**物品**时，不需要额外返还空白样板。`consumedSource()` 为 true 表示容器吸收了配方，此时 `blankReplacement()` 必须非空。确认完整替代物已经交付后，再清空源槽。部分完成的迁移必须保存事务状态，避免重试时重复插入或重复返还空白。
+
+`IECOPatternStorage` 是供可写目标使用的 AE2 节点服务，在 managed node 上注册。它的 `KnownUnique` 方法要求调用方已经证明没有重复，不是通用快速插入入口。`canAcceptIntoAuxiliary` 不得有副作用。目录索引的主机实现 `PatternStorageHost` 和 `AuxiliaryPatternHolder`，提供真实槽位、便宜的修订号、稳定的容器内容顺序和刷新后的公布样板。
+
+外部迁移通过 `claimExternalPatternCandidates` 使用 owner UUID 认领候选。扫描的 `ready` 为 false 时也可以处理已经发现的候选。所有退出路径释放认领；临时无空间时释放单个候选，源槽清空后删除候选。不要在拓扑变化后继续使用旧的源槽引用。
+
+源码：[导入报告](../src/main/java/cn/dancingsnow/neoecoae/api/ECOPatternInsertion.java)、[可写样板存储](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java)、[目录主机](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java)。
+
+## 9. 存储调用与存储盘接入
+
+```java
+import appeng.api.config.Actionable;
+import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.MEStorage;
+import appeng.api.storage.cells.ISaveProvider;
+import net.minecraft.world.item.ItemStack;
+import cn.dancingsnow.neoecoae.api.storage.*;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import java.math.BigInteger;
+
+public final class EcoStorageExample {
+    public static void register(FMLCommonSetupEvent event, IECOCellHandler handler) {
+        event.enqueueWork(() -> ECOStorageCells.register(handler));
+    }
+
+    public static IECOStorageCell inventory(ItemStack cell, ISaveProvider host) {
+        return ECOStorageCells.getCellInventory(cell, host);
+    }
+
+    public static void release(ItemStack cell, ISaveProvider host) {
+        ECOStorageCells.releaseCellInventory(cell, host);
+    }
+
+    public static void setPriority(Object host, int priority) {
+        if (host instanceof IECOStoragePriorityHost target) target.setStoragePriority(priority);
+    }
+
+    public static BigInteger insertExact(MEStorage storage, AEKey key,
+            BigInteger offered, IActionSource source) {
+        return ECOBigIntegerStorage.insert(storage, key, offered, Actionable.MODULATE, source);
+    }
+}
+```
+
+在入队的通用初始化工作中，将每个 `IECOCellHandler` 注册一次。第一个返回非空库存的处理器生效。识别、库存创建、主机缓存释放和运行时清理必须一致。库存实现 `IECOStorageCell`，盘物品元数据实现 `IECOStorageCellItem` 或 `IBasicECOCellItem`。
+
+直接调用处理器门面时，在有主机的情况下传入拥有该盘的主机，并在主机销毁时释放：
+
+`EcoStorageExample.inventory` 获取主机绑定的库存，主机移除时由 `release` 释放绑定。
+
+门面自身提供同步访问，但不转移物品所有权，也不代替调用方或终端执行权限检查。
+
+### 盘槽与优先级
+
+通过 `blockEntity instanceof ICellHost` 查询。`getCellStack()` 空槽返回 null，也可能返回主机正在持有的栈，因此不能直接修改。安装时传一个有效盘；移除时传 **null**。`ItemStack.EMPTY` 会被拒绝。先检查 `isItemValid`、`canExtractCell` 及可选的 `getCellExtractionBlockReasonText()`。void setter 可能静默拒绝，因此在转移物品所有权之前重新读取盘槽。先移除并处理旧盘，再安装替代盘。
+
+`IECOStoragePriorityHost.setStoragePriority(int)` 接受有符号配置优先级，保存、同步并刷新存储挂载。调用方先鉴权，再在服务器线程修改；客户端或没有 level 的主机忽略调用。
+
+### 精确插入与迁移
+
+`ECOBigIntegerStorage.insert` 返回**已插入数量**，不是剩余数量。调用方用提供数量减去返回值。long 范围内走普通 AE2 插入；超出 long 后，优先使用精确存储实现，否则只提供一段 `Long.MAX_VALUE`。它不保证一次完全插入，也不会循环插入所有分段。区分 `Actionable.SIMULATE` 与 `MODULATE`。
+
+只有能无损枚举、清空、模拟插入、持久化和恢复的库存，才实现 `IECOStorageMigrationCell` 参与可恢复迁移。`IECOBulkMarkableCellItem` 只开启手动压缩标记面板，不注册存储后端，也不开启自动转移。`IECOBulkDisplayCell` 独立控制压缩显示截止等级。
+
+### 注册表与客户端模型
+
+自定义等级与盘类型使用 `NERegistries.Keys` 暴露的同步注册表 `neoecoae:eco_tier`、`neoecoae:cell_type`，通过 NeoForge 注册事件在两端注册相同 ID。实现 `IECOTier` 所有必需参数，等级比较决定组件兼容性。
+
+客户端接入通过 `ECOCellModels.register`、`ECOComputationModels.registerCellModel/registerCableModel` 注册盘与线缆模型。涉及客户端 GUI 或渲染的引用放在客户端初始化中。不要在游戏运行中直接改模型映射或调用内部延迟注册方法。
+
+## 10. 诊断与接入限制
+
+`ECOCraftingServiceDiagnostics.neoecoae$describeCpuSelection(plan, source)` 用于查询 CPU 资格；`ECOPatternPushDiagnostics.neoecoae$getPushDiagnostics()` 用于读取最近一次推送失败。诊断只描述状态，不授权重放或退款。
+
+缺材料、不支持、未解或数量无法表示时，仍可能返回模拟壳计划。非空计划本身不足以提交。参阅[规划状态表](ECO_PLANNER_ZH_CN.md#8-结果与诊断)，保留阻止执行的元数据。
+
+可复现的问题报告应包含实际 JAR 版本、动作来源、选项、规划 ID、状态与诊断、CPU 提交结果以及供应器和产物日志。规划、CPU 预留、供应器接收和最终交付属于不同阶段。这些示例用于验证调用签名，不能代替游戏内兼容性验证。
