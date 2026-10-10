@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import java.util.concurrent.Future;
 
-/** Each invocation captures fresh inventory and compiles a fresh graph; probes share only that session. */
+/** Each invocation captures fresh inventory; unchanged provider structures may be reused across orders. */
 public final class ECOBigOrderPlanner {
     private ECOBigOrderPlanner() {}
 

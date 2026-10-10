@@ -66,11 +66,16 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Unique
     private static final Logger NEOECOAE_SUBMISSION_LOGGER = LoggerFactory.getLogger("neoecoae.submit");
     @Unique
-    private long neoecoae$providerRevision;
+    private volatile long neoecoae$providerRevision;
 
     @Override
     public long neoecoae$getProviderRevision() {
         return neoecoae$providerRevision;
+    }
+
+    @Override
+    public boolean neoecoae$isProviderSnapshotStable() {
+        return !updateList;
     }
 
     @Inject(method = {

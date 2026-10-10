@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.bridge.AE2CraftingPlanBridge;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
+import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledStructureCache;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CraftingNetworkCompiler;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder;
@@ -78,7 +79,7 @@ public final class ECOCraftingPlannerService {
             this.inventory = inventorySnapshot.toKeyCounter();
             this.cyclePlanningEnabled = cyclePlanningEnabled;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
-            this.fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : fuzzyPlanningItemIds;
+            this.fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : Set.copyOf(fuzzyPlanningItemIds);
         }
 
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation)
@@ -215,6 +216,16 @@ public final class ECOCraftingPlannerService {
                 return;
             }
             synchronized (initializationLock) {
+                long providerRevision = CompiledStructureCache.revision(craftingService);
+                var cached = CompiledStructureCache.get(craftingService, providerRevision, goal,
+                        cyclePlanningEnabled, fuzzyPlanningItemIds);
+                if (cached != null) {
+                    compiled = cached.network();
+                    condensation = cached.condensation();
+                    ECOPlanningStageLogger.finish("structural_initialization", ECOPlanningStageLogger.start(),
+                            true, "CACHED_PROVIDER_REVISION=" + providerRevision);
+                    return;
+                }
                 if (compiled == null) {
                     long stageStarted = ECOPlanningStageLogger.start();
                     try {
@@ -238,6 +249,8 @@ public final class ECOCraftingPlannerService {
                     condensation = CondensationGraph.build(graph, sccs, cancellation);
                     ECOPlanningStageLogger.finish("condensation_graph", condensationStarted, true, null);
                 }
+                CompiledStructureCache.put(craftingService, providerRevision, goal, cyclePlanningEnabled,
+                        fuzzyPlanningItemIds, new CompiledStructureCache.Structure(compiled, condensation));
             }
         }
 
