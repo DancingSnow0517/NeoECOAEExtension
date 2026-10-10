@@ -32,7 +32,7 @@ public final class ECOPlanningService {
         return ECOPlanningExecutor.submit(() -> plan(session, goal, amount, strategy));
     }
 
-    private static ICraftingPlan plan(ECOCraftingPlannerService.Session session, AEKey goal, long requestedAmount,
+    static ICraftingPlan plan(ECOCraftingPlannerService.Session session, AEKey goal, long requestedAmount,
                                       CalculationStrategy strategy) throws InterruptedException {
         if (requestedAmount <= 0L) {
             return session.plan(requestedAmount, true, ECOPlanningService::checkpoint).plan();
@@ -61,7 +61,11 @@ public final class ECOPlanningService {
             if (bestPlan != null) {
                 return bestPlan;
             }
-        } else if (isReportableDiagnostic(exact)) {
+        }
+
+        // The exact calculation already builds the simulation report, including its material and cycle
+        // diagnostics. Reuse it after any CRAFT_LESS probes rather than walking the original demand again.
+        if (exact.plan() != null) {
             return exact.plan();
         }
 
@@ -71,10 +75,6 @@ public final class ECOPlanningService {
 
     private static boolean isExecutableSuccess(ECOPlanningResult result) {
         return result.status() == PlanningStatus.SUCCESS && result.plan() != null && !result.plan().simulation();
-    }
-
-    private static boolean isReportableDiagnostic(ECOPlanningResult result) {
-        return result.plan() != null && result.status() != PlanningStatus.MISSING_ITEMS;
     }
 
     private static void checkpoint() throws InterruptedException {
