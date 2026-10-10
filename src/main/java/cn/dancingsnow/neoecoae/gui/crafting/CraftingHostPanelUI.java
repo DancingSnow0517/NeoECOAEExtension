@@ -194,8 +194,13 @@ public final class CraftingHostPanelUI {
                 event.hoverTooltips = new HoverTooltips(tooltipLines, null, null, null);
             })
             .addChild(syncedStatus);
-        icon.style(style -> style.backgroundTexture(
-            SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information.png"))));
+        SpriteTexture normal = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information.png"));
+        SpriteTexture highlighted = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information_highlight.png"));
+        icon.style(style -> style.backgroundTexture(normal));
+        icon.addEventListener(UIEvents.MOUSE_ENTER, event ->
+            icon.style(style -> style.backgroundTexture(highlighted)));
+        icon.addEventListener(UIEvents.MOUSE_LEAVE, event ->
+            icon.style(style -> style.backgroundTexture(normal)));
         icon.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .right(-25).top(4).width(21).height(21));
         return icon;

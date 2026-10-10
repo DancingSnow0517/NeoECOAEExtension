@@ -184,23 +184,23 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         context.drawTexture(chosen ? selected : normal, x, y, ROW_WIDTH, ROW_HEIGHT);
         context.graphics.flush();
         int color = 0x413F54;
-        text(context, font, name(entry).getString(), x + 3, y + 2, 52, 0.666F, color);
-        context.graphics.blit(entry.overlay(), Math.round(x + 57), Math.round(y + 2), 0, 0, 7, 7, 7, 7);
+        text(context, font, name(entry).getString(), x + 3, y + 2, 50, 0.666F, color);
+        context.graphics.blit(entry.overlay(), Math.round(x + 55), Math.round(y), 0, 0, 10, 10, 10, 10);
         if (entry.output() != null && !entry.status().equals("idle")) {
-            icon(context, Icon.S_CRAFT, x + 2, y + 9);
+            icon(context, Icon.S_CRAFT, x + 2, y + 10);
             fittedText(context, font, entry.amount(entry.requested(), false), x + 14, y + 13, 39, 0.666F, color);
-            key(context, entry, x + 55, y + 9, 0.666F);
-            context.graphics.fill(Math.round(x + 1), Math.round(y + 19), Math.round(x + 1 + entry.progress() * 66), Math.round(y + 20),
+            key(context, entry, x + 55, y + 10, 0.625F);
+            context.graphics.fill(Math.round(x + 1), Math.round(y + 20), Math.round(x + 1 + entry.progress() * 66), Math.round(y + 21),
                 chosen ? 0xFF7DA9D2 : 0xFFACE9FF);
         } else {
             if (entry.parallel() > 0) {
-                icon(context, Icon.S_PROCESSOR, x + 2, y + 9);
+                icon(context, Icon.S_PROCESSOR, x + 2, y + 10);
                 fittedText(context, font, HostText.ae2Amount(entry.parallel()), x + 14, y + 13, 12, 0.666F, color);
             }
-            icon(context, Icon.S_STORAGE, x + 27, y + 9);
+            icon(context, Icon.S_STORAGE, x + 27, y + 10);
             fittedText(context, font, entry.storageText(), x + 39, y + 13,
                 entry.mode() == CpuSelectionMode.ANY ? 26 : 15, 0.666F, color);
-            if (entry.mode() != CpuSelectionMode.ANY) icon(context, entry.mode() == CpuSelectionMode.PLAYER_ONLY ? Icon.S_TERMINAL : Icon.S_MACHINE, x + 55, y + 9);
+            if (entry.mode() != CpuSelectionMode.ANY) icon(context, entry.mode() == CpuSelectionMode.PLAYER_ONLY ? Icon.S_TERMINAL : Icon.S_MACHINE, x + 55, y + 10);
         }
     }
 
