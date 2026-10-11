@@ -11,54 +11,46 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.helpers.patternprovider.PatternContainer;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
-import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.AuxiliaryPatternHolder;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.PatternStorageHost;
+import cn.dancingsnow.neoecoae.api.fastpath.EcoFastpathHost;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
-import cn.dancingsnow.neoecoae.api.fastpath.EcoFastpathHost;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
-import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.gui.theme.AETextures;
-import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
+import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternBusUI;
 import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
-import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.IntStream;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -74,12 +66,6 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.IntStream;
-
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
     AuxiliaryPatternHolder, PatternStorageHost, ECOFastPathDispatchProvider, EcoFastpathHost {
@@ -91,17 +77,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     public static final int ROW_SIZE = 9;
     public static final int COL_SIZE = 7;
-    private static final int PAGE_BUTTON_SIZE = 16;
-    private static final int PAGE_CONTROL_GAP = 4;
-    private static final int HEADER_HEIGHT = 36;
-    private static final int SINGLE_PAGE_HEADER_HEIGHT = 16;
-    private static final int HEADER_TITLE_TOP = 2;
-    private static final int PAGE_TOP_MARGIN = 19;
-    private static final int PAGE_RIGHT_MARGIN = 2;
-    private static final int PAGE_CONTROLS_OFFSET_X = 1;
-    private static final int PAGE_LABEL_WIDTH = 16;
-    private static final int UI_CONTENT_WIDTH = ROW_SIZE * 18;
-    private static final int PAGE_CONTROLS_WIDTH = PAGE_BUTTON_SIZE * 2 + PAGE_CONTROL_GAP * 2 + PAGE_LABEL_WIDTH;
     public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
 
     @Persisted
@@ -969,96 +944,10 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .paddingBottom(6)
-            .gapAll(2)
-            .width(UI_CONTENT_WIDTH + 8)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
-        root.addChild(headerRow());
-
-        UIElement patternInv = new UIElement().addClass("panel_border");
-        for (int row = 0; row < COL_SIZE; row++) {
-            UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
-            for (int col = 0; col < ROW_SIZE; col++) {
-                int slotIndex = row * ROW_SIZE + col;
-                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(pageItemHandler, slotIndex))
-                    .slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_BLANK_PATTERN)))
-                    .addClass("eco-pattern-slot");
-                rowInv.addChild(slot);
-            }
-            patternInv.addChild(rowInv);
-        }
-        root.addChild(patternInv);
-        root.addChild(new InventorySlots().layout(layout -> layout.marginTop(5)));
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
-    }
-
-    private UIElement headerRow() {
-        boolean showPageControls = getPageCount() > 1;
-        UIElement row = new UIElement().layout(layout -> {
-            layout.width(UI_CONTENT_WIDTH);
-            layout.height(showPageControls ? HEADER_HEIGHT : SINGLE_PAGE_HEADER_HEIGHT);
-        });
-        row.addChild(new TextElement()
-            .setText(cn.dancingsnow.neoecoae.gui.GuiTitleProvider.title(getBlockState(),
-                Component.translatable("block.neoecoae.crafting_pattern_bus")))
-            .textStyle(textStyle -> textStyle
-                .textWrap(TextWrap.HOVER_ROLL)
-                .adaptiveHeight(true))
-            .layout(layout -> {
-                layout.positionType(TaffyPosition.ABSOLUTE);
-                layout.left(0);
-                layout.top(HEADER_TITLE_TOP);
-                layout.width(UI_CONTENT_WIDTH);
-                layout.height(12);
-            }));
-        if (showPageControls) {
-            row.addChild(pageControls());
-        }
-        return row;
-    }
-
-    private UIElement pageControls() {
-        UIElement controls = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(UI_CONTENT_WIDTH - PAGE_RIGHT_MARGIN - PAGE_CONTROLS_WIDTH + PAGE_CONTROLS_OFFSET_X);
-            layout.top(PAGE_TOP_MARGIN);
-            layout.width(PAGE_CONTROLS_WIDTH);
-            layout.height(PAGE_BUTTON_SIZE);
-        });
-        controls.addChild(pageButton("<", () -> changePage(visiblePage() - 1)).layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(0);
-            layout.top(0);
-            layout.width(PAGE_BUTTON_SIZE);
-            layout.height(PAGE_BUTTON_SIZE);
-        }));
-        TextElement pageNumber = new TextElement()
-            .setText(Component.literal((visiblePage() + 1) + "/" + getPageCount()));
-        controls.addChild(pageNumber.layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP);
-            layout.top(0);
-            layout.width(PAGE_LABEL_WIDTH);
-            layout.height(PAGE_BUTTON_SIZE);
-        }));
-        controls.addChild(pageButton(">", () -> changePage(visiblePage() + 1)).layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP + PAGE_LABEL_WIDTH + PAGE_CONTROL_GAP);
-            layout.top(0);
-            layout.width(PAGE_BUTTON_SIZE);
-            layout.height(PAGE_BUTTON_SIZE);
-        }));
-        return controls;
-    }
-
-    private Button pageButton(String text, Runnable action) {
-        Button button = new Button().setText(text);
-        button.setOnServerClick(event -> action.run());
-        return button;
+        return CraftingPatternBusUI.create(new CraftingPatternBusUI.Config(
+            () -> cn.dancingsnow.neoecoae.gui.GuiTitleProvider.title(getBlockState(),
+                Component.translatable("block.neoecoae.crafting_pattern_bus")),
+            pageItemHandler, this::getPageCount, this::visiblePage, this::changePage), holder.player);
     }
 
     public int getPageCount() {

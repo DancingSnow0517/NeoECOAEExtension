@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.mixins.client.ae2;
 
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.widgets.VerticalButtonBar;
-import cn.dancingsnow.neoecoae.client.ECOCraftConfirmScreen;
-import cn.dancingsnow.neoecoae.client.ECOGrayVerticalButtonBar;
+import cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreen;
+import cn.dancingsnow.neoecoae.client.gui.widget.ECOGrayVerticalButtonBar;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

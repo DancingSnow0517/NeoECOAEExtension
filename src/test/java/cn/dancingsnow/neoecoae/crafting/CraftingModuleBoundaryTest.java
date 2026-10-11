@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting;
 
 import static org.junit.jupiter.api.Assertions.*;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -16,7 +15,7 @@ class CraftingModuleBoundaryTest {
     void planningAndExecutionDoNotLoadClientCode() throws Exception {
         var forbidden = Pattern.compile(
             "(net\\.minecraft\\.client\\.|appeng\\.client\\.|appeng\\.api\\.client\\.|org\\.lwjgl\\.|"
-            + "cn\\.dancingsnow\\.neoecoae\\.(client\\.|crafting\\.graph\\.client\\.))");
+            + "cn\\.dancingsnow\\.neoecoae\\.client\\.)");
         for (String directory : List.of("planner", "execution", "adapter", "amount", "display/format")) {
             assertNoReferences(ROOT.resolve(directory), forbidden);
         }
@@ -26,7 +25,7 @@ class CraftingModuleBoundaryTest {
     void graphProjectionCannotCallItsRenderer() throws Exception {
         var forbidden = Pattern.compile(
             "(net\\.minecraft\\.client\\.|appeng\\.api\\.client\\.|org\\.lwjgl\\.|"
-            + "cn\\.dancingsnow\\.neoecoae\\.crafting\\.graph\\.client\\.)");
+            + "cn\\.dancingsnow\\.neoecoae\\.client\\.gui\\.graph\\.)");
         try (var files = Files.list(ROOT.resolve("graph"))) {
             for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
                 assertFalse(forbidden.matcher(Files.readString(file)).find(), file.toString());

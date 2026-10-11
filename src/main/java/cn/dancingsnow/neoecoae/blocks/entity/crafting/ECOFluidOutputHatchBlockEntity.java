@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
@@ -52,7 +53,7 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        return CraftingUIHelper.createFluidHatchUI(holder, tank, "block.neoecoae.output_hatch", false, true);
+        return FluidHatchUI.createFluidHatchUI(holder, tank, "block.neoecoae.output_hatch", false, true);
     }
 
 }

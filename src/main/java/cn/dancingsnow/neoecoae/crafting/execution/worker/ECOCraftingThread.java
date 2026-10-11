@@ -260,9 +260,19 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return firstOutputItem().copy();
     }
 
-    /** Monitor-only view; batch keys never need to be materialized as ItemStacks. */
+    /** Display view; batch keys never need to be materialized as full-sized ItemStacks. */
     public @Nullable AEItemKey getDisplayedOutputKey() {
         if (!isBusy) return null;
+        if (exactVirtual != null) {
+            var outputs = exactVirtual.snapshot(true);
+            for (var stack : batchOutputItems) {
+                if (stack.what() instanceof AEItemKey key && outputs.containsKey(key)) return key;
+            }
+            for (var key : outputs.keySet()) {
+                if (key instanceof AEItemKey item) return item;
+            }
+            return null;
+        }
         if (!outputItems.isEmpty()) return AEItemKey.of(outputItems.getFirst());
         for (var stack : batchOutputItems) {
             if (stack.what() instanceof AEItemKey key) return key;
@@ -272,6 +282,26 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     public long getDisplayedOutputAmount() {
         return isBusy ? getOutputAmount() : 0L;
+    }
+
+    /** Quantity of the displayed item only; other outputs and fluids must not inflate its count. */
+    public java.math.BigInteger getDisplayedItemAmount(AEItemKey key) {
+        if (!isBusy) return java.math.BigInteger.ZERO;
+        if (exactVirtual != null) {
+            return exactVirtual.snapshot(true).getOrDefault(key, java.math.BigInteger.ZERO);
+        }
+        java.math.BigInteger amount = java.math.BigInteger.ZERO;
+        for (ItemStack output : outputItems) {
+            if (!output.isEmpty() && key.equals(AEItemKey.of(output))) {
+                amount = amount.add(java.math.BigInteger.valueOf(output.getCount()));
+            }
+        }
+        for (GenericStack output : batchOutputItems) {
+            if (key.equals(output.what()) && output.amount() > 0) {
+                amount = amount.add(java.math.BigInteger.valueOf(output.amount()));
+            }
+        }
+        return amount;
     }
 
     public List<ItemStack> getRemainingItems() {

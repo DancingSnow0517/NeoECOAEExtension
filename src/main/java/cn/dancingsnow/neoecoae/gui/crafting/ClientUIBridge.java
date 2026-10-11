@@ -4,7 +4,7 @@ import java.util.function.Supplier;
 
 /** Reflective bridge to client-only UI classes; falls back on dedicated servers, which never load them. */
 public final class ClientUIBridge {
-    private static final String CLIENT_UI_CLASS = "cn.dancingsnow.neoecoae.client.CraftingInterfaceClientUI";
+    private static final String CLIENT_UI_CLASS = "cn.dancingsnow.neoecoae.client.gui.crafting.CraftingInterfaceClientUI";
 
     private ClientUIBridge() {
     }

@@ -1,38 +1,33 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
-
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
+import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
+import com.lowdragmc.lowdraglib2.gui.ui.data.Vertical;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ToggleGroupElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
 import com.lowdragmc.lowdraglib2.gui.ui.style.animation.Transition;
-import com.lowdragmc.lowdraglib2.utils.animation.Animation;
 import com.lowdragmc.lowdraglib2.math.interpolate.Eases;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.utils.animation.Animation;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Vertical;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
-
-import java.util.List;
-import java.util.function.Supplier;
-import java.util.Map;
 import java.text.NumberFormat;
 import java.util.Locale;
-import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
+import java.util.Map;
+import java.util.function.Supplier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
 
 public final class StorageInterfaceUI {
     private static final int STATUS_CONNECTED = 0x55CC77;
@@ -72,7 +67,7 @@ public final class StorageInterfaceUI {
             .append(Component.translatable("gui.neoecoae.storage_interface.transfer_suffix"))));
         root.addChild(contentFrame);
 
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player);
+        return ECOModularUI.create(root, player);
     }
 
     private static UIElement modeSelector(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {

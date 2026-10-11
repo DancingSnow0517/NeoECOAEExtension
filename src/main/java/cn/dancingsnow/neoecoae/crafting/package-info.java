@@ -8,6 +8,6 @@
  *
  * <p>Amount and format code must remain JDK-only. Server planning and execution must
  * never depend on client screens or renderers. Graph projection/layout consumes
- * snapshots; only {@code crafting.graph.client} owns Minecraft rendering.</p>
+ * snapshots; {@code client.gui.graph} owns Minecraft rendering.</p>
  */
 package cn.dancingsnow.neoecoae.crafting;

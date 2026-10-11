@@ -1,85 +1,76 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import appeng.api.config.Actionable;
+import appeng.api.config.PowerMultiplier;
+import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
-import appeng.api.networking.IGrid;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.config.Actionable;
-import appeng.api.config.CpuSelectionMode;
-import appeng.api.config.PowerMultiplier;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingTaskSummary;
-import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
+import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
-import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
-import cn.dancingsnow.neoecoae.gui.crafting.CraftingControllerPanelState;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingTaskSummary;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
-import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingControllerPanelState;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
-import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
-import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import lombok.Getter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.Setter;
+import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import appeng.api.orientation.OrientationStrategies;
-import appeng.api.orientation.RelativeSide;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.Util;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluster, ECOCraftingSystemBlockEntity>
     implements ISyncPersistRPCBlockEntity, IGridTickable, MultiBlockBuildController.Host {
@@ -845,20 +836,14 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         }
     }
 
-
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement buildWindow = buildPanel(holder);
 
         CraftingHostPanelUI.Config panelConfig = createCraftingPanelConfig(holder.player);
-        UIElement root = CraftingHostPanelUI.create(panelConfig);
-        List<UIElement> sideButtons = new ArrayList<>();
-        sideButtons.add(GuideButton.create(holder.player, "neoecoae:neoecoae_intro/crafting_system.md"));
-        sideButtons.add(MultiblockBuilderUI.createInlineOpenButton(buildWindow));
-        sideButtons.addAll(CraftingHostPanelUI.createToolbarButtons(panelConfig));
-        root.addChild(HostSideButtonBar.grayLeft(sideButtons.toArray(UIElement[]::new)));
-        root.addChild(CraftingHostPanelUI.createMaintenanceStatusIcon(this::getMaintenanceStatusTooltip));
-        root.addChild(buildWindow);
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+        UIElement root = CraftingHostPanelUI.create(panelConfig,
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/crafting_system.md"),
+            MultiblockBuilderUI.createInlineOpenButton(buildWindow), buildWindow, this::getMaintenanceStatusTooltip);
+        return ECOModularUI.create(root, holder.player);
     }
 
     private CraftingHostPanelUI.Config createCraftingPanelConfig(Player player) {
@@ -868,6 +853,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             () -> Math.max(1, getCapabilitySnapshot().networkMultiplier()),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             this::isOverclocked,
+            () -> getCapabilitySnapshot().virtualMode(),
             () -> setOverclocked(player, !isOverclocked()),
             this::isActiveCooling,
             () -> setActiveCooling(player, !isActiveCooling()),
@@ -912,7 +898,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 return network == null ? (hasHighEnergyNetworkSwitch() ? 1 : 0) : network.getHighEnergySwitchHostCount();
             },
             () -> new ItemStack(getBlockState().getBlock()),
-            this::getCraftingControllerWorkerItems
+            this::getCraftingControllerWorkerOutputs
         );
     }
 
@@ -956,13 +942,18 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     /** Item icons in the same screen cells as the local FX/FT layout, including empty and mirrored cells. */
     public List<ItemStack> getCraftingControllerWorkerItems() {
-        List<ItemStack> items = new ArrayList<>(java.util.Collections.nCopies(
-            CraftingControllerPanelState.SLOT_COUNT, ItemStack.EMPTY));
+        return getCraftingControllerWorkerOutputs().stream()
+            .map(CraftingOutputDisplay::item).toList();
+    }
+
+    public List<CraftingOutputDisplay> getCraftingControllerWorkerOutputs() {
+        var outputs = new ArrayList<>(java.util.Collections.nCopies(
+            CraftingControllerPanelState.SLOT_COUNT, CraftingOutputDisplay.EMPTY));
         List<ECOCraftingWorkerBlockEntity> workers = getCraftingControllerWorkers();
         for (int slot = 0; slot < workers.size(); slot++) {
-            items.set(CraftingControllerPanelState.cellOf(slot, mirrored), workers.get(slot).getCraftingDisplayItem());
+            outputs.set(CraftingControllerPanelState.cellOf(slot, mirrored), workers.get(slot).getCraftingDisplayOutput());
         }
-        return items;
+        return outputs;
     }
 
     public long getDisplayedQueuedCraftCount() {

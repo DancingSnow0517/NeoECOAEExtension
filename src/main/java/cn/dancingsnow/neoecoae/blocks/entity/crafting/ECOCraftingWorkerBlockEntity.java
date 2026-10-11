@@ -10,6 +10,7 @@ import appeng.util.SettingsFrom;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity.VirtualLaneStartResult;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathExecution;
@@ -392,11 +393,20 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     /** The first current output, for controller panels on both ordinary and monitor FX cores. */
     public ItemStack getCraftingDisplayItem() {
+        return getCraftingDisplayOutput().item();
+    }
+
+    public CraftingOutputDisplay getCraftingDisplayOutput() {
         for (ECOCraftingThread thread : craftingThreads) {
             var key = thread.getDisplayedOutputKey();
-            if (key != null) return key.toStack(1);
+            if (key == null) continue;
+            java.math.BigInteger amount = java.math.BigInteger.ZERO;
+            for (ECOCraftingThread current : craftingThreads) {
+                amount = amount.add(current.getDisplayedItemAmount(key));
+            }
+            if (amount.signum() > 0) return new CraftingOutputDisplay(key.toStack(1), amount);
         }
-        return ItemStack.EMPTY;
+        return CraftingOutputDisplay.EMPTY;
     }
 
     private void refreshDisplayedJob() {

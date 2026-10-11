@@ -192,6 +192,16 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.fx_active", "FX %s / %s");
         provider.add("gui.neoecoae.crafting.ui.ft_parallel", "FT Parallel %s");
         provider.add("gui.neoecoae.crafting.ui.batch_capacity", "Batch Capacity: %s");
+        provider.add("gui.neoecoae.crafting.ui.crafting_short", "Craft");
+        provider.add("gui.neoecoae.crafting.ui.amount_short", "Amount");
+        provider.add("gui.neoecoae.crafting.ui.runtime_short", "Time");
+        provider.add("gui.neoecoae.crafting.ui.queue_occupancy", "Queue Used %s");
+        provider.add("gui.neoecoae.crafting.ui.total_parallel", "Parallel: %s");
+        provider.add("gui.neoecoae.crafting.ui.parallel_limit", "Limit: %s");
+        provider.add("gui.neoecoae.crafting.ui.parallel_overflow", "Overflow: %s (%s)");
+        provider.add("gui.neoecoae.crafting.ui.runtime_ticks", "Runtime: %s t");
+        provider.add("gui.neoecoae.crafting.ui.fx_short", "FX %s / %s");
+        provider.add("gui.neoecoae.crafting.ui.ft_short", "FT %s");
         provider.add("gui.neoecoae.crafting.ui.queue", "Queue %s / %s");
         provider.add("gui.neoecoae.crafting.ui.queue_percent", "Queue: %s");
         provider.add("gui.neoecoae.crafting.ui.runtime", "Runtime OC %s / %s");

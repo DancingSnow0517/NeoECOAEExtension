@@ -1,40 +1,5 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
-import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
-import cn.dancingsnow.neoecoae.all.NETags;
-import cn.dancingsnow.neoecoae.api.ECOTier;
-import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.api.storage.IECOStoragePriorityHost;
-import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
-import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
-import cn.dancingsnow.neoecoae.gui.storage.StorageMegaPanelUI;
-import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
-import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
-import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
-import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.RPCMethod;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.rpc.RPCSender;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
@@ -43,12 +8,49 @@ import appeng.api.storage.MEStorage;
 import appeng.hooks.ticking.TickHandler;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
+import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
+import cn.dancingsnow.neoecoae.all.NETags;
+import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOStoragePriorityHost;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
+import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
+import cn.dancingsnow.neoecoae.gui.storage.StorageMegaPanelUI;
+import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
+import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
+import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.RPCMethod;
+import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
+import com.lowdragmc.lowdraglib2.syncdata.rpc.RPCSender;
+import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -60,14 +62,8 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.Collection;
-import java.util.Map;
-import java.util.UUID;
 
 public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster, ECOStorageSystemBlockEntity>
         implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host,
@@ -308,7 +304,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 actionUI.bulkMarkingButton()
         ));
         actionUI.addTo(root);
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+        return ECOModularUI.create(root, holder.player);
     }
 
     public boolean hasEcoMegaUpgradeCard() {

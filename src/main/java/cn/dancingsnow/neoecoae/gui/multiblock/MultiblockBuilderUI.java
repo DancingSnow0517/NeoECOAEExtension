@@ -1,8 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.multiblock;
 
-import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
-import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
@@ -110,7 +108,7 @@ public final class MultiblockBuilderUI {
 
     public static Button createInlineOpenButton(UIElement window) {
         Button button = HostSideButtonBar.createButton();
-        button.noText().addPostIcon(AETextures.icon(ECOIcon.CRAFT_HAMMER));
+        button.noText().addPostIcon(NETextures.MULTIBLOCK);
         button.setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
                 List.of(Component.translatable("gui.neoecoae.multiblock.builder")),
