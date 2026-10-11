@@ -466,6 +466,27 @@ public final class EcoOutputExample {
 
 源码：[认领结果](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimResult.java)、[虚拟完成](../src/main/java/cn/dancingsnow/neoecoae/api/me/completion/ECOVirtualCraftingCompletionSink.java)、[进度视图](../src/main/java/cn/dancingsnow/neoecoae/api/me/progress/ECOCraftingProgressView.java)。
 
+### 注册虚拟合成冷却液
+
+合成主机的无限模式默认只接受凛冰溶液。附属模组可在通用初始化中按流体注册 ID 扩展允许列表：
+
+```java
+import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+
+public static void commonSetup(FMLCommonSetupEvent event) {
+    event.enqueueWork(() -> ECOVirtualCraftingCoolantRegistry.register(
+        ResourceLocation.fromNamespaceAndPath("yourmod", "supercoolant")));
+}
+```
+
+注册仅允许该流体参与虚拟合成；还须提供匹配的 `neoecoae:cooling` 配方，满足 `max_overclock >= 9` 和冷却点需求。冷却点由同一交换网络共享，每个执行中的 FX 通道每 tick 消耗 10,000 点。注册不会绕过其余结构、超频、主动冷却或供电要求。
+
+`register` 可重复调用；`unregister` 撤销自定义注册，内置凛冰溶液始终保留。注册变化立即影响已有冷却缓存及服务端诊断；右侧信息提示列出允许的流体名称。注册表在进程内生效，不写入存档；已有其他流体的缓存仍须先用普通合成耗尽，不能混合替换。
+
+源码：[虚拟合成冷却液注册接口](../src/main/java/cn/dancingsnow/neoecoae/api/me/cooling/ECOVirtualCraftingCoolantRegistry.java)。
+
 ## 8. 样板导入与容器所有权
 
 ```java

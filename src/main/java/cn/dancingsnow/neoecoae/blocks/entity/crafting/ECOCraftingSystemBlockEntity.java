@@ -15,6 +15,7 @@ import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
@@ -58,6 +59,7 @@ import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
@@ -455,6 +457,31 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     public int getLocalCoolingMaxOverclock() {
         return coolingController.getCurrentCoolingMaxOverclock();
+    }
+
+    public boolean hasLocalVirtualCraftingCoolant() {
+        return coolingController.hasVirtualCraftingCoolant();
+    }
+
+    boolean hasVirtualCraftingCoolant() {
+        NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
+        if (network == null) return hasLocalVirtualCraftingCoolant();
+        for (NECraftingCluster member : network.getMembers()) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            if (controller != null && controller.hasLocalVirtualCraftingCoolant()) return true;
+        }
+        return false;
+    }
+
+    private static Component getVirtualCraftingCoolantNames() {
+        MutableComponent names = Component.empty();
+        for (var id : ECOVirtualCraftingCoolantRegistry.registeredFluidIds()) {
+            if (!names.getSiblings().isEmpty()) names.append(", ");
+            names.append(BuiltInRegistries.FLUID.getOptional(id)
+                .map(fluid -> new FluidStack(fluid, 1).getHoverName())
+                .orElseGet(() -> Component.literal(id.toString())));
+        }
+        return names;
     }
 
     /**
@@ -1010,6 +1037,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             return Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_tier",
                 coolantTier, MAX_OVERCLOCK_TIMES);
         }
+        if (!hasVirtualCraftingCoolant()) {
+            return Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_type",
+                getVirtualCraftingCoolantNames());
+        }
         return switch (getVirtualCraftingBlockedResult()) {
             case COOLANT_UNAVAILABLE -> Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant");
             case ENERGY_UNAVAILABLE -> Component.translatable("gui.neoecoae.crafting.virtual_blocked.energy");
@@ -1042,12 +1073,12 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                     .withColor(0xFFFF5555)
                     .append("\n").append(blocked)
                     .append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_required",
-                        MAX_OVERCLOCK_TIMES, VIRTUAL_COOLANT_PER_LANE_TICK))
+                        getVirtualCraftingCoolantNames(), MAX_OVERCLOCK_TIMES, VIRTUAL_COOLANT_PER_LANE_TICK))
                     .append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.energy_required",
                         NECraftingNetworkCluster.VIRTUAL_CRAFTING_POWER_PER_TICK));
                 int coolantTier = getDisplayedCoolingMaxOverclock();
-                // Only lower-tier buffers need to be emptied outside virtual execution.
-                if (coolantTier >= 0 && coolantTier < MAX_OVERCLOCK_TIMES) {
+                // Lower-tier or unsupported buffers must be emptied outside virtual execution.
+                if ((coolantTier >= 0 && coolantTier < MAX_OVERCLOCK_TIMES) || !hasVirtualCraftingCoolant()) {
                     result.append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_hint"));
                     result.append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_recovery"));
                 }
@@ -1060,6 +1091,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             .withColor(0xFFD8B4FE);
         if (!isOverclocked()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.overclock"));
         if (!isActiveCooling()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.cooling"));
+        if (!hasVirtualCraftingCoolant()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.coolant_type",
+            getVirtualCraftingCoolantNames()));
         NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
         List<NECraftingCluster> members = network == null ? List.of() : network.getMembers();
         int hostCount = getCraftingNetworkMemberCount();

@@ -1,8 +1,10 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
@@ -23,7 +25,6 @@ class ECOCraftingCoolingControllerTest {
     private int amount;
     private int tier;
     private FluidStack fluid;
-
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @BeforeEach
@@ -136,5 +137,80 @@ class ECOCraftingCoolingControllerTest {
         assertEquals(ECOCraftingSystemBlockEntity.MAX_COOLANT, amount);
         assertEquals(9, tier);
         assertEquals(Fluids.WATER, fluid.getFluid());
+    }
+
+    @Test
+    void virtualExecutionRejectsOtherTierNineFluidsWithoutDrainingThem() {
+        when(host.usesTickBasedCoolant()).thenReturn(true);
+        when(host.isLocallyActiveCooling()).thenReturn(true);
+        amount = 20000;
+        tier = 9;
+        fluid = new FluidStack(Fluids.WATER, 1);
+        assertFalse(cooling.hasVirtualCraftingCoolant());
+        assertEquals(0, cooling.getLocalAvailableCoolant(10000, 9));
+        assertFalse(cooling.tryConsumeLocalCoolant(10000, 9));
+        assertEquals(20000, amount);
+        assertEquals(16000, input.getFluidAmount());
+        // The very same datapack coolant remains usable for ordinary crafting.
+        when(host.usesTickBasedCoolant()).thenReturn(false);
+        assertTrue(cooling.tryConsumeLocalCoolant(10000, 9));
+        assertEquals(10000, amount);
+    }
+
+    @Test
+    void wrongInputCannotRefillAnEmptyVirtualBufferEvenWithATierNineRecipe() {
+        when(host.usesTickBasedCoolant()).thenReturn(true);
+        when(host.isLocallyActiveCooling()).thenReturn(true);
+        assertEquals(0, cooling.getLocalAvailableCoolant(10000, 9));
+        assertFalse(cooling.tryConsumeLocalCoolant(10000, 9));
+        assertEquals(0, amount);
+        assertEquals(16000, input.getFluidAmount());
+    }
+
+    @Test
+    void registeredCustomCoolantCanRefillAndFundVirtualExecution() {
+        var id = ResourceLocation.parse("minecraft:water");
+        ECOVirtualCraftingCoolantRegistry.register(id);
+        try {
+            when(host.usesTickBasedCoolant()).thenReturn(true);
+            when(host.isLocallyActiveCooling()).thenReturn(true);
+            assertTrue(cooling.hasVirtualCraftingCoolant());
+            assertEquals(0, amount);
+            assertEquals(16000, input.getFluidAmount());
+            assertEquals(10000, cooling.getLocalAvailableCoolant(10000, 9));
+            assertTrue(cooling.tryConsumeLocalCoolant(10000, 9));
+            assertEquals(80, amount);
+            // Registration never substitutes for the tier-9 cooling requirement.
+            tier = 6;
+            when(recipe.maxOverclock()).thenReturn(6);
+            assertEquals(0, cooling.getLocalAvailableCoolant(10000, 9));
+            assertFalse(cooling.tryConsumeLocalCoolant(10000, 9));
+        } finally {
+            ECOVirtualCraftingCoolantRegistry.unregister(id);
+        }
+    }
+
+    @Test
+    void registrationChangesApplyToBufferedCoolantWithoutMixingDifferentFluids() {
+        var id = ResourceLocation.parse("minecraft:water");
+        when(host.usesTickBasedCoolant()).thenReturn(true);
+        when(host.isLocallyActiveCooling()).thenReturn(true);
+        amount = 20000;
+        tier = 9;
+        fluid = new FluidStack(Fluids.WATER, 1);
+        assertFalse(cooling.tryConsumeLocalCoolant(10000, 9));
+        ECOVirtualCraftingCoolantRegistry.register(id);
+        try {
+            assertTrue(cooling.tryConsumeLocalCoolant(10000, 9));
+            assertEquals(10000, amount);
+            fluid = new FluidStack(Fluids.LAVA, 1);
+            assertFalse(cooling.hasVirtualCraftingCoolant());
+            assertFalse(cooling.tryConsumeLocalCoolant(10000, 9));
+            fluid = new FluidStack(Fluids.WATER, 1);
+        } finally {
+            ECOVirtualCraftingCoolantRegistry.unregister(id);
+        }
+        assertFalse(cooling.tryConsumeLocalCoolant(10000, 9));
+        assertEquals(10000, amount);
     }
 }

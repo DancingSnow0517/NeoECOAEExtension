@@ -8,6 +8,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
+import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity.VirtualLaneStartResult;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
@@ -21,6 +22,7 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -73,6 +75,55 @@ class ECOVirtualCraftingDiagnosticsTest {
         verify(host, never()).tryConsumeVirtualCraftingPower();
         verify(host, never()).tryConsumeVirtualLaneCoolant();
         verify(host, never()).getLocalAvailableCoolant(anyInt(), anyInt());
+    }
+
+    @Test
+    void otherTierNineCoolantIsReportedBeforeDispatchWithoutChargingResources() {
+        doReturn(false).when(host).hasLocalVirtualCraftingCoolant();
+        doReturn(0).when(host).getRunningThreadCount();
+        assertNotice(host, "coolant_type");
+        assertEquals("gui.neoecoae.crafting.virtual_blocked.title",
+            translation(host.getMaintenanceStatusTooltip()).getKey());
+        verify(host, never()).tryConsumeVirtualCraftingPower();
+        verify(host, never()).tryConsumeVirtualLaneCoolant();
+        verify(host, never()).getLocalAvailableCoolant(anyInt(), anyInt());
+    }
+
+    @Test
+    void tooltipListsRegisteredCustomCoolantsAndAcceptsThemImmediately() {
+        var id = ResourceLocation.parse("test:supercoolant");
+        doAnswer(call -> ECOVirtualCraftingCoolantRegistry.registeredFluidIds().contains(id))
+            .when(host).hasLocalVirtualCraftingCoolant();
+        assertNotice(host, "coolant_type");
+        ECOVirtualCraftingCoolantRegistry.register(id);
+        try {
+            assertTrue(host.getCraftingStatusNotice().getString().isEmpty());
+            // The allowed-fluid list is still displayed if execution lacks enough coolant points.
+            startBatch(lane, UUID.randomUUID(), 1L);
+            doReturn(0).when(host).getLocalAvailableCoolant(10000, 9);
+            lane.thread().tick(host, 9, 1, 1);
+            var requirements = host.getMaintenanceStatusTooltip().getSiblings().stream()
+                .map(Component::getContents).filter(TranslatableContents.class::isInstance)
+                .map(TranslatableContents.class::cast)
+                .filter(content -> content.getKey().equals("gui.neoecoae.crafting.virtual_blocked.coolant_required"))
+                .findFirst().orElseThrow();
+            var names = assertInstanceOf(Component.class, requirements.getArgs()[0]);
+            assertTrue(names.getString().contains(id.toString()));
+        } finally {
+            ECOVirtualCraftingCoolantRegistry.unregister(id);
+        }
+        assertNotice(host, "coolant_type");
+    }
+
+    @Test
+    void missingAllowedCoolantIsListedWithTheOtherModeRequirements() {
+        lane.cluster().setNetworkCluster(mock(NECraftingNetworkCluster.class));
+        doReturn(true).when(host).isOverclocked();
+        when(host.getCapabilitySnapshot().virtualMode()).thenReturn(false);
+        var keys = host.getMaintenanceStatusTooltip().getSiblings().stream()
+            .map(Component::getContents).filter(TranslatableContents.class::isInstance)
+            .map(TranslatableContents.class::cast).map(TranslatableContents::getKey).toList();
+        assertTrue(keys.contains("gui.neoecoae.crafting.virtual_reason.coolant_type"));
     }
 
     @Test
@@ -238,6 +289,17 @@ class ECOVirtualCraftingDiagnosticsTest {
     }
 
     @Test
+    void pooledAllowedCoolantSatisfiesEveryMemberAndItsRemovalUpdatesEveryTooltip()
+        throws ReflectiveOperationException {
+        var lanes = createNetwork();
+        for (var member : lanes) doReturn(false).when(member.host()).hasLocalVirtualCraftingCoolant();
+        doReturn(true).when(lanes.getLast().host()).hasLocalVirtualCraftingCoolant();
+        for (var member : lanes) assertTrue(member.host().getCraftingStatusNotice().getString().isEmpty());
+        doReturn(false).when(lanes.getLast().host()).hasLocalVirtualCraftingCoolant();
+        for (var member : lanes) assertNotice(member.host(), "coolant_type");
+    }
+
+    @Test
     void virtualWorkerRetainsItsBatchOnBothFailuresAndAdvancesAfterRetry()
         throws ReflectiveOperationException {
         for (var failure : List.of(COOLANT_UNAVAILABLE, ENERGY_UNAVAILABLE)) {
@@ -270,6 +332,7 @@ class ECOVirtualCraftingDiagnosticsTest {
         doReturn(true).when(host).isActiveCooling();
         doReturn(9).when(host).getDisplayedCoolingMaxOverclock();
         doReturn(9).when(host).getLocalCoolingMaxOverclock();
+        doReturn(true).when(host).hasLocalVirtualCraftingCoolant();
         doReturn(1).when(host).getRunningThreadCount();
         doReturn(10_000).when(host).getLocalAvailableCoolant(10_000, 9);
         doReturn(true).when(host).tryConsumeVirtualCraftingPower();

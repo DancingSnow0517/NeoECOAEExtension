@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import appeng.api.networking.ticking.TickRateModulation;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -45,7 +46,9 @@ final class ECOCraftingCoolingController {
         if (amount <= 0) {
             return true;
         }
-        ensureCoolantAvailable(amount, requiredOverclock);
+        if (!ensureCoolantAvailable(amount, requiredOverclock)) {
+            return false;
+        }
         int coolant = host.getCoolant();
         if (coolant < amount || requiredOverclock > 0 && host.getCoolantMaxOverclock() < requiredOverclock) {
             return false;
@@ -100,6 +103,14 @@ final class ECOCraftingCoolingController {
         return recipe == null ? -1 : recipe.maxOverclock();
     }
 
+    /** Read-only: a different buffered coolant cannot be replaced until ordinary crafting empties it. */
+    boolean hasVirtualCraftingCoolant() {
+        FluidStack fluid = host.getCoolant() > 0 ? host.getCurrentCoolantFluid()
+            : host.getCluster() == null || host.getCluster().getInputHatch() == null
+                ? FluidStack.EMPTY : host.getCluster().getInputHatch().tank.getFluid();
+        return ECOVirtualCraftingCoolantRegistry.isAllowed(fluid);
+    }
+
     @Nullable
     CoolingRecipe getCoolingRecipe() {
         if (host.getCluster() == null
@@ -130,6 +141,10 @@ final class ECOCraftingCoolingController {
     }
 
     private boolean ensureCoolantAvailable(int requiredCoolant, int requiredOverclock) {
+        // Tier alone is insufficient; integrations must explicitly allow custom virtual coolants.
+        if (requiredCoolant > 0 && host.usesTickBasedCoolant() && !hasVirtualCraftingCoolant()) {
+            return false;
+        }
         if (!host.isLocallyActiveCooling() || requiredCoolant <= 0) {
             return true;
         }

@@ -134,12 +134,12 @@ Every normal switch contributes 2 and every high-energy switch contributes 8 to 
 
 #### Complete Eight-host Virtual Crafting
 
-Virtual crafting mode requires a logical exchange network of **exactly 8 F9 hosts**, with every host using a high-energy network switch and actually formed at the configured maximum length. By default this is **11 physical FX lanes per host, 88 total**. Ordinary switches, any non-F9 host, or even one host with fewer than 11 actual FX lanes keeps the network on finite crafting behavior.
+Virtual crafting mode requires a logical exchange network of **exactly 8 F9 hosts**, with every host using a high-energy network switch and actually formed at the configured maximum length, with overclocking and active cooling enabled. By default this is **11 physical FX lanes per host, 88 total**. Ordinary switches, any non-F9 host, or a host below the configured maximum FX count keeps the network on finite crafting behavior.
 
 - One FX Worker task thread carries one recipe task and accepts its complete remaining craft count.
 - Inputs and outputs are aggregated as item keys with 64-bit quantities instead of being expanded into physical item stacks inside the FX Worker.
 - The virtual task completes and returns its aggregated outputs on its first worker tick.
-- When active cooling is enabled, each active virtual lane consumes a fixed **10000 coolant per tick** from the shared pool. If the pool cannot pay the full amount, that lane waits. Without active cooling, virtual execution still uses its explicit one-tick path.
+- Each executing virtual lane consumes a fixed **10000 coolant points per tick** from the shared pool and requires tier-9 coolant. Cryotheum Solution is allowed by default; add-ons may register additional coolants, and the information tooltip lists the allowed fluids. If the pool cannot pay the full amount, that lane waits.
 - The supported task quantity follows the signed 64-bit range. Only true virtual mode is displayed as **infinite**; large finite capacities always display their real number.
 
 ## Building the Structure

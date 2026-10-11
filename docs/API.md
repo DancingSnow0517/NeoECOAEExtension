@@ -466,6 +466,27 @@ Progress accounting does not deliver physical resources. Do not independently re
 
 Source: [claim result](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimResult.java), [virtual completion](../src/main/java/cn/dancingsnow/neoecoae/api/me/completion/ECOVirtualCraftingCompletionSink.java), [progress](../src/main/java/cn/dancingsnow/neoecoae/api/me/progress/ECOCraftingProgressView.java).
 
+### Register virtual crafting coolants
+
+The crafting host's Infinite Mode allows Cryotheum Solution by default. Add-ons can allow additional fluid registry IDs during common setup:
+
+```java
+import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+
+public static void commonSetup(FMLCommonSetupEvent event) {
+    event.enqueueWork(() -> ECOVirtualCraftingCoolantRegistry.register(
+        ResourceLocation.fromNamespaceAndPath("yourmod", "supercoolant")));
+}
+```
+
+Registration only allows the fluid to fund virtual crafting. Supply a matching `neoecoae:cooling` recipe with `max_overclock >= 9` and enough coolant points. Each executing FX lane consumes 10,000 points per tick from the shared exchange network. Structure, overclock, active cooling, and power requirements still apply.
+
+`register` is idempotent; `unregister` revokes a custom registration while the built-in Cryotheum Solution remains allowed. Changes immediately affect buffered coolant and server diagnostics; the information tooltip lists the allowed fluids by name. Registrations are process-wide and are not saved per world. A buffer containing another fluid must still be emptied through ordinary crafting before replacement; different fluids cannot mix.
+
+Source: [virtual crafting coolant registry](../src/main/java/cn/dancingsnow/neoecoae/api/me/cooling/ECOVirtualCraftingCoolantRegistry.java).
+
 ## 8. Pattern routing and container ownership
 
 ```java
