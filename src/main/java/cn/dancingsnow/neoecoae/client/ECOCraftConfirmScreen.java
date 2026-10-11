@@ -36,7 +36,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /** ECO-owned crafting report. Server menu and job execution remain AE2-native. */
 public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> {
-    private static final int AE2_TEXT_DARK = 0x403E53;
+    private static final int AE2_TEXT_DARK = 0x20212B;
     private static final ResourceLocation CRAFTING_REPORT_TEXTURE =
         NeoECOAE.id("textures/guis/eco_craftingreport_cycle.png");
     private static final int CPU_TIER_TARGET_X = 38;
@@ -148,7 +148,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                     ? "gui.neoecoae.crafting_report.seed_requirement_unknown" : retainedMaterials
                     ? "gui.neoecoae.crafting_report.search_incomplete"
                     : "gui.neoecoae.crafting_report.planning_failed")
-                .withColor(0xAA6600);
+                .withColor(0x604100);
             selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.literal(mode.neoecoae$getPlanningDiagnostic())));
             if (plan != null && !retainedMaterials) {
@@ -157,7 +157,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         } else if (isDiagnosticShell()) {
             var mode = (ECOCraftConfirmMenuMode) (Object) menu;
             cpuDetails = Component.translatable("gui.neoecoae.crafting_report.planning_failed")
-                .withColor(0xAA3333);
+                .withColor(0x752121);
             unknownBytes = true;
             selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.literal(mode.neoecoae$getPlanningStatus() + "\n" + mode.neoecoae$getPlanningDiagnostic())));
@@ -263,8 +263,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
 
         cycleItems.renderTooltip(graphics);
-        if (ECOCraftReportHeaderRenderer.isHovered(mouseX, mouseY)) {
-            drawTooltipWithHeader(graphics, mouseX, mouseY, reportSummary.tooltip());
+        int localMouseX = mouseX - offsetX;
+        int localMouseY = mouseY - offsetY;
+        if (ECOCraftReportHeaderRenderer.isHovered(localMouseX, localMouseY)) {
+            drawTooltipWithHeader(graphics, localMouseX, localMouseY, reportSummary.tooltip());
         }
     }
 

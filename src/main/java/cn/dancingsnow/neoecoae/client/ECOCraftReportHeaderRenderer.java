@@ -14,17 +14,20 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
-/** Two independently fitted rows inside the report texture's 102 by 15 pixel text area. */
+/** Fitted byte summary inside the report texture's 102 by 15 pixel text area. */
 final class ECOCraftReportHeaderRenderer {
     private static final String KEY_PREFIX = "gui.neoecoae.crafting_report.";
-    private static final int TEXT_COLOR = 0x403E53;
+    private static final int TEXT_COLOR = 0xFFFFFF;
     private static final int LEFT = 53;
     private static final int TOP = 5;
     private static final int RIGHT = 155;
     private static final int BOTTOM = 20;
-    private static final int ROW_WIDTH = 100;
-    private static final int ROW_HEIGHT = 6;
-    private static final float DEFAULT_SCALE = 2.0F / 3.0F;
+    private static final int BYTES_LEFT = 54;
+    private static final int BYTES_TOP = 6;
+    private static final int BYTES_RIGHT = 154;
+    private static final int BYTES_BOTTOM = 19;
+    private static final int BYTES_WIDTH = BYTES_RIGHT - BYTES_LEFT;
+    private static final float MAX_BYTES_SCALE = 1.15F;
     private static final MathContext TIME_PRECISION = new MathContext(5, RoundingMode.HALF_UP);
 
     private ECOCraftReportHeaderRenderer() {}
@@ -63,7 +66,7 @@ final class ECOCraftReportHeaderRenderer {
 
     private static Component fitBytes(BigInteger value, ToIntFunction<Component> width) {
         String compact = HostText.ae2Amount(value);
-        int maxWidth = (int) (ROW_WIDTH / DEFAULT_SCALE);
+        int maxWidth = (int) (BYTES_WIDTH / MAX_BYTES_SCALE);
         if (width.applyAsInt(text("bytes_only", byteUnit(compact))) > maxWidth) {
             compact = HostText.fitHugeAmount(value, maxWidth,
                 amount -> width.applyAsInt(text("bytes_only", byteUnit(amount))));
@@ -93,12 +96,11 @@ final class ECOCraftReportHeaderRenderer {
         // GuiGraphics scissors use window GUI coordinates, independent of the translated pose.
         graphics.enableScissor(offsetX + LEFT, offsetY + TOP, offsetX + RIGHT, offsetY + BOTTOM);
         try {
-            drawRow(graphics, font, offsetX, offsetY, 6, summary.elapsed());
-            drawRow(graphics, font, offsetX, offsetY, 13, summary.bytes());
+            drawBytes(graphics, font, offsetX, offsetY, summary.bytes());
             if (progressMillis != null) {
-                int fill = 1 + (int) (progressMillis % 2_000L) * (ROW_WIDTH - 1) / 1_999;
-                graphics.fill(54, 19, 154, 20, 0xFF6A6A72);
-                graphics.fill(54, 19, 54 + fill, 20, 0xFF3D9B62);
+                int fill = 1 + (int) (progressMillis % 2_000L) * (BYTES_WIDTH - 1) / 1_999;
+                graphics.fill(BYTES_LEFT, 19, BYTES_RIGHT - 1, 20, 0xFF6A6A72);
+                graphics.fill(BYTES_LEFT, 19, BYTES_LEFT + fill, 20, 0xFF3D9B62);
             }
         } finally {
             graphics.flush();
@@ -106,17 +108,21 @@ final class ECOCraftReportHeaderRenderer {
         }
     }
 
-    private static void drawRow(GuiGraphics graphics, Font font, int offsetX, int offsetY, int y,
+    private static void drawBytes(GuiGraphics graphics, Font font, int offsetX, int offsetY,
             Component text) {
-        float scale = Math.min(DEFAULT_SCALE, (float) ROW_HEIGHT / Math.max(1, font.lineHeight));
-        scale = Math.min(scale, (float) ROW_WIDTH / Math.max(1, font.width(text)));
-        graphics.enableScissor(offsetX + 54, offsetY + y, offsetX + 154, offsetY + y + ROW_HEIGHT);
+        float scale = Math.min(MAX_BYTES_SCALE,
+            (float) (BYTES_BOTTOM - BYTES_TOP) / Math.max(1, font.lineHeight + 1));
+        int textWidth = font.width(text);
+        scale = Math.min(scale, (float) BYTES_WIDTH / Math.max(1, textWidth + 1));
+        float textY = TOP + (BOTTOM - TOP - font.lineHeight * scale) / 2.0F + 1.0F;
+        graphics.enableScissor(offsetX + BYTES_LEFT, offsetY + BYTES_TOP,
+            offsetX + BYTES_RIGHT, offsetY + BOTTOM);
         var pose = graphics.pose();
         pose.pushPose();
         try {
-            pose.translate(54, y, 0);
+            pose.translate(BYTES_LEFT, textY, 0);
             pose.scale(scale, scale, 1);
-            graphics.drawString(font, text, 0, 0, TEXT_COLOR, false);
+            graphics.drawString(font, text, 0, 0, TEXT_COLOR, true);
         } finally {
             graphics.flush();
             pose.popPose();

@@ -31,7 +31,6 @@ import net.minecraft.world.entity.player.Player;
 
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** Compact pattern-manager view; all operations still address the original physical bus slots. */
@@ -58,7 +57,8 @@ public final class CraftingInterfaceUI {
         StatusTooltips operationStatus = new StatusTooltips(craftingInterface);
         root.addChild(HostElements.absolute(operationStatus, 0, 0, 0, 0));
         root.addChild(HostElements.absolute(boundLabel(() -> GuiTitleProvider.title(craftingInterface.getBlockState(),
-                Component.translatable("gui.neoecoae.crafting_interface.title"))), 7, 5, 162, 10));
+                Component.translatable("gui.neoecoae.crafting_interface.title"))), 7, 5, 162, 10)
+                .layout(layout -> layout.top(4.5F)));
         Label network = boundLabel(() -> Component.literal("●").withColor(
                 craftingInterface.isTargetOnline() ? 0x55CC77 : 0xDD5555));
         operationStatus.attach(network);
@@ -68,7 +68,7 @@ public final class CraftingInterfaceUI {
         root.addChild(HostElements.absolute(patternPreview(previewState), 7, 31, PREVIEW_WIDTH, PREVIEW_HEIGHT));
         root.addChild(HostElements.absolute(patternPreviewScrollbar(previewState), 174, 31,
                 SCROLLBAR_WIDTH + SCROLLBAR_BORDER * 2, PREVIEW_HEIGHT));
-        root.addChild(sideControls(craftingInterface, previewState, player, operationStatus));
+        root.addChild(sideControls(craftingInterface, player, operationStatus));
 
         Label status = compactLabel();
         Component[] previous = {previewState.status()};
@@ -95,7 +95,7 @@ public final class CraftingInterfaceUI {
     }
 
     private static UIElement sideControls(ECOMachineInterfaceBlockEntity<?> craftingInterface,
-            CraftingPatternPreviewState previewState, Player player, StatusTooltips status) {
+            Player player, StatusTooltips status) {
         Button transfer = iconButton(ECOIcon.ARROW_RIGHT, "gui.neoecoae.host.crafting.pattern_transfer",
                 craftingInterface::startNetworkPatternTransfer);
         Button organize = iconButton(ECOIcon.COG, "gui.neoecoae.crafting_interface.preview.organize", () -> {
@@ -103,13 +103,7 @@ public final class CraftingInterfaceUI {
         });
         status.attach(transfer);
         status.attach(organize);
-        return HostSideButtonBar.grayLeft(transfer, organize,
-                patternFilterButton(previewState, CraftingPatternPreviewState::showsSubstitutionPatterns,
-                        ECOIcon.SUBSTITUTION_ENABLED, ECOIcon.SUBSTITUTION_DISABLED,
-                        CraftingPatternPreviewState::toggleSubstitutionPatterns, "filter_substitutions"),
-                patternFilterButton(previewState, CraftingPatternPreviewState::showsFluidSubstitutionPatterns,
-                        ECOIcon.FLUID_SUBSTITUTION_ENABLED, ECOIcon.FLUID_SUBSTITUTION_DISABLED,
-                        CraftingPatternPreviewState::toggleFluidSubstitutionPatterns, "filter_fluid_substitutions"));
+        return HostSideButtonBar.grayLeft(transfer, organize);
     }
 
     private static SearchField patternSearchField(Consumer<String> responder, String direction, int left) {
@@ -132,19 +126,6 @@ public final class CraftingInterfaceUI {
 
         public SearchField setSearchHint(Component hint) { return this; }
         protected final void updateSearch(String value) { responder.accept(value); }
-    }
-
-    private static Button patternFilterButton(CraftingPatternPreviewState state,
-            Function<CraftingPatternPreviewState, Boolean> enabled, ECOIcon enabledIcon, ECOIcon disabledIcon,
-            Consumer<CraftingPatternPreviewState> action, String tooltip) {
-        Button button = HostSideButtonBar.createButton().noText()
-                .addPreIcon(AETextures.icon(enabled.apply(state) ? enabledIcon : disabledIcon));
-        button.setOnClick(event -> {
-            action.accept(state);
-            button.getChildren().getFirst().style(style ->
-                    style.backgroundTexture(AETextures.icon(enabled.apply(state) ? enabledIcon : disabledIcon)));
-        });
-        return HostElements.tooltips(button, Component.translatable("gui.neoecoae.crafting_interface.preview." + tooltip));
     }
 
     /** Identifies the insertion surface when the client draws tooltips while carrying an item. */

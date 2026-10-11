@@ -1,6 +1,10 @@
 {
   "$schema": "schema.json",
   "includes": ["common/common.json"],
+  "palette": {
+    "DEFAULT_TEXT_COLOR": "#f2f3f7",
+    "MUTED_TEXT_COLOR": "#20212b"
+  },
   "background": {
     "texture": "neoecoae:textures/guis/eco_craftingreport_cycle.png",
     "textureWidth": 384,
@@ -21,7 +25,8 @@
     },
     "cpu_status": {
       "position": { "left": 109, "top": 218 },
-      "align": "CENTER"
+      "align": "CENTER",
+      "color": "MUTED_TEXT_COLOR"
     }
   },
   "images": {

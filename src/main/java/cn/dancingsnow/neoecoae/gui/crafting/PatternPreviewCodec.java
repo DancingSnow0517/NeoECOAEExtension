@@ -39,7 +39,6 @@ public final class PatternPreviewCodec {
             if (content.getCompound("stack").isEmpty()) content.remove("stack");
             if (content.getString("inputs").isEmpty()) content.remove("inputs");
             if (content.getString("output").isEmpty()) content.remove("output");
-            if (content.getByte("flags") == 0) content.remove("flags");
             if (content.getList("disk", Tag.TAG_COMPOUND).isEmpty()) content.remove("disk");
             if (!content.getBoolean("diskSlot")) content.remove("diskSlot");
             int id = -1;

@@ -17,7 +17,6 @@ final class PatternPreviewRows {
     private PatternPreviewEntry[] entries = new PatternPreviewEntry[0];
     private int[] physicalCells = new int[0];
     private List<String> inputTerms = List.of(), outputTerms = List.of();
-    private boolean substitution = true, fluidSubstitution = true;
 
     void reset(PatternPreviewEntry[] entries) {
         this.entries = entries;
@@ -57,11 +56,9 @@ final class PatternPreviewRows {
         if (membershipChanged) rebuildVisible();
     }
 
-    void filter(String inputs, String output, boolean substitution, boolean fluidSubstitution) {
+    void filter(String inputs, String output) {
         inputTerms = terms(inputs);
         outputTerms = terms(output);
-        this.substitution = substitution;
-        this.fluidSubstitution = fluidSubstitution;
         refilter();
     }
 
@@ -85,12 +82,11 @@ final class PatternPreviewRows {
         PatternPreviewEntry entry = entries[cell.entry];
         var recipe = cell.recipe < 0 ? null : entry.diskPatterns().get(cell.recipe);
         boolean occupied = recipe == null ? !entry.auxiliaryDisk() && !entry.stack().isEmpty() : !recipe.stack().isEmpty();
-        byte flags = recipe == null ? entry.flags() : recipe.flags();
         String inputs = recipe == null ? entry.inputKeywords() : recipe.inputKeywords();
         String output = recipe == null ? entry.outputKeywords() : recipe.outputKeywords();
         boolean noSearch = inputTerms.isEmpty() && outputTerms.isEmpty();
         // Either active branch may match; an empty query never makes the other branch match everything.
-        included.set(index, occupied && (substitution || (flags & 1) == 0) && (fluidSubstitution || (flags & 2) == 0)
+        included.set(index, occupied
                 && (noSearch || matchesTerms(inputTerms, inputs) || matchesTerms(outputTerms, output)));
     }
 

@@ -11,7 +11,7 @@ import net.minecraft.world.item.ItemStack;
 
 /** Snapshot data only; never used as the authoritative inventory for an operation. */
 public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack stack,
-                                  String inputKeywords, String outputKeywords, byte flags,
+                                  String inputKeywords, String outputKeywords,
                                   List<PatternPreviewEntry.DiskPattern> diskPatterns,
                                   boolean auxiliaryDisk) {
 
@@ -23,19 +23,18 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
      * recipes have no slot of their own to be addressed by. The list rides along with the slot and is expanded
      * for display only.</p>
      */
-    public record DiskPattern(ItemStack stack, String inputKeywords, String outputKeywords, byte flags) {
+    public record DiskPattern(ItemStack stack, String inputKeywords, String outputKeywords) {
         public CompoundTag encode(HolderLookup.Provider registries) {
             CompoundTag tag = new CompoundTag();
             tag.put("stack", stack.saveOptional(registries));
             if (!inputKeywords.isEmpty()) tag.putString("inputs", inputKeywords);
             if (!outputKeywords.isEmpty()) tag.putString("output", outputKeywords);
-            tag.putByte("flags", flags);
             return tag;
         }
 
         public static DiskPattern decode(CompoundTag tag, HolderLookup.Provider registries) {
             return new DiskPattern(ItemStack.parseOptional(registries, tag.getCompound("stack")),
-                    tag.getString("inputs"), tag.getString("output"), tag.getByte("flags"));
+                    tag.getString("inputs"), tag.getString("output"));
         }
     }
 
@@ -46,7 +45,6 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
         tag.put("stack", stack.saveOptional(registries));
         if (!inputKeywords.isEmpty()) tag.putString("inputs", inputKeywords);
         if (!outputKeywords.isEmpty()) tag.putString("output", outputKeywords);
-        tag.putByte("flags", flags);
         ListTag held = new ListTag();
         for (DiskPattern pattern : diskPatterns) {
             held.add(pattern.encode(registries));
@@ -67,6 +65,6 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
         }
         return new PatternPreviewEntry(tag.getLong("bus"), tag.getInt("slot"),
                 ItemStack.parseOptional(registries, tag.getCompound("stack")),
-                tag.getString("inputs"), tag.getString("output"), tag.getByte("flags"), held, tag.getBoolean("diskSlot"));
+                tag.getString("inputs"), tag.getString("output"), held, tag.getBoolean("diskSlot"));
     }
 }

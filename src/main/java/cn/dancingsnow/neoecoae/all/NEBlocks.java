@@ -637,7 +637,7 @@ public class NEBlocks {
         .item()
         .model((ctx, prov) -> {})
         .build()
-        .lang("Large Integrated Working Station Fluid Input Hatch")
+        .lang("Large Integrated Working Station Coolant Input Hatch")
         .register();
 
     public static final BlockEntry<ECOLargeIntegratedWorkingStationOutputHatch> LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
@@ -659,7 +659,7 @@ public class NEBlocks {
         .item()
         .model((ctx, prov) -> {})
         .build()
-        .lang("Large Integrated Working Station Fluid Output Hatch")
+        .lang("Large Integrated Working Station Coolant Output Hatch")
         .register();
 
     public static final BlockEntry<ECOMachineInterface<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE

@@ -753,12 +753,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private Component getCraftingDisplayTitle() {
-        return getItemFromBlockEntity().getDescription().copy()
-            .append(" (")
-            .append(Integer.toString(getCraftingNetworkMemberCount()))
-            .append("/")
-            .append(Integer.toString(NEFrequencyAllocator.HOST_LIMIT))
-            .append(")");
+        return Component.translatable("gui.neoecoae.crafting.ui.title");
     }
 
     public int getDisplayedCoolantAmount() {
@@ -774,6 +769,16 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public FluidStack getDisplayedCoolantFluid() {
         return cluster != null && cluster.getNetworkCluster() != null
             ? cluster.getNetworkCluster().getCoolantFluid() : currentCoolantFluid;
+    }
+
+    public FluidStack getDisplayedOutputFluid() {
+        return cluster != null && cluster.getOutputHatch() != null
+            ? cluster.getOutputHatch().tank.getFluid() : FluidStack.EMPTY;
+    }
+
+    public int getDisplayedOutputCapacity() {
+        return cluster != null && cluster.getOutputHatch() != null
+            ? cluster.getOutputHatch().tank.getCapacity() : 0;
     }
 
     public boolean isOverclocked() {
@@ -850,7 +855,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         sideButtons.add(GuideButton.create(holder.player, "neoecoae:neoecoae_intro/crafting_system.md"));
         sideButtons.add(MultiblockBuilderUI.createInlineOpenButton(buildWindow));
         sideButtons.addAll(CraftingHostPanelUI.createToolbarButtons(panelConfig));
-        root.addChild(HostSideButtonBar.left(sideButtons));
+        root.addChild(HostSideButtonBar.grayLeft(sideButtons.toArray(UIElement[]::new)));
         root.addChild(CraftingHostPanelUI.createMaintenanceStatusIcon(this::getMaintenanceStatusTooltip));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
@@ -881,6 +886,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getDisplayedCoolantCapacity,
             this::getDisplayedCoolingMaxOverclock,
             this::getDisplayedCoolantFluid,
+            this::getDisplayedOutputFluid,
+            this::getDisplayedOutputCapacity,
             this::getRegistryAccessForUi,
             this::getActiveTaskEntries,
             this::isIgnoringPatternSubstitutions,
@@ -892,7 +899,18 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             },
             this::getCraftingControllerPanelState,
             this::getDisplayedQueuedCraftCount,
-            this::getCraftingNetworkComposition
+            () -> {
+                CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().totalBatchCapacity();
+                return capacity.unlimited() ? Long.MAX_VALUE : capacity.finiteValue();
+            },
+            () -> {
+                NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
+                return network == null ? (hasNormalNetworkSwitch() ? 1 : 0) : network.getNormalSwitchHostCount();
+            },
+            () -> {
+                NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
+                return network == null ? (hasHighEnergyNetworkSwitch() ? 1 : 0) : network.getHighEnergySwitchHostCount();
+            }
         );
     }
 
@@ -935,16 +953,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             total = NEMath.saturatingAdd(total, worker.getQueuedCraftCount());
         }
         return total;
-    }
-
-    private Component getCraftingNetworkComposition() {
-        if (!formed || !hasNetworkSwitch()) {
-            return Component.literal("无交换模块");
-        }
-        NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
-        int normal = network == null ? (hasNormalNetworkSwitch() ? 1 : 0) : network.getNormalSwitchHostCount();
-        int highEnergy = network == null ? (hasHighEnergyNetworkSwitch() ? 1 : 0) : network.getHighEnergySwitchHostCount();
-        return Component.literal("普通 " + normal + " + 高能 " + highEnergy);
     }
 
     private boolean isIgnoringPatternSubstitutions() {

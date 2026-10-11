@@ -47,8 +47,6 @@ final class CraftingPatternPreviewState {
     private long epoch = -1L;
     private int menuId = -1;
     private String inputSearch = "", outputSearch = "";
-    private boolean showSubstitution = true;
-    private boolean showFluidSubstitution = true;
     private int scrollRow;
     private int receivedEntries;
     private final Map<AEItemKey, PatternSearchKeywords.Directions> localKeywords = new LinkedHashMap<>(256, 0.75F, true) {
@@ -322,7 +320,7 @@ final class CraftingPatternPreviewState {
                 }
                 if (disk.contains(null)) { pending = null; return; }
                 decoded = new PatternPreviewEntry(decoded.busPosition(), decoded.physicalSlot(), decoded.stack(),
-                        decoded.inputKeywords(), decoded.outputKeywords(), decoded.flags(), disk, decoded.auxiliaryDisk());
+                        decoded.inputKeywords(), decoded.outputKeywords(), disk, decoded.auxiliaryDisk());
             }
             if (pendingFull) pending[logicalSlot] = decoded;
             else pendingChanges.put(logicalSlot, decoded);
@@ -365,19 +363,16 @@ final class CraftingPatternPreviewState {
         }
     }
 
-    boolean showsSubstitutionPatterns() { return showSubstitution; }
-    boolean showsFluidSubstitutionPatterns() { return showFluidSubstitution; }
-
     private PatternPreviewEntry localize(PatternPreviewEntry entry) {
         List<PatternPreviewEntry.DiskPattern> disk = entry.diskPatterns().stream().map(this::localize).toList();
         var terms = keywords(entry.stack(), entry.inputKeywords(), entry.outputKeywords());
         return new PatternPreviewEntry(entry.busPosition(), entry.physicalSlot(), entry.stack(),
-                terms.inputs(), terms.output(), entry.flags(), disk, entry.auxiliaryDisk());
+                terms.inputs(), terms.output(), disk, entry.auxiliaryDisk());
     }
 
     private PatternPreviewEntry.DiskPattern localize(PatternPreviewEntry.DiskPattern pattern) {
         var terms = keywords(pattern.stack(), pattern.inputKeywords(), pattern.outputKeywords());
-        return new PatternPreviewEntry.DiskPattern(pattern.stack(), terms.inputs(), terms.output(), pattern.flags());
+        return new PatternPreviewEntry.DiskPattern(pattern.stack(), terms.inputs(), terms.output());
     }
 
     private PatternSearchKeywords.Directions keywords(ItemStack stack, String inputs, String output) {
@@ -393,16 +388,6 @@ final class CraftingPatternPreviewState {
             }
         });
         return fallback.append(localized);
-    }
-
-    void toggleSubstitutionPatterns() {
-        showSubstitution = !showSubstitution;
-        resetFilter();
-    }
-
-    void toggleFluidSubstitutionPatterns() {
-        showFluidSubstitution = !showFluidSubstitution;
-        resetFilter();
     }
 
     void setInputSearch(String value) {
@@ -431,7 +416,7 @@ final class CraftingPatternPreviewState {
     }
 
     private void rebuildFilter() {
-        rows.filter(inputSearch, outputSearch, showSubstitution, showFluidSubstitution);
+        rows.filter(inputSearch, outputSearch);
         scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
         updateSlots();
     }

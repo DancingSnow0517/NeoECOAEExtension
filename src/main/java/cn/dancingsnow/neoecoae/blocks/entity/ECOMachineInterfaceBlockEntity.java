@@ -353,7 +353,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         ItemStack stack = record == null ? ItemStack.EMPTY : record.stack().copy();
         var keywords = PatternSearchKeywords.directions(record == null ? null : record.details());
         return new PatternPreviewEntry(ref.bus().getBlockPos().asLong(), ref.slot(), stack,
-                keywords.inputs(), keywords.output(), patternSearchFlags(stack), List.of(), false);
+                keywords.inputs(), keywords.output(), List.of(), false);
     }
 
     /** Auxiliary revision each bus's preview rows were last drawn from, keyed by bus position. */
@@ -430,7 +430,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         // Render the container icon without synchronizing its embedded recipe data a second time.
         ItemStack icon = new ItemStack(bus.getPatternSlotInventory().getStackInSlot(ref.slot()).getItem());
         return new PatternPreviewEntry(bus.getBlockPos().asLong(), ref.slot(), icon, "", "",
-                patternSearchFlags(ItemStack.EMPTY), rows, true);
+                rows, true);
     }
 
     /**
@@ -448,8 +448,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             // Guarded: the two lists come from one store in one pass, but a row built from a short list would
             // otherwise throw while a screen is being drawn.
             var terms = index < keywords.size() ? keywords.get(index) : PatternSearchKeywords.Directions.EMPTY;
-            held.add(new PatternPreviewEntry.DiskPattern(patterns.get(index).copy(), terms.inputs(), terms.output(),
-                    patternSearchFlags(patterns.get(index))));
+            held.add(new PatternPreviewEntry.DiskPattern(patterns.get(index).copy(), terms.inputs(), terms.output()));
         }
         return held;
     }
@@ -939,14 +938,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         PatternSlotRef ref = patternSlotRefs.get(slot);
         InternalInventory inventory = ref.bus().getPatternSlotInventory();
         return ref.slot() < inventory.size() ? inventory.insertItem(ref.slot(), stack, simulate) : stack;
-    }
-
-    private static byte patternSearchFlags(ItemStack stack) {
-        var encoded = stack.get(appeng.api.ids.AEComponents.ENCODED_CRAFTING_PATTERN);
-        if (encoded == null) {
-            return 0;
-        }
-        return (byte) (4 | (encoded.canSubstitute() ? 1 : 0) | (encoded.canSubstituteFluids() ? 2 : 0));
     }
 
     private record PatternSlotRef(ECOCraftingPatternBusBlockEntity bus, int slot) {

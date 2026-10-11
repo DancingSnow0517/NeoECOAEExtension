@@ -58,9 +58,12 @@ class CraftingHostPanelRenderingTest {
             verify(context).drawTexture(any(), eq(169F), eq(109F), eq(16F), eq(34F));
             verify(context).drawTexture(any(), eq(218F), eq(171F), eq(34F), eq(9F));
             verify(context).drawTexture(any(), eq(218F), eq(193F), eq(17F), eq(9F));
-            verify(context.graphics).drawString(font, "FX: 2", 316, 215, 0xFF302D43, false);
-            verify(context.graphics).fill(316, 181, 331, 203, 0xFFCF72FF);
-            verify(context.graphics).fill(347, 192, 362, 203, 0xFF66C8E8);
+            verify(context.graphics).drawString(font, "0 us", 330, 90, 0xFFE4E4EE, false);
+            verify(context.graphics).drawString(font, "gui.neoecoae.crafting.ui.fx_active", 316, 214,
+                0xFFE4E4EE, false);
+            verify(context.graphics).drawString(font, "gui.neoecoae.crafting.ui.coolant_overclock", 316, 248,
+                0xFFB4B6CC, false);
+            verify(context.graphics, never()).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
         }
     }
 
@@ -89,9 +92,10 @@ class CraftingHostPanelRenderingTest {
     }
 
     @Test
-    void unformedPanelStillDrawsAtTheWindowPosition() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+    void unformedPanelStillDrawsAtTheWindowPosition() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
+            Font font = installFont(minecraft);
             UIElement artwork = positioned(artwork(CraftingControllerPanelState.UNFORMED));
             GUIContext context = context();
 
@@ -99,7 +103,8 @@ class CraftingHostPanelRenderingTest {
 
             verify(context).drawTexture(NETextures.Crafting.CONTROLLER, 120F, 80F, 253F, 214F);
             verifyNoMoreInteractions(context);
-            verifyNoInteractions(context.graphics);
+            verify(context.graphics).drawString(font, "0 us", 330, 90, 0xFFE4E4EE, false);
+            verifyNoMoreInteractions(context.graphics);
         }
     }
 
@@ -131,9 +136,10 @@ class CraftingHostPanelRenderingTest {
             Component::empty, Component::empty, () -> 1, () -> true, () -> false, () -> {},
             () -> false, () -> {}, () -> 1, () -> 2, () -> 1, () -> 1L, () -> 0L,
             () -> 3, () -> 3, () -> 4, () -> 0L, () -> 500_000L,
-            () -> 25, () -> 100, () -> 9, () -> FluidStack.EMPTY, () -> null, List::of,
+            () -> 25, () -> 100, () -> 9, () -> FluidStack.EMPTY, () -> FluidStack.EMPTY, () -> 16000,
+            () -> null, List::of,
             () -> false, () -> 0, () -> {}, () -> 0, ignored -> {}, () -> state,
-            () -> 1L, Component::empty);
+            () -> 1L, () -> 64L, () -> 0, () -> 0);
         return CraftingHostPanelUI.create(config).getChildren().getFirst();
     }
 
