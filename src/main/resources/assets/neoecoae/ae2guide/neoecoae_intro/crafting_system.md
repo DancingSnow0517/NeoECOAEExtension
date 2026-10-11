@@ -161,6 +161,8 @@ If you want to assemble the structure more quickly, see [Multiblock Auto Builder
 
 ## Usage
 
+For screenshots of the controls, their effects, and cooling troubleshooting, see [Crafting Controller Walkthrough](crafting_controller.md).
+
 Once formed, the crafting system acts as a pattern provider in your ME Network. Insert patterns into the pattern buses to enable automated crafting.
 
 ### Configuration Options
@@ -187,8 +189,8 @@ The crafting system now separates structural overclock capability from coolant q
 - Overflow overclock shortens task duration only. It neither adds task slots nor participates in the x2/x8 per-slot batch multiplier.
 - Active coolant determines the effective overclock that can actually be used
 - If the coolant tier is lower than the structure's capability, the system does not stop refilling coolant; instead, it runs at the lower effective overclock
-- The GUI shows both the theoretical overclock and the currently effective overclock
-- The GUI also shows the maximum overclock supported by the current coolant and includes a button to clear the coolant buffer when switching fluids
+- Hover over the parallel capacity region for theoretical and effective overclock
+- The coolant summary shows the maximum overclock supported by the current coolant. Stop supplying the old fluid, empty the input hatch, and let ordinary crafting consume the old buffer before supplying a different coolant
 
 Current default coolant tiers are:
 
@@ -221,7 +223,7 @@ The interface displays:
 - Use overclocking for faster processing when power is abundant
 - Enable active cooling in combination with overclocking for best efficiency
 - Upgrade coolant quality if the effective overclock is lower than the theoretical overclock
-- Use the clear coolant button before switching from a lower-tier coolant to a higher-tier coolant
+- Consume the old coolant buffer before switching from a lower-tier coolant to a higher-tier coolant
 - Every FX Worker is exactly one physical lane. Exchange changes its batch size through the shared `M = 2a + 8b` multiplier and does not create more lanes.
 - Higher-tier parallel cores increase structural processing capacity and can raise overflow overclock
 - Ensure the output hatch has space for used coolant to avoid system shutdown
