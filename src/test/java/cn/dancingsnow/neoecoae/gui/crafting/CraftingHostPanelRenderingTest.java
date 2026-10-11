@@ -171,9 +171,10 @@ class CraftingHostPanelRenderingTest {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement icon = CraftingHostPanelUI.createMaintenanceStatusIcon(() -> Component.literal("initial"));
             BindableValue<Component> synced = (BindableValue<Component>) icon.getChildren().getFirst();
+            UIElement information = icon.getChildren().get(1);
             synced.setValue(Component.literal("status\nfirst condition\nsecond condition").withColor(0xD8B4FE), false);
             UIEvent event = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
-            event.target = icon;
+            event.target = information;
             UIEventDispatcher.dispatchEvent(event);
 
             List<Component> lines = event.hoverTooltips.tooltipTexts();
@@ -181,6 +182,10 @@ class CraftingHostPanelRenderingTest {
                 lines.stream().map(Component::getString).toList());
             assertEquals(0xD8B4FE, lines.getFirst().getStyle().getColor().getValue() & 0xFFFFFF);
             assertEquals(0xFF5555, lines.get(1).getStyle().getColor().getValue() & 0xFFFFFF);
+            UIEvent frameHover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            frameHover.target = icon;
+            UIEventDispatcher.dispatchEvent(frameHover, false, false, false);
+            assertNull(frameHover.hoverTooltips);
             var infinite = CraftingHostPanelUI.maintenanceTooltipLines(Component.literal("infinite").withColor(0x55FF8A));
             assertEquals(1, infinite.size());
             assertEquals(0x55FF8A, infinite.getFirst().getStyle().getColor().getValue() & 0xFFFFFF);

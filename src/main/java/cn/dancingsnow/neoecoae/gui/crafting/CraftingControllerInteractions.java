@@ -97,10 +97,13 @@ final class CraftingControllerInteractions {
         icon.addChild(information);
         icon.style(style -> style.backgroundTexture(SpriteTexture.of(
             NeoECOAE.id("textures/gui/common/side_bar/gray_mirrored_button_slot_up.png"))));
-        icon.addEventListener(UIEvents.MOUSE_ENTER, event -> information.style(style -> style.backgroundTexture(highlighted)));
-        icon.addEventListener(UIEvents.MOUSE_LEAVE, event -> information.style(style -> style.backgroundTexture(normal)));
+        // Keep the hover and tooltip hitbox on the visible information button.  The outer
+        // element only supplies the 23x30 decorative slot frame and is intentionally larger
+        // than the 21x21 icon.
+        information.addEventListener(UIEvents.MOUSE_ENTER, event -> information.style(style -> style.backgroundTexture(highlighted)));
+        information.addEventListener(UIEvents.MOUSE_LEAVE, event -> information.style(style -> style.backgroundTexture(normal)));
         icon.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).right(-21).top(0).width(23).height(30));
-        icon.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+        information.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
             maintenanceTooltipLines(syncedStatus.getValue()), null, null, null));
         return icon;
     }
