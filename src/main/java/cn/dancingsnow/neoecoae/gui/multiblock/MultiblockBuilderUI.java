@@ -65,7 +65,7 @@ public final class MultiblockBuilderUI {
 
     public static UIElement createFloatingPanel(Config config) {
         UIElement[] windowRef = new UIElement[1];
-        UIElement window = NeoUiJsonLoader.load(NeoECOAE.id("ui/multiblock_builder"),
+        UIElement window = NeoUiJsonLoader.load(NeoECOAE.id("screens/multiblock_builder"),
             new NeoUiJsonContext() {
                 @Override
                 public UIElement createCustom(JsonObject node) {

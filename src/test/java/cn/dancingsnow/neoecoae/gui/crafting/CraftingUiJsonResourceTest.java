@@ -43,7 +43,7 @@ class CraftingUiJsonResourceTest {
     }
 
     private JsonObject read(String file) {
-        String path = "assets/neoecoae/ui/crafting/" + file;
+        String path = "assets/neoecoae/screens/crafting/" + file;
         var resource = getClass().getClassLoader().getResourceAsStream(path);
         assertNotNull(resource, "crafting UI definition is missing: " + file);
         try (var reader = new InputStreamReader(resource, StandardCharsets.UTF_8)) {

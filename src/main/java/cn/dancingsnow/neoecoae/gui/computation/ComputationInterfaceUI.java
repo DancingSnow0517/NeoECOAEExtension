@@ -51,7 +51,7 @@ public final class ComputationInterfaceUI {
         ECOMachineInterfaceBlockEntity<NEComputationCluster> computationInterface,
         Player player
     ) {
-        UIElement root = NeoUiJsonLoader.load(NeoECOAE.id("ui/computation_interface"),
+        UIElement root = NeoUiJsonLoader.load(NeoECOAE.id("screens/computation_interface"),
             new NeoUiJsonContext() {
                 @Override
                 public UIElement createCustom(JsonObject node) {

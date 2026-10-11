@@ -103,10 +103,12 @@ class ComputationCpuPanelTest {
                 .filter(InventorySlots.class::isInstance).findFirst().orElseThrow();
             assertTrue(displayed(main));
             assertFalse(displayed(settings));
+            assertTrue(settings.isVisible());
 
             click(find(root, "computation-settings-open"));
             assertFalse(displayed(main));
             assertTrue(displayed(settings));
+            assertTrue(settings.isVisible());
 
             click(find(root, "computation-settings-back"));
             assertTrue(displayed(main));
@@ -147,6 +149,7 @@ class ComputationCpuPanelTest {
             mouse(secondRow, UIEvents.MOUSE_UP, 0, 0);
             assertFalse(displayed(main));
             assertTrue(displayed(status));
+            assertTrue(status.isVisible());
 
             click(find(status, "computation-status-back"));
             mouse(firstRow, UIEvents.MOUSE_UP, 0, 0);

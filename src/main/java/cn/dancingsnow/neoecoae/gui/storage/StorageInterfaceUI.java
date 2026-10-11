@@ -35,7 +35,7 @@ import net.minecraft.world.entity.player.Player;
 
 public final class StorageInterfaceUI {
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/storage/storage_interface");
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/storage/storage_interface");
     private static final int STATUS_CONNECTED = 0x55CC77;
     private static final int STATUS_DISCONNECTED = 0xDD5555;
     private static final int INFINITE_VALUE = 0xCA6CFF;

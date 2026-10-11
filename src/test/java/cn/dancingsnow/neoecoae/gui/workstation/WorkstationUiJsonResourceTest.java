@@ -25,7 +25,7 @@ class WorkstationUiJsonResourceTest {
 
     private JsonObject read(String file) {
         var resource = getClass().getClassLoader().getResourceAsStream(
-            "assets/neoecoae/ui/workstation/" + file);
+            "assets/neoecoae/screens/workstation/" + file);
         assertNotNull(resource, "workstation UI definition is missing: " + file);
         try (var reader = new InputStreamReader(resource, StandardCharsets.UTF_8)) {
             return JsonParser.parseReader(reader).getAsJsonObject();

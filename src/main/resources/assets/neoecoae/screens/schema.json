@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "neoecoae:ui/schema",
+  "$id": "neoecoae:screens/schema",
   "title": "NeoECOAE LDLib2 UI definition",
   "description": "Static layout for NeoUiJsonLoader. Actions, state and custom widgets are registered by the screen context.",
   "type": "object",
@@ -20,7 +20,10 @@
         "id": { "type": "string" },
         "class": { "type": ["string", "array"], "items": { "type": "string" } },
         "classes": { "type": "array", "items": { "type": "string" } },
-        "visible": { "type": "boolean" },
+        "visible": {
+          "type": "boolean",
+          "description": "Permanent render visibility. Runtime panels that are toggled with LDLib2 setDisplay should use layout.display=none instead."
+        },
         "overflow": { "enum": ["visible"] },
         "text": { "type": "string" },
         "translate": { "type": "boolean" },

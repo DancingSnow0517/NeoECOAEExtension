@@ -71,7 +71,7 @@ public final class ComputationHostPanelUI {
         cpuMode.setId("computation-cpu-mode");
         Button frequency = createNetworkFrequencyButton(config);
         frequency.setId("computation-frequency");
-        UIElement root = NeoUiJsonLoader.load(NeoECOAE.id("ui/computation_controller"),
+        UIElement root = NeoUiJsonLoader.load(NeoECOAE.id("screens/computation_controller"),
             new NeoUiJsonContext() {
                 @Override
                 public UIElement createCustom(JsonObject node) {

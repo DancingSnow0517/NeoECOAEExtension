@@ -39,7 +39,7 @@ public final class StoragePriorityUI {
     private static final int[] BUTTON_X = {20, 48, 82, 120};
     private static final int[] BUTTON_WIDTH = {22, 28, 32, 38};
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/storage/storage_priority");
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/storage/storage_priority");
 
     private StoragePriorityUI() {
     }

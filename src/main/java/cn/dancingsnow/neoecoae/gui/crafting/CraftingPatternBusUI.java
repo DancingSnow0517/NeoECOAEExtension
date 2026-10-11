@@ -46,7 +46,7 @@ public final class CraftingPatternBusUI {
     private static final int UI_CONTENT_WIDTH = ROW_SIZE * 18;
     private static final int PAGE_CONTROLS_WIDTH = PAGE_BUTTON_SIZE * 2 + PAGE_CONTROL_GAP * 2 + PAGE_LABEL_WIDTH;
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/crafting/crafting_pattern_bus");
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_pattern_bus");
 
     public static ModularUI create(Config config, Player player) {
         UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));

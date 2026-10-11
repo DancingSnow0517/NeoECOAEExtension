@@ -46,7 +46,7 @@ public final class CraftingInterfaceUI {
     private static final ResourceLocation SCROLLBAR_ENABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller");
     private static final ResourceLocation SCROLLBAR_DISABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller_disabled");
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/crafting/crafting_interface");
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_interface");
     static final int PREVIEW_QUERY_MAX_LENGTH = 128;
 
     private CraftingInterfaceUI() { }

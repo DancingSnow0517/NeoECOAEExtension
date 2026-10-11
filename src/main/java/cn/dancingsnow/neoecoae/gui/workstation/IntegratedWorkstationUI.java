@@ -52,7 +52,7 @@ public final class IntegratedWorkstationUI {
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(ECOIcon.AUTO_EXPORT_OFF);
     private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(ECOIcon.AUTO_EXPORT_ON);
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/workstation/integrated");
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/integrated");
     private final Config config;
 
     private IntegratedWorkstationUI(Config config) {

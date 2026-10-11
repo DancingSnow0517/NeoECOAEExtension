@@ -29,7 +29,7 @@ public final class CraftingHostPanelUI {
     public static final int UI_HEIGHT = 214;
     /** Static geometry and element order for the controller panel. */
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/crafting/crafting_controller");
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_controller");
     private CraftingHostPanelUI() {}
 
     public record Config(

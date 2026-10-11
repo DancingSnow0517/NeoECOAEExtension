@@ -63,7 +63,7 @@ public final class StorageHostUI {
         NeoECOAE.id("textures/guis/estorage_infinite_controller.png"))
         .setSprite(0, 0, ROOT_WIDTH, ROOT_HEIGHT);
     private static final ResourceLocation JSON_LAYOUT =
-        NeoECOAE.id("ui/storage/storage_controller");
+        NeoECOAE.id("screens/storage/storage_controller");
 
     private StorageHostUI() {
     }
@@ -133,7 +133,7 @@ public final class StorageHostUI {
         return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));
     }
 
-    /** Static storage-controller geometry lives in ui/storage/storage_controller.json. */
+    /** Static storage-controller geometry lives in screens/storage/storage_controller.json. */
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
 

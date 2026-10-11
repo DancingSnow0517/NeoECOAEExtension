@@ -26,8 +26,7 @@
         "type": "custom",
         "name": "computation_settings",
         "id": "computation-settings",
-        "visible": false,
-        "layout": { "position": "absolute", "left": 32, "top": 61, "width": 261, "height": 132 },
+        "layout": { "position": "absolute", "display": "none", "left": 32, "top": 61, "width": 261, "height": 132 },
         "children": [
           {
             "type": "custom",
@@ -95,8 +94,7 @@
         "type": "custom",
         "name": "computation_status",
         "id": "computation-status",
-        "visible": false,
-        "layout": { "position": "absolute", "left": 0, "top": 0, "width": 326, "height": 254 }
+        "layout": { "position": "absolute", "display": "none", "left": 0, "top": 0, "width": 326, "height": 254 }
       }
     ]
   }

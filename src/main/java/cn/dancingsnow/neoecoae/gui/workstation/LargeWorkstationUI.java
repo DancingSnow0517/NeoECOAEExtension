@@ -42,7 +42,7 @@ public final class LargeWorkstationUI {
         Runnable returnStoredInputs, Runnable toggleOverclocked, Runnable toggleActiveCooling) {}
 
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/workstation/large");
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/large");
 
     public static ModularUI create(Config config, Player player) {
         UIElement root = WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config, player));

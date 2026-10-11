@@ -19,7 +19,7 @@ import net.minecraft.resources.ResourceLocation;
 
 public final class FluidHatchUI {
     private static final ResourceLocation JSON_LAYOUT =
-        NeoECOAE.id("ui/fluid_hatch");
+        NeoECOAE.id("screens/fluid_hatch");
 
     private FluidHatchUI() {
     }

@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 final class WorkstationInventoryUI {
     private WorkstationInventoryUI() {}
     static UIElement createNetworkToolbox(NetworkToolMenuHost<?> networkTool) {
-        return WorkstationUiJson.load(ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/workstation/network_toolbox"),
+        return WorkstationUiJson.load(ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/network_toolbox"),
             new JsonContext(networkTool));
     }
 

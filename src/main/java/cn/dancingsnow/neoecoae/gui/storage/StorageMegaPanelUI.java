@@ -59,7 +59,7 @@ public final class StorageMegaPanelUI {
         NeoECOAE.id("textures/guis/eco_mega_storage.png")
     ).setSprite(0, 0, WIDTH, HEIGHT);
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/storage/storage_mega_panel");
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/storage/storage_mega_panel");
 
     private StorageMegaPanelUI() {
     }
