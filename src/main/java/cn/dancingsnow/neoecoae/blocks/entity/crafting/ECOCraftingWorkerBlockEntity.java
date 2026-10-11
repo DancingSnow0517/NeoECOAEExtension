@@ -390,6 +390,15 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         displayDirty = true;
     }
 
+    /** The first current output, for controller panels on both ordinary and monitor FX cores. */
+    public ItemStack getCraftingDisplayItem() {
+        for (ECOCraftingThread thread : craftingThreads) {
+            var key = thread.getDisplayedOutputKey();
+            if (key != null) return key.toStack(1);
+        }
+        return ItemStack.EMPTY;
+    }
+
     private void refreshDisplayedJob() {
         if (!displayDirty) return;
         GenericStack nextDisplay = null;

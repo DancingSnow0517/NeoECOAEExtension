@@ -23,10 +23,12 @@ import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.ArrayList;
@@ -56,7 +58,8 @@ public final class CraftingHostPanelUI {
         BooleanSupplier ignoringPatternSubstitutions, IntSupplier substitutionPatternCount,
         Runnable toggleIgnoringPatternSubstitutions, IntSupplier networkFrequency, IntConsumer adjustNetworkFrequency,
         Supplier<CraftingControllerPanelState> panelState, LongSupplier queuedCraftCount,
-        LongSupplier batchCapacity, IntSupplier normalSwitchCount, IntSupplier highEnergySwitchCount
+        LongSupplier batchCapacity, IntSupplier normalSwitchCount, IntSupplier highEnergySwitchCount,
+        Supplier<ItemStack> hostItem, Supplier<List<ItemStack>> workerItems
     ) {}
 
     public static UIElement create(Config config) {
@@ -153,10 +156,13 @@ public final class CraftingHostPanelUI {
 
     private static final class ControllerArtwork extends UIElement {
         private static final int[] PLUS_X = {104, 116, 128};
+        private static final int[] STATUS_CORNER_X = {58, 74, 90};
         private static final int PRIMARY = 0xFFE4E4EE;
         private static final int SECONDARY = 0xFFB4B6CC;
         private static final int GAUGE_INTERIOR_HEIGHT = 45;
         private final Config config;
+        private final ItemStack hostItem;
+        private final ItemStack[] workerItems = new ItemStack[CraftingControllerPanelState.SLOT_COUNT];
         private CraftingControllerPanelState state;
         private final BindableValue<Tag> syncedState;
         private long energyUsage;
@@ -186,6 +192,7 @@ public final class CraftingHostPanelUI {
 
         private ControllerArtwork(Config config) {
             this.config = config;
+            hostItem = config.hostItem.get().copyWithCount(1);
             CompoundTag initial = snapshot();
             updateState(initial);
             syncedState = new BindableValue<>(initial);
@@ -202,6 +209,10 @@ public final class CraftingHostPanelUI {
             addChild(tooltipRegion(196, 130, 48, 22, this::fxTooltip));
             addChild(tooltipRegion(196, 155, 48, 23, this::coolantRowTooltip));
             addChild(tooltipRegion(196, 180, 48, 24, this::switchTooltip));
+            for (int cell = 0; cell < CraftingControllerPanelState.SLOT_COUNT; cell++) {
+                int index = cell;
+                addChild(tooltipRegion(49 + cell * 18, 38, 16, 16, () -> workerItemTooltip(index)));
+            }
         }
 
         private CompoundTag snapshot() {
@@ -230,6 +241,15 @@ public final class CraftingHostPanelUI {
             tag.putBoolean("activeCooling", config.activeCooling.getAsBoolean());
             tag.put("coolantFluid", saveFluid(config.coolantFluid.get()));
             tag.put("outputFluid", saveFluid(config.outputFluid.get()));
+            ListTag items = new ListTag();
+            List<ItemStack> outputs = config.workerItems.get();
+            Object registries = config.registries.get();
+            for (int cell = 0; cell < CraftingControllerPanelState.SLOT_COUNT; cell++) {
+                ItemStack item = cell < outputs.size() ? outputs.get(cell) : ItemStack.EMPTY;
+                items.add(registries instanceof HolderLookup.Provider provider
+                    ? item.saveOptional(provider) : new CompoundTag());
+            }
+            tag.put("workerItems", items);
             return tag;
         }
 
@@ -282,6 +302,12 @@ public final class CraftingHostPanelUI {
             activeCooling = tag.getBoolean("activeCooling");
             coolantFluid = loadFluid(tag.getCompound("coolantFluid"), config.coolantFluid);
             outputFluid = loadFluid(tag.getCompound("outputFluid"), config.outputFluid);
+            ListTag items = tag.getList("workerItems", Tag.TAG_COMPOUND);
+            Object registries = config.registries.get();
+            for (int cell = 0; cell < workerItems.length; cell++) {
+                workerItems[cell] = cell < items.size() && registries instanceof HolderLookup.Provider provider
+                    ? ItemStack.parseOptional(provider, items.getCompound(cell)) : ItemStack.EMPTY;
+            }
         }
 
         private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<List<Component>> lines) {
@@ -295,6 +321,10 @@ public final class CraftingHostPanelUI {
         public void drawBackgroundAdditional(GUIContext context) {
             context.drawTexture(NETextures.Crafting.CONTROLLER, getPositionX(), getPositionY(), UI_WIDTH, UI_HEIGHT);
             drawHeader(context);
+            if (!hostItem.isEmpty()) {
+                context.graphics.renderItem(hostItem, Math.round(getPositionX()) + 9,
+                    Math.round(getPositionY()) + 38);
+            }
             if (!state.formed()) return;
             drawTier(context, state.hostTier());
             drawStatusIcons(context);
@@ -356,6 +386,7 @@ public final class CraftingHostPanelUI {
         }
 
         private void drawStatusIcons(GUIContext context) {
+            drawStatusLamp(context);
             if (state.fxCells() != 0) {
                 sprite(context, 0, overclocked ? 244 : 232, 12, 12, 180, 136, 12, 12);
             }
@@ -365,6 +396,16 @@ public final class CraftingHostPanelUI {
             }
         }
 
+        /** Draw the host-tier markers in the two dark bands of the left status lamp. */
+        private void drawStatusLamp(GUIContext context) {
+            int tier = state.hostTier();
+            if (tier < 1 || tier > STATUS_CORNER_X.length) return;
+
+            int sourceX = STATUS_CORNER_X[tier - 1];
+            sprite(context, sourceX, 218, 10, 7, 12, 31, 10, 7);
+            sprite(context, sourceX, 241, 10, 7, 12, 54, 10, 7);
+        }
+
         private void drawCoreCells(GUIContext context) {
             for (int cell = 0; cell < CraftingControllerPanelState.SLOT_COUNT; cell++) {
                 if (!state.hasFx(cell)) continue;
@@ -372,6 +413,10 @@ public final class CraftingHostPanelUI {
                 sprite(context, 39, 216, 16, 34, x, 29, 16, 34);
                 drawPlus(context, state.upperTier(cell), x + 3, 32, true);
                 drawPlus(context, state.lowerTier(cell), x + 3, 55, false);
+                if (!workerItems[cell].isEmpty()) {
+                    context.graphics.renderItem(workerItems[cell], Math.round(getPositionX()) + x,
+                        Math.round(getPositionY()) + 38);
+                }
             }
         }
 
@@ -474,6 +519,12 @@ public final class CraftingHostPanelUI {
             return List.of(Component.translatable("gui.neoecoae.crafting.ui.fx_active", activeWorkerCores, workerCores),
                 Component.translatable("gui.neoecoae.crafting.ui.ft_parallel", ftParallelCapacity),
                 Component.translatable("gui.neoecoae.crafting.ui.batch_capacity", formatCapacity(batchCapacity)));
+        }
+
+        private List<Component> workerItemTooltip(int cell) {
+            ItemStack item = workerItems[cell];
+            return state.formed() && state.hasFx(cell) && !item.isEmpty()
+                ? List.of(item.getHoverName()) : List.of();
         }
 
         private List<Component> coolantRowTooltip() {

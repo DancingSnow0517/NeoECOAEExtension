@@ -910,7 +910,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             () -> {
                 NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
                 return network == null ? (hasHighEnergyNetworkSwitch() ? 1 : 0) : network.getHighEnergySwitchHostCount();
-            }
+            },
+            () -> new ItemStack(getBlockState().getBlock()),
+            this::getCraftingControllerWorkerItems
         );
     }
 
@@ -924,10 +926,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         for (ECOCraftingParallelCoreBlockEntity core : cluster.getParallelCores()) {
             cores.put(core.getBlockPos(), core.getTier().getTier());
         }
-        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers().stream()
-            .sorted(Comparator.comparingDouble(worker -> worker.getBlockPos().distSqr(getBlockPos())))
-            .limit(CraftingControllerPanelState.SLOT_COUNT)
-            .toList();
+        List<ECOCraftingWorkerBlockEntity> workers = getCraftingControllerWorkers();
         List<Integer> upper = new ArrayList<>(workers.size());
         List<Integer> lower = new ArrayList<>(workers.size());
         for (ECOCraftingWorkerBlockEntity worker : workers) {
@@ -945,6 +944,25 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                     getDisplayedQueuedCraftCount(), snapshot.totalBatchCapacity().finiteValue()),
             CraftingControllerPanelState.permille(snapshot.activeFxCount(), snapshot.physicalFxCount())
         );
+    }
+
+    private List<ECOCraftingWorkerBlockEntity> getCraftingControllerWorkers() {
+        if (!formed || cluster == null) return List.of();
+        return cluster.getWorkers().stream()
+            .sorted(Comparator.comparingDouble(worker -> worker.getBlockPos().distSqr(getBlockPos())))
+            .limit(CraftingControllerPanelState.SLOT_COUNT)
+            .toList();
+    }
+
+    /** Item icons in the same screen cells as the local FX/FT layout, including empty and mirrored cells. */
+    public List<ItemStack> getCraftingControllerWorkerItems() {
+        List<ItemStack> items = new ArrayList<>(java.util.Collections.nCopies(
+            CraftingControllerPanelState.SLOT_COUNT, ItemStack.EMPTY));
+        List<ECOCraftingWorkerBlockEntity> workers = getCraftingControllerWorkers();
+        for (int slot = 0; slot < workers.size(); slot++) {
+            items.set(CraftingControllerPanelState.cellOf(slot, mirrored), workers.get(slot).getCraftingDisplayItem());
+        }
+        return items;
     }
 
     public long getDisplayedQueuedCraftCount() {
