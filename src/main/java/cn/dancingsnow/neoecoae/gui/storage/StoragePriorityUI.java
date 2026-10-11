@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -15,11 +17,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
+import com.google.gson.JsonObject;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
 import java.util.function.IntConsumer;
@@ -34,6 +38,8 @@ public final class StoragePriorityUI {
     private static final int BUTTON_BOTTOM = 72;
     private static final int[] BUTTON_X = {20, 48, 82, 120};
     private static final int[] BUTTON_WIDTH = {22, 28, 32, 38};
+    private static final ResourceLocation JSON_LAYOUT =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/storage/storage_priority");
 
     private StoragePriorityUI() {
     }
@@ -46,50 +52,55 @@ public final class StoragePriorityUI {
     }
 
     public static UIElement createFloatingPanel(Config config) {
-        UIElement window = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(6);
-            layout.display(TaffyDisplay.NONE);
-            layout.width(WINDOW_WIDTH);
-            layout.height(WINDOW_HEIGHT);
-        }).setOverflowVisible(true)
-            .style(style -> style.backgroundTexture(NETextures.PRIORITY_BACKGROUND));
-
-        UIElement titleBar = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(0);
-            layout.top(0);
-            layout.width(WINDOW_WIDTH);
-            layout.height(20);
-        });
-        titleBar.addChild(new TextElement()
-            .setText(Component.translatable("gui.ae2.Priority"))
-            .textStyle(StoragePriorityUI::titleTextStyle)
-            .layout(layout -> layout
-                .positionType(TaffyPosition.ABSOLUTE)
-                .left(8)
-                .top(6)
-                .width(140)
-                .height(12)));
-        titleBar.addChild(new PriorityBackButton()
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.close"))
-            .layout(layout -> layout
-                .positionType(TaffyPosition.ABSOLUTE)
-                .left(152)
-                .top(-5)
-                .width(20)
-                .height(20)));
-        WindowDragHelper.setDragMove(titleBar, window, null, null);
-        window.addChild(titleBar);
-
-        addAmountButtons(window, config, POSITIVE_STEPS, BUTTON_TOP);
-        window.addChild(priorityField(config));
-        addAmountButtons(window, config, NEGATIVE_STEPS, BUTTON_BOTTOM);
-        window.addChild(helpText("gui.ae2.PriorityInsertionHint", 98));
-        window.addChild(helpText("gui.ae2.PriorityExtractionHint", 110));
+        JsonContext context = new JsonContext(config);
+        UIElement window = NeoUiJsonLoader.load(JSON_LAYOUT, context);
+        context.attach(window);
         return window;
+    }
+
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final Config config;
+        private UIElement window;
+        private UIElement dragBar;
+
+        private JsonContext(Config config) {
+            this.config = config;
+        }
+
+        @Override
+        public UIElement createCustom(JsonObject definition) {
+            String custom = definition.get("custom").getAsString();
+            return switch (custom) {
+                case "drag_bar" -> {
+                    dragBar = new UIElement();
+                    yield dragBar;
+                }
+                case "title" -> new TextElement()
+                    .setText(Component.translatable("gui.ae2.Priority"))
+                    .textStyle(StoragePriorityUI::titleTextStyle);
+                case "back" -> new PriorityBackButton()
+                    .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
+                    .addEventListener(UIEvents.HOVER_TOOLTIPS,
+                        event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.close"));
+                case "priority_button" -> priorityButton(definition.get("step").getAsInt(), config.changePriority());
+                case "priority_field" -> priorityField(config);
+                case "help" -> helpText(definition.get("key").getAsString(), 0);
+                default -> throw new IllegalArgumentException("Unknown storage priority custom element: " + custom);
+            };
+        }
+
+        @Override
+        public void configure(JsonObject definition, UIElement element) {
+            if ("storage-priority-root".equals(definition.has("id") ? definition.get("id").getAsString() : "")) {
+                element.setOverflowVisible(true);
+                element.layout(layout -> layout.display(TaffyDisplay.NONE));
+            }
+        }
+
+        private void attach(UIElement window) {
+            this.window = window;
+            if (dragBar != null) WindowDragHelper.setDragMove(dragBar, window, null, null);
+        }
     }
 
     public static UIElement createOpenButton(UIElement window) {

@@ -1,0 +1,96 @@
+{
+  "type": "element",
+  "id": "storage_controller_root",
+  "layout": {
+    "position": "relative",
+    "width": 272,
+    "height": 216
+  },
+  "children": [
+    {
+      "type": "texture",
+      "id": "background",
+      "texture": "neoecoae:textures/guis/estorage_infinite_controller.png",
+      "sprite": [0, 0, 272, 216],
+      "layout": {
+        "position": "absolute",
+        "left": 0,
+        "top": 0,
+        "width": 272,
+        "height": 216
+      }
+    },
+    {
+      "type": "custom",
+      "id": "title",
+      "custom": "storage_title",
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 6,
+        "width": 160,
+        "height": 12
+      }
+    },
+    {
+      "type": "custom",
+      "id": "domain_tooltip",
+      "custom": "storage_domain_tooltip",
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 6,
+        "width": 160,
+        "height": 12
+      }
+    },
+    {
+      "type": "custom",
+      "id": "charts",
+      "custom": "storage_charts",
+      "layout": {
+        "position": "absolute",
+        "left": 0,
+        "top": 0,
+        "width": 178,
+        "height": 129
+      }
+    },
+    {
+      "type": "custom",
+      "id": "storage_types",
+      "custom": "storage_type_list",
+      "layout": {
+        "position": "absolute",
+        "left": 178,
+        "top": 22,
+        "width": 83,
+        "height": 172
+      }
+    },
+    {
+      "type": "custom",
+      "id": "infinite_component",
+      "custom": "infinite_component_slot",
+      "layout": {
+        "position": "absolute",
+        "left": 146,
+        "top": 100,
+        "width": 18,
+        "height": 18
+      }
+    },
+    {
+      "type": "custom",
+      "id": "player_inventory",
+      "custom": "player_inventory",
+      "layout": {
+        "position": "absolute",
+        "left": 7,
+        "top": 129,
+        "width": 162,
+        "height": 76
+      }
+    }
+  ]
+}

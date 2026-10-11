@@ -2,6 +2,9 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
+import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -16,6 +19,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
@@ -23,6 +27,9 @@ import net.neoforged.neoforge.fluids.FluidStack;
 public final class CraftingHostPanelUI {
     public static final int UI_WIDTH = 253;
     public static final int UI_HEIGHT = 214;
+    /** Static geometry and element order for the controller panel. */
+    private static final ResourceLocation JSON_LAYOUT =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/crafting/crafting_controller");
     private CraftingHostPanelUI() {}
 
     public record Config(
@@ -43,24 +50,95 @@ public final class CraftingHostPanelUI {
     ) {}
 
     public static UIElement create(Config config) {
-        CraftingControllerArtwork artwork = new CraftingControllerArtwork(config);
-        UIElement root = new UIElement().layout(layout -> layout
-            .positionType(TaffyPosition.RELATIVE).width(UI_WIDTH).height(UI_HEIGHT));
-        root.setOverflowVisible(true);
-        root.addChild(artwork);
-        root.addChild(CraftingControllerInteractions.createModeButton(10, "overclock", config.overclocked, config.toggleOverclocked));
-        root.addChild(CraftingControllerInteractions.createModeButton(37, "active_cooling", config.activeCooling, config.toggleActiveCooling));
-        root.addChild(playerInventory());
-        return root;
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));
     }
 
-    private static UIElement playerInventory() {
+    /**
+     * The JSON definition owns the inventory position.  Keeping the optional legacy geometry
+     * makes this helper safe for old callers and for resource-load diagnostics.
+     */
+    private static UIElement playerInventory(boolean withLayout) {
         InventorySlots inventory = new InventorySlots();
-        inventory.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(7).top(129).width(162).height(76));
+        if (withLayout) {
+            inventory.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+                .left(7).top(129).width(162).height(76));
+        }
         inventory.hotbar.layout(layout -> layout.marginTop(4));
         inventory.apply(slot -> slot.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         inventory.getChildren().forEach(child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         return inventory;
+    }
+
+    private static UIElement playerInventory() {
+        return playerInventory(true);
+    }
+
+    /** Resource context for the static controller tree.  Dynamic artwork and behavior remain Java. */
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final Config config;
+
+        private JsonContext(Config config) {
+            this.config = config;
+        }
+
+        @Override
+        public UIElement createCustom(JsonObject definition) {
+            String custom = string(definition, "custom", string(definition, "id", ""));
+            return switch (custom) {
+                case "crafting_artwork" -> new CraftingControllerArtwork(config);
+                case "mode_button" -> modeButton(definition);
+                case "player_inventory" -> playerInventory(false);
+                default -> throw new IllegalArgumentException("Unknown crafting UI custom element: " + custom);
+            };
+        }
+
+        @Override
+        public void configure(JsonObject definition, UIElement element) {
+            // Geometry, classes and ordering are interpreted by NeoUiJsonLoader.  The custom
+            // factories above inject the corresponding binding and server action, while keeping
+            // this hook available for future static nodes and loader diagnostics.
+            if ("crafting_controller_root".equals(string(definition, "id", ""))) {
+                element.setOverflowVisible(true);
+            }
+            String action = string(definition, "action", "");
+            if (!action.isEmpty() && !isKnownAction(action)) {
+                throw new IllegalArgumentException("Unknown crafting UI action: " + action);
+            }
+            String binding = string(definition, "binding", "");
+            if (!binding.isEmpty() && !isKnownBinding(binding)) {
+                throw new IllegalArgumentException("Unknown crafting UI binding: " + binding);
+            }
+        }
+
+        private Button modeButton(JsonObject definition) {
+            String mode = string(definition, "mode", "");
+            return switch (mode) {
+                case "overclock" -> CraftingControllerInteractions.createModeButton(
+                    mode, config.overclocked(), config.toggleOverclocked());
+                case "active_cooling" -> CraftingControllerInteractions.createModeButton(
+                    mode, config.activeCooling(), config.toggleActiveCooling());
+                default -> throw new IllegalArgumentException("Unknown crafting mode: " + mode);
+            };
+        }
+
+        private static boolean isKnownAction(String action) {
+            return switch (action) {
+                case "toggle_overclocked", "toggle_active_cooling" -> true;
+                default -> false;
+            };
+        }
+
+        private static boolean isKnownBinding(String binding) {
+            return switch (binding) {
+                case "overclocked", "active_cooling" -> true;
+                default -> false;
+            };
+        }
+
+        private static String string(JsonObject definition, String name, String fallback) {
+            return definition.has(name) && definition.get(name).isJsonPrimitive()
+                ? definition.get(name).getAsString() : fallback;
+        }
     }
 
     public static UIElement create(Config config, UIElement guide, UIElement buildButton,

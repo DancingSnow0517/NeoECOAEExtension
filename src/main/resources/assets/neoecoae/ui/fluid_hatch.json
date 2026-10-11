@@ -1,0 +1,29 @@
+{
+  "type": "element",
+  "id": "fluid-hatch-root",
+  "class": "panel_bg",
+  "layout": { "padding": 4, "gap": 2 },
+  "children": [
+    {
+      "type": "custom",
+      "custom": "title",
+      "layout": {
+        "width": "100%",
+        "justifyContent": "center",
+        "alignItems": "start"
+      }
+    },
+    {
+      "type": "custom",
+      "custom": "fluid_slot",
+      "layout": {
+        "width": "100%",
+        "marginTop": 10,
+        "marginBottom": 10,
+        "justifyContent": "center",
+        "alignItems": "center"
+      }
+    },
+    { "type": "player_inventory" }
+  ]
+}

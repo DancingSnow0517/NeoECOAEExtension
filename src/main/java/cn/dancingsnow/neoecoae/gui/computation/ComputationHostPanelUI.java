@@ -1,16 +1,19 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import com.google.gson.JsonObject;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -41,12 +44,8 @@ public final class ComputationHostPanelUI {
     ) {}
 
     public static UIElement create(Config config, UIElement guideButton, UIElement buildButton, UIElement buildWindow) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .width(ComputationCpuStatusPanel.WIDTH).height(ComputationCpuStatusPanel.HEIGHT).paddingAll(0));
-        root.setOverflowVisible(true);
         var identities = new CpuSelectionState.Identities<ECOCraftingCPU>();
         ComputationCpuStatusPanel status = new ComputationCpuStatusPanel(config, identities);
-        HostElements.absolute(status, 0, 0, ComputationCpuStatusPanel.WIDTH, ComputationCpuStatusPanel.HEIGHT);
         status.setDisplay(false);
         UIElement[] mainRef = new UIElement[1];
         UIElement main = new ComputationCpuPanel(config, serial -> {
@@ -55,19 +54,7 @@ public final class ComputationHostPanelUI {
             status.open(serial);
         }, identities);
         mainRef[0] = main;
-        int mainX = (ComputationCpuStatusPanel.WIDTH - ComputationCpuPanel.WIDTH) / 2;
-        int mainY = (ComputationCpuStatusPanel.HEIGHT - ComputationCpuPanel.HEIGHT) / 2;
-        HostElements.absolute(main, mainX, mainY, ComputationCpuPanel.WIDTH, ComputationCpuPanel.HEIGHT);
-        InventorySlots inventory = new InventorySlots();
-        inventory.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
-            .left(7).top(129).width(162).height(77));
-        inventory.hotbar.layout(layout -> layout.marginTop(4));
-        inventory.apply(slot -> slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
-        inventory.getChildren().forEach(child -> child.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
-        main.addChild(inventory);
-        ComputationSettingsPanel settings = new ComputationSettingsPanel(config);
-        settings.layout(layout -> layout.left(mainX)
-            .top(mainY + (ComputationCpuPanel.HEIGHT - ComputationSettingsPanel.HEIGHT) / 2));
+        ComputationSettingsPanel settings = new ComputationSettingsPanel(config, false);
         settings.setDisplay(false);
         Button open = HostSideButtonBar.createButton().noText().addPostIcon(AETextures.icon(ECOIcon.COG));
         open.setId("computation-settings-open");
@@ -75,10 +62,6 @@ public final class ComputationHostPanelUI {
         open.setOnClick(event -> {
             main.setDisplay(false);
             settings.setDisplay(true);
-        });
-        settings.addBackButton(() -> {
-            settings.setDisplay(false);
-            main.setDisplay(true);
         });
         status.setBackAction(() -> {
             status.setDisplay(false);
@@ -88,8 +71,55 @@ public final class ComputationHostPanelUI {
         cpuMode.setId("computation-cpu-mode");
         Button frequency = createNetworkFrequencyButton(config);
         frequency.setId("computation-frequency");
-        main.addChildren(HostSideButtonBar.left(guideButton, buildButton, cpuMode, frequency, open), buildWindow);
-        root.addChildren(main, settings, status);
+        UIElement root = NeoUiJsonLoader.load(NeoECOAE.id("ui/computation_controller"),
+            new NeoUiJsonContext() {
+                @Override
+                public UIElement createCustom(JsonObject node) {
+                    return switch (node.has("name") ? node.get("name").getAsString() : "") {
+                        case "computation_main" -> main;
+                        case "computation_settings" -> settings;
+                        case "computation_status" -> status;
+                        case "computation_toolbar" -> HostSideButtonBar.left(guideButton, buildButton,
+                            cpuMode, frequency, open);
+                        case "computation_settings_title" -> ComputationSettingsPanel.settingLabel(
+                            214, 14, () -> Component.translatable("gui.neoecoae.computation.settings.title"));
+                        case "computation_settings_substitution_count" -> ComputationSettingsPanel.settingLabel(
+                            207, 11, () -> Component.translatable(
+                                "gui.neoecoae.crafting.planning.substitution_pattern_count",
+                                Math.max(0, config.substitutionPatternCount().getAsInt())));
+                        case "computation_settings_label" -> ComputationSettingsPanel.settingLabel(
+                            207, 14, () -> Component.translatable("gui.neoecoae.computation.settings."
+                                + (node.has("key") ? node.get("key").getAsString() : "")));
+                        case "computation_settings_toggle" -> ComputationSettingsPanel.createToggle(config,
+                            node.has("key") ? node.get("key").getAsString() : "");
+                        case "computation_settings_back" -> new ComputationSettingsPanel.BackButton().noText()
+                            .layout(layout -> layout.paddingAll(0));
+                        default -> null;
+                    };
+                }
+
+                @Override
+                public void configure(JsonObject node, UIElement element) {
+                    if ("player_inventory".equals(node.has("type") ? node.get("type").getAsString() : "")
+                        && element instanceof InventorySlots inventory) {
+                        inventory.hotbar.layout(layout -> layout.marginTop(4));
+                        inventory.apply(slot -> slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
+                        inventory.getChildren().forEach(child -> child.style(style ->
+                            style.backgroundTexture(IGuiTexture.EMPTY)));
+                    }
+                    if ("computation_settings_back".equals(node.has("name") ? node.get("name").getAsString() : "")) {
+                        Button back = (Button) element;
+                        back.setOnClick(event -> {
+                            settings.setDisplay(false);
+                            main.setDisplay(true);
+                        });
+                        HostElements.tooltips(back,
+                            Component.translatable("gui.neoecoae.computation.settings.back"));
+                    }
+                }
+            });
+        root.setOverflowVisible(true);
+        root.selectId("computation-main").findFirst().ifPresent(element -> element.addChild(buildWindow));
         return root;
     }
 

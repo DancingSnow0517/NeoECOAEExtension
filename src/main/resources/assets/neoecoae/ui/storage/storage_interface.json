@@ -1,0 +1,27 @@
+{
+  "type": "element",
+  "layout": {
+    "width": 224,
+    "height": 116,
+    "padding": 8,
+    "gap": 6,
+    "flexDirection": "column"
+  },
+  "class": "panel_bg",
+  "overflow": "visible",
+  "children": [
+    { "type": "custom", "custom": "toolbar" },
+    { "type": "custom", "custom": "title" },
+    {
+      "type": "custom",
+      "custom": "content",
+      "layout": {
+        "width": "100%",
+        "flex": 1,
+        "padding": 8,
+        "gap": 5,
+        "flexDirection": "column"
+      }
+    }
+  ]
+}

@@ -3,9 +3,12 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import static cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.COL_SIZE;
 import static cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.ROW_SIZE;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
+import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -20,6 +23,7 @@ import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
@@ -41,18 +45,47 @@ public final class CraftingPatternBusUI {
     private static final int PAGE_LABEL_WIDTH = 16;
     private static final int UI_CONTENT_WIDTH = ROW_SIZE * 18;
     private static final int PAGE_CONTROLS_WIDTH = PAGE_BUTTON_SIZE * 2 + PAGE_CONTROL_GAP * 2 + PAGE_LABEL_WIDTH;
+    private static final ResourceLocation JSON_LAYOUT =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/crafting/crafting_pattern_bus");
 
     public static ModularUI create(Config config, Player player) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .paddingBottom(6)
-            .gapAll(2)
-            .width(UI_CONTENT_WIDTH + 8)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
+        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));
+        return ECOModularUI.create(root, player);
+    }
 
-        root.addChild(headerRow(config));
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final Config config;
 
+        private JsonContext(Config config) {
+            this.config = config;
+        }
+
+        @Override
+        public UIElement createCustom(JsonObject node) {
+            return switch (string(node, "custom", "")) {
+                case "header" -> headerRow(config);
+                case "pattern_inventory" -> patternInventory(config);
+                case "player_inventory" -> new InventorySlots().layout(layout -> layout.marginTop(5));
+                default -> throw new IllegalArgumentException("Unknown crafting pattern bus custom element: "
+                    + string(node, "custom", ""));
+            };
+        }
+
+        @Override
+        public void configure(JsonObject node, UIElement element) {
+            // The loader applies the static root class and geometry.  Page buttons and slot
+            // handlers are constructed by the custom nodes because they depend on live state.
+            if ("crafting_pattern_bus_root".equals(string(node, "id", ""))) {
+                element.layout(layout -> layout.justifyContent(AlignContent.CENTER));
+            }
+        }
+
+        private static String string(JsonObject node, String key, String fallback) {
+            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
+        }
+    }
+
+    private static UIElement patternInventory(Config config) {
         UIElement patternInv = new UIElement().addClass("panel_border");
         for (int row = 0; row < COL_SIZE; row++) {
             UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
@@ -65,9 +98,7 @@ public final class CraftingPatternBusUI {
             }
             patternInv.addChild(rowInv);
         }
-        root.addChild(patternInv);
-        root.addChild(new InventorySlots().layout(layout -> layout.marginTop(5)));
-        return ECOModularUI.create(root, player);
+        return patternInv;
     }
 
     private static UIElement headerRow(Config config) {

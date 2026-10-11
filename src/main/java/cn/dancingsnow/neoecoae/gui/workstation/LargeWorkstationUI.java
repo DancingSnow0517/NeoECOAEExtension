@@ -1,14 +1,13 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
@@ -21,10 +20,14 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
@@ -38,13 +41,16 @@ public final class LargeWorkstationUI {
         BooleanSupplier overclocked, BooleanSupplier activeCooling,
         Runnable returnStoredInputs, Runnable toggleOverclocked, Runnable toggleActiveCooling) {}
 
-    private static final IGuiTexture UI_BACKGROUND = SpriteTexture.of(
-        NeoECOAE.id("textures/guis/large_integrated_working_station.png")
-    ).setSprite(0, 0, 176, 180);
+    private static final ResourceLocation JSON_LAYOUT =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/workstation/large");
 
     public static ModularUI create(Config config, Player player) {
-        UIElement root = new UIElement().layout(layout -> layout.width(176).height(180))
-            .style(style -> style.backgroundTexture(UI_BACKGROUND));
+        UIElement root = WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config, player));
+        return ECOModularUI.create(root, player);
+    }
+
+    private static UIElement createLegacyRoot(Config config, Player player) {
+        UIElement root = new UIElement();
 
         TextElement title = staticLabel("block.neoecoae.large_integrated_working_station", 8, 4, 106, 10);
         title.textStyle(style -> style.fontSize(8));
@@ -60,20 +66,6 @@ public final class LargeWorkstationUI {
 
         // Resolve through the controller on every sync, so a rebuilt cluster cannot leave
         // an open screen displaying a detached hatch's tank.
-        IFluidHandler fluids = config.fluids();
-        root.addChild(fluidGauge(fluids, 0, 8));
-        root.addChild(fluidGauge(fluids, 1, 150));
-
-        for (int row = 0; row < 4; row++) {
-            for (int col = 0; col < 9; col++) {
-                int index = row == 3 ? col : 9 + row * 9 + col;
-                int x = 7 + col * 18;
-                int y = row == 3 ? 153 : 95 + row * 18;
-                root.addChild(new ItemSlot(new net.minecraft.world.inventory.Slot(player.getInventory(), index, 0, 0))
-                    .style(style -> style.backgroundTexture(IGuiTexture.EMPTY))
-                    .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x).top(y).width(18).height(18)));
-            }
-        }
         root.addChild(HostSideButtonBar.left(
             GuideButton.create(player, "neoecoae:neoecoae_intro/large_integrated_working_station.md"),
             settingButton(ECOIcon.ARROW_LEFT, config.returnStoredInputs(), () -> Component.translatable(
@@ -83,17 +75,61 @@ public final class LargeWorkstationUI {
             settingButton(ECOIcon.TYPE_FILTER_ALL, config.toggleActiveCooling(), () -> Component.translatable(
                 config.activeCooling().getAsBoolean() ? "gui.neoecoae.crafting.active_cooling.on" : "gui.neoecoae.crafting.active_cooling.off"))
         ));
-        return ECOModularUI.create(root, player);
+        return root;
     }
 
-    private static UIElement fluidGauge(IFluidHandler fluids, int tank, int left) {
-        return new FluidSlot().bind(fluids, tank)
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final Config config;
+        private final Player player;
+
+        private JsonContext(Config config, Player player) {
+            this.config = config;
+            this.player = player;
+        }
+
+        @Override
+        public UIElement createCustom(JsonObject node) {
+            return switch (string(node, "custom", "")) {
+                case "content" -> createLegacyRoot(config, player);
+                case "player_inventory" -> playerInventory(node, player);
+                case "input_fluid" -> fluidGauge(config.fluids(), 0, 8, false);
+                case "output_fluid" -> fluidGauge(config.fluids(), 1, 150, false);
+                default -> throw new IllegalArgumentException("Unknown large workstation custom element: "
+                    + string(node, "custom", ""));
+            };
+        }
+
+        private static UIElement playerInventory(JsonObject node, Player player) {
+            UIElement inventory = new UIElement();
+            JsonArray slots = node.getAsJsonArray("slots");
+            for (JsonElement value : slots) {
+                JsonObject slot = value.getAsJsonObject();
+                inventory.addChild(new ItemSlot(new net.minecraft.world.inventory.Slot(
+                    player.getInventory(), slot.get("index").getAsInt(), 0, 0))
+                    .style(style -> style.backgroundTexture(IGuiTexture.EMPTY))
+                    .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+                        .left(slot.get("left").getAsInt()).top(slot.get("top").getAsInt())
+                        .width(18).height(18)));
+            }
+            return inventory;
+        }
+
+        private static String string(JsonObject node, String key, String fallback) {
+            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
+        }
+    }
+
+    private static UIElement fluidGauge(IFluidHandler fluids, int tank, int left, boolean withLayout) {
+        FluidSlot slot = new FluidSlot().bind(fluids, tank)
             .setAllowClickFilled(false)
             .setAllowClickDrained(false)
-            .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
-            .style(style -> style.backgroundTexture(IGuiTexture.EMPTY))
-            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+            .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP));
+        slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        if (withLayout) {
+            slot.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
                 .left(left).top(20).width(18).height(60));
+        }
+        return slot;
     }
 
     public static Button settingButton(ECOIcon icon, Runnable action, java.util.function.Supplier<Component> tooltip) {

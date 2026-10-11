@@ -26,13 +26,19 @@ import net.minecraft.network.chat.Component;
 /** Controller buttons and hover interactions; machine actions are supplied by the host. */
 final class CraftingControllerInteractions {
     private CraftingControllerInteractions() {}
-    static Button createModeButton(int x, String mode, BooleanSupplier enabled, Runnable toggle) {
+
+    /**
+     * Creates a mode button without imposing a position.  Resource-backed UI definitions own
+     * the geometry; the overload below remains for callers that still use the legacy helper.
+     */
+    static Button createModeButton(String mode, BooleanSupplier enabled, Runnable toggle) {
         Button button = new Button().noText().setOnServerClick(event -> {
             if (event.button == 0) toggle.run();
         });
+        // The JSON definition supplies position and size; preserve the native zero-padding
+        // contract here so the atlas sprite remains pixel aligned in either path.
+        button.layout(layout -> layout.paddingAll(0));
         button.addClass("eco-crafting-" + mode + "-button");
-        button.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
-            .left(x).top(96).width(15).height(26).paddingAll(0));
         BindableValue<Boolean> synced = new BindableValue<>(enabled.getAsBoolean());
         synced.bind(DataBindingBuilder.boolS2C(enabled::getAsBoolean).build());
         synced.registerValueListener(value -> updateModeButtonStyle(button, Boolean.TRUE.equals(value)));
@@ -42,6 +48,13 @@ final class CraftingControllerInteractions {
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty().append(
             Component.translatable("gui.neoecoae.crafting." + mode
                 + (Boolean.TRUE.equals(synced.getValue()) ? ".on" : ".off"))));
+        return button;
+    }
+
+    static Button createModeButton(int x, String mode, BooleanSupplier enabled, Runnable toggle) {
+        Button button = createModeButton(mode, enabled, toggle);
+        button.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+            .left(x).top(96).width(15).height(26).paddingAll(0));
         return button;
     }
 

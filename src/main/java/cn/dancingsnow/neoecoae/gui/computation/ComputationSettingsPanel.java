@@ -24,16 +24,59 @@ final class ComputationSettingsPanel extends UIElement {
         .setSprite(0, 0, 256, 256).setBorder(4, 4, 4, 4);
 
     ComputationSettingsPanel(ComputationHostPanelUI.Config config) {
+        this(config, true);
+    }
+
+    ComputationSettingsPanel(ComputationHostPanelUI.Config config, boolean populate) {
         setId("computation-settings");
         HostElements.absolute(this, 0, (ComputationCpuPanel.HEIGHT - HEIGHT) / 2, ComputationCpuPanel.WIDTH, HEIGHT);
         setOverflowVisible(true);
         style(style -> style.backgroundTexture(BACKGROUND));
+        if (!populate) return;
         label(8, 8, 214, 14, () -> setting("title"));
         toggle("substitutions", 32, () -> !config.ignoringPatternSubstitutions().getAsBoolean(), config.toggleIgnoringPatternSubstitutions());
         label(42, 48, 207, 11, () -> Component.translatable("gui.neoecoae.crafting.planning.substitution_pattern_count",
             Math.max(0, config.substitutionPatternCount().getAsInt())));
         toggle("cycle_planning", 72, config.cyclePlanningEnabled(), config.toggleCyclePlanning());
         toggle("fast_planner", 104, config.fastPlannerEnabled(), config.toggleFastPlanner());
+    }
+
+    static Label settingLabel(int width, int height, Supplier<Component> text) {
+        Label label = HostElements.textSegment(text, () -> 0x3F3D52);
+        label.textStyle(style -> style.adaptiveWidth(false).adaptiveHeight(false).textWrap(TextWrap.WRAP));
+        return label;
+    }
+
+    static Button createToggle(ComputationHostPanelUI.Config config, String key) {
+        BooleanSupplier enabled;
+        Runnable action;
+        switch (key) {
+            case "substitutions" -> {
+                enabled = () -> !config.ignoringPatternSubstitutions().getAsBoolean();
+                action = config.toggleIgnoringPatternSubstitutions();
+            }
+            case "cycle_planning" -> {
+                enabled = config.cyclePlanningEnabled();
+                action = config.toggleCyclePlanning();
+            }
+            case "fast_planner" -> {
+                enabled = config.fastPlannerEnabled();
+                action = config.toggleFastPlanner();
+            }
+            default -> throw new IllegalArgumentException("Unknown computation setting: " + key);
+        }
+        Button button = new Button().noText();
+        button.setId("computation-settings-" + key);
+        button.layout(layout -> layout.paddingAll(0));
+        BindableValue<Boolean> value = new BindableValue<>(enabled.getAsBoolean());
+        value.bind(DataBindingBuilder.boolS2C(enabled::getAsBoolean).build());
+        value.registerValueListener(state -> toggleTexture(button, Boolean.TRUE.equals(state)));
+        value.setDisplay(false);
+        button.addChild(value);
+        toggleTexture(button, enabled.getAsBoolean());
+        button.setOnServerClick(event -> action.run());
+        HostElements.tooltips(button, setting(key));
+        return button;
     }
 
     void addBackButton(Runnable back) {
@@ -74,7 +117,7 @@ final class ComputationSettingsPanel extends UIElement {
         label(42, y + 2, 207, 14, () -> setting(key));
     }
 
-    private static void toggleTexture(Button button, boolean enabled) {
+    static void toggleTexture(Button button, boolean enabled) {
         IGuiTexture normal = checkbox(0, enabled ? 40 : 28);
         IGuiTexture hover = checkbox(22, enabled ? 40 : 28);
         button.buttonStyle(style -> style.baseTexture(normal).hoverTexture(hover).pressedTexture(hover));
@@ -85,9 +128,7 @@ final class ComputationSettingsPanel extends UIElement {
     }
 
     private void label(int x, int y, int width, int height, Supplier<Component> text) {
-        Label label = HostElements.textSegment(text, () -> 0x3F3D52);
-        label.textStyle(style -> style.adaptiveWidth(false).adaptiveHeight(false).textWrap(TextWrap.WRAP));
-        addChild(HostElements.absolute(label, x, y, width, height));
+        addChild(HostElements.absolute(settingLabel(width, height, text), x, y, width, height));
     }
 
     private static Component setting(String key) {

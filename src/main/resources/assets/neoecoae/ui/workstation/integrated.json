@@ -1,0 +1,18 @@
+{
+  "type": "element",
+  "id": "integrated_workstation_root",
+  "class": "panel_bg",
+  "layout": {
+    "paddingAll": 4,
+    "paddingBottom": 7,
+    "gapAll": 2,
+    "justifyContent": "center"
+  },
+  "children": [
+    {
+      "type": "custom",
+      "id": "integrated_workstation_content",
+      "custom": "content"
+    }
+  ]
+}

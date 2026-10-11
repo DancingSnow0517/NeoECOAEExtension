@@ -7,6 +7,9 @@ import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
+import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -23,6 +26,7 @@ import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
@@ -54,6 +58,8 @@ public final class StorageMegaPanelUI {
     private static final SpriteTexture BACKGROUND = SpriteTexture.of(
         NeoECOAE.id("textures/guis/eco_mega_storage.png")
     ).setSprite(0, 0, WIDTH, HEIGHT);
+    private static final ResourceLocation JSON_LAYOUT =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/storage/storage_mega_panel");
 
     private StorageMegaPanelUI() {
     }
@@ -64,26 +70,49 @@ public final class StorageMegaPanelUI {
         IItemHandlerModifiable filterInventory,
         @Nullable Button bulkMarkingButton
     ) {
-        UIElement panel = HostElements.syncedDisplay(host::hasEcoMegaBulkCell);
-        HostElements.absolute(panel, LEFT, TOP, WIDTH, HEIGHT);
-        panel.style(style -> style.backgroundTexture(BACKGROUND));
-        panel.addChild(upgradeSlot(upgradeInventory));
-        if (bulkMarkingButton != null) {
-            HostSideButtonBar.placeButton(bulkMarkingButton, ACTION_BUTTON_LEFT, ACTION_BUTTON_TOP);
-            panel.addChild(bulkMarkingButton);
+        return NeoUiJsonLoader.load(JSON_LAYOUT,
+            new JsonContext(host, upgradeInventory, filterInventory, bulkMarkingButton));
+    }
+
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final ECOStorageSystemBlockEntity host;
+        private final IItemHandlerModifiable upgradeInventory;
+        private final IItemHandlerModifiable filterInventory;
+        private final @Nullable Button bulkMarkingButton;
+
+        private JsonContext(ECOStorageSystemBlockEntity host, IItemHandlerModifiable upgradeInventory,
+                            IItemHandlerModifiable filterInventory, @Nullable Button bulkMarkingButton) {
+            this.host = host;
+            this.upgradeInventory = upgradeInventory;
+            this.filterInventory = filterInventory;
+            this.bulkMarkingButton = bulkMarkingButton;
         }
-        panel.addChild(cellControls(host));
-        UIElement pageControls = HostElements.syncedDisplay(() -> host.getEcoMegaPageCount() > 1);
-        pageControls.layout(layout -> layout
-            .positionType(TaffyPosition.ABSOLUTE)
-            .left(CONTROLS_LEFT)
-            .top(SECOND_ROW_TOP)
-            .width(ARROW_BUTTON_WIDTH * 2 + LABEL_WIDTH + CONTROL_GAP * 2)
-            .height(CONTROL_HEIGHT));
-        pageControls.addChild(pageControls(host));
-        panel.addChild(pageControls);
-        panel.addChild(filterGrid(host, filterInventory));
-        return panel;
+
+        @Override
+        public UIElement createCustom(JsonObject definition) {
+            return switch (definition.get("custom").getAsString()) {
+                case "mega_panel" -> HostElements.syncedDisplay(host::hasEcoMegaBulkCell);
+                case "upgrade_slot" -> upgradeSlot(upgradeInventory);
+                case "bulk_marking" -> {
+                    if (bulkMarkingButton != null) {
+                        HostSideButtonBar.placeButton(bulkMarkingButton, ACTION_BUTTON_LEFT, ACTION_BUTTON_TOP);
+                        yield bulkMarkingButton;
+                    }
+                    UIElement hidden = new UIElement();
+                    hidden.setVisible(false);
+                    yield hidden;
+                }
+                case "cell_controls" -> cellControls(host);
+                case "page_controls" -> {
+                    UIElement pageControls = HostElements.syncedDisplay(() -> host.getEcoMegaPageCount() > 1);
+                    pageControls.addChild(pageControls(host));
+                    yield pageControls;
+                }
+                case "filter_grid" -> filterGrid(host, filterInventory);
+                default -> throw new IllegalArgumentException("Unknown storage mega panel custom element: "
+                    + definition.get("custom").getAsString());
+            };
+        }
     }
 
     private static UIElement upgradeSlot(IItemHandlerModifiable inventory) {

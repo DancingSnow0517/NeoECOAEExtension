@@ -4,6 +4,8 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
@@ -27,6 +29,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
@@ -59,6 +62,8 @@ public final class StorageHostUI {
     private static final SpriteTexture BACKGROUND = SpriteTexture.of(
         NeoECOAE.id("textures/guis/estorage_infinite_controller.png"))
         .setSprite(0, 0, ROOT_WIDTH, ROOT_HEIGHT);
+    private static final ResourceLocation JSON_LAYOUT =
+        NeoECOAE.id("ui/storage/storage_controller");
 
     private StorageHostUI() {
     }
@@ -125,44 +130,38 @@ public final class StorageHostUI {
     }
 
     public static UIElement create(Config config) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .width(ROOT_WIDTH)
-            .height(ROOT_HEIGHT)
-        );
-        root.addChild(HostElements.absolute(new UIElement(), 0, 0, ROOT_WIDTH, ROOT_HEIGHT)
-            .style(style -> style.backgroundTexture(BACKGROUND)));
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));
+    }
 
-        root.addChild(new TextElement()
-            .setText(config.title().get())
-            .textStyle(style -> style
-                .adaptiveHeight(true)
-                .adaptiveWidth(true)
-                .textWrap(TextWrap.NONE)
-                .textColor(0x3F3D52)
-                .textShadow(false))
-            .layout(layout -> layout
-                .positionType(TaffyPosition.ABSOLUTE)
-                .left(8)
-                .top(6)
-                .width(160)
-                .height(12)));
+    /** Static storage-controller geometry lives in ui/storage/storage_controller.json. */
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final Config config;
 
-        root.addChild(HostElements.absolute(new TitleDomainTooltip(config.domainId()), 8, 6, 160, 12));
+        private JsonContext(Config config) {
+            this.config = config;
+        }
 
-        StorageHostCharts.addTo(root, config);
-
-        root.addChild(storageTypeList(config));
-        root.addChild(infiniteComponentSlot(
-            config.canExtractInfiniteComponents(),
-            config.infiniteComponentInventory()
-        ).layout(layout -> layout
-            .positionType(TaffyPosition.ABSOLUTE)
-            .left(INFINITE_COMPONENT_SLOT_LEFT)
-            .top(INFINITE_COMPONENT_SLOT_TOP)
-            .width(INFINITE_COMPONENT_SLOT_SIZE)
-            .height(INFINITE_COMPONENT_SLOT_SIZE)));
-        root.addChild(playerInventory());
-        return root;
+        @Override
+        public UIElement createCustom(com.google.gson.JsonObject definition) {
+            return switch (definition.get("custom").getAsString()) {
+                case "storage_title" -> new TextElement()
+                    .setText(config.title().get())
+                    .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
+                        .textWrap(TextWrap.NONE).textColor(0x3F3D52).textShadow(false));
+                case "storage_domain_tooltip" -> new TitleDomainTooltip(config.domainId());
+                case "storage_charts" -> {
+                    UIElement charts = new UIElement();
+                    StorageHostCharts.addTo(charts, config);
+                    yield charts;
+                }
+                case "storage_type_list" -> storageTypeList(config, false);
+                case "infinite_component_slot" -> infiniteComponentSlot(
+                    config.canExtractInfiniteComponents(), config.infiniteComponentInventory());
+                case "player_inventory" -> playerInventory(false);
+                default -> throw new IllegalArgumentException("Unknown storage UI custom element: "
+                    + definition.get("custom").getAsString());
+            };
+        }
     }
 
     /** Tooltip-only overlay over the title; the UUID remains synchronized without a visible label. */
@@ -226,8 +225,14 @@ public final class StorageHostUI {
     }
 
     private static UIElement storageTypeList(Config config) {
+        return storageTypeList(config, true);
+    }
+
+    private static UIElement storageTypeList(Config config, boolean withLayout) {
         ScrollerView list = new ScrollerView();
-        HostElements.absolute(list, CELL_LIST_LEFT, CELL_LIST_TOP, CELL_LIST_WIDTH, CELL_LIST_HEIGHT);
+        if (withLayout) {
+            HostElements.absolute(list, CELL_LIST_LEFT, CELL_LIST_TOP, CELL_LIST_WIDTH, CELL_LIST_HEIGHT);
+        }
         list.scrollerStyle(style -> style.horizontalScrollDisplay(ScrollDisplay.NEVER));
         // ScrollerView paints its default border on the viewport, not the list itself.
         list.viewPort(view -> view
@@ -302,13 +307,19 @@ public final class StorageHostUI {
     }
 
     private static UIElement playerInventory() {
+        return playerInventory(true);
+    }
+
+    private static UIElement playerInventory(boolean withLayout) {
         InventorySlots inventory = new InventorySlots();
-        inventory.layout(layout -> layout
-            .positionType(TaffyPosition.ABSOLUTE)
-            .left(INVENTORY_LEFT)
-            .top(INVENTORY_TOP)
-            .width(INVENTORY_WIDTH)
-            .height(INVENTORY_HEIGHT));
+        if (withLayout) {
+            inventory.layout(layout -> layout
+                .positionType(TaffyPosition.ABSOLUTE)
+                .left(INVENTORY_LEFT)
+                .top(INVENTORY_TOP)
+                .width(INVENTORY_WIDTH)
+                .height(INVENTORY_HEIGHT));
+        }
         inventory.apply(slot -> slot.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         inventory.getChildren().forEach(child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         inventory.hotbar.getLayout().marginTop(4);

@@ -2,6 +2,10 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import com.google.gson.JsonObject;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
@@ -47,14 +51,30 @@ public final class ComputationInterfaceUI {
         ECOMachineInterfaceBlockEntity<NEComputationCluster> computationInterface,
         Player player
     ) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .width(ROOT_WIDTH)
-            .height(ROOT_HEIGHT)
-        ).style(style -> style.backgroundTexture(NETextures.NBT_BENCH));
-        root.addChild(title(computationInterface));
-        root.addChild(fuzzyHint());
-        root.addChild(fuzzyItemSlots(computationInterface));
-        root.addChild(playerInventory());
+        UIElement root = NeoUiJsonLoader.load(NeoECOAE.id("ui/computation_interface"),
+            new NeoUiJsonContext() {
+                @Override
+                public UIElement createCustom(JsonObject node) {
+                    return switch (node.has("name") ? node.get("name").getAsString() : "") {
+                        case "computation_interface_title" -> title(computationInterface);
+                        case "computation_interface_hint" -> fuzzyHint();
+                        case "computation_fuzzy_grid" -> fuzzyItemSlots(computationInterface);
+                        default -> null;
+                    };
+                }
+
+                @Override
+                public void configure(JsonObject node, UIElement element) {
+                    if ("player_inventory".equals(node.has("type") ? node.get("type").getAsString() : "")
+                        && element instanceof InventorySlots inventory) {
+                        inventory.apply(slot -> slot.getStyle().backgroundTexture(IGuiTexture.EMPTY));
+                        inventory.getChildren().forEach(child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY));
+                        for (InventorySlots.Row row : inventory.rows) {
+                            row.apply(slot -> slot.transform(transform -> transform.translate(0, 1)));
+                        }
+                    }
+                }
+            });
         return ECOModularUI.create(root, player);
     }
 

@@ -2,17 +2,19 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 
 import appeng.api.inventories.InternalInventory;
 import appeng.items.contents.NetworkToolMenuHost;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
+import com.google.gson.JsonObject;
+import java.util.Objects;
+import net.minecraft.resources.ResourceLocation;
 import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
@@ -25,16 +27,13 @@ import org.jetbrains.annotations.Nullable;
 final class WorkstationInventoryUI {
     private WorkstationInventoryUI() {}
     static UIElement createNetworkToolbox(NetworkToolMenuHost<?> networkTool) {
+        return WorkstationUiJson.load(ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/workstation/network_toolbox"),
+            new JsonContext(networkTool));
+    }
+
+    private static UIElement createLegacyNetworkToolbox(NetworkToolMenuHost<?> networkTool) {
         var itemHandler = new NetworkToolItemHandler(networkTool);
-        UIElement toolbox = new UIElement().style(style -> style.backgroundTexture(NETextures.AE2_TOOLBOX));
-        toolbox.layout(layout -> layout
-            .positionType(TaffyPosition.ABSOLUTE)
-            .left(164)
-            .top(-5)
-            .width(61)
-            .height(66)
-            .paddingLeft(2)
-            .paddingTop(5));
+        UIElement toolbox = new UIElement();
 
         for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
             UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
@@ -49,6 +48,27 @@ final class WorkstationInventoryUI {
             toolbox.addChild(row);
         }
         return toolbox;
+    }
+
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final NetworkToolMenuHost<?> networkTool;
+
+        private JsonContext(NetworkToolMenuHost<?> networkTool) {
+            this.networkTool = Objects.requireNonNull(networkTool, "networkTool");
+        }
+
+        @Override
+        public UIElement createCustom(JsonObject node) {
+            if ("content".equals(string(node, "custom", ""))) {
+                return createLegacyNetworkToolbox(networkTool);
+            }
+            throw new IllegalArgumentException("Unknown workstation inventory custom element: "
+                + string(node, "custom", ""));
+        }
+
+        private static String string(JsonObject node, String key, String fallback) {
+            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
+        }
     }
 
     static InventorySlots createPlayerInventory(Inventory inventory, @Nullable Integer lockedSlot) {

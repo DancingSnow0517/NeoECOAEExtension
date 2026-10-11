@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
@@ -25,6 +26,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.google.gson.JsonObject;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -39,6 +41,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -48,6 +51,8 @@ import net.neoforged.neoforge.items.IItemHandlerModifiable;
 public final class IntegratedWorkstationUI {
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(ECOIcon.AUTO_EXPORT_OFF);
     private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(ECOIcon.AUTO_EXPORT_ON);
+    private static final ResourceLocation JSON_LAYOUT =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/workstation/integrated");
     private final Config config;
 
     private IntegratedWorkstationUI(Config config) {
@@ -67,12 +72,13 @@ public final class IntegratedWorkstationUI {
     }
 
     public ModularUI create(Player player) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .paddingBottom(7)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
+        UIElement root = WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config, player));
+        return ECOModularUI.create(root, player);
+    }
+
+    /** Legacy dynamic subtree retained behind the resource-defined root. */
+    private UIElement createLegacyRoot(Player player) {
+        UIElement root = new UIElement();
 
         // Floating output side config window (hidden by default)
         UIElement allowOutputWindow = WorkstationOutputPanel.create(config);
@@ -207,7 +213,30 @@ public final class IntegratedWorkstationUI {
 
         // Add absolute-positioned floating window last so it renders on top
         root.addChild(allowOutputWindow);
-        return ECOModularUI.create(root, player);
+        return root;
+    }
+
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final IntegratedWorkstationUI owner;
+        private final Player player;
+
+        private JsonContext(Config config, Player player) {
+            this.owner = new IntegratedWorkstationUI(config);
+            this.player = player;
+        }
+
+        @Override
+        public UIElement createCustom(JsonObject node) {
+            if ("content".equals(string(node, "custom", ""))) {
+                return owner.createLegacyRoot(player);
+            }
+            throw new IllegalArgumentException("Unknown integrated workstation custom element: "
+                + string(node, "custom", ""));
+        }
+
+        private static String string(JsonObject node, String key, String fallback) {
+            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
+        }
     }
 
     private Button createAutoExportButton() {

@@ -1,6 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.multiblock;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
@@ -19,6 +22,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
+import com.google.gson.JsonObject;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -60,45 +64,44 @@ public final class MultiblockBuilderUI {
     }
 
     public static UIElement createFloatingPanel(Config config) {
-        UIElement window = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(6);
-            layout.display(TaffyDisplay.NONE);
-            layout.paddingAll(4);
-            layout.gapAll(5);
-            layout.width(286);
-        }).addClass("panel_bg");
+        UIElement[] windowRef = new UIElement[1];
+        UIElement window = NeoUiJsonLoader.load(NeoECOAE.id("ui/multiblock_builder"),
+            new NeoUiJsonContext() {
+                @Override
+                public UIElement createCustom(JsonObject node) {
+                    return switch (node.has("name") ? node.get("name").getAsString() : "") {
+                        case "multiblock_window" -> new UIElement().addClass("panel_bg");
+                        case "multiblock_body" -> new UIElement()
+                            .addChildren(createControlPanel(config), createMaterialPanel(config));
+                        default -> null;
+                    };
+                }
 
-        UIElement titleBar = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.justifyContent(AlignContent.SPACE_BETWEEN);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(6);
-        });
-        titleBar.addChild(new TextElement()
-            .setText(Component.translatable("gui.neoecoae.multiblock.builder"))
-            .textStyle(MultiblockBuilderUI::darkTextStyle));
-        titleBar.addChild(new Button()
-            .setText("X")
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                List.of(Component.translatable("gui.neoecoae.multiblock.close_builder")),
-                null,
-                null,
-                null
-            ))
-            .layout(layout -> layout.width(16).height(16)));
-        WindowDragHelper.setDragMove(titleBar, window, null, null);
-        window.addChild(titleBar);
-
-        UIElement body = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.gapAll(4);
-        });
-        body.addChild(createControlPanel(config));
-        body.addChild(createMaterialPanel(config));
-        window.addChild(body);
+                @Override
+                public void configure(JsonObject node, UIElement element) {
+                    String name = node.has("name") ? node.get("name").getAsString() : "";
+                    if ("multiblock_window".equals(name)) {
+                        element.layout(layout -> layout.display(TaffyDisplay.NONE)
+                            .paddingAll(4).gapAll(5));
+                    } else if ("multiblock_title_bar".equals(name)) {
+                        element.layout(layout -> layout.flexDirection(FlexDirection.ROW)
+                            .justifyContent(AlignContent.SPACE_BETWEEN)
+                            .alignItems(AlignItems.CENTER).gapAll(6));
+                    } else if ("multiblock_title".equals(name) && element instanceof TextElement text) {
+                        text.textStyle(MultiblockBuilderUI::darkTextStyle);
+                    } else if ("multiblock_body".equals(name)) {
+                        element.layout(layout -> layout.flexDirection(FlexDirection.ROW).gapAll(4));
+                    } else if ("multiblock_close".equals(name) && element instanceof Button close) {
+                        close.setOnClick(event -> windowRef[0].layout(layout -> layout.display(TaffyDisplay.NONE)));
+                        close.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+                            List.of(Component.translatable("gui.neoecoae.multiblock.close_builder")),
+                            null, null, null));
+                    }
+                }
+            });
+        windowRef[0] = window;
+        window.selectId("multiblock-title-bar").findFirst()
+            .ifPresent(titleBar -> WindowDragHelper.setDragMove(titleBar, window, null, null));
         return window;
     }
 

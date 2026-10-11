@@ -5,10 +5,13 @@ import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
+import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -42,53 +45,97 @@ public final class CraftingInterfaceUI {
     private static final int SCROLLBAR_TRAVEL = PREVIEW_HEIGHT - SCROLLBAR_BORDER * 2 - SCROLLBAR_THUMB_HEIGHT;
     private static final ResourceLocation SCROLLBAR_ENABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller");
     private static final ResourceLocation SCROLLBAR_DISABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller_disabled");
+    private static final ResourceLocation JSON_LAYOUT =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/crafting/crafting_interface");
     static final int PREVIEW_QUERY_MAX_LENGTH = 128;
 
     private CraftingInterfaceUI() { }
 
     public static ModularUI create(ECOMachineInterfaceBlockEntity<?> craftingInterface, Player player) {
         CraftingPatternPreviewState previewState = new CraftingPatternPreviewState(craftingInterface, player);
-        UIElement root = new UIElement().layout(layout -> layout.width(195).height(237))
-                .style(style -> style.backgroundTexture(NETextures.PATTERN_MANAGER))
-                .setOverflowVisible(true);
         StatusTooltips operationStatus = new StatusTooltips(craftingInterface);
-        root.addChild(HostElements.absolute(operationStatus, 0, 0, 0, 0));
-        root.addChild(HostElements.absolute(boundLabel(() -> GuiTitleProvider.title(craftingInterface.getBlockState(),
-                Component.translatable("gui.neoecoae.crafting_interface.title"))), 7, 5, 162, 10)
-                .layout(layout -> layout.top(4.5F)));
-        Label network = boundLabel(() -> Component.literal("●").withColor(
-                craftingInterface.isTargetOnline() ? 0x55CC77 : 0xDD5555));
-        operationStatus.attach(network);
-        root.addChild(HostElements.absolute(network, 178, 5, 10, 10));
-        root.addChild(patternSearchField(previewState::setInputSearch, "inputs", 21));
-        root.addChild(patternSearchField(previewState::setOutputSearch, "output", 103));
-        root.addChild(HostElements.absolute(patternPreview(previewState), 7, 31, PREVIEW_WIDTH, PREVIEW_HEIGHT));
-        root.addChild(HostElements.absolute(patternPreviewScrollbar(previewState), 174, 31,
-                SCROLLBAR_WIDTH + SCROLLBAR_BORDER * 2, PREVIEW_HEIGHT));
-        root.addChild(sideControls(craftingInterface, player, operationStatus));
-
-        Label status = compactLabel();
-        Component[] previous = {previewState.status()};
-        status.setText(previous[0]);
-        // Browse state belongs to the viewer; binding this text S2C would overwrite their local search/scroll.
-        status.addEventListener(UIEvents.TICK, event -> {
-            Component next = previewState.status();
-            if (!next.equals(previous[0])) status.setText(previous[0] = next);
-        });
-        operationStatus.attach(status);
-        root.addChild(HostElements.absolute(status, 7, 140, PREVIEW_WIDTH, 9));
-        TransferProgress progress = new TransferProgress();
-        progress.bind(DataBindingBuilder.floatValS2C(() -> craftingInterface.isPatternTransferInProgress()
-                ? Math.round(craftingInterface.getPatternTransferProgress() * 100F) / 100F : 0F).build());
-        operationStatus.attach(progress);
-        root.addChild(HostElements.absolute(progress, 7, 149, PREVIEW_WIDTH, 2));
-        root.addChild(playerInventory(previewState));
+        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT,
+            new JsonContext(craftingInterface, player, previewState, operationStatus));
         root.addEventListener(UIEvents.MOUSE_UP, event -> {
             if (event.button == 0) previewState.endQuickMoveDrag();
         }, true);
         root.addEventListener(UIEvents.TICK,
                 event -> previewState.endQuickMoveDragIfReleased(root.isMouseDown(0)));
         return ECOModularUI.create(root, player);
+    }
+
+    /** Resource context keeps preview/search state and server actions out of the JSON document. */
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final ECOMachineInterfaceBlockEntity<?> host;
+        private final Player player;
+        private final CraftingPatternPreviewState previewState;
+        private final StatusTooltips operationStatus;
+
+        private JsonContext(ECOMachineInterfaceBlockEntity<?> host, Player player,
+                            CraftingPatternPreviewState previewState, StatusTooltips operationStatus) {
+            this.host = host;
+            this.player = player;
+            this.previewState = previewState;
+            this.operationStatus = operationStatus;
+        }
+
+        @Override
+        public UIElement createCustom(JsonObject node) {
+            return switch (string(node, "custom", "")) {
+                case "operation_status" -> operationStatus;
+                case "title" -> boundLabel(() -> GuiTitleProvider.title(host.getBlockState(),
+                    Component.translatable("gui.neoecoae.crafting_interface.title")));
+                case "network_indicator" -> networkIndicator();
+                case "input_search" -> patternSearchField(previewState::setInputSearch, "inputs", false);
+                case "output_search" -> patternSearchField(previewState::setOutputSearch, "output", false);
+                case "pattern_preview" -> patternPreview(previewState);
+                case "pattern_scrollbar" -> patternPreviewScrollbar(previewState);
+                case "side_controls" -> sideControls(host, player, operationStatus);
+                case "status_label" -> statusLabel();
+                case "transfer_progress" -> transferProgress();
+                case "player_inventory" -> playerInventory(previewState, false);
+                default -> throw new IllegalArgumentException("Unknown crafting interface custom element: "
+                    + string(node, "custom", ""));
+            };
+        }
+
+        @Override
+        public void configure(JsonObject node, UIElement element) {
+            if ("crafting_interface_root".equals(string(node, "id", ""))) {
+                element.setOverflowVisible(true);
+            }
+        }
+
+        private Label networkIndicator() {
+            Label network = boundLabel(() -> Component.literal("●").withColor(
+                host.isTargetOnline() ? 0x55CC77 : 0xDD5555));
+            operationStatus.attach(network);
+            return network;
+        }
+
+        private Label statusLabel() {
+            Label status = compactLabel();
+            Component[] previous = {previewState.status()};
+            status.setText(previous[0]);
+            status.addEventListener(UIEvents.TICK, event -> {
+                Component next = previewState.status();
+                if (!next.equals(previous[0])) status.setText(previous[0] = next);
+            });
+            operationStatus.attach(status);
+            return status;
+        }
+
+        private TransferProgress transferProgress() {
+            TransferProgress progress = new TransferProgress();
+            progress.bind(DataBindingBuilder.floatValS2C(() -> host.isPatternTransferInProgress()
+                ? Math.round(host.getPatternTransferProgress() * 100F) / 100F : 0F).build());
+            operationStatus.attach(progress);
+            return progress;
+        }
+
+        private static String string(JsonObject node, String key, String fallback) {
+            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
+        }
     }
 
     private static UIElement sideControls(ECOMachineInterfaceBlockEntity<?> craftingInterface,
@@ -103,13 +150,14 @@ public final class CraftingInterfaceUI {
         return HostSideButtonBar.grayLeft(transfer, organize);
     }
 
-    private static SearchField patternSearchField(Consumer<String> responder, String direction, int left) {
+    private static SearchField patternSearchField(Consumer<String> responder, String direction, boolean withLayout) {
         SearchField field = ClientUIBridge.call("createSearchField", Consumer.class, responder, SearchField.class,
                 () -> new SearchField(responder));
         String key = "gui.neoecoae.crafting_interface.preview.search." + direction;
         field.setSearchHint(Component.translatable(key));
         HostElements.tooltips(field, Component.translatable(key + ".tooltip"));
-        return HostElements.absolute(field, left, 15, 66, 12);
+        if (withLayout) return HostElements.absolute(field, "inputs".equals(direction) ? 21 : 103, 15, 66, 12);
+        return field;
     }
 
     /** Client bridge supplies the native EditBox; the shared tree also exists on dedicated servers. */
@@ -201,7 +249,7 @@ public final class CraftingInterfaceUI {
         return element.getLocalMouse(x, y).y - element.getPositionY();
     }
 
-    private static UIElement playerInventory(CraftingPatternPreviewState state) {
+    private static UIElement playerInventory(CraftingPatternPreviewState state, boolean withLayout) {
         InventorySlots inventory = new InventorySlots();
         inventory.getChildren().forEach(child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         inventory.hotbar.layout(layout -> layout.marginTop(4));
@@ -214,7 +262,7 @@ public final class CraftingInterfaceUI {
                 }
             });
         });
-        return HostElements.absolute(inventory, 7, 152, PREVIEW_WIDTH, 76);
+        return withLayout ? HostElements.absolute(inventory, 7, 152, PREVIEW_WIDTH, 76) : inventory;
     }
 
     private static Button iconButton(ECOIcon icon, String tooltip, Runnable action) {

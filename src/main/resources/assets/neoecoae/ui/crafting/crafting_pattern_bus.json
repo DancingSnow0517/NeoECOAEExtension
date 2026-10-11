@@ -1,0 +1,30 @@
+{
+  "type": "element",
+  "id": "crafting_pattern_bus_root",
+  "class": "panel_bg",
+  "layout": {
+    "width": 170,
+    "paddingAll": 4,
+    "paddingBottom": 6,
+    "gapAll": 2,
+    "justifyContent": "center"
+  },
+  "children": [
+    {
+      "type": "custom",
+      "id": "pattern_bus_header",
+      "custom": "header"
+    },
+    {
+      "type": "custom",
+      "id": "pattern_inventory",
+      "custom": "pattern_inventory",
+      "class": "panel_border"
+    },
+    {
+      "type": "custom",
+      "id": "player_inventory",
+      "custom": "player_inventory"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 
 import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -16,23 +17,26 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 /** Floating output-side editor and its open button. */
 final class WorkstationOutputPanel {
     private WorkstationOutputPanel() {}
+    private static final ResourceLocation JSON_LAYOUT =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "ui/workstation/output_panel");
     static Button createOpenButton(UIElement allowOutputWindow) {
         Button button = HostSideButtonBar.createButton()
             .noText()
@@ -48,12 +52,11 @@ final class WorkstationOutputPanel {
     }
 
     static UIElement create(Config config) {
-        UIElement window = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(6);
-            layout.display(TaffyDisplay.NONE);
-        }).addClass("panel_bg");
+        return WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config));
+    }
+
+    private static UIElement createLegacy(Config config) {
+        UIElement window = new UIElement().addClass("panel_bg");
 
         UIElement titleBar = new UIElement().layout(layout -> {
             layout.flexDirection(FlexDirection.ROW);
@@ -186,5 +189,31 @@ final class WorkstationOutputPanel {
         grid.addChild(sideToggle.apply(RelativeSide.BACK, "gui.neoecoae.relative_side.back"));
 
         return window;
+    }
+
+    private static final class JsonContext implements NeoUiJsonContext {
+        private final Config config;
+
+        private JsonContext(Config config) {
+            this.config = config;
+        }
+
+        @Override
+        public UIElement createCustom(JsonObject node) {
+            if ("content".equals(string(node, "custom", ""))) return createLegacy(config);
+            throw new IllegalArgumentException("Unknown workstation output panel custom element: "
+                + string(node, "custom", ""));
+        }
+
+        @Override
+        public void configure(JsonObject node, UIElement element) {
+            if ("workstation_output_panel".equals(string(node, "id", ""))) {
+                element.layout(layout -> layout.display(TaffyDisplay.NONE));
+            }
+        }
+
+        private static String string(JsonObject node, String key, String fallback) {
+            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
+        }
     }
 }

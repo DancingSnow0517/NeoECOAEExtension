@@ -1,0 +1,36 @@
+{
+  "root": {
+    "type": "container",
+    "id": "computation-interface-root",
+    "layout": { "width": 176, "height": 253 },
+    "texture": {
+      "location": "neoecoae:textures/guis/nbtbench.png",
+      "sprite": [0, 0, 176, 253]
+    },
+    "children": [
+      {
+        "type": "custom",
+        "name": "computation_interface_title",
+        "id": "computation-interface-title",
+        "layout": { "position": "absolute", "left": 8, "top": 6, "width": 160, "height": 12 }
+      },
+      {
+        "type": "custom",
+        "name": "computation_interface_hint",
+        "id": "computation-interface-hint",
+        "layout": { "position": "absolute", "left": 8, "top": 18, "width": 160, "height": 10 }
+      },
+      {
+        "type": "custom",
+        "name": "computation_fuzzy_grid",
+        "id": "computation-fuzzy-grid",
+        "layout": { "position": "absolute", "left": 7, "top": 28, "width": 162, "height": 126 }
+      },
+      {
+        "type": "player_inventory",
+        "id": "computation-interface-player-inventory",
+        "layout": { "position": "absolute", "left": 7, "top": 167, "width": 162, "height": 72 }
+      }
+    ]
+  }
+}
