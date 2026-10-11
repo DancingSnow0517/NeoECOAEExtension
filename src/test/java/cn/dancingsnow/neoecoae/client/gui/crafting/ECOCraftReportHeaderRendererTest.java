@@ -26,8 +26,8 @@ class ECOCraftReportHeaderRendererTest {
             pose.translate(origin[0], origin[1], 0);
             var originalPose = new Matrix4f(pose.last().pose());
             when(graphics.pose()).thenReturn(pose);
-            when(font.width(any(Component.class))).thenAnswer(call ->
-                ((Component) call.getArgument(0)).getString().length() * 6);
+            doAnswer(call -> ((Component) call.getArgument(0)).getString().length() * 6)
+                .when(font).width(any(Component.class));
             var clips = new ArrayDeque<int[]>();
             var rows = new ArrayList<float[]>();
             doAnswer(call -> {
@@ -105,7 +105,7 @@ class ECOCraftReportHeaderRendererTest {
         assertEquals("0.54321", argument(summary.elapsed()));
         assertEquals("0.543210", argument(summary.tooltip().getFirst()));
         String display = argument(summary.bytes());
-        assertTrue(display.matches("[0-9.]+e123 B"));
+        assertEquals("e123 B", display, "the mantissa is omitted when the measured row is too narrow");
         assertTrue(display.endsWith(" B"));
         assertTrue(("字节：" + display).length() * 9 <= (int) (100 / 1.15F));
         String exact = summary.tooltip().stream().skip(2).map(Component::getString)
