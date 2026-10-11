@@ -2,8 +2,6 @@ package cn.dancingsnow.neoecoae.api;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import lombok.Getter;
 import net.minecraft.resources.ResourceLocation;
 
@@ -17,8 +15,7 @@ public enum ECOTier implements IECOTier {
         1 << 26,
         1 << 24,
         10_000_000,
-        NeoECOAE.id("textures/gui/computation/cpu_overlay/l4.png"),
-        NETextures.Crafting.F4
+        NeoECOAE.id("textures/gui/computation/cpu_overlay/l4.png")
     ),
     L6(
         2,
@@ -29,8 +26,7 @@ public enum ECOTier implements IECOTier {
         1 << 28,
         1 << 26,
         100_000_000,
-        NeoECOAE.id("textures/gui/computation/cpu_overlay/l6.png"),
-        NETextures.Crafting.F6
+        NeoECOAE.id("textures/gui/computation/cpu_overlay/l6.png")
     ),
     L9(
         3,
@@ -41,8 +37,7 @@ public enum ECOTier implements IECOTier {
         1 << 30,
         1 << 28,
         1_000_000_000,
-        NeoECOAE.id("textures/gui/computation/cpu_overlay/l9.png"),
-        NETextures.Crafting.F9
+        NeoECOAE.id("textures/gui/computation/cpu_overlay/l9.png")
     );
     @Getter
     private final int tier;
@@ -56,8 +51,6 @@ public enum ECOTier implements IECOTier {
     @Getter
     private final long powerStorageSize;
     private final ResourceLocation cpuOverlayTexture;
-    @Getter
-    private final IGuiTexture craftingOverlayTexture;
 
     ECOTier(
         int tier,
@@ -68,8 +61,7 @@ public enum ECOTier implements IECOTier {
         long cpuTotalBytes,
         long storageTotalBytes,
         long powerStorageSize,
-        ResourceLocation cpuOverlayTexture,
-        IGuiTexture craftingOverlayTexture
+        ResourceLocation cpuOverlayTexture
     ) {
         this.tier = tier;
         this.crafterParallel = crafterParallel;
@@ -80,7 +72,6 @@ public enum ECOTier implements IECOTier {
         this.storageTotalBytes = storageTotalBytes;
         this.powerStorageSize = powerStorageSize;
         this.cpuOverlayTexture = cpuOverlayTexture;
-        this.craftingOverlayTexture = craftingOverlayTexture;
     }
 
     @Override

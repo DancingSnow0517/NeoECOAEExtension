@@ -22,7 +22,7 @@
       "binding": "overclocked",
       "layout": {
         "position": "absolute",
-        "left": 10,
+        "left": 37,
         "top": 96,
         "width": 15,
         "height": 26,
@@ -38,7 +38,7 @@
       "binding": "active_cooling",
       "layout": {
         "position": "absolute",
-        "left": 37,
+        "left": 10,
         "top": 96,
         "width": 15,
         "height": 26,

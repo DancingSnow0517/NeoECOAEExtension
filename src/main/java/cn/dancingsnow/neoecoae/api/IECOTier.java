@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.api;
 
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import net.minecraft.resources.ResourceLocation;
 
 public interface IECOTier {
@@ -63,10 +61,6 @@ public interface IECOTier {
     long getPowerStorageSize();
 
     ResourceLocation getCPUOverlayTexture();
-
-    default IGuiTexture getCraftingOverlayTexture() {
-        return NETextures.Crafting.F0;
-    }
 
     default int compareTo(IECOTier tier) {
         return Integer.compare(this.getTier(), tier.getTier());

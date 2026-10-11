@@ -78,22 +78,32 @@ class CraftingHostPanelRenderingTest {
             verify(context).drawTexture(any(), eq(169F), eq(109F), eq(16F), eq(34F));
             verify(context).drawTexture(any(), eq(296F), eq(181F), eq(8F), eq(23F));
             verify(context.graphics).renderItem(argThat(stack -> ItemStack.matches(hostItem, stack)), eq(129), eq(118));
-            verify(context.graphics).drawString(font, "0 us", 349, 90, 0xFFE4E4EE, false);
-            verify(context.graphics.pose()).translate(331.0D, 147.0D, 0.0D);
-            verify(context.graphics).drawString(font, "gui.neoecoae.crafting.ui.energy_cooling", 0, 0,
-                0xFFE4E4EE, false);
+            verify(context.graphics).drawString(font, "0 us", 349, 90, 0xFFE4E4EE, true);
+            verify(context.graphics.pose()).translate(150.5D, 148.0D, 0.0D);
+            verify(context.graphics.pose()).translate(137.5D, 164.0D, 0.0D);
+            verify(context.graphics.pose()).translate(164.5D, 164.0D, 0.0D);
+            verify(context.graphics.pose()).translate(209.5D, 148.0D, 0.0D);
+            verify(context.graphics.pose()).translate(262.5D, 148.0D, 0.0D);
+            verify(context.graphics.pose()).translate(300.0D, 148.0D, 0.0D);
+            verify(context.graphics.pose()).translate(325.0D, 148.0D, 0.0D);
+            verify(context.graphics.pose()).translate(356.0D, 148.0D, 0.0D);
+            for (String heading : List.of("control_heading", "cooling_short", "overclock_short", "queue_heading", "parallel_heading",
+                "energy_heading", "coolant_heading", "output_heading")) {
+                verify(context.graphics).drawString(eq(font), eq(Component.translatable("gui.neoecoae.crafting.ui." + heading)),
+                    eq(0), eq(0), eq(0xFFE4E4EE), eq(true));
+            }
             verify(context.graphics.pose()).translate(316.0D, 214.0D, 0.0D);
             verify(context.graphics).drawString(font, "gui.neoecoae.crafting.ui.fx_short", 0, 0,
-                0xFFE4E4EE, false);
+                0xFFE4E4EE, true);
             verify(context.graphics.pose()).translate(316.0D, 249.0D, 0.0D);
             verify(context.graphics).drawString(font, "gui.neoecoae.crafting.ui.coolant_overclock", 0, 0,
-                0xFFB4B6CC, false);
+                0xFFB4B6CC, true);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 215),
-                eq(218F), eq(171F), eq(34F), eq(9F));
+                eq(186F), eq(194F), eq(22F), eq(7F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 226),
-                eq(218F), eq(193F), eq(17F), eq(9F));
+                && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 223),
+                eq(241F), eq(194F), eq(11F), eq(7F));
         }
     }
 
@@ -120,10 +130,10 @@ class CraftingHostPanelRenderingTest {
 
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 215),
-                eq(218F), eq(171F), eq(17F), eq(9F));
+                eq(186F), eq(194F), eq(11F), eq(7F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 226),
-                eq(218F), eq(193F), eq(7F), eq(9F));
+                && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 223),
+                eq(241F), eq(194F), eq(4F), eq(7F));
             verify(context).drawTexture(any(), eq(329F), eq(164F), eq(5F), eq(1F));
             verify(context, never()).drawTexture(any(), eq(296F), anyFloat(), eq(8F), anyFloat());
         }
@@ -142,11 +152,14 @@ class CraftingHostPanelRenderingTest {
 
             verify(context).drawTexture(NETextures.Crafting.CONTROLLER, 120F, 80F, 253F, 214F);
             verifyNoMoreInteractions(context);
-            verify(context.graphics).drawString(font, "0 us", 349, 90, 0xFFE4E4EE, false);
+            verify(context.graphics).drawString(font, "0 us", 349, 90, 0xFFE4E4EE, true);
             verify(context.graphics).renderItem(argThat(stack -> ItemStack.matches(hostItem, stack)), eq(129), eq(118));
-            verify(context.graphics).pose();
-            verify(context.graphics).drawString(font, "gui.neoecoae.crafting.ui.energy_cooling", 0, 0,
-                0xFFE4E4EE, false);
+            verify(context.graphics, times(8)).pose();
+            for (String heading : List.of("control_heading", "cooling_short", "overclock_short", "queue_heading", "parallel_heading",
+                "energy_heading", "coolant_heading", "output_heading")) {
+                verify(context.graphics).drawString(eq(font), eq(Component.translatable("gui.neoecoae.crafting.ui." + heading)),
+                    eq(0), eq(0), eq(0xFFE4E4EE), eq(true));
+            }
             verifyNoMoreInteractions(context.graphics);
         }
     }
@@ -279,45 +292,45 @@ class CraftingHostPanelRenderingTest {
             List<Button> buttons = panel.getChildren().stream()
                 .filter(Button.class::isInstance).map(Button.class::cast).toList();
             assertEquals(2, buttons.size());
-            Button left = buttons.getFirst();
-            Button right = buttons.getLast();
-            var syncedOverclock = (BindableValue<Boolean>) left.getChildren().getLast();
-            var syncedCooling = (BindableValue<Boolean>) right.getChildren().getLast();
-            left.getStyleBag().compute(0);
-            right.getStyleBag().compute(0);
-            assertEquals(173, ((SpriteTexture) left.getButtonStyle().baseTexture()).spritePosition.x);
-            assertEquals(188, ((SpriteTexture) left.getButtonStyle().hoverTexture()).spritePosition.x);
-            assertEquals(203, ((SpriteTexture) right.getButtonStyle().baseTexture()).spritePosition.x);
-            assertEquals(218, ((SpriteTexture) right.getButtonStyle().hoverTexture()).spritePosition.x);
+            Button overclockButton = buttons.getFirst();
+            Button coolingButton = buttons.getLast();
+            var syncedOverclock = (BindableValue<Boolean>) overclockButton.getChildren().getLast();
+            var syncedCooling = (BindableValue<Boolean>) coolingButton.getChildren().getLast();
+            overclockButton.getStyleBag().compute(0);
+            coolingButton.getStyleBag().compute(0);
+            assertEquals(173, ((SpriteTexture) overclockButton.getButtonStyle().baseTexture()).spritePosition.x);
+            assertEquals(188, ((SpriteTexture) overclockButton.getButtonStyle().hoverTexture()).spritePosition.x);
+            assertEquals(203, ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).spritePosition.x);
+            assertEquals(218, ((SpriteTexture) coolingButton.getButtonStyle().hoverTexture()).spritePosition.x);
 
             UIEvent click = UIEvent.create(UIEvents.MOUSE_DOWN);
             click.button = 0;
-            right.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {click});
+            coolingButton.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {click});
             assertTrue(cooling.get());
             assertTrue(overclocked.get());
-            left.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {click});
+            overclockButton.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {click});
             assertFalse(overclocked.get());
             assertTrue(cooling.get());
             click.button = 1;
-            right.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {click});
+            coolingButton.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {click});
             assertTrue(cooling.get());
 
             UIEvent hover = UIEvent.create(UIEvents.MOUSE_ENTER);
-            hover.target = right;
+            hover.target = coolingButton;
             UIEventDispatcher.dispatchEvent(hover, false, false, false);
             syncedCooling.setValue(true);
             syncedOverclock.setValue(false);
-            left.getStyleBag().compute(1);
-            right.getStyleBag().compute(1);
-            assertEquals(173, ((SpriteTexture) right.getButtonStyle().baseTexture()).spritePosition.x);
-            assertEquals(188, ((SpriteTexture) right.getButtonStyle().hoverTexture()).spritePosition.x);
-            assertEquals(203, ((SpriteTexture) left.getButtonStyle().baseTexture()).spritePosition.x);
+            overclockButton.getStyleBag().compute(1);
+            coolingButton.getStyleBag().compute(1);
+            assertEquals(173, ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).spritePosition.x);
+            assertEquals(188, ((SpriteTexture) coolingButton.getButtonStyle().hoverTexture()).spritePosition.x);
+            assertEquals(203, ((SpriteTexture) overclockButton.getButtonStyle().baseTexture()).spritePosition.x);
             GUIContext context = context();
-            right.drawBackgroundAdditional(context);
-            verify(context).drawTexture(eq(right.getButtonStyle().hoverTexture()),
+            coolingButton.drawBackgroundAdditional(context);
+            verify(context).drawTexture(eq(coolingButton.getButtonStyle().hoverTexture()),
                 anyFloat(), anyFloat(), anyFloat(), anyFloat());
             UIEvent tooltip = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
-            tooltip.target = right;
+            tooltip.target = coolingButton;
             UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
             assertEquals("gui.neoecoae.crafting.active_cooling.on", tooltip.hoverTooltips.tooltipTexts().getFirst().getString());
         }

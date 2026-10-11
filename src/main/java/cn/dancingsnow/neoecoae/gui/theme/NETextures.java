@@ -174,13 +174,8 @@ public class NETextures {
 
     public static class Crafting {
         public static final net.minecraft.resources.ResourceLocation CONTROLLER_ATLAS =
-            NeoECOAE.id("textures/gui/crafting/crafting_controller.png");
+            NeoECOAE.id("textures/guis/crafting_controller.png");
         public static IGuiTexture CONTROLLER = SpriteTexture.of(CONTROLLER_ATLAS).setSprite(0, 0, 253, 214);
-        public static IGuiTexture F0 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f0.png"));
-        public static IGuiTexture F4 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f4.png"));
-        public static IGuiTexture F6 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f6.png"));
-        public static IGuiTexture F9 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f9.png"));
-
     }
 
     public static void init(ResourceInstance<IGuiTexture> instance) {

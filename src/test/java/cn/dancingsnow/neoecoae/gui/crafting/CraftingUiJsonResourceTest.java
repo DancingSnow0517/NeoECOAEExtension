@@ -24,6 +24,8 @@ class CraftingUiJsonResourceTest {
         assertEquals("crafting_artwork", children.get(0).getAsJsonObject().get("custom").getAsString());
         assertEquals("toggle_overclocked", children.get(1).getAsJsonObject().get("action").getAsString());
         assertEquals("toggle_active_cooling", children.get(2).getAsJsonObject().get("action").getAsString());
+        assertEquals(37, children.get(1).getAsJsonObject().getAsJsonObject("layout").get("left").getAsInt());
+        assertEquals(10, children.get(2).getAsJsonObject().getAsJsonObject("layout").get("left").getAsInt());
         JsonObject inventory = children.get(3).getAsJsonObject();
         assertEquals("player_inventory", inventory.get("custom").getAsString());
         assertTrue(inventory.getAsJsonObject("layout").get("left").getAsInt() == 7);

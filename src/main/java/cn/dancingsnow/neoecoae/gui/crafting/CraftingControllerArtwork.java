@@ -28,17 +28,24 @@ final class CraftingControllerArtwork extends UIElement {
     private static final int[] STATUS_CORNER_X = {58, 74, 90};
     private static final int PRIMARY = 0xFFE4E4EE;
     private static final int SECONDARY = 0xFFB4B6CC;
+    private static final int QUEUE_VALUE_COLOR = 0xB4E2FF;
+    private static final int PARALLEL_VALUE_COLOR = 0xFFC2ED;
+    private static final int OVERFLOW_VALUE_COLOR = 0xFFDB99;
     private static final float INFO_TEXT_SCALE = 0.75F;
     private static final float INFO_TEXT_GAP = 4.0F;
     private static final int INFO_TEXT_X = 196;
     private static final int INFO_TEXT_WIDTH = 48;
     private static final int INFO_ROW_HEIGHT = 24;
-    private static final int GAUGE_INTERIOR_HEIGHT = 45;
-    private static final float STAT_TEXT_SCALE = 0.625F;
-    private static final float STAT_DETAIL_TEXT_SCALE = 0.5F;
-    private static final int STAT_LEFT_WIDTH = 32;
-    private static final int PROGRESS_BAR_X = 98;
-    private static final int PROGRESS_BAR_WIDTH = 68;
+    private static final int GAUGE_INTERIOR_HEIGHT = 46;
+    private static final float SECTION_TEXT_SCALE = 0.75F;
+    private static final float STAT_TEXT_SCALE = 0.75F;
+    private static final int STAT_TEXT_Y = 81;
+    private static final int STAT_LINE_SPACING = 8;
+    private static final int QUEUE_COLUMN_X = 65;
+    private static final int PARALLEL_COLUMN_X = 118;
+    private static final int STAT_COLUMN_WIDTH = 49;
+    private static final int PROGRESS_BAR_WIDTH = 44;
+    private static final int PROGRESS_BAR_HEIGHT = 7;
     private static final String[] NUMBER_UNITS = {"", "K", "M", "G", "T", "P", "E"};
     private final Config config;
     private final ItemStack hostItem;
@@ -58,8 +65,8 @@ final class CraftingControllerArtwork extends UIElement {
         CraftingControllerSync.attach(this, config, view, this::updateWorkerSlots);
         layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0).width(UI_WIDTH).height(UI_HEIGHT));
 
-        addChild(tooltipRegion(62, 79, 34, 45, tooltips::queueTooltip));
-        addChild(tooltipRegion(PROGRESS_BAR_X, 79, PROGRESS_BAR_WIDTH, 45, tooltips::parallelTooltip));
+        addChild(tooltipRegion(64, 79, 51, 45, tooltips::queueTooltip));
+        addChild(tooltipRegion(117, 79, 51, 45, tooltips::parallelTooltip));
         addChild(tooltipRegion(176, 78, 8, 46, tooltips::energyTooltip));
         addChild(tooltipRegion(195, 78, 20, 46, tooltips::coolantTooltip));
         addChild(tooltipRegion(226, 78, 20, 46, tooltips::outputTooltip));
@@ -103,25 +110,23 @@ final class CraftingControllerArtwork extends UIElement {
         drawText(context, config.title().get(), 40, 10, 105, PRIMARY);
         drawCenteredText(context, Component.literal(HostPanelElements.formatPerformanceCornerValue(view.performanceAverageNanos)),
             210, 10, 39, PRIMARY);
-        drawGaugeHeading(context);
+        drawSectionHeadings(context);
     }
 
-    private void drawGaugeHeading(GUIContext context) {
-        Font font = Minecraft.getInstance().font;
-        String text = Component.translatable("gui.neoecoae.crafting.ui.energy_cooling").getString();
-        int textWidth = font.width(text);
-        float scale = Math.min(1.0F, 70.0F / Math.max(1, textWidth));
-        var pose = context.graphics.pose();
-        pose.pushPose();
-        try {
-            // Center over all three gauges; longer translations fit without clipping.
-            pose.translate(getPositionX() + 176 + (70 - textWidth * scale) / 2.0F,
-                (double) getPositionY() + 67, 0.0D);
-            pose.scale(scale, scale, 1.0F);
-            context.graphics.drawString(font, text, 0, 0, PRIMARY, false);
-        } finally {
-            pose.popPose();
-        }
+    private void drawSectionHeadings(GUIContext context) {
+        drawSectionHeading(context, "control_heading", 9, 68, 43);
+        drawSectionHeading(context, "cooling_short", 10, 84, 15);
+        drawSectionHeading(context, "overclock_short", 37, 84, 15);
+        drawSectionHeading(context, "queue_heading", QUEUE_COLUMN_X, 68, STAT_COLUMN_WIDTH);
+        drawSectionHeading(context, "parallel_heading", PARALLEL_COLUMN_X, 68, STAT_COLUMN_WIDTH);
+        drawSectionHeading(context, "energy_heading", 169, 68, 22);
+        drawSectionHeading(context, "coolant_heading", 192, 68, 26);
+        drawSectionHeading(context, "output_heading", 223, 68, 26);
+    }
+
+    private void drawSectionHeading(GUIContext context, String key, int x, int y, int width) {
+        drawStatisticText(context, Component.translatable("gui.neoecoae.crafting.ui." + key),
+            x, y, width, SECTION_TEXT_SCALE, true);
     }
 
     private void drawInfoRows(GUIContext context) {
@@ -163,7 +168,7 @@ final class CraftingControllerArtwork extends UIElement {
         try {
             pose.translate(getPositionX() + INFO_TEXT_X, (double) getPositionY() + textY, 0.0D);
             pose.scale(scale, scale, 1.0F);
-            context.graphics.drawString(font, value, 0, 0, color, false);
+            context.graphics.drawString(font, value, 0, 0, color, true);
         } finally {
             pose.popPose();
         }
@@ -175,7 +180,7 @@ final class CraftingControllerArtwork extends UIElement {
         Font font = Minecraft.getInstance().font;
         value = font.plainSubstrByWidth(value, width);
         context.graphics.drawString(font, value, Math.round(getPositionX()) + x,
-            Math.round(getPositionY()) + y, color, false);
+            Math.round(getPositionY()) + y, color, true);
     }
 
     private void drawCenteredText(GUIContext context, Component text, int x, int y, int width, int color) {
@@ -183,7 +188,7 @@ final class CraftingControllerArtwork extends UIElement {
         String value = font.plainSubstrByWidth(text.getString(), width);
         int left = x + Math.max(0, (width - font.width(value)) / 2);
         context.graphics.drawString(font, value, Math.round(getPositionX()) + left,
-            Math.round(getPositionY()) + y, color, false);
+            Math.round(getPositionY()) + y, color, true);
     }
 
     private void drawTier(GUIContext context, int tier) {
@@ -216,8 +221,8 @@ final class CraftingControllerArtwork extends UIElement {
         if (tier < 1 || tier > STATUS_CORNER_X.length) return;
 
         int sourceX = STATUS_CORNER_X[tier - 1];
-        sprite(context, sourceX, 218, 10, 7, 12, 31, 10, 7);
-        sprite(context, sourceX, 241, 10, 7, 12, 54, 10, 7);
+        sprite(context, sourceX, 217, 10, 7, 12, 31, 10, 7);
+        sprite(context, sourceX, 242, 10, 7, 12, 54, 10, 7);
     }
 
     private void drawCoreCells(GUIContext context) {
@@ -238,10 +243,10 @@ final class CraftingControllerArtwork extends UIElement {
 
     private void drawBars(GUIContext context) {
         drawStatistics(context);
-        drawHorizontalProgress(context, PROGRESS_BAR_X, 91, PROGRESS_BAR_WIDTH,
+        drawHorizontalProgress(context, 66, 114, PROGRESS_BAR_WIDTH,
             view.state.queuePermille(), 104, 215);
-        drawHorizontalProgress(context, PROGRESS_BAR_X, 113, PROGRESS_BAR_WIDTH,
-            CraftingControllerPanelState.permille(1, view.executionTicks), 104, 226);
+        drawHorizontalProgress(context, 121, 114, PROGRESS_BAR_WIDTH,
+            CraftingControllerPanelState.permille(1, view.executionTicks), 104, 223);
         int height = Math.round(46 * view.state.energyPermille() / (float) CraftingControllerPanelState.FULL);
         if (height > 0) sprite(context, 254, 1 + 46 - height, 8, height, 176, 78 + 46 - height, 8, height);
         drawFluidGauge(context, 195, view.coolantFluid, view.coolantAmount, view.coolantCapacity, 209);
@@ -249,22 +254,46 @@ final class CraftingControllerArtwork extends UIElement {
     }
 
     private void drawStatistics(GUIContext context) {
-        // Text stays in the empty space to the left of and between the atlas's striped bars.
-        drawStatisticText(context, Component.translatable("gui.neoecoae.crafting.ui.queue_occupancy",
-            tooltips.percent(view.state.queuePermille())), 64, 80, STAT_LEFT_WIDTH, STAT_TEXT_SCALE);
-        drawStatisticText(context, statisticNumbers(STAT_LEFT_WIDTH, STAT_TEXT_SCALE,
-            values -> Component.literal(values[0] + " / "
-            + (view.batchCapacity == Long.MAX_VALUE ? "∞" : values[1])),
-            view.queuedCraftCount, view.batchCapacity), 64, 89, STAT_LEFT_WIDTH, STAT_TEXT_SCALE);
-        drawStatisticText(context, statisticNumbers(PROGRESS_BAR_WIDTH, STAT_TEXT_SCALE,
-            values -> Component.translatable("gui.neoecoae.crafting.ui.total_parallel", values[0]),
-            view.ftParallelCapacity), PROGRESS_BAR_X, 80, PROGRESS_BAR_WIDTH, STAT_TEXT_SCALE);
-        drawStatisticText(context, statisticNumbers(PROGRESS_BAR_WIDTH, STAT_DETAIL_TEXT_SCALE,
-            values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_limit", values[0]),
-            tooltips.parallelLimit()), PROGRESS_BAR_X, 101, PROGRESS_BAR_WIDTH, STAT_DETAIL_TEXT_SCALE);
-        drawStatisticText(context, statisticNumbers(PROGRESS_BAR_WIDTH, STAT_DETAIL_TEXT_SCALE,
-            values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_overflow", values[0], tooltips.overflowPercent()),
-            view.overflowCapacity), PROGRESS_BAR_X, 107, PROGRESS_BAR_WIDTH, STAT_DETAIL_TEXT_SCALE);
+        // Every row uses the same scale and spacing; compact numbers instead of shrinking text.
+        drawStatisticLines(context, QUEUE_COLUMN_X, List.of(
+            statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
+                values -> Component.translatable("gui.neoecoae.crafting.ui.queue_count_short", values[0]),
+                view.queuedCraftCount),
+            statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
+                values -> Component.translatable("gui.neoecoae.crafting.ui.queue_capacity_short",
+                    view.batchCapacity == Long.MAX_VALUE ? "∞" : values[0]), view.batchCapacity),
+            Component.translatable("gui.neoecoae.crafting.ui.queue_used_short",
+                Component.literal(tooltips.percent(view.state.queuePermille())).withColor(QUEUE_VALUE_COLOR))));
+        drawStatisticLines(context, PARALLEL_COLUMN_X, List.of(
+            statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
+                values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_count_short",
+                    Component.literal(values[0]).withColor(PARALLEL_VALUE_COLOR)),
+                view.ftParallelCapacity),
+            statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
+                values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_limit_short", values[0]),
+                tooltips.parallelLimit()),
+            statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
+                values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_overflow_short", values[0]),
+                view.overflowCapacity),
+            Component.translatable("gui.neoecoae.crafting.ui.parallel_overflow_percent_short",
+                view.overflowCapacity > 0
+                    ? Component.literal(tooltips.overflowPercent()).withColor(OVERFLOW_VALUE_COLOR)
+                    : Component.literal(tooltips.overflowPercent()))));
+    }
+
+    private void drawStatisticLines(GUIContext context, int x, List<Component> lines) {
+        Font font = Minecraft.getInstance().font;
+        var pose = context.graphics.pose();
+        for (int row = 0; row < lines.size(); row++) {
+            pose.pushPose();
+            try {
+                pose.translate(getPositionX() + x, getPositionY() + STAT_TEXT_Y + row * STAT_LINE_SPACING, 0.0D);
+                pose.scale(STAT_TEXT_SCALE, STAT_TEXT_SCALE, 1.0F);
+                context.graphics.drawString(font, lines.get(row), 0, 0, PRIMARY, true);
+            } finally {
+                pose.popPose();
+            }
+        }
     }
 
     private Component statisticNumbers(int width, float scale, Function<String[], Component> formatter, long... numbers) {
@@ -281,13 +310,15 @@ final class CraftingControllerArtwork extends UIElement {
         return text;
     }
 
-    private void drawStatisticText(GUIContext context, Component text, int x, int y, int width, float preferredScale) {
+    private void drawStatisticText(GUIContext context, Component text, int x, int y, int width,
+                                   float preferredScale, boolean centered) {
         Font font = Minecraft.getInstance().font;
         float scale = Math.min(preferredScale, (width - 1.0F) / Math.max(1, font.width(text)));
+        float left = x + (centered ? (width - font.width(text) * scale) / 2.0F : 0);
         var pose = context.graphics.pose();
         pose.pushPose();
         try {
-            pose.translate(getPositionX() + x, getPositionY() + y, 0.0D);
+            pose.translate(getPositionX() + left, getPositionY() + y, 0.0D);
             pose.scale(scale, scale, 1.0F);
             context.graphics.drawString(font, text, 0, 0, PRIMARY, true);
         } finally {
@@ -342,7 +373,7 @@ final class CraftingControllerArtwork extends UIElement {
                                         int sourceX, int sourceY) {
         int fill = Math.round(width * Math.clamp(permille, 0, CraftingControllerPanelState.FULL)
             / (float) CraftingControllerPanelState.FULL);
-        if (fill > 0) sprite(context, sourceX, sourceY, fill, 9, x, y, fill, 9);
+        if (fill > 0) sprite(context, sourceX, sourceY, fill, PROGRESS_BAR_HEIGHT, x, y, fill, PROGRESS_BAR_HEIGHT);
     }
 
 }
