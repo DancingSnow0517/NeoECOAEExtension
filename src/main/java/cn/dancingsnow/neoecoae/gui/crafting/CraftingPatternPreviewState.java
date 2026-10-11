@@ -7,6 +7,8 @@ import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
+import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -46,6 +48,7 @@ final class CraftingPatternPreviewState {
     private int revision = -1;
     private long epoch = -1L;
     private int menuId = -1;
+    private int requestedMenuId = -1;
     private String inputSearch = "", outputSearch = "";
     private int scrollRow;
     private int receivedEntries;
@@ -65,16 +68,30 @@ final class CraftingPatternPreviewState {
         if (player.level().isClientSide) {
             var sync = craftingInterface.getPatternPreviewSync();
             sync.listen(receiver);
+            var view = sync.clientView();
+            inputSearch = boundedQuery(view.inputSearch());
+            outputSearch = boundedQuery(view.outputSearch());
+            scrollRow = view.scrollRow();
+            rows.filter(inputSearch, outputSearch);
             var snapshot = sync.clientSnapshot();
             if (snapshot != null) {
                 entries = snapshot.entries();
                 revision = snapshot.revision();
                 epoch = snapshot.epoch();
-                menuId = player.containerMenu.containerId;
                 rows.reset(entries);
+                scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
             }
-            sync.requestOpen(player.containerMenu.containerId, revision, epoch);
         }
+    }
+
+    void tick() {
+        // UI construction precedes assigning player.containerMenu. Probe only once the actual menu is ready.
+        if (!player.level().isClientSide || !(player.containerMenu instanceof ModularUIContainerMenu menu)
+                || !(menu.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder)
+                || !holder.pos.equals(craftingInterface.getBlockPos()) || requestedMenuId == menu.containerId) return;
+        menuId = menu.containerId;
+        requestedMenuId = menu.containerId;
+        craftingInterface.getPatternPreviewSync().requestOpen(menuId, revision, epoch);
     }
 
     PatternItemSlot createSlot(int visualSlot) {
@@ -84,7 +101,7 @@ final class CraftingPatternPreviewState {
         slots[visualSlot] = slot;
         slot.setVisible(false);
         slot.setActive(false);
-        if (visualSlot == slots.length - 1 && revision >= 0) {
+        if (visualSlot == slots.length - 1) {
             updateSlots();
         }
         slot.highlighted(() -> displayed[visualSlot] >= 0 && (!inputSearch.isBlank() || !outputSearch.isBlank()));
@@ -125,7 +142,7 @@ final class CraftingPatternPreviewState {
     }
 
     private void act(int visualSlot, int action, int button) {
-        if (!player.level().isClientSide || revision < 0 || pending != null
+        if (!player.level().isClientSide || revision < 0
                 || menuId != player.containerMenu.containerId) return;
         int index = displayed[visualSlot];
         if (index < 0 || index >= entries.length) return;
@@ -158,7 +175,7 @@ final class CraftingPatternPreviewState {
 
     /** As in the original manager, clicking blank panel space inserts into an actual empty bus slot. */
     boolean insertCarriedPattern(int button) {
-        if ((button != 0 && button != 1) || !player.level().isClientSide || revision < 0 || pending != null
+        if ((button != 0 && button != 1) || !player.level().isClientSide || revision < 0
                 || menuId != player.containerMenu.containerId) return false;
         if (!hasCarriedPattern()) return false;
         for (PatternPreviewEntry entry : entries) {
@@ -196,7 +213,7 @@ final class CraftingPatternPreviewState {
     }
 
     private void queueQuickMove(int visualSlot) {
-        if (!player.level().isClientSide || quickMoveRevision < 0 || pending != null
+        if (!player.level().isClientSide || quickMoveRevision < 0
                 || menuId != player.containerMenu.containerId) return;
         int index = displayed[visualSlot];
         if (index < 0 || index >= entries.length) return;
@@ -241,7 +258,7 @@ final class CraftingPatternPreviewState {
         // no bus takes simply finds no slot over there.
         if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)
                 && !PatternDiskSupport.isAuxiliaryContainer(source.getItem())) return false;
-        if (!player.level().isClientSide || revision < 0 || pending != null
+        if (!player.level().isClientSide || revision < 0
                 || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return false;
         for (PatternPreviewEntry entry : entries) {
             // A disk's slot reads as empty here too, so skipping on the stack alone would aim the insert at the
@@ -264,7 +281,7 @@ final class CraftingPatternPreviewState {
         return false;
     }
 
-    private void receive(CompoundTag payload) {
+    void receive(CompoundTag payload) {
         if (!player.level().isClientSide || craftingInterface.getLevel() == null
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
         long incomingEpoch = payload.getLong("epoch");
@@ -276,8 +293,6 @@ final class CraftingPatternPreviewState {
             menuId = payload.getInt("menu");
             revision = payload.getInt("revision");
             pending = null;
-            rows.reset(entries);
-            updateSlots();
             return;
         }
         boolean full = payload.getBoolean("full");
@@ -325,7 +340,15 @@ final class CraftingPatternPreviewState {
             if (pendingFull) pending[logicalSlot] = decoded;
             else pendingChanges.put(logicalSlot, decoded);
         }
-        if (!payload.getBoolean("last")) return;
+        if (!payload.getBoolean("last")) {
+            // Show received patterns immediately. A completed cached view stays visible during refreshes.
+            if (pendingFull && revision < 0) {
+                entries = pending;
+                rows.reset(entries);
+                rebuildFilter();
+            }
+            return;
+        }
         if (pendingFull) {
             for (PatternPreviewEntry entry : pending) {
                 if (entry == null) {
@@ -398,6 +421,9 @@ final class CraftingPatternPreviewState {
         }
     }
 
+    String getInputSearch() { return inputSearch; }
+    String getOutputSearch() { return outputSearch; }
+
     void setOutputSearch(String value) {
         String next = boundedQuery(value);
         if (!outputSearch.equals(next)) {
@@ -422,7 +448,7 @@ final class CraftingPatternPreviewState {
     }
 
     Component status() {
-        if (revision < 0 || pending != null) return Component.translatable(
+        if (rows.size() == 0 && revision < 0) return Component.translatable(
                 "gui.neoecoae.crafting_interface.preview.loading", receivedEntries);
         if (rows.size() == 0) return Component.translatable("gui.neoecoae.crafting_interface.preview.no_results");
         return Component.translatable("gui.neoecoae.crafting_interface.preview.rows",
@@ -455,6 +481,7 @@ final class CraftingPatternPreviewState {
                 slots[visual].setActive(occupied);
             }
         }
+        craftingInterface.getPatternPreviewSync().cacheClientView(inputSearch, outputSearch, scrollRow);
     }
 
     int getRowCount() { return rows.size(); }

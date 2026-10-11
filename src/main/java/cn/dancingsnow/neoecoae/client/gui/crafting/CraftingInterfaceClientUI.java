@@ -176,6 +176,12 @@ public final class CraftingInterfaceClientUI {
         private int nativeWidth = -1;
         private int nativeHeight = -1;
 
+        @Override
+        public CraftingInterfaceUI.SearchField setSearchValue(String value) {
+            editBox.setValue(value);
+            return this;
+        }
+
         private NativeSearchField(Consumer<String> responder) {
             super(responder);
             editBox = new PositionedEditBox();

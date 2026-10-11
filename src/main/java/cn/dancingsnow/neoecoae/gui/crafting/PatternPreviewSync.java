@@ -17,9 +17,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import cn.dancingsnow.neoecoae.network.MenuDataTransport;
 import java.util.function.Consumer;
+import net.minecraft.world.level.Level;
 
 /** Menu-scoped push synchronization. No server-side viewport or client polling. */
 public final class PatternPreviewSync {
@@ -27,13 +29,8 @@ public final class PatternPreviewSync {
     private static final long BUILD_NANOS = 2_000_000L;
     private static final int CLIENT_CACHE_LIMIT = 32;
     private static final long SERVER_VIEWER_RETENTION_TICKS = 1_200L;
-    private static final Map<ClientCacheKey, ClientSnapshot> CLIENT_CACHE =
-            new LinkedHashMap<>(CLIENT_CACHE_LIMIT, 0.75F, true) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<ClientCacheKey, ClientSnapshot> eldest) {
-                    return size() > CLIENT_CACHE_LIMIT;
-                }
-            };
+    // Level identity prevents another server/save at the same coordinates from reusing this world's view.
+    private static final Map<Level, Map<ClientCacheKey, ClientState>> CLIENT_CACHE = new WeakHashMap<>();
     private long nextSyncTick;
     private final ECOMachineInterfaceBlockEntity<?> host;
     /** Changes when this server-side block entity is recreated, preventing stale snapshots after restart. */
@@ -49,6 +46,11 @@ public final class PatternPreviewSync {
     private WeakReference<Consumer<CompoundTag>> receiver = new WeakReference<>(null);
 
     private record ClientCacheKey(String dimension, long position) {}
+    private record ClientState(ClientSnapshot snapshot, ClientView view) {}
+
+    public record ClientView(String inputSearch, String outputSearch, int scrollRow) {
+        public static final ClientView EMPTY = new ClientView("", "", 0);
+    }
 
     public record ClientSnapshot(long epoch, int revision, PatternPreviewEntry[] entries) {
         public ClientSnapshot {
@@ -74,7 +76,26 @@ public final class PatternPreviewSync {
             return null;
         }
         synchronized (CLIENT_CACHE) {
-            return CLIENT_CACHE.get(clientCacheKey());
+            ClientState state = clientCache().get(clientCacheKey());
+            return state == null ? null : state.snapshot();
+        }
+    }
+
+    public ClientView clientView() {
+        if (host.getLevel() == null || !host.getLevel().isClientSide) return ClientView.EMPTY;
+        synchronized (CLIENT_CACHE) {
+            ClientState state = clientCache().get(clientCacheKey());
+            return state == null ? ClientView.EMPTY : state.view();
+        }
+    }
+
+    public void cacheClientView(String inputs, String output, int scrollRow) {
+        if (host.getLevel() == null || !host.getLevel().isClientSide) return;
+        synchronized (CLIENT_CACHE) {
+            var cache = clientCache();
+            ClientState previous = cache.get(clientCacheKey());
+            cache.put(clientCacheKey(), new ClientState(previous == null ? null : previous.snapshot(),
+                    new ClientView(inputs, output, scrollRow)));
         }
     }
 
@@ -96,8 +117,23 @@ public final class PatternPreviewSync {
             return;
         }
         synchronized (CLIENT_CACHE) {
-            CLIENT_CACHE.put(clientCacheKey(), new ClientSnapshot(epoch, revision, entries));
+            var cache = clientCache();
+            ClientState previous = cache.get(clientCacheKey());
+            cache.put(clientCacheKey(), new ClientState(new ClientSnapshot(epoch, revision, entries),
+                    previous == null ? ClientView.EMPTY : previous.view()));
         }
+    }
+
+    private Map<ClientCacheKey, ClientState> clientCache() {
+        return CLIENT_CACHE.computeIfAbsent(host.getLevel(), ignored -> newClientCache());
+    }
+
+    private static Map<ClientCacheKey, ClientState> newClientCache() {
+        return new LinkedHashMap<>(CLIENT_CACHE_LIMIT, 0.75F, true) {
+            @Override protected boolean removeEldestEntry(Map.Entry<ClientCacheKey, ClientState> eldest) {
+                return size() > CLIENT_CACHE_LIMIT;
+            }
+        };
     }
 
     private ClientCacheKey clientCacheKey() {

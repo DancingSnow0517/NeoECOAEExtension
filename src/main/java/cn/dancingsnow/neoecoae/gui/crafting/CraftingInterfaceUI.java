@@ -59,8 +59,10 @@ public final class CraftingInterfaceUI {
         root.addEventListener(UIEvents.MOUSE_UP, event -> {
             if (event.button == 0) previewState.endQuickMoveDrag();
         }, true);
-        root.addEventListener(UIEvents.TICK,
-                event -> previewState.endQuickMoveDragIfReleased(root.isMouseDown(0)));
+        root.addEventListener(UIEvents.TICK, event -> {
+            previewState.tick();
+            previewState.endQuickMoveDragIfReleased(root.isMouseDown(0));
+        });
         return ECOModularUI.create(root, player);
     }
 
@@ -86,8 +88,10 @@ public final class CraftingInterfaceUI {
                 case "title" -> boundLabel(() -> GuiTitleProvider.title(host.getBlockState(),
                     Component.translatable("gui.neoecoae.crafting_interface.title")));
                 case "network_indicator" -> networkIndicator();
-                case "input_search" -> patternSearchField(previewState::setInputSearch, "inputs", false);
-                case "output_search" -> patternSearchField(previewState::setOutputSearch, "output", false);
+                case "input_search" -> patternSearchField(previewState::setInputSearch, "inputs", false)
+                    .setSearchValue(previewState.getInputSearch());
+                case "output_search" -> patternSearchField(previewState::setOutputSearch, "output", false)
+                    .setSearchValue(previewState.getOutputSearch());
                 case "pattern_preview" -> patternPreview(previewState);
                 case "pattern_scrollbar" -> patternPreviewScrollbar(previewState);
                 case "side_controls" -> sideControls(host, player, operationStatus);
@@ -170,6 +174,7 @@ public final class CraftingInterfaceUI {
         }
 
         public SearchField setSearchHint(Component hint) { return this; }
+        public SearchField setSearchValue(String value) { return this; }
         protected final void updateSearch(String value) { responder.accept(value); }
     }
 

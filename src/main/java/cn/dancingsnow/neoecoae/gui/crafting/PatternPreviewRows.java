@@ -22,10 +22,12 @@ final class PatternPreviewRows {
         this.entries = entries;
         cells.clear();
         physicalCells = new int[entries.length];
+        Arrays.fill(physicalCells, -1);
         for (int start = 0; start < entries.length;) {
+            if (entries[start] == null) { start++; continue; }
             long bus = entries[start].busPosition();
             int end = start + 1;
-            while (end < entries.length && entries[end].busPosition() == bus) end++;
+            while (end < entries.length && entries[end] != null && entries[end].busPosition() == bus) end++;
             for (int i = start; i < end; i++) {
                 physicalCells[i] = cells.size();
                 cells.add(new Cell(i, -1));
