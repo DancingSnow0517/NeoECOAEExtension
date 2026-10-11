@@ -40,8 +40,11 @@ public final class HostSideButtonBar {
     private static final int BOTTOM_HEIGHT = 27;
     private static final int FIRST_SEGMENT_STEP = 23;
     private static final int MIDDLE_SEGMENT_STEP = 22;
-    private static final int FIRST_SLOT_SEGMENT_STEP = 19;
-    private static final int MIDDLE_SLOT_SEGMENT_STEP = 18;
+    // Slot rails use the same 23/22-pixel vertical grid as button rails.
+    // The artwork segments are 30/24/27 pixels high and overlap by one pixel;
+    // the old 19/18 grid made the right rail drift upward on every slot.
+    private static final int FIRST_SLOT_SEGMENT_STEP = FIRST_SEGMENT_STEP;
+    private static final int MIDDLE_SLOT_SEGMENT_STEP = MIDDLE_SEGMENT_STEP;
 
     private HostSideButtonBar() {
     }
