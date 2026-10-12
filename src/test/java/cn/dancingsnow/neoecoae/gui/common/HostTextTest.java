@@ -17,4 +17,11 @@ class HostTextTest {
         assertEquals("476PQ", HostText.ae2Amount(new BigInteger("476900530596182289").multiply(BigInteger.TEN.pow(30))));
         assertEquals("1×10^63", HostText.expandedStorageBytes(BigInteger.TEN.pow(63)));
     }
+
+    @Test
+    void tooltipBytesKeepTheirExactIntegerValue() {
+        assertEquals("41,943,040", HostText.fullBytes(40L * 1024 * 1024));
+        assertEquals("52,428,800", HostText.fullBytes(BigInteger.valueOf(50L * 1024 * 1024)));
+        assertEquals("1,000,000,000,000,000,000,000", HostText.fullBytes(BigInteger.TEN.pow(21)));
+    }
 }

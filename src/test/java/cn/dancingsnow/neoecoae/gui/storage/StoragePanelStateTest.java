@@ -88,15 +88,37 @@ class StoragePanelStateTest {
 
     @Test
     void combinedCapacityDoesNotOverflowALong() {
-        List<CellEntry> cells = List.of(cell(Long.MAX_VALUE / 2, Long.MAX_VALUE),
-            cell(Long.MAX_VALUE / 2, Long.MAX_VALUE), cell(Long.MAX_VALUE / 2, Long.MAX_VALUE));
+        long finiteCapacity = Long.MAX_VALUE - 1;
+        List<CellEntry> cells = List.of(cell(finiteCapacity / 2, finiteCapacity),
+            cell(finiteCapacity / 2, finiteCapacity), cell(finiteCapacity / 2, finiteCapacity));
         double ratio = StoragePanelState.usage(cells);
         assertEquals(0.5, ratio, 1.0E-14);
         StoragePanelState captured = StoragePanelState.capture(config(cells, false), 0, 33);
-        assertEquals(BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(3)), captured.totalBytes());
+        assertEquals(BigInteger.valueOf(finiteCapacity).multiply(BigInteger.valueOf(3)), captured.totalBytes());
         assertEquals(captured.totalBytes(), StoragePanelState.fromTag(captured.toTag()).totalBytes());
         assertEquals(0, StoragePanelState.usage(List.of()));
         assertEquals(1, StoragePanelState.usage(List.of(cell(5, -1))));
+    }
+
+    @Test
+    void specialCellCapacityIsExcludedFromHostTotalsAndUsageAcrossPages() {
+        CellEntry special = cell(1_000, Long.MAX_VALUE);
+        StoragePanelState onlySpecial = StoragePanelState.capture(config(List.of(special), false), 0, 33);
+        assertEquals(BigInteger.ZERO, onlySpecial.totalBytes());
+        assertEquals(0, onlySpecial.usage());
+        assertFalse(onlySpecial.unbounded());
+        assertEquals(special, onlySpecial.cells().getFirst());
+
+        List<CellEntry> mixed = new ArrayList<>(java.util.Collections.nCopies(35, cell(50, 100)));
+        mixed.add(special);
+        for (int offset : List.of(0, 33)) {
+            StoragePanelState captured = StoragePanelState.capture(config(mixed, false), offset, 33);
+            assertEquals(BigInteger.valueOf(3_500), captured.totalBytes());
+            assertEquals(0.5, captured.usage(), 1.0E-14);
+            StoragePanelState synced = StoragePanelState.fromTag(captured.toTag());
+            assertEquals(captured.totalBytes(), synced.totalBytes());
+            assertEquals(captured.usage(), synced.usage());
+        }
     }
 
     @Test

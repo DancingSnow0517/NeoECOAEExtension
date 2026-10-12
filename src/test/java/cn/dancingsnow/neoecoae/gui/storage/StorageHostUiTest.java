@@ -270,15 +270,24 @@ class StorageHostUiTest {
                 infinite.getChildren().stream().map(UIElement::getId).toList());
             assertEquals("storage_controller_root", normal.getId());
             UIElement background = node(normal, "background");
+            assertEquals(TaffyDimension.length(StorageHostUI.ROOT_HEIGHT), normal.getLayout().getValueImmediate(LayoutProperties.HEIGHT));
             SpriteTexture texture = (SpriteTexture) background.getStyle().getValueImmediate(PropertyRegistry.BACKGROUND);
             assertEquals("neoecoae:textures/guis/storage/storage_controller.png", texture.getImageLocation().toString());
             assertEquals(253, texture.spriteSize.width);
             assertEquals(231, texture.spriteSize.height);
+            assertEquals(0, texture.spritePosition.x);
+            assertEquals(0, texture.spritePosition.y);
+            assertTrue(background.getChildren().isEmpty());
             assertEquals(33, node(normal, "storage_cells").getChildren().size());
             assertInstanceOf(InventorySlots.class, node(normal, "player_inventory"));
             assertInstanceOf(ItemSlot.class, node(normal, "infinite_component"));
-            assertEquals(LengthPercentageAuto.length(94), node(normal, "capacity_text").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(103), node(normal, "capacity_percentage").getLayout().getValueImmediate(LayoutProperties.TOP));
+            assertEquals(LengthPercentageAuto.length(88), node(normal, "energy_stored_text").getLayout().getValueImmediate(LayoutProperties.TOP));
+            assertEquals(LengthPercentageAuto.length(92), node(normal, "energy_text").getLayout().getValueImmediate(LayoutProperties.TOP));
+            assertEquals(LengthPercentageAuto.length(104), node(normal, "capacity_text").getLayout().getValueImmediate(LayoutProperties.TOP));
+            assertEquals(LengthPercentageAuto.length(104), node(normal, "capacity_percentage").getLayout().getValueImmediate(LayoutProperties.TOP));
+            assertEquals(LengthPercentageAuto.length(8), node(normal, "capacity_text").getLayout().getValueImmediate(LayoutProperties.LEFT));
+            assertEquals(LengthPercentageAuto.length(132), node(normal, "capacity_percentage").getLayout().getValueImmediate(LayoutProperties.LEFT));
+            assertEquals(TaffyDimension.length(36), node(normal, "capacity_percentage").getLayout().getValueImmediate(LayoutProperties.WIDTH));
             assertEquals(LengthPercentageAuto.length(124), node(normal, "resource_text").getLayout().getValueImmediate(LayoutProperties.TOP));
             assertEquals(LengthPercentageAuto.length(8), node(normal, "capacity_bar").getLayout().getValueImmediate(LayoutProperties.LEFT));
             assertEquals(LengthPercentageAuto.length(113), node(normal, "capacity_bar").getLayout().getValueImmediate(LayoutProperties.TOP));
@@ -290,10 +299,59 @@ class StorageHostUiTest {
             assertEquals(org.appliedenergistics.yoga.YogaOverflow.VISIBLE,
                 node(normal, "storage_cells").getStyle().getValueImmediate(LayoutProperties.OVERFLOW));
             assertEquals(TaffyDimension.length(54), node(normal, "storage_cells").getLayout().getValueImmediate(LayoutProperties.HEIGHT));
-            assertTrue(normal.selectId("energy_text").findFirst().isEmpty());
+            assertEquals(LengthPercentageAuto.length(146), node(normal, "player_inventory").getLayout().getValueImmediate(LayoutProperties.TOP));
+            assertEquals(LengthPercentageAuto.length(201), node(normal, "infinite_component").getLayout().getValueImmediate(LayoutProperties.TOP));
             assertTrue(normal.selectId("storage_gauge").findFirst().isEmpty());
             assertTrue(normal.selectId("cell_page").findFirst().isEmpty());
             assertFalse(node(normal, "host_icon") instanceof ItemSlot);
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void energyCaptionsUseSyncedAmountsAndCapacityCaptionsAlignToBothBarEdges() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            Minecraft client = mock(Minecraft.class);
+            var fontField = Minecraft.class.getDeclaredField("font");
+            fontField.setAccessible(true);
+            Font font = mock(Font.class);
+            fontField.set(client, font);
+            when(font.width(any(net.minecraft.network.chat.FormattedText.class))).thenReturn(40);
+            when(font.width(any(net.minecraft.util.FormattedCharSequence.class))).thenReturn(32);
+            when(font.substrByWidth(any(net.minecraft.network.chat.FormattedText.class), anyInt()))
+                .thenAnswer(call -> call.getArgument(0));
+            minecraft.when(Minecraft::getInstance).thenReturn(client);
+            UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
+            BindableValue<Tag> display = (BindableValue<Tag>) root.getChildren().getFirst();
+            display.setValue(new StoragePanelState(Component.empty(), 2, true, false, false,
+                12_000_000_000L, 22_000_000_000L, 72_000, "150", 0.75, 0, 0,
+                List.of(), List.of(), "", 0, false, BigInteger.valueOf(200)).toTag());
+            GUIContext context = mock(GUIContext.class);
+            context.graphics = mock(GuiGraphics.class);
+            PoseStack pose = spy(new PoseStack());
+            when(context.graphics.pose()).thenReturn(pose);
+            UIElement stored = positionedBar(root, "energy_stored_text", 208, 294, 160, 9);
+            UIElement drain = positionedBar(root, "energy_text", 208, 303, 160, 9);
+            UIElement bytes = positionedBar(root, "capacity_text", 208, 312, 122, 9);
+            UIElement usage = positionedBar(root, "capacity_percentage", 332, 312, 36, 9);
+            for (UIElement caption : List.of(stored, drain, bytes, usage)) caption.drawBackgroundAdditional(context);
+            var rendered = org.mockito.ArgumentCaptor.forClass(net.minecraft.network.chat.FormattedText.class);
+            verify(font, times(3)).substrByWidth(rendered.capture(), anyInt());
+            assertEquals(Component.translatable("gui.neoecoae.storage.ui.energy", "12G", "22G"), rendered.getAllValues().get(0));
+            assertEquals(Component.literal("75.0%"), rendered.getAllValues().get(2));
+            verify(pose).translate(208F, 312F, 0F);
+            // The 32px text at 0.75 scale ends at x=368, the capacity bar's right edge.
+            verify(pose).translate(344F, 312F, 0F);
+
+            display.setValue(new StoragePanelState(Component.empty(), 2, true, true, false,
+                0, 22_000_000_000L, 0, "0", 1, 0, 0,
+                List.of(), List.of(), "", 0, false).toTag());
+            clearInvocations(font, pose, context.graphics);
+            stored.drawBackgroundAdditional(context);
+            usage.drawBackgroundAdditional(context);
+            verify(font).substrByWidth(eq(Component.translatable("gui.neoecoae.storage.ui.energy", "0", "22G")), anyInt());
+            verify(context.graphics, times(1)).drawString(eq(font), any(net.minecraft.util.FormattedCharSequence.class), eq(0), eq(0), anyInt(), eq(false));
         }
     }
 
@@ -394,13 +452,15 @@ class StorageHostUiTest {
                         icon.drawBackgroundAdditional(context);
                         verify(context).drawTexture(StoragePanelTextures.HOST_ICON_BACKGROUND, 209F, 240F, 16F, 34F);
                         if (formed) {
-                            int sourceX = 19 + (tier - 1) * 16;
+                            int sourceX = 18 + (tier - 1) * 16;
                             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                                && sprite.spritePosition.x == sourceX && sprite.spritePosition.y == 19),
-                                eq(212F), eq(242F), eq(10F), eq(7F));
+                                && sprite.spritePosition.x == sourceX && sprite.spritePosition.y == 20
+                                && sprite.spriteSize.width == 12 && sprite.spriteSize.height == 7),
+                                eq(211F), eq(242F), eq(12F), eq(7F));
                             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                                && sprite.spritePosition.x == sourceX && sprite.spritePosition.y == 44),
-                                eq(212F), eq(265F), eq(10F), eq(7F));
+                                && sprite.spritePosition.x == sourceX && sprite.spritePosition.y == 43
+                                && sprite.spriteSize.width == 12 && sprite.spriteSize.height == 7),
+                                eq(211F), eq(265F), eq(12F), eq(7F));
                         }
                         verify(context.graphics).renderItem(argThat(stack -> ItemStack.matches(expected, stack)), eq(209), eq(249));
                         verifyNoMoreInteractions(context, context.graphics);
@@ -450,7 +510,7 @@ class StorageHostUiTest {
             UIElement energy = positionedBar(root, "energy_bar", 373, 292, 74, 7);
             GUIContext context = mock(GUIContext.class);
             capacity.drawBackgroundAdditional(context);
-            verify(context).drawTexture(StoragePanelTextures.PINK_BAR, 208F, 313F, 120F, 8F);
+            verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 120F, 8F);
             resources.drawBackgroundAdditional(context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62), eq(208F), eq(334F), eq(90F), eq(8F));
@@ -484,7 +544,7 @@ class StorageHostUiTest {
             capacity.drawBackgroundAdditional(context);
             resources.drawBackgroundAdditional(context);
             energy.drawBackgroundAdditional(context);
-            verify(context).drawTexture(StoragePanelTextures.PINK_BAR, 208F, 313F, 160F, 8F);
+            verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 160F, 8F);
             verifyNoMoreInteractions(context);
         }
     }
@@ -616,6 +676,7 @@ class StorageHostUiTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void infiniteAnimationInterpolatesAcrossTheLastFrameAtItsResolvedPosition() {
         try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
@@ -633,11 +694,29 @@ class StorageHostUiTest {
             context.partialTick = 0.5F;
             animation.drawBackgroundAdditional(context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.getImageLocation().getPath().equals("textures/guis/storage/storage_ifinity_icon/9.png")
+                && sprite.getImageLocation().getPath().equals("textures/guis/storage/storage_ifinity_icon.png")
+                && sprite.spritePosition.y == 108 && sprite.spriteSize.width == 12 && sprite.spriteSize.height == 12
                 && sprite.color == -1), eq(322F), eq(411F), eq(12F), eq(12F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.getImageLocation().getPath().equals("textures/guis/storage/storage_ifinity_icon/0.png")
+                && sprite.getImageLocation().getPath().equals("textures/guis/storage/storage_ifinity_icon.png")
+                && sprite.spritePosition.y == 0 && sprite.spriteSize.width == 12 && sprite.spriteSize.height == 12
                 && (sprite.color >>> 24) == 213), eq(322F), eq(411F), eq(12F), eq(12F));
+            BindableValue<Tag> display = (BindableValue<Tag>) root.getChildren().getFirst();
+            Tag active = display.getValue();
+            for (boolean migrating : List.of(false, true)) {
+                display.setValue(new StoragePanelState(Component.empty(), 2, true, false, migrating,
+                    0, 100, 0, "0", 0, 0, 0, List.of(), List.of(), "", 0, false).toTag());
+                clearInvocations(context);
+                animation.drawBackgroundAdditional(context);
+                verifyNoInteractions(context);
+                UIEvent tooltip = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                tooltip.target = animation;
+                UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
+                assertTrue(tooltip.hoverTooltips.tooltipTexts().isEmpty());
+            }
+            display.setValue(active);
+            animation.drawBackgroundAdditional(context);
+            verify(context, times(2)).drawTexture(any(SpriteTexture.class), eq(322F), eq(411F), eq(12F), eq(12F));
         }
     }
 

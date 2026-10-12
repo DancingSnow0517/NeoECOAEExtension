@@ -149,7 +149,7 @@ final class StorageCellGrid extends UIElement {
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_types",
                 HostText.ae2Amount(cell.usedTypes()), capacity(cell.totalTypes())));
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
-                HostText.ae2Amount(cell.usedBytes()), capacity(cell.totalBytes())));
+                HostText.fullBytes(cell.usedBytes()), fullCapacity(cell.totalBytes())));
             lines.add(Component.translatable("gui.neoecoae.storage.ui.cell_state." +
                 (!cell.online() || !state.formed() ? "offline" : cell.infinite() ? "infinite"
                     : cell.state().name().toLowerCase(java.util.Locale.ROOT))));
@@ -172,6 +172,8 @@ final class StorageCellGrid extends UIElement {
     }
 
     static String capacity(long value) { return value < 0 ? "\u221E" : HostText.ae2Amount(value); }
+
+    private static String fullCapacity(long value) { return value < 0 ? "\u221E" : HostText.fullBytes(value); }
 
     private static String tierName(int tier) {
         return switch (tier) { case 1 -> "L4"; case 2 -> "L6"; case 3 -> "L9"; default -> "L0"; };

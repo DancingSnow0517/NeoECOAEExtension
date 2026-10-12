@@ -102,6 +102,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         BigInteger used = BigInteger.ZERO, total = BigInteger.ZERO;
         for (CellEntry cell : cells) {
             if (cell.infinite() || cell.totalBytes() < 0) return 1;
+            // Special cells report Long.MAX_VALUE instead of a comparable finite byte capacity.
+            if (cell.totalBytes() == Long.MAX_VALUE) continue;
             used = used.add(BigInteger.valueOf(Math.max(0, cell.usedBytes())));
             total = total.add(BigInteger.valueOf(Math.max(0, cell.totalBytes())));
         }
@@ -110,7 +112,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     }
 
     private static BigInteger totalCapacity(List<CellEntry> cells) {
-        return cells.stream().map(cell -> BigInteger.valueOf(Math.max(0, cell.totalBytes())))
+        return cells.stream().filter(cell -> cell.totalBytes() != Long.MAX_VALUE)
+            .map(cell -> BigInteger.valueOf(Math.max(0, cell.totalBytes())))
             .reduce(BigInteger.ZERO, BigInteger::add);
     }
 

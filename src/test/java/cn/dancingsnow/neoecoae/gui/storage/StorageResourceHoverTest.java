@@ -99,7 +99,7 @@ class StorageResourceHoverTest {
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 208F, 334F, 120F, 8F);
             Object[] tooltip = tooltipArguments(bar);
             assertEquals("items", ((Component) tooltip[0]).getString());
-            assertEquals(HostText.ae2Amount(items), tooltip[1]);
+            assertEquals(HostText.fullBytes(items), tooltip[1]);
             assertNotEquals(HostText.ae2Amount(Long.MAX_VALUE), tooltip[1]);
             assertEquals("75.0%", tooltip[2]);
         }

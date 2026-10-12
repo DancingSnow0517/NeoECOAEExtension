@@ -14,12 +14,7 @@
       "type": "texture",
       "id": "background",
       "texture": "neoecoae:textures/guis/storage/storage_controller.png",
-      "sprite": [
-        0,
-        0,
-        253,
-        231
-      ],
+      "sprite": [0, 0, 253, 231],
       "layout": {
         "position": "absolute",
         "left": 0,
@@ -81,6 +76,35 @@
     },
     {
       "type": "custom",
+      "id": "energy_stored_text",
+      "custom": "storage_caption",
+      "metric": "energy_stored",
+      "font_scale": 0.75,
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 88,
+        "width": 160,
+        "height": 9
+      }
+    },
+    {
+      "type": "custom",
+      "id": "energy_text",
+      "custom": "storage_caption",
+      "metric": "energy",
+      "font_scale": 0.75,
+      "text_align": "right",
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 92,
+        "width": 160,
+        "height": 9
+      }
+    },
+    {
+      "type": "custom",
       "id": "capacity_text",
       "custom": "storage_caption",
       "metric": "bytes",
@@ -88,9 +112,9 @@
       "layout": {
         "position": "absolute",
         "left": 8,
-        "top": 94,
-        "width": 160,
-        "height": 9
+        "top": 104,
+        "width": 122,
+        "height": 8
       }
     },
     {
@@ -99,12 +123,13 @@
       "custom": "storage_caption",
       "metric": "usage",
       "font_scale": 0.75,
+      "text_align": "right",
       "layout": {
         "position": "absolute",
-        "left": 8,
-        "top": 103,
-        "width": 160,
-        "height": 9
+        "left": 132,
+        "top": 104,
+        "width": 36,
+        "height": 8
       }
     },
     {

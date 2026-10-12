@@ -6,10 +6,13 @@ import net.minecraft.resources.ResourceLocation;
 /** Pixel rectangles in the storage host artwork. */
 final class StoragePanelTextures {
     private static final ResourceLocation ATLAS = id("storage_widget.png");
+    private static final ResourceLocation INFINITY_SHEET = id("storage_ifinity_icon.png");
     static final SpriteTexture HOST_ICON_BACKGROUND = sprite(0, 18, 16, 34);
     static final SpriteTexture TYPE_PANEL = sprite(0, 104, 68, 29);
     static final SpriteTexture BLUE_BAR = sprite(68, 105, 29, 4);
     static final SpriteTexture PINK_BAR = sprite(68, 109, 29, 4);
+    // Keep the highlight's one-pixel end caps when widening the main capacity gauge.
+    static final SpriteTexture CAPACITY_BAR = PINK_BAR.copy().setBorder(1, 0, 1, 0);
     static final SpriteTexture SLIDER = sprite(68, 113, 6, 15);
     static final SpriteTexture SCALE = sprite(0, 133, 74, 7);
     static final SpriteTexture INFINITY = sprite(16, 52, 24, 10);
@@ -34,11 +37,12 @@ final class StoragePanelTextures {
 
     /** Upper row: inactive symbol; lower row: selected symbol. Blue background is hover/press. */
     static SpriteTexture interfaceMode(int mode, boolean selected, boolean hover) {
-        return sprite((Math.clamp(mode, 0, 2) + (hover ? 3 : 0)) * 16, selected ? 159 : 140, 16, 17);
+        return sprite((Math.clamp(mode, 0, 2) + (hover ? 3 : 0)) * 16,
+            selected ? 159 : 140, 16, selected ? 17 : 18);
     }
 
     static SpriteTexture hostMarker(int tier, boolean bottom) {
-        return sprite(19 + (Math.clamp(tier, 1, 3) - 1) * 16, bottom ? 44 : 19, 10, 7);
+        return sprite(18 + (Math.clamp(tier, 1, 3) - 1) * 16, bottom ? 43 : 20, 12, 7);
     }
 
     /** Three complete 18px tiles; the bottom repeats a separator to move its glyph down one pixel. */
@@ -49,8 +53,8 @@ final class StoragePanelTextures {
     }
 
     static SpriteTexture infinityFrame(int frame) {
-        // Each frame fills its own texture, so UVs stay 0..1 even before its size is available.
-        return SpriteTexture.of(id("storage_ifinity_icon/" + Math.floorMod(frame, 10) + ".png"));
+        // storage_ifinity_icon.png is the 10-frame vertical sheet described by its .mcmeta.
+        return SpriteTexture.of(INFINITY_SHEET).setSprite(0, Math.floorMod(frame, 10) * 12, 12, 12);
     }
 
     static SpriteTexture swatch(int index, int color) {

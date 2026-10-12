@@ -43,7 +43,8 @@ final class StorageHostCharts {
     UIElement create(String custom, JsonObject definition) {
         return switch (custom) {
             case "storage_caption" -> new Caption(definition.get("metric").getAsString(),
-                definition.has("font_scale") ? definition.get("font_scale").getAsFloat() : 0.75F);
+                definition.has("font_scale") ? definition.get("font_scale").getAsFloat() : 0.75F,
+                definition.has("text_align") && definition.get("text_align").getAsString().equals("right"));
             case "storage_tier" -> new PanelElement() {
                 @Override public void drawBackgroundAdditional(GUIContext context) {
                     if (state().tier() > 0) texture(context, StoragePanelTextures.tier(state().tier()));
@@ -89,17 +90,18 @@ final class StorageHostCharts {
         }
 
         void text(GUIContext context, Component component, float x, float y, float width, float maxScale, int color) {
-            text(context, component, x, y, width, maxScale, color, false);
+            text(context, component, x, y, width, maxScale, color, false, false);
         }
 
         void text(GUIContext context, Component component, float x, float y, float width, float maxScale, int color,
-            boolean centerVertically) {
+            boolean centerVertically, boolean rightAligned) {
             if (component == null || component.getString().isEmpty() || width <= 0) return;
             Font font = Minecraft.getInstance().font;
             float scale = Math.max(0.5F, Math.min(maxScale, width / Math.max(1, font.width(component))));
             if (centerVertically) y += (getSizeHeight() - font.lineHeight * scale) / 2;
             var value = Language.getInstance().getVisualOrder(
                 font.substrByWidth(component, Math.max(1, (int) (width / scale))));
+            if (rightAligned) x += Math.max(0, width - font.width(value) * scale);
             var pose = context.graphics.pose();
             pose.pushPose();
             try {
@@ -115,13 +117,15 @@ final class StorageHostCharts {
     private final class Caption extends PanelElement {
         private final String metric;
         private final float fontScale;
+        private final boolean rightAligned;
 
-        Caption(String metric, float fontScale) {
+        Caption(String metric, float fontScale, boolean rightAligned) {
             this.metric = metric;
             this.fontScale = fontScale;
+            this.rightAligned = rightAligned;
             tooltips(() -> switch (metric) {
                 case "title" -> domainTooltip();
-                case "energy" -> energyTooltip();
+                case "energy", "energy_stored" -> energyTooltip();
                 case "bytes" -> capacityTooltip();
                 case "usage" -> capacityTooltip();
                 case "resources" -> resourceTooltip();
@@ -132,6 +136,10 @@ final class StorageHostCharts {
         }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
+            if (metric.equals("energy")) {
+                drawEnergyUsage(context);
+                return;
+            }
             Component caption = switch (metric) {
                 case "title" -> Component.translatable("gui.neoecoae.storage.ui.title");
                 case "cells" -> StorageCellGrid.pageText(state(), pageSize);
@@ -139,11 +147,59 @@ final class StorageHostCharts {
                     capacityValue(state()));
                 case "usage" -> state().unbounded() ? Component.empty()
                     : Component.literal(HostText.percent(state().usage()));
+                case "energy_stored" -> Component.translatable("gui.neoecoae.storage.ui.energy",
+                    HostText.ae2Amount(state().energy()), HostText.ae2Amount(state().maxEnergy()));
                 case "energy" -> Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage", HostText.ae2Amount(state().drain()));
                 case "resources" -> Component.translatable("gui.neoecoae.storage.ui.resource_distribution");
                 default -> throw new IllegalArgumentException("Unknown storage caption metric: " + metric);
             };
-            text(context, caption, 0, 0, getSizeWidth(), fontScale, TEXT, metric.equals("title"));
+            text(context, caption, 0, 0, getSizeWidth(), fontScale, TEXT, metric.equals("title"), rightAligned);
+        }
+
+        /** Draw the drain amount under the stored amount, keeping both numeric values on one vertical axis. */
+        private void drawEnergyUsage(GUIContext context) {
+            Font font = Minecraft.getInstance().font;
+            String marker = "__ECO_ENERGY_VALUE__";
+            String template = Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage", marker).getString();
+            int markerStart = template.indexOf(marker);
+            if (markerStart < 0) return;
+            String prefix = template.substring(0, markerStart);
+            String suffix = template.substring(markerStart + marker.length());
+            String amount = HostText.ae2Amount(state().drain());
+            String complete = prefix + amount + suffix;
+            float scale = Math.max(0.5F, Math.min(fontScale,
+                getSizeWidth() / Math.max(1, font.width(Component.literal(complete)))));
+
+            // Use the prefix from the stored-energy translation as the shared numeric anchor.
+            int valueX;
+            float offsetX = 0;
+            if (rightAligned) {
+                valueX = font.width(Component.literal(prefix));
+                offsetX = Math.max(0, getSizeWidth() - font.width(Component.literal(complete)) * scale);
+            } else {
+                String storedTemplate = Component.translatable("gui.neoecoae.storage.ui.energy", marker, marker).getString();
+                int storedMarker = storedTemplate.indexOf(marker);
+                if (storedMarker < 0) return;
+                valueX = font.width(Component.literal(storedTemplate.substring(0, storedMarker)));
+            }
+            var pose = context.graphics.pose();
+            pose.pushPose();
+            try {
+                pose.translate(getPositionX() + offsetX, getPositionY(), 0);
+                pose.scale(scale, scale, 1);
+                drawSegment(context, font, prefix, 0);
+                drawSegment(context, font, amount, valueX);
+                drawSegment(context, font, suffix, valueX + font.width(Component.literal(amount)));
+            } finally {
+                pose.popPose();
+            }
+        }
+
+        private void drawSegment(GUIContext context, Font font, String value, int x) {
+            if (!value.isEmpty()) {
+                context.graphics.drawString(font, Language.getInstance().getVisualOrder(Component.literal(value)),
+                    x, 0, TEXT, false);
+            }
         }
     }
 
@@ -155,11 +211,11 @@ final class StorageHostCharts {
         @Override public void drawBackgroundAdditional(GUIContext context) {
             texture(context, StoragePanelTextures.HOST_ICON_BACKGROUND);
             if (state().formed() && state().tier() >= 1 && state().tier() <= 3) {
-                float x = getPositionX() + (getSizeWidth() - 10) / 2;
+                float x = getPositionX() + (getSizeWidth() - 12) / 2;
                 context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), false),
-                    x, getPositionY() + 2, 10, 7);
+                    x, getPositionY() + 2, 12, 7);
                 context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), true),
-                    x, getPositionY() + getSizeHeight() - 9, 10, 7);
+                    x, getPositionY() + getSizeHeight() - 9, 12, 7);
             }
             if (!hostItem.isEmpty()) context.graphics.renderItem(hostItem,
                 Math.round(getPositionX() + (getSizeWidth() - 16) / 2),
@@ -172,7 +228,7 @@ final class StorageHostCharts {
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
             float width = Math.round(getSizeWidth() * (state().unbounded() ? 1 : state().usage()));
-            if (width > 0) context.drawTexture(StoragePanelTextures.PINK_BAR,
+            if (width > 0) context.drawTexture(StoragePanelTextures.CAPACITY_BAR,
                 getPositionX(), getPositionY(), width, getSizeHeight());
         }
     }
@@ -282,7 +338,8 @@ final class StorageHostCharts {
                 Component.translatable("gui.neoecoae.storage.legacy.cell_types",
                     HostText.ae2Amount(type.usedTypes()), state().unbounded() ? "∞" : StorageCellGrid.capacity(type.totalTypes())),
                 Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
-                    type.bytesText(), state().unbounded() ? "∞" : StorageCellGrid.capacity(type.totalBytes())),
+                    HostText.fullBytes(type.exactUsedBytes()),
+                    state().unbounded() ? "∞" : HostText.fullBytes(type.totalBytes())),
                 Component.translatable("gui.neoecoae.storage.ui.scroll_types").withColor(HostText.MUTED));
         }
     }
@@ -321,8 +378,9 @@ final class StorageHostCharts {
     }
 
     private final class InfiniteAnimation extends PanelElement {
-        InfiniteAnimation() { tooltips(StorageHostCharts.this::domainTooltip); }
+        InfiniteAnimation() { tooltips(() -> state().infinite() ? domainTooltip() : List.of()); }
         @Override public void drawBackgroundAdditional(GUIContext context) {
+            if (!state().infinite()) return;
             Minecraft minecraft = Minecraft.getInstance();
             long tick = minecraft.level == null ? 0 : minecraft.level.getGameTime();
             int frame = animationFrame(tick);
@@ -373,9 +431,23 @@ final class StorageHostCharts {
             .append(Component.literal(HostText.ae2Amount(state.totalBytes())).withColor(HostText.VALUE));
     }
 
+    private static Component fullCapacityValue(StoragePanelState state) {
+        var used = Component.literal(fullUsedBytes(state)).withColor(state.unbounded()
+            ? HostText.VALUE : HostText.gaugeTextColor((float) state.usage()));
+        if (state.unbounded()) return used;
+        return used.append(Component.literal(" / ").withColor(TEXT))
+            .append(Component.literal(HostText.fullBytes(state.totalBytes())).withColor(HostText.VALUE));
+    }
+
+    private static String fullUsedBytes(StoragePanelState state) {
+        BigInteger used = state.types().stream().map(StoragePanelState.TypeLine::exactUsedBytes)
+            .reduce(BigInteger.ZERO, BigInteger::add);
+        return HostText.fullBytes(used);
+    }
+
     private List<Component> capacityTooltip() {
         return List.of(
-            Component.translatable("gui.neoecoae.storage.legacy.graph.total_bytes", capacityValue(state())),
+            Component.translatable("gui.neoecoae.storage.legacy.graph.total_bytes", fullCapacityValue(state())),
             Component.translatable("gui.neoecoae.storage.legacy.graph.total_usage",
                 state().unbounded() ? "∞" : HostText.percent(state().usage())));
     }
@@ -398,7 +470,7 @@ final class StorageHostCharts {
             double share = new BigDecimal(type.exactUsedBytes())
                 .divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue();
             lines.add(Component.translatable("gui.neoecoae.storage.ui.resource_share",
-                type.name(), type.bytesText(), HostText.percent(share)).withColor(type.color()));
+                type.name(), HostText.fullBytes(type.exactUsedBytes()), HostText.percent(share)).withColor(type.color()));
         }
         return lines;
     }
@@ -418,7 +490,7 @@ final class StorageHostCharts {
         }
         double share = new BigDecimal(used).divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue();
         return List.of(Component.translatable("gui.neoecoae.storage.ui.resource_share", name,
-            HostText.ae2Amount(used), HostText.percent(share)).withColor(segment.color()));
+            HostText.fullBytes(used), HostText.percent(share)).withColor(segment.color()));
     }
 
     private List<Component> domainTooltip() {

@@ -76,6 +76,17 @@ public final class HostText {
         return NUMBER_FORMAT.get().format(Math.max(0L, value));
     }
 
+    /** Exact byte counts for tooltips; unlike the panel labels this never uses a unit suffix. */
+    public static String fullBytes(long value) {
+        return expandedNumber(value);
+    }
+
+    /** Exact byte counts for tooltips, including values beyond the long range. */
+    public static String fullBytes(BigInteger value) {
+        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        return DisplayNumbers.grouped(safe.toString());
+    }
+
     public static String expandedStorageBytes(long value) {
         return expandedNumber(value);
     }

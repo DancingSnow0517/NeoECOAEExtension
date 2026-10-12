@@ -85,7 +85,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.legacy.graph.energy_stored", "Energy stored: %s");
         provider.add("gui.neoecoae.storage.legacy.graph.total_bytes", "Total bytes: %s");
         provider.add("gui.neoecoae.storage.legacy.graph.total_usage", "Total usage: %s");
-        provider.add("gui.neoecoae.storage.ui.title", "Extensible Storage Subsystem Controller");
+        provider.add("gui.neoecoae.storage.ui.title", "Storage Controller");
         provider.add("gui.neoecoae.storage.ui.cell_page", "Drives: %s  Page %s/%s");
         provider.add("gui.neoecoae.storage.ui.scroll_cells", "Scroll to browse storage cells");
         provider.add("gui.neoecoae.storage.ui.take_cell", "Click to take the cell; Shift-click to move it to your inventory");
@@ -359,8 +359,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");
         provider.add("gui.neoecoae.host.crafting.overflow", "Overflow");
         provider.add("gui.neoecoae.host.crafting.coolant", "Coolant");
-        provider.add("gui.neoecoae.storage_interface.filter.title", "Resource filter");
-        provider.add("gui.neoecoae.storage_interface.filter.hint", "Left-click to set; right-click to clear");
+        provider.add("gui.neoecoae.storage_interface.filter.title", "Resource Filters");
+        provider.add("gui.neoecoae.storage_interface.filter.hint", "Left-click: Set | Right-click: Clear");
         provider.add("gui.neoecoae.storage_interface.filter.edit", "Left-click with a sample to set; right-click to clear. Fluid containers select the fluid; Shift selects the item.");
         provider.add("gui.neoecoae.storage_interface.filter.rule", "Input/output: an empty list allows all resources; otherwise only exact matches pass. Storage mode does not use this filter.");
         provider.add("gui.neoecoae.storage_interface.filter.unavailable", "This saved resource is unavailable. Clear or replace the filter to change it.");
@@ -370,15 +370,15 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage_interface.mode.output", "Output");
         provider.add("jade.neoecoae.storage_interface.input", "Storage interface: Input mode");
         provider.add("jade.neoecoae.storage_interface.output", "Storage interface: Output mode");
-        provider.add("gui.neoecoae.storage_interface.structure", "Infinite Storage");
+        provider.add("gui.neoecoae.storage_interface.structure", "Infinite");
         provider.add("gui.neoecoae.storage_interface.infinite_ready", "Ready");
-        provider.add("gui.neoecoae.storage_interface.infinite_unavailable", "Unavailable");
+        provider.add("gui.neoecoae.storage_interface.infinite_unavailable", "Not ready");
         provider.add("gui.neoecoae.storage_interface.network", "Network");
-        provider.add("gui.neoecoae.storage_interface.connected", "Connected");
-        provider.add("gui.neoecoae.storage_interface.disconnected", "Disconnected");
-        provider.add("gui.neoecoae.storage_interface.transfer", "Transferred: %s / tick");
-        provider.add("gui.neoecoae.storage_interface.transfer_prefix", "Transferred: ");
-        provider.add("gui.neoecoae.storage_interface.transfer_suffix", " / tick");
+        provider.add("gui.neoecoae.storage_interface.connected", "Online");
+        provider.add("gui.neoecoae.storage_interface.disconnected", "Offline");
+        provider.add("gui.neoecoae.storage_interface.transfer", "Transfer: %s/tick");
+        provider.add("gui.neoecoae.storage_interface.transfer_prefix", "Transfer: ");
+        provider.add("gui.neoecoae.storage_interface.transfer_suffix", "/tick");
 
         // crafting interface
         provider.add("gui.neoecoae.crafting_interface.title", "Crafting Interface");
