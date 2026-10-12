@@ -631,13 +631,13 @@ class StorageHostUiTest {
             doReturn(12F).when(animation).getSizeHeight();
             GUIContext context = mock(GUIContext.class);
             context.partialTick = 0.5F;
-            assertEquals(12, StoragePanelTextures.infinityFrame(9).getImageSize().width);
-            assertEquals(120, StoragePanelTextures.infinityFrame(9).getImageSize().height);
             animation.drawBackgroundAdditional(context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.y == 108 && sprite.color == -1), eq(322F), eq(411F), eq(12F), eq(12F));
+                && sprite.getImageLocation().getPath().equals("textures/guis/storage/storage_ifinity_icon/9.png")
+                && sprite.color == -1), eq(322F), eq(411F), eq(12F), eq(12F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.y == 0 && (sprite.color >>> 24) == 213), eq(322F), eq(411F), eq(12F), eq(12F));
+                && sprite.getImageLocation().getPath().equals("textures/guis/storage/storage_ifinity_icon/0.png")
+                && (sprite.color >>> 24) == 213), eq(322F), eq(411F), eq(12F), eq(12F));
         }
     }
 

@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.math.Size;
 import net.minecraft.resources.ResourceLocation;
 
 /** Pixel rectangles in the storage host artwork. */
@@ -50,11 +49,8 @@ final class StoragePanelTextures {
     }
 
     static SpriteTexture infinityFrame(int frame) {
-        // Keep frame UVs tied to the supplied strip even before the texture has been loaded.
-        return new SpriteTexture() {
-            @Override public Size getImageSize() { return Size.of(12, 120); }
-        }.setImageLocation(id("storage_ifinity_icon.png"))
-            .setSprite(0, Math.floorMod(frame, 10) * 12, 12, 12);
+        // Each frame fills its own texture, so UVs stay 0..1 even before its size is available.
+        return SpriteTexture.of(id("storage_ifinity_icon/" + Math.floorMod(frame, 10) + ".png"));
     }
 
     static SpriteTexture swatch(int index, int color) {
