@@ -2,6 +2,7 @@
   "type": "custom",
   "custom": "interface_root",
   "id": "storage_interface_root",
+  "font_size": 6,
   "overflow": "visible",
   "layout": {
     "position": "relative",
@@ -66,7 +67,7 @@
         "left": 9,
         "top": 32,
         "width": 16,
-        "height": 17
+        "height": 18
       }
     },
     {
@@ -79,7 +80,7 @@
         "left": 30,
         "top": 32,
         "width": 16,
-        "height": 17
+        "height": 18
       }
     },
     {
@@ -92,7 +93,7 @@
         "left": 51,
         "top": 32,
         "width": 16,
-        "height": 17
+        "height": 18
       }
     },
     {

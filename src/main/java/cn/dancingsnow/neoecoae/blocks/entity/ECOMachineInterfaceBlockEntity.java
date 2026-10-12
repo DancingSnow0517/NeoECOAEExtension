@@ -94,7 +94,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private ECOStorageInterfaceMode storageInterfaceMode = ECOStorageInterfaceMode.STORAGE;
     @Persisted
     @DescSynced
-    private boolean ignoreCreativeStorageInput = true;
+    private boolean ignoreCreativeStorageInput = false;
     @Persisted
     private CompoundTag storageResourceFilters = new CompoundTag();
     private transient CompoundTag cachedStorageResourceFilters;
