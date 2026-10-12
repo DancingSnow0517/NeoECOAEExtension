@@ -1,9 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationInterfaceUI;
-import cn.dancingsnow.neoecoae.gui.storage.StorageMegaPanelUI;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -34,7 +32,6 @@ class PhantomItemSlotSideTest {
             when(modList.getAllScanData()).thenReturn(List.of());
             mods.when(ModList::get).thenReturn(modList);
             registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
-            Class.forName(StorageMegaPanelUI.class.getName());
             Class.forName(ItemSlot.class.getName());
             AccessorRegistries.init();
         }
@@ -42,12 +39,9 @@ class PhantomItemSlotSideTest {
 
     @ParameterizedTest
     @CsvSource({
-        "storage, dedicated", "computation, dedicated",
-        "storage, integrated", "computation, integrated",
-        "storage, client", "computation, client",
-        "storage, no_level", "computation, no_level"
+        "dedicated", "integrated", "client", "no_level"
     })
-    void gridsOnlyRegisterPhantomHandlersOnTheLogicalClient(String gridType, String side) throws Exception {
+    void computationGridOnlyRegistersPhantomHandlersOnTheLogicalClient(String side) throws Exception {
         boolean client = side.equals("client");
         Level level = side.equals("no_level") ? null : mock(Level.class);
         if (level != null) {
@@ -69,10 +63,10 @@ class PhantomItemSlotSideTest {
                     new NoClassDefFoundError("net/minecraft/client/gui/components/Renderable"));
             }
 
-            UIElement grid = assertDoesNotThrow(() -> createGrid(gridType, level));
+            UIElement grid = assertDoesNotThrow(() -> createGrid(level));
             List<ItemSlot> slots = new ArrayList<>();
             collectSlots(grid, slots);
-            assertEquals(gridType.equals("storage") ? 25 : 63, slots.size());
+            assertEquals(63, slots.size());
             for (ItemSlot slot : slots) {
                 assertNotNull(slot.getSlot());
                 if (client) {
@@ -89,15 +83,7 @@ class PhantomItemSlotSideTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static UIElement createGrid(String gridType, Level level) throws Exception {
-        if (gridType.equals("storage")) {
-            var host = mock(ECOStorageSystemBlockEntity.class);
-            when(host.getLevel()).thenReturn(level);
-            var method = StorageMegaPanelUI.class.getDeclaredMethod("filterGrid",
-                ECOStorageSystemBlockEntity.class, net.neoforged.neoforge.items.IItemHandlerModifiable.class);
-            method.setAccessible(true);
-            return (UIElement) method.invoke(null, host, new ItemStackHandler(25));
-        }
+    private static UIElement createGrid(Level level) throws Exception {
         ECOMachineInterfaceBlockEntity<NEComputationCluster> host = mock(ECOMachineInterfaceBlockEntity.class);
         when(host.getLevel()).thenReturn(level);
         when(host.getFuzzyPlanningItemHandler()).thenReturn(new ItemStackHandler(63));

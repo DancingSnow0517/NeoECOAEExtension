@@ -1,17 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
-import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.List;
@@ -19,7 +13,6 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
-import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 public final class StorageHostActionUI {
@@ -39,10 +32,7 @@ public final class StorageHostActionUI {
         Supplier<MultiBlockPlacementPlan> previewPlan,
         IntSupplier priority,
         IntConsumer setPriority,
-        IntConsumer changePriority,
-        BooleanSupplier bulkMarkingAvailable,
-        LongSupplier bulkMarkingThreshold,
-        Consumer<Boolean> autoMarkBulkCells
+        IntConsumer changePriority
     ) {
     }
 
@@ -50,8 +40,7 @@ public final class StorageHostActionUI {
         Config config,
         Player player,
         UIElement buildWindow,
-        UIElement priorityWindow,
-        Button bulkMarkingButton
+        UIElement priorityWindow
     ) {
         public void addTo(UIElement root) {
             List<UIElement> buttons = List.of(
@@ -83,25 +72,6 @@ public final class StorageHostActionUI {
             config.setPriority(),
             config.changePriority()
         ));
-        Button bulkMarkingButton = config.bulkMarkingAvailable().getAsBoolean()
-            ? createBulkMarkingButton(config)
-            : null;
-        return new Elements(config, config.player(), buildWindow, priorityWindow, bulkMarkingButton);
-    }
-
-    private static Button createBulkMarkingButton(Config config) {
-        Button button = HostSideButtonBar.createButton()
-            .noText()
-            .addPostIcon(AETextures.icon(ECOIcon.TYPE_FILTER_ALL))
-            .setOnServerClick(event -> {
-                if (event.button == 1) config.autoMarkBulkCells().accept(event.isShiftDown());
-            });
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-            List.of(Component.translatable(
-                "gui.neoecoae.storage.bulk_mark", config.bulkMarkingThreshold().getAsLong())),
-            null,
-            null,
-            null));
-        return button;
+        return new Elements(config, config.player(), buildWindow, priorityWindow);
     }
 }
