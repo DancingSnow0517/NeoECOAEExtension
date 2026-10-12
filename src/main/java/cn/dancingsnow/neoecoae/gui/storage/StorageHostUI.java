@@ -251,7 +251,9 @@ public final class StorageHostUI {
             // client's host mode is current. Sync visibility instead of changing the UI tree.
             UIElement block = HostElements.syncedDisplay(() -> line.visible().getAsBoolean()
                 && (line.usedTypes().getAsLong() > 0
-                || line.usedBytes().getAsLong() > 0 || safeEntries(config.cellEntries()).stream()
+                || line.usedBytes().getAsLong() > 0
+                || line.totalTypes().getAsLong() != 0 || line.totalBytes().getAsLong() != 0
+                || safeEntries(config.cellEntries()).stream()
                 .anyMatch(entry -> entry.typeId() == line.registryIndex())));
             block.layout(layout -> layout.widthPercent(100).gapAll(2).flexDirection(FlexDirection.COLUMN));
             block.addChild(HostElements.textSegment(line.displayName(),

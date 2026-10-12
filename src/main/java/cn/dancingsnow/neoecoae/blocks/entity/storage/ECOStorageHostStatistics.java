@@ -14,6 +14,8 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
 
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -32,9 +34,15 @@ final class ECOStorageHostStatistics {
         boolean infiniteResource) {}
 
     private final ECOStorageSystemBlockEntity host;
+    private final Registry<ECOCellType> cellTypes;
 
     ECOStorageHostStatistics(ECOStorageSystemBlockEntity host) {
+        this(host, NERegistries.CELL_TYPE);
+    }
+
+    ECOStorageHostStatistics(ECOStorageSystemBlockEntity host, Registry<ECOCellType> cellTypes) {
         this.host = host;
+        this.cellTypes = cellTypes;
     }
 
     void invalidate() {
@@ -46,14 +54,14 @@ final class ECOStorageHostStatistics {
     }
 
     List<StorageHostUI.StorageTypeLine> createStorageTypeLines() {
-        List<StorageHostUI.StorageTypeLine> lines = NERegistries.CELL_TYPE.stream()
+        List<StorageHostUI.StorageTypeLine> lines = cellTypes.stream()
             .map(cellType -> {
-                int id = NERegistries.CELL_TYPE.getId(cellType);
+                int id = cellTypes.getId(cellType);
                 return new StorageHostUI.StorageTypeLine(
                     cellType,
                     id,
                     cellType::desc,
-                    () -> !host.isFormedInfiniteMode() && cellType.visible(),
+                    () -> !host.isFormedInfiniteMode() && cellType.visible() && normalUiTypeId(id) == id,
                     () -> getStorageValue(id, StorageValue.USED_TYPES),
                     () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
                     () -> getStorageValue(id, StorageValue.USED_BYTES),
@@ -190,7 +198,7 @@ final class ECOStorageHostStatistics {
             long totalBytes = view.totalBytes();
             if (cellTypeId >= 0) {
                 storageTypes.merge(
-                    cellTypeId,
+                    normalUiTypeId(cellTypeId),
                     new StorageTypeTotals(usedTypes, totalTypes, usedBytes, totalBytes),
                     StorageTypeTotals::add
                 );
@@ -242,7 +250,7 @@ final class ECOStorageHostStatistics {
             if (previous != null && previous.inventory() == inventory && previous.revision() == revision
                 && previous.member() == member && previous.infiniteResource() == infiniteResource
                 && tick - previous.tick() < 20L) return previous;
-            int type = NERegistries.CELL_TYPE.getId(inventory.getCellType());
+            int type = cellTypes.getId(inventory.getCellType());
             List<AEKeyType> keyTypes = new ArrayList<>();
             if (type >= 0 && drive.getCellStack().getItem() instanceof IECOStorageCellItem item) {
                 for (AEKeyType keyType : item.getKeyTypes()) keyTypes.add(keyType);
@@ -259,6 +267,27 @@ final class ECOStorageHostStatistics {
             host.storageFaults().report(component, e.toString(), tick, e);
             return previous;
         }
+    }
+
+    private int normalUiTypeId(int cellTypeId) {
+        ResourceLocation key = cellTypes.getKey(cellTypes.byId(cellTypeId));
+        if (key == null || !key.getNamespace().equals("neoecoae")) return cellTypeId;
+        String baseType = switch (key.getPath()) {
+            case "mega_item" -> "items";
+            case "mega_fluid" -> "fluids";
+            case "mega_energy" -> "flux";
+            case "mega_chemical" -> "mekanism";
+            case "mega_air" -> "air";
+            case "mega_experience" -> "experience";
+            case "mega_soul" -> "soul";
+            case "mega_mana" -> "mana";
+            case "mega_source" -> "source";
+            default -> null;
+        };
+        if (baseType == null) return cellTypeId;
+        ECOCellType base = cellTypes.get(ResourceLocation.fromNamespaceAndPath("neoecoae", baseType));
+        // Keep the original group if an optional channel's ordinary cell type is unavailable.
+        return base == null ? cellTypeId : cellTypes.getId(base);
     }
 
     private void addInfiniteStorageTypes(Map<Integer, StorageTypeTotals> storageTypes) {
@@ -327,11 +356,15 @@ final class ECOStorageHostStatistics {
         private StorageTypeTotals add(StorageTypeTotals other) {
             return new StorageTypeTotals(
                 NEMath.saturatingAdd(usedTypes, other.usedTypes),
-                NEMath.saturatingAdd(totalTypes, other.totalTypes),
+                addCapacity(totalTypes, other.totalTypes),
                 NEMath.saturatingAdd(usedBytes, other.usedBytes),
-                NEMath.saturatingAdd(totalBytes, other.totalBytes),
+                addCapacity(totalBytes, other.totalBytes),
                 displayUsedBytes.add(other.displayUsedBytes)
             );
+        }
+
+        private static long addCapacity(long left, long right) {
+            return left < 0L || right < 0L ? -1L : NEMath.saturatingAdd(left, right);
         }
     }
 
