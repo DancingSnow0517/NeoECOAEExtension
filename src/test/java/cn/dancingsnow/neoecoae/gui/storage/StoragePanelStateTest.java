@@ -220,14 +220,26 @@ class StoragePanelStateTest {
     }
 
     @Test
-    void stackedBarMergesAliasesOrdersAmountsAndLeavesUnusedCapacityVisible() {
+    void resourceDistributionMergesAliasesOrdersAmountsAndFillsTheBar() {
         List<StoragePanelState.TypeLine> types = List.of(type(1, 30), type(2, 40), type(0, 20), type(2, 60));
         StoragePanelState state = barState(false, 0.75, types);
         var segments = StorageHostCharts.capacitySegments(state, 160);
         assertEquals(List.of(2, 1, 0), segments.stream().map(StorageHostCharts.CapacitySegment::swatch).toList());
-        assertEquals(List.of(80, 24, 16), segments.stream().map(StorageHostCharts.CapacitySegment::width).toList());
-        assertEquals(120, segments.stream().mapToInt(StorageHostCharts.CapacitySegment::width).sum());
+        assertEquals(List.of(107, 32, 21), segments.stream().map(StorageHostCharts.CapacitySegment::width).toList());
+        assertEquals(160, segments.stream().mapToInt(StorageHostCharts.CapacitySegment::width).sum());
         assertTrue(StorageHostCharts.capacitySegments(barState(true, 1, List.of()), 160).isEmpty());
+    }
+
+    @Test
+    void finiteResourceDistributionRemainsVisibleWhenCapacityUsageRoundsToZeroPixels() {
+        var state = barState(false, 0.000001, List.of(type(2, 32_769), type(1, 81_796)));
+        var transported = StoragePanelState.fromTag(state.toTag());
+        assertEquals(0, Math.round(160 * transported.usage()));
+        var segments = StorageHostCharts.capacitySegments(transported, 160);
+        assertEquals(List.of(1, 2), segments.stream().map(StorageHostCharts.CapacitySegment::swatch).toList());
+        assertEquals(List.of(114, 46), segments.stream().map(StorageHostCharts.CapacitySegment::width).toList());
+        assertTrue(StorageHostCharts.capacitySegments(barState(false, 0.000001, List.of()), 160).isEmpty());
+        assertTrue(StorageHostCharts.capacitySegments(transported, 0).isEmpty());
     }
 
     @Test

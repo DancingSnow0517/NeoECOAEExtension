@@ -35,17 +35,17 @@ class StorageResourceHoverTest {
             context.mouseY = 337;
             bar.drawBackgroundAdditional(context);
             verify(context, times(1)).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
-                eq(208F), eq(334F), eq(90F), eq(8F));
+                eq(208F), eq(334F), eq(120F), eq(8F));
             Object[] item = tooltipArguments(bar);
             assertEquals("items", ((Component) item[0]).getString());
             assertEquals("90", item[1]);
             assertEquals("75.0%", item[2]);
 
             clearInvocations(context);
-            context.mouseX = 298; // Exact boundary belongs to the next resource, not both.
+            context.mouseX = 328; // Exact boundary belongs to the next resource, not both.
             bar.drawBackgroundAdditional(context);
             verify(context, times(1)).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
-                eq(298F), eq(334F), eq(30F), eq(8F));
+                eq(328F), eq(334F), eq(40F), eq(8F));
             Object[] fluid = tooltipArguments(bar);
             assertEquals("fluids", ((Component) fluid[0]).getString());
             assertEquals("30", fluid[1]);
@@ -54,12 +54,12 @@ class StorageResourceHoverTest {
     }
 
     @Test
-    void unusedCapacityOutsideEdgesAndLeavingTheBarClearTheHighlightAndTooltip() {
+    void outsideEdgesAndLeavingTheBarClearTheHighlightAndTooltip() {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement bar = bar(state(false, 0.75, List.of(type(2, "items", 90), type(1, "fluids", 30))));
             GUIContext context = mock(GUIContext.class);
-            for (int[] point : List.of(new int[] {328, 337}, new int[] {368, 337},
+            for (int[] point : List.of(new int[] {368, 337},
                 new int[] {207, 337}, new int[] {220, 333}, new int[] {220, 342})) {
                 context.mouseX = 220;
                 context.mouseY = 337;
@@ -82,6 +82,33 @@ class StorageResourceHoverTest {
             verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                 anyFloat(), anyFloat(), anyFloat(), anyFloat());
             assertTrue(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+        }
+    }
+
+    @Test
+    void finiteResourceHoverStillMatchesItsShareWhenCapacityUsageIsTiny() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            UIElement bar = bar(state(false, 0.000001,
+                List.of(type(2, "items", 32_769), type(1, "fluids", 81_796))));
+            GUIContext context = mock(GUIContext.class);
+            context.mouseX = 321;
+            context.mouseY = 337;
+            bar.drawBackgroundAdditional(context);
+            verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 208F, 334F, 114F, 8F);
+            Object[] fluid = tooltipArguments(bar);
+            assertEquals("fluids", ((Component) fluid[0]).getString());
+            assertEquals("81,796", fluid[1]);
+            assertEquals("71.4%", fluid[2]);
+
+            clearInvocations(context);
+            context.mouseX = 322;
+            bar.drawBackgroundAdditional(context);
+            verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 322F, 334F, 46F, 8F);
+            Object[] item = tooltipArguments(bar);
+            assertEquals("items", ((Component) item[0]).getString());
+            assertEquals("32,769", item[1]);
+            assertEquals("28.6%", item[2]);
         }
     }
 

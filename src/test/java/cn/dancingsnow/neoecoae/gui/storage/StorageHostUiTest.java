@@ -513,9 +513,9 @@ class StorageHostUiTest {
             verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 120F, 8F);
             resources.drawBackgroundAdditional(context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62), eq(208F), eq(334F), eq(90F), eq(8F));
+                && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62), eq(208F), eq(334F), eq(120F), eq(8F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == 24 && sprite.spritePosition.y == 62), eq(298F), eq(334F), eq(30F), eq(8F));
+                && sprite.spritePosition.x == 24 && sprite.spritePosition.y == 62), eq(328F), eq(334F), eq(40F), eq(8F));
             energy.drawBackgroundAdditional(context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.y == 133 && sprite.spriteSize.width == 19), eq(373F), eq(292F), eq(19F), eq(7F));

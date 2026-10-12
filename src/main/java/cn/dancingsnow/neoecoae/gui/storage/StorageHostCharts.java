@@ -397,9 +397,9 @@ final class StorageHostCharts {
     record CapacitySegment(int swatch, int color, int width) {}
     private record ResourceColor(int swatch, int color) {}
 
-    /** Merge aliases, show the largest resource first, and preserve exact proportions beyond long capacity. */
+    /** Fill the bar with stored-resource shares, merging aliases and preserving exact proportions beyond long. */
     static List<CapacitySegment> capacitySegments(StoragePanelState state, int availableWidth) {
-        int width = (int) Math.round(Math.max(0, availableWidth) * (state.unbounded() ? 1 : state.usage()));
+        int width = Math.max(0, availableWidth);
         if (width <= 0) return List.of();
         Map<ResourceColor, BigInteger> amounts = new LinkedHashMap<>();
         for (StoragePanelState.TypeLine type : state.types()) {
