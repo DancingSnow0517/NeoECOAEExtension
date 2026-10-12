@@ -54,7 +54,8 @@ final class ECOStorageInterfaceTransfer {
             hostStorage,
             storageInterface.isStorageInputMode(),
             storageInterface.isIgnoringCreativeStorageInput(),
-            IActionSource.ofMachine(storageInterface)
+            IActionSource.ofMachine(storageInterface),
+            storageInterface::acceptsStorageResource
         );
         if (moved > 0L) {
             host.setChanged();

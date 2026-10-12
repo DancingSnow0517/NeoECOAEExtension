@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.storage.transfer;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
@@ -25,6 +26,11 @@ public final class ECOIOPortTransfer {
 
     public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
                          boolean ignoreCreativeInput, IActionSource source) {
+        return transfer(grid, hostStorage, fillHost, ignoreCreativeInput, source, key -> true);
+    }
+
+    public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
+                         boolean ignoreCreativeInput, IActionSource source, Predicate<AEKey> filter) {
         MEStorage networkStorage = grid.getStorageService().getInventory();
         MEStorage from;
         MEStorage destination;
@@ -46,7 +52,7 @@ public final class ECOIOPortTransfer {
             queued.clear();
         }
         for (var entry : available) {
-            if (entry.getLongValue() > 0L && queued.add(entry.getKey())) {
+            if (entry.getLongValue() > 0L && filter.test(entry.getKey()) && queued.add(entry.getKey())) {
                 queue.addLast(entry.getKey());
             }
         }
@@ -56,6 +62,8 @@ public final class ECOIOPortTransfer {
         while (keysRemaining-- > 0) {
             var key = queue.removeFirst();
             queued.remove(key);
+            // Also recheck pending keys after a filter or interface change.
+            if (!filter.test(key)) continue;
             long amount = available.get(key);
             if (amount <= 0L) continue;
 

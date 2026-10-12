@@ -32,6 +32,41 @@ class ECOIOPortTransferTest {
     }
 
     @Test
+    void resourceFilterRestrictsBothInputAndOutputBeforeAnyExtraction() {
+        AEKey allowed = AEItemKey.of(Items.STONE), denied = AEItemKey.of(Items.DIRT);
+        for (boolean input : List.of(true, false)) {
+            var from = new MultiStorage(List.of(allowed, denied), 10);
+            var destination = new MultiStorage(List.of(), 0);
+            var network = input ? from : destination;
+            var host = input ? destination : from;
+            assertEquals(10, new ECOIOPortTransfer().transfer(inputGrid(network), host, input,
+                false, IActionSource.empty(), allowed::equals));
+            assertEquals(0, from.amounts.get(allowed));
+            assertEquals(10, from.amounts.get(denied));
+            assertEquals(10, destination.amounts.get(allowed));
+            assertEquals(1, from.modulatedExtracts);
+        }
+    }
+
+    @Test
+    void changedFilterDiscardsAlreadyQueuedResources() {
+        List<AEKey> keys = List.of(AEItemKey.of(Items.STONE), AEItemKey.of(Items.DIRT),
+            AEItemKey.of(Items.COBBLESTONE), AEItemKey.of(Items.SAND), AEItemKey.of(Items.GRAVEL), AEItemKey.of(Items.GLASS));
+        var from = new MultiStorage(keys, 10);
+        var network = new MultiStorage(List.of(), 0);
+        var grid = inputGrid(network);
+        var transfer = new ECOIOPortTransfer();
+        assertEquals(50, transfer.transfer(grid, from, false, false, IActionSource.empty(), key -> true));
+        AEKey pending = from.amounts.entrySet().stream().filter(entry -> entry.getValue() > 0)
+            .findFirst().orElseThrow().getKey();
+        AEKey allowed = keys.stream().filter(key -> !key.equals(pending)).findFirst().orElseThrow();
+        assertEquals(0, transfer.transfer(grid, from, false, false, IActionSource.empty(), allowed::equals));
+        assertEquals(10, from.amounts.get(pending));
+        assertEquals(5, from.modulatedExtracts);
+        assertEquals(10, transfer.transfer(grid, from, false, false, IActionSource.empty(), key -> true));
+    }
+
+    @Test
     void movesTheEntireKeyAmountInOneTickWithoutPerItemIteration() {
         AEKey key = AEItemKey.of(Items.STONE);
         var host = new CountingStorage(key, 300_000_000L, Long.MAX_VALUE);

@@ -29,6 +29,8 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationClus
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
+import cn.dancingsnow.neoecoae.impl.storage.StorageInterfaceFilter;
+import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
@@ -93,6 +95,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @Persisted
     @DescSynced
     private boolean ignoreCreativeStorageInput = true;
+    @Persisted
+    private CompoundTag storageResourceFilters = new CompoundTag();
+    private transient CompoundTag cachedStorageResourceFilters;
+    private transient StorageInterfaceFilter storageResourceFilter;
     @Persisted
     private final AppEngInternalInventory fuzzyPlanningInventory = new AppEngInternalInventory(
         this, FUZZY_PLANNING_SLOT_COUNT, 1
@@ -177,6 +183,29 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
     public long getTransferredLastTick() { return transferredLastTick; }
     public boolean isIgnoringCreativeStorageInput() { return ignoreCreativeStorageInput; }
+
+    public CompoundTag getStorageResourceFilters() { return storageResourceFilters.copy(); }
+
+    public boolean acceptsStorageResource(AEKey key) {
+        if (storageResourceFilter == null || cachedStorageResourceFilters != storageResourceFilters) {
+            var registries = level == null ? net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
+                : level.registryAccess();
+            storageResourceFilter = new StorageInterfaceFilter(storageResourceFilters, registries);
+            cachedStorageResourceFilters = storageResourceFilters;
+        }
+        return storageResourceFilter.test(key);
+    }
+
+    /** Menu RPCs validate the player and decode a complete AE key before reaching this setter. */
+    public void setStorageResourceFilter(int slot, @Nullable AEKey key) {
+        if (level == null || level.isClientSide || !supportsStorageInterfaceUi()
+            || slot < 0 || slot >= StorageInterfaceFilter.SLOTS) return;
+        CompoundTag updated = StorageInterfaceFilter.with(storageResourceFilters, slot, key, level.registryAccess());
+        if (updated.equals(storageResourceFilters)) return;
+        storageResourceFilters = updated;
+        transferredLastTick = 0;
+        setChanged();
+    }
 
     public void toggleIgnoreCreativeStorageInput() {
         if (level == null || level.isClientSide || !supportsStorageInterfaceUi()) return;
