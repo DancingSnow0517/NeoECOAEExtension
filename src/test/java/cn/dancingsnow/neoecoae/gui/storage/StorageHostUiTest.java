@@ -281,7 +281,7 @@ class StorageHostUiTest {
             assertEquals(33, node(normal, "storage_cells").getChildren().size());
             assertInstanceOf(InventorySlots.class, node(normal, "player_inventory"));
             assertInstanceOf(ItemSlot.class, node(normal, "infinite_component"));
-            assertEquals(LengthPercentageAuto.length(88), node(normal, "energy_stored_text").getLayout().getValueImmediate(LayoutProperties.TOP));
+            assertEquals(LengthPercentageAuto.length(92), node(normal, "energy_stored_text").getLayout().getValueImmediate(LayoutProperties.TOP));
             assertEquals(LengthPercentageAuto.length(92), node(normal, "energy_text").getLayout().getValueImmediate(LayoutProperties.TOP));
             assertEquals(LengthPercentageAuto.length(104), node(normal, "capacity_text").getLayout().getValueImmediate(LayoutProperties.TOP));
             assertEquals(LengthPercentageAuto.length(104), node(normal, "capacity_percentage").getLayout().getValueImmediate(LayoutProperties.TOP));
@@ -693,6 +693,8 @@ class StorageHostUiTest {
             GUIContext context = mock(GUIContext.class);
             context.partialTick = 0.5F;
             animation.drawBackgroundAdditional(context);
+            assertEquals(12, StoragePanelTextures.infinityFrame(9).getImageSize().width);
+            assertEquals(120, StoragePanelTextures.infinityFrame(9).getImageSize().height);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.getImageLocation().getPath().equals("textures/guis/storage/storage_ifinity_icon.png")
                 && sprite.spritePosition.y == 108 && sprite.spriteSize.width == 12 && sprite.spriteSize.height == 12
