@@ -359,6 +359,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");
         provider.add("gui.neoecoae.host.crafting.overflow", "Overflow");
         provider.add("gui.neoecoae.host.crafting.coolant", "Coolant");
+        provider.add("gui.neoecoae.storage_interface.filter.title", "Resource filter");
+        provider.add("gui.neoecoae.storage_interface.filter.hint", "Left-click to set; right-click to clear");
+        provider.add("gui.neoecoae.storage_interface.filter.edit", "Left-click with a sample to set; right-click to clear. Fluid containers select the fluid; Shift selects the item.");
+        provider.add("gui.neoecoae.storage_interface.filter.rule", "Input/output: an empty list allows all resources; otherwise only exact matches pass. Storage mode does not use this filter.");
+        provider.add("gui.neoecoae.storage_interface.filter.unavailable", "This saved resource is unavailable. Clear or replace the filter to change it.");
         provider.add("gui.neoecoae.storage_interface.title", "Storage Interface");
         provider.add("gui.neoecoae.storage_interface.mode.storage", "Storage");
         provider.add("gui.neoecoae.storage_interface.mode.input", "Input");
