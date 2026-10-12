@@ -35,8 +35,7 @@ public class NETextures {
         .setSprite(0, 0, 176, 253);
     public static IGuiTexture PATTERN_MANAGER = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
         .setSprite(0, 0, 195, 237);
-    public static IGuiTexture PATTERN_MANAGER_SLOT = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
-        .setSprite(7, 210, 18, 18);
+    public static IGuiTexture PATTERN_MANAGER_SLOT = Crafting.widget(38, 129, 16, 16);
     public static IGuiTexture PATTERN_MANAGER_SCROLLBAR_TRACK = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
         .setSprite(178, 31, 6, 108).setBorder(1);
 
@@ -175,7 +174,15 @@ public class NETextures {
     public static class Crafting {
         public static final net.minecraft.resources.ResourceLocation CONTROLLER_ATLAS =
             NeoECOAE.id("textures/guis/crafting_controller.png");
+        public static final net.minecraft.resources.ResourceLocation WIDGETS_ATLAS =
+            NeoECOAE.id("textures/guis/crafting_widgets.png");
+        public static final int WIDGETS_WIDTH = 288;
+        public static final int WIDGETS_HEIGHT = 256;
         public static IGuiTexture CONTROLLER = SpriteTexture.of(CONTROLLER_ATLAS).setSprite(0, 0, 253, 214);
+
+        public static SpriteTexture widget(int x, int y, int width, int height) {
+            return SpriteTexture.of(WIDGETS_ATLAS).setSprite(x, y, width, height);
+        }
     }
 
     public static void init(ResourceInstance<IGuiTexture> instance) {

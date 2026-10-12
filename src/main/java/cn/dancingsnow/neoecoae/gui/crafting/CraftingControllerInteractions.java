@@ -59,9 +59,9 @@ final class CraftingControllerInteractions {
     }
 
     private static void updateModeButtonStyle(Button button, boolean enabled) {
-        int sourceX = enabled ? 173 : 203;
-        IGuiTexture normal = SpriteTexture.of(NETextures.Crafting.CONTROLLER_ATLAS).setSprite(sourceX, 215, 15, 26);
-        IGuiTexture hovered = SpriteTexture.of(NETextures.Crafting.CONTROLLER_ATLAS).setSprite(sourceX + 15, 215, 15, 26);
+        int sourceX = enabled ? 0 : 30;
+        IGuiTexture normal = NETextures.Crafting.widget(sourceX, 89, 15, 26);
+        IGuiTexture hovered = NETextures.Crafting.widget(sourceX + 15, 89, 15, 26);
         button.buttonStyle(style -> style.baseTexture(normal).hoverTexture(hovered).pressedTexture(hovered));
     }
 

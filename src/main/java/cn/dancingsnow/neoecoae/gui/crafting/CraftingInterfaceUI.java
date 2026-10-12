@@ -87,7 +87,7 @@ public final class CraftingInterfaceUI {
                 case "operation_status" -> operationStatus;
                 case "title" -> boundLabel(() -> GuiTitleProvider.title(host.getBlockState(),
                     Component.translatable("gui.neoecoae.crafting_interface.title")));
-                case "network_indicator" -> networkIndicator();
+                case "operation_indicator" -> operationIndicator();
                 case "input_search" -> patternSearchField(previewState::setInputSearch, "inputs", false)
                     .setSearchValue(previewState.getInputSearch());
                 case "output_search" -> patternSearchField(previewState::setOutputSearch, "output", false)
@@ -110,11 +110,10 @@ public final class CraftingInterfaceUI {
             }
         }
 
-        private Label networkIndicator() {
-            Label network = boundLabel(() -> Component.literal("●").withColor(
-                host.isTargetOnline() ? 0x55CC77 : 0xDD5555));
-            operationStatus.attach(network);
-            return network;
+        private UIElement operationIndicator() {
+            PatternOperationIndicator indicator = new PatternOperationIndicator(host);
+            operationStatus.attach(indicator);
+            return indicator;
         }
 
         private Label statusLabel() {
@@ -160,7 +159,7 @@ public final class CraftingInterfaceUI {
         String key = "gui.neoecoae.crafting_interface.preview.search." + direction;
         field.setSearchHint(Component.translatable(key));
         HostElements.tooltips(field, Component.translatable(key + ".tooltip"));
-        if (withLayout) return HostElements.absolute(field, "inputs".equals(direction) ? 21 : 103, 15, 66, 12);
+        if (withLayout) return HostElements.absolute(field, "inputs".equals(direction) ? 21 : 103, 18, 66, 12);
         return field;
     }
 
@@ -204,8 +203,10 @@ public final class CraftingInterfaceUI {
         });
         for (int visual = 0; visual < ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS; visual++) {
             PatternItemSlot slot = state.createSlot(visual);
-            slot.getStyle().backgroundTexture(NETextures.PATTERN_MANAGER_SLOT);
-            slot.slotStyle(style -> style.slotOverlay(IGuiTexture.EMPTY));
+            slot.getStyle().backgroundTexture(IGuiTexture.EMPTY);
+            // Draw the 16px sprite in the padded item area, before the pattern output icon.
+            slot.slotStyle(style -> style.slotOverlay(NETextures.PATTERN_MANAGER_SLOT)
+                .showSlotOverlayOnlyEmpty(false));
             preview.addChild(HostElements.absolute(slot, visual % PREVIEW_COLUMNS * 18,
                     visual / PREVIEW_COLUMNS * 18, 18, 18));
         }
@@ -333,6 +334,41 @@ public final class CraftingInterfaceUI {
         @Override public IDataSource<Component> setValue(Component value) {
             text = value == null ? Component.empty() : value;
             return this;
+        }
+    }
+
+    static final class PatternOperationIndicator extends UIElement implements IBindable<Integer> {
+        private static final IGuiTexture[] NORMAL = {
+            NETextures.Crafting.widget(8, 129, 10, 12),
+            NETextures.Crafting.widget(18, 129, 10, 12),
+            NETextures.Crafting.widget(28, 129, 10, 12)
+        };
+        private static final IGuiTexture[] HOVERED = {
+            NETextures.Crafting.widget(8, 142, 10, 11),
+            NETextures.Crafting.widget(18, 142, 10, 11),
+            NETextures.Crafting.widget(28, 142, 10, 11)
+        };
+        private int state;
+
+        PatternOperationIndicator(ECOMachineInterfaceBlockEntity<?> host) {
+            Supplier<Integer> source = () -> host.isPatternOrganizeInProgress()
+                ? 2 : host.isPatternTransferInProgress() ? 1 : 0;
+            state = source.get();
+            bind(DataBindingBuilder.intValS2C(source).build());
+        }
+
+        @Override public Integer getValue() { return state; }
+
+        @Override public IDataSource<Integer> setValue(Integer value) {
+            state = value == null ? 0 : Math.clamp(value, 0, 2);
+            return this;
+        }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            boolean hovered = isHover();
+            // The lower hover sprite is one pixel shorter; keep the hitbox fixed and shift the image down.
+            context.drawTexture((hovered ? HOVERED : NORMAL)[state],
+                getPositionX(), getPositionY() + (hovered ? 1 : 0), 10, hovered ? 11 : 12);
         }
     }
 

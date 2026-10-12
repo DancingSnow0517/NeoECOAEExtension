@@ -25,21 +25,21 @@
     },
     {
       "type": "custom",
-      "id": "network_indicator",
-      "custom": "network_indicator",
-      "layout": { "position": "absolute", "left": 178, "top": 5, "width": 10, "height": 10 }
+      "id": "operation_indicator",
+      "custom": "operation_indicator",
+      "layout": { "position": "absolute", "left": 181, "top": 4, "width": 10, "height": 12 }
     },
     {
       "type": "custom",
       "id": "input_search",
       "custom": "input_search",
-      "layout": { "position": "absolute", "left": 21, "top": 15, "width": 66, "height": 12 }
+      "layout": { "position": "absolute", "left": 21, "top": 18, "width": 66, "height": 12 }
     },
     {
       "type": "custom",
       "id": "output_search",
       "custom": "output_search",
-      "layout": { "position": "absolute", "left": 103, "top": 15, "width": 66, "height": 12 }
+      "layout": { "position": "absolute", "left": 103, "top": 18, "width": 66, "height": 12 }
     },
     {
       "type": "custom",

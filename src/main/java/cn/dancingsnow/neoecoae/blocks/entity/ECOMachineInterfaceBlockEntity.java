@@ -610,6 +610,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return patternTransferInProgress || patternOrganizeInProgress;
     }
 
+    public boolean isPatternOrganizeInProgress() {
+        return patternOrganizeInProgress;
+    }
+
     private boolean isPatternMutationLocked() {
         return patternTransferTask != null || patternOrganizeTask != null;
     }

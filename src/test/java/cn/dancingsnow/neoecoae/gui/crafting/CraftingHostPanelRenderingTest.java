@@ -99,10 +99,10 @@ class CraftingHostPanelRenderingTest {
             verify(context.graphics).drawString(font, "gui.neoecoae.crafting.ui.coolant_overclock", 0, 0,
                 0xFFB4B6CC, true);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 215),
+                && sprite.spritePosition.x == 8 && sprite.spritePosition.y == 115),
                 eq(186F), eq(194F), eq(22F), eq(7F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 223),
+                && sprite.spritePosition.x == 8 && sprite.spritePosition.y == 122),
                 eq(241F), eq(194F), eq(11F), eq(7F));
         }
     }
@@ -129,10 +129,10 @@ class CraftingHostPanelRenderingTest {
             artwork.drawBackgroundAdditional(context);
 
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 215),
+                && sprite.spritePosition.x == 8 && sprite.spritePosition.y == 115),
                 eq(186F), eq(194F), eq(11F), eq(7F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == 104 && sprite.spritePosition.y == 223),
+                && sprite.spritePosition.x == 8 && sprite.spritePosition.y == 122),
                 eq(241F), eq(194F), eq(4F), eq(7F));
             verify(context).drawTexture(any(), eq(329F), eq(164F), eq(5F), eq(1F));
             verify(context, never()).drawTexture(any(), eq(296F), anyFloat(), eq(8F), anyFloat());
@@ -303,10 +303,10 @@ class CraftingHostPanelRenderingTest {
             var syncedCooling = (BindableValue<Boolean>) coolingButton.getChildren().getLast();
             overclockButton.getStyleBag().compute(0);
             coolingButton.getStyleBag().compute(0);
-            assertEquals(173, ((SpriteTexture) overclockButton.getButtonStyle().baseTexture()).spritePosition.x);
-            assertEquals(188, ((SpriteTexture) overclockButton.getButtonStyle().hoverTexture()).spritePosition.x);
-            assertEquals(203, ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).spritePosition.x);
-            assertEquals(218, ((SpriteTexture) coolingButton.getButtonStyle().hoverTexture()).spritePosition.x);
+            assertEquals(0, ((SpriteTexture) overclockButton.getButtonStyle().baseTexture()).spritePosition.x);
+            assertEquals(15, ((SpriteTexture) overclockButton.getButtonStyle().hoverTexture()).spritePosition.x);
+            assertEquals(30, ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).spritePosition.x);
+            assertEquals(45, ((SpriteTexture) coolingButton.getButtonStyle().hoverTexture()).spritePosition.x);
 
             UIEvent click = UIEvent.create(UIEvents.MOUSE_DOWN);
             click.button = 0;
@@ -327,9 +327,9 @@ class CraftingHostPanelRenderingTest {
             syncedOverclock.setValue(false);
             overclockButton.getStyleBag().compute(1);
             coolingButton.getStyleBag().compute(1);
-            assertEquals(173, ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).spritePosition.x);
-            assertEquals(188, ((SpriteTexture) coolingButton.getButtonStyle().hoverTexture()).spritePosition.x);
-            assertEquals(203, ((SpriteTexture) overclockButton.getButtonStyle().baseTexture()).spritePosition.x);
+            assertEquals(0, ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).spritePosition.x);
+            assertEquals(15, ((SpriteTexture) coolingButton.getButtonStyle().hoverTexture()).spritePosition.x);
+            assertEquals(30, ((SpriteTexture) overclockButton.getButtonStyle().baseTexture()).spritePosition.x);
             GUIContext context = context();
             coolingButton.drawBackgroundAdditional(context);
             verify(context).drawTexture(eq(coolingButton.getButtonStyle().hoverTexture()),

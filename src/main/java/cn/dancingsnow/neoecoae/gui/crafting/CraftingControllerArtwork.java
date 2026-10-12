@@ -24,8 +24,8 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 final class CraftingControllerArtwork extends UIElement {
-    private static final int[] PLUS_X = {104, 116, 128};
-    private static final int[] STATUS_CORNER_X = {58, 74, 90};
+    private static final int[] PLUS_X = {1, 13, 25};
+    private static final int[] STATUS_CORNER_X = {19, 35, 51};
     private static final int PRIMARY = 0xFFE4E4EE;
     private static final int SECONDARY = 0xFFB4B6CC;
     private static final int QUEUE_VALUE_COLOR = 0xB4E2FF;
@@ -193,24 +193,24 @@ final class CraftingControllerArtwork extends UIElement {
 
     private void drawTier(GUIContext context, int tier) {
         int sourceX = switch (tier) { case 1 -> 0; case 2 -> 13; case 3 -> 26; default -> -1; };
-        if (sourceX >= 0) sprite(context, sourceX, 214, 13, 18, 23, 5, 13, 18);
+        if (sourceX >= 0) sprite(context, sourceX, 0, 13, 18, 23, 5, 13, 18);
     }
 
     private void drawStatusIcons(GUIContext context) {
         drawStatusLamp(context);
         if (view.state.fxCells() != 0 && view.overclocked) {
-            sprite(context, 0, view.virtualMode ? 244 : 232, 12, 12, 180, 136, 12, 12);
+            sprite(context, 0, view.virtualMode ? 77 : 65, 12, 12, 180, 136, 12, 12);
         }
         if (view.activeCooling) {
-            sprite(context, 12, view.virtualMode ? 244 : 232, 12, 12, 180, 161, 12, 12);
+            sprite(context, 12, view.virtualMode ? 77 : 65, 12, 12, 180, 161, 12, 12);
         }
         if (view.state.switchOverlay()) {
             if (view.virtualMode) {
-                sprite(context, 24, 244, 12, 12, 180, 186, 12, 12);
+                sprite(context, 24, 77, 12, 12, 180, 186, 12, 12);
             } else if (view.highEnergySwitchCount > 0) {
-                sprite(context, 139, 236, 12, 12, 180, 186, 12, 12);
+                sprite(context, 36, 65, 12, 12, 180, 186, 12, 12);
             } else {
-                sprite(context, 24, 232, 12, 12, 180, 186, 12, 12);
+                sprite(context, 24, 65, 12, 12, 180, 186, 12, 12);
             }
         }
     }
@@ -221,15 +221,15 @@ final class CraftingControllerArtwork extends UIElement {
         if (tier < 1 || tier > STATUS_CORNER_X.length) return;
 
         int sourceX = STATUS_CORNER_X[tier - 1];
-        sprite(context, sourceX, 217, 10, 7, 12, 31, 10, 7);
-        sprite(context, sourceX, 242, 10, 7, 12, 54, 10, 7);
+        sprite(context, sourceX, 19, 10, 7, 12, 31, 10, 7);
+        sprite(context, sourceX, 44, 10, 7, 12, 54, 10, 7);
     }
 
     private void drawCoreCells(GUIContext context) {
         for (int cell = 0; cell < CraftingControllerPanelState.SLOT_COUNT; cell++) {
             if (!view.state.hasFx(cell)) continue;
             int x = 49 + cell * 18;
-            sprite(context, 39, 216, 16, 34, x, 29, 16, 34);
+            sprite(context, 0, 18, 16, 34, x, 29, 16, 34);
             drawPlus(context, view.state.upperTier(cell), x + 3, 32, true);
             drawPlus(context, view.state.lowerTier(cell), x + 3, 55, false);
         }
@@ -237,18 +237,18 @@ final class CraftingControllerArtwork extends UIElement {
 
     private void drawPlus(GUIContext context, int tier, int x, int y, boolean upper) {
         if (tier < 1 || tier > 3) return;
-        int sourceY = upper ? 237 : 243;
+        int sourceY = upper ? 53 : 59;
         sprite(context, PLUS_X[tier - 1], sourceY, 10, upper ? 6 : 5, x, y, 10, upper ? 6 : 5);
     }
 
     private void drawBars(GUIContext context) {
         drawStatistics(context);
         drawHorizontalProgress(context, 66, 114, PROGRESS_BAR_WIDTH,
-            view.state.queuePermille(), 104, 215);
+            view.state.queuePermille(), 8, 115);
         drawHorizontalProgress(context, 121, 114, PROGRESS_BAR_WIDTH,
-            CraftingControllerPanelState.permille(1, view.executionTicks), 104, 223);
+            CraftingControllerPanelState.permille(1, view.executionTicks), 8, 122);
         int height = Math.round(46 * view.state.energyPermille() / (float) CraftingControllerPanelState.FULL);
-        if (height > 0) sprite(context, 254, 1 + 46 - height, 8, height, 176, 78 + 46 - height, 8, height);
+        if (height > 0) sprite(context, 0, 115 + 46 - height, 8, height, 176, 78 + 46 - height, 8, height);
         drawFluidGauge(context, 195, view.coolantFluid, view.coolantAmount, view.coolantCapacity, 209);
         drawFluidGauge(context, 226, view.outputFluid, view.outputFluid.getAmount(), view.outputCapacity, 240);
     }
@@ -355,17 +355,22 @@ final class CraftingControllerArtwork extends UIElement {
 
     private void drawGaugeTicks(GUIContext context, int tickX) {
         for (int y = 84; y <= 114; y += 10) {
-            sprite(context, tickX, y, 5, 1, tickX, y, 5, 1);
+            drawGaugeTick(context, tickX, y, 5);
         }
         for (int y = 89; y <= 119; y += 10) {
-            sprite(context, tickX + 2, y, 3, 1, tickX + 2, y, 3, 1);
+            drawGaugeTick(context, tickX + 2, y, 3);
         }
+    }
+
+    private void drawGaugeTick(GUIContext context, int x, int y, int width) {
+        // Tick marks remain part of the controller artwork, above the rendered fluid.
+        context.drawTexture(SpriteTexture.of(NETextures.Crafting.CONTROLLER_ATLAS).setSprite(x, y, width, 1),
+            getPositionX() + x, getPositionY() + y, width, 1);
     }
 
     private void sprite(GUIContext context, int u, int v, int sourceWidth, int sourceHeight,
                         int x, int y, int width, int height) {
-        context.drawTexture(SpriteTexture.of(NETextures.Crafting.CONTROLLER_ATLAS)
-                .setSprite(u, v, sourceWidth, sourceHeight),
+        context.drawTexture(NETextures.Crafting.widget(u, v, sourceWidth, sourceHeight),
             getPositionX() + x, getPositionY() + y, width, height);
     }
 
