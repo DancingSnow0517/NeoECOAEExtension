@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.common;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import com.lowdragmc.lowdraglib2.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -10,7 +11,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -27,7 +27,8 @@ public final class HostSideButtonBar {
     private static final int ICON_SIZE = 16;
     private static final int BUTTON_LEFT = 4;
     private static final int SLOT_SIZE = 18;
-    private static final int SLOT_LEFT = 2;
+    private static final int SLOT_BAR_PADDING_TOP = 5;
+    private static final int SLOT_BAR_PADDING_BOTTOM = 7;
     private static final int FIRST_BUTTON_TOP = 3;
     private static final int OTHER_BUTTON_TOP = 2;
     private static final int LEFT_BAR_TOP = 0;
@@ -40,11 +41,6 @@ public final class HostSideButtonBar {
     private static final int BOTTOM_HEIGHT = 27;
     private static final int FIRST_SEGMENT_STEP = 23;
     private static final int MIDDLE_SEGMENT_STEP = 22;
-    // Slot rails use the same 23/22-pixel vertical grid as button rails.
-    // The artwork segments are 30/24/27 pixels high and overlap by one pixel;
-    // the old 19/18 grid made the right rail drift upward on every slot.
-    private static final int FIRST_SLOT_SEGMENT_STEP = FIRST_SEGMENT_STEP;
-    private static final int MIDDLE_SLOT_SEGMENT_STEP = MIDDLE_SEGMENT_STEP;
 
     private HostSideButtonBar() {
     }
@@ -58,7 +54,7 @@ public final class HostSideButtonBar {
     }
 
     public static UIElement grayLeft(UIElement... buttons) {
-        return create(Side.LEFT, Arrays.asList(buttons), ContentType.BUTTON, "gray_");
+        return create(Side.LEFT, Arrays.asList(buttons), "gray_");
     }
 
     public static UIElement right(UIElement... buttons) {
@@ -69,9 +65,37 @@ public final class HostSideButtonBar {
         return create(Side.RIGHT, buttons);
     }
 
-    /** Creates a mirrored right-side rail while preserving standard 18x18 slot rendering. */
+    /** Matches AE2's contiguous upgrade column, including its shared white frame. */
     public static UIElement rightSlots(List<? extends UIElement> slots) {
-        return create(Side.RIGHT, slots, ContentType.SLOT);
+        if (slots.isEmpty()) {
+            throw new IllegalArgumentException("HostSideButtonBar requires at least one slot");
+        }
+        int slotHeight = slots.size() * SLOT_SIZE;
+        UIElement bar = new UIElement().layout(layout -> layout
+            .positionType(TaffyPosition.ABSOLUTE)
+            .top(LEFT_BAR_TOP)
+            .right(RIGHT_SLOT_BAR_OFFSET)
+            .width(WIDTH)
+            .height(SLOT_BAR_PADDING_TOP + slotHeight + SLOT_BAR_PADDING_BOTTOM))
+            .style(style -> style.backgroundTexture(SpriteTexture.of(
+                NeoECOAE.id("textures/gui/common/side_bar/mirrored_button_slot_up.png"))
+                .setSprite(0, 0, WIDTH, TOP_HEIGHT)
+                .setBorder(0, SLOT_BAR_PADDING_TOP, 0, SLOT_BAR_PADDING_BOTTOM)));
+
+        // AE2 draws the frame around the whole column, not around individual slots.
+        UIElement column = new UIElement().layout(layout -> layout
+            .positionType(TaffyPosition.ABSOLUTE)
+            .left(0)
+            .top(SLOT_BAR_PADDING_TOP)
+            .width(SLOT_SIZE)
+            .height(slotHeight))
+            .style(style -> style.backgroundTexture(new ColorBorderTexture(-1, 0xFFF2F2F2)));
+        for (int index = 0; index < slots.size(); index++) {
+            UIElement slot = slots.get(index);
+            applySlotStyle(slot, index * SLOT_SIZE);
+            column.addChild(slot);
+        }
+        return bar.addChild(column);
     }
 
     public static UIElement create(Side side, UIElement... buttons) {
@@ -107,44 +131,33 @@ public final class HostSideButtonBar {
     }
 
     public static UIElement create(Side side, List<? extends UIElement> buttons) {
-        return create(side, buttons, ContentType.BUTTON);
+        return create(side, buttons, "");
     }
 
-    private static UIElement create(Side side, List<? extends UIElement> elements, ContentType contentType) {
-        return create(side, elements, contentType, "");
-    }
-
-    private static UIElement create(Side side, List<? extends UIElement> elements, ContentType contentType,
-                                    String texturePrefix) {
+    private static UIElement create(Side side, List<? extends UIElement> elements, String texturePrefix) {
         if (elements.isEmpty()) {
             throw new IllegalArgumentException("HostSideButtonBar requires at least one element");
         }
-        int barTop = contentType == ContentType.SLOT
-            ? LEFT_BAR_TOP
-            : side == Side.LEFT ? LEFT_BAR_TOP : RIGHT_BAR_TOP;
-        int rightOffset = contentType == ContentType.SLOT ? RIGHT_SLOT_BAR_OFFSET : RIGHT_BAR_OFFSET;
+        int barTop = side == Side.LEFT ? LEFT_BAR_TOP : RIGHT_BAR_TOP;
 
         UIElement bar = new UIElement().layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.top(barTop);
             layout.width(WIDTH);
-            layout.height(heightFor(elements.size(), contentType));
+            layout.height(heightFor(elements.size()));
             if (side == Side.LEFT) {
                 layout.left(LEFT_BAR_OFFSET);
             } else {
-                layout.right(rightOffset);
+                layout.right(RIGHT_BAR_OFFSET);
             }
         });
 
         int elementCount = elements.size();
-        List<UIElement> slotLayer = contentType == ContentType.SLOT
-            ? new ArrayList<>(elementCount)
-            : List.of();
         for (int index = 0; index < elementCount; index++) {
             int segmentIndex = index;
-            int segmentTop = segmentTop(segmentIndex, contentType);
+            int segmentTop = segmentTop(segmentIndex);
             int segmentHeight = segmentHeight(segmentIndex, elementCount);
-            IGuiTexture segmentTexture = texture(segmentIndex, elementCount, side, contentType, texturePrefix);
+            IGuiTexture segmentTexture = texture(segmentIndex, elementCount, texturePrefix);
             UIElement segment = new UIElement().layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
                 layout.left(0);
@@ -154,27 +167,18 @@ public final class HostSideButtonBar {
             }).style(style -> style.backgroundTexture(segmentTexture));
             UIElement element = elements.get(segmentIndex);
             int elementTop = segmentIndex == 0 ? FIRST_BUTTON_TOP : OTHER_BUTTON_TOP;
-            if (contentType == ContentType.SLOT) {
-                // Segment textures overlap vertically. Keep every slot in a separate
-                // top layer so the next segment cannot cover the previous slot's
-                // lower border.
-                applySlotStyle(element, segmentTop + elementTop);
-                slotLayer.add(element);
-            } else {
-                applyButtonStyle(element, elementTop);
-                segment.addChild(element);
-            }
+            applyButtonStyle(element, elementTop);
+            segment.addChild(element);
             bar.addChild(segment);
         }
-        slotLayer.forEach(bar::addChild);
         return bar;
     }
 
     private static void applySlotStyle(UIElement slot, int top) {
-        slot.style(style -> style.backgroundTexture(AETextures.slotWithFrame()));
+        slot.style(style -> style.backgroundTexture(AETextures.icon(ECOIcon.SLOT_BACKGROUND)));
         slot.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(SLOT_LEFT);
+            layout.left(0);
             layout.top(top);
             layout.width(SLOT_SIZE);
             layout.height(SLOT_SIZE);
@@ -218,30 +222,17 @@ public final class HostSideButtonBar {
         }
     }
 
-    private enum ContentType {
-        BUTTON,
-        SLOT
-    }
-
-    private static int segmentTop(int index, ContentType contentType) {
-        int firstStep = contentType == ContentType.SLOT ? FIRST_SLOT_SEGMENT_STEP : FIRST_SEGMENT_STEP;
-        int middleStep = contentType == ContentType.SLOT ? MIDDLE_SLOT_SEGMENT_STEP : MIDDLE_SEGMENT_STEP;
-        return index == 0 ? 0 : firstStep + (index - 1) * middleStep;
+    private static int segmentTop(int index) {
+        return index == 0 ? 0 : FIRST_SEGMENT_STEP + (index - 1) * MIDDLE_SEGMENT_STEP;
     }
 
     public static int heightFor(int buttonCount) {
-        return heightFor(buttonCount, ContentType.BUTTON);
-    }
-
-    private static int heightFor(int elementCount, ContentType contentType) {
-        if (elementCount <= 0) {
+        if (buttonCount <= 0) {
             throw new IllegalArgumentException("HostSideButtonBar requires at least one button");
         }
-        int firstStep = contentType == ContentType.SLOT ? FIRST_SLOT_SEGMENT_STEP : FIRST_SEGMENT_STEP;
-        int middleStep = contentType == ContentType.SLOT ? MIDDLE_SLOT_SEGMENT_STEP : MIDDLE_SEGMENT_STEP;
-        return elementCount == 1
+        return buttonCount == 1
             ? TOP_HEIGHT
-            : firstStep + (elementCount - 2) * middleStep + BOTTOM_HEIGHT;
+            : FIRST_SEGMENT_STEP + (buttonCount - 2) * MIDDLE_SEGMENT_STEP + BOTTOM_HEIGHT;
     }
 
     private static int segmentHeight(int index, int buttonCount) {
@@ -251,8 +242,7 @@ public final class HostSideButtonBar {
         return index == buttonCount - 1 ? BOTTOM_HEIGHT : MIDDLE_HEIGHT;
     }
 
-    private static IGuiTexture texture(int index, int buttonCount, Side side, ContentType contentType,
-                                       String texturePrefix) {
+    private static IGuiTexture texture(int index, int buttonCount, String texturePrefix) {
         String fileName;
         if (index == 0) {
             fileName = "button_slot_up.png";
@@ -260,9 +250,6 @@ public final class HostSideButtonBar {
             fileName = "button_slot_down.png";
         } else {
             fileName = "button_slot_middle.png";
-        }
-        if (side == Side.RIGHT && contentType == ContentType.SLOT) {
-            fileName = "mirrored_" + fileName;
         }
         return SpriteTexture.of(NeoECOAE.id("textures/gui/common/side_bar/" + texturePrefix + fileName));
     }

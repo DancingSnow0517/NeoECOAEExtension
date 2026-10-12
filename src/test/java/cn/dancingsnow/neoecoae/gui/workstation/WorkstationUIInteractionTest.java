@@ -6,16 +6,26 @@ import static org.mockito.Mockito.*;
 import appeng.api.orientation.RelativeSide;
 import appeng.items.tools.NetworkToolItem;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.lowdragmc.lowdraglib2.LDLib2;
+import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
+import com.lowdragmc.lowdraglib2.gui.texture.ColorBorderTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -47,6 +57,48 @@ class WorkstationUIInteractionTest {
             Class.forName(UIElement.class.getName());
             Class.forName(NETextures.class.getName());
             AccessorRegistries.init();
+        }
+    }
+
+    @Test
+    void upgradeColumnMatchesNativeAe2GeometryAfterScreenResize() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            for (int count : List.of(1, 3, 4)) {
+                ItemStackHandler upgrades = new ItemStackHandler(count);
+                List<ItemSlot> slots = new ArrayList<>();
+                for (int index = 0; index < count; index++) {
+                    slots.add(new ItemSlot(new ItemHandlerSlot(upgrades, index)));
+                }
+                UIElement rail = HostSideButtonBar.rightSlots(slots);
+                UIElement root = new UIElement().layout(layout -> layout.width(170).height(173))
+                    .addChild(rail);
+                ModularUI ui = new ModularUI(UI.of(root));
+                for (int screenWidth : List.of(640, 800)) {
+                    ui.init(screenWidth, 360);
+                    assertEquals(root.getPositionX() + 168, rail.getPositionX());
+                    assertEquals(root.getPositionY(), rail.getPositionY());
+                    assertEquals(12 + count * 18, rail.getSizeHeight());
+                    for (int index = 0; index < count; index++) {
+                        ItemSlot slot = slots.get(index);
+                        assertEquals(rail.getPositionX(), slot.getPositionX());
+                        assertEquals(rail.getPositionY() + 5 + index * 18, slot.getPositionY());
+                        assertEquals(18, slot.getSizeWidth());
+                        assertEquals(18, slot.getSizeHeight());
+                        assertSame(AETextures.icon(ECOIcon.SLOT_BACKGROUND), slot.getStyle().backgroundTexture());
+                    }
+                }
+                UIElement column = rail.getChildren().getFirst();
+                ColorBorderTexture frame = assertInstanceOf(ColorBorderTexture.class,
+                    column.getStyle().backgroundTexture());
+                assertEquals(-1, frame.border);
+                assertEquals(0xFFF2F2F2, frame.color);
+                assertEquals(count * 18, column.getSizeHeight());
+                SpriteTexture background = assertInstanceOf(SpriteTexture.class, rail.getStyle().backgroundTexture());
+                assertEquals(5, background.borderLT.getY());
+                assertEquals(7, background.borderRB.getY());
+            }
         }
     }
 

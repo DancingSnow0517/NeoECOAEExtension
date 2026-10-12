@@ -12,7 +12,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class WorkstationUiJsonResourceTest {
     @Test
     void workstationRootsDeclareStaticGeometryAndCustomDynamicContent() {
-        for (String name : new String[] {"integrated", "large", "output_panel", "network_toolbox"}) {
+        JsonObject integrated = read("integrated.json");
+        assertEquals("custom", integrated.get("type").getAsString());
+        assertEquals("content", integrated.get("custom").getAsString());
+        for (String name : new String[] {"large", "output_panel", "network_toolbox"}) {
             JsonObject root = read(name + ".json");
             assertEquals("element", root.get("type").getAsString());
             assertEquals("content", root.getAsJsonArray("children").get(0)
