@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import appeng.api.stacks.AEKey;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -284,6 +286,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
         UIElement root = StorageHostUI.create(new StorageHostUI.Config(
                 () -> getItemFromBlockEntity().getDescription(),
+                () -> getTier().getTier(),
+                this::isFormed,
                 statistics::getStoredEnergy,
                 statistics::getMaxEnergy,
                 statistics::getEnergyConsumePerTick,
@@ -295,7 +299,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 this::canExtractInfiniteComponents,
                 this::getInfiniteDomainText,
                 this::getMissingInfiniteMembers,
-                infiniteComponentItemHandler
+                infiniteComponentItemHandler,
+                holder.player,
+                (position, expected, shift) -> StorageCellUiExtraction.extract(this, holder.player, position, expected, shift),
+                (position, expected) -> StorageCellUiInsertion.insert(this, holder.player, position, expected),
+                () -> new ItemStack(getBlockState().getBlock())
         ));
         root.addChild(StorageMegaPanelUI.create(
                 this,
@@ -305,6 +313,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         ));
         actionUI.addTo(root);
         return ECOModularUI.create(root, holder.player);
+    }
+
+    public List<ECODriveBlockEntity> getStorageUiDrives() {
+        if (!isFormed() || cluster == null) return List.of();
+        var orientation = OrientationStrategies.horizontalFacing();
+        var expansion = orientation.getSide(getBlockState(), mirrored ? RelativeSide.RIGHT : RelativeSide.LEFT);
+        var top = orientation.getSide(getBlockState(), RelativeSide.TOP);
+        return StorageDriveLayout.ordered(cluster.getDrives(), getBlockPos(), expansion, top);
     }
 
     public boolean hasEcoMegaUpgradeCard() {

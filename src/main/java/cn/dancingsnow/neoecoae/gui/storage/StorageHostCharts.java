@@ -1,293 +1,435 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import static cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.safeEntries;
-
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.CellEntry;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.Config;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Comparator;
 import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.locale.Language;
+import net.minecraft.world.item.ItemStack;
 
-/** Storage charts and their synchronized metrics; independent of the controller layout. */
+/** Dynamic custom nodes for storage_controller.json; each draws at its own resolved position. */
 final class StorageHostCharts {
-    private StorageHostCharts() {}
-    private static final int CHART_LEFT = 63;
-    private static final int CHART_TOP = 22;
-    private static final int GRAPH_BAR_OFFSET_LEFT = 9;
-    private static final int GRAPH_BAR_OFFSET_TOP = 0;
-    private static final int BAR_WIDTH = 32;
-    private static final int BAR_HEIGHT = 92;
-    private static final int GRAPH_HEIGHT = 16;
-    private static final int GRAPH_LABEL_HEIGHT = 10;
-    private static final int GRAPH_TEXT_OFFSET_TOP = 2;
-    private static final int GRAPH_TEXT_SCALE = 6;
-    private static final int GRAPH_OFFSET_LEFT = -55;
-    private static final int GRAPH_OFFSET_TOP = -26;
-    private static final int ITEM_TYPE_GRAPH_OFFSET_LEFT = 5;
-    private static final int GRAPH_FOCUSED_COLOR = 0xFFFFFFFF;
-    private static final int GRAPH_UNFOCUSED_COLOR = 0x66FFFFFF;
-    private static final ResourceLocations TEXTURES = new ResourceLocations();
+    private static final int TEXT = 0xFF3F3D52;
+    private final StoragePanelSync sync;
+    private final int pageSize;
+    private final TypePanel typePanel;
+    private final ItemStack hostItem;
 
-    static void addTo(UIElement root, Config config) {
-        LegacyGraphBar graphBar = new LegacyGraphBar(() -> totalMetric(config));
-        graphBar.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
-            .left(CHART_LEFT + GRAPH_BAR_OFFSET_LEFT).top(CHART_TOP + GRAPH_BAR_OFFSET_TOP)
-            .width(BAR_WIDTH).height(BAR_HEIGHT));
-        root.addChild(graphBar);
-        addGraphs(root, graphBar, config);
+    StorageHostCharts(StoragePanelSync sync, int pageSize, ItemStack hostItem) {
+        this.sync = sync;
+        this.pageSize = pageSize;
+        this.typePanel = new TypePanel();
+        this.hostItem = hostItem.copyWithCount(1);
     }
 
-    private static void addGraphs(UIElement root, LegacyGraphBar graphBar, Config config) {
-        root.addChild(graph(
-            graphBar, 10, 32, 60, TEXTURES.fluidPercent,
-            () -> new Metric(config.energyConsumePerTick().getAsLong(), 0L),
-            StorageHostCharts::energyUsageText, true));
-        root.addChild(graph(
-            graphBar, 87, 29, 59, TEXTURES.itemType,
-            () -> new Metric(config.storedEnergy().getAsLong(), config.maxEnergy().getAsLong()),
-            metric -> percentText("gui.neoecoae.storage.legacy.graph.energy_stored", metric), false));
-        root.addChild(graph(
-            graphBar, 10, 51, 60, TEXTURES.fluidPercent,
-            () -> Metric.EMPTY,
-            metric -> Component.translatable("gui.neoecoae.storage.legacy.graph.total_bytes",
-                config.totalUsedBytesText().get()).withColor(HostText.PRIMARY), true));
-        root.addChild(graph(
-            graphBar, 87, 48, 59, TEXTURES.itemType,
-            () -> totalMetric(config),
-            metric -> percentText("gui.neoecoae.storage.legacy.graph.total_usage", metric), false));
-    }
-
-    private static LegacyGraphElement graph(
-        LegacyGraphBar graphBar,
-        int left,
-        int top,
-        int width,
-        SpriteTexture background,
-        Supplier<Metric> metric,
-        Function<Metric, Component> text,
-        boolean leftAlign
-    ) {
-        LegacyGraphElement graph = new LegacyGraphElement(graphBar, background, metric, text, leftAlign);
-        graph.layout(layout -> layout
-            .positionType(TaffyPosition.ABSOLUTE)
-            .left(CHART_LEFT + GRAPH_OFFSET_LEFT + left)
-            .top(CHART_TOP + GRAPH_OFFSET_TOP + top)
-            .width(width)
-            .height(GRAPH_HEIGHT));
-        return graph;
-    }
-
-    private static Metric totalMetric(Config config) {
-        if (config.infiniteStorage().getAsBoolean() || config.migratingToInfinite().getAsBoolean()) {
-            return new Metric(0L, -1L);
-        }
-        long used = 0L;
-        long total = 0L;
-        for (CellEntry entry : safeEntries(config.cellEntries())) {
-            if (entry.infinite()) {
-                return new Metric(0L, -1L);
-            }
-            used = saturatingAdd(used, Math.max(0L, entry.usedBytes()));
-            total = saturatingAdd(total, Math.max(0L, entry.totalBytes()));
-        }
-        return new Metric(used, total);
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        if (right <= 0L) {
-            return left;
-        }
-        return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
-    }
-
-    private static Component percentText(String key, Metric metric) {
-        Object value = metric.total() < 0L
-            ? Component.translatable("gui.neoecoae.storage.infinite_value")
-            : metric.total() <= 0L ? "0%" : HostText.percent(metric.used(), metric.total());
-        return Component.translatable(key, value).withColor(HostText.PRIMARY);
-    }
-
-    private static Component energyUsageText(Metric metric) {
-        return Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage",
-            HostText.ae2Amount(metric.used())).withColor(HostText.PRIMARY);
-    }
-
-    private record Metric(long used, long total) {
-        private static final Metric EMPTY = new Metric(0L, 0L);
-    }
-
-    private static final class LegacyGraphElement extends UIElement implements IBindable<Component> {
-        private final LegacyGraphBar graphBar;
-        private final SpriteTexture background;
-        private final boolean leftAlign;
-        private boolean focused;
-        private Component syncedText = Component.empty();
-
-        private LegacyGraphElement(
-            LegacyGraphBar graphBar,
-            SpriteTexture background,
-            Supplier<Metric> metricSupplier,
-            Function<Metric, Component> textSupplier,
-            boolean leftAlign
-        ) {
-            this.graphBar = graphBar;
-            this.background = background;
-            this.leftAlign = leftAlign;
-            // Sync the formatted label so unbounded byte totals never pass through a long.
-            bind(DataBindingBuilder.componentS2C(() -> textSupplier.apply(metricSupplier.get())).build());
-            // Graph focus is selected by the layout; moving the mouse must not replace the displayed metric.
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            super.drawContents(guiContext);
-            boolean hovered = isMouseOver(
-                getPositionX(),
-                getPositionY() + GRAPH_LABEL_HEIGHT,
-                getSizeWidth(),
-                getSizeHeight() - GRAPH_LABEL_HEIGHT,
-                guiContext.mouseX,
-                guiContext.mouseY
-            );
-            int color = graphBar.isFocused(this) || hovered ? GRAPH_FOCUSED_COLOR : GRAPH_UNFOCUSED_COLOR;
-            guiContext.drawTexture(background.copy().setColor(color),
-                getPositionX(), getPositionY() + GRAPH_LABEL_HEIGHT, getSizeWidth(), getSizeHeight() - GRAPH_LABEL_HEIGHT);
-            drawText(guiContext, syncedText);
-        }
-
-        private void drawText(GUIContext guiContext, Component text) {
-            Font font = Minecraft.getInstance().font;
-            float scale = GRAPH_TEXT_SCALE / 10.0F;
-            float availableWidth = getSizeWidth() / scale;
-            float textX = leftAlign ? 2.0F : Math.max(0.0F, availableWidth - font.width(text) - 2.0F);
-            guiContext.graphics.pose().pushPose();
-            guiContext.graphics.pose().translate(
-                getPositionX(), getPositionY() + GRAPH_TEXT_OFFSET_TOP, 0.0F);
-            guiContext.graphics.pose().scale(scale, scale, 1.0F);
-            guiContext.graphics.drawString(font, text, Math.round(textX), 0, HostText.PRIMARY, false);
-            guiContext.graphics.pose().popPose();
-        }
-
-        @Override
-        public Component getValue() {
-            return syncedText;
-        }
-
-        @Override
-        public IDataSource<Component> setValue(@Nullable Component value) {
-            syncedText = value == null ? Component.empty() : value;
-            return this;
-        }
-    }
-
-    private static final class LegacyGraphBar extends UIElement implements IBindable<CompoundTag> {
-        private static final int TOP_U = 1;
-        private static final int TOP_V = 246;
-        private static final int MID_U = 34;
-        private static final int MID_V = 250;
-        private static final int CAP_HEIGHT = 8;
-        private static final int INFINITE_COLOR = 0xD8CA6CFF;
-
-        private final Supplier<Metric> defaultMetric;
-        private final StorageHostAnimatedRatio animatedRatio = new StorageHostAnimatedRatio();
-        private Metric syncedMetric = Metric.EMPTY;
-        private CompoundTag syncedTag = new CompoundTag();
-
-        private LegacyGraphBar(Supplier<Metric> defaultMetric) {
-            this.defaultMetric = defaultMetric;
-            bind(DataBindingBuilder.create(
-                () -> metricTag(this.defaultMetric.get()),
-                ignored -> {
+    UIElement create(String custom, JsonObject definition) {
+        return switch (custom) {
+            case "storage_caption" -> new Caption(definition.get("metric").getAsString(),
+                definition.has("font_scale") ? definition.get("font_scale").getAsFloat() : 0.75F);
+            case "storage_tier" -> new PanelElement() {
+                @Override public void drawBackgroundAdditional(GUIContext context) {
+                    if (state().tier() > 0) texture(context, StoragePanelTextures.tier(state().tier()));
                 }
-            ).syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
+            };
+            case "storage_host_icon" -> new HostIcon();
+            case "storage_capacity_bar" -> new CapacityBar();
+            case "storage_resource_bar" -> new ResourceBar();
+            case "storage_energy_bar" -> new EnergyBar();
+            case "storage_type_panel" -> typePanel.configureFonts(definition);
+            case "storage_type_scrollbar" -> new TypeScrollbar();
+            case "storage_information" -> createInformationIcon();
+            case "storage_infinite_status" -> new InfiniteStatus();
+            case "storage_infinite_animation" -> new InfiniteAnimation();
+            default -> throw new IllegalArgumentException("Unknown storage artwork node: " + custom);
+        };
+    }
+
+    private StoragePanelState state() { return sync.state(); }
+
+    private UIElement createInformationIcon() {
+        SpriteTexture normal = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information.png"));
+        SpriteTexture highlighted = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information_highlight.png"));
+        UIElement information = new UIElement().style(style -> style.backgroundTexture(normal))
+            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(3).width(21).height(21));
+        information.addEventListener(UIEvents.MOUSE_ENTER, event -> information.style(style -> style.backgroundTexture(highlighted)));
+        information.addEventListener(UIEvents.MOUSE_LEAVE, event -> information.style(style -> style.backgroundTexture(normal)));
+        information.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = new HoverTooltips(domainTooltip(), null, null, null));
+        // Match the crafting host's frame; the JSON owns its placement and only the icon has a tooltip.
+        return new UIElement().style(style -> style.backgroundTexture(SpriteTexture.of(
+            NeoECOAE.id("textures/gui/common/side_bar/mirrored_button_slot_up.png")))).addChild(information);
+    }
+
+    private abstract class PanelElement extends UIElement {
+        void texture(GUIContext context, SpriteTexture texture) {
+            context.drawTexture(texture, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
         }
 
-        private void focus(LegacyGraphElement graph) {
-            graph.focused = true;
+        void tooltips(Supplier<List<Component>> lines) {
+            addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+                event.hoverTooltips = new HoverTooltips(lines.get(), null, null, null));
         }
 
-        private boolean isFocused(LegacyGraphElement graph) {
-            return graph.focused;
+        void text(GUIContext context, Component component, float x, float y, float width, float maxScale, int color) {
+            text(context, component, x, y, width, maxScale, color, false);
         }
 
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            super.drawContents(guiContext);
-            Metric metric = syncedMetric;
-            boolean infinite = metric.total() < 0L;
-            float targetRatio = infinite ? -1.0F : HostText.usageRatio(metric.used(), metric.total());
-            animatedRatio.setTarget(targetRatio);
-            float ratio = (float) animatedRatio.value();
-            if (ratio <= 0.0F) {
-                return;
+        void text(GUIContext context, Component component, float x, float y, float width, float maxScale, int color,
+            boolean centerVertically) {
+            if (component == null || component.getString().isEmpty() || width <= 0) return;
+            Font font = Minecraft.getInstance().font;
+            float scale = Math.max(0.5F, Math.min(maxScale, width / Math.max(1, font.width(component))));
+            if (centerVertically) y += (getSizeHeight() - font.lineHeight * scale) / 2;
+            var value = Language.getInstance().getVisualOrder(
+                font.substrByWidth(component, Math.max(1, (int) (width / scale))));
+            var pose = context.graphics.pose();
+            pose.pushPose();
+            try {
+                pose.translate(getPositionX() + x, getPositionY() + y, 0);
+                pose.scale(scale, scale, 1);
+                context.graphics.drawString(font, value, 0, 0, color, false);
+            } finally {
+                pose.popPose();
             }
-            float bottom = getPositionY() + getSizeHeight();
-            float bodyHeight = Math.max(0.0F, getSizeHeight() - CAP_HEIGHT);
-            float barHeight = Math.round(bodyHeight * ratio);
-            float top = bottom - barHeight - CAP_HEIGHT;
-            int color = infinite ? INFINITE_COLOR : HostText.gaugeColor(ratio);
-            SpriteTexture topTexture = TEXTURES.gaugeTop.copy().setColor(color);
-            SpriteTexture midTexture = TEXTURES.gaugeMiddle.copy().setColor(color);
-            SpriteTexture bottomTexture = TEXTURES.gaugeBottom.copy().setColor(color);
-            guiContext.drawTexture(topTexture, getPositionX(), top, getSizeWidth(), CAP_HEIGHT);
-            float middleStart = top + CAP_HEIGHT / 2.0F + 1.0F;
-            float middleEnd = bottom - CAP_HEIGHT / 2.0F + 1.0F;
-            for (float y = middleStart; y < middleEnd; y += 1.0F) {
-                guiContext.drawTexture(midTexture, getPositionX(), y, getSizeWidth(), 4.0F);
+        }
+    }
+
+    private final class Caption extends PanelElement {
+        private final String metric;
+        private final float fontScale;
+
+        Caption(String metric, float fontScale) {
+            this.metric = metric;
+            this.fontScale = fontScale;
+            tooltips(() -> switch (metric) {
+                case "title" -> domainTooltip();
+                case "energy" -> energyTooltip();
+                case "bytes" -> capacityTooltip();
+                case "usage" -> capacityTooltip();
+                case "resources" -> resourceTooltip();
+                case "cells" -> List.of(StorageCellGrid.pageText(state(), pageSize),
+                    Component.translatable("gui.neoecoae.storage.ui.scroll_cells"));
+                default -> List.of();
+            });
+        }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            Component caption = switch (metric) {
+                case "title" -> Component.translatable("gui.neoecoae.storage.ui.title");
+                case "cells" -> StorageCellGrid.pageText(state(), pageSize);
+                case "bytes" -> Component.translatable("gui.neoecoae.storage.legacy.graph.total_bytes",
+                    capacityValue(state()));
+                case "usage" -> state().unbounded() ? Component.empty()
+                    : Component.literal(HostText.percent(state().usage()));
+                case "energy" -> Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage", HostText.ae2Amount(state().drain()));
+                case "resources" -> Component.translatable("gui.neoecoae.storage.ui.resource_distribution");
+                default -> throw new IllegalArgumentException("Unknown storage caption metric: " + metric);
+            };
+            text(context, caption, 0, 0, getSizeWidth(), fontScale, TEXT, metric.equals("title"));
+        }
+    }
+
+    private final class HostIcon extends PanelElement {
+        HostIcon() {
+            tooltips(() -> hostItem.isEmpty() ? List.of(state().title()) : DrawerHelper.getItemToolTip(hostItem));
+        }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            texture(context, StoragePanelTextures.HOST_ICON_BACKGROUND);
+            if (state().formed() && state().tier() >= 1 && state().tier() <= 3) {
+                float x = getPositionX() + (getSizeWidth() - 10) / 2;
+                context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), false),
+                    x, getPositionY() + 2, 10, 7);
+                context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), true),
+                    x, getPositionY() + getSizeHeight() - 9, 10, 7);
             }
-            guiContext.drawTexture(bottomTexture, getPositionX(), bottom - CAP_HEIGHT, getSizeWidth(), CAP_HEIGHT);
+            if (!hostItem.isEmpty()) context.graphics.renderItem(hostItem,
+                Math.round(getPositionX() + (getSizeWidth() - 16) / 2),
+                Math.round(getPositionY() + (getSizeHeight() - 16) / 2));
         }
+    }
 
-        @Override
-        public CompoundTag getValue() {
-            return syncedTag.copy();
+    private final class CapacityBar extends PanelElement {
+        CapacityBar() { tooltips(StorageHostCharts.this::capacityTooltip); }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            float width = Math.round(getSizeWidth() * (state().unbounded() ? 1 : state().usage()));
+            if (width > 0) context.drawTexture(StoragePanelTextures.PINK_BAR,
+                getPositionX(), getPositionY(), width, getSizeHeight());
         }
+    }
 
-        @Override
-        public IDataSource<CompoundTag> setValue(@Nullable CompoundTag value) {
-            syncedTag = value == null ? new CompoundTag() : value.copy();
-            syncedMetric = readMetric(syncedTag);
+    private final class ResourceBar extends PanelElement {
+        private final List<Component> hoveredTooltip = new ArrayList<>();
+
+        ResourceBar() { tooltips(() -> List.copyOf(hoveredTooltip)); }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            hoveredTooltip.clear();
+            var snapshot = state();
+            var mouse = isHover() || isSelfOrChildHover() ? getLocalMouse(context.mouseX, context.mouseY) : null;
+            float mouseX = mouse == null ? Float.NaN : mouse.x - getPositionX();
+            float mouseY = mouse == null ? Float.NaN : mouse.y - getPositionY();
+            int x = 0;
+            for (CapacitySegment segment : capacitySegments(snapshot, Math.round(getSizeWidth()))) {
+                context.drawTexture(StoragePanelTextures.swatch(segment.swatch(), segment.color()),
+                    getPositionX() + x, getPositionY(), segment.width(), getSizeHeight());
+                if (mouseX >= x && mouseX < x + segment.width() && mouseY >= 0 && mouseY < getSizeHeight()) {
+                    context.drawTexture(StoragePanelTextures.RESOURCE_HOVER,
+                        getPositionX() + x, getPositionY(), segment.width(), getSizeHeight());
+                    hoveredTooltip.addAll(resourceTooltip(snapshot, segment));
+                }
+                x += segment.width();
+            }
+        }
+    }
+
+    private final class EnergyBar extends PanelElement {
+        EnergyBar() { tooltips(StorageHostCharts.this::energyTooltip); }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            SpriteTexture scale = StoragePanelTextures.SCALE;
+            int pixels = Math.round(scale.spriteSize.width * HostText.usageRatio(state().energy(), state().maxEnergy()));
+            if (pixels > 0) context.drawTexture(scale.copy().setSprite(scale.spritePosition.x,
+                scale.spritePosition.y, pixels, scale.spriteSize.height), getPositionX(), getPositionY(),
+                getSizeWidth() * pixels / scale.spriteSize.width, getSizeHeight());
+        }
+    }
+
+    private final class TypePanel extends PanelElement {
+        private int offset;
+        private float nameFontScale = 0.55F;
+        private float valueFontScale = 0.5F;
+        private float nameWidth = 21;
+
+        TypePanel configureFonts(JsonObject definition) {
+            if (definition.has("name_font_scale")) nameFontScale = definition.get("name_font_scale").getAsFloat();
+            if (definition.has("value_font_scale")) valueFontScale = definition.get("value_font_scale").getAsFloat();
+            if (definition.has("name_width")) nameWidth = definition.get("name_width").getAsFloat();
             return this;
         }
-    }
 
-    private static Metric readMetric(CompoundTag tag) {
-        return new Metric(Math.max(0L, tag.getLong("u")), tag.getLong("t"));
-    }
-
-    private static CompoundTag metricTag(Metric metric) {
-        CompoundTag tag = new CompoundTag();
-        if (metric != null) {
-            tag.putLong("u", Math.max(0L, metric.used()));
-            tag.putLong("t", metric.total());
+        TypePanel() {
+            for (int row = 0; row < 3; row++) {
+                final int index = row;
+                addChild(new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+                    .left(0).top(index * 29).width(68).height(29))
+                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+                        event.hoverTooltips = new HoverTooltips(tooltip(index), null, null, null)));
+            }
+            addEventListener(UIEvents.MOUSE_WHEEL, event -> {
+                if (event.deltaY == 0) return;
+                scroll(event.deltaY < 0 ? 1 : -1);
+                event.stopImmediatePropagation();
+            });
         }
-        return tag;
+
+        int maximumOffset() { return Math.max(0, state().types().size() - 3); }
+        int currentOffset() { return offset = Math.clamp(offset, 0, maximumOffset()); }
+        void scroll(int delta) { offset = Math.clamp(currentOffset() + delta, 0, maximumOffset()); }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            int start = currentOffset();
+            for (int row = 0; row < 3; row++) {
+                float y = getPositionY() + row * 29;
+                int index = start + row;
+                if (index >= state().types().size()) continue;
+                context.drawTexture(StoragePanelTextures.TYPE_PANEL, getPositionX(), y, 68, 29);
+                StoragePanelState.TypeLine type = state().types().get(index);
+                context.drawTexture(StoragePanelTextures.resourceIcon(type.swatch(), type.color()), getPositionX() + 2, y + 2, 6, 6);
+                text(context, type.name(), 12, row * 29 + 2, nameWidth, nameFontScale, TEXT);
+                String types = HostText.ae2Amount(type.usedTypes());
+                if (type.totalTypes() >= 0 && !state().unbounded()) types += "/" + StorageCellGrid.capacity(type.totalTypes());
+                String bytes = type.bytesText();
+                if (type.totalBytes() >= 0 && !state().unbounded()) bytes += "/" + StorageCellGrid.capacity(type.totalBytes());
+                text(context, Component.literal(types), 3, row * 29 + 13, 29, valueFontScale, TEXT);
+                text(context, Component.literal(bytes), 35, row * 29 + 13, 30, valueFontScale, TEXT);
+                bar(context, StoragePanelTextures.BLUE_BAR, type.usedTypes(), type.totalTypes(), 3, y + 21);
+                bar(context, StoragePanelTextures.PINK_BAR, type.usedBytes(), type.totalBytes(), 36, y + 21);
+            }
+        }
+
+        private void bar(GUIContext context, SpriteTexture texture, long used, long total, int x, float y) {
+            float ratio = state().unbounded() || total < 0 ? 1 : HostText.usageRatio(used, total);
+            int width = Math.round(29 * ratio);
+            if (width > 0) context.drawTexture(texture.copy().setSprite(texture.spritePosition.x,
+                texture.spritePosition.y, width, 4), getPositionX() + x, y, width, 4);
+        }
+
+        List<Component> tooltip(int row) {
+            int index = currentOffset() + row;
+            if (index >= state().types().size()) return List.of();
+            StoragePanelState.TypeLine type = state().types().get(index);
+            return List.of(type.name(),
+                Component.translatable("gui.neoecoae.storage.legacy.cell_types",
+                    HostText.ae2Amount(type.usedTypes()), state().unbounded() ? "∞" : StorageCellGrid.capacity(type.totalTypes())),
+                Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
+                    type.bytesText(), state().unbounded() ? "∞" : StorageCellGrid.capacity(type.totalBytes())),
+                Component.translatable("gui.neoecoae.storage.ui.scroll_types").withColor(HostText.MUTED));
+        }
     }
 
-    private static final class ResourceLocations {
-        private final SpriteTexture fluidPercent = sprite("estorage_controller_elements.png", 6, 225, 60, 6);
-        private final SpriteTexture itemType = sprite("estorage_controller_elements.png", 1, 197, 59, 6);
-        private final SpriteTexture gaugeTop = sprite("estorage_controller_elements.png", 1, 246, 32, 8);
-        private final SpriteTexture gaugeMiddle = sprite("estorage_controller_elements.png", 34, 250, 32, 4);
-        private final SpriteTexture gaugeBottom = sprite("estorage_controller_elements.png", 1, 246, 32, 8);
-        private static SpriteTexture sprite(String path, int u, int v, int width, int height) {
-            return SpriteTexture.of(NeoECOAE.id("textures/gui/storage/" + path))
-                .setSprite(u, v, width, height);
+    private final class TypeScrollbar extends PanelElement {
+        TypeScrollbar() {
+            tooltips(() -> List.of(Component.translatable("gui.neoecoae.storage.ui.scroll_types")));
+            addEventListener(UIEvents.MOUSE_WHEEL, event -> {
+                if (event.deltaY == 0) return;
+                typePanel.scroll(event.deltaY < 0 ? 1 : -1);
+                event.stopImmediatePropagation();
+            });
+            addEventListener(UIEvents.MOUSE_DOWN, event -> {
+                if (event.button != 0) return;
+                double ratio = Math.clamp((event.y - getPositionY()) / Math.max(1, getSizeHeight()), 0, 1);
+                typePanel.offset = (int) Math.round(ratio * typePanel.maximumOffset());
+                event.stopImmediatePropagation();
+            });
         }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            int maximum = typePanel.maximumOffset();
+            if (maximum == 0) return;
+            float height = Math.min(13, getSizeHeight());
+            float y = getPositionY() + (getSizeHeight() - height) * typePanel.currentOffset() / maximum;
+            context.drawTexture(StoragePanelTextures.SLIDER.copy().setSprite(70, 114, 2, 13),
+                getPositionX(), y, getSizeWidth(), height);
+        }
+    }
+
+    private final class InfiniteStatus extends PanelElement {
+        InfiniteStatus() { tooltips(StorageHostCharts.this::domainTooltip); }
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            if (state().unbounded()) texture(context, StoragePanelTextures.INFINITY);
+        }
+    }
+
+    private final class InfiniteAnimation extends PanelElement {
+        InfiniteAnimation() { tooltips(StorageHostCharts.this::domainTooltip); }
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            Minecraft minecraft = Minecraft.getInstance();
+            long tick = minecraft.level == null ? 0 : minecraft.level.getGameTime();
+            int frame = animationFrame(tick);
+            texture(context, StoragePanelTextures.infinityFrame(frame));
+            float blend = (Math.floorMod(tick, 3) + context.partialTick) / 3F;
+            int alpha = Math.clamp(Math.round(blend * 255), 0, 255);
+            if (alpha > 0) texture(context, StoragePanelTextures.infinityFrame(frame + 1)
+                .setColor(alpha << 24 | 0xFFFFFF));
+        }
+    }
+
+    static int animationFrame(long tick) { return (int) (Math.floorMod(tick, 30) / 3); }
+
+    record CapacitySegment(int swatch, int color, int width) {}
+    private record ResourceColor(int swatch, int color) {}
+
+    /** Merge aliases, show the largest resource first, and preserve exact proportions beyond long capacity. */
+    static List<CapacitySegment> capacitySegments(StoragePanelState state, int availableWidth) {
+        int width = (int) Math.round(Math.max(0, availableWidth) * (state.unbounded() ? 1 : state.usage()));
+        if (width <= 0) return List.of();
+        Map<ResourceColor, BigInteger> amounts = new LinkedHashMap<>();
+        for (StoragePanelState.TypeLine type : state.types()) {
+            if (type.exactUsedBytes().signum() <= 0) continue;
+            amounts.merge(new ResourceColor(type.swatch(), type.color()), type.exactUsedBytes(), BigInteger::add);
+        }
+        BigInteger total = amounts.values().stream().reduce(BigInteger.ZERO, BigInteger::add);
+        if (total.signum() <= 0) return List.of();
+        var resources = amounts.entrySet().stream().sorted(
+            Comparator.<Map.Entry<ResourceColor, BigInteger>, BigInteger>comparing(Map.Entry::getValue).reversed()
+                .thenComparingInt(entry -> entry.getKey().swatch()).thenComparingInt(entry -> entry.getKey().color())).toList();
+        List<CapacitySegment> segments = new ArrayList<>();
+        BigInteger accumulated = BigInteger.ZERO;
+        int previous = 0;
+        for (var resource : resources) {
+            accumulated = accumulated.add(resource.getValue());
+            int end = accumulated.multiply(BigInteger.valueOf(width)).add(total.shiftRight(1)).divide(total).intValue();
+            if (end > previous) segments.add(new CapacitySegment(resource.getKey().swatch(), resource.getKey().color(), end - previous));
+            previous = end;
+        }
+        return List.copyOf(segments);
+    }
+
+    static Component capacityValue(StoragePanelState state) {
+        var used = Component.literal(state.usedBytes()).withColor(state.unbounded()
+            ? HostText.VALUE : HostText.gaugeTextColor((float) state.usage()));
+        if (state.unbounded()) return used;
+        return used.append(Component.literal(" / ").withColor(TEXT))
+            .append(Component.literal(HostText.ae2Amount(state.totalBytes())).withColor(HostText.VALUE));
+    }
+
+    private List<Component> capacityTooltip() {
+        return List.of(
+            Component.translatable("gui.neoecoae.storage.legacy.graph.total_bytes", capacityValue(state())),
+            Component.translatable("gui.neoecoae.storage.legacy.graph.total_usage",
+                state().unbounded() ? "∞" : HostText.percent(state().usage())));
+    }
+
+    private List<Component> energyTooltip() {
+        return List.of(
+            Component.translatable("gui.neoecoae.storage.ui.energy", HostText.ae2Amount(state().energy()),
+                HostText.ae2Amount(state().maxEnergy())),
+            Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage", HostText.ae2Amount(state().drain())));
+    }
+
+    private List<Component> resourceTooltip() {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("gui.neoecoae.storage.ui.resource_distribution"));
+        BigInteger total = state().types().stream().map(StoragePanelState.TypeLine::exactUsedBytes)
+            .reduce(BigInteger.ZERO, BigInteger::add);
+        if (total.signum() <= 0) return lines;
+        for (StoragePanelState.TypeLine type : state().types()) {
+            if (type.exactUsedBytes().signum() <= 0) continue;
+            double share = new BigDecimal(type.exactUsedBytes())
+                .divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue();
+            lines.add(Component.translatable("gui.neoecoae.storage.ui.resource_share",
+                type.name(), type.bytesText(), HostText.percent(share)).withColor(type.color()));
+        }
+        return lines;
+    }
+
+    private List<Component> resourceTooltip(StoragePanelState snapshot, CapacitySegment segment) {
+        var types = snapshot.types().stream().filter(type -> type.exactUsedBytes().signum() > 0
+            && type.swatch() == segment.swatch() && type.color() == segment.color()).toList();
+        if (types.isEmpty()) return List.of();
+        BigInteger used = types.stream().map(StoragePanelState.TypeLine::exactUsedBytes)
+            .reduce(BigInteger.ZERO, BigInteger::add);
+        BigInteger total = snapshot.types().stream().map(StoragePanelState.TypeLine::exactUsedBytes)
+            .filter(amount -> amount.signum() > 0).reduce(BigInteger.ZERO, BigInteger::add);
+        var name = Component.empty();
+        for (Component alias : types.stream().map(StoragePanelState.TypeLine::name).distinct().toList()) {
+            if (!name.getString().isEmpty()) name.append(" / ");
+            name.append(alias);
+        }
+        double share = new BigDecimal(used).divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue();
+        return List.of(Component.translatable("gui.neoecoae.storage.ui.resource_share", name,
+            HostText.ae2Amount(used), HostText.percent(share)).withColor(segment.color()));
+    }
+
+    private List<Component> domainTooltip() {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable(state().migrating() ? "gui.neoecoae.storage.ui.migrating"
+            : state().infinite() ? "gui.neoecoae.storage.ui.infinite" : "gui.neoecoae.storage.ui.normal"));
+        if (!state().domainId().isEmpty()) lines.add(Component.literal("UUID: " + state().domainId()).withColor(0x55FFFF));
+        if (state().missingMembers() > 0) {
+            lines.add(Component.translatable("gui.neoecoae.storage.members_missing", state().missingMembers()).withColor(0xFF6A75));
+            lines.add(Component.translatable("gui.neoecoae.storage.members_return").withColor(0xFF6A75));
+        }
+        return lines;
     }
 }

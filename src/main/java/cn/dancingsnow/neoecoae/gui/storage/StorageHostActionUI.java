@@ -59,7 +59,7 @@ public final class StorageHostActionUI {
                 MultiblockBuilderUI.createInlineOpenButton(buildWindow),
                 StoragePriorityUI.createInlineOpenButton(priorityWindow)
             );
-            root.addChild(HostSideButtonBar.left(buttons));
+            root.addChild(HostSideButtonBar.left(buttons.toArray(UIElement[]::new)));
             root.addChild(buildWindow);
             root.addChild(priorityWindow);
         }

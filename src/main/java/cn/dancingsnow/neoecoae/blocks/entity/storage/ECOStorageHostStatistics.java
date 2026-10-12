@@ -14,8 +14,10 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import appeng.api.storage.cells.CellState;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -66,7 +68,9 @@ final class ECOStorageHostStatistics {
                     () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
                     () -> getStorageValue(id, StorageValue.USED_BYTES),
                     () -> getStorageValue(id, StorageValue.TOTAL_BYTES),
-                    () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText()
+                    () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText(),
+                    cellTypes.getKey(cellType),
+                    () -> getStorageUiSnapshot().storageTypeTotals(id).displayUsedBytes()
                 );
             })
             .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
@@ -88,7 +92,8 @@ final class ECOStorageHostStatistics {
             () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
             () -> getStorageValue(id, StorageValue.USED_BYTES),
             () -> getStorageValue(id, StorageValue.TOTAL_BYTES),
-            () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText());
+            () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText(), keyType.getId(),
+            () -> getStorageUiSnapshot().storageTypeTotals(id).displayUsedBytes());
     }
 
     String getTotalUsedBytesText() {
@@ -166,10 +171,18 @@ final class ECOStorageHostStatistics {
         Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
         List<StorageHostUI.CellEntry> cellEntries = new ArrayList<>();
         driveUiSnapshots.keySet().retainAll(host.getCluster().getDrives());
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
+        for (ECODriveBlockEntity drive : host.getStorageUiDrives()) {
+            if (drive == null) {
+                cellEntries.add(StorageHostUI.CellEntry.EMPTY);
+                continue;
+            }
             DriveUiSnapshot view = driveUiSnapshot(drive);
-            if (view == null) continue;
-            if (view.infiniteResource()) continue;
+            var stack = drive.getCellStack();
+            if (view == null) {
+                cellEntries.add(StorageHostUI.CellEntry.EMPTY.atDrive(drive.getBlockPos(),
+                    stack == null ? ItemStack.EMPTY : stack, drive.getCellExtractionBlockReasonText()));
+                continue;
+            }
             int cellTypeId = view.type();
             boolean supported = view.inventory() != null && host.getTier().compareTo(view.inventory().getTier()) >= 0;
             if (supported) {
@@ -177,17 +190,21 @@ final class ECOStorageHostStatistics {
                     energyConsumePerTick,
                     Math.max(0L, Math.round(view.inventory().getIdleDrain()))
                 );
-                cellEntries.add(new StorageHostUI.CellEntry(
+            }
+            // Keep every physical drive position, including empty and unsupported cells.
+            cellEntries.add(new StorageHostUI.CellEntry(
                     cellTypeId,
                     view.tier(),
                     legacyCellKind(view.keyTypes()),
-                    view.member() ? 0L : view.usedTypes(),
-                    view.member() ? -1L : view.totalTypes(),
-                    view.member() ? 0L : view.usedBytes(),
-                    view.member() ? -1L : view.totalBytes(),
-                    view.member()
-                ));
-            }
+                    !supported || view.member() ? 0L : view.usedTypes(),
+                    !supported ? 0L : view.member() ? -1L : view.totalTypes(),
+                    !supported || view.member() ? 0L : view.usedBytes(),
+                    !supported ? 0L : view.member() ? -1L : view.totalBytes(),
+                    supported && view.member(),
+                    supported ? view.inventory().getStatus() : CellState.ABSENT,
+                    supported && drive.isOnline()
+            ).atDrive(drive.getBlockPos(), stack, drive.getCellExtractionBlockReasonText()));
+            if (view.infiniteResource()) continue;
             if (view.member()) {
                 continue;
             }
@@ -207,16 +224,6 @@ final class ECOStorageHostStatistics {
         if (host.isFormedInfiniteMode()) {
             addInfiniteStorageTypes(storageTypes);
         }
-
-        cellEntries.sort((left, right) -> {
-            int bytes = Long.compare(right.usedBytes(), left.usedBytes());
-            if (bytes != 0) return bytes;
-            int types = Long.compare(right.usedTypes(), left.usedTypes());
-            if (types != 0) return types;
-            int tiers = Integer.compare(right.tier(), left.tier());
-            if (tiers != 0) return tiers;
-            return Integer.compare(left.typeId(), right.typeId());
-        });
 
         return new StorageUiSnapshot(
             storedEnergy,

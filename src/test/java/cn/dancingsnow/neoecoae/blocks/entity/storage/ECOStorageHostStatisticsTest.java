@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import appeng.api.storage.cells.CellState;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
@@ -57,6 +58,39 @@ class ECOStorageHostStatisticsTest {
     @AfterEach
     void closeKeyTypes() {
         keyTypes.close();
+    }
+
+    @Test
+    void cellsKeepPhysicalDrivePositionsAndPublishActualDriveStates() {
+        Fixture fixture = new Fixture();
+        ECODriveBlockEntity empty = mock(ECODriveBlockEntity.class);
+        when(empty.getBlockPos()).thenReturn(new BlockPos(0, 1, 0));
+        fixture.drives.add(empty);
+        ECODriveBlockEntity first = fixture.addCell("items", AEKeyType.items(), 1, 10, 5, 100);
+        ECODriveBlockEntity second = fixture.addCell("fluids", AEKeyType.fluids(), 2, 10, 90, 100);
+        when(first.getCellInventory().getStatus()).thenReturn(CellState.TYPES_FULL);
+        when(second.getCellInventory().getStatus()).thenReturn(CellState.FULL);
+        when(second.isOnline()).thenReturn(false);
+
+        List<StorageHostUI.CellEntry> cells = fixture.statistics.getCellEntries();
+        assertEquals(3, cells.size());
+        assertFalse(cells.getFirst().installed());
+        assertTrue(cells.getFirst().stack().isEmpty());
+        assertEquals(empty.getBlockPos(), cells.getFirst().position());
+        assertEquals(fixture.id("items"), cells.get(1).typeId());
+        assertEquals(fixture.id("fluids"), cells.get(2).typeId());
+        assertEquals(CellState.TYPES_FULL, cells.get(1).state());
+        assertEquals(CellState.FULL, cells.get(2).state());
+        assertTrue(cells.get(1).online());
+        assertFalse(cells.get(2).online());
+        assertEquals(ResourceLocation.parse("neoecoae:items"), fixture.line("items").resourceId());
+
+        when(first.getCellInventory().getUsedBytes()).thenReturn(99L);
+        when(second.getCellInventory().getUsedBytes()).thenReturn(0L);
+        when(fixture.host.getLevel().getGameTime()).thenReturn(25L);
+        fixture.statistics.invalidate();
+        assertEquals(List.of(-1, fixture.id("items"), fixture.id("fluids")),
+            fixture.statistics.getCellEntries().stream().map(StorageHostUI.CellEntry::typeId).toList());
     }
 
     @Test
@@ -168,6 +202,7 @@ class ECOStorageHostStatisticsTest {
             when(host.getLevel()).thenReturn(level);
             when(host.storageFaults()).thenReturn(faults);
             when(cluster.getDrives()).thenReturn(drives);
+            when(host.getStorageUiDrives()).thenReturn(drives);
             when(cluster.getEnergyCells()).thenReturn(List.of());
         }
 
@@ -179,6 +214,7 @@ class ECOStorageHostStatisticsTest {
             Item item = mock(Item.class, withSettings().extraInterfaces(IECOStorageCellItem.class));
             when(((IECOStorageCellItem) item).getKeyTypes()).thenReturn(keyType == null ? Set.of() : Set.of(keyType));
             when(stack.getItem()).thenReturn(item);
+            when(stack.copy()).thenReturn(stack);
             when(drive.getCellStack()).thenReturn(stack);
             when(drive.getCellInventory()).thenReturn(inventory);
             when(drive.getBlockPos()).thenReturn(new BlockPos(drives.size(), 0, 0));
@@ -189,6 +225,8 @@ class ECOStorageHostStatisticsTest {
             when(inventory.hasInfiniteTypeCapacity()).thenReturn(totalTypes < 0);
             when(inventory.getUsedBytes()).thenReturn(usedBytes);
             when(inventory.getTotalBytes()).thenReturn(totalBytes);
+            when(inventory.getStatus()).thenReturn(CellState.NOT_EMPTY);
+            when(drive.isOnline()).thenReturn(true);
             drives.add(drive);
             statistics.invalidate();
             return drive;
