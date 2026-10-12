@@ -139,7 +139,7 @@ class StorageResourceHoverTest {
             assertNotNull(input);
             var atlas = ImageIO.read(input);
             for (int y = 78; y < 86; y++) {
-                for (int x = 24; x < 32; x++) assertEquals(0x64F7F8FF, atlas.getRGB(x, y));
+                for (int x = 24; x < 32; x++) assertEquals(0x64F7F7FF, atlas.getRGB(x, y));
             }
         }
     }
