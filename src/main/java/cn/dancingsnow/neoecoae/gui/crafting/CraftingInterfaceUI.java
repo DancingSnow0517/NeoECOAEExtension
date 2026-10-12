@@ -190,11 +190,15 @@ public final class CraftingInterfaceUI {
             }
         });
         preview.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            if (event.target == preview && state.insertCarriedPattern(event.button)) {
+            if ((event.button == 0 || event.button == 1) && state.hasCarriedPattern()
+                    && (event.button == 0 || event.target == preview)) {
+                // Capture left clicks before an occupied slot can swap or quick-move its pattern.
+                // A full bus must leave the carried pattern alone instead of falling back to replacement.
+                state.insertCarriedPattern(event.button);
                 event.hasHandler = true;
                 event.stopImmediatePropagation();
             }
-        });
+        }, true);
         preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY != 0 && !event.isShiftDown()) {
                 state.scroll(event.deltaY < 0 ? 1 : -1);

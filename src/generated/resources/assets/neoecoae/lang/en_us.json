@@ -385,7 +385,7 @@
   "gui.neoecoae.crafting_interface.preview.organizing": "Organizing pattern buses %d%%",
   "gui.neoecoae.crafting_interface.preview.read_only": "Disk contents · Read-only; edit in the pattern access terminal",
   "gui.neoecoae.crafting_interface.preview.rows": "Rows %s–%s / %s",
-  "gui.neoecoae.crafting_interface.preview.put_pattern": "Click to insert the pattern held by the cursor into an available pattern bus.",
+  "gui.neoecoae.crafting_interface.preview.put_pattern": "Left-click anywhere in the list to insert into an empty bus slot; right-click a pattern to replace it.",
   "gui.neoecoae.crafting_interface.preview.search": "Search ingredients or outputs",
   "gui.neoecoae.crafting_interface.preview.search.tooltip": "Searches pattern ingredients and outputs. Separate terms with spaces; right-click to clear.",
   "gui.neoecoae.crafting_interface.preview.search.inputs": "Materials",

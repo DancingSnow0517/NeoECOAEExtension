@@ -738,7 +738,7 @@
   "gui.neoecoae.storage_interface.transfer_prefix": "转移：",
   "gui.neoecoae.storage_interface.transfer_suffix": " / tick",
   "gui.neoecoae.crafting_interface.title": "合成子系统通讯接口",
-  "gui.neoecoae.crafting_interface.preview.put_pattern": "单击将鼠标持有的样板插入样板总线（如果可用）。",
+  "gui.neoecoae.crafting_interface.preview.put_pattern": "左键点击列表任意位置，将手中样板插入总线空槽；右键点击已有样板可替换它。",
   "gui.neoecoae.crafting_interface.preview.search": "搜索原料或产物",
   "gui.neoecoae.crafting_interface.preview.search.tooltip": "查询样板的原料和产物。可用空格分隔关键词；右键清空查询。",
   "gui.neoecoae.crafting_interface.preview.search.inputs": "材料",

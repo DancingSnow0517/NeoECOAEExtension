@@ -53,8 +53,11 @@ public final class CraftingInterfaceClientUI {
                 || container.getMenu().getCarried().isEmpty()
                 || !(container.getMenu() instanceof IModularUIHolder holder)) return;
         var modularUI = holder.getModularUI();
-        if (modularUI == null || !modularUI.isDrawTooltips() || modularUI.getDragHandler().isDragging()
-                || !(modularUI.getLastHoveredElement() instanceof CraftingInterfaceUI.PatternPreview preview)) return;
+        if (modularUI == null || !modularUI.isDrawTooltips() || modularUI.getDragHandler().isDragging()) return;
+        var hovered = modularUI.getLastHoveredElement();
+        if (hovered == null) return;
+        var preview = hovered.getFirstAncestorOfType(CraftingInterfaceUI.PatternPreview.class);
+        if (preview == null) return;
         var tooltip = preview.collectHoverTooltips();
         if (tooltip == null || tooltip.tooltipTexts().isEmpty()) return;
         // LDLib suppresses its tooltip pass when the cursor carries an item; draw this insertion hint afterwards.

@@ -173,7 +173,7 @@ final class CraftingPatternPreviewState {
         return PatternDetailsHelper.isEncodedPattern(carried) || PatternDiskSupport.isAuxiliaryContainer(carried);
     }
 
-    /** As in the original manager, clicking blank panel space inserts into an actual empty bus slot. */
+    /** Inserts into an actual empty bus slot, including slots outside the current viewport and search. */
     boolean insertCarriedPattern(int button) {
         if ((button != 0 && button != 1) || !player.level().isClientSide || revision < 0
                 || menuId != player.containerMenu.containerId) return false;

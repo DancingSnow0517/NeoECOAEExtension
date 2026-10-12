@@ -359,7 +359,7 @@ public class GuiLangs {
         // crafting interface
         provider.add("gui.neoecoae.crafting_interface.title", "Crafting Interface");
         provider.add("gui.neoecoae.crafting_interface.preview.put_pattern",
-            "Click to insert the pattern held by the cursor into an available pattern bus.");
+            "Left-click anywhere in the list to insert into an empty bus slot; right-click a pattern to replace it.");
         provider.add("gui.neoecoae.crafting_interface.preview.search", "Search ingredients or outputs");
         provider.add("gui.neoecoae.crafting_interface.preview.search.tooltip",
             "Searches pattern ingredients and outputs. Separate terms with spaces; right-click to clear.");
