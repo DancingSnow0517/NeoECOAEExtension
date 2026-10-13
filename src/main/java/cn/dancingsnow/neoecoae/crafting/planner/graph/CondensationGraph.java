@@ -80,9 +80,9 @@ public final class CondensationGraph {
             components.put(scc.componentId(), component);
         }
 
-        TopoSort.Result<Integer> sorted = TopoSort.kahn(components.keySet(),
+        TopoSort.Result<Integer> sorted = TopoSort.kahnFifo(components.keySet(),
             id -> outgoing.getOrDefault(id, List.of()).stream().map(ComponentDependency::toComponentId).toList(),
-            null, cancellation::checkpoint);
+            cancellation::checkpoint);
         if (!sorted.acyclic()) {
             throw new IllegalStateException("SCC condensation graph must be acyclic");
         }

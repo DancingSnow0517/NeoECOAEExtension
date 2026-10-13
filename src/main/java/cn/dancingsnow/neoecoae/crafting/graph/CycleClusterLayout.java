@@ -99,7 +99,7 @@ public final class CycleClusterLayout implements GraphLayoutEngine {
         List<Integer> components = cluster.componentIds().stream().sorted().toList();
         // Snapshot SCCs should make this a DAG. If malformed client data contains a cycle, keep SCC identities
         // separate and place the unprocessed components in layer zero instead of attempting a client-side merge.
-        TopoSort.Result<Integer> sorted = TopoSort.kahn(components, adjacency::downstream, null);
+        TopoSort.Result<Integer> sorted = TopoSort.kahnFifo(components, adjacency::downstream);
         Map<Integer, Integer> depth = new HashMap<>();
         for (int current : sorted.order()) {
             int nextDepth = depth.getOrDefault(current, 0) + 1;

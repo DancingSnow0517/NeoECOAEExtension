@@ -28,11 +28,12 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Each occurrence returned by {@code successors} counts once toward the target's indegree, so a target
  *     listed twice needs two decrements before it becomes ready. Callers that want duplicate edges ignored
  *     should pass sets.</li>
- *     <li>With {@code readyOrder == null}, the ready queue is FIFO. Initially ready nodes are enqueued in
- *     {@code nodes} order. Nodes that become ready are appended in the order they become ready, while
- *     iterating the successors of the node just emitted in their iteration order.</li>
- *     <li>With a non-null {@code readyOrder}, the ready queue is a {@link PriorityQueue} ordered by that
- *     comparator. The heap is not stable, so comparators that report ties leave the tie order unspecified.</li>
+ *     <li>{@link #kahnFifo} uses a FIFO ready queue. Initially ready nodes are enqueued in {@code nodes} order.
+ *     Nodes that become ready are appended in the order they become ready, while iterating the successors of the
+ *     node just emitted in their iteration order.</li>
+ *     <li>{@link #kahnOrdered} requires a non-null {@code readyOrder}; the ready queue is a {@link PriorityQueue}
+ *     ordered by that comparator. The heap is not stable, so comparators that report ties leave the tie order
+ *     unspecified.</li>
  *     <li>{@link Result#order()} lists the emitted nodes. {@link Result#remaining()} lists nodes never emitted,
  *     meaning nodes on or downstream of a cycle, in {@code nodes} order. Both lists are unmodifiable.</li>
  * </ul>
@@ -53,14 +54,27 @@ public final class TopoSort {
         void check() throws E;
     }
 
-    public static <T> Result<T> kahn(Collection<T> nodes,
-                                     Function<? super T, ? extends Iterable<? extends T>> successors,
-                                     @Nullable Comparator<? super T> readyOrder) {
-        return kahn(nodes, successors, readyOrder, () -> {});
+    /** FIFO ready order; see the class documentation. */
+    public static <T> Result<T> kahnFifo(Collection<T> nodes,
+                                         Function<? super T, ? extends Iterable<? extends T>> successors) {
+        return run(nodes, successors, null, () -> {});
     }
 
-    /** Same semantics as the three-argument form, with {@code checkpoint} polled before each emitted node. */
-    public static <T, E extends Exception> Result<T> kahn(Collection<T> nodes,
+    /** Same semantics as {@link #kahnFifo(Collection, Function)}, with {@code checkpoint} polled before each emitted node. */
+    public static <T, E extends Exception> Result<T> kahnFifo(Collection<T> nodes,
+                                                              Function<? super T, ? extends Iterable<? extends T>> successors,
+                                                              Checkpoint<E> checkpoint) throws E {
+        return run(nodes, successors, null, checkpoint);
+    }
+
+    /** Ready nodes are emitted in {@code readyOrder}; see the class documentation for tie behaviour. */
+    public static <T> Result<T> kahnOrdered(Collection<T> nodes,
+                                            Function<? super T, ? extends Iterable<? extends T>> successors,
+                                            Comparator<? super T> readyOrder) {
+        return run(nodes, successors, Objects.requireNonNull(readyOrder, "readyOrder"), () -> {});
+    }
+
+    private static <T, E extends Exception> Result<T> run(Collection<T> nodes,
                                                           Function<? super T, ? extends Iterable<? extends T>> successors,
                                                           @Nullable Comparator<? super T> readyOrder,
                                                           Checkpoint<E> checkpoint) throws E {

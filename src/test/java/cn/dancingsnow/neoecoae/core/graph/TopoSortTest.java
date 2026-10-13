@@ -22,7 +22,7 @@ class TopoSortTest {
 
     @Test
     void fifoOrderIsExactForSmallDag() {
-        var result = TopoSort.kahn(List.of("a", "b", "c", "d", "e"), successorsOf(DAG), null);
+        var result = TopoSort.kahnFifo(List.of("a", "b", "c", "d", "e"), successorsOf(DAG));
 
         assertEquals(List.of("a", "e", "c", "b", "d"), result.order());
         assertEquals(List.of(), result.remaining());
@@ -31,10 +31,16 @@ class TopoSortTest {
 
     @Test
     void comparatorOrdersReadyNodes() {
-        var result = TopoSort.kahn(List.of("a", "b", "c", "d", "e"), successorsOf(DAG), Comparator.naturalOrder());
+        var result = TopoSort.kahnOrdered(List.of("a", "b", "c", "d", "e"), successorsOf(DAG), Comparator.naturalOrder());
 
         assertEquals(List.of("a", "b", "c", "d", "e"), result.order());
         assertTrue(result.acyclic());
+    }
+
+    @Test
+    void orderedVariantRejectsNullComparator() {
+        assertThrows(NullPointerException.class,
+            () -> TopoSort.kahnOrdered(List.of("a"), successorsOf(Map.of()), null));
     }
 
     @Test
@@ -46,7 +52,7 @@ class TopoSortTest {
             "c", List.of("b", "d")
         );
 
-        var result = TopoSort.kahn(List.of("d", "c", "b", "a", "x"), successorsOf(graph), null);
+        var result = TopoSort.kahnFifo(List.of("d", "c", "b", "a", "x"), successorsOf(graph));
 
         assertEquals(List.of("x", "a"), result.order());
         assertEquals(List.of("d", "c", "b"), result.remaining());
@@ -60,7 +66,7 @@ class TopoSortTest {
             "b", List.of("q")
         );
 
-        var result = TopoSort.kahn(List.of("a", "b"), successorsOf(graph), null);
+        var result = TopoSort.kahnFifo(List.of("a", "b"), successorsOf(graph));
 
         assertEquals(List.of("a", "b"), result.order());
         assertEquals(List.of(), result.remaining());
@@ -71,7 +77,7 @@ class TopoSortTest {
     void duplicateEdgesCountTowardIndegree() {
         Map<String, List<String>> graph = Map.of("a", List.of("b", "b"));
 
-        var result = TopoSort.kahn(List.of("a", "b"), successorsOf(graph), null);
+        var result = TopoSort.kahnFifo(List.of("a", "b"), successorsOf(graph));
 
         assertEquals(List.of("a", "b"), result.order());
         assertEquals(List.of(), result.remaining());
@@ -79,7 +85,7 @@ class TopoSortTest {
 
     @Test
     void duplicateNodesCollapseToFirstOccurrence() {
-        var result = TopoSort.kahn(List.of("c", "a", "c", "b"), successorsOf(Map.of()), null);
+        var result = TopoSort.kahnFifo(List.of("c", "a", "c", "b"), successorsOf(Map.of()));
 
         assertEquals(List.of("c", "a", "b"), result.order());
         assertEquals(List.of(), result.remaining());
@@ -92,7 +98,7 @@ class TopoSortTest {
             "b", List.of("a")
         );
 
-        var result = TopoSort.kahn(List.of("a", "b", "a"), successorsOf(graph), null);
+        var result = TopoSort.kahnFifo(List.of("a", "b", "a"), successorsOf(graph));
 
         assertEquals(List.of(), result.order());
         assertEquals(List.of("a", "b"), result.remaining());
@@ -100,7 +106,7 @@ class TopoSortTest {
 
     @Test
     void resultListsAreUnmodifiable() {
-        var result = TopoSort.kahn(List.of("a"), successorsOf(Map.of()), null);
+        var result = TopoSort.kahnFifo(List.of("a"), successorsOf(Map.of()));
 
         assertThrows(UnsupportedOperationException.class, () -> result.order().add("x"));
         assertThrows(UnsupportedOperationException.class, () -> result.remaining().add("x"));
@@ -110,7 +116,7 @@ class TopoSortTest {
     void checkpointVariantKeepsFifoOrderAndPollsEachEmittedNode() {
         List<String> polls = new ArrayList<>();
 
-        var result = TopoSort.kahn(List.of("a", "b", "c", "d", "e"), successorsOf(DAG), null,
+        var result = TopoSort.kahnFifo(List.of("a", "b", "c", "d", "e"), successorsOf(DAG),
             () -> polls.add("."));
 
         assertEquals(List.of("a", "e", "c", "b", "d"), result.order());
@@ -119,7 +125,7 @@ class TopoSortTest {
 
     @Test
     void checkpointFailureAbortsTheSort() {
-        assertThrows(IOException.class, () -> TopoSort.kahn(List.of("a", "b"), successorsOf(DAG), null,
+        assertThrows(IOException.class, () -> TopoSort.kahnFifo(List.of("a", "b"), successorsOf(DAG),
             () -> {
                 throw new IOException("cancelled");
             }));

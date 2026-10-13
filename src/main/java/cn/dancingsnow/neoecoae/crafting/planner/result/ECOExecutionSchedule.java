@@ -236,7 +236,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         }
 
         // Natural order on phase indices: among ready phases, the lowest index is emitted first.
-        TopoSort.Result<Integer> sorted = TopoSort.kahn(IntStream.range(0, phases.size()).boxed().toList(),
+        TopoSort.Result<Integer> sorted = TopoSort.kahnOrdered(IntStream.range(0, phases.size()).boxed().toList(),
             i -> outgoing.get(i), Comparator.naturalOrder());
         List<Integer> orderedIndices = sorted.order();
         if (!sorted.acyclic()) {

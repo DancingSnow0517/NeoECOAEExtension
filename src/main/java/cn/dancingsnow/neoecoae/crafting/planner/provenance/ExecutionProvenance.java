@@ -81,7 +81,7 @@ public record ExecutionProvenance(Map<AEKey, Map<MaterialSource, PlannerAmount>>
                 .add(demand.consumer());
         }
         // Acyclicity does not depend on the order in which ready tasks are emitted.
-        return !TopoSort.kahn(tasks, pattern -> outgoing.getOrDefault(pattern, Set.of()), null,
+        return !TopoSort.kahnFifo(tasks, pattern -> outgoing.getOrDefault(pattern, Set.of()),
             cancellation::checkpoint).acyclic();
     }
 
