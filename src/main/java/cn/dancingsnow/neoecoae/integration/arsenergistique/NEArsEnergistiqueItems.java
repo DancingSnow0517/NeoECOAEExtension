@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.integration.arsenergistique;
 
 import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.all.NEItems;
-import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.IntegrationCells;
 import cn.dancingsnow.neoecoae.integration.IntegrationCells.Size;
 import cn.dancingsnow.neoecoae.integration.ModIds;
@@ -52,9 +51,9 @@ public class NEArsEnergistiqueItems {
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_16M = IntegrationCells
-        .cell("eco_source_storage_cell_16m", Size.L4, p -> new ECOStorageCellItem(
+        .cell("eco_source_storage_cell_16m", Size.L4, (p, tier) -> new ECOStorageCellItem(
             p,
-            ECOTier.L4,
+            tier,
             SourceKeyType.TYPE,
             NEArsEnergistiqueCellTypes.SOURCE
         ))
@@ -64,9 +63,9 @@ public class NEArsEnergistiqueItems {
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_64M = IntegrationCells
-        .cell("eco_source_storage_cell_64m", Size.L6, p -> new ECOStorageCellItem(
+        .cell("eco_source_storage_cell_64m", Size.L6, (p, tier) -> new ECOStorageCellItem(
             p,
-            ECOTier.L6,
+            tier,
             SourceKeyType.TYPE,
             NEArsEnergistiqueCellTypes.SOURCE
         ))
@@ -76,9 +75,9 @@ public class NEArsEnergistiqueItems {
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_256M = IntegrationCells
-        .cell("eco_source_storage_cell_256m", Size.L9, p -> new ECOStorageCellItem(
+        .cell("eco_source_storage_cell_256m", Size.L9, (p, tier) -> new ECOStorageCellItem(
             p,
-            ECOTier.L9,
+            tier,
             SourceKeyType.TYPE,
             NEArsEnergistiqueCellTypes.SOURCE
         ))

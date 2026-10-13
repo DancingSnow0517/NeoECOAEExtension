@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.integration.appflux;
 
 import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.all.NEItems;
-import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.IntegrationCells;
 import cn.dancingsnow.neoecoae.integration.IntegrationCells.Size;
 import cn.dancingsnow.neoecoae.integration.ModIds;
@@ -42,9 +41,9 @@ public class NEAppFluxItems {
         .register();
 
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_16M = IntegrationCells
-        .cell("eco_fe_storage_cell_16m", Size.L4, p -> new ECOFeStorageCellItem(
+        .cell("eco_fe_storage_cell_16m", Size.L4, (p, tier) -> new ECOFeStorageCellItem(
             p,
-            ECOTier.L4,
+            tier,
             NEAppFluxCellTypes.FLUX
         ))
         .recipe(IntegrationCells.housingRecipe(ModIds.APPFLUX, ECO_FE_CELL_HOUSING, Size.L4))
@@ -53,9 +52,9 @@ public class NEAppFluxItems {
         .register();
 
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_64M = IntegrationCells
-        .cell("eco_fe_storage_cell_64m", Size.L6, p -> new ECOFeStorageCellItem(
+        .cell("eco_fe_storage_cell_64m", Size.L6, (p, tier) -> new ECOFeStorageCellItem(
             p,
-            ECOTier.L6,
+            tier,
             NEAppFluxCellTypes.FLUX
         ))
         .recipe(IntegrationCells.housingRecipe(ModIds.APPFLUX, ECO_FE_CELL_HOUSING, Size.L6))
@@ -64,9 +63,9 @@ public class NEAppFluxItems {
         .register();
 
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_256M = IntegrationCells
-        .cell("eco_fe_storage_cell_256m", Size.L9, p -> new ECOFeStorageCellItem(
+        .cell("eco_fe_storage_cell_256m", Size.L9, (p, tier) -> new ECOFeStorageCellItem(
             p,
-            ECOTier.L9,
+            tier,
             NEAppFluxCellTypes.FLUX
         ))
         .recipe(IntegrationCells.housingRecipe(ModIds.APPFLUX, ECO_FE_CELL_HOUSING, Size.L9))

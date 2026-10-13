@@ -21,9 +21,9 @@ final class NEAppliedSoulItems {
     static final ItemEntry<ECOStorageCellItem> SOUL_CELL_256M = cell("eco_soul_cell_256m", Size.L9);
 
     private static ItemEntry<ECOStorageCellItem> cell(String name, Size size) {
-        return IntegrationCells.cell(name, size, properties -> new ECOStorageCellItem(
+        return IntegrationCells.cell(name, size, (properties, tier) -> new ECOStorageCellItem(
                 properties,
-                size.tier(),
+                tier,
                 ExternalCellKeyTypes.byId("soulplied_energistics", "soul"),
                 NEAppliedSoulCellTypes.SOUL
             ))

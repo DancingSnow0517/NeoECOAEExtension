@@ -11,7 +11,7 @@ import com.tterrag.registrate.providers.DataGenContext;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import com.tterrag.registrate.util.nullness.NonNullBiConsumer;
-import com.tterrag.registrate.util.nullness.NonNullFunction;
+import com.tterrag.registrate.util.nullness.NonNullBiFunction;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
@@ -36,19 +36,17 @@ public final class IntegrationCells {
 
     /** The three cell sizes an integration ships, in L4, L6, L9 order. */
     public enum Size {
-        L4(ECOTier.L4, "16m", "l4", Rarity.UNCOMMON),
-        L6(ECOTier.L6, "64m", "l6", Rarity.RARE),
-        L9(ECOTier.L9, "256m", "l9", Rarity.EPIC);
+        L4(ECOTier.L4, "16m", Rarity.UNCOMMON),
+        L6(ECOTier.L6, "64m", Rarity.RARE),
+        L9(ECOTier.L9, "256m", Rarity.EPIC);
 
         private final ECOTier tier;
         private final String suffix;
-        private final String modelTier;
         private final Rarity rarity;
 
-        Size(ECOTier tier, String suffix, String modelTier, Rarity rarity) {
+        Size(ECOTier tier, String suffix, Rarity rarity) {
             this.tier = tier;
             this.suffix = suffix;
-            this.modelTier = modelTier;
             this.rarity = rarity;
         }
 
@@ -59,11 +57,6 @@ public final class IntegrationCells {
         /** Size suffix used in ids and unlock criteria, e.g. {@code "16m"}. */
         public String suffix() {
             return suffix;
-        }
-
-        /** Tier name used in model paths, e.g. {@code "l4"}. */
-        public String modelTier() {
-            return modelTier;
         }
 
         public Rarity rarity() {
@@ -84,11 +77,12 @@ public final class IntegrationCells {
     }
 
     /**
-     * Starts a cell item builder with the common stack size and rarity for {@code size}.
+     * Starts a cell item builder with the common stack size and rarity for {@code size}. The factory
+     * receives the tier of {@code size}.
      * Chain {@code .recipe(...)}, {@code .lang(...)}, {@code .model(...)} and {@code .register()} as usual.
      */
-    public static <T extends Item> ItemBuilder<T, NERegistrate> cell(String id, Size size, NonNullFunction<Item.Properties, T> factory) {
-        return REGISTRATE.item(id, factory).properties(p -> p.stacksTo(1).rarity(size.rarity()));
+    public static <T extends Item> ItemBuilder<T, NERegistrate> cell(String id, Size size, NonNullBiFunction<Item.Properties, ECOTier, T> factory) {
+        return REGISTRATE.item(id, p -> factory.apply(p, size.tier())).properties(p -> p.stacksTo(1).rarity(size.rarity()));
     }
 
     /**
@@ -112,16 +106,15 @@ public final class IntegrationCells {
     }
 
     /**
-     * Registers the cell models for one family. {@code cells} must be the L4, L6 and L9 cells in that order;
-     * each is mapped to {@code block/cell/storage_cell_<tier>_<family>}.
+     * Maps the L4, L6 and L9 cells, in that order, to their model ids. The model paths are passed in
+     * literally so each integration shows the resource ids it registers.
      */
-    public static void registerModels(String family, List<? extends ItemEntry<? extends Item>> cells) {
-        Size[] sizes = Size.values();
-        if (cells.size() != sizes.length) {
-            throw new IllegalArgumentException("Expected " + sizes.length + " cells (L4, L6, L9) for family " + family + ", got " + cells.size());
+    public static void registerModels(List<? extends ItemEntry<? extends Item>> cells, String l4Model, String l6Model, String l9Model) {
+        if (cells.size() != 3) {
+            throw new IllegalArgumentException("Expected 3 cells (L4, L6, L9), got " + cells.size());
         }
-        for (int i = 0; i < sizes.length; i++) {
-            ECOCellModels.register(cells.get(i), NeoECOAE.id("block/cell/storage_cell_" + sizes[i].modelTier() + "_" + family));
-        }
+        ECOCellModels.register(cells.get(0), NeoECOAE.id(l4Model));
+        ECOCellModels.register(cells.get(1), NeoECOAE.id(l6Model));
+        ECOCellModels.register(cells.get(2), NeoECOAE.id(l9Model));
     }
 }

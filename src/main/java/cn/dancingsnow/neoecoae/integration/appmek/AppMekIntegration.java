@@ -20,7 +20,10 @@ public class AppMekIntegration {
             NEAppMekItems.ECO_CHEMICAL_CELL_64M,
             NEAppMekItems.ECO_CHEMICAL_CELL_256M
         );
-        IntegrationCells.registerModels("chemical", cells);
+        IntegrationCells.registerModels(cells,
+            "block/cell/storage_cell_l4_chemical",
+            "block/cell/storage_cell_l6_chemical",
+            "block/cell/storage_cell_l9_chemical");
         OptionalCellUpgrades.register(NeoECOAE.MOD_BUS, cells);
     }
 }

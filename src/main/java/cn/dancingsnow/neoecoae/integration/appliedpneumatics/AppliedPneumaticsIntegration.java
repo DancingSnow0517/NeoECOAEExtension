@@ -14,11 +14,14 @@ public final class AppliedPneumaticsIntegration {
         NEAppliedPneumaticsCellTypes.register();
         NEAppliedPneumaticsItems.register();
 
-        IntegrationCells.registerModels("air", List.of(
+        IntegrationCells.registerModels(List.of(
             NEAppliedPneumaticsItems.AIR_CELL_16M,
             NEAppliedPneumaticsItems.AIR_CELL_64M,
             NEAppliedPneumaticsItems.AIR_CELL_256M
-        ));
+        ),
+            "block/cell/storage_cell_l4_air",
+            "block/cell/storage_cell_l6_air",
+            "block/cell/storage_cell_l9_air");
 
         OptionalCellUpgrades.register(NeoECOAE.MOD_BUS, List.of(
             NEAppliedPneumaticsItems.AIR_CELL_16M,

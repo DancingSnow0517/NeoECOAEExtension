@@ -33,9 +33,8 @@ public final class NELightningItems {
         long usableCapacity,
         double idleDrain
     ) {
-        ECOTier tier = size.tier();
-        String level = tier == ECOTier.L4 ? "4" : tier == ECOTier.L6 ? "6" : "9";
-        return IntegrationCells.cell(name, size, properties -> new ECOStorageCellItem(
+        String level = size.tier() == ECOTier.L4 ? "4" : size.tier() == ECOTier.L6 ? "6" : "9";
+        return IntegrationCells.cell(name, size, (properties, tier) -> new ECOStorageCellItem(
                 properties, tier, LightningKeyType.INSTANCE,
                 NELightningCellTypes.LIGHTNING, usableCapacity + 16, 8, idleDrain
             ))

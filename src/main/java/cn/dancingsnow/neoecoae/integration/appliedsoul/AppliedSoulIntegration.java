@@ -14,11 +14,14 @@ public final class AppliedSoulIntegration {
         NEAppliedSoulCellTypes.register();
         NEAppliedSoulItems.register();
 
-        IntegrationCells.registerModels("soul", List.of(
+        IntegrationCells.registerModels(List.of(
             NEAppliedSoulItems.SOUL_CELL_16M,
             NEAppliedSoulItems.SOUL_CELL_64M,
             NEAppliedSoulItems.SOUL_CELL_256M
-        ));
+        ),
+            "block/cell/storage_cell_l4_soul",
+            "block/cell/storage_cell_l6_soul",
+            "block/cell/storage_cell_l9_soul");
 
         OptionalCellUpgrades.register(NeoECOAE.MOD_BUS, List.of(
             NEAppliedSoulItems.SOUL_CELL_16M,

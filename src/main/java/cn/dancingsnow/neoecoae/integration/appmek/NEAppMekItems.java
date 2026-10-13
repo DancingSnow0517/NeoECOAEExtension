@@ -4,7 +4,6 @@ import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
-import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.IntegrationCells;
 import cn.dancingsnow.neoecoae.integration.IntegrationCells.Size;
 import cn.dancingsnow.neoecoae.integration.ModIds;
@@ -45,9 +44,9 @@ public class NEAppMekItems {
         .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_16M = IntegrationCells
-        .cell("eco_chemical_storage_cell_16m", Size.L4, p -> new ECOChemicalStorageCellItem(
+        .cell("eco_chemical_storage_cell_16m", Size.L4, (p, tier) -> new ECOChemicalStorageCellItem(
             p,
-            ECOTier.L4
+            tier
         ))
         .recipe(IntegrationCells.housingRecipe(ModIds.APPMEK, ECO_CHEMICAL_CELL_HOUSING, Size.L4))
         .lang("ECO - LE4 Storage Matrix (Chemical)")
@@ -55,9 +54,9 @@ public class NEAppMekItems {
         .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_64M = IntegrationCells
-        .cell("eco_chemical_storage_cell_64m", Size.L6, p -> new ECOChemicalStorageCellItem(
+        .cell("eco_chemical_storage_cell_64m", Size.L6, (p, tier) -> new ECOChemicalStorageCellItem(
             p,
-            ECOTier.L6
+            tier
         ))
         .recipe(IntegrationCells.housingRecipe(ModIds.APPMEK, ECO_CHEMICAL_CELL_HOUSING, Size.L6))
         .lang("ECO - LE6 Storage Matrix (Chemical)")
@@ -65,9 +64,9 @@ public class NEAppMekItems {
         .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_256M = IntegrationCells
-        .cell("eco_chemical_storage_cell_256m", Size.L9, p -> new ECOChemicalStorageCellItem(
+        .cell("eco_chemical_storage_cell_256m", Size.L9, (p, tier) -> new ECOChemicalStorageCellItem(
             p,
-            ECOTier.L9
+            tier
         ))
         .recipe(IntegrationCells.housingRecipe(ModIds.APPMEK, ECO_CHEMICAL_CELL_HOUSING, Size.L9))
         .lang("ECO - LE9 Storage Matrix (Chemical)")

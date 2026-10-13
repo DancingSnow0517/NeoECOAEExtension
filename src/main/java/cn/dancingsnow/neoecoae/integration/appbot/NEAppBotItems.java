@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.integration.appbot;
 import appbot.ae2.ManaKeyType;
 import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.all.NEItems;
-import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.IntegrationCells;
 import cn.dancingsnow.neoecoae.integration.IntegrationCells.Size;
 import cn.dancingsnow.neoecoae.integration.ModIds;
@@ -38,9 +37,9 @@ public class NEAppBotItems {
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_MANA_CELL_16M = IntegrationCells
-        .cell("eco_mana_storage_cell_16m", Size.L4, p -> new ECOStorageCellItem(
+        .cell("eco_mana_storage_cell_16m", Size.L4, (p, tier) -> new ECOStorageCellItem(
             p,
-            ECOTier.L4,
+            tier,
             ManaKeyType.TYPE,
             NEAppBotCellTypes.MANA
         ))
@@ -50,9 +49,9 @@ public class NEAppBotItems {
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_MANA_CELL_64M = IntegrationCells
-        .cell("eco_mana_storage_cell_64m", Size.L6, p -> new ECOStorageCellItem(
+        .cell("eco_mana_storage_cell_64m", Size.L6, (p, tier) -> new ECOStorageCellItem(
             p,
-            ECOTier.L6,
+            tier,
             ManaKeyType.TYPE,
             NEAppBotCellTypes.MANA
         ))
@@ -62,9 +61,9 @@ public class NEAppBotItems {
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_MANA_CELL_256M = IntegrationCells
-        .cell("eco_mana_storage_cell_256m", Size.L9, p -> new ECOStorageCellItem(
+        .cell("eco_mana_storage_cell_256m", Size.L9, (p, tier) -> new ECOStorageCellItem(
             p,
-            ECOTier.L9,
+            tier,
             ManaKeyType.TYPE,
             NEAppBotCellTypes.MANA
         ))

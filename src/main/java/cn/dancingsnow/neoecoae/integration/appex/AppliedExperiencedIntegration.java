@@ -14,11 +14,14 @@ public final class AppliedExperiencedIntegration {
         NEAppliedExperiencedCellTypes.register();
         NEAppliedExperiencedItems.register();
 
-        IntegrationCells.registerModels("experience", List.of(
+        IntegrationCells.registerModels(List.of(
             NEAppliedExperiencedItems.EXPERIENCE_CELL_16M,
             NEAppliedExperiencedItems.EXPERIENCE_CELL_64M,
             NEAppliedExperiencedItems.EXPERIENCE_CELL_256M
-        ));
+        ),
+            "block/cell/storage_cell_l4_experience",
+            "block/cell/storage_cell_l6_experience",
+            "block/cell/storage_cell_l9_experience");
 
         OptionalCellUpgrades.register(NeoECOAE.MOD_BUS, List.of(
             NEAppliedExperiencedItems.EXPERIENCE_CELL_16M,

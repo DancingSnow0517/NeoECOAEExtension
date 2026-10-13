@@ -21,9 +21,9 @@ final class NEAppliedExperiencedItems {
     static final ItemEntry<ECOStorageCellItem> EXPERIENCE_CELL_256M = cell("eco_experience_cell_256m", Size.L9);
 
     private static ItemEntry<ECOStorageCellItem> cell(String name, Size size) {
-        return IntegrationCells.cell(name, size, properties -> new ECOStorageCellItem(
+        return IntegrationCells.cell(name, size, (properties, tier) -> new ECOStorageCellItem(
                 properties,
-                size.tier(),
+                tier,
                 ExternalCellKeyTypes.byId("appex", "experience"),
                 NEAppliedExperiencedCellTypes.EXPERIENCE
             ))

@@ -20,7 +20,10 @@ public class DataEnergisticsIntegration {
             NEDataItems.ECO_DATA_CELL_64M,
             NEDataItems.ECO_DATA_CELL_256M
         );
-        IntegrationCells.registerModels("data", cells);
+        IntegrationCells.registerModels(cells,
+            "block/cell/storage_cell_l4_data",
+            "block/cell/storage_cell_l6_data",
+            "block/cell/storage_cell_l9_data");
         OptionalCellUpgrades.register(NeoECOAE.MOD_BUS, cells);
     }
 }

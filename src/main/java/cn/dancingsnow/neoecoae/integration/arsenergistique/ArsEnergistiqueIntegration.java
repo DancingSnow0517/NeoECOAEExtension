@@ -19,7 +19,10 @@ public class ArsEnergistiqueIntegration {
             NEArsEnergistiqueItems.ECO_SOURCE_CELL_64M,
             NEArsEnergistiqueItems.ECO_SOURCE_CELL_256M
         );
-        IntegrationCells.registerModels("source", cells);
+        IntegrationCells.registerModels(cells,
+            "block/cell/storage_cell_l4_source",
+            "block/cell/storage_cell_l6_source",
+            "block/cell/storage_cell_l9_source");
         OptionalCellUpgrades.register(NeoECOAE.MOD_BUS, cells);
     }
 }

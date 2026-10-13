@@ -19,7 +19,10 @@ public class AppBotaniaIntegration {
             NEAppBotItems.ECO_MANA_CELL_64M,
             NEAppBotItems.ECO_MANA_CELL_256M
         );
-        IntegrationCells.registerModels("mana", cells);
+        IntegrationCells.registerModels(cells,
+            "block/cell/storage_cell_l4_mana",
+            "block/cell/storage_cell_l6_mana",
+            "block/cell/storage_cell_l9_mana");
         OptionalCellUpgrades.register(NeoECOAE.MOD_BUS, cells);
     }
 }

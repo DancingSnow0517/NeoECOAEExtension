@@ -53,9 +53,9 @@ public class NEDataItems {
         .register();
 
     public static final ItemEntry<ECODataStorageCellItem> ECO_DATA_CELL_16M = IntegrationCells
-        .cell("eco_data_storage_cell_16m", Size.L4, p -> new ECODataStorageCellItem(
+        .cell("eco_data_storage_cell_16m", Size.L4, (p, tier) -> new ECODataStorageCellItem(
             p,
-            ECOTier.L4
+            tier
         ))
         .recipe(cellRecipe(Size.L4))
         .lang("ECO - LE4 Storage Matrix (Data)")
@@ -63,9 +63,9 @@ public class NEDataItems {
         .register();
 
     public static final ItemEntry<ECODataStorageCellItem> ECO_DATA_CELL_64M = IntegrationCells
-        .cell("eco_data_storage_cell_64m", Size.L6, p -> new ECODataStorageCellItem(
+        .cell("eco_data_storage_cell_64m", Size.L6, (p, tier) -> new ECODataStorageCellItem(
             p,
-            ECOTier.L6
+            tier
         ))
         .recipe(cellRecipe(Size.L6))
         .lang("ECO - LE6 Storage Matrix (Data)")
@@ -73,9 +73,9 @@ public class NEDataItems {
         .register();
 
     public static final ItemEntry<ECODataStorageCellItem> ECO_DATA_CELL_256M = IntegrationCells
-        .cell("eco_data_storage_cell_256m", Size.L9, p -> new ECODataStorageCellItem(
+        .cell("eco_data_storage_cell_256m", Size.L9, (p, tier) -> new ECODataStorageCellItem(
             p,
-            ECOTier.L9
+            tier
         ))
         .recipe(cellRecipe(Size.L9))
         .lang("ECO - LE9 Storage Matrix (Data)")

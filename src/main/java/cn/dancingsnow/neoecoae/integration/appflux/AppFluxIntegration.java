@@ -19,7 +19,10 @@ public class AppFluxIntegration {
             NEAppFluxItems.ECO_FE_CELL_64M,
             NEAppFluxItems.ECO_FE_CELL_256M
         );
-        IntegrationCells.registerModels("energy", cells);
+        IntegrationCells.registerModels(cells,
+            "block/cell/storage_cell_l4_energy",
+            "block/cell/storage_cell_l6_energy",
+            "block/cell/storage_cell_l9_energy");
         OptionalCellUpgrades.register(NeoECOAE.MOD_BUS, cells);
     }
 }
