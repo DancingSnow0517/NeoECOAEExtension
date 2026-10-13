@@ -5,7 +5,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.core.concurrent.ThreadScope;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 

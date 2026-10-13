@@ -9,7 +9,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.items.ECOInfiniteResourceCellItem;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 
 /**

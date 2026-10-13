@@ -10,7 +10,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.growth.SinglePatternGrowthResult
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.component.ComponentDependency;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import it.unimi.dsi.fastutil.ints.IntHeapPriorityQueue;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;

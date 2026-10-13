@@ -6,7 +6,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressSnapshot;
 import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressView;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 
 import java.util.Set;
 

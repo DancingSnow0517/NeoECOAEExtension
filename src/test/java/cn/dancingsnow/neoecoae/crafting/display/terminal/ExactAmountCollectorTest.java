@@ -8,7 +8,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.MEInventoryHandler;
 import appeng.util.prioritylist.PrecisePriorityList;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.DelegatingMEInventoryAccessor;
 import cn.dancingsnow.neoecoae.network.MapDelta;

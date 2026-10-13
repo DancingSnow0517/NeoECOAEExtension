@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;

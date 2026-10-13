@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.display.format;
 
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

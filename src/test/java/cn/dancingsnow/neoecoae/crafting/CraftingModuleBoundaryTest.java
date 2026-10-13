@@ -16,7 +16,7 @@ class CraftingModuleBoundaryTest {
         var forbidden = Pattern.compile(
             "(net\\.minecraft\\.client\\.|appeng\\.client\\.|appeng\\.api\\.client\\.|org\\.lwjgl\\.|"
             + "cn\\.dancingsnow\\.neoecoae\\.client\\.)");
-        for (String directory : List.of("planner", "execution", "adapter", "amount", "display/format")) {
+        for (String directory : List.of("planner", "execution", "adapter", "display/format")) {
             assertNoReferences(ROOT.resolve(directory), forbidden);
         }
     }

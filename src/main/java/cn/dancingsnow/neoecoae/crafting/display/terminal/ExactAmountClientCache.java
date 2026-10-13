@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.display.terminal;
 
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 
 import appeng.api.stacks.AEKey;
 import java.util.Map;

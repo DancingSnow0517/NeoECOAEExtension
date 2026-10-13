@@ -6,7 +6,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.util.function.ToLongFunction;
 import java.util.function.Predicate;
 import java.util.concurrent.ConcurrentHashMap;

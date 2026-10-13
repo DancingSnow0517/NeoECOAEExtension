@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.display.format;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 
 public final class ExactAmountFormatter {
     private ExactAmountFormatter() {}

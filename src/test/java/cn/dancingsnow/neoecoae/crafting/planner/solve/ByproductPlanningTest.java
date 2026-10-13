@@ -10,7 +10,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.storage.AEKeyFilter;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CraftingNetworkCompiler;

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.provenance;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.util.Objects;
 import java.util.UUID;
 

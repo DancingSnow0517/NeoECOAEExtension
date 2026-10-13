@@ -255,8 +255,8 @@ class ECOIOPortTransferTest {
                 return net.minecraft.network.chat.Component.empty();
             }
             @Override public void neoecoae$visitExactAmounts(java.util.function.BiConsumer<AEKey,
-                    cn.dancingsnow.neoecoae.crafting.amount.ExactAmount> visitor) {
-                visitor.accept(key, cn.dancingsnow.neoecoae.crafting.amount.ExactAmount.finite(remaining[0]));
+                    cn.dancingsnow.neoecoae.core.amount.ExactAmount> visitor) {
+                visitor.accept(key, cn.dancingsnow.neoecoae.core.amount.ExactAmount.finite(remaining[0]));
             }
         }
         var host = new CountingStorage(key, 0L, 100L);

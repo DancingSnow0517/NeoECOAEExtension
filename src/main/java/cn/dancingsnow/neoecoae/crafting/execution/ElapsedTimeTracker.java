@@ -28,7 +28,7 @@ import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressSnapshot;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 
 public class ElapsedTimeTracker {
     private static final String NBT_ELAPSED_TIME = "elapsedTime";

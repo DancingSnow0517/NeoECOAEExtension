@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;

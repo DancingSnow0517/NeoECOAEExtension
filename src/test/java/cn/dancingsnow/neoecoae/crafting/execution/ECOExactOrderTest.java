@@ -20,7 +20,7 @@ import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOBigOrderPlanner;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import java.math.BigInteger;
 import java.util.*;

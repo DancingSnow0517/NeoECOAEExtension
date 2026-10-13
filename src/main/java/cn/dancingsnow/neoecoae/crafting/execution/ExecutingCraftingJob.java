@@ -45,7 +45,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 import cn.dancingsnow.neoecoae.crafting.execution.bigorder.ECOBigCraftingOrder;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOGrowthDispatchBarrier;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;

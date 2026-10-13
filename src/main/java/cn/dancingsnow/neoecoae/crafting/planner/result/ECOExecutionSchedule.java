@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.result;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 import cn.dancingsnow.neoecoae.core.graph.StronglyConnected;
 import cn.dancingsnow.neoecoae.core.graph.TopoSort;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;

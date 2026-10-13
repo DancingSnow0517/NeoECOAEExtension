@@ -4,7 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.ExecutionProvenance;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import java.util.List;
 import java.util.UUID;

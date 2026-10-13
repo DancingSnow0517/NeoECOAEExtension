@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 import java.math.BigInteger;
 import java.util.Map;
 

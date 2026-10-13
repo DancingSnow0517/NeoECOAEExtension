@@ -11,7 +11,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalyzer;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;

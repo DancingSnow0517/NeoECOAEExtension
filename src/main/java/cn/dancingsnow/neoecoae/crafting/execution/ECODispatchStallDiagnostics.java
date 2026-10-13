@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOPatternPushDiagnostics;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 
 import java.util.EnumMap;
 import java.util.UUID;

@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.provenance;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.math.BigInteger;
 import java.util.Map;

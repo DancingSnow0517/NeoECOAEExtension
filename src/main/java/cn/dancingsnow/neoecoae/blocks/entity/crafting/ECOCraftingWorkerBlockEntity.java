@@ -605,7 +605,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public long getQueuedCraftCount() {
         long total = 0L;
         for (ECOCraftingThread thread : craftingThreads) {
-            total = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(total, thread.getCraftCount());
+            total = cn.dancingsnow.neoecoae.core.math.NEMath.saturatingAdd(total, thread.getCraftCount());
         }
         return total;
     }

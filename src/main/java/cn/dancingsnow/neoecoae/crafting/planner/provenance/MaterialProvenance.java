@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.provenance;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.ArrayList;

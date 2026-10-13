@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.MEStorage;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import java.math.BigInteger;

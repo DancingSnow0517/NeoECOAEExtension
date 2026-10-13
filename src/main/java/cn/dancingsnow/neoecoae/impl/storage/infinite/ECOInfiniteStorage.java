@@ -18,7 +18,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import java.math.BigInteger;
 import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.Component;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
 import it.unimi.dsi.fastutil.objects.Object2ByteLinkedOpenHashMap;
 

@@ -4,7 +4,7 @@ import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.network.MenuDataTransport;
 import cn.dancingsnow.neoecoae.network.MapDelta;
 import cn.dancingsnow.neoecoae.network.ExactMapSync;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 import java.util.Map;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKey;

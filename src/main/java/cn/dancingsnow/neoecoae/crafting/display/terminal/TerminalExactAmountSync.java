@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.display.terminal;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.menu.me.common.MEStorageMenu;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.network.ExactMapSync;
 import cn.dancingsnow.neoecoae.network.MapDelta;
 import cn.dancingsnow.neoecoae.network.MenuDataTransport;

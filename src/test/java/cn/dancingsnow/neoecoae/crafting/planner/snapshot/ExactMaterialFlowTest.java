@@ -11,7 +11,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.math.BigInteger;

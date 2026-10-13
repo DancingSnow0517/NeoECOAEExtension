@@ -6,7 +6,7 @@ import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.AE2PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.List;
 

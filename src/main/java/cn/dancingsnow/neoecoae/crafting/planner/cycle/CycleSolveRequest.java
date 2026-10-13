@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.cycle;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.component.ComponentDependency;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

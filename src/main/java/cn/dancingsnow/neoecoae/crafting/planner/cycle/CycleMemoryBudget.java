@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.cycle;
 
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.math.BigInteger;
 
 /** Conservative retained-size estimates, not a cap on recipe count or integer precision. */

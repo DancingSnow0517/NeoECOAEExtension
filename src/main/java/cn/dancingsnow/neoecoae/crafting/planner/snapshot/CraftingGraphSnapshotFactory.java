@@ -16,7 +16,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.P
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.PatternNode;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.Relationship;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import java.util.ArrayList;

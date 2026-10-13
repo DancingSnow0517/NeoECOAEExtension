@@ -67,8 +67,8 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlock
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOSingleCraftingExecutor;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 
 public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic
         implements ECOCraftingProgressSink,

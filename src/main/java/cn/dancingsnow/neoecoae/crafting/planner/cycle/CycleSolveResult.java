@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.cycle;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

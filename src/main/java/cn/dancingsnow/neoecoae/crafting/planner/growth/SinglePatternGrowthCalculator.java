@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveRequest;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphEdge;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;

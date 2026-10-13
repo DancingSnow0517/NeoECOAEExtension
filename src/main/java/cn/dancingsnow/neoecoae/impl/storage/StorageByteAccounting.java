@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.storage;
 
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 
 import java.math.BigInteger;
 

@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.planner.result;
 
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.math.BigInteger;
 import java.util.Objects;
 

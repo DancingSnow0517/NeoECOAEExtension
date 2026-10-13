@@ -70,13 +70,13 @@ public final class ECOCraftingTaskSummary {
             long crafts = Math.max(1L, snapshot.craftCount());
             int maxProgress = Math.max(1, snapshot.maxProgress());
             int progress = Mth.clamp(snapshot.progress(), 0, maxProgress);
-            outputAmount = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(
+            outputAmount = cn.dancingsnow.neoecoae.core.math.NEMath.saturatingAdd(
                 outputAmount, Math.max(1L, snapshot.outputAmount()));
-            craftCount = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(craftCount, crafts);
-            totalProgress = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(
-                totalProgress, cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingMultiply(maxProgress, crafts));
-            remainingProgress = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(
-                remainingProgress, cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingMultiply(
+            craftCount = cn.dancingsnow.neoecoae.core.math.NEMath.saturatingAdd(craftCount, crafts);
+            totalProgress = cn.dancingsnow.neoecoae.core.math.NEMath.saturatingAdd(
+                totalProgress, cn.dancingsnow.neoecoae.core.math.NEMath.saturatingMultiply(maxProgress, crafts));
+            remainingProgress = cn.dancingsnow.neoecoae.core.math.NEMath.saturatingAdd(
+                remainingProgress, cn.dancingsnow.neoecoae.core.math.NEMath.saturatingMultiply(
                     Math.max(0, maxProgress - progress), crafts));
             waitingOutput &= snapshot.outputsReady();
             fastPathReasons.add(snapshot.fastPathReason() == null ? "NOT_RECORDED" : snapshot.fastPathReason());

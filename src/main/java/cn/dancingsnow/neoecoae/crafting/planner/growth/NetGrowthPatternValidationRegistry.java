@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.growth;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;

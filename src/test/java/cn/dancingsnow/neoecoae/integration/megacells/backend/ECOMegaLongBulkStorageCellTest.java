@@ -19,7 +19,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.route.AcyclicRoutePlan;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.AcyclicCraftingSolver;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import gripe._90.megacells.misc.CompressionChain;
 import gripe._90.megacells.misc.CompressionService;

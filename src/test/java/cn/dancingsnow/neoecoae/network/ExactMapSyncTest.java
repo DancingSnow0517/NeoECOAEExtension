@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.network;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
 import io.netty.buffer.Unpooled;
 import java.math.BigInteger;
 import java.util.Map;

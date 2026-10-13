@@ -10,7 +10,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;

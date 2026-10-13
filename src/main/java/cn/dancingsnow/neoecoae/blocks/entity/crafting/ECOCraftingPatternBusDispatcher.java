@@ -280,7 +280,7 @@ final class ECOCraftingPatternBusDispatcher {
         }
         long available = 0L;
         for (ECOCraftingWorkerBlockEntity worker : cluster.collectDispatchCandidateWorkers()) {
-            available = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(
+            available = cn.dancingsnow.neoecoae.core.math.NEMath.saturatingAdd(
                 available, worker.getAvailableBatchCapacity());
         }
         return (int) Math.min(Integer.MAX_VALUE, available);

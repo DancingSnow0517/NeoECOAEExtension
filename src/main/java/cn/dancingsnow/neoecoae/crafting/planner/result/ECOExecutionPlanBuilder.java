@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.RepeatLayout;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;

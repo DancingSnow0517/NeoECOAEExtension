@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.crafting.amount;
+package cn.dancingsnow.neoecoae.core.math;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
