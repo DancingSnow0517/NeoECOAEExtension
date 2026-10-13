@@ -34,41 +34,4 @@ public class ItemModelUtil {
             prov.generated(ctx::get, textures.toArray(net.minecraft.resources.ResourceLocation[]::new));
         };
     }
-
-    /**
-     * Icon model for the cells that share the {@code eco_cell_compat} housing set (Omni, MEGA and
-     * Lightning matrices). Layer order is fixed: housing, tier light, status light, then any extra
-     * overlays. The status light therefore always lands on tint index 2, which is the index
-     * {@code NEItemColors} tints, for every cell regardless of how many extra overlays it has.
-     */
-    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelProvider> compatCellModel(
-        String housing,
-        String size,
-        String... overlays
-    ) {
-        return (ctx, prov) -> {
-            List<net.minecraft.resources.ResourceLocation> textures = new ArrayList<>();
-            textures.add(prov.modLoc("item/eco_cell_compat/" + housing));
-            textures.add(prov.modLoc("item/eco_cell_light_" + size));
-            textures.add(prov.modLoc("item/eco_cell_status_light"));
-            for (String overlay : overlays) {
-                textures.add(prov.modLoc("item/eco_cell_compat/" + overlay));
-            }
-            prov.generated(ctx::get, textures.toArray(net.minecraft.resources.ResourceLocation[]::new));
-        };
-    }
-
-    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelProvider> compatHousingModel(
-        String housing,
-        String... overlays
-    ) {
-        return (ctx, prov) -> {
-            List<net.minecraft.resources.ResourceLocation> textures = new ArrayList<>();
-            textures.add(prov.modLoc("item/eco_cell_compat/" + housing));
-            for (String overlay : overlays) {
-                textures.add(prov.modLoc("item/eco_cell_compat/" + overlay));
-            }
-            prov.generated(ctx::get, textures.toArray(net.minecraft.resources.ResourceLocation[]::new));
-        };
-    }
 }

@@ -7,7 +7,10 @@ import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveRequest;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveResult;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolver;
 
-/** Closed-form growth first, sharing the general solver's exact inventory replay and boundary accounting. */
+/**
+ * Closed-form growth first, sharing the general solver's exact inventory replay and boundary accounting.
+ * Currently only exercised by tests; not wired into ECOCraftingPlannerService.
+ */
 public final class SinglePatternGrowthCycleSolver implements CycleSolver {
     private final SinglePatternGrowthCalculator calculator;
     private final CycleSolver fallback;

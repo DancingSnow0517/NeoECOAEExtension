@@ -27,7 +27,6 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
     public ECOMachineInterfaceBlockEntity<NEStorageCluster> getTheInterface() {
         return theInterface;
     }
-    private final List<ECOMachineCasingBlockEntity<NEStorageCluster>> casings = new ArrayList<>();
 
     public NEStorageCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
@@ -50,11 +49,6 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
             controller = systemBlockEntity;
         }
         if (controller != null) controller.invalidateInfiniteMembers();
-        //noinspection rawtypes
-        if (blockEntity instanceof ECOMachineCasingBlockEntity casing) {
-            //noinspection unchecked
-            casings.add(casing);
-        }
     }
 
     @Override

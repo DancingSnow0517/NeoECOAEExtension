@@ -212,15 +212,6 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         outputDelivery.deliverStoredFinalOutput();
     }
 
-    static int calculateOperationLimit(int coProcessors, int configuredLimit) {
-        long baseLimit = 64L;
-        long safeConfiguredLimit = Math.min(
-            (long) NEConfig.MAX_ECO_CPU_PUSH_TICK_LIMIT,
-            Math.max(0L, configuredLimit)
-        );
-        return (int) Math.min(Integer.MAX_VALUE, Math.min(baseLimit, safeConfiguredLimit));
-    }
-
     private Iterable<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
             IPatternDetails details) {
         // 此处必须且只能保留一次 getProviders 调用；仅在 CPU 中提供转发桩方法不足以满足兼容要求。
