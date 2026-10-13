@@ -1,10 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
 import appeng.api.networking.IGrid;
-import appeng.api.networking.crafting.ICraftingPlan;
-import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.energy.IEnergyService;
-import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
@@ -24,10 +21,10 @@ public final class ECOExternalCpuMixinSupport {
     private ECOExternalCpuMixinSupport() {}
 
     /**
-     * Runs the batch dispatcher. On failure it suspends the job, logs, and sets the callback to 0;
-     * returns true so the caller can mark its own CPU dirty.
+     * Runs the batch dispatcher. On failure it suspends the job, logs, and sets the callback to 0.
+     * Returns true on failure so the caller can mark its own CPU dirty.
      */
-    public static boolean dispatch(Object owner, ECOExternalCpuFastPath fastPath, Object job,
+    public static boolean dispatchFailed(Object owner, ECOExternalCpuFastPath fastPath, Object job,
             ListCraftingInventory inventory, int maxPatterns, CraftingService crafting, IEnergyService energy,
             Level level, CallbackInfoReturnable<Integer> cir, String label) {
         try {
@@ -40,16 +37,6 @@ public final class ECOExternalCpuMixinSupport {
             cir.setReturnValue(0);
             return true;
         }
-    }
-
-    /** Returns unused batch energy credit, if the dispatcher was ever created. */
-    public static void refundIdleCredit(ECOExternalCpuFastPath fastPath, IEnergyService energy) {
-        if (fastPath != null) fastPath.refundIdleCredit(energy);
-    }
-
-    /** Rejects plans that ECO's runtime rules do not allow on a native CPU. */
-    public static void validatePlan(ICraftingPlan plan, CallbackInfoReturnable<ICraftingSubmitResult> cir) {
-        if (!ECOExternalCpuSupport.supportsPlan(plan)) cir.setReturnValue(CraftingSubmitResult.NO_CPU_FOUND);
     }
 
     /** Cancels and recovers the ECO worker job on failure, or releases its completed outputs on success. */

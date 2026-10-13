@@ -47,7 +47,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
         // Thunderbolt's outer batch loop falls back here for ECO providers, which
         // deliberately do not implement its foreign batch-provider interface.
         if (ModIds.isLoaded(ModIds.MOLECULAR_MANIPULATOR)) return;
-        if (ECOExternalCpuMixinSupport.dispatch(this, neoecoae$fastPath(), job, inventory, maxPatterns, crafting,
+        if (ECOExternalCpuMixinSupport.dispatchFailed(this, neoecoae$fastPath(), job, inventory, maxPatterns, crafting,
                 energy, level, cir, "native")) cluster.markDirty();
     }
 
@@ -57,12 +57,13 @@ public abstract class Ae2CraftingCpuFastPathMixin {
             appeng.api.networking.security.IActionSource source,
             appeng.api.networking.crafting.ICraftingRequester requester,
             CallbackInfoReturnable<appeng.api.networking.crafting.ICraftingSubmitResult> cir) {
-        ECOExternalCpuMixinSupport.validatePlan(plan, cir);
+        if (!cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.supportsPlan(plan))
+            cir.setReturnValue(appeng.crafting.execution.CraftingSubmitResult.NO_CPU_FOUND);
     }
 
     @Inject(method = "tickCraftingLogic", at = @At("HEAD"))
     private void neoecoae$refundCredit(IEnergyService energy, CraftingService crafting, CallbackInfo ci) {
-        ECOExternalCpuMixinSupport.refundIdleCredit(neoecoae$fastPath, energy);
+        if (neoecoae$fastPath != null) neoecoae$fastPath.refundIdleCredit(energy);
     }
 
     @Inject(method = "finishJob", at = @At("HEAD"))

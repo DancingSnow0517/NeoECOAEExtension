@@ -82,7 +82,7 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
             IEnergyService energyService, @Nullable Level level, CallbackInfoReturnable<Integer> cir) {
         // Keep OmniSequence's extraction/accounting owner consistent with the AE2 adapter.
         if (level == null || ModIds.isLoaded(ModIds.MOLECULAR_MANIPULATOR)) return;
-        if (ECOExternalCpuMixinSupport.dispatch(this, neoecoae$batchDispatcher(), job, inventory, maxPatterns,
+        if (ECOExternalCpuMixinSupport.dispatchFailed(this, neoecoae$batchDispatcher(), job, inventory, maxPatterns,
                 craftingService, energyService, level, cir, "AdvancedAE")) cpu.markDirty();
     }
 
@@ -92,12 +92,13 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
             appeng.api.networking.security.IActionSource source,
             appeng.api.networking.crafting.ICraftingRequester requester,
             CallbackInfoReturnable<appeng.api.networking.crafting.ICraftingSubmitResult> cir) {
-        ECOExternalCpuMixinSupport.validatePlan(plan, cir);
+        if (!cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.supportsPlan(plan))
+            cir.setReturnValue(appeng.crafting.execution.CraftingSubmitResult.NO_CPU_FOUND);
     }
 
     @Inject(method = "tickCraftingLogic", at = @At("HEAD"), remap = false)
     private void neoecoae$refundCredit(IEnergyService energy, appeng.me.service.CraftingService crafting, CallbackInfo ci) {
-        ECOExternalCpuMixinSupport.refundIdleCredit(neoecoae$batchDispatcher, energy);
+        if (neoecoae$batchDispatcher != null) neoecoae$batchDispatcher.refundIdleCredit(energy);
     }
 
     @Inject(method = "readFromNBT", at = @At("TAIL"), remap = false)
