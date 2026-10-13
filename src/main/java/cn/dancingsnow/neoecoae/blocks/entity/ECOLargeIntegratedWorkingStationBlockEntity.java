@@ -10,10 +10,8 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.orientation.BlockOrientation;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -44,16 +42,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -79,16 +74,14 @@ import org.slf4j.LoggerFactory;
 /** Controller for the fixed 3x2x2 large integrated working station. */
 public class ECOLargeIntegratedWorkingStationBlockEntity
     extends ECOIntegratedWorkingStationBlockEntity
-    implements ISyncPersistRPCBlockEntity, IGridTickable, IAEMultiBlock<NEIntegratedWorkingStationCluster> {
+    implements IAEMultiBlock<NEIntegratedWorkingStationCluster> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOLargeIntegratedWorkingStationBlockEntity.class);
-    private static final int MAX_PROCESSING_STEPS = 200;
     /** Processing steps available per formed-controller tick; energy still limits actual progress. */
     public static final int PARALLELISM = 1024;
     private static final int COOLANT_PER_PROCESSING_TICK = 100;
     private static final int MAX_PENDING_BATCHES = 512;
     private static final long MAX_PENDING_OUTPUT_STACKS = 100_000L;
     private static final long MAX_SAVE_STACKS = 50_000L;
-    private static final int MAX_POWER_STORAGE = 16_000_000;
 
     private final NEIntegratedWorkingStationControllerCalculator calculator;
     private final LargeWorkstationCoolingOutput coolingOutput = new LargeWorkstationCoolingOutput();
@@ -114,22 +107,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         super(type, pos, state);
         this.calculator = new NEIntegratedWorkingStationControllerCalculator(this);
         getMainNode().setFlags(appeng.api.networking.GridFlags.MULTIBLOCK)
-            .setIdlePowerUsage(0)
-            .addService(IGridTickable.class, this)
             .addService(IGridMultiblock.class, this::getMultiblockNodes);
-        setInternalMaxPower(MAX_POWER_STORAGE);
-        setPowerSides(EnumSet.allOf(Direction.class));
-    }
-
-    @Override
-    public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
-        return EnumSet.allOf(Direction.class);
     }
 
     @Override
     public void onReady() {
         super.onReady();
-        setPowerSides(EnumSet.allOf(Direction.class));
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {

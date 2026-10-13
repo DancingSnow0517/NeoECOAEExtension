@@ -214,15 +214,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     @Override
-    public void onChunkUnloaded() {
+    protected void onUnloadOrRemove() {
         ECOStorageCells.releaseCellInventory(cellStack, this);
-        super.onChunkUnloaded();
-    }
-
-    @Override
-    public void setRemoved() {
-        ECOStorageCells.releaseCellInventory(cellStack, this);
-        super.setRemoved();
     }
 
     @Override

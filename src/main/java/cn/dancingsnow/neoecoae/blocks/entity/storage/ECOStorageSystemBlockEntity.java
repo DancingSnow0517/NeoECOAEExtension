@@ -85,9 +85,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Getter
     private final IECOTier tier;
 
+    @Getter
+    @Setter
     @Persisted
     @DescSynced
     private int selectedBuildLength = NEConfig.storageSystemMaxLength - 4;
+    @Getter
+    @Setter
     @Persisted
     @DescSynced
     private boolean mirrorBuild;
@@ -131,6 +135,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private int selectedEcoMegaBulkCell;
     @DescSynced
     private int selectedEcoMegaPage;
+    @Getter
+    @Setter
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
@@ -736,15 +742,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     @Override
-    public void onChunkUnloaded() {
+    protected void onUnloadOrRemove() {
         infiniteModeController.release();
-        super.onChunkUnloaded();
-    }
-
-    @Override
-    public void setRemoved() {
-        infiniteModeController.release();
-        super.setRemoved();
     }
 
     @Nullable
@@ -905,79 +904,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     @Override
-    public int getMinBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMin();
-    }
-
-    @Override
-    public int getMaxBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMax();
-    }
-
-    @Override
     public boolean canPlayerInteract(Player player) {
         return level != null && ECOStorageSystemBlock.isPlayerCloseEnough(level, worldPosition, player);
-    }
-
-    @Override
-    public Level getBuildLevel() {
-        return level;
-    }
-
-    @Override
-    public BlockPos getBuildPosition() {
-        return worldPosition;
-    }
-
-    @Override
-    public BlockState getBuildState() {
-        return getBlockState();
-    }
-
-    @Override
-    public int getSelectedBuildLength() {
-        return selectedBuildLength;
-    }
-
-    @Override
-    public void setSelectedBuildLength(int length) {
-        selectedBuildLength = length;
-    }
-
-    @Override
-    public boolean isMirrorBuild() {
-        return mirrorBuild;
-    }
-
-    @Override
-    public void setMirrorBuild(boolean mirrorBuild) {
-        this.mirrorBuild = mirrorBuild;
-    }
-
-    @Override
-    public boolean isBuildInProgress() {
-        return buildInProgress;
-    }
-
-    @Override
-    public void setBuildInProgress(boolean buildInProgress) {
-        this.buildInProgress = buildInProgress;
-    }
-
-    @Override
-    public boolean isFormed() {
-        return formed;
-    }
-
-    @Override
-    public void rebuildAfterBuild() {
-        rebuildMultiblock();
-    }
-
-    @Override
-    public void buildStateChanged() {
-        persistAndSync();
     }
 }

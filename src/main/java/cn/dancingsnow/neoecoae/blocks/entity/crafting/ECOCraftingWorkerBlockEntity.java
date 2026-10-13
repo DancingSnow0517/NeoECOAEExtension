@@ -75,7 +75,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     private boolean portableRecoveryExported;
 
     public ECOCraftingWorkerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
-        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new, 64);
         getMainNode().addService(IGridTickable.class, this);
     }
 
@@ -87,20 +87,17 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 LOADED_SERVER_WORKERS.add(this);
             }
         }
-        getMainNode().setIdlePowerUsage(64);
         reconcileJobTermination();
         refreshDisplayedJob();
     }
 
     @Override
-    public void onChunkUnloaded() {
+    protected void onUnloadOrRemove() {
         unregisterLoadedWorker();
-        super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
-        unregisterLoadedWorker();
         super.setRemoved();
         onThreadAvailabilityChanged();
     }

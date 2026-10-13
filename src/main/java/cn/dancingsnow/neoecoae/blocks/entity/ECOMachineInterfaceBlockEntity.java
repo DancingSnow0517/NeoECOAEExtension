@@ -712,15 +712,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     @Override
-    public void onChunkUnloaded() {
+    protected void onUnloadOrRemove() {
         releasePatternMigrationLease();
-        super.onChunkUnloaded();
-    }
-
-    @Override
-    public void setRemoved() {
-        releasePatternMigrationLease();
-        super.setRemoved();
     }
 
     @Override

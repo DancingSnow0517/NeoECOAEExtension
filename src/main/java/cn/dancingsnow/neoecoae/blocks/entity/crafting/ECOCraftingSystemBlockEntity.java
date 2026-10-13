@@ -147,15 +147,20 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private long performanceAverageNanos = 0L;
     private final ECOCraftingPerformanceMeter performanceMeter =
         new ECOCraftingPerformanceMeter(this::updatePerformanceAverage);
+    @Getter
     @Persisted
     @DescSynced
     private int selectedBuildLength = NEConfig.craftingSystemMaxLength - 4;
+    @Getter
+    @Setter
     @Persisted
     @DescSynced
     private boolean mirrorBuild;
     @Persisted
     @DescSynced
     private int networkFrequency = NEFrequencyAllocator.DEFAULT_FREQUENCY;
+    @Getter
+    @Setter
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
@@ -170,7 +175,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState, NECraftingClusterCalculator::new);
+        super(type, pos, blockState, NECraftingClusterCalculator::new, 64);
         this.tier = tier;
         getMainNode().addService(IGridTickable.class, this);
     }
@@ -178,7 +183,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     @Override
     public void onReady() {
         super.onReady();
-        getMainNode().setIdlePowerUsage(64);
         updateInfo();
     }
 
@@ -1207,62 +1211,15 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     @Override
-    public int getMinBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMin();
-    }
-
-    @Override
-    public int getMaxBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMax();
-    }
-
-    @Override
     public boolean canPlayerInteract(Player player) {
         return level != null && ECOCraftingSystem.isPlayerCloseEnough(level, worldPosition, player);
     }
-
-    @Override
-    public Level getBuildLevel() { return level; }
-
-    @Override
-    public BlockPos getBuildPosition() { return worldPosition; }
-
-    @Override
-    public BlockState getBuildState() { return getBlockState(); }
-
-    @Override
-    public int getSelectedBuildLength() { return selectedBuildLength; }
 
     @Override
     public void setSelectedBuildLength(int length) {
         if (selectedBuildLength == length) return;
         selectedBuildLength = length;
         invalidateCapabilityCapacity();
-    }
-
-    @Override
-    public boolean isMirrorBuild() { return mirrorBuild; }
-
-    @Override
-    public void setMirrorBuild(boolean mirrorBuild) { this.mirrorBuild = mirrorBuild; }
-
-    @Override
-    public boolean isBuildInProgress() { return buildInProgress; }
-
-    @Override
-    public void setBuildInProgress(boolean buildInProgress) { this.buildInProgress = buildInProgress; }
-
-    @Override
-    public boolean isFormed() { return formed; }
-
-    @Override
-    public void rebuildAfterBuild() { rebuildMultiblock(); }
-
-    @Override
-    public void buildStateChanged() {
-        persistAndSync();
     }
 
 }

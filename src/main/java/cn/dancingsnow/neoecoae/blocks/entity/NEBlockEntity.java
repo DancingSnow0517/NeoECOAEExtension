@@ -59,6 +59,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     protected C cluster;
     @Getter
     protected final NEClusterCalculator<C> calculator;
+    private final double idlePowerUsage;
 
     /**
      * Calculators chosen per block entity type instead of per block entity class.
@@ -93,8 +94,19 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     }
 
     public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {
+        this(type, pos, blockState, calculator, 16);
+    }
+
+    public NEBlockEntity(
+        BlockEntityType<?> type,
+        BlockPos pos,
+        BlockState blockState,
+        NEClusterCalculator.Factory<C> calculator,
+        double idlePowerUsage
+    ) {
         super(type, pos, blockState);
         this.calculator = createCalculator(type, this, calculator);
+        this.idlePowerUsage = idlePowerUsage;
         getMainNode().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)
             .addService(IGridMultiblock.class, this::getMultiblockNodes);
         onGridConnectableSidesChanged();
@@ -115,7 +127,23 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
                 }
             });
         }
-        getMainNode().setIdlePowerUsage(16);
+        getMainNode().setIdlePowerUsage(idlePowerUsage);
+    }
+
+    @Override
+    public void setRemoved() {
+        onUnloadOrRemove();
+        super.setRemoved();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        onUnloadOrRemove();
+        super.onChunkUnloaded();
+    }
+
+    /** Runs on both chunk unload and removal, before AE2 destroys the main grid node. */
+    protected void onUnloadOrRemove() {
     }
 
     public void updateMultiBlock(BlockPos changedPos) {

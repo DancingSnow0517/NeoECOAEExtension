@@ -49,7 +49,7 @@ public class ECOEnergyCellBlockEntity extends cn.dancingsnow.neoecoae.blocks.ent
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator::new);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator::new, 0);
         getMainNode()
             .addService(IAEPowerStorage.class, this)
             .addService(IGridTickable.class, this);
@@ -135,7 +135,6 @@ public class ECOEnergyCellBlockEntity extends cn.dancingsnow.neoecoae.blocks.ent
         final int value = this.level.getBlockState(this.worldPosition).getValue(ECOEnergyCellBlock.LEVEL);
         this.currentDisplayLevel = (byte) value;
         this.updateStateForPowerLevel();
-        getMainNode().setIdlePowerUsage(0);
     }
 
     @Override

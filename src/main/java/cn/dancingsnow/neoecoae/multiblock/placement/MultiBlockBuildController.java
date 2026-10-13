@@ -1,12 +1,11 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
@@ -17,12 +16,14 @@ import java.util.UUID;
  * their existing NBT keys and network field layout do not change.
  */
 public final class MultiBlockBuildController {
+    private final BlockEntity owner;
     private final Host host;
     private MultiBlockBuildSession buildSession;
     private UUID buildPlayerId;
 
-    public MultiBlockBuildController(Host host) {
-        this.host = host;
+    public <T extends BlockEntity & Host> MultiBlockBuildController(T owner) {
+        this.owner = owner;
+        this.host = owner;
     }
 
     public void tick(Level level) {
@@ -63,12 +64,12 @@ public final class MultiBlockBuildController {
             host.getMinBuildLength(),
             host.getMaxBuildLength()
         ));
-        host.buildStateChanged();
+        host.persistAndSync();
     }
 
     public void autoBuild(Player player) {
         if (!host.canPlayerInteract(player)
-            || !(host.getBuildLevel() instanceof ServerLevel serverLevel)
+            || !(owner.getLevel() instanceof ServerLevel serverLevel)
             || !(player instanceof ServerPlayer serverPlayer)
             || host.isFormed()
             || host.isBuildInProgress()) {
@@ -79,20 +80,9 @@ public final class MultiBlockBuildController {
         if (definition == null) {
             return;
         }
-        int buildLength = Math.clamp(
-            host.getSelectedBuildLength(),
-            definition.getExpandMin(),
-            definition.getExpandMax()
-        );
+        int buildLength = clampBuildLength(definition);
         host.setSelectedBuildLength(buildLength);
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
-            serverLevel,
-            host.getBuildPosition(),
-            host.getBuildState(),
-            definition,
-            buildLength,
-            host.isMirrorBuild()
-        );
+        MultiBlockPlacementPlan plan = previewPlan(serverLevel, definition, buildLength);
         if (!plan.getConflictPositions().isEmpty()) {
             return;
         }
@@ -102,7 +92,7 @@ public final class MultiBlockBuildController {
         }
 
         if (plan.getMissingBlocks().isEmpty()) {
-            host.rebuildAfterBuild();
+            host.rebuildMultiblock();
             serverPlayer.closeContainer();
             return;
         }
@@ -110,7 +100,7 @@ public final class MultiBlockBuildController {
             if (!MultiBlockPlacementService.buildInstant(serverLevel, plan, serverPlayer)) {
                 return;
             }
-            host.rebuildAfterBuild();
+            host.rebuildMultiblock();
             serverPlayer.closeContainer();
             return;
         }
@@ -118,7 +108,7 @@ public final class MultiBlockBuildController {
         buildSession = MultiBlockPlacementService.createBuildSession(serverLevel, plan);
         buildPlayerId = serverPlayer.getUUID();
         host.setBuildInProgress(true);
-        host.buildStateChanged();
+        host.persistAndSync();
         serverPlayer.closeContainer();
     }
 
@@ -127,11 +117,11 @@ public final class MultiBlockBuildController {
             return;
         }
         host.setMirrorBuild(mirrorBuild);
-        host.buildStateChanged();
+        host.persistAndSync();
     }
 
     public @Nullable MultiBlockPlacementPlan createLocalPreviewPlan() {
-        Level level = host.getBuildLevel();
+        Level level = owner.getLevel();
         if (level == null || host.isFormed()) {
             return null;
         }
@@ -139,15 +129,22 @@ public final class MultiBlockBuildController {
         if (definition == null) {
             return null;
         }
-        int buildLength = Math.clamp(
+        return previewPlan(level, definition, clampBuildLength(definition));
+    }
+
+    private int clampBuildLength(MultiBlockDefinition definition) {
+        return Math.clamp(
             host.getSelectedBuildLength(),
             definition.getExpandMin(),
             definition.getExpandMax()
         );
+    }
+
+    private MultiBlockPlacementPlan previewPlan(Level level, MultiBlockDefinition definition, int buildLength) {
         return MultiBlockPlacementService.preview(
             level,
-            host.getBuildPosition(),
-            host.getBuildState(),
+            owner.getBlockPos(),
+            owner.getBlockState(),
             definition,
             buildLength,
             host.isMirrorBuild()
@@ -159,23 +156,28 @@ public final class MultiBlockBuildController {
         buildPlayerId = null;
         host.setBuildInProgress(false);
         if (rebuild) {
-            host.rebuildAfterBuild();
+            host.rebuildMultiblock();
         }
-        host.buildStateChanged();
+        host.persistAndSync();
     }
 
+    /**
+     * Implemented by the block entity that owns this controller. {@link #rebuildMultiblock()} and
+     * {@link #persistAndSync()} are inherited from {@code NEBlockEntity}; the position, state and level
+     * come from the {@link BlockEntity} the controller was constructed with.
+     */
     public interface Host {
-        @Nullable Level getBuildLevel();
-
-        BlockPos getBuildPosition();
-
-        BlockState getBuildState();
-
         @Nullable MultiBlockDefinition getBuildDefinition();
 
-        int getMinBuildLength();
+        default int getMinBuildLength() {
+            MultiBlockDefinition definition = getBuildDefinition();
+            return definition == null ? 1 : definition.getExpandMin();
+        }
 
-        int getMaxBuildLength();
+        default int getMaxBuildLength() {
+            MultiBlockDefinition definition = getBuildDefinition();
+            return definition == null ? 1 : definition.getExpandMax();
+        }
 
         int getSelectedBuildLength();
 
@@ -193,8 +195,8 @@ public final class MultiBlockBuildController {
 
         boolean canPlayerInteract(Player player);
 
-        void rebuildAfterBuild();
+        void rebuildMultiblock();
 
-        void buildStateChanged();
+        void persistAndSync();
     }
 }
