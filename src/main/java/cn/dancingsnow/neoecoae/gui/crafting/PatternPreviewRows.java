@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.util.PatternSearchMatcher;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -70,7 +71,8 @@ final class PatternPreviewRows {
     }
 
     private static boolean matchesTerms(List<String> terms, String keywords) {
-        return !terms.isEmpty() && terms.stream().allMatch(keywords::contains);
+        return !terms.isEmpty() && terms.stream().allMatch(term -> term.startsWith("@")
+                ? keywords.contains(term) : PatternSearchMatcher.contains(keywords, term));
     }
 
     private void refilter() {

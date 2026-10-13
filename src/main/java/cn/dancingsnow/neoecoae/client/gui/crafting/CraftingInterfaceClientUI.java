@@ -65,7 +65,7 @@ public final class CraftingInterfaceClientUI {
                 event.getMouseX(), event.getMouseY());
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onKeyPressed(ScreenEvent.KeyPressed.Pre event) {
         if (handleSearchKeyPressed(event.getScreen(), event.getKeyCode(), event.getScanCode(), event.getModifiers())) {
             event.setCanceled(true);
@@ -75,6 +75,11 @@ public final class CraftingInterfaceClientUI {
     @SubscribeEvent
     public static void onCharTyped(ScreenEvent.CharacterTyped.Pre event) {
         if (handleSearchCharTyped(event.getScreen(), event.getCodePoint(), event.getModifiers())) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void onKeyReleased(ScreenEvent.KeyReleased.Pre event) {
+        clearShortcutCharacter(event.getScreen());
     }
 
     @SubscribeEvent
@@ -125,9 +130,24 @@ public final class CraftingInterfaceClientUI {
     }
 
     public static boolean handleSearchKeyPressed(Screen screen, int keyCode, int scanCode, int modifiers) {
+        List<CraftingInterfaceUI.SearchField> searchFields = searchFields(screen);
+        if (searchFields.isEmpty()) return false;
+        clearShortcutCharacter(screen);
         NativeSearchField field = focusedSearchField(screen);
+        var quickQuery = EAEPQuickSearch.query(keyCode, scanCode, modifiers);
+        if (quickQuery.isPresent()) {
+            if (field == null) field = searchFields.stream().filter(NativeSearchField.class::isInstance)
+                    .map(NativeSearchField.class::cast).findFirst().orElse(null);
+            if (field != null) {
+                field.claimNativeFocus(screen);
+                field.setSearchValue(quickQuery.get());
+                // GLFW sends a separate char callback even when the shortcut's key event was canceled.
+                field.suppressShortcutCharacter = true;
+                return true;
+            }
+        }
         if (field != null && keyCode == GLFW.GLFW_KEY_TAB) {
-            List<NativeSearchField> fields = searchFields(screen).stream()
+            List<NativeSearchField> fields = searchFields.stream()
                     .filter(NativeSearchField.class::isInstance).map(NativeSearchField.class::cast).toList();
             int direction = (modifiers & GLFW.GLFW_MOD_SHIFT) == 0 ? 1 : -1;
             fields.get(Math.floorMod(fields.indexOf(field) + direction, fields.size())).claimNativeFocus(screen);
@@ -138,7 +158,17 @@ public final class CraftingInterfaceClientUI {
 
     public static boolean handleSearchCharTyped(Screen screen, char codePoint, int modifiers) {
         NativeSearchField field = focusedSearchField(screen);
+        if (field != null && field.suppressShortcutCharacter) {
+            field.suppressShortcutCharacter = false;
+            return true;
+        }
         return field != null && field.charTypedNative(codePoint, modifiers);
+    }
+
+    private static void clearShortcutCharacter(Screen screen) {
+        for (var field : searchFields(screen)) {
+            if (field instanceof NativeSearchField nativeField) nativeField.suppressShortcutCharacter = false;
+        }
     }
 
     public static void reclaimSearchFieldFocus(Screen screen) {
@@ -178,6 +208,7 @@ public final class CraftingInterfaceClientUI {
         private int nativeY = Integer.MIN_VALUE;
         private int nativeWidth = -1;
         private int nativeHeight = -1;
+        private boolean suppressShortcutCharacter;
 
         @Override
         public CraftingInterfaceUI.SearchField setSearchValue(String value) {

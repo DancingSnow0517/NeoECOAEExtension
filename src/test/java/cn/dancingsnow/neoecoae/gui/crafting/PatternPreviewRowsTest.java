@@ -111,6 +111,25 @@ class PatternPreviewRowsTest {
         assertEquals(new PatternPreviewRows.Cell(2, -1), rows.cell(2));
     }
 
+    @Test void altShortcutModFiltersRespectIngredientsPrimaryProductsAndDiskRecipes() {
+        var disk = new PatternPreviewEntry(10, 2, new ItemStack(Items.CHEST), "", "",
+                List.of(new PatternPreviewEntry.DiskPattern(new ItemStack(Items.STONE),
+                        "water\n@minecraft", "coolant\n@mekanism")), true);
+        var rows = new PatternPreviewRows();
+        rows.reset(new PatternPreviewEntry[]{entry(10, 0, "iron\n@minecraft", "gear\n@extendedae"),
+                entry(10, 1, "copper\n@mekanism", "plate\n@minecraft"), disk});
+        rows.filter("@MINECRAFT iron", "");
+        assertEquals(new PatternPreviewRows.Cell(0, -1), rows.cell(0));
+        assertNull(rows.cell(1));
+        rows.filter("", "@minecraft");
+        assertEquals(new PatternPreviewRows.Cell(1, -1), rows.cell(0));
+        assertNull(rows.cell(1), "an ingredient's namespace cannot match a product query");
+        rows.filter("@minecraft", "@mekanism");
+        assertEquals(new PatternPreviewRows.Cell(0, -1), rows.cell(0));
+        assertEquals(new PatternPreviewRows.Cell(2, 0), rows.cell(1));
+        assertNull(rows.cell(2));
+    }
+
     @Test void sixRowsAndPartialLastRowsFollowActualPatternCountRatherThanBusCapacity() {
         var entries = new PatternPreviewEntry[630];
         for (int slot = 0; slot < entries.length; slot++) entries[slot] = slot % 10 == 0

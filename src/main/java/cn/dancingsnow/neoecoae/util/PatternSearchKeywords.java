@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.util;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEKey;
 
 import net.minecraft.world.item.ItemStack;
 
@@ -35,12 +36,20 @@ public final class PatternSearchKeywords {
         for (var input : details.getInputs()) {
             if (input == null) continue;
             for (var possible : input.getPossibleInputs()) {
-                if (possible != null) inputs.append('\n').append(possible.what().getDisplayName().getString());
+                if (possible != null) appendResource(inputs, possible.what());
             }
         }
         var primary = details.getPrimaryOutput();
-        return new Directions(inputs.toString().toLowerCase(Locale.ROOT),
-                primary == null ? "" : primary.what().getDisplayName().getString().toLowerCase(Locale.ROOT));
+        StringBuilder output = new StringBuilder();
+        if (primary != null) appendResource(output, primary.what());
+        return new Directions(inputs.toString().toLowerCase(Locale.ROOT), output.toString().toLowerCase(Locale.ROOT));
+    }
+
+    private static void appendResource(StringBuilder keywords, AEKey key) {
+        if (!keywords.isEmpty()) keywords.append('\n');
+        keywords.append(key.getDisplayName().getString());
+        String modId = key.getModId();
+        if (modId != null) keywords.append('\n').append('@').append(modId);
     }
 
     public static String build(ItemStack stack, @Nullable IPatternDetails details) {
