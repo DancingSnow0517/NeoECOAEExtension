@@ -258,7 +258,7 @@
 | 第 0 批 | ✅ 完成（已分批提交） | 见下 | T0-1～T0-11 全部合入；编译通过，测试 1102 个通过、4 个跳过 |
 | 第 1 批 | ✅ 完成（已分批提交） | `src/main/java` 103,965 → 102,137（−1,828）；全仓 +493 / −3,994 | 另删 33 个模型 JSON、14 个空目录 |
 | 第 2 批 | ✅ 完成（B0～F 已分批提交） | `src/main/java` 102,137 → 102,258（+121） | 以收口为主，新增公共件抵消了删除量；测试 1153 个，1149 通过、4 跳过 |
-| 第 3 批 | 进行中（第 1、2 波已分批提交） | `src/main/java` 102,258 → 102,158（−100，含新增辅助类） | 测试 1159 个，1155 通过、4 跳过；剩余任务见 11.8 |
+| 第 3 批 | ✅ 完成（第 1～3 波已分批提交） | 第 1、2 波：102,258 → 102,158（−100）；第 3 波：102,130 → 101,033（−1,097） | 测试 1161 个，1157 通过、4 跳过；datagen 与 HEAD 零差异；见 11.9 |
 | 第 4 批 | 未开始 | | |
 
 ### 11.1 第 0、1 批执行记录（2026-10-13）
@@ -497,12 +497,60 @@ B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`�
   - 生成方法：用 `git archive` 导出到仓库外，**把 `run/mods/*.jar` 拷到导出目录的 `run/mods`**（否则会因缺少 curios 而失败），再执行 `./gradlew runData --offline`。
   - 对比时用同样方式导出当前工作区，生成后 diff `src/generated`；预期为零差异。
 
-## 12. 暂停点（2026-10-13，第 3 批中途）
+### 11.9 第 3 批第 3 波执行记录（2026-10-14，已按五批提交）
+
+11.8 的 R1～R5 全部完成，并已按主题拆成五个本地中文提交。基线为提交前 HEAD `43bcb0df`（`src/main/java` 102,130 行），完成后 101,033 行（−1,097）；全仓 74 个已跟踪文件 +1,212 / −2,649，另有 10 个新文件。验证结果：
+- 编译通过，测试 1161 项（1157 通过、4 跳过，新增 1 项），零失败。
+- 启用 AppBot 集成后，主源码与测试源码编译通过。
+- datagen：在仓库外分别从 HEAD 和当前工作区生成，各写出 711 个文件，`src/generated` 零差异。
+- datagen 覆盖不到的运行时属性已逐项对照 HEAD：工具攻击属性、稀有度、堆叠数、方块硬度、音效、光照、`noOcclusion`、`requiresCorrectToolForDrops`、tick 器、渲染器、54 个方块实体注册名。
+
+**R1 流体仓、散热口、并行核心合并（T3-5）**：
+- 新增 `blocks/ECOFluidHatchBlock<C>` 与 `blocks/entity/ECOFluidHatchBlockEntity<C>`。仓的差异由 `Spec(input, capacity, coolantOnly, titleKey)` 表达，共四个常量 `CRAFTING_INPUT/OUTPUT`、`LWS_INPUT/OUTPUT`。`tank` 保持 public 且非 final。
+- 大型工作站仓原来的 `notifyController()` 改为 `NECluster.onFluidHatchChanged()` 钩子（默认空实现），由 `NEIntegratedWorkingStationCluster` 覆盖。
+- tick 统一跳过本集群成员（I0-4）。**行为变化**：合成系统的仓原来不跳过，在有效结构中本来就不会触发。新增 `FluidHatchClusterNeighbourTest` 覆盖这一点。
+- 新增 `ECOVentBlock(Entity)<C>`（待机功耗 64，由构造参数传入）和 `ECOParallelCoreBlock(Entity)<C>`（`Kind.CRAFTING/COMPUTATION`；待机功耗合成 64、计算 16，保持不同）。
+- 集群字段改用通配类型（`ECOFluidHatchBlockEntity<?>`、`List<ECOParallelCoreBlockEntity<?>>`），按 `isInput()` 区分输入、输出仓。集群成员资格已由计算器的 `isValidBlockEntity` 保证，所以不需要未检查转换。
+- 两个计算器的 `matchingParallelCore` 和 `NETooltips` 都加了 `Kind` 判断，防止合成结构接受计算核心。
+- 删除 16 个旧类。所有方块与方块实体的注册 ID 不变。
+
+**R2 MEGA 存储盘（T3-10 收尾）**：
+- 4 个子类合并为 `ECOMegaStorageCellItem`，构造参数为 key 类型和可空黑名单谓词。
+- Flux、Mekanism 的类型和 `MekanismCellFilter` 只在 `NEMegaEnergyItems`、`NEMegaChemicalItems` 中引用，不会在缺模组时被加载。
+- `NeoECOAE.initUpgrades`、`MegaCellsIntegration`、`AE2OmniCellsIntegration` 的升级卡循环改用 `OptionalCellUpgrades.addStandard`。
+
+**R3 注册链参数化（T3-11）**：
+- `NEItems` 1,124 → 835 行：`ToolKind` 枚举加 `tool`/`alloyTool` 收掉 20 个工具；另有锻造模板、粉、锭、粗矿、外壳、存储盘的辅助方法。批量盘的 `bytesPerType` 与 `removeTab` 保持原样，语言文案改为显式书写。
+- `NEBlocks` 1,591 → 1,438 行：存储方块、合金外壳、母岩、晶芽、能量元件、并行核心（合成与计算合为一个泛型辅助方法）。控制器族只改为显式语言文案，两种系统控制器未合并，因为它们的方块状态读取的是各自类上的属性字段。`ECOStorageSystemBlock.FORMED` 的误导性引用改为 `NEBlock.FORMED`。
+- `NEBlockEntities` 552 → 488 行：新增 `clusterBlockEntity`、`tieredBlockEntity`、`linkedBlockEntity`、`fluidHatchBlockEntity`，47 个条目中 44 个改用这些辅助方法。两个网络开关和集成工作站带有 `onRegister` 副作用，保留手写。
+- `NEMultiBlocks`：3 个 `switch` 合为 `byTier`；`storageSystem` 改名为 `createStorageSystem`；统一调用 `create()`，并删除冗余的 `MultiBlockDefinition.Builder.create(Consumer)` 重载。
+- 所有 `public static final` 字段的名称、类型和顺序都不变，所以创造模式物品栏顺序也不变。
+
+**R4 GUI 平行件（T3-12）**：
+- 新增 `HostElements.hiddenValue(parent, initial, binding[, listener])`，22 处同步隐藏值改用它，`CraftingInterfaceUI.TooltipLine` 也随之删除。`StorageInterfaceUI` 的 `mode` 字段只在某个分支里挂到根节点，保留手写。
+- C2S 请求值从字段初始化移到构造器中，子节点顺序和 bind 顺序不变。
+- 删除 `HostElements` 中零引用的 `syncedDisplay`、`sectionLabel`、`panelTitle`、`horizontalRow`，以及两个零调用的 `createOpenButton`。
+- 新增 `HostSideButtonBar.openWindowButton`，3 处改用。
+- 新增 `gui/common/TabBackButton`，替换 `ComputationSettingsPanel.BackButton` 与 `StoragePriorityUI.PriorityBackButton`，绘制参数与测试钉住的完全一致。
+- 新增 `ECOIcon.toolbarBackground(hovered, focused)`，4 处改用，其中包括 `AE2IconButton` 的状态 `switch`（映射完全等价）。
+- 新增 `gui/computation/CpuSelectionServerState`，两个 CPU 面板的 `ServerState` 共用构造器、`refresh()` 与 `beginInteraction()` 守卫。
+
+**R5 小项**：
+- `isPlayerCloseEnough` 的公共实现移到 `NEBlock`（protected static）。
+- `ECOMegaLongBulkStorageCellItem` 改为覆盖 `appendCellLines`，每次 tooltip 只构建一次存储盘。基类在无限成员分支也会以 null 调用这个钩子。
+- `NEClusterCalculator.updateClusterUnchecked` 改为包级可见，集成工作站控制器计算器中的副本已删除。
+
+**新的执行教训**：
+- 匿名子类里，与继承来的 protected 字段同名的参数会被字段遮蔽。新测试最初在 `getCluster()` 覆盖中写 `return cluster`，实际返回的是继承字段（null）。
+- 代理会违反规则直接调用 javac，在源码目录留下 `javac.<时间戳>.args`；`sed -i` 中断时会留下全是空字节的 `sedXXXXXX`。每一波结束都要 `git status` 检查未跟踪文件。
+- 上游 502 或连接重置会让代理中途退出，用 SendMessage 恢复即可。恢复前先看工作区里已经落地了哪些改动。
+
+## 12. 暂停点（2026-10-14，第 3 批已分批提交）
 
 **状态**：
-- 分支 `refactor/architecture-cleanup`，第 2 批已全部提交；第 3 批第 1、2 波的源码提交截至 `c905c901`。
-- 第 3 批第 1、2 波的源码改动**已分 7 批提交**（见 11.7），未推送。提交时复核默认测试与 JAR 打包通过，测试 1159 项（1155 通过、4 跳过），零失败；启用 AppBot 集成后的主源码与测试源码编译通过。
-- 停止时没有正在运行的代理。R1（T3-5）只读完了流体仓源码，还没有派发任何修改。
+- 分支 `refactor/architecture-cleanup`，第 3 批第 3 波（11.9）已按五个主题提交；本记录随第五批提交，完成后工作区干净。
+- 五个提交均为本地提交，未推送；没有正在运行的代理。
+- 提交主题依次为：多方块通用部件与注册链、工具材料与存储盘注册、MEGA 存储盘与升级卡、GUI 公共逻辑、架构审计记录。
 
 **下次继续前先做**：
 1. 执行 `git status` 和 `git log`，核对提交与工作区状态；用户可能另做了修改。
@@ -510,9 +558,9 @@ B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`�
 3. 重读第 1 节执行规则、第 3 节多版本分层、11.2 的用户决定，以及 11.7 末尾的 3 个待决项。
 
 **剩余工作**：
-- **第 3 批剩余**：见 11.8，顺序为 R1 → R3；R2、R4、R5 可以与 R1 并行（R5 中修改 `NEBlock` 的部分不要与 R1a 同时进行）。
 - **待用户决定**：11.7 末尾 3 项；第 2 批遗留的三种近似墨色是否统一，以及 `cycleStatusColor` 的绿色是否改为一致。
-- **第 4 批**（第 8 节 T4-1～T4-19）：每项先出设计说明，用户确认后再动手。
+- **小尾巴**（可并入第 4 批）：`HostElements.tooltips(T, Component...)` 与 `hoverTooltips(List)` 构造 `HoverTooltips` 的方式不同但效果相同，可以合一；`MultiBlockDefinition` 有一个零引用的 `BiFunction` 导入；`NEMultiBlocks.createCraftingSystem` 中散热口的朝向属性取自 `ECOComputationThreadingCore.FACING`（同一个实例，只是写法有误导性）。
+- **第 4 批**（第 8 节 T4-1～T4-12）：每项先出设计说明，用户确认后再动手。
 
 **执行经验**：
 - 同时运行的 Haiku 代理超过约 9 个会触发 429 限流，每波控制在 8 个以内。
