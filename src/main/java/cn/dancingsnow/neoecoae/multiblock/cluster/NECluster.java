@@ -94,6 +94,10 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         return false;
     }
 
+    /** Called when a fluid hatch in this cluster changes its tank contents. */
+    public void onFluidHatchChanged() {
+    }
+
     public void addBlockEntity(NEBlockEntity<T, ?> blockEntity) {
         blockEntity.saveChanges();
         this.blockEntities.add(blockEntity);

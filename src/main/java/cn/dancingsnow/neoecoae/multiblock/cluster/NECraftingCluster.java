@@ -1,13 +1,12 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
+import cn.dancingsnow.neoecoae.blocks.entity.ECOFluidHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import lombok.Getter;
@@ -23,7 +22,7 @@ import java.util.Set;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
-    private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
+    private final List<ECOParallelCoreBlockEntity<?>> parallelCores = new ArrayList<>();
     @Getter
     private final List<ECOCraftingWorkerBlockEntity> workers = new ArrayList<>();
     @Getter
@@ -31,9 +30,9 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
     private ECOCraftingSystemBlockEntity controller = null;
     @Getter
-    private ECOFluidInputHatchBlockEntity inputHatch = null;
+    private ECOFluidHatchBlockEntity<?> inputHatch = null;
     @Getter
-    private ECOFluidOutputHatchBlockEntity outputHatch = null;
+    private ECOFluidHatchBlockEntity<?> outputHatch = null;
     @Getter
     @Nullable
     private NECraftingNetworkCluster networkCluster;
@@ -203,7 +202,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         if (networkCluster != null) {
             networkCluster.invalidateDispatchAvailability();
         }
-        if (blockEntity instanceof ECOCraftingParallelCoreBlockEntity parallelCore) {
+        if (blockEntity instanceof ECOParallelCoreBlockEntity<?> parallelCore) {
             parallelCores.add(parallelCore);
         }
         if (blockEntity instanceof ECOCraftingWorkerBlockEntity workerBlockEntity) {
@@ -219,11 +218,12 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         if (blockEntity instanceof ECOCraftingSystemBlockEntity controller) {
             this.controller = controller;
         }
-        if (blockEntity instanceof ECOFluidInputHatchBlockEntity inputHatchBlockEntity) {
-            this.inputHatch = inputHatchBlockEntity;
-        }
-        if (blockEntity instanceof ECOFluidOutputHatchBlockEntity outputHatchBlockEntity) {
-            this.outputHatch = outputHatchBlockEntity;
+        if (blockEntity instanceof ECOFluidHatchBlockEntity<?> hatch) {
+            if (hatch.isInput()) {
+                this.inputHatch = hatch;
+            } else {
+                this.outputHatch = hatch;
+            }
         }
     }
 }

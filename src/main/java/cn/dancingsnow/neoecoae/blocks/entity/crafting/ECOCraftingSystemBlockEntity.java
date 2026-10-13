@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.core.math.NEMath;
@@ -933,7 +934,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         }
         Direction top = OrientationStrategies.horizontalFacing().getSide(getBlockState(), RelativeSide.TOP);
         Map<BlockPos, Integer> cores = new LinkedHashMap<>();
-        for (ECOCraftingParallelCoreBlockEntity core : cluster.getParallelCores()) {
+        for (ECOParallelCoreBlockEntity<?> core : cluster.getParallelCores()) {
             cores.put(core.getBlockPos(), core.getTier().getTier());
         }
         List<ECOCraftingWorkerBlockEntity> workers = getCraftingControllerWorkers();

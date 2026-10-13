@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks;
 
-import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationOutputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOFluidHatchBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
@@ -11,9 +12,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
-public class ECOLargeIntegratedWorkingStationOutputHatch
-    extends NEBlock<ECOLargeIntegratedWorkingStationOutputHatchBlockEntity> implements BlockUIMenuType.BlockUI {
-    public ECOLargeIntegratedWorkingStationOutputHatch(Properties properties) {
+public class ECOFluidHatchBlock<C extends NECluster<C>> extends NEBlock<ECOFluidHatchBlockEntity<C>>
+    implements BlockUIMenuType.BlockUI {
+
+    public ECOFluidHatchBlock(Properties properties) {
         super(properties);
     }
 
@@ -36,7 +38,7 @@ public class ECOLargeIntegratedWorkingStationOutputHatch
     @Override
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         if (holder.player.level().getBlockEntity(holder.pos)
-            instanceof ECOLargeIntegratedWorkingStationOutputHatchBlockEntity blockEntity) {
+            instanceof ECOFluidHatchBlockEntity<?> blockEntity) {
             return blockEntity.createUI(holder);
         }
         return null;

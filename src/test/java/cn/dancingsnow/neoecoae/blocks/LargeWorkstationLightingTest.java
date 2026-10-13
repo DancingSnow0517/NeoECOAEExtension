@@ -40,8 +40,8 @@ class LargeWorkstationLightingTest {
         registry.unfreeze();
         try {
             members = List.of(
-                new ECOLargeIntegratedWorkingStationInputHatch(BlockBehaviour.Properties.of()),
-                new ECOLargeIntegratedWorkingStationOutputHatch(BlockBehaviour.Properties.of()),
+                new ECOFluidHatchBlock<NEIntegratedWorkingStationCluster>(BlockBehaviour.Properties.of()),
+                new ECOFluidHatchBlock<NEIntegratedWorkingStationCluster>(BlockBehaviour.Properties.of()),
                 new ECOMachineInterface<NEIntegratedWorkingStationCluster>(BlockBehaviour.Properties.of()));
             casing = new ECOMachineCasing<>(BlockBehaviour.Properties.of().noOcclusion());
             for (int index = 0; index < members.size(); index++) {

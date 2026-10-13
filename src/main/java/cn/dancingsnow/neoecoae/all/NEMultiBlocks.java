@@ -2,16 +2,17 @@ package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
+import cn.dancingsnow.neoecoae.blocks.ECOParallelCoreBlock;
+import cn.dancingsnow.neoecoae.blocks.ECOVentBlock;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
-import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
-import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.BlockPos;
@@ -30,17 +31,17 @@ public class NEMultiBlocks {
 
     public static final MultiBlockDefinition LARGE_INTEGRATED_WORKING_STATION = createLargeIntegratedWorkingStation();
 
-    public static final MultiBlockDefinition STORAGE_SYSTEM_L4 = storageSystem(
+    public static final MultiBlockDefinition STORAGE_SYSTEM_L4 = createStorageSystem(
         NEBlocks.STORAGE_SYSTEM_L4,
         NEBlocks.STORAGE_SYSTEM_L4.getDefaultState(),
         NEBlocks.ENERGY_CELL_L4.getDefaultState().setValue(ECOEnergyCellBlock.FACING, Direction.SOUTH)
     );
-    public static final MultiBlockDefinition STORAGE_SYSTEM_L6 = storageSystem(
+    public static final MultiBlockDefinition STORAGE_SYSTEM_L6 = createStorageSystem(
         NEBlocks.STORAGE_SYSTEM_L6,
         NEBlocks.STORAGE_SYSTEM_L6.getDefaultState(),
         NEBlocks.ENERGY_CELL_L6.getDefaultState().setValue(ECOEnergyCellBlock.FACING, Direction.SOUTH)
     );
-    public static final MultiBlockDefinition STORAGE_SYSTEM_L9 = storageSystem(
+    public static final MultiBlockDefinition STORAGE_SYSTEM_L9 = createStorageSystem(
         NEBlocks.STORAGE_SYSTEM_L9,
         NEBlocks.STORAGE_SYSTEM_L9.getDefaultState(),
         NEBlocks.ENERGY_CELL_L9.getDefaultState().setValue(ECOEnergyCellBlock.FACING, Direction.SOUTH)
@@ -112,12 +113,12 @@ public class NEMultiBlocks {
                     level.setBlockAndUpdate(blockPos, next);
                 }
             })
-            .create(DEFINITIONS::add);
+            .create();
     }
 
     private static MultiBlockDefinition createCraftingSystem(
         BlockEntry<ECOCraftingSystem> main,
-        BlockEntry<ECOCraftingParallelCore> parallelCore
+        BlockEntry<ECOParallelCoreBlock<NECraftingCluster>> parallelCore
     ) {
         BlockState casing = NEBlocks.CRAFTING_CASING.getDefaultState();
         return MultiBlockDefinition.builder(main)
@@ -142,9 +143,9 @@ public class NEMultiBlocks {
             .setBlockRepeatable(pos(-1, 1, 0), Direction.WEST, NEBlocks.CRAFTING_WORKER.getDefaultState())
             .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, parallelCore.getDefaultState())
             .setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, parallelCore.getDefaultState())
-            .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, NEBlocks.CRAFTING_PATTERN_BUS.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))
+            .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, NEBlocks.CRAFTING_PATTERN_BUS.getDefaultState().setValue(ECOParallelCoreBlock.FACING, Direction.SOUTH))
             .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, NEBlocks.CRAFTING_VENT.getDefaultState().setValue(ECOComputationThreadingCore.FACING, Direction.SOUTH))
-            .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, NEBlocks.CRAFTING_PATTERN_BUS.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))
+            .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, NEBlocks.CRAFTING_PATTERN_BUS.getDefaultState().setValue(ECOParallelCoreBlock.FACING, Direction.SOUTH))
             .setBlockWithRepeatShifted(pos(-1, 1, 0), Direction.WEST, 0, casing)
             .setBlockWithRepeatShifted(pos(-1, 2, 0), Direction.WEST, 0, casing)
             .setBlockWithRepeatShifted(pos(-1, 0, 0), Direction.WEST, 0, casing)
@@ -168,13 +169,13 @@ public class NEMultiBlocks {
                     level.setBlockAndUpdate(pos, newState);
                 }
             })
-            .create(DEFINITIONS::add);
+            .create();
     }
 
     private static MultiBlockDefinition createComputationSystem(
         BlockEntry<ECOComputationSystem> main,
         BlockEntry<ECOComputationThreadingCore> threadingCore,
-        BlockEntry<ECOComputationParallelCore> parallelCore,
+        BlockEntry<ECOParallelCoreBlock<NEComputationCluster>> parallelCore,
         BlockEntry<ECOComputationCoolingController> cooler
     ) {
         BlockState casing = NEBlocks.COMPUTATION_CASING.getDefaultState();
@@ -200,9 +201,9 @@ public class NEMultiBlocks {
             .setBlockRepeatable(pos(-1, 1, 0), Direction.WEST, NEBlocks.COMPUTATION_TRANSMITTER.getDefaultState())
             .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
             .setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
-            .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))
+            .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOParallelCoreBlock.FACING, Direction.SOUTH))
             .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, threadingCore.getDefaultState().setValue(ECOComputationThreadingCore.FACING, Direction.SOUTH))
-            .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))
+            .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOParallelCoreBlock.FACING, Direction.SOUTH))
             .setBlockWithRepeatShifted(pos(-1, 1, 0), Direction.WEST, 0, cooler.getDefaultState().setValue(ECOComputationCoolingController.FACING, Direction.WEST))
             .setBlockWithRepeatShifted(pos(-1, 2, 0), Direction.WEST, 0, casing)
             .setBlockWithRepeatShifted(pos(-1, 0, 0), Direction.WEST, 0, casing)
@@ -226,10 +227,10 @@ public class NEMultiBlocks {
                     if (be != null) level.setBlockEntity(be);
                 }
             })
-            .create(DEFINITIONS::add);
+            .create();
     }
 
-    private static MultiBlockDefinition storageSystem(Holder<Block> owner, BlockState system, BlockState energyCell) {
+    private static MultiBlockDefinition createStorageSystem(Holder<Block> owner, BlockState system, BlockState energyCell) {
         MultiBlockDefinition.Builder builder = MultiBlockDefinition.builder(owner)
             .setBlock(pos(1, 1, 0), system)
             .setBlock(pos(1, 0, 0), NEBlocks.STORAGE_CASING.getDefaultState())
@@ -255,7 +256,7 @@ public class NEMultiBlocks {
             .setBlockRepeatable(pos(-1, 1, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
             .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
             .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, energyCell)
-            .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, NEBlocks.STORAGE_VENT.getDefaultState().setValue(ECOStorageVentBlock.FACING, Direction.SOUTH))
+            .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, NEBlocks.STORAGE_VENT.getDefaultState().setValue(ECOVentBlock.FACING, Direction.SOUTH))
             .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, energyCell)
             .setBlockWithRepeatShifted(pos(0, 0, 0), Direction.WEST, 1, casing)
             .setBlockWithRepeatShifted(pos(0, 0, 1), Direction.WEST, 1, casing)
@@ -290,31 +291,25 @@ public class NEMultiBlocks {
         return new BlockPos(x, y, z);
     }
 
-    public static MultiBlockDefinition getComputationSystemDefinition(IECOTier tier) {
+    private static <T> T byTier(IECOTier tier, T l4, T l6, T l9) {
         return switch (tier.getTier()) {
-            case 1 -> COMPUTATION_SYSTEM_L4;
-            case 2 -> COMPUTATION_SYSTEM_L6;
-            case 3 -> COMPUTATION_SYSTEM_L9;
+            case 1 -> l4;
+            case 2 -> l6;
+            case 3 -> l9;
             default -> null;
         };
+    }
+
+    public static MultiBlockDefinition getComputationSystemDefinition(IECOTier tier) {
+        return byTier(tier, COMPUTATION_SYSTEM_L4, COMPUTATION_SYSTEM_L6, COMPUTATION_SYSTEM_L9);
     }
 
     public static MultiBlockDefinition getStorageSystemDefinition(IECOTier tier) {
-        return switch (tier.getTier()) {
-            case 1 -> STORAGE_SYSTEM_L4;
-            case 2 -> STORAGE_SYSTEM_L6;
-            case 3 -> STORAGE_SYSTEM_L9;
-            default -> null;
-        };
+        return byTier(tier, STORAGE_SYSTEM_L4, STORAGE_SYSTEM_L6, STORAGE_SYSTEM_L9);
     }
 
     public static MultiBlockDefinition getCraftingSystemDefinition(IECOTier tier) {
-        return switch (tier.getTier()) {
-            case 1 -> CRAFTING_SYSTEM_L4;
-            case 2 -> CRAFTING_SYSTEM_L6;
-            case 3 -> CRAFTING_SYSTEM_L9;
-            default -> null;
-        };
+        return byTier(tier, CRAFTING_SYSTEM_L4, CRAFTING_SYSTEM_L6, CRAFTING_SYSTEM_L9);
     }
 
 }

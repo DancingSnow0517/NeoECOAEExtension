@@ -14,9 +14,9 @@ import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
@@ -44,7 +44,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     @Getter
     private final List<ECOComputationThreadingCoreBlockEntity> threadingCores = new ArrayList<>();
     @Getter
-    private final List<ECOComputationParallelCoreBlockEntity> parallelCores = new ArrayList<>();
+    private final List<ECOParallelCoreBlockEntity<?>> parallelCores = new ArrayList<>();
     @Getter
     @Nullable
     private ECOComputationSystemBlockEntity controller;
@@ -175,7 +175,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             controller = system;
             actionSource = IActionSource.ofMachine(system);
         }
-        if (blockEntity instanceof ECOComputationParallelCoreBlockEntity parallelCore) {
+        if (blockEntity instanceof ECOParallelCoreBlockEntity<?> parallelCore) {
             parallelCores.add(parallelCore);
         }
     }

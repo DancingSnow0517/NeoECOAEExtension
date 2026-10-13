@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.multiblock.calculator;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
-import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
+import cn.dancingsnow.neoecoae.blocks.ECOParallelCoreBlock;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -273,7 +273,8 @@ public class NEComputationClusterCalculator extends NENetworkSwitchClusterCalcul
         IECOTier tier,
         Direction facing
     ) {
-        return (s, p) -> s.getBlock() instanceof ECOComputationParallelCore core
+        return (s, p) -> s.getBlock() instanceof ECOParallelCoreBlock<?> core
+            && core.getKind() == ECOParallelCoreBlock.Kind.COMPUTATION
             && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }

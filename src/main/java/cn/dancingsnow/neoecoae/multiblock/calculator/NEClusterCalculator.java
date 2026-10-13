@@ -54,7 +54,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void updateClusterUnchecked(NEBlockEntity<?, ?> blockEntity, NECluster<?> cluster) {
+    static void updateClusterUnchecked(NEBlockEntity<?, ?> blockEntity, NECluster<?> cluster) {
         ((NEBlockEntity) blockEntity).updateCluster(cluster);
     }
 

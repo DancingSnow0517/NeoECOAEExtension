@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.blocks.storage;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
-import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -94,7 +93,7 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
     }
 
     public static boolean isPlayerCloseEnough(Level level, BlockPos pos, Player player) {
-        return ECOComputationSystem.isPlayerCloseEnough(level, pos, player, ECOStorageSystemBlock.class);
+        return isPlayerCloseEnough(level, pos, player, ECOStorageSystemBlock.class);
     }
 
     @Override

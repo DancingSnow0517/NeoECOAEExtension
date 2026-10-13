@@ -3,9 +3,8 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.BuddingEnergizedCrystalBlock;
-import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
+import cn.dancingsnow.neoecoae.blocks.ECOParallelCoreBlock;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -70,7 +69,7 @@ public class NETooltips {
                 Component.translatable("tooltip.neoecoae.large_integrated_working_station.coolant_tick")
             );
         }
-        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOCraftingParallelCore parallelCore) {
+        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOParallelCoreBlock<?> parallelCore && parallelCore.getKind() == ECOParallelCoreBlock.Kind.CRAFTING) {
             IECOTier tier = parallelCore.getTier();
             addTooltips(tooltip, flags,
                 Component.translatable("tooltip.neoecoae.crafting_parallels"),
@@ -155,7 +154,7 @@ public class NETooltips {
                 Component.translatable("tooltip.neoecoae.max_thread_count", threadingCore.getTier().getCPUThreads())
             );
         }
-        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOComputationParallelCore parallelCore) {
+        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOParallelCoreBlock<?> parallelCore && parallelCore.getKind() == ECOParallelCoreBlock.Kind.COMPUTATION) {
             addTooltips(tooltip, flags,
                 Component.translatable("tooltip.neoecoae.computation_parallel_core.0"),
                 Component.translatable("tooltip.neoecoae.computation_parallel_core.1"),

@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.blocks.crafting;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
-import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -77,6 +76,6 @@ public class ECOCraftingSystem extends NEBlock<ECOCraftingSystemBlockEntity> imp
     }
 
     public static boolean isPlayerCloseEnough(Level level, BlockPos pos, Player player) {
-        return ECOComputationSystem.isPlayerCloseEnough(level, pos, player, ECOCraftingSystem.class);
+        return isPlayerCloseEnough(level, pos, player, ECOCraftingSystem.class);
     }
 }

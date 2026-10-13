@@ -15,7 +15,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 public class MultiBlockDefinition {
     private final List<BlockInstruction> builderActions;
@@ -127,12 +126,6 @@ public class MultiBlockDefinition {
         public MultiBlockDefinition create() {
             MultiBlockDefinition def = new MultiBlockDefinition(builder.build(), owner, name, expandMin, expandMax, onFormed);
             NEMultiBlocks.DEFINITIONS.add(def);
-            return def;
-        }
-
-        public MultiBlockDefinition create(Consumer<MultiBlockDefinition> onBuild) {
-            MultiBlockDefinition def = new MultiBlockDefinition(builder.build(), owner, name, expandMin, expandMax, onFormed);
-            onBuild.accept(def);
             return def;
         }
     }

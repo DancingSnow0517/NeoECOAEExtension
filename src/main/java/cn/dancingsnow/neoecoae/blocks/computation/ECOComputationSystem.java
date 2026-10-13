@@ -112,11 +112,4 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
     public static boolean isPlayerCloseEnough(Level level, BlockPos pos, Player player) {
         return isPlayerCloseEnough(level, pos, player, ECOComputationSystem.class);
     }
-
-    /** Shared by the three system blocks: {@code blockClass} is the block that must sit at {@code pos}. */
-    public static boolean isPlayerCloseEnough(Level level, BlockPos pos, Player player, Class<? extends Block> blockClass) {
-        return player.level() == level
-            && blockClass.isInstance(level.getBlockState(pos).getBlock())
-            && player.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= 64.0D;
-    }
 }

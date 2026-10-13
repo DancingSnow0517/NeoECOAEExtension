@@ -14,6 +14,9 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** MBCalculator target for the powered large workstation controller. */
 public class NEIntegratedWorkingStationControllerCalculator
     extends MBCalculator<ECOLargeIntegratedWorkingStationBlockEntity, NEIntegratedWorkingStationCluster> {
@@ -86,7 +89,7 @@ public class NEIntegratedWorkingStationControllerCalculator
         }
         for (BlockEntity blockEntity : snapshot(cluster)) {
             if (blockEntity instanceof NEBlockEntity<?, ?> member) {
-                updateClusterUnchecked(member, cluster);
+                NEClusterCalculator.updateClusterUnchecked(member, cluster);
             } else if (blockEntity instanceof ECOLargeIntegratedWorkingStationBlockEntity member) {
                 member.updateCluster(cluster);
             }
@@ -94,13 +97,8 @@ public class NEIntegratedWorkingStationControllerCalculator
         cluster.updateFormed(true);
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void updateClusterUnchecked(NEBlockEntity<?, ?> member, NEIntegratedWorkingStationCluster cluster) {
-        ((NEBlockEntity) member).updateCluster(cluster);
-    }
-
-    private static java.util.List<BlockEntity> snapshot(NEIntegratedWorkingStationCluster cluster) {
-        java.util.List<BlockEntity> result = new java.util.ArrayList<>();
+    private static List<BlockEntity> snapshot(NEIntegratedWorkingStationCluster cluster) {
+        List<BlockEntity> result = new ArrayList<>();
         cluster.getBlockEntities().forEachRemaining(result::add);
         return result;
     }

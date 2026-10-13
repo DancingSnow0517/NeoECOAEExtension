@@ -1,17 +1,16 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOFluidHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationOutputHatchBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 /** Cluster state for the fixed 3x2x2 large integrated working station. */
 public class NEIntegratedWorkingStationCluster extends NECluster<NEIntegratedWorkingStationCluster> {
     private ECOLargeIntegratedWorkingStationBlockEntity controller;
-    private ECOLargeIntegratedWorkingStationInputHatchBlockEntity inputHatch;
-    private ECOLargeIntegratedWorkingStationOutputHatchBlockEntity outputHatch;
+    private ECOFluidHatchBlockEntity<?> inputHatch;
+    private ECOFluidHatchBlockEntity<?> outputHatch;
     private ECOMachineInterfaceBlockEntity<?> communication;
 
     public NEIntegratedWorkingStationCluster(BlockPos boundMin, BlockPos boundMax) {
@@ -22,11 +21,11 @@ public class NEIntegratedWorkingStationCluster extends NECluster<NEIntegratedWor
         return controller;
     }
 
-    public ECOLargeIntegratedWorkingStationInputHatchBlockEntity getInputHatch() {
+    public ECOFluidHatchBlockEntity<?> getInputHatch() {
         return inputHatch;
     }
 
-    public ECOLargeIntegratedWorkingStationOutputHatchBlockEntity getOutputHatch() {
+    public ECOFluidHatchBlockEntity<?> getOutputHatch() {
         return outputHatch;
     }
 
@@ -59,6 +58,13 @@ public class NEIntegratedWorkingStationCluster extends NECluster<NEIntegratedWor
     }
 
     @Override
+    public void onFluidHatchChanged() {
+        if (getController() != null) {
+            getController().onChangeTankFromHatch();
+        }
+    }
+
+    @Override
     public void destroy() {
         if (controller != null) {
             controller.updateCluster(null);
@@ -71,10 +77,12 @@ public class NEIntegratedWorkingStationCluster extends NECluster<NEIntegratedWor
         super.addBlockEntity(blockEntity);
         if (blockEntity instanceof ECOLargeIntegratedWorkingStationBlockEntity value) {
             controller = value;
-        } else if (blockEntity instanceof ECOLargeIntegratedWorkingStationInputHatchBlockEntity value) {
-            inputHatch = value;
-        } else if (blockEntity instanceof ECOLargeIntegratedWorkingStationOutputHatchBlockEntity value) {
-            outputHatch = value;
+        } else if (blockEntity instanceof ECOFluidHatchBlockEntity<?> hatch) {
+            if (hatch.isInput()) {
+                inputHatch = hatch;
+            } else {
+                outputHatch = hatch;
+            }
         } else if (blockEntity instanceof ECOMachineInterfaceBlockEntity<?> value) {
             communication = value;
         }

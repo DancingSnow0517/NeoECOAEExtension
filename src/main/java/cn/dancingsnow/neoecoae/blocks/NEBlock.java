@@ -4,6 +4,7 @@ import appeng.block.AEBaseEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
@@ -106,5 +107,12 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
         if (be != null) {
             be.updateMultiBlock(neighborPos);
         }
+    }
+
+    /** Shared by the system blocks: {@code blockClass} is the block that must sit at {@code pos}. */
+    protected static boolean isPlayerCloseEnough(Level level, BlockPos pos, Player player, Class<? extends Block> blockClass) {
+        return player.level() == level
+            && blockClass.isInstance(level.getBlockState(pos).getBlock())
+            && player.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= 64.0D;
     }
 }

@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.networking.IManagedGridNode;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.core.BlockPos;
@@ -31,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LargeWorkstationCoolantInputTest {
-    private ECOLargeIntegratedWorkingStationInputHatchBlockEntity hatch;
+    private ECOFluidHatchBlockEntity<NEIntegratedWorkingStationCluster> hatch;
     private RecipeManager recipes;
 
     @BeforeAll
@@ -50,8 +52,12 @@ class LargeWorkstationCoolantInputTest {
     void setup() {
         var type = mock(BlockEntityType.class);
         when(type.isValid(any())).thenReturn(true);
-        hatch = new ECOLargeIntegratedWorkingStationInputHatchBlockEntity(
-            type, BlockPos.ZERO, Blocks.AIR.defaultBlockState()) {
+        hatch = new ECOFluidHatchBlockEntity<>(
+            type,
+            BlockPos.ZERO,
+            Blocks.AIR.defaultBlockState(),
+            NEIntegratedWorkingStationClusterCalculator::new,
+            ECOFluidHatchBlockEntity.LWS_INPUT) {
             @Override
             protected IManagedGridNode createMainNode() {
                 return mock(IManagedGridNode.class, RETURNS_SELF);

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOFluidHatchBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -34,14 +35,14 @@ class ECOCraftingCoolingControllerTest {
         fluid = FluidStack.EMPTY;
         host = mock(ECOCraftingSystemBlockEntity.class);
         var cluster = mock(NECraftingCluster.class);
-        var inputHatch = mock(ECOFluidInputHatchBlockEntity.class);
-        var outputHatch = mock(ECOFluidOutputHatchBlockEntity.class);
+        ECOFluidHatchBlockEntity<?> inputHatch = mock(ECOFluidHatchBlockEntity.class);
+        ECOFluidHatchBlockEntity<?> outputHatch = mock(ECOFluidHatchBlockEntity.class);
         input = inputHatch.tank = new FluidTank(16000);
         output = outputHatch.tank = new FluidTank(16000);
         input.setFluid(new FluidStack(Fluids.WATER, 16000));
         when(host.getCluster()).thenReturn(cluster);
-        when(cluster.getInputHatch()).thenReturn(inputHatch);
-        when(cluster.getOutputHatch()).thenReturn(outputHatch);
+        doReturn(inputHatch).when(cluster).getInputHatch();
+        doReturn(outputHatch).when(cluster).getOutputHatch();
         when(host.getCoolant()).thenAnswer(call -> amount);
         when(host.getCoolantMaxOverclock()).thenAnswer(call -> tier);
         when(host.getCurrentCoolantFluid()).thenAnswer(call -> fluid);

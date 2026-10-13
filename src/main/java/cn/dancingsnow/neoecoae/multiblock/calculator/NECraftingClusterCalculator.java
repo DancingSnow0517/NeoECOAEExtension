@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.multiblock.calculator;
 
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
+import cn.dancingsnow.neoecoae.blocks.ECOParallelCoreBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity;
@@ -243,7 +243,8 @@ public class NECraftingClusterCalculator extends NENetworkSwitchClusterCalculato
         IECOTier tier,
         Direction facing
     ) {
-        return (s, p) -> s.getBlock() instanceof ECOCraftingParallelCore core
+        return (s, p) -> s.getBlock() instanceof ECOParallelCoreBlock<?> core
+            && core.getKind() == ECOParallelCoreBlock.Kind.CRAFTING
             && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }

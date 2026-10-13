@@ -4,43 +4,44 @@ import appeng.blockentity.AEBaseBlockEntity;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOFluidHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationOutputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOParallelCoreBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOVentBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationNetworkSwitchBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationTransmitterBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageVentBlockEntity;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOAdvancedCraftingWorkerRenderer;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
+import cn.dancingsnow.neoecoae.registration.NEBlockEntityBuilder;
 import cn.dancingsnow.neoecoae.registration.NEBlockEntityEntry;
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
+import com.tterrag.registrate.builders.BlockEntityBuilder;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntry;
 
@@ -73,145 +74,99 @@ public class NEBlockEntities {
         })
         .register();
 
-    public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
-        .<ECOMachineCasingBlockEntity<NEComputationCluster>, NEComputationCluster>blockEntityClusterElement(
-            "computation_casing",
-            NEComputationClusterCalculator::new,
-            ECOMachineCasingBlockEntity::new
-        )
-        .forBlock(NEBlocks.COMPUTATION_CASING)
-        .validBlock(NEBlocks.COMPUTATION_CASING)
-        .register();
+    public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEComputationCluster>> COMPUTATION_CASING = clusterBlockEntity(
+        "computation_casing",
+        NEComputationClusterCalculator::new,
+        ECOMachineCasingBlockEntity::new,
+        NEBlocks.COMPUTATION_CASING
+    ).register();
 
-    public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NECraftingCluster>> CRAFTING_CASING = REGISTRATE
-        .<ECOMachineCasingBlockEntity<NECraftingCluster>, NECraftingCluster>blockEntityClusterElement(
-            "crafting_casing",
-            NECraftingClusterCalculator::new,
-            ECOMachineCasingBlockEntity::new
-        )
-        .forBlock(NEBlocks.CRAFTING_CASING)
-        .validBlock(NEBlocks.CRAFTING_CASING)
-        .register();
+    public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NECraftingCluster>> CRAFTING_CASING = clusterBlockEntity(
+        "crafting_casing",
+        NECraftingClusterCalculator::new,
+        ECOMachineCasingBlockEntity::new,
+        NEBlocks.CRAFTING_CASING
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOMachineCasingBlockEntity<NEStorageCluster>> STORAGE_CASING = REGISTRATE
-        .<ECOMachineCasingBlockEntity<NEStorageCluster>, NEStorageCluster>blockEntityClusterElement(
-            "storage_casing",
-            NEStorageClusterCalculator::new,
-            ECOMachineCasingBlockEntity::new
-        )
-        .forBlock(NEBlocks.STORAGE_CASING)
-        .validBlock(NEBlocks.STORAGE_CASING)
-        .register();
+    public static final NEBlockEntityEntry<ECOMachineCasingBlockEntity<NEStorageCluster>> STORAGE_CASING = clusterBlockEntity(
+        "storage_casing",
+        NEStorageClusterCalculator::new,
+        ECOMachineCasingBlockEntity::new,
+        NEBlocks.STORAGE_CASING
+    ).register();
 
-    public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEComputationCluster>> COMPUTATION_INTERFACE = REGISTRATE
-        .<ECOMachineInterfaceBlockEntity<NEComputationCluster>, NEComputationCluster>blockEntityClusterElement(
-            "computation_interface",
-            NEComputationClusterCalculator::new,
-            ECOMachineInterfaceBlockEntity::new
-        )
-        .forBlock(NEBlocks.COMPUTATION_INTERFACE)
-        .validBlock(NEBlocks.COMPUTATION_INTERFACE)
-        .register();
+    public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEComputationCluster>> COMPUTATION_INTERFACE = clusterBlockEntity(
+        "computation_interface",
+        NEComputationClusterCalculator::new,
+        ECOMachineInterfaceBlockEntity::new,
+        NEBlocks.COMPUTATION_INTERFACE
+    ).register();
 
-    public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NECraftingCluster>> CRAFTING_INTERFACE = REGISTRATE
-        .<ECOMachineInterfaceBlockEntity<NECraftingCluster>, NECraftingCluster>blockEntityClusterElement(
-            "crafting_interface",
-            NECraftingClusterCalculator::new,
-            ECOMachineInterfaceBlockEntity::new
-        )
-        .forBlock(NEBlocks.CRAFTING_INTERFACE)
-        .validBlock(NEBlocks.CRAFTING_INTERFACE)
-        .serverTicker(ECOMachineInterfaceBlockEntity::tick)
-        .register();
+    public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NECraftingCluster>> CRAFTING_INTERFACE = clusterBlockEntity(
+        "crafting_interface",
+        NECraftingClusterCalculator::new,
+        ECOMachineInterfaceBlockEntity::new,
+        NEBlocks.CRAFTING_INTERFACE
+    ).serverTicker(ECOMachineInterfaceBlockEntity::tick).register();
 
-    public static final NEBlockEntityEntry<ECOMachineInterfaceBlockEntity<NEStorageCluster>> STORAGE_INTERFACE = REGISTRATE
-        .<ECOMachineInterfaceBlockEntity<NEStorageCluster>, NEStorageCluster>blockEntityClusterElement(
-            "storage_interface",
-            NEStorageClusterCalculator::new,
-            ECOMachineInterfaceBlockEntity::new
-        )
-        .forBlock(NEBlocks.STORAGE_INTERFACE)
-        .validBlock(NEBlocks.STORAGE_INTERFACE)
-        .register();
+    public static final NEBlockEntityEntry<ECOMachineInterfaceBlockEntity<NEStorageCluster>> STORAGE_INTERFACE = clusterBlockEntity(
+        "storage_interface",
+        NEStorageClusterCalculator::new,
+        ECOMachineInterfaceBlockEntity::new,
+        NEBlocks.STORAGE_INTERFACE
+    ).register();
 
-    public static final NEBlockEntityEntry<ECODriveBlockEntity> ECO_DRIVE = REGISTRATE
-        .blockEntityBlockLinked(
-            "eco_drive",
-            ECODriveBlockEntity::new
-        )
-        .forBlock(NEBlocks.ECO_DRIVE)
-        .validBlock(NEBlocks.ECO_DRIVE)
-        .renderer(() -> ECODriveRenderer::new)
-        .register();
+    public static final NEBlockEntityEntry<ECODriveBlockEntity> ECO_DRIVE = linkedBlockEntity(
+        "eco_drive",
+        ECODriveBlockEntity::new,
+        NEBlocks.ECO_DRIVE
+    ).renderer(() -> ECODriveRenderer::new).register();
 
-    public static final NEBlockEntityEntry<ECOStorageVentBlockEntity> STORAGE_VENT = REGISTRATE
-        .blockEntityBlockLinked(
-            "storage_vent",
-            ECOStorageVentBlockEntity::new
-        )
-        .forBlock(NEBlocks.STORAGE_VENT)
-        .validBlock(NEBlocks.STORAGE_VENT)
-        .register();
+    public static final NEBlockEntityEntry<ECOVentBlockEntity<NEStorageCluster>> STORAGE_VENT = clusterBlockEntity(
+        "storage_vent",
+        NEStorageClusterCalculator::new,
+        ECOVentBlockEntity::new,
+        NEBlocks.STORAGE_VENT
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L4 = REGISTRATE
-        .blockEntityBlockLinked(
-            "storage_system_l4",
-            ECOStorageSystemBlockEntity::createL4
-        )
-        .forBlock(NEBlocks.STORAGE_SYSTEM_L4)
-        .validBlock(NEBlocks.STORAGE_SYSTEM_L4)
-        .serverTicker(ECOStorageSystemBlockEntity::tick)
-        .register();
+    public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L4 = linkedBlockEntity(
+        "storage_system_l4",
+        ECOStorageSystemBlockEntity::createL4,
+        NEBlocks.STORAGE_SYSTEM_L4
+    ).serverTicker(ECOStorageSystemBlockEntity::tick).register();
 
-    public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L6 = REGISTRATE
-        .blockEntityBlockLinked(
-            "storage_system_l6",
-            ECOStorageSystemBlockEntity::createL6
-        )
-        .forBlock(NEBlocks.STORAGE_SYSTEM_L6)
-        .validBlock(NEBlocks.STORAGE_SYSTEM_L6)
-        .serverTicker(ECOStorageSystemBlockEntity::tick)
-        .register();
+    public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L6 = linkedBlockEntity(
+        "storage_system_l6",
+        ECOStorageSystemBlockEntity::createL6,
+        NEBlocks.STORAGE_SYSTEM_L6
+    ).serverTicker(ECOStorageSystemBlockEntity::tick).register();
 
-    public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L9 = REGISTRATE
-        .blockEntityBlockLinked(
-            "storage_system_l9",
-            ECOStorageSystemBlockEntity::createL9
-        )
-        .forBlock(NEBlocks.STORAGE_SYSTEM_L9)
-        .validBlock(NEBlocks.STORAGE_SYSTEM_L9)
-        .serverTicker(ECOStorageSystemBlockEntity::tick)
-        .register();
+    public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L9 = linkedBlockEntity(
+        "storage_system_l9",
+        ECOStorageSystemBlockEntity::createL9,
+        NEBlocks.STORAGE_SYSTEM_L9
+    ).serverTicker(ECOStorageSystemBlockEntity::tick).register();
 
-    public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L4 = REGISTRATE
-        .tierBlockEntityBlockLinked(
-            "energy_cell_l4",
-            ECOTier.L4,
-            ECOEnergyCellBlockEntity::new
-        )
-        .forBlock(NEBlocks.ENERGY_CELL_L4)
-        .validBlock(NEBlocks.ENERGY_CELL_L4)
-        .register();
+    public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L4 = tieredBlockEntity(
+        "energy_cell_l4",
+        ECOTier.L4,
+        ECOEnergyCellBlockEntity::new,
+        NEBlocks.ENERGY_CELL_L4
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L6 = REGISTRATE
-        .tierBlockEntityBlockLinked(
-            "energy_cell_l6",
-            ECOTier.L6,
-            ECOEnergyCellBlockEntity::new
-        )
-        .forBlock(NEBlocks.ENERGY_CELL_L6)
-        .validBlock(NEBlocks.ENERGY_CELL_L6)
-        .register();
+    public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L6 = tieredBlockEntity(
+        "energy_cell_l6",
+        ECOTier.L6,
+        ECOEnergyCellBlockEntity::new,
+        NEBlocks.ENERGY_CELL_L6
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L9 = REGISTRATE
-        .tierBlockEntityBlockLinked(
-            "energy_cell_l9",
-            ECOTier.L9,
-            ECOEnergyCellBlockEntity::new
-        )
-        .forBlock(NEBlocks.ENERGY_CELL_L9)
-        .validBlock(NEBlocks.ENERGY_CELL_L9)
-        .register();
+    public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L9 = tieredBlockEntity(
+        "energy_cell_l9",
+        ECOTier.L9,
+        ECOEnergyCellBlockEntity::new,
+        NEBlocks.ENERGY_CELL_L9
+    ).register();
 
     public static final NEBlockEntityEntry<ECOCraftingSystemBlockEntity> CRAFTING_SYSTEM_L4 = createCraftingSystem(
         ECOTier.L4,
@@ -229,95 +184,80 @@ public class NEBlockEntities {
         NEBlocks.CRAFTING_SYSTEM_L9
     );
 
-    public static final NEBlockEntityEntry<ECOCraftingParallelCoreBlockEntity> CRAFTING_PARALLEL_CORE_L4 = createCraftingParallelCore(
+    public static final NEBlockEntityEntry<ECOParallelCoreBlockEntity<NECraftingCluster>> CRAFTING_PARALLEL_CORE_L4 = createCraftingParallelCore(
         ECOTier.L4,
         "l4",
         NEBlocks.CRAFTING_PARALLEL_CORE_L4
     );
-    public static final NEBlockEntityEntry<ECOCraftingParallelCoreBlockEntity> CRAFTING_PARALLEL_CORE_L6 = createCraftingParallelCore(
+    public static final NEBlockEntityEntry<ECOParallelCoreBlockEntity<NECraftingCluster>> CRAFTING_PARALLEL_CORE_L6 = createCraftingParallelCore(
         ECOTier.L6,
         "l6",
         NEBlocks.CRAFTING_PARALLEL_CORE_L6
     );
-    public static final NEBlockEntityEntry<ECOCraftingParallelCoreBlockEntity> CRAFTING_PARALLEL_CORE_L9 = createCraftingParallelCore(
+    public static final NEBlockEntityEntry<ECOParallelCoreBlockEntity<NECraftingCluster>> CRAFTING_PARALLEL_CORE_L9 = createCraftingParallelCore(
         ECOTier.L9,
         "l9",
         NEBlocks.CRAFTING_PARALLEL_CORE_L9
     );
 
-    public static final NEBlockEntityEntry<ECOCraftingVentBlockEntity> CRAFTING_VENT = REGISTRATE
-        .blockEntityBlockLinked(
-            "crafting_vent",
-            ECOCraftingVentBlockEntity::new
-        )
-        .forBlock(NEBlocks.CRAFTING_VENT)
-        .validBlock(NEBlocks.CRAFTING_VENT)
-        .register();
+    public static final NEBlockEntityEntry<ECOVentBlockEntity<NECraftingCluster>> CRAFTING_VENT = clusterBlockEntity(
+        "crafting_vent",
+        NECraftingClusterCalculator::new,
+        ECOVentBlockEntity::new,
+        NEBlocks.CRAFTING_VENT
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOFluidInputHatchBlockEntity> INPUT_HATCH = REGISTRATE
-        .blockEntityBlockLinked("input_hatch", ECOFluidInputHatchBlockEntity::new)
-        .forBlock(NEBlocks.INPUT_HATCH)
-        .validBlock(NEBlocks.INPUT_HATCH)
-        .serverTicker(ECOFluidInputHatchBlockEntity::tick)
-        .register();
+    public static final NEBlockEntityEntry<ECOFluidHatchBlockEntity<NECraftingCluster>> INPUT_HATCH = fluidHatchBlockEntity(
+        "input_hatch",
+        NECraftingClusterCalculator::new,
+        ECOFluidHatchBlockEntity.CRAFTING_INPUT,
+        NEBlocks.INPUT_HATCH
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOFluidOutputHatchBlockEntity> OUTPUT_HATCH = REGISTRATE
-        .blockEntityBlockLinked("output_hatch", ECOFluidOutputHatchBlockEntity::new)
-        .forBlock(NEBlocks.OUTPUT_HATCH)
-        .validBlock(NEBlocks.OUTPUT_HATCH)
-        .serverTicker(ECOFluidOutputHatchBlockEntity::tick)
-        .register();
+    public static final NEBlockEntityEntry<ECOFluidHatchBlockEntity<NECraftingCluster>> OUTPUT_HATCH = fluidHatchBlockEntity(
+        "output_hatch",
+        NECraftingClusterCalculator::new,
+        ECOFluidHatchBlockEntity.CRAFTING_OUTPUT,
+        NEBlocks.OUTPUT_HATCH
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> CRAFTING_WORKER = REGISTRATE
-        .blockEntityBlockLinked(
-            "crafting_worker",
-            ECOCraftingWorkerBlockEntity::new
-        )
-        .forBlock(NEBlocks.CRAFTING_WORKER)
-        .validBlock(NEBlocks.CRAFTING_WORKER)
-        .register();
+    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> CRAFTING_WORKER = linkedBlockEntity(
+        "crafting_worker",
+        ECOCraftingWorkerBlockEntity::new,
+        NEBlocks.CRAFTING_WORKER
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> FX_MONITOR_CORE = REGISTRATE
-        .blockEntityBlockLinked(
-            "fx_monitor_core",
-            ECOCraftingWorkerBlockEntity::new
-        )
-        .forBlock(NEBlocks.FX_MONITOR_CORE)
-        .validBlock(NEBlocks.FX_MONITOR_CORE)
-        .renderer(() -> ECOAdvancedCraftingWorkerRenderer::new)
-        .register();
+    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> FX_MONITOR_CORE = linkedBlockEntity(
+        "fx_monitor_core",
+        ECOCraftingWorkerBlockEntity::new,
+        NEBlocks.FX_MONITOR_CORE
+    ).renderer(() -> ECOAdvancedCraftingWorkerRenderer::new).register();
 
-    public static final NEBlockEntityEntry<ECOCraftingPatternBusBlockEntity> CRAFTING_PATTERN_BUS = REGISTRATE
-        .blockEntityBlockLinked(
-            "crafting_pattern_bus",
-            ECOCraftingPatternBusBlockEntity::new
-        )
-        .forBlock(NEBlocks.CRAFTING_PATTERN_BUS)
-        .validBlock(NEBlocks.CRAFTING_PATTERN_BUS)
-        .register();
+    public static final NEBlockEntityEntry<ECOCraftingPatternBusBlockEntity> CRAFTING_PATTERN_BUS = linkedBlockEntity(
+        "crafting_pattern_bus",
+        ECOCraftingPatternBusBlockEntity::new,
+        NEBlocks.CRAFTING_PATTERN_BUS
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOComputationTransmitterBlockEntity> COMPUTATION_TRANSMITTER = REGISTRATE
-        .blockEntityBlockLinked(
-            "computation_transmitter",
-            ECOComputationTransmitterBlockEntity::new
-        )
-        .forBlock(NEBlocks.COMPUTATION_TRANSMITTER)
-        .validBlock(NEBlocks.COMPUTATION_TRANSMITTER)
-        .register();
+    public static final NEBlockEntityEntry<ECOComputationTransmitterBlockEntity> COMPUTATION_TRANSMITTER = linkedBlockEntity(
+        "computation_transmitter",
+        ECOComputationTransmitterBlockEntity::new,
+        NEBlocks.COMPUTATION_TRANSMITTER
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOComputationParallelCoreBlockEntity> COMPUTATION_PARALLEL_CORE_L4 = createComputationParallelCore(
+    public static final NEBlockEntityEntry<ECOParallelCoreBlockEntity<NEComputationCluster>> COMPUTATION_PARALLEL_CORE_L4 = createComputationParallelCore(
         ECOTier.L4,
         "l4",
         NEBlocks.COMPUTATION_PARALLEL_CORE_L4
     );
 
-    public static final NEBlockEntityEntry<ECOComputationParallelCoreBlockEntity> COMPUTATION_PARALLEL_CORE_L6 = createComputationParallelCore(
+    public static final NEBlockEntityEntry<ECOParallelCoreBlockEntity<NEComputationCluster>> COMPUTATION_PARALLEL_CORE_L6 = createComputationParallelCore(
         ECOTier.L6,
         "l6",
         NEBlocks.COMPUTATION_PARALLEL_CORE_L6
     );
 
-    public static final NEBlockEntityEntry<ECOComputationParallelCoreBlockEntity> COMPUTATION_PARALLEL_CORE_L9 = createComputationParallelCore(
+    public static final NEBlockEntityEntry<ECOParallelCoreBlockEntity<NEComputationCluster>> COMPUTATION_PARALLEL_CORE_L9 = createComputationParallelCore(
         ECOTier.L9,
         "l9",
         NEBlocks.COMPUTATION_PARALLEL_CORE_L9
@@ -377,14 +317,11 @@ public class NEBlockEntities {
         NEBlocks.COMPUTATION_SYSTEM_L9
     );
 
-    public static final NEBlockEntityEntry<ECOComputationDriveBlockEntity> COMPUTATION_DRIVE = REGISTRATE
-        .blockEntityBlockLinked(
-            "computation_drive",
-            ECOComputationDriveBlockEntity::new
-        )
-        .forBlock(NEBlocks.COMPUTATION_DRIVE)
-        .validBlock(NEBlocks.COMPUTATION_DRIVE)
-        .register();
+    public static final NEBlockEntityEntry<ECOComputationDriveBlockEntity> COMPUTATION_DRIVE = linkedBlockEntity(
+        "computation_drive",
+        ECOComputationDriveBlockEntity::new,
+        NEBlocks.COMPUTATION_DRIVE
+    ).register();
 
     public static final BlockEntityEntry<ECOLargeIntegratedWorkingStationBlockEntity> INTEGRATED_WORKING_STATION_BLOCK = REGISTRATE
         .blockEntity("integrated_working_station", ECOLargeIntegratedWorkingStationBlockEntity::new)
@@ -400,92 +337,121 @@ public class NEBlockEntities {
         })
         .register();
 
-    public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_CASING = REGISTRATE
-        .<ECOMachineCasingBlockEntity<NEIntegratedWorkingStationCluster>, NEIntegratedWorkingStationCluster>blockEntityClusterElement(
-            "large_integrated_working_station_casing",
-            NEIntegratedWorkingStationClusterCalculator::new,
-            ECOMachineCasingBlockEntity::new
-        )
-        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)
-        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)
-        .register();
+    public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_CASING = clusterBlockEntity(
+        "large_integrated_working_station_casing",
+        NEIntegratedWorkingStationClusterCalculator::new,
+        ECOMachineCasingBlockEntity::new,
+        NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationInputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = REGISTRATE
-        .blockEntityBlockLinked(
-            "large_integrated_working_station_input_hatch",
-            ECOLargeIntegratedWorkingStationInputHatchBlockEntity::new
-        )
-        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
-        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
-        .serverTicker(ECOLargeIntegratedWorkingStationInputHatchBlockEntity::tick)
-        .register();
+    public static final NEBlockEntityEntry<ECOFluidHatchBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = fluidHatchBlockEntity(
+        "large_integrated_working_station_input_hatch",
+        NEIntegratedWorkingStationClusterCalculator::new,
+        ECOFluidHatchBlockEntity.LWS_INPUT,
+        NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH
+    ).register();
 
-    public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationOutputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
-        .blockEntityBlockLinked(
-            "large_integrated_working_station_output_hatch",
-            ECOLargeIntegratedWorkingStationOutputHatchBlockEntity::new
-        )
-        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
-        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
-        .serverTicker(ECOLargeIntegratedWorkingStationOutputHatchBlockEntity::tick)
-        .register();
+    public static final NEBlockEntityEntry<ECOFluidHatchBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = fluidHatchBlockEntity(
+        "large_integrated_working_station_output_hatch",
+        NEIntegratedWorkingStationClusterCalculator::new,
+        ECOFluidHatchBlockEntity.LWS_OUTPUT,
+        NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH
+    ).register();
 
-    public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
-        .<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>, NEIntegratedWorkingStationCluster>blockEntityClusterElement(
-            "large_integrated_working_station_interface", NEIntegratedWorkingStationClusterCalculator::new,
-            ECOLargeIntegratedWorkingStationInterfaceBlockEntity::new)
-        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)
-        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)
-        .serverTicker(ECOMachineInterfaceBlockEntity::tick)
-        .register();
+    public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = clusterBlockEntity(
+        "large_integrated_working_station_interface",
+        NEIntegratedWorkingStationClusterCalculator::new,
+        ECOLargeIntegratedWorkingStationInterfaceBlockEntity::new,
+        NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE
+    ).serverTicker(ECOMachineInterfaceBlockEntity::tick).register();
+
+    private static <T extends NEBlockEntity<C, T>, C extends NECluster<C>> NEBlockEntityBuilder<T, NERegistrate> clusterBlockEntity(
+        String name,
+        NEClusterCalculator.Factory<C> tcFactory,
+        NEBlockEntityBuilder.ClusterBlockEntityFactory<T, C> factory,
+        BlockEntry<? extends NEBlock<T>> block
+    ) {
+        return REGISTRATE
+            .<T, C>blockEntityClusterElement(name, tcFactory, factory)
+            .forBlock(block)
+            .validBlock(block);
+    }
+
+    private static <T extends NEBlockEntity<C, T>, C extends NECluster<C>> NEBlockEntityBuilder<T, NERegistrate> tieredBlockEntity(
+        String name,
+        IECOTier tier,
+        NEBlockEntityBuilder.TierBlockEntityFactory<T, C> factory,
+        BlockEntry<? extends NEBlock<T>> block
+    ) {
+        return REGISTRATE
+            .<T, C>tierBlockEntityBlockLinked(name, tier, factory)
+            .forBlock(block)
+            .validBlock(block);
+    }
+
+    private static <T extends NEBlockEntity<?, T>> NEBlockEntityBuilder<T, NERegistrate> linkedBlockEntity(
+        String name,
+        BlockEntityBuilder.BlockEntityFactory<T> factory,
+        BlockEntry<? extends NEBlock<T>> block
+    ) {
+        return REGISTRATE
+            .blockEntityBlockLinked(name, factory)
+            .forBlock(block)
+            .validBlock(block);
+    }
+
+    private static <C extends NECluster<C>> NEBlockEntityBuilder<ECOFluidHatchBlockEntity<C>, NERegistrate> fluidHatchBlockEntity(
+        String name,
+        NEClusterCalculator.Factory<C> tcFactory,
+        ECOFluidHatchBlockEntity.Spec spec,
+        BlockEntry<? extends NEBlock<ECOFluidHatchBlockEntity<C>>> block
+    ) {
+        return linkedBlockEntity(
+            name,
+            (type, pos, state) -> new ECOFluidHatchBlockEntity<>(type, pos, state, tcFactory, spec),
+            block
+        ).serverTicker(ECOFluidHatchBlockEntity::tick);
+    }
+
+    private static <C extends NECluster<C>> NEBlockEntityEntry<ECOParallelCoreBlockEntity<C>> createParallelCore(
+        String name,
+        IECOTier tier,
+        NEClusterCalculator.Factory<C> tcFactory,
+        double idlePowerUsage,
+        BlockEntry<? extends NEBlock<ECOParallelCoreBlockEntity<C>>> block
+    ) {
+        return tieredBlockEntity(
+            name,
+            tier,
+            (type, pos, state, t) -> new ECOParallelCoreBlockEntity<>(type, pos, state, t, tcFactory, idlePowerUsage),
+            block
+        ).register();
+    }
 
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(
         IECOTier tier,
         String tierString,
         BlockEntry<? extends NEBlock<ECOCraftingSystemBlockEntity>> block
     ) {
-        return REGISTRATE
-            .tierBlockEntityBlockLinked(
-                "crafting_system_" + tierString,
-                tier,
-                ECOCraftingSystemBlockEntity::new
-            )
-            .forBlock(block)
-            .validBlock(block)
+        return tieredBlockEntity("crafting_system_" + tierString, tier, ECOCraftingSystemBlockEntity::new, block)
             .serverTicker(ECOCraftingSystemBlockEntity::tick)
             .register();
     }
 
-    private static NEBlockEntityEntry<ECOCraftingParallelCoreBlockEntity> createCraftingParallelCore(
+    private static NEBlockEntityEntry<ECOParallelCoreBlockEntity<NECraftingCluster>> createCraftingParallelCore(
         IECOTier tier,
         String tierString,
-        BlockEntry<? extends NEBlock<ECOCraftingParallelCoreBlockEntity>> block
+        BlockEntry<? extends NEBlock<ECOParallelCoreBlockEntity<NECraftingCluster>>> block
     ) {
-        return REGISTRATE
-            .tierBlockEntityBlockLinked(
-                "crafting_parallel_core_" + tierString,
-                tier,
-                ECOCraftingParallelCoreBlockEntity::new
-            )
-            .forBlock(block)
-            .validBlock(block)
-            .register();
+        return createParallelCore("crafting_parallel_core_" + tierString, tier, NECraftingClusterCalculator::new, 64, block);
     }
 
-    private static NEBlockEntityEntry<ECOComputationParallelCoreBlockEntity> createComputationParallelCore(
+    private static NEBlockEntityEntry<ECOParallelCoreBlockEntity<NEComputationCluster>> createComputationParallelCore(
         IECOTier tier,
         String tierString,
-        BlockEntry<? extends NEBlock<ECOComputationParallelCoreBlockEntity>> block
+        BlockEntry<? extends NEBlock<ECOParallelCoreBlockEntity<NEComputationCluster>>> block
     ) {
-        return REGISTRATE
-            .tierBlockEntityBlockLinked(
-                "computation_parallel_core_" + tierString,
-                tier,
-                ECOComputationParallelCoreBlockEntity::new
-            )
-            .forBlock(block)
-            .validBlock(block)
-            .register();
+        return createParallelCore("computation_parallel_core_" + tierString, tier, NEComputationClusterCalculator::new, 16, block);
     }
 
     private static NEBlockEntityEntry<ECOComputationThreadingCoreBlockEntity> createComputationThreadingCore(
@@ -493,14 +459,7 @@ public class NEBlockEntities {
         String tierString,
         BlockEntry<? extends NEBlock<ECOComputationThreadingCoreBlockEntity>> block
     ) {
-        return REGISTRATE
-            .tierBlockEntityBlockLinked(
-                "computation_threading_core_" + tierString,
-                tier,
-                ECOComputationThreadingCoreBlockEntity::new
-            )
-            .forBlock(block)
-            .validBlock(block)
+        return tieredBlockEntity("computation_threading_core_" + tierString, tier, ECOComputationThreadingCoreBlockEntity::new, block)
             .register();
     }
 
@@ -509,14 +468,7 @@ public class NEBlockEntities {
         String tierString,
         BlockEntry<? extends NEBlock<ECOComputationCoolingControllerBlockEntity>> block
     ) {
-        return REGISTRATE
-            .tierBlockEntityBlockLinked(
-                "computation_cooling_controller_" + tierString,
-                tier,
-                ECOComputationCoolingControllerBlockEntity::new
-            )
-            .forBlock(block)
-            .validBlock(block)
+        return tieredBlockEntity("computation_cooling_controller_" + tierString, tier, ECOComputationCoolingControllerBlockEntity::new, block)
             .register();
     }
 
@@ -525,14 +477,7 @@ public class NEBlockEntities {
         String tierString,
         BlockEntry<? extends NEBlock<ECOComputationSystemBlockEntity>> block
     ) {
-        return REGISTRATE
-            .tierBlockEntityBlockLinked(
-                "computation_system_" + tierString,
-                tier,
-                ECOComputationSystemBlockEntity::new
-            )
-            .forBlock(block)
-            .validBlock(block)
+        return tieredBlockEntity("computation_system_" + tierString, tier, ECOComputationSystemBlockEntity::new, block)
             .serverTicker(ECOComputationSystemBlockEntity::tick)
             .register();
     }
