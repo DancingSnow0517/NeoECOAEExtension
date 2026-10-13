@@ -27,18 +27,4 @@ public final class NetworkSwitchHostSupport {
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(grid);
         return settings == null ? 0 : settings.neoecoae$getSubstitutionPatternCount();
     }
-
-    /**
-     * Flips the grid-wide substitution flag.
-     *
-     * @return false when the grid has no ECO settings, meaning the caller must toggle its local value instead
-     */
-    public static boolean toggleGridIgnoringPatternSubstitutions(@Nullable IGrid grid) {
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(grid);
-        if (settings == null) {
-            return false;
-        }
-        settings.neoecoae$setIgnoringPatternSubstitutions(!settings.neoecoae$isIgnoringPatternSubstitutions());
-        return true;
-    }
 }

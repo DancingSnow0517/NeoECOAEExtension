@@ -187,7 +187,10 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
     private void toggleIgnoringPatternSubstitutions(Player player) {
         if (!canPlayerInteract(player)) return;
-        if (!NetworkSwitchHostSupport.toggleGridIgnoringPatternSubstitutions(getMainNode().getGrid())) {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        if (settings != null) {
+            settings.neoecoae$setIgnoringPatternSubstitutions(!settings.neoecoae$isIgnoringPatternSubstitutions());
+        } else {
             applyNetworkIgnoringPatternSubstitutions(!ignorePatternSubstitutions);
         }
     }

@@ -17,6 +17,7 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
+import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -999,7 +1000,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     private void toggleIgnoringPatternSubstitutions(Player player) {
         if (!canPlayerInteract(player)) return;
-        if (!NetworkSwitchHostSupport.toggleGridIgnoringPatternSubstitutions(getMainNode().getGrid())) {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        if (settings != null) {
+            settings.neoecoae$setIgnoringPatternSubstitutions(!settings.neoecoae$isIgnoringPatternSubstitutions());
+        } else {
             applyNetworkIgnoringPatternSubstitutions(!ignorePatternSubstitutions);
         }
     }
