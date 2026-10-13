@@ -4,12 +4,13 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationNetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
-import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import java.util.Optional;
@@ -22,11 +23,12 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 
 import java.util.List;
 import java.util.function.BiPredicate;
 
-public class NEComputationClusterCalculator extends NEClusterCalculator<NEComputationCluster> {
+public class NEComputationClusterCalculator extends NENetworkSwitchClusterCalculator<NEComputationCluster, ECOComputationSystemBlockEntity> {
     public NEComputationClusterCalculator(NEBlockEntity<NEComputationCluster, ?> t) {
         super(t);
     }
@@ -56,46 +58,52 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     }
 
     @Override
-    public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
-        NEComputationClusterCalculator controller = candidateControllerCalculator(min, max);
-        return controller != null && controller != this
-            ? controller.checkMultiblockScale(min, max)
-            : super.checkMultiblockScale(min, max);
-    }
-
-    private NEComputationClusterCalculator candidateControllerCalculator(BlockPos min, BlockPos max) {
-        if (!(target.getLevel() instanceof ServerLevel level)) {
-            return null;
-        }
-        return findCandidateController(level, min, max, ECOComputationSystemBlockEntity.class)
-            .map(ECOComputationSystemBlockEntity::getCalculator)
-            .filter(NEComputationClusterCalculator.class::isInstance)
-            .map(NEComputationClusterCalculator.class::cast)
-            .orElse(null);
-    }
-
-    private NEComputationClusterCalculator controllerCalculator(BlockPos min, BlockPos max) {
-        if (!(target.getLevel() instanceof ServerLevel level)) {
-            return null;
-        }
-        return findUniqueController(level, min, max, ECOComputationSystemBlockEntity.class)
-            .map(context -> context.controller().getCalculator())
-            .filter(NEComputationClusterCalculator.class::isInstance)
-            .map(NEComputationClusterCalculator.class::cast)
-            .orElse(null);
+    protected Class<ECOComputationSystemBlockEntity> systemBlockEntityType() {
+        return ECOComputationSystemBlockEntity.class;
     }
 
     @Override
-    public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-        NEComputationClusterCalculator controllerCalculator = controllerCalculator(min, max);
-        if (controllerCalculator != null && controllerCalculator != this) {
-            return controllerCalculator.verifyInternalStructure(level, min, max);
-        }
-        Optional<ControllerContext<ECOComputationSystemBlockEntity>> contextResult = findUniqueController(
-            level, min, max, ECOComputationSystemBlockEntity.class
-        );
-        if (contextResult.isEmpty()) return false;
-        ControllerContext<ECOComputationSystemBlockEntity> context = contextResult.orElseThrow();
+    protected Class<?> calculatorType() {
+        return NEComputationClusterCalculator.class;
+    }
+
+    @Override
+    protected Class<? extends BlockEntity> networkSwitchBlockEntityType() {
+        return ECOComputationNetworkSwitchBlockEntity.class;
+    }
+
+    @Override
+    protected Holder<Block> normalNetworkSwitch() {
+        return NEBlocks.COMPUTATION_NETWORK_SWITCH;
+    }
+
+    @Override
+    protected Holder<Block> highEnergyNetworkSwitch() {
+        return NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH;
+    }
+
+    @Override
+    protected BooleanProperty normalNetworkSwitchProperty() {
+        return ECOComputationSystem.NETWORK_SWITCH;
+    }
+
+    @Override
+    protected BooleanProperty highEnergyNetworkSwitchProperty() {
+        return ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH;
+    }
+
+    @Override
+    protected IECOTier tierOf(ECOComputationSystemBlockEntity controller) {
+        return controller.getTier();
+    }
+
+    @Override
+    protected boolean verifyControllerStructure(
+        ServerLevel level,
+        BlockPos min,
+        BlockPos max,
+        ControllerContext<ECOComputationSystemBlockEntity> context
+    ) {
         ECOComputationSystemBlockEntity controller = context.controller();
         BlockPos controllerPos = context.position();
         IECOTier tier = controller.getTier();
@@ -106,21 +114,18 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         Direction down = context.down();
         Direction left = context.left();
         Direction right = context.right();
-        if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left, right, false)) {
-            controller.setMirrored(false);
-            setCoolingControllersMirrored(level, min, max, false);
-            syncNetworkSwitchState(level, controllerPos, controllerState, false);
-            return true;
-        }
-        if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right, left, true)) {
-            controller.setMirrored(true);
-            setCoolingControllersMirrored(level, min, max, true);
-            syncNetworkSwitchState(level, controllerPos, controllerState, true);
-            return true;
-        }
-        clearNetworkSwitchState(level, controllerPos, controllerState);
-        controller.setMirrored(false);
-        return false;
+        return verifyEitherMirror(
+            mirrored -> verifyStructure(
+                level, controllerPos, tier, front, back, top, down,
+                mirrored ? left : right, mirrored ? right : left, mirrored ? left : right, mirrored
+            ),
+            controller::setMirrored,
+            mirrored -> {
+                setCoolingControllersMirrored(level, min, max, mirrored);
+                syncNetworkSwitchState(level, controllerPos, controllerState, mirrored);
+            },
+            () -> clearNetworkSwitchState(level, controllerPos, controllerState)
+        );
     }
 
     private static void setCoolingControllersMirrored(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
@@ -261,52 +266,6 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             return false;
         }
         return validateBlocks(level, tailCasings, BlockState::is, NEBlocks.COMPUTATION_CASING);
-    }
-
-    @Override
-    public boolean isValidBlockEntity(BlockEntity te) {
-        if (te instanceof cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationNetworkSwitchBlockEntity sw) {
-            return sw.getLevel() instanceof ServerLevel level && isNetworkSwitchAt(level, sw.getBlockPos());
-        }
-        return (te instanceof NEBlockEntity<?,?> neBlockEntity && neBlockEntity.getCalculator() instanceof NEComputationClusterCalculator);
-    }
-
-    private static boolean isNetworkSwitchAt(ServerLevel level, BlockPos switchPos) {
-        for (Direction direction : Direction.Plane.HORIZONTAL) {
-            if (level.getBlockEntity(switchPos.relative(direction)) instanceof ECOComputationSystemBlockEntity controller
-                && NENetworkSwitchUtil.canUseNetworkSwitch(controller.getTier())
-                && NENetworkSwitchUtil.isSwitchPosition(switchPos, controller.getBlockPos(), controller.getBlockState())) return true;
-        }
-        return false;
-    }
-
-    private static void syncNetworkSwitchState(ServerLevel level, BlockPos controllerPos, BlockState controllerState, boolean mirrored) {
-        BlockPos switchPos = NENetworkSwitchUtil.switchPosition(controllerPos, controllerState, mirrored);
-        BlockState switchState = level.getBlockState(switchPos);
-        boolean normal = switchState.is(NEBlocks.COMPUTATION_NETWORK_SWITCH);
-        boolean highEnergy = switchState.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH);
-        NENetworkSwitchUtil.syncFormed(level, controllerPos, controllerState, mirrored);
-        level.setBlock(controllerPos, level.getBlockState(controllerPos)
-            .setValue(cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem.NETWORK_SWITCH, normal)
-            .setValue(cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, highEnergy), Block.UPDATE_CLIENTS);
-    }
-
-    private static void clearNetworkSwitchState(ServerLevel level, BlockPos controllerPos, BlockState controllerState) {
-        NENetworkSwitchUtil.clearFormed(level, controllerPos, controllerState);
-        BlockState current = level.getBlockState(controllerPos);
-        level.setBlock(controllerPos, current
-            .setValue(cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem.NETWORK_SWITCH, false)
-            .setValue(cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, false), Block.UPDATE_CLIENTS);
-    }
-
-    private boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
-        BlockPos center = controllerPos.relative(side);
-        BlockState state = level.getBlockState(center);
-        boolean sw = state.is(NEBlocks.COMPUTATION_NETWORK_SWITCH) || state.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH);
-        if (!state.is(NEBlocks.COMPUTATION_CASING) && !sw) return false;
-        if (sw && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) return false;
-        return validateBlock(level, center.relative(top), BlockState::is, NEBlocks.COMPUTATION_CASING)
-            && validateBlock(level, center.relative(down), BlockState::is, NEBlocks.COMPUTATION_CASING);
     }
 
     private BiPredicate<BlockState, BlockPos> matchingParallelCore(

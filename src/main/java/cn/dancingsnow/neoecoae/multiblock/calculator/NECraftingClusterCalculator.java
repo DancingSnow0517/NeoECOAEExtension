@@ -3,10 +3,11 @@ package cn.dancingsnow.neoecoae.multiblock.calculator;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
-import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import java.util.Optional;
@@ -19,12 +20,13 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
-public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingCluster> {
+public class NECraftingClusterCalculator extends NENetworkSwitchClusterCalculator<NECraftingCluster, ECOCraftingSystemBlockEntity> {
     public NECraftingClusterCalculator(NEBlockEntity<NECraftingCluster, ?> t) {
         super(t);
     }
@@ -50,46 +52,52 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     }
 
     @Override
-    public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
-        NECraftingClusterCalculator controller = candidateControllerCalculator(min, max);
-        return controller != null && controller != this
-            ? controller.checkMultiblockScale(min, max)
-            : super.checkMultiblockScale(min, max);
-    }
-
-    private NECraftingClusterCalculator candidateControllerCalculator(BlockPos min, BlockPos max) {
-        if (!(target.getLevel() instanceof ServerLevel level)) {
-            return null;
-        }
-        return findCandidateController(level, min, max, ECOCraftingSystemBlockEntity.class)
-            .map(ECOCraftingSystemBlockEntity::getCalculator)
-            .filter(NECraftingClusterCalculator.class::isInstance)
-            .map(NECraftingClusterCalculator.class::cast)
-            .orElse(null);
-    }
-
-    private NECraftingClusterCalculator controllerCalculator(BlockPos min, BlockPos max) {
-        if (!(target.getLevel() instanceof ServerLevel level)) {
-            return null;
-        }
-        return findUniqueController(level, min, max, ECOCraftingSystemBlockEntity.class)
-            .map(context -> context.controller().getCalculator())
-            .filter(NECraftingClusterCalculator.class::isInstance)
-            .map(NECraftingClusterCalculator.class::cast)
-            .orElse(null);
+    protected Class<ECOCraftingSystemBlockEntity> systemBlockEntityType() {
+        return ECOCraftingSystemBlockEntity.class;
     }
 
     @Override
-    public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-        NECraftingClusterCalculator controllerCalculator = controllerCalculator(min, max);
-        if (controllerCalculator != null && controllerCalculator != this) {
-            return controllerCalculator.verifyInternalStructure(level, min, max);
-        }
-        Optional<ControllerContext<ECOCraftingSystemBlockEntity>> contextResult = findUniqueController(
-            level, min, max, ECOCraftingSystemBlockEntity.class
-        );
-        if (contextResult.isEmpty()) return false;
-        ControllerContext<ECOCraftingSystemBlockEntity> context = contextResult.orElseThrow();
+    protected Class<?> calculatorType() {
+        return NECraftingClusterCalculator.class;
+    }
+
+    @Override
+    protected Class<? extends BlockEntity> networkSwitchBlockEntityType() {
+        return ECOCraftingNetworkSwitchBlockEntity.class;
+    }
+
+    @Override
+    protected Holder<Block> normalNetworkSwitch() {
+        return NEBlocks.CRAFTING_NETWORK_SWITCH;
+    }
+
+    @Override
+    protected Holder<Block> highEnergyNetworkSwitch() {
+        return NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH;
+    }
+
+    @Override
+    protected BooleanProperty normalNetworkSwitchProperty() {
+        return ECOCraftingSystem.NETWORK_SWITCH;
+    }
+
+    @Override
+    protected BooleanProperty highEnergyNetworkSwitchProperty() {
+        return ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH;
+    }
+
+    @Override
+    protected IECOTier tierOf(ECOCraftingSystemBlockEntity controller) {
+        return controller.getTier();
+    }
+
+    @Override
+    protected boolean verifyControllerStructure(
+        ServerLevel level,
+        BlockPos min,
+        BlockPos max,
+        ControllerContext<ECOCraftingSystemBlockEntity> context
+    ) {
         ECOCraftingSystemBlockEntity controller = context.controller();
         BlockPos controllerPos = context.position();
         IECOTier tier = controller.getTier();
@@ -100,19 +108,15 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         Direction down = context.down();
         Direction left = context.left();
         Direction right = context.right();
-        if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left, right)) {
-            controller.setMirrored(false);
-            syncNetworkSwitchState(level, controllerPos, controllerState, false);
-            return true;
-        }
-        if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right, left)) {
-            controller.setMirrored(true);
-            syncNetworkSwitchState(level, controllerPos, controllerState, true);
-            return true;
-        }
-        clearNetworkSwitchState(level, controllerPos, controllerState);
-        controller.setMirrored(false);
-        return false;
+        return verifyEitherMirror(
+            mirrored -> verifyStructure(
+                level, controllerPos, tier, front, back, top, down,
+                mirrored ? left : right, mirrored ? right : left, mirrored ? left : right
+            ),
+            controller::setMirrored,
+            mirrored -> syncNetworkSwitchState(level, controllerPos, controllerState, mirrored),
+            () -> clearNetworkSwitchState(level, controllerPos, controllerState)
+        );
     }
 
     protected boolean verifyStructure(
@@ -222,52 +226,6 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         }
 
         return validateBlocks(level, endCasing, BlockState::is, NEBlocks.CRAFTING_CASING);
-    }
-
-    @Override
-    public boolean isValidBlockEntity(BlockEntity te) {
-        if (te instanceof cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity sw) {
-            return sw.getLevel() instanceof ServerLevel level && isNetworkSwitchAt(level, sw.getBlockPos());
-        }
-        return (te instanceof NEBlockEntity<?,?> neBlockEntity && neBlockEntity.getCalculator() instanceof NECraftingClusterCalculator);
-    }
-
-    private static boolean isNetworkSwitchAt(ServerLevel level, BlockPos switchPos) {
-        for (Direction direction : Direction.Plane.HORIZONTAL) {
-            if (level.getBlockEntity(switchPos.relative(direction)) instanceof ECOCraftingSystemBlockEntity controller
-                && NENetworkSwitchUtil.canUseNetworkSwitch(controller.getTier())
-                && NENetworkSwitchUtil.isSwitchPosition(switchPos, controller.getBlockPos(), controller.getBlockState())) return true;
-        }
-        return false;
-    }
-
-    private static void syncNetworkSwitchState(ServerLevel level, BlockPos controllerPos, BlockState controllerState, boolean mirrored) {
-        BlockPos switchPos = NENetworkSwitchUtil.switchPosition(controllerPos, controllerState, mirrored);
-        BlockState switchState = level.getBlockState(switchPos);
-        boolean normal = switchState.is(NEBlocks.CRAFTING_NETWORK_SWITCH);
-        boolean highEnergy = switchState.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH);
-        NENetworkSwitchUtil.syncFormed(level, controllerPos, controllerState, mirrored);
-        level.setBlock(controllerPos, level.getBlockState(controllerPos)
-            .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.NETWORK_SWITCH, normal)
-            .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH, highEnergy), Block.UPDATE_CLIENTS);
-    }
-
-    private static void clearNetworkSwitchState(ServerLevel level, BlockPos controllerPos, BlockState controllerState) {
-        NENetworkSwitchUtil.clearFormed(level, controllerPos, controllerState);
-        BlockState current = level.getBlockState(controllerPos);
-        level.setBlock(controllerPos, current
-            .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.NETWORK_SWITCH, false)
-            .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH, false), Block.UPDATE_CLIENTS);
-    }
-
-    private boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
-        BlockPos center = controllerPos.relative(side);
-        BlockState state = level.getBlockState(center);
-        boolean sw = state.is(NEBlocks.CRAFTING_NETWORK_SWITCH) || state.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH);
-        if (!state.is(NEBlocks.CRAFTING_CASING) && !sw) return false;
-        if (sw && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) return false;
-        return validateBlock(level, center.relative(top), BlockState::is, NEBlocks.CRAFTING_CASING)
-            && validateBlock(level, center.relative(down), BlockState::is, NEBlocks.CRAFTING_CASING);
     }
 
     private static boolean validateHatchAndInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down) {

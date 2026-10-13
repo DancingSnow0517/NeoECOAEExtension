@@ -24,10 +24,7 @@ public class NEIntegratedWorkingStationControllerCalculator
 
     @Override
     public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
-        int sizeX = max.getX() - min.getX() + 1;
-        int sizeY = max.getY() - min.getY() + 1;
-        int sizeZ = max.getZ() - min.getZ() + 1;
-        return sizeY == 2 && ((sizeX == 3 && sizeZ == 2) || (sizeX == 2 && sizeZ == 3));
+        return NEIntegratedWorkingStationClusterCalculator.isValidScale(min, max);
     }
 
     @Override
