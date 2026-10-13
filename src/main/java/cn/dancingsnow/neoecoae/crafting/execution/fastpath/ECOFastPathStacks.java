@@ -5,6 +5,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.platform.nbt.GenericStackNbt;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -225,13 +226,7 @@ public final class ECOFastPathStacks {
     }
 
     public static ListTag writeGenericStacks(HolderLookup.Provider registries, List<GenericStack> stacks) {
-        ListTag tag = new ListTag();
-        for (GenericStack stack : stacks) {
-            if (stack != null && stack.amount() > 0) {
-                tag.add(GenericStack.writeTag(registries, stack));
-            }
-        }
-        return tag;
+        return GenericStackNbt.writePositive(registries, stacks);
     }
 
     public static Optional<List<GenericStack>> readValidatedBatchItemStacks(
@@ -279,30 +274,12 @@ public final class ECOFastPathStacks {
         long maxAmount,
         ItemStackValidation validation
     ) {
-        if (tag.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES
-            || requireNonEmpty && tag.isEmpty()) {
-            return Optional.empty();
-        }
-        try {
-            List<GenericStack> stacks = new ArrayList<>(tag.size());
-            for (int i = 0; i < tag.size(); i++) {
-                GenericStack stack = GenericStack.readTag(registries, tag.getCompound(i));
-                if (stack == null) {
-                    return Optional.empty();
-                }
-                stacks.add(stack);
-            }
-            if (!areValidItemStacks(
-                    stacks,
-                    maxAmount,
-                    requireNonEmpty,
-                    validation)) {
-                return Optional.empty();
-            }
-            return Optional.of(stacks);
-        } catch (RuntimeException e) {
-            return Optional.empty();
-        }
+        return GenericStackNbt.readBounded(
+            registries,
+            tag,
+            ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES,
+            requireNonEmpty,
+            stacks -> areValidItemStacks(stacks, maxAmount, requireNonEmpty, validation));
     }
 
     private static List<GenericStack> copySorted(KeyCounter counter) {

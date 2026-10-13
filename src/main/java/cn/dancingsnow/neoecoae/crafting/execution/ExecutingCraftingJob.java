@@ -46,6 +46,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.crafting.execution.bigorder.ECOBigCraftingOrder;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOGrowthDispatchBarrier;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
@@ -53,6 +54,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlannedInputAllocation;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.platform.nbt.AmountMapNbt;
 
 public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.ExecutingCraftingJob {
     private static final String NBT_LINK = "link";
@@ -204,16 +206,18 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
                 if (item.contains("exactRemaining")) tp.setExact(
-                    new java.math.BigInteger(item.getString("exactTotal")),
-                    new java.math.BigInteger(item.getString("exactRemaining")));
+                    ECOBigCraftingOrder.decode(item.getString("exactTotal")),
+                    ECOBigCraftingOrder.decode(item.getString("exactRemaining")));
                 this.tasks.put(details, tp);
             } else taskDefinitionLost = true;
         }
 
         ECOExecutionPlan restoredPlan = null;
         exactOrder = data.getBoolean("exactOrder");
-        readDeferred(data, "deferredStock", deferredStock, registries);
-        readDeferred(data, "deferredEmitted", deferredEmitted, registries);
+        AmountMapNbt.read(data.getList("deferredStock", Tag.TAG_COMPOUND), registries, deferredStock,
+                AmountMapNbt.InvalidEntryPolicy.THROW);
+        AmountMapNbt.read(data.getList("deferredEmitted", Tag.TAG_COMPOUND), registries, deferredEmitted,
+                AmountMapNbt.InvalidEntryPolicy.THROW);
         ECOExecutionRuntime restoredRuntime = null;
         boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED)
             || exactOrder && taskDefinitionLost;
@@ -330,8 +334,8 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
         data.putLong(NBT_REMAINING_AMOUNT, remainingAmount);
         data.putBoolean("exactOrder", exactOrder);
-        writeDeferred(data, "deferredStock", deferredStock, registries);
-        writeDeferred(data, "deferredEmitted", deferredEmitted, registries);
+        data.put("deferredStock", AmountMapNbt.write(deferredStock, registries));
+        data.put("deferredEmitted", AmountMapNbt.write(deferredEmitted, registries));
         if (this.playerId != null) {
             data.putInt(NBT_PLAYER_ID, this.playerId);
         }
@@ -411,29 +415,5 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         var inventory = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(listener::onCraftingDifference);
         inventory.setEnabled(true);
         return inventory;
-    }
-
-    private static void writeDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts,
-            HolderLookup.Provider registries) {
-        var list = new ListTag();
-        amounts.forEach((key, amount) -> {
-            var entry = new CompoundTag();
-            entry.put("key", GenericStack.writeTag(registries, new GenericStack(key, 1)));
-            entry.putString("amount", amount.toString());
-            list.add(entry);
-        });
-        data.put(name, list);
-    }
-
-    private static void readDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts,
-            HolderLookup.Provider registries) {
-        var list = data.getList(name, Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            var entry = list.getCompound(i);
-            var key = GenericStack.readTag(registries, entry.getCompound("key"));
-            var amount = new java.math.BigInteger(entry.getString("amount"));
-            if (key == null || amount.signum() <= 0) throw new IllegalArgumentException("Invalid deferred material");
-            amounts.put(key.what(), amount);
-        }
     }
 }

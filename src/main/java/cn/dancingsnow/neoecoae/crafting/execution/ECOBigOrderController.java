@@ -13,6 +13,7 @@ import appeng.crafting.execution.CraftingCpuHelper;
 import cn.dancingsnow.neoecoae.api.me.bigorder.*;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOBigOrderPlanner;
+import cn.dancingsnow.neoecoae.platform.nbt.AmountMapNbt;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -309,14 +310,7 @@ final class ECOBigOrderController {
         var fuzzy = new ListTag();
         options.fuzzyPlanningItemIds().forEach(id -> fuzzy.add(StringTag.valueOf(id.toString())));
         tag.put("fuzzy", fuzzy);
-        var forecast = new ListTag();
-        pendingPreview.forEach((key, amount) -> {
-            var entry = new CompoundTag();
-            entry.put("key", GenericStack.writeTag(registries, new GenericStack(key, 1)));
-            entry.putString("amount", amount.toString());
-            forecast.add(entry);
-        });
-        tag.put("pendingPreview", forecast);
+        tag.put("pendingPreview", AmountMapNbt.write(pendingPreview, registries));
         data.put("bigOrder", tag);
     }
 
@@ -349,11 +343,7 @@ final class ECOBigOrderController {
         var forecast = tag.getList("pendingPreview", 10);
         if (forecast.size() > 100000) throw new IllegalArgumentException("Too many forecast items");
         var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
-        for (int i = 0; i < forecast.size(); i++) {
-            var entry = forecast.getCompound(i);
-            var stack = GenericStack.readTag(registries, entry.getCompound("key"));
-            if (stack != null) amounts.put(stack.what(), ECOBigCraftingOrder.decode(entry.getString("amount")));
-        }
+        AmountMapNbt.read(forecast, registries, amounts, AmountMapNbt.InvalidEntryPolicy.SKIP);
         pendingPreview = amounts;
         bindStandaloneLink();
     }

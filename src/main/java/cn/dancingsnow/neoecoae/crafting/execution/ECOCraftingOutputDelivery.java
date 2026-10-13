@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.platform.nbt.GenericStackNbt;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -368,16 +369,7 @@ final class ECOCraftingOutputDelivery {
     }
 
     void writePendingFinalOutputs(CompoundTag jobData, HolderLookup.Provider registries) {
-        if (pendingFinalOutputs.isEmpty()) {
-            jobData.remove("pendingFinalOutputs");
-            return;
-        }
-        ListTag entries = new ListTag();
-        for (var entry : pendingFinalOutputs.object2LongEntrySet()) {
-            if (entry.getLongValue() > 0L) {
-                entries.add(GenericStack.writeTag(registries, new GenericStack(entry.getKey(), entry.getLongValue())));
-            }
-        }
+        ListTag entries = GenericStackNbt.writePositiveAmounts(registries, pendingFinalOutputs);
         if (entries.isEmpty()) {
             jobData.remove("pendingFinalOutputs");
         } else {

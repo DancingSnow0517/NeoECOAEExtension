@@ -34,6 +34,7 @@ import cn.dancingsnow.neoecoae.gui.workstation.LargeWorkstationUI;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationControllerCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.platform.nbt.GenericStackNbt;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
@@ -1368,10 +1369,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 tag.putBoolean("pendingStateTooLarge", true);
                 return tag;
             }
-            tag.put("inputTotal", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(inputTotal)));
-            tag.put("missingExtras", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(missingExtras)));
-            tag.put("outputTotal", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(outputTotal)));
-            tag.put("pendingOutput", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(pendingOutput)));
+            tag.put("inputTotal", GenericStackNbt.writePositive(registries, ECOFastPathStacks.copyCounter(inputTotal)));
+            tag.put("missingExtras", GenericStackNbt.writePositive(registries, ECOFastPathStacks.copyCounter(missingExtras)));
+            tag.put("outputTotal", GenericStackNbt.writePositive(registries, ECOFastPathStacks.copyCounter(outputTotal)));
+            tag.put("pendingOutput", GenericStackNbt.writePositive(registries, ECOFastPathStacks.copyCounter(pendingOutput)));
             if (unlockStack != null) tag.put("unlockStack", GenericStack.writeTag(registries, unlockStack));
             return tag;
         }
@@ -1433,23 +1434,22 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             String name,
             boolean requireNonEmpty
         ) {
-            ListTag entries = tag.getList(name, Tag.TAG_COMPOUND);
-            if (entries.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES
-                || requireNonEmpty && entries.isEmpty()) return null;
-            try {
-                KeyCounter result = new KeyCounter();
-                for (int i = 0; i < entries.size(); i++) {
-                    GenericStack stack = GenericStack.readTag(registries, entries.getCompound(i));
-                    if (stack == null || stack.amount() <= 0
-                        || stack.amount() > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT) return null;
-                    long total = result.get(stack.what());
-                    if (total > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT - stack.amount()) return null;
-                    result.add(stack.what(), stack.amount());
-                }
-                return result;
-            } catch (RuntimeException failure) {
-                return null;
+            List<GenericStack> stacks = GenericStackNbt.readBounded(
+                registries,
+                tag.getList(name, Tag.TAG_COMPOUND),
+                ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES,
+                requireNonEmpty,
+                entries -> entries.stream().allMatch(stack ->
+                    stack.amount() > 0L && stack.amount() <= ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT)
+            ).orElse(null);
+            if (stacks == null) return null;
+            KeyCounter result = new KeyCounter();
+            for (GenericStack stack : stacks) {
+                long total = result.get(stack.what());
+                if (total > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT - stack.amount()) return null;
+                result.add(stack.what(), stack.amount());
             }
+            return result;
         }
     }
 }
