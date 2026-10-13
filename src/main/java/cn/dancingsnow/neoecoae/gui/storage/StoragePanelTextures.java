@@ -1,13 +1,16 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.math.Size;
+import com.lowdragmc.lowdraglib2.gui.texture.VanillaSpriteTexture;
 import net.minecraft.resources.ResourceLocation;
 
 /** Pixel rectangles in the storage host artwork. */
 final class StoragePanelTextures {
     private static final ResourceLocation ATLAS = id("storage_widget.png");
-    private static final ResourceLocation INFINITY_SHEET = id("storage_ifinity_icon.png");
+    // Let the GUI atlas consume .mcmeta. GeckoLib replaces raw animated textures with a
+    // single uploaded frame, so sampling that texture as a 12x120 sheet breaks the UVs.
+    static final VanillaSpriteTexture INFINITE_ANIMATION = VanillaSpriteTexture.of(
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "storage/infinity"));
     static final SpriteTexture HOST_ICON_BACKGROUND = sprite(0, 18, 16, 34);
     static final SpriteTexture TYPE_PANEL = sprite(0, 104, 68, 29);
     static final SpriteTexture BLUE_BAR = sprite(68, 105, 29, 4);
@@ -51,29 +54,6 @@ final class StoragePanelTextures {
         int offset = row * 18 - (row == 2 ? 1 : 0);
         return sprite(CELL_COLUMN.spritePosition.x, CELL_COLUMN.spritePosition.y + offset,
             CELL_COLUMN.spriteSize.width, 18);
-    }
-
-    static SpriteTexture infinityFrame(int frame) {
-        // storage_ifinity_icon.png is the 10-frame vertical sheet described by its .mcmeta.
-        return new InfinityFrameTexture(Math.floorMod(frame, 10));
-    }
-
-    /**
-     * Standalone textures are uploaded lazily by Minecraft.  During the first
-     * draw LDLib2 may therefore observe a zero image size, which makes
-     * SpriteTexture's UV calculation produce NaN and renders nothing.  The
-     * sheet dimensions are part of this resource's contract, so provide them
-     * directly until the texture manager has loaded the PNG.
-     */
-    private static final class InfinityFrameTexture extends SpriteTexture {
-        private InfinityFrameTexture(int frame) {
-            setImageLocation(INFINITY_SHEET).setSprite(0, frame * 12, 12, 12);
-        }
-
-        @Override
-        public Size getImageSize() {
-            return Size.of(12, 120);
-        }
     }
 
     static SpriteTexture swatch(int index, int color) {
