@@ -26,6 +26,7 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.output.ECOAdvancedAeCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
+import cn.dancingsnow.neoecoae.api.me.output.ECOExternalCpuOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -57,6 +58,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
@@ -494,26 +496,21 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
         // A newly submitted CPU can finish a virtual batch before CraftingService has run updateCPUClusters.
         // Consult the live grid as a fallback so the output is retained for the right job during that window.
-        Set<NEComputationCluster> liveClusters = new HashSet<>();
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
-            if (host.getCluster() != null) {
-                liveClusters.add(host.getCluster());
-            }
-        }
-        for (NEComputationCluster cluster : liveClusters) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
-                if (cpu.getLogic().hasCraftingJob(craftingJobId)) {
-                    return cpu.getLogic().insertForJob(craftingJobId, what, amount, type);
-                }
-            }
+        OptionalLong liveOwned = ECOExternalCpuOutputRouter.insertIntoOwningCpu(
+                NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class),
+                ECOComputationSystemBlockEntity::getCluster,
+                NEComputationCluster::getActiveCPUs,
+                cpu -> cpu.getLogic().hasCraftingJob(craftingJobId),
+                cpu -> cpu.getLogic().insertForJob(craftingJobId, what, amount, type));
+        if (liveOwned.isPresent()) {
+            return liveOwned.getAsLong();
         }
         if (this instanceof ECOAdvancedAeCraftingOutputRouter advancedRouter) {
             long advanced = advancedRouter.neoecoae$insertIntoAdvancedAeCpuForJob(craftingJobId, what, amount, type);
             if (advanced > 0) return advanced;
         }
         for (var cpu : getCpus()) {
-            long external = cn.dancingsnow.neoecoae.api.me.output.ECOExternalCpuOutputRouter
-                    .insert(cpu, craftingJobId, what, amount, type);
+            long external = ECOExternalCpuOutputRouter.insert(cpu, craftingJobId, what, amount, type);
             if (external > 0) return external;
         }
         return 0L;

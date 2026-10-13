@@ -6,9 +6,8 @@ import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.output.ECOAdvancedAeCraftingOutputRouter;
+import cn.dancingsnow.neoecoae.api.me.output.ECOExternalCpuOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.output.ECOJobOutputReceiver;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 import net.pedroksl.advanced_ae.common.cluster.AdvCraftingCPUCluster;
 import net.pedroksl.advanced_ae.common.entities.AdvCraftingBlockEntity;
@@ -32,24 +31,19 @@ public abstract class AdvancedAeCraftingServiceMixin implements ECOAdvancedAeCra
             return 0L;
         }
 
-        Set<AdvCraftingCPUCluster> clusters = new HashSet<>();
-        for (AdvCraftingBlockEntity blockEntity : this.grid.getMachines(AdvCraftingBlockEntity.class)) {
-            AdvCraftingCPUCluster cluster = blockEntity.getCluster();
-            if (cluster != null) {
-                clusters.add(cluster);
-            }
-        }
-        for (AdvCraftingCPUCluster cluster : clusters) {
-            for (var cpu : cluster.getActiveCPUs()) {
-                ICraftingLink link = cpu.craftingLogic.getLastLink();
-                if (link != null && craftingJobId.equals(link.getCraftingID())) {
+        return ECOExternalCpuOutputRouter.insertIntoOwningCpu(
+                this.grid.getMachines(AdvCraftingBlockEntity.class),
+                AdvCraftingBlockEntity::getCluster,
+                AdvCraftingCPUCluster::getActiveCPUs,
+                cpu -> {
+                    ICraftingLink link = cpu.craftingLogic.getLastLink();
+                    return link != null && craftingJobId.equals(link.getCraftingID());
+                },
+                cpu -> {
                     if (cpu.craftingLogic instanceof ECOJobOutputReceiver receiver) {
                         return receiver.neoecoae$insertWorkerOutput(craftingJobId, what, amount, type);
                     }
                     return cpu.craftingLogic.insert(what, amount, type);
-                }
-            }
-        }
-        return 0L;
+                }).orElse(0L);
     }
 }

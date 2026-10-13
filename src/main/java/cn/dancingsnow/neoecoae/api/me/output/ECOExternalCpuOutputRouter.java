@@ -5,7 +5,13 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKey;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCraftingAdapter;
+import java.util.HashSet;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.ToLongFunction;
 
 /** Job-directed output routing for AE2/Omni CPUs and the optional AE2LT time-wheel engine. */
 public final class ECOExternalCpuOutputRouter {
@@ -28,5 +34,33 @@ public final class ECOExternalCpuOutputRouter {
             return inserted;
         }
         return ECOAe2LtCraftingAdapter.insertCpuOutput(cpu, jobId, key, amount, mode);
+    }
+
+    /**
+     * Collects the non-null clusters of {@code hosts} into a {@link HashSet}, visits each distinct cluster once and
+     * inserts into the first CPU that {@code owns} the job. The owner's result is returned even when it is 0; empty
+     * means no CPU owned the job.
+     */
+    public static <H, C, P> OptionalLong insertIntoOwningCpu(
+            Iterable<? extends H> hosts,
+            Function<? super H, ? extends C> clusterOf,
+            Function<? super C, ? extends Iterable<? extends P>> cpusOf,
+            Predicate<? super P> owns,
+            ToLongFunction<? super P> insert) {
+        Set<C> clusters = new HashSet<>();
+        for (H host : hosts) {
+            C cluster = clusterOf.apply(host);
+            if (cluster != null) {
+                clusters.add(cluster);
+            }
+        }
+        for (C cluster : clusters) {
+            for (P cpu : cpusOf.apply(cluster)) {
+                if (owns.test(cpu)) {
+                    return OptionalLong.of(insert.applyAsLong(cpu));
+                }
+            }
+        }
+        return OptionalLong.empty();
     }
 }

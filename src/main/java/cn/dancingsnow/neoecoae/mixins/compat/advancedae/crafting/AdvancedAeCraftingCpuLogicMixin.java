@@ -1,18 +1,18 @@
 package cn.dancingsnow.neoecoae.mixins.compat.advancedae.crafting;
 
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.output.ECOJobOutputReceiver;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuMixinSupport;
 import cn.dancingsnow.neoecoae.integration.ModIds;
 import java.util.UUID;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob;
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.world.level.Level;
@@ -20,8 +20,6 @@ import net.pedroksl.advanced_ae.common.cluster.AdvCraftingCPU;
 import net.pedroksl.advanced_ae.common.logic.AdvCraftingCPULogic;
 import net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -36,9 +34,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Pseudo
 @Mixin(value = AdvCraftingCPULogic.class, remap = false)
 public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputReceiver {
-    @Unique
-    private static final Logger NEOECOAE$LOGGER = LoggerFactory.getLogger("neoecoae");
-
     @Shadow @Final AdvCraftingCPU cpu;
     @Shadow @Final private ListCraftingInventory inventory;
     @Shadow private ExecutingCraftingJob job;
@@ -71,17 +66,7 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
 
     @Inject(method = "finishJob", at = @At("HEAD"), remap = false)
     private void neoecoae$releaseCompletedWorkerOutputs(boolean success, CallbackInfo ci) {
-        if (!(job instanceof ECOExternalCpuJob access)) return;
-        var craftingJobId = access.neoecoae$link().getCraftingID();
-        if (!success) {
-            ECOCraftingJobLifecycle.cancelAndRecover(cpu.getLevel(), craftingJobId);
-            return;
-        }
-        var grid = cpu.getGrid();
-        if (grid == null) return;
-        for (var worker : grid.getMachines(ECOCraftingWorkerBlockEntity.class)) {
-            worker.releaseCompletedJobOutputs(craftingJobId);
-        }
+        ECOExternalCpuMixinSupport.releaseOnFinish(job, success, cpu::getLevel, cpu::getGrid);
     }
 
     @Unique private cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath neoecoae$batchDispatcher;
@@ -97,16 +82,8 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
             IEnergyService energyService, @Nullable Level level, CallbackInfoReturnable<Integer> cir) {
         // Keep OmniSequence's extraction/accounting owner consistent with the AE2 adapter.
         if (level == null || ModIds.isLoaded(ModIds.MOLECULAR_MANIPULATOR)) return;
-        try {
-            int pushed = neoecoae$batchDispatcher().execute(this, job, inventory,
-                    maxPatterns, craftingService, energyService, level);
-            if (pushed > 0) cir.setReturnValue(pushed);
-        } catch (RuntimeException failure) {
-            if (job instanceof ECOExternalCpuJob access) access.neoecoae$suspended(true);
-            cpu.markDirty();
-            NEOECOAE$LOGGER.error("Suspended AdvancedAE CPU after batch dispatch failure", failure);
-            cir.setReturnValue(0);
-        }
+        if (ECOExternalCpuMixinSupport.dispatch(this, neoecoae$batchDispatcher(), job, inventory, maxPatterns,
+                craftingService, energyService, level, cir, "AdvancedAE")) cpu.markDirty();
     }
 
     @Inject(method = "trySubmitJob", at = @At("HEAD"), cancellable = true, remap = false)
@@ -115,28 +92,24 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
             appeng.api.networking.security.IActionSource source,
             appeng.api.networking.crafting.ICraftingRequester requester,
             CallbackInfoReturnable<appeng.api.networking.crafting.ICraftingSubmitResult> cir) {
-        if (!cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.supportsPlan(plan))
-            cir.setReturnValue(appeng.crafting.execution.CraftingSubmitResult.NO_CPU_FOUND);
+        ECOExternalCpuMixinSupport.validatePlan(plan, cir);
     }
 
     @Inject(method = "tickCraftingLogic", at = @At("HEAD"), remap = false)
     private void neoecoae$refundCredit(IEnergyService energy, appeng.me.service.CraftingService crafting, CallbackInfo ci) {
-        if (neoecoae$batchDispatcher != null) neoecoae$batchDispatcher.refundIdleCredit(energy);
+        ECOExternalCpuMixinSupport.refundIdleCredit(neoecoae$batchDispatcher, energy);
     }
 
     @Inject(method = "readFromNBT", at = @At("TAIL"), remap = false)
     private void neoecoae$readBatchEnergy(net.minecraft.nbt.CompoundTag tag,
             net.minecraft.core.HolderLookup.Provider registries, CallbackInfo ci) {
-        neoecoae$batchDispatcher().read(tag.getCompound("neoecoaeFastPath"));
+        ECOExternalCpuMixinSupport.readFastPath(neoecoae$batchDispatcher(), tag);
     }
 
     @Inject(method = "writeToNBT", at = @At("TAIL"), remap = false)
     private void neoecoae$writeBatchEnergy(net.minecraft.nbt.CompoundTag tag,
             net.minecraft.core.HolderLookup.Provider registries, CallbackInfo ci) {
-        if (neoecoae$batchDispatcher == null) return;
-        var ledger = new net.minecraft.nbt.CompoundTag();
-        neoecoae$batchDispatcher.write(ledger);
-        tag.put("neoecoaeFastPath", ledger);
+        ECOExternalCpuMixinSupport.writeFastPath(neoecoae$batchDispatcher, tag);
     }
 
     /** Keeps the existing ECO worker's job-directed output routing for native single-craft fallback. */
@@ -147,7 +120,7 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
                     target = "Lappeng/api/networking/crafting/ICraftingProvider;pushPattern(Lappeng/api/crafting/IPatternDetails;[Lappeng/api/stacks/KeyCounter;)Z"))
     private boolean neoecoae$pushPatternWithJob(
             ICraftingProvider provider,
-            appeng.api.crafting.IPatternDetails details,
+            IPatternDetails details,
             KeyCounter[] inputHolder,
             Operation<Boolean> original) {
         if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus
