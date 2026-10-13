@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.integration.ae2omnicells;
 import appeng.core.definitions.AEItems;
 import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import cn.dancingsnow.neoecoae.registration.NECellTypeEntry;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -107,7 +108,7 @@ public final class NEOmniItems {
                 properties.rarity(rarity), tier, cellType, idleDrain, totalTypes, totalBytes
             ))
             .recipe((ctx, prov) -> {
-                RecipeOutput omniCellsInstalled = prov.withConditions(new ModLoadedCondition("ae2omnicells"));
+                RecipeOutput omniCellsInstalled = prov.withConditions(new ModLoadedCondition(ModIds.AE2_OMNICELLS));
                 IntegratedWorkingStationRecipe.builder()
                     .require(component, 10)
                     .require(processor, processorCount)

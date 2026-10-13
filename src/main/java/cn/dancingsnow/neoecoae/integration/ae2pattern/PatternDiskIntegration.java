@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import io.github.lounode.ae2pattern.api.IPatternDiskHost;
 import io.github.lounode.ae2pattern.api.PatternDiskApi;
 import net.minecraft.core.BlockPos;
@@ -40,7 +41,7 @@ import java.util.function.Supplier;
  * Pattern Disk reached into it - and that spi is gone. What stays on the other side is that mod's own listing
  * of the bus, which needs nothing from here.</p>
  */
-@Integration("ae2_pattern_disk")
+@Integration(ModIds.AE2_PATTERN_DISK)
 public class PatternDiskIntegration {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.integration.ae2pattern");

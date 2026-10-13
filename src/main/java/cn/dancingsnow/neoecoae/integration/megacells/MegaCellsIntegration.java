@@ -7,6 +7,7 @@ import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaCellsBackend;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaBulkMarkingService;
@@ -14,13 +15,12 @@ import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaDecompressio
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import gripe._90.megacells.definition.MEGAItems;
-import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Integration(MegaCellsBackend.MOD_ID)
+@Integration(ModIds.MEGACELLS)
 public final class MegaCellsIntegration {
     private boolean energyEnabled;
     private boolean chemicalEnabled;
@@ -114,19 +114,19 @@ public final class MegaCellsIntegration {
 
     private void registerExternalCells() {
         externalCells.clear();
-        if (ModList.get().isLoaded("appliedpneumatics")) {
+        if (ModIds.isLoaded(ModIds.APPLIED_PNEUMATICS)) {
             addExternalCells("air", NEMegaExternalItems.registerAir());
         }
-        if (ModList.get().isLoaded("appex")) {
+        if (ModIds.isLoaded(ModIds.APPEX)) {
             addExternalCells("experience", NEMegaExternalItems.registerExperience());
         }
-        if (ModList.get().isLoaded("appliedsoul") && ModList.get().isLoaded("soulplied_energistics")) {
+        if (ModIds.isLoaded(ModIds.APPLIED_SOUL) && ModIds.isLoaded(ModIds.SOULPLIED_ENERGISTICS)) {
             addExternalCells("soul", NEMegaExternalItems.registerSoul());
         }
-        if (ModList.get().isLoaded("appbot")) {
+        if (ModIds.isLoaded(ModIds.APPBOT)) {
             addExternalCells("mana", NEMegaExternalItems.registerMana());
         }
-        if (ModList.get().isLoaded("arseng")) {
+        if (ModIds.isLoaded(ModIds.ARSENG)) {
             addExternalCells("source", NEMegaExternalItems.registerSource());
         }
     }

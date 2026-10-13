@@ -6,13 +6,14 @@ import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 
 import java.util.List;
 
-@Integration("appbot")
+@Integration(ModIds.APPBOT)
 public class AppBotaniaIntegration {
     public void apply() {
         NEAppBotCellTypes.register();

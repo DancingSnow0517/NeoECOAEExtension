@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.appmek.item.ECOChemicalStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
@@ -29,7 +30,7 @@ public class NEAppMekItems {
     public static final ItemEntry<MaterialItem> ECO_CHEMICAL_CELL_HOUSING = REGISTRATE
         .item("eco_chemical_cell_housing", MaterialItem::new)
         .recipe((ctx, prov) -> {
-            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));
+            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPMEK));
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
                 .pattern("B B")
@@ -53,7 +54,7 @@ public class NEAppMekItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
         .recipe((ctx, prov) -> {
-            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));
+            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPMEK));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_16M)
@@ -73,7 +74,7 @@ public class NEAppMekItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
         .recipe((ctx, prov) -> {
-            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));
+            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPMEK));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_64M)
@@ -93,7 +94,7 @@ public class NEAppMekItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
         .recipe((ctx, prov) -> {
-            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));
+            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPMEK));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_256M)

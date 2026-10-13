@@ -7,6 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchDispatchRequest;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchAdmission;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchCraftingProvider;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchDelivery;
@@ -15,7 +16,6 @@ import com.atir.molecularmanipulator.api.crafting.OmniBatchRequest;
 import com.atir.molecularmanipulator.api.crafting.OmniPostAccountingOutputProvider;
 import com.atir.molecularmanipulator.crafting.MolecularBatchDispatchContext;
 import com.atir.molecularmanipulator.integration.ae2.MolecularBatchCraftingProvider;
-import net.neoforged.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Method;
@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
  * as well as post-accounting output flushes through OmniSequence's output registry.</p>
  */
 public final class ECOOmniSequenceDirectDispatch {
-    public static final String MOD_ID = "molecularmanipulator";
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
     private static final ThreadLocal<Set<ICraftingProvider>> FLUSHING =
             ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
@@ -44,23 +43,13 @@ public final class ECOOmniSequenceDirectDispatch {
     private ECOOmniSequenceDirectDispatch() {}
 
     public static boolean isLoaded() {
-        var mods = ModList.get();
-        return mods != null && mods.isLoaded(MOD_ID);
+        return ModIds.isLoaded(ModIds.MOLECULAR_MANIPULATOR);
     }
 
     public static boolean isEligible(ICraftingProvider provider) {
         if (!isLoaded() || provider == null) return false;
         try {
             return Delegate.isEligible(provider);
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    public static boolean supports(ICraftingProvider provider, @Nullable IPatternDetails pattern) {
-        if (!isLoaded() || provider == null) return false;
-        try {
-            return Delegate.supports(provider, pattern);
         } catch (Throwable ignored) {
             return false;
         }
@@ -141,19 +130,6 @@ public final class ECOOmniSequenceDirectDispatch {
                 return !MolecularBatchCraftingProvider.requiresSerialDispatch(target);
             }
             return target instanceof OmniBatchCraftingProvider;
-        }
-
-        static boolean supports(ICraftingProvider provider, @Nullable IPatternDetails pattern) {
-            ICraftingProvider target = unwrap(provider);
-            if (target instanceof MolecularBatchCraftingProvider) {
-                return pattern == null
-                        ? !MolecularBatchCraftingProvider.requiresSerialDispatch(target)
-                        : MolecularBatchCraftingProvider.supports(target, pattern);
-            }
-            if (target instanceof OmniBatchCraftingProvider) {
-                return true;
-            }
-            return false;
         }
 
         @Nullable

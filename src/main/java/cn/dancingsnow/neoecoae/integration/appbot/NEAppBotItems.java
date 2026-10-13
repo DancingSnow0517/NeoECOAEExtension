@@ -5,6 +5,7 @@ import appeng.items.materials.MaterialItem;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
@@ -27,7 +28,7 @@ public class NEAppBotItems {
     public static final ItemEntry<MaterialItem> ECO_MANA_CELL_HOUSING = REGISTRATE
         .item("eco_mana_cell_housing", MaterialItem::new)
         .recipe((ctx, prov) -> {
-            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition("appbot"));
+            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPBOT));
             ManaInfusionRecipe recipe = new ManaInfusionRecipe(
                 new ItemStack(ctx.get()),
                 Ingredient.of(NEItems.ECO_ITEM_CELL_HOUSING),
@@ -50,7 +51,7 @@ public class NEAppBotItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
         .recipe((ctx, prov) -> {
-            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition("appbot"));
+            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPBOT));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_MANA_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_16M)
@@ -72,7 +73,7 @@ public class NEAppBotItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
         .recipe((ctx, prov) -> {
-            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition("appbot"));
+            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPBOT));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_MANA_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_64M)
@@ -94,7 +95,7 @@ public class NEAppBotItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
         .recipe((ctx, prov) -> {
-            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition("appbot"));
+            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPBOT));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_MANA_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_256M)

@@ -5,6 +5,7 @@ import appeng.items.materials.MaterialItem;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.hollingsworth.arsnouveau.common.crafting.recipes.EnchantingApparatusRecipe;
@@ -30,7 +31,7 @@ public class NEArsEnergistiqueItems {
     public static final ItemEntry<MaterialItem> ECO_SOURCE_CELL_HOUSING = REGISTRATE
         .item("eco_source_cell_housing", MaterialItem::new)
         .recipe((ctx, prov) -> {
-            RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition("arseng"));
+            RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition(ModIds.ARSENG));
             EnchantingApparatusRecipe recipe = new EnchantingApparatusRecipe(
                 Ingredient.of(NEItems.ECO_ITEM_CELL_HOUSING),
                 new ItemStack(ctx.get()),
@@ -62,7 +63,7 @@ public class NEArsEnergistiqueItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
         .recipe((ctx, prov) -> {
-            RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition("arseng"));
+            RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition(ModIds.ARSENG));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_SOURCE_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_16M)
@@ -84,7 +85,7 @@ public class NEArsEnergistiqueItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
         .recipe((ctx, prov) -> {
-            RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition("arseng"));
+            RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition(ModIds.ARSENG));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_SOURCE_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_64M)
@@ -106,7 +107,7 @@ public class NEArsEnergistiqueItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
         .recipe((ctx, prov) -> {
-            RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition("arseng"));
+            RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition(ModIds.ARSENG));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_SOURCE_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_256M)

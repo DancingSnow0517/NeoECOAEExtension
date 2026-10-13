@@ -3,11 +3,12 @@ package cn.dancingsnow.neoecoae.integration.appliedsoul;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.OptionalCellUpgrades;
 
 import java.util.List;
 
-@Integration("appliedsoul")
+@Integration(ModIds.APPLIED_SOUL)
 public final class AppliedSoulIntegration {
     public void apply() {
         NEAppliedSoulCellTypes.register();

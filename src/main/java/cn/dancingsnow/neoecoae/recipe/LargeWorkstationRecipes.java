@@ -6,6 +6,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.Codec;
@@ -22,7 +23,6 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.crafting.DataComponentIngredient;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -81,7 +81,7 @@ public final class LargeWorkstationRecipes {
                 } else if (compatEnabled) {
                     String type = typeId(holder.value().getType());
                     if (!COMPAT_TYPES.contains(type)) continue;
-                    if (type.equals("extendedae:crystal_assembler") && !ModList.get().isLoaded("extendedae_plus")) continue;
+                    if (type.equals("extendedae:crystal_assembler") && !ModIds.isLoaded(ModIds.EXTENDEDAE_PLUS)) continue;
                     recipes.add(decode(holder.id(), type, encode(holder.value(), ops), ops));
                 }
             } catch (RuntimeException failure) {

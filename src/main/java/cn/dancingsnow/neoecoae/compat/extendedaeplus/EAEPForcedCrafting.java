@@ -3,9 +3,9 @@ package cn.dancingsnow.neoecoae.compat.extendedaeplus;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOForcedCraftingPlan;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import net.neoforged.fml.ModList;
 
 /** Optional EAEP protocol bridge. No EAEP classes are linked when the mod is absent. */
 public final class EAEPForcedCrafting {
@@ -16,7 +16,7 @@ public final class EAEPForcedCrafting {
     }
 
     private static boolean installed() {
-        return ModList.get() != null && ModList.get().isLoaded("extendedae_plus");
+        return ModIds.isLoaded(ModIds.EXTENDEDAE_PLUS);
     }
 
     public static ICraftingPlan force(ICraftingPlan plan) {

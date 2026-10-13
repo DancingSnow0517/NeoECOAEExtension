@@ -3,11 +3,12 @@ package cn.dancingsnow.neoecoae.integration.appex;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.OptionalCellUpgrades;
 
 import java.util.List;
 
-@Integration("appex")
+@Integration(ModIds.APPEX)
 public final class AppliedExperiencedIntegration {
     public void apply() {
         NEAppliedExperiencedCellTypes.register();

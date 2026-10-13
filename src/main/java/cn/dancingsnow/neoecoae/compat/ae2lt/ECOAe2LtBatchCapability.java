@@ -3,12 +3,12 @@ package cn.dancingsnow.neoecoae.compat.ae2lt;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
 import java.util.UUID;
-import net.neoforged.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 
 /** Reflection-only optional AE2LT batch bridge. */
@@ -20,7 +20,7 @@ public final class ECOAe2LtBatchCapability {
 
     @Nullable
     public static Session open(Object provider) {
-        if (provider == null || ModList.get() == null || !ModList.get().isLoaded("ae2lt")) return null;
+        if (provider == null || !ModIds.isLoaded(ModIds.AE2LT)) return null;
         Class<?> api = findApi(provider.getClass());
         if (api == null) return null;
         try {

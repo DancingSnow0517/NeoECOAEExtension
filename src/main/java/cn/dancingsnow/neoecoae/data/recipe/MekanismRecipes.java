@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.data.recipe;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import mekanism.api.datagen.recipe.builder.ItemStackToItemStackRecipeBuilder;
 import mekanism.api.recipes.ingredients.ItemStackIngredient;
@@ -15,7 +16,7 @@ import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
 
 public class MekanismRecipes {
     public static void init(RegistrateRecipeProvider provider) {
-        RecipeOutput hasMekanism = provider.withConditions(new ModLoadedCondition("mekanism"));
+        RecipeOutput hasMekanism = provider.withConditions(new ModLoadedCondition(ModIds.MEKANISM));
 
         // aluminum
         ItemStackToItemStackRecipeBuilder.crushing(

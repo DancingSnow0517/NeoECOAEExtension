@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.data.recipe;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEFluids;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import mekanism.common.registries.MekanismFluids;
@@ -14,7 +15,7 @@ import net.neoforged.neoforge.common.conditions.NotCondition;
 
 public class CoolingRecipes {
     public static void init(RegistrateRecipeProvider provider) {
-        ICondition mekanismLoaded = new ModLoadedCondition("mekanism");
+        ICondition mekanismLoaded = new ModLoadedCondition(ModIds.MEKANISM);
         RecipeOutput notMekanism = provider.withConditions(new NotCondition(mekanismLoaded));
         RecipeOutput hasMekanism = provider.withConditions(mekanismLoaded);
 

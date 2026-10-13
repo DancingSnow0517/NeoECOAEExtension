@@ -4,6 +4,7 @@ import appeng.items.materials.MaterialItem;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.appflux.item.ECOFeStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.glodblock.github.appflux.common.AFSingletons;
@@ -26,7 +27,7 @@ public class NEAppFluxItems {
     public static final ItemEntry<MaterialItem> ECO_FE_CELL_HOUSING = REGISTRATE
         .item("eco_fe_cell_housing", MaterialItem::new)
         .recipe((ctx, prov) -> {
-            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition("appflux"));
+            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPFLUX));
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
                 .pattern("B B")
@@ -51,7 +52,7 @@ public class NEAppFluxItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
         .recipe((ctx, prov) -> {
-            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition("appflux"));
+            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPFLUX));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_FE_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_16M)
@@ -72,7 +73,7 @@ public class NEAppFluxItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
         .recipe((ctx, prov) -> {
-            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition("appflux"));
+            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPFLUX));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_FE_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_64M)
@@ -93,7 +94,7 @@ public class NEAppFluxItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
         .recipe((ctx, prov) -> {
-            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition("appflux"));
+            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPFLUX));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_FE_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_256M)

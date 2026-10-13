@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import com.glodblock.github.extendedae.recipe.CircuitCutterRecipeBuilder;
 import com.glodblock.github.extendedae.recipe.CrystalAssemblerRecipeBuilder;
 import com.glodblock.github.extendedae.recipe.CrystalFixerRecipeBuilder;
@@ -14,7 +15,7 @@ import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
 
 public class EAERecipes {
     public static void init(RegistrateRecipeProvider provider) {
-        RecipeOutput extendedaeInstalled = provider.withConditions(new ModLoadedCondition("extendedae"));
+        RecipeOutput extendedaeInstalled = provider.withConditions(new ModLoadedCondition(ModIds.EXTENDEDAE));
 
         // 水晶修复
         CrystalFixerRecipeBuilder.fixer(NEBlocks.ENERGIZED_CRYSTAL_BLOCK.get(), NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL.get())

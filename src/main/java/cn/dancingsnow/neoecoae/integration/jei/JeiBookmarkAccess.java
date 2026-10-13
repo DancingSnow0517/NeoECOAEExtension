@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModList;
 
 import java.util.List;
 
@@ -12,7 +12,7 @@ public final class JeiBookmarkAccess {
 
     public static boolean isAvailable() {
         // Keep JEI API references in a separate class, loaded only after this check.
-        return ModList.get().isLoaded("jei") && JeiBookmarkAccessImpl.isAvailable();
+        return ModIds.isLoaded(ModIds.JEI) && JeiBookmarkAccessImpl.isAvailable();
     }
 
     public static List<ItemStack> itemBookmarks() {

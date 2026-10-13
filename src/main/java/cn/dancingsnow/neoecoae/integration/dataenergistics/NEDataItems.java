@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
@@ -28,7 +29,7 @@ public class NEDataItems {
     public static final ItemEntry<MaterialItem> ECO_DATA_CELL_HOUSING = REGISTRATE
         .item("eco_data_cell_housing", MaterialItem::new)
         .recipe((ctx, prov) -> {
-            RecipeOutput dataenergisticsInstalled = prov.withConditions(new ModLoadedCondition("data_energistics"));
+            RecipeOutput dataenergisticsInstalled = prov.withConditions(new ModLoadedCondition(ModIds.DATA_ENERGISTICS));
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
                 .pattern("B B")
@@ -54,7 +55,7 @@ public class NEDataItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
         .recipe((ctx, prov) -> {
-            RecipeOutput dataenergisticsInstalled = prov.withConditions(new ModLoadedCondition("data_energistics"));
+            RecipeOutput dataenergisticsInstalled = prov.withConditions(new ModLoadedCondition(ModIds.DATA_ENERGISTICS));
             IntegratedWorkingStationRecipe.builder()
                 .require(NEItems.ECO_CELL_COMPONENT_16M, 10)
                 .require(NEDataItems.ECO_DATA_CELL_HOUSING)
@@ -76,7 +77,7 @@ public class NEDataItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
         .recipe((ctx, prov) -> {
-            RecipeOutput dataenergisticsInstalled = prov.withConditions(new ModLoadedCondition("data_energistics"));
+            RecipeOutput dataenergisticsInstalled = prov.withConditions(new ModLoadedCondition(ModIds.DATA_ENERGISTICS));
             IntegratedWorkingStationRecipe.builder()
                 .require(NEItems.ECO_CELL_COMPONENT_64M, 10)
                 .require(NEDataItems.ECO_DATA_CELL_HOUSING)
@@ -98,7 +99,7 @@ public class NEDataItems {
         ))
         .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
         .recipe((ctx, prov) -> {
-            RecipeOutput dataenergisticsInstalled = prov.withConditions(new ModLoadedCondition("data_energistics"));
+            RecipeOutput dataenergisticsInstalled = prov.withConditions(new ModLoadedCondition(ModIds.DATA_ENERGISTICS));
             IntegratedWorkingStationRecipe.builder()
                 .require(NEItems.ECO_CELL_COMPONENT_256M, 10)
                 .require(NEDataItems.ECO_DATA_CELL_HOUSING)

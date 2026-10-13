@@ -3,13 +3,14 @@ package cn.dancingsnow.neoecoae.integration.appliedpneumatics;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.OptionalCellUpgrades;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 
 import java.util.List;
 
-@Integration("appliedpneumatics")
+@Integration(ModIds.APPLIED_PNEUMATICS)
 public final class AppliedPneumaticsIntegration {
     public void apply() {
         NEAppliedPneumaticsCellTypes.register();

@@ -5,6 +5,7 @@ import appeng.datagen.providers.tags.ConventionTags;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.tags.FluidTags;
@@ -13,7 +14,7 @@ import net.pedroksl.advanced_ae.recipes.ReactionChamberRecipeBuilder;
 
 public class AAERecipes {
     public static void init(RegistrateRecipeProvider provider) {
-        RecipeOutput advancedAeInstalled = provider.withConditions(new ModLoadedCondition("advanced_ae"));
+        RecipeOutput advancedAeInstalled = provider.withConditions(new ModLoadedCondition(ModIds.ADVANCED_AE));
 
         ReactionChamberRecipeBuilder.react(NEItems.ENERGIZED_CRYSTAL, 64, 500000)
             .input(AEItems.CERTUS_QUARTZ_CRYSTAL_CHARGED, 32)

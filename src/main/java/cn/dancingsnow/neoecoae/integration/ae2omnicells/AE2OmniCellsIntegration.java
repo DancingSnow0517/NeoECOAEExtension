@@ -7,13 +7,14 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 
 import java.util.List;
 
-@Integration("ae2omnicells")
+@Integration(ModIds.AE2_OMNICELLS)
 public final class AE2OmniCellsIntegration {
     public void apply() {
         NEOmniCellTypes.register();
