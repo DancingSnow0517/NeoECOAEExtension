@@ -20,6 +20,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.function.BooleanSupplier;
 
 @SuppressWarnings("BooleanMethodIsAlwaysInverted")
 public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageCluster> {
@@ -59,13 +60,18 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         Direction interfaceSide = context.right();
         Direction expandSide = interfaceSide.getOpposite();
 
+        BooleanSupplier verifyUnmirrored = () -> verifyStructure(
+            level, controllerPos, tier, front, back, top, down, interfaceSide, expandSide
+        );
+        BooleanSupplier verifyMirrored = () -> verifyStructure(
+            level, controllerPos, tier, front, back, top, down, expandSide, interfaceSide
+        );
         return verifyEitherMirror(
-            mirrored -> verifyStructure(
-                level, controllerPos, tier, front, back, top, down,
-                mirrored ? expandSide : interfaceSide,
-                mirrored ? interfaceSide : expandSide
-            ),
-            controller::setMirrored
+            verifyUnmirrored,
+            verifyMirrored,
+            controller::setMirrored,
+            mirrored -> {},
+            () -> {}
         );
     }
 

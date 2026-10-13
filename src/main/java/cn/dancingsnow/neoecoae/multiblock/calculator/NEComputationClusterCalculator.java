@@ -27,6 +27,7 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.function.BooleanSupplier;
 
 public class NEComputationClusterCalculator extends NENetworkSwitchClusterCalculator<NEComputationCluster, ECOComputationSystemBlockEntity> {
     public NEComputationClusterCalculator(NEBlockEntity<NEComputationCluster, ?> t) {
@@ -114,11 +115,15 @@ public class NEComputationClusterCalculator extends NENetworkSwitchClusterCalcul
         Direction down = context.down();
         Direction left = context.left();
         Direction right = context.right();
+        BooleanSupplier verifyUnmirrored = () -> verifyStructure(
+            level, controllerPos, tier, front, back, top, down, right, left, right, false
+        );
+        BooleanSupplier verifyMirrored = () -> verifyStructure(
+            level, controllerPos, tier, front, back, top, down, left, right, left, true
+        );
         return verifyEitherMirror(
-            mirrored -> verifyStructure(
-                level, controllerPos, tier, front, back, top, down,
-                mirrored ? left : right, mirrored ? right : left, mirrored ? left : right, mirrored
-            ),
+            verifyUnmirrored,
+            verifyMirrored,
             controller::setMirrored,
             mirrored -> {
                 setCoolingControllersMirrored(level, min, max, mirrored);

@@ -144,7 +144,7 @@ public class NEMultiBlocks {
             .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, parallelCore.getDefaultState())
             .setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, parallelCore.getDefaultState())
             .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, NEBlocks.CRAFTING_PATTERN_BUS.getDefaultState().setValue(ECOParallelCoreBlock.FACING, Direction.SOUTH))
-            .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, NEBlocks.CRAFTING_VENT.getDefaultState().setValue(ECOComputationThreadingCore.FACING, Direction.SOUTH))
+            .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, NEBlocks.CRAFTING_VENT.getDefaultState().setValue(ECOVentBlock.FACING, Direction.SOUTH))
             .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, NEBlocks.CRAFTING_PATTERN_BUS.getDefaultState().setValue(ECOParallelCoreBlock.FACING, Direction.SOUTH))
             .setBlockWithRepeatShifted(pos(-1, 1, 0), Direction.WEST, 0, casing)
             .setBlockWithRepeatShifted(pos(-1, 2, 0), Direction.WEST, 0, casing)

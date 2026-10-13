@@ -24,6 +24,7 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
 public class NECraftingClusterCalculator extends NENetworkSwitchClusterCalculator<NECraftingCluster, ECOCraftingSystemBlockEntity> {
@@ -108,11 +109,15 @@ public class NECraftingClusterCalculator extends NENetworkSwitchClusterCalculato
         Direction down = context.down();
         Direction left = context.left();
         Direction right = context.right();
+        BooleanSupplier verifyUnmirrored = () -> verifyStructure(
+            level, controllerPos, tier, front, back, top, down, right, left, right
+        );
+        BooleanSupplier verifyMirrored = () -> verifyStructure(
+            level, controllerPos, tier, front, back, top, down, left, right, left
+        );
         return verifyEitherMirror(
-            mirrored -> verifyStructure(
-                level, controllerPos, tier, front, back, top, down,
-                mirrored ? left : right, mirrored ? right : left, mirrored ? left : right
-            ),
+            verifyUnmirrored,
+            verifyMirrored,
             controller::setMirrored,
             mirrored -> syncNetworkSwitchState(level, controllerPos, controllerState, mirrored),
             () -> clearNetworkSwitchState(level, controllerPos, controllerState)

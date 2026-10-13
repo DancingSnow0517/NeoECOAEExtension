@@ -14,7 +14,6 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 
 public class MultiBlockDefinition {
     private final List<BlockInstruction> builderActions;

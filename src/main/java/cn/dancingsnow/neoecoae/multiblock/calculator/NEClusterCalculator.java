@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -79,22 +80,23 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     protected abstract Holder<Block> casing();
 
     /**
-     * Tries the unmirrored layout first, then the mirrored one. {@code verify} receives the mirror flag and checks
-     * that layout. The flag is written to the controller before {@code onFormed} runs. On failure {@code onFailed}
-     * runs first, then the flag is cleared.
+     * Tries {@code unmirrored} first, then {@code mirrored}. Each supplier checks its own layout and returns whether
+     * it matched. On a match, {@code setMirrored} receives that layout's flag (false or true) before {@code onFormed}
+     * runs with the same flag. On failure {@code onFailed} runs first, then {@code setMirrored} receives false.
      */
     protected final boolean verifyEitherMirror(
-        Predicate<Boolean> verify,
+        BooleanSupplier unmirrored,
+        BooleanSupplier mirrored,
         Consumer<Boolean> setMirrored,
         Consumer<Boolean> onFormed,
         Runnable onFailed
     ) {
-        if (verify.test(false)) {
+        if (unmirrored.getAsBoolean()) {
             setMirrored.accept(false);
             onFormed.accept(false);
             return true;
         }
-        if (verify.test(true)) {
+        if (mirrored.getAsBoolean()) {
             setMirrored.accept(true);
             onFormed.accept(true);
             return true;
@@ -102,10 +104,6 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         onFailed.run();
         setMirrored.accept(false);
         return false;
-    }
-
-    protected final boolean verifyEitherMirror(Predicate<Boolean> verify, Consumer<Boolean> setMirrored) {
-        return verifyEitherMirror(verify, setMirrored, mirrored -> {}, () -> {});
     }
 
     @FunctionalInterface

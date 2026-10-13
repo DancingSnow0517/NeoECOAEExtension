@@ -14,7 +14,20 @@ public class ECOParallelCoreBlock<C extends NECluster<C>> extends NEBlock<ECOPar
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     /** Distinguishes crafting and computation cores for structure checks and tooltips. */
-    public enum Kind { CRAFTING, COMPUTATION }
+    public enum Kind {
+        CRAFTING("crafting_parallel_core_", "block/crafting_core/parallel_core_"),
+        COMPUTATION("computation_parallel_core_", "block/computation_core/parallel_core_");
+
+        /** Registry id prefix, followed by the level suffix (e.g. "l4"). */
+        public final String idPrefix;
+        /** Model path prefix, followed by the level suffix (and optionally "_formed"). */
+        public final String modelPrefix;
+
+        Kind(String idPrefix, String modelPrefix) {
+            this.idPrefix = idPrefix;
+            this.modelPrefix = modelPrefix;
+        }
+    }
 
     @Getter
     private final IECOTier tier;

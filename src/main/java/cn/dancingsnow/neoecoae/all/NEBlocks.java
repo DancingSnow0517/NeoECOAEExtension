@@ -68,7 +68,6 @@ import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
 import net.neoforged.neoforge.common.Tags;
 
-import java.util.Locale;
 import java.util.function.Supplier;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
@@ -1119,14 +1118,13 @@ public class NEBlocks {
     private static <C extends NECluster<C>> BlockEntry<ECOParallelCoreBlock<C>> createParallelCore(
         ECOParallelCoreBlock.Kind kind, String level, IECOTier tier, Rarity rarity, String lang
     ) {
-        String family = kind.name().toLowerCase(Locale.ROOT);
         return REGISTRATE
-            .block(family + "_parallel_core_" + level, p -> new ECOParallelCoreBlock<C>(p, tier, kind))
+            .block(kind.idPrefix + level, p -> new ECOParallelCoreBlock<C>(p, tier, kind))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
-                ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/" + family + "_core/parallel_core_" + level));
-                ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/" + family + "_core/parallel_core_" + level + "_formed"));
+                ModelFile modelFile = prov.models().getExistingFile(prov.modLoc(kind.modelPrefix + level));
+                ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc(kind.modelPrefix + level + "_formed"));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
@@ -1138,7 +1136,7 @@ public class NEBlocks {
             .item()
             .properties(p -> p.rarity(rarity))
             .model((ctx, prov) -> {
-                prov.withExistingParent(ctx.getName(), prov.modLoc("block/" + family + "_core/parallel_core_" + level));
+                prov.withExistingParent(ctx.getName(), prov.modLoc(kind.modelPrefix + level));
             })
             .build()
             .lang(lang)
