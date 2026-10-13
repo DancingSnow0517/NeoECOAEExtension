@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.storage;
 
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+
 import java.math.BigInteger;
 
 /**
@@ -23,7 +25,7 @@ public final class StorageByteAccounting {
             ? 0L
             : (amountPerByte - targetBucketAmount % amountPerByte) % amountPerByte;
         long freeBytes = totalBytes - usedBytes;
-        return saturatingAdd(unitsToCompleteBucket, saturatingMultiply(freeBytes, amountPerByte));
+        return NEMath.saturatingAdd(unitsToCompleteBucket, NEMath.saturatingMultiply(freeBytes, amountPerByte));
     }
 
     public static long remainingInsertAmount(
@@ -78,19 +80,5 @@ public final class StorageByteAccounting {
         return contentBytes.add(
             BigInteger.valueOf(Math.max(0L, storedTypes)).multiply(BigInteger.valueOf(Math.max(0L, bytesPerType)))
         );
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        if (right > 0L && left > Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
-    }
-
-    private static long saturatingMultiply(long left, long right) {
-        if (left <= 0L || right <= 0L) {
-            return 0L;
-        }
-        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 }

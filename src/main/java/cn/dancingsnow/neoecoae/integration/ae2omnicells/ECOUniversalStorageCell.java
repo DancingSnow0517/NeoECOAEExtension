@@ -9,6 +9,7 @@ import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
@@ -146,17 +147,12 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
         return Math.min(amount, capacity);
     }
 
-    @Override
-    public long getUsedBytesForMigration(KeyCounter simulatedContents) {
-        return simulatedContents == null ? 0L : snapshot(simulatedContents).usedBytes();
-    }
-
     static long calculateUsedBytes(Long2LongMap bucketSums) {
         long usedBytes = 0L;
         for (Long2LongMap.Entry entry : bucketSums.long2LongEntrySet()) {
             long amountPerByte = Math.max(1L, entry.getLongKey());
             long amount = Math.max(0L, entry.getLongValue());
-            usedBytes = saturatingAdd(usedBytes, ceilDivide(amount, amountPerByte));
+            usedBytes = NEMath.saturatingAdd(usedBytes, ceilDivide(amount, amountPerByte));
         }
         return usedBytes;
     }
@@ -171,14 +167,7 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
             return 0L;
         }
         long quotient = dividend / divisor;
-        return dividend % divisor == 0L ? quotient : saturatingAdd(quotient, 1L);
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        if (right > 0L && left > Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
+        return dividend % divisor == 0L ? quotient : NEMath.saturatingAdd(quotient, 1L);
     }
 
     private StorageSnapshot snapshot() {
@@ -196,9 +185,9 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
             if (amount <= 0L) {
                 continue;
             }
-            storedTypes = saturatingAdd(storedTypes, 1L);
+            storedTypes = NEMath.saturatingAdd(storedTypes, 1L);
             long amountPerByte = Math.max(1L, entry.getKey().getType().getAmountPerByte());
-            bucketSums.put(amountPerByte, saturatingAdd(bucketSums.get(amountPerByte), amount));
+            bucketSums.put(amountPerByte, NEMath.saturatingAdd(bucketSums.get(amountPerByte), amount));
         }
         return new StorageSnapshot(bucketSums, storedTypes, calculateUsedBytes(bucketSums));
     }

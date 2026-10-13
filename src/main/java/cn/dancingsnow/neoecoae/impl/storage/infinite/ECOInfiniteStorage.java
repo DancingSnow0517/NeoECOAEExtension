@@ -7,12 +7,14 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.StorageCell;
 import appeng.me.cells.BasicCellInventory;
 import appeng.items.storage.BasicStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import java.math.BigInteger;
 import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.Component;
@@ -62,9 +64,11 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
         byte cached = admission.getByte(key);
         if (cached != 0) return cached > 0;
         var stack = itemKey.getReadOnlyStack();
-        var inventory = StorageCells.getCellInventory(stack, null);
+        // ECO cells are not registered with AE2's StorageCells, so they must be resolved first.
+        var ecoInventory = ECOStorageCells.getCellInventory(stack, null);
+        StorageCell inventory = ecoInventory != null ? ecoInventory : StorageCells.getCellInventory(stack, null);
         boolean accepted = inventory == null || inventory.canFitInsideCell();
-        if (inventory == null && StorageCells.getHandler(stack) == null
+        if (inventory == null && StorageCells.getHandler(stack) == null && !ECOStorageCells.isCellHandled(stack)
                 || inventory != null && (inventory.getClass() == BasicCellInventory.class
                 && stack.getItem().getClass() == BasicStorageCell.class
                 || inventory.getClass() == ECOStorageCell.class

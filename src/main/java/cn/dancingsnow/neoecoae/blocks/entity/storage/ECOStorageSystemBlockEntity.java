@@ -657,10 +657,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return hostMode == ECOStorageHostMode.FORMED_INFINITE;
     }
 
-    private int getInfiniteMigrationProgressPercent() {
-        return infiniteModeController.migrationProgressPercent();
-    }
-
     public boolean canUseHostDomainStorage() {
         return formed && hostMode.isInfiniteState() && infiniteDomainId != null;
     }

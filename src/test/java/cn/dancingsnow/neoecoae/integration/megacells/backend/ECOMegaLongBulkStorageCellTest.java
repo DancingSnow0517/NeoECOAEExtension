@@ -438,6 +438,24 @@ class ECOMegaLongBulkStorageCellTest {
         }
     }
 
+    @Test
+    void partlyFilledByteCountsAsUsedInBytesReporting() throws Exception {
+        var key = AEItemKey.of(Items.IRON_INGOT);
+        var cell = ordinaryCell(key);
+        doReturn(AEKeyType.items()).when(cell).getKeyType();
+        doReturn(0).when(cell).getBytesPerType();
+        doReturn(10L).when(cell).getTotalBytes();
+        cell.getStoredEntries().put(key, 1L);
+        assertEquals(1L, cell.getUsedBytes());
+        assertEquals(9L, cell.getFreeBytes());
+        cell.getStoredEntries().put(key, 9L);
+        assertEquals(2L, cell.getUsedBytes());
+        assertEquals(8L, cell.getFreeBytes());
+        cell.getStoredEntries().put(key, 8L);
+        assertEquals(1L, cell.getUsedBytes());
+        assertEquals(9L, cell.getFreeBytes());
+    }
+
     private static void setPatternField(DecompressionPattern pattern, String name, Object value) throws Exception {
         var field = DecompressionPattern.class.getDeclaredField(name);
         field.setAccessible(true);

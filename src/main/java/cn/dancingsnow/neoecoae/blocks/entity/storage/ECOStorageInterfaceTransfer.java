@@ -83,9 +83,7 @@ final class ECOStorageInterfaceTransfer {
 
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
             IECOStorageCell cell = drive.getCellInventory();
-            if (cell != null
-                && host.getTier().compareTo(cell.getTier()) >= 0
-                && !host.isInfiniteMemberCell(drive.getCellStack())) {
+            if (cell != null && drive.isCellEligibleForStorageAccess(host.getTier(), cell)) {
                 cells.add(cell);
             }
         }

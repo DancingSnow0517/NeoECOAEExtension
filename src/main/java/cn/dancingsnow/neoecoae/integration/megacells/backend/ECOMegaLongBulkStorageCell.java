@@ -175,8 +175,14 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
     @Override
     public long getUsedBytes() {
         long typeBytes = NEMath.saturatingMultiply(getStoredItemTypes(), getBytesPerType());
-        long amountBytes = getStoredItemCount() / Math.max(1, getKeyType().getAmountPerByte());
+        long amountBytes = ceilDivide(getStoredItemCount(), Math.max(1L, getKeyType().getAmountPerByte()));
         return NEMath.saturatingAdd(typeBytes, amountBytes);
+    }
+
+    /** A partly filled byte counts as used, matching {@link ECOStorageCell#getUsedBytes()}. */
+    private static long ceilDivide(long amount, long divisor) {
+        long quotient = amount / divisor;
+        return amount % divisor == 0L ? quotient : quotient + 1L;
     }
 
     @Override
@@ -418,10 +424,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
         persisted = true;
     }
 
-    private List<AEItemKey> readFilters() {
-        return lookupContext().filters;
-    }
-
     private List<AEItemKey> readFilters(LookupContext context) {
         List<AEItemKey> result = new ArrayList<>();
         List<GenericStack> config = context.state.markers();
@@ -628,15 +630,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
     }
 
 
-    /**
-     * The Drive caches this inventory instance, while the cell configuration can change in place
-     * through the cell UI. Read the current configuration whenever the cell is queried so pattern
-     * refreshes and storage matching observe the same filters as the ItemStack.
-     */
-    private List<AEItemKey> configuredFilters() {
-        return readFilters();
-    }
-
     public boolean hasEcoMegaUpgradeCard() {
         return getUpgradesInventory().isInstalled(NEMegaItems.ECO_MEGA_UPGRADE_CARD);
     }
@@ -646,8 +639,13 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
         return getUpgradesInventory().isInstalled(MEGAItems.COMPRESSION_CARD);
     }
 
+    /**
+     * The Drive caches this inventory instance, while the cell configuration can change in place
+     * through the cell UI. Read the current configuration whenever the cell is queried so pattern
+     * refreshes and storage matching observe the same filters as the ItemStack.
+     */
     public List<AEItemKey> getEffectiveConfiguredFilters() {
-        return configuredFilters();
+        return lookupContext().filters;
     }
 
     /** One representative per occupied chain, without expanding compression variants. */
@@ -664,10 +662,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
     /** Returns the persisted storage entries for the item tooltip. */
     public Map<AEItemKey, Long> getStoredEntries() {
         return storedUnits;
-    }
-
-    public boolean isCompressionEnabled() {
-        return hasCompressionCard();
     }
 
     private long unitFactor(AEItemKey configured, AEItemKey item, LookupContext context) {

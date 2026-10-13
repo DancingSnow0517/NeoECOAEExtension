@@ -155,6 +155,16 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             && ECOInfiniteStorageMember.isMember(cellStack);
     }
 
+    /**
+     * Storage-access rule shared by AE2 mounts and storage interface transfer. A migrating cell is locked by its
+     * migration and an infinite member belongs to its domain, so neither is ordinary normal storage.
+     */
+    public boolean isCellEligibleForStorageAccess(IECOTier hostTier, IECOStorageCell cell) {
+        return hostTier.compareTo(cell.getTier()) >= 0
+            && !ECOInfiniteStorageMember.isMigrating(cellStack)
+            && !ECOInfiniteStorageMember.isMember(cellStack);
+    }
+
     private void updateState() {
         if (isServerStopping()) {
             return;
@@ -221,10 +231,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             IECOTier mainTier = storageCluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null
-                && mainTier.compareTo(cellInventory.getTier()) >= 0
-                && !storageCluster.getController().isStorageInterfaceTransferMode()
-                && !ECOInfiniteStorageMember.isMigrating(cellStack)
-                && !ECOInfiniteStorageMember.isMember(cellStack)) {
+                && isCellEligibleForStorageAccess(mainTier, cellInventory)
+                && !storageCluster.getController().isStorageInterfaceTransferMode()) {
                 int priority = cn.dancingsnow.neoecoae.gui.storage.StoragePriority.mountPriority(
                     storageCluster.getController().getStoragePriority(), cellInventory.prioritizesMarkedInserts());
                 storageMounts.mount(cellInventory, priority);

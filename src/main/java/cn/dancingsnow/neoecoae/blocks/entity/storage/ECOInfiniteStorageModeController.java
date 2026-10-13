@@ -159,20 +159,6 @@ final class ECOInfiniteStorageModeController {
         return false;
     }
 
-    int migrationProgressPercent() {
-        if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE) {
-            return 100;
-        }
-        if (host.storageHostMode() != ECOStorageHostMode.MIGRATING_TO_INFINITE) {
-            return 0;
-        }
-        int migrated = countInfiniteMembers();
-        int totalTargets = migrated + countPendingMigrationTargets();
-        return totalTargets == 0
-                ? 100
-                : Math.clamp(Math.round(migrated * 100.0F / totalTargets), 0, 100);
-    }
-
     private int countMigrationSources() {
         return countInfiniteMembers() + countPendingMigrationTargets();
     }

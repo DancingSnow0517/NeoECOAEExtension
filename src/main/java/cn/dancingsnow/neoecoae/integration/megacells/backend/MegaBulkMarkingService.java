@@ -10,6 +10,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
@@ -243,7 +244,7 @@ public final class MegaBulkMarkingService {
                         if (sameMarker(target.marker(), itemKey)) {
                             // One misbehaving inventory must not abandon the remaining chains.
                             try {
-                                transferred = saturatingAdd(transferred, transfer(
+                                transferred = NEMath.saturatingAdd(transferred, transfer(
                                     sourceStorage, target.storage(), itemKey, entry.getLongValue(), actionSource));
                             } catch (RuntimeException failure) {
                                 LOGGER.error("Bulk migration failed for {} from drive {}",
@@ -268,7 +269,7 @@ public final class MegaBulkMarkingService {
                     for (ChainTarget target : chainTargets) {
                         if (sameMarker(target.marker(), key)) {
                             try {
-                                transferred = saturatingAdd(transferred, transfer(
+                                transferred = NEMath.saturatingAdd(transferred, transfer(
                                     network, target.storage(), key, entry.getLongValue(), actionSource));
                             } catch (RuntimeException failure) {
                                 LOGGER.error("Bulk migration failed for {} from the network", key, failure);
@@ -339,10 +340,6 @@ public final class MegaBulkMarkingService {
             return requested;
         }
         return ack;
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
     }
 
     private static boolean sameChain(CompressionChain first, CompressionChain second) {

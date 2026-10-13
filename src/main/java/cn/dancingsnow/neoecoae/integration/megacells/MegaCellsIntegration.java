@@ -113,6 +113,7 @@ public final class MegaCellsIntegration {
     }
 
     private void registerExternalCells() {
+        externalCells.clear();
         if (ModList.get().isLoaded("appliedpneumatics")) {
             addExternalCells("air", NEMegaExternalItems.registerAir());
         }

@@ -71,11 +71,6 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
         return insert(what, amount, Actionable.SIMULATE, null);
     }
 
-    @Override
-    public long getUsedBytesForMigration(KeyCounter simulatedContents) {
-        return 0L;
-    }
-
     /**
      * Reports the locked keys as always available without ever writing them to NBT. The cell is
      * excluded from the infinite storage domain by {@link #isInfiniteStorageEligible()}, so no

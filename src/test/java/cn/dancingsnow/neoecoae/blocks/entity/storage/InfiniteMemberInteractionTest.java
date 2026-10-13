@@ -113,6 +113,7 @@ class InfiniteMemberInteractionTest {
         when(host.getCluster()).thenReturn(cluster);
         when(cluster.getDrives()).thenReturn(List.of(drive));
         when(drive.getCellInventory()).thenReturn(cell);
+        when(drive.isCellEligibleForStorageAccess(tier, cell)).thenReturn(true);
         when(cell.getTier()).thenReturn(tier);
         when(host.getBlockState()).thenReturn(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         var storage = new ECOStorageInterfaceTransfer(host).getStorageInterfaceHostStorage();
@@ -122,6 +123,49 @@ class InfiniteMemberInteractionTest {
         assertNotNull(storage);
         assertEquals(64, storage.extract(key, 64, appeng.api.config.Actionable.SIMULATE, source));
         verify(domain).extract(key, 64, appeng.api.config.Actionable.SIMULATE, source);
+    }
+
+    private static ECODriveBlockEntity drive(ItemStack stack, IECOStorageCell cell) throws Exception {
+        var drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        var cellStack = ECODriveBlockEntity.class.getDeclaredField("cellStack");
+        cellStack.setAccessible(true);
+        cellStack.set(drive, stack);
+        doReturn(cell).when(drive).getCellInventory();
+        return drive;
+    }
+
+    private static IECOStorageCell cell(cn.dancingsnow.neoecoae.api.IECOTier tier) {
+        var cell = mock(IECOStorageCell.class);
+        when(cell.getTier()).thenReturn(tier);
+        return cell;
+    }
+
+    @Test
+    void interfaceTransferSkipsMigratingAndInfiniteMemberCellsButKeepsNormalCells() throws Exception {
+        UUID domain = UUID.randomUUID();
+        var tier = mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
+        var host = mock(ECOStorageSystemBlockEntity.class);
+        when(host.storageHostMode()).thenReturn(cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode.FORMED_NORMAL);
+        when(host.getTier()).thenReturn(tier);
+        when(host.getBlockState()).thenReturn(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        var cluster = mock(NEStorageCluster.class);
+        when(host.getCluster()).thenReturn(cluster);
+
+        ItemStack migrating = new ItemStack(Items.STONE);
+        ECOInfiniteStorageMember.beginMigration(migrating, domain);
+        ItemStack member = new ItemStack(Items.STONE);
+        ECOInfiniteStorageMember.markMember(member, domain);
+        var normalCell = cell(tier);
+        var normalDrive = drive(new ItemStack(Items.STONE), normalCell);
+        var migratingDrive = drive(migrating, cell(tier));
+        var memberDrive = drive(member, cell(tier));
+
+        when(cluster.getDrives()).thenReturn(List.of(migratingDrive, memberDrive, normalDrive));
+        var storage = new ECOStorageInterfaceTransfer(host).getStorageInterfaceHostStorage();
+        assertEquals(List.of(normalCell), ((ECOStorageInterfaceTransfer.CombinedStorage) storage).inventories());
+
+        when(cluster.getDrives()).thenReturn(List.of(migratingDrive, memberDrive));
+        assertNull(new ECOStorageInterfaceTransfer(host).getStorageInterfaceHostStorage());
     }
 
     @Test

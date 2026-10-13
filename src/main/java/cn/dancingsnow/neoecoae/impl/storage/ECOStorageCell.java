@@ -19,6 +19,7 @@ import appeng.util.prioritylist.IPartitionList;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
@@ -183,7 +184,11 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     public static boolean canStoreKeyInsideStorageCell(AEKey what) {
         if (what instanceof AEItemKey itemKey) {
             // Only probed, never mutated: skip the per-insert ItemStack copy.
-            var cellInv = StorageCells.getCellInventory(itemKey.getReadOnlyStack(), null);
+            var stack = itemKey.getReadOnlyStack();
+            // ECO cells are not registered with AE2's StorageCells, so they must be resolved first.
+            var ecoInv = ECOStorageCells.getCellInventory(stack, null);
+            if (ecoInv != null) return ecoInv.canFitInsideCell();
+            var cellInv = StorageCells.getCellInventory(stack, null);
             return cellInv == null || cellInv.canFitInsideCell();
         }
         return true;
@@ -393,28 +398,6 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     ) {
         return simulateInsertForMigration(
             what, amount, simulatedContents.get(what), simulatedTypes, simulatedAmount);
-    }
-
-    @Override
-    public long getUsedBytesForMigration(KeyCounter simulatedContents) {
-        if (simulatedContents == null) {
-            return 0L;
-        }
-        long storedTypes = 0L;
-        long storedItemCount = 0L;
-        for (Object2LongMap.Entry<AEKey> entry : simulatedContents) {
-            if (entry.getLongValue() > 0L) {
-                storedTypes = NEMath.saturatingAdd(storedTypes, 1L);
-                storedItemCount = NEMath.saturatingAdd(storedItemCount, entry.getLongValue());
-            }
-        }
-        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
-        long unusedItemCount = storedItemCount % amountPerByte == 0L
-            ? 0L
-            : amountPerByte - storedItemCount % amountPerByte;
-        long bytesForItems = ceilDivide(storedItemCount, amountPerByte);
-        return NEMath.saturatingAdd(
-            NEMath.saturatingMultiply(storedTypes, getBytesPerType()), bytesForItems);
     }
 
     private static long ceilDivide(long amount, long divisor) {

@@ -42,6 +42,4 @@ public interface IECOStorageMigrationCell extends IECOStorageCell {
         long simulatedTypes,
         long simulatedAmount
     );
-
-    long getUsedBytesForMigration(KeyCounter simulatedContents);
 }
