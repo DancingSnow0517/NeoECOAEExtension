@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
-import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
+import cn.dancingsnow.neoecoae.integration.xei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
 import dev.emi.emi.api.stack.EmiStack;

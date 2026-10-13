@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
-import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
+import cn.dancingsnow.neoecoae.integration.xei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import appeng.api.stacks.GenericStack;

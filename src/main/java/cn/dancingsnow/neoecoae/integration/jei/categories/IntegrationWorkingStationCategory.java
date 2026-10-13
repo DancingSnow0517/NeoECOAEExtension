@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
-import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
+import cn.dancingsnow.neoecoae.integration.xei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
