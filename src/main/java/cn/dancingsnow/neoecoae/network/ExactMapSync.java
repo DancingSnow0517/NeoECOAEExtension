@@ -41,17 +41,27 @@ public final class ExactMapSync {
     }
 
     public static void writeInteger(net.minecraft.network.FriendlyByteBuf buf, BigInteger value) {
-        byte[] bytes = value.toByteArray();
-        if (value.signum() < 0 || bytes.length > MAX_INTEGER_BYTES) throw new IllegalArgumentException("Invalid amount");
-        buf.writeByteArray(bytes);
+        if (value.signum() < 0) throw new IllegalArgumentException("Negative amount");
+        writeSignedInteger(buf, value);
     }
 
     public static BigInteger readInteger(net.minecraft.network.FriendlyByteBuf buf) {
-        byte[] bytes = buf.readByteArray(MAX_INTEGER_BYTES);
-        if (bytes.length == 0) throw new IllegalArgumentException("Empty amount");
-        BigInteger value = new BigInteger(bytes);
+        BigInteger value = readSignedInteger(buf);
         if (value.signum() < 0) throw new IllegalArgumentException("Negative amount");
         return value;
+    }
+
+    /** Length-prefixed two's-complement bytes with no sign check; for values that may legitimately be negative. */
+    public static void writeSignedInteger(net.minecraft.network.FriendlyByteBuf buf, BigInteger value) {
+        byte[] bytes = value.toByteArray();
+        if (bytes.length > MAX_INTEGER_BYTES) throw new IllegalArgumentException("Integer is too large");
+        buf.writeByteArray(bytes);
+    }
+
+    public static BigInteger readSignedInteger(net.minecraft.network.FriendlyByteBuf buf) {
+        byte[] bytes = buf.readByteArray(MAX_INTEGER_BYTES);
+        if (bytes.length == 0) throw new IllegalArgumentException("Empty amount");
+        return new BigInteger(bytes);
     }
 
     public static Map<AEKey, ExactAmount> finite(Map<AEKey, BigInteger> amounts) {

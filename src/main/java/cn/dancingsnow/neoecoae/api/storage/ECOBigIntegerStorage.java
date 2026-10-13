@@ -15,12 +15,7 @@ public interface ECOBigIntegerStorage {
     static BigInteger insert(MEStorage storage, AEKey what, BigInteger amount,
             Actionable mode, IActionSource source) {
         Objects.requireNonNull(storage, "storage");
-        Objects.requireNonNull(what, "what");
-        Objects.requireNonNull(amount, "amount");
-        Objects.requireNonNull(mode, "mode");
-        Objects.requireNonNull(source, "source");
-        if (amount.signum() < 0) throw new IllegalArgumentException("Amount must not be negative");
-        if (amount.signum() == 0) return BigInteger.ZERO;
+        if (!checkRequest(what, amount, mode, source)) return BigInteger.ZERO;
 
         BigInteger max = BigInteger.valueOf(Long.MAX_VALUE);
         if (amount.compareTo(max) <= 0) {
@@ -35,7 +30,18 @@ public interface ECOBigIntegerStorage {
         return checkedResult(amount, BigInteger.valueOf(inserted));
     }
 
-    private static BigInteger checkedResult(BigInteger offered, BigInteger inserted) {
+    /** Validates an exact insertion request. Returns false when there is nothing to offer. */
+    static boolean checkRequest(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
+        Objects.requireNonNull(what, "what");
+        Objects.requireNonNull(amount, "amount");
+        Objects.requireNonNull(mode, "mode");
+        Objects.requireNonNull(source, "source");
+        if (amount.signum() < 0) throw new IllegalArgumentException("Amount must not be negative");
+        return amount.signum() > 0;
+    }
+
+    /** Validates what a storage reported for an offered amount. */
+    static BigInteger checkedResult(BigInteger offered, BigInteger inserted) {
         if (inserted == null || inserted.signum() < 0 || inserted.compareTo(offered) > 0) {
             throw new IllegalStateException("Invalid BigInteger storage insertion result: " + inserted
                     + " for " + offered);

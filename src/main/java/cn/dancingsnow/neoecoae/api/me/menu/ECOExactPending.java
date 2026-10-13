@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.api.me.menu;
 
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;
+import cn.dancingsnow.neoecoae.network.ExactMapSync;
 import java.math.BigInteger;
 import java.util.Map;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -14,12 +15,11 @@ public record ECOExactPending(Map<AEKey, BigInteger> amounts) implements PacketW
         int size = buf.readVarInt();
         if (size < 0 || size > 100000) throw new IllegalArgumentException("Invalid preview size");
         var result = new java.util.HashMap<AEKey, BigInteger>();
-        for (int i = 0; i < size; i++) result.put(AEKey.readKey(buf),
-            new BigInteger(buf.readByteArray(4096)));
+        for (int i = 0; i < size; i++) result.put(AEKey.readKey(buf), ExactMapSync.readInteger(buf));
         return result;
     }
     @Override public void writeToPacket(RegistryFriendlyByteBuf buf) {
         buf.writeVarInt(amounts.size());
-        amounts.forEach((key, amount) -> { AEKey.writeKey(buf, key); buf.writeByteArray(amount.toByteArray()); });
+        amounts.forEach((key, amount) -> { AEKey.writeKey(buf, key); ExactMapSync.writeInteger(buf, amount); });
     }
 }

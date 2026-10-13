@@ -7,6 +7,7 @@ import java.util.List;
 import java.math.BigInteger;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
+import cn.dancingsnow.neoecoae.network.ExactMapSync;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Cycle members synchronized with the crafting confirmation screen. */
@@ -26,8 +27,8 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         if (size < 0 || size > 100_000) throw new IllegalArgumentException("Invalid cycle item count");
         List<Entry> items = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            items.add(new Entry(AEKey.readKey(data), readBigInteger(data), readBigInteger(data),
-                readBigInteger(data), readBigInteger(data), readBigInteger(data),
+            items.add(new Entry(AEKey.readKey(data), ExactMapSync.readSignedInteger(data), ExactMapSync.readSignedInteger(data),
+                ExactMapSync.readSignedInteger(data), ExactMapSync.readSignedInteger(data), ExactMapSync.readSignedInteger(data),
                 data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class), data.readVarInt(), data.readLong()));
         }
         return items;
@@ -39,11 +40,11 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         data.writeVarInt(items.size());
         for (Entry item : items) {
             AEKey.writeKey(data, item.what());
-            writeBigInteger(data, item.exactConsumed());
-            writeBigInteger(data, item.exactProduced());
-            writeBigInteger(data, item.exactSingleNetOutput());
-            writeBigInteger(data, item.exactTotalNetOutput());
-            writeBigInteger(data, item.exactMissing());
+            ExactMapSync.writeSignedInteger(data, item.exactConsumed());
+            ExactMapSync.writeSignedInteger(data, item.exactProduced());
+            ExactMapSync.writeSignedInteger(data, item.exactSingleNetOutput());
+            ExactMapSync.writeSignedInteger(data, item.exactTotalNetOutput());
+            ExactMapSync.writeSignedInteger(data, item.exactMissing());
             data.writeEnum(item.executionCountKnowledge());
             data.writeEnum(item.solveStatus());
             data.writeVarInt(item.componentId());
@@ -104,17 +105,5 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         public boolean isCycleProduct() { return exactTotalNetOutput.signum() > 0; }
 
         public BigInteger displayedTotal() { return isCycleProduct() ? exactProduced : exactConsumed; }
-    }
-
-    private static void writeBigInteger(RegistryFriendlyByteBuf data, BigInteger value) {
-        byte[] bytes = value.toByteArray();
-        if (bytes.length > 4096) throw new IllegalArgumentException("Cycle diagnostic integer is too large");
-        data.writeByteArray(bytes);
-    }
-
-    private static BigInteger readBigInteger(RegistryFriendlyByteBuf data) {
-        byte[] bytes = data.readByteArray(4096);
-        if (bytes.length == 0) throw new IllegalArgumentException("Empty cycle diagnostic integer");
-        return new BigInteger(bytes);
     }
 }

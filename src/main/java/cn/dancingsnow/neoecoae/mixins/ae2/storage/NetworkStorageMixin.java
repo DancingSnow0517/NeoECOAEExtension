@@ -18,7 +18,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.NavigableMap;
-import java.util.Objects;
 
 /** Prevents storage totals from disappearing when an unbounded stack is combined with another inventory. */
 @Mixin(NetworkStorage.class)
@@ -34,21 +33,16 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
 
     @Override
     public BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
-        Objects.requireNonNull(what, "what");
-        Objects.requireNonNull(amount, "amount");
-        Objects.requireNonNull(mode, "mode");
-        Objects.requireNonNull(source, "source");
-        if (amount.signum() < 0) throw new IllegalArgumentException("Amount must not be negative");
-        if (amount.signum() == 0) return BigInteger.ZERO;
+        if (!ECOBigIntegerStorage.checkRequest(what, amount, mode, source)) return BigInteger.ZERO;
         if (amount.compareTo(MAX_LONG) <= 0) {
             long offered = amount.longValueExact();
-            return checked(amount, BigInteger.valueOf(((MEStorage) (Object) this)
+            return ECOBigIntegerStorage.checkedResult(amount, BigInteger.valueOf(((MEStorage) (Object) this)
                     .insert(what, offered, mode, source)));
         }
         if (mountsInUse) return BigInteger.ZERO;
 
         // Let ordinary ME storage handle one standard-sized window, using AE2's original priority routing.
-        BigInteger accepted = checked(MAX_LONG, BigInteger.valueOf(((MEStorage) (Object) this)
+        BigInteger accepted = ECOBigIntegerStorage.checkedResult(MAX_LONG, BigInteger.valueOf(((MEStorage) (Object) this)
                 .insert(what, Long.MAX_VALUE, mode, source)));
         BigInteger remaining = amount.subtract(accepted);
         if (remaining.signum() == 0) return accepted;
@@ -84,14 +78,7 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
 
     private static BigInteger insertExact(ECOBigIntegerStorage inventory, AEKey what, BigInteger amount,
             Actionable mode, IActionSource source) {
-        return checked(amount, inventory.insertBigInteger(what, amount, mode, source));
-    }
-
-    private static BigInteger checked(BigInteger offered, BigInteger inserted) {
-        if (inserted == null || inserted.signum() < 0 || inserted.compareTo(offered) > 0) {
-            throw new IllegalStateException("Invalid storage insertion result: " + inserted + " for " + offered);
-        }
-        return inserted;
+        return ECOBigIntegerStorage.checkedResult(amount, inventory.insertBigInteger(what, amount, mode, source));
     }
 
     @WrapOperation(
