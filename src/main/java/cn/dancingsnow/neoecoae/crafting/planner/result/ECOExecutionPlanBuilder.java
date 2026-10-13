@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.RepeatLayout;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
@@ -200,7 +201,7 @@ public final class ECOExecutionPlanBuilder {
                         + reservation.getKey() + " stockReserved=" + planned + " finalUsedItems=" + finalUsed);
                 }
                 projectedReservations.merge(reservation.getKey(), planned,
-                    ECOExecutionPlanBuilder::saturatedAdd);
+                    NEMath::saturatingAdd);
             }
         }
         projectedReservations.forEach((key, projected) -> {
@@ -212,12 +213,6 @@ public final class ECOExecutionPlanBuilder {
                     + key + " projected=" + projected + " finalUsedItems=" + finalUsed);
             }
         });
-    }
-
-    private static long saturatedAdd(long left, long right) {
-        if (left >= 0L && right >= 0L && Long.MAX_VALUE - left < right) return Long.MAX_VALUE;
-        if (left <= 0L && right <= 0L && Long.MIN_VALUE - left > right) return Long.MIN_VALUE;
-        return left + right;
     }
 
     private static void validateStockSatisfied(PlanIdentity.Signature signature,

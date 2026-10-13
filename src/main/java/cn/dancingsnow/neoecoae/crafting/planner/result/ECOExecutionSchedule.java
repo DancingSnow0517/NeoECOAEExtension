@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.result;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.ExecutionProvenance;
@@ -17,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.PriorityQueue;
 import java.util.HashSet;
+import java.util.Iterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -307,25 +309,41 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         return text.toString();
     }
 
-    private static List<List<Integer>> stronglyConnectedComponents(Set<Integer> nodes, List<Set<Integer>> outgoing) {
+    // Visible for testing.
+    static List<List<Integer>> stronglyConnectedComponents(Set<Integer> nodes, List<Set<Integer>> outgoing) {
         List<List<Integer>> result = new ArrayList<>();
         Map<Integer, Integer> index = new HashMap<>(), low = new HashMap<>();
         Set<Integer> onStack = new HashSet<>();
         java.util.ArrayDeque<Integer> stack = new java.util.ArrayDeque<>();
+        // Explicit replacement for recursion: each call frame is a node plus its iterator over remaining edges.
+        java.util.ArrayDeque<Integer> callNodes = new java.util.ArrayDeque<>();
+        java.util.ArrayDeque<Iterator<Integer>> callEdges = new java.util.ArrayDeque<>();
         int[] next = {0};
-        for (int node : nodes) if (!index.containsKey(node)) tarjan(node, nodes, outgoing, index, low, onStack, stack, next, result);
-        return result;
-    }
-
-    private static void tarjan(int v, Set<Integer> nodes, List<Set<Integer>> outgoing, Map<Integer,Integer> index,
-            Map<Integer,Integer> low, Set<Integer> onStack, java.util.ArrayDeque<Integer> stack, int[] next,
-            List<List<Integer>> result) {
-        index.put(v, next[0]); low.put(v, next[0]++); stack.push(v); onStack.add(v);
-        for (int w : outgoing.get(v)) if (nodes.contains(w)) {
-            if (!index.containsKey(w)) { tarjan(w,nodes,outgoing,index,low,onStack,stack,next,result); low.put(v, Math.min(low.get(v), low.get(w))); }
-            else if (onStack.contains(w)) low.put(v, Math.min(low.get(v), index.get(w)));
+        for (int root : nodes) {
+            if (index.containsKey(root)) continue;
+            index.put(root, next[0]); low.put(root, next[0]++); stack.push(root); onStack.add(root);
+            callNodes.push(root); callEdges.push(outgoing.get(root).iterator());
+            while (!callNodes.isEmpty()) {
+                int v = callNodes.peek();
+                Iterator<Integer> edges = callEdges.peek();
+                if (edges.hasNext()) {
+                    int w = edges.next();
+                    if (!nodes.contains(w)) continue;
+                    if (!index.containsKey(w)) {
+                        index.put(w, next[0]); low.put(w, next[0]++); stack.push(w); onStack.add(w);
+                        callNodes.push(w); callEdges.push(outgoing.get(w).iterator());
+                    } else if (onStack.contains(w)) {
+                        low.put(v, Math.min(low.get(v), index.get(w)));
+                    }
+                    continue;
+                }
+                callNodes.pop(); callEdges.pop();
+                if (low.get(v).equals(index.get(v))) { List<Integer> scc = new ArrayList<>(); int w; do { w=stack.pop(); onStack.remove(w); scc.add(w); } while (w!=v); result.add(scc); }
+                // Mirrors the low-link update a recursive call performed after returning to its caller.
+                if (!callNodes.isEmpty()) { int parent = callNodes.peek(); low.put(parent, Math.min(low.get(parent), low.get(v))); }
+            }
         }
-        if (low.get(v).equals(index.get(v))) { List<Integer> scc = new ArrayList<>(); int w; do { w=stack.pop(); onStack.remove(w); scc.add(w); } while (w!=v); result.add(scc); }
+        return result;
     }
 
     private static boolean addDependency(List<Set<Integer>> outgoing, int[] indegree,
@@ -464,10 +482,9 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             add(pattern);
             PlanIdentity.PatternIdentity identity = identityOf(pattern);
             if (identity == null) {
-                plannedCountsByInstance.put(pattern, addCounts(plannedCountsByInstance.get(pattern), count));
+                plannedCountsByInstance.merge(pattern, count, NEMath::saturatingAdd);
             } else {
-                Long previous = plannedCountsByIdentity.get(identity);
-                plannedCountsByIdentity.put(identity, addCounts(previous, count));
+                plannedCountsByIdentity.merge(identity, count, NEMath::saturatingAdd);
             }
         }
 
@@ -518,11 +535,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             PlanIdentity.PatternIdentity identity = pattern == null ? null : PlanIdentity.patternIdentityFor(pattern);
             identityByInstance.put(pattern, identity);
             return identity;
-        }
-
-        private static long addCounts(Long previous, long count) {
-            return previous == null ? count
-                : Long.MAX_VALUE - previous < count ? Long.MAX_VALUE : previous + count;
         }
 
         private static final class IdentityBucket {

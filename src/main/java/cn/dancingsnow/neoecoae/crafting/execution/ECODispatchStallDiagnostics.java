@@ -122,15 +122,15 @@ final class ECODispatchStallDiagnostics {
     }
 
     void resolveAttempt() {
-        if (jobId != null) resolveAttempts = saturatingIncrement(resolveAttempts);
+        if (jobId != null) resolveAttempts = NEMath.saturatingAdd(resolveAttempts, 1L);
     }
 
     void resolveFailure() {
-        if (jobId != null) resolveFailures = saturatingIncrement(resolveFailures);
+        if (jobId != null) resolveFailures = NEMath.saturatingAdd(resolveFailures, 1L);
     }
 
     void repeatedFailureSameEpoch() {
-        if (jobId != null) repeatedFailureSameEpoch = saturatingIncrement(repeatedFailureSameEpoch);
+        if (jobId != null) repeatedFailureSameEpoch = NEMath.saturatingAdd(repeatedFailureSameEpoch, 1L);
     }
 
     void finishResolveTick() {
@@ -161,15 +161,15 @@ final class ECODispatchStallDiagnostics {
 
     void providerConsidered(boolean eligible) {
         if (jobId == null) return;
-        providers = saturatingIncrement(providers);
-        if (eligible) eligibleProviders = saturatingIncrement(eligibleProviders);
+        providers = NEMath.saturatingAdd(providers, 1L);
+        if (eligible) eligibleProviders = NEMath.saturatingAdd(eligibleProviders, 1L);
         else cause(Cause.BUDGET);
     }
 
     void provider(IPatternDetails pattern, ICraftingProvider provider, boolean isBusy) {
         if (jobId == null) return;
         if (!isBusy) return;
-        busy = saturatingIncrement(busy);
+        busy = NEMath.saturatingAdd(busy, 1L);
         cause(Cause.PROVIDER_BUSY);
         if ("none".equals(lastBusy)) lastBusy = describeProvider(pattern, provider, true);
     }
@@ -181,7 +181,7 @@ final class ECODispatchStallDiagnostics {
 
     void probe() {
         if (jobId == null) return;
-        probes = saturatingIncrement(probes);
+        probes = NEMath.saturatingAdd(probes, 1L);
     }
 
     void missingInputs(IPatternDetails pattern, ICraftingInventory inventory) {
@@ -242,7 +242,7 @@ final class ECODispatchStallDiagnostics {
 
     void batchRejected(IPatternDetails pattern, ICraftingProvider provider) {
         if (jobId == null) return;
-        rejects = saturatingIncrement(rejects);
+        rejects = NEMath.saturatingAdd(rejects, 1L);
         cause(Cause.BATCH_REJECTED);
         lastRejection = "pattern=" + compact(pattern.getDefinition())
             + " provider=" + provider.getClass().getName() + " path=BATCH result=REJECT";
@@ -250,7 +250,7 @@ final class ECODispatchStallDiagnostics {
 
     void pushRejected(IPatternDetails pattern, ICraftingProvider provider) {
         if (jobId == null) return;
-        rejects = saturatingIncrement(rejects);
+        rejects = NEMath.saturatingAdd(rejects, 1L);
         cause(Cause.PUSH_REJECTED);
         lastRejection = describeProvider(pattern, provider, false);
     }
@@ -387,10 +387,6 @@ final class ECODispatchStallDiagnostics {
 
     private static String limit(String text) {
         return text.length() <= MAX_DETAIL_LENGTH ? text : text.substring(0, MAX_DETAIL_LENGTH) + "...";
-    }
-
-    private static long saturatingIncrement(long value) {
-        return value == Long.MAX_VALUE ? value : value + 1L;
     }
 
     private record WaitingEntry(AEKey key, long amount) {}

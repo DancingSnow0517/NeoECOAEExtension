@@ -333,16 +333,16 @@ public class NECraftingNetworkCluster {
             if (controller == null) {
                 continue;
             }
-            physicalFxCount = saturatingIntAdd(physicalFxCount, member.getWorkers().size());
+            physicalFxCount = NEMath.saturatingAddInt(physicalFxCount, member.getWorkers().size());
             ftParallelCapacity = NEMath.saturatingAdd(ftParallelCapacity, controller.getLocalFtParallelCapacity());
-            coolantAmount = saturatingIntAdd(coolantAmount, controller.getCoolant());
-            coolantCapacity = saturatingIntAdd(coolantCapacity, ECOCraftingSystemBlockEntity.MAX_COOLANT);
+            coolantAmount = NEMath.saturatingAddInt(coolantAmount, controller.getCoolant());
+            coolantCapacity = NEMath.saturatingAddInt(coolantCapacity, ECOCraftingSystemBlockEntity.MAX_COOLANT);
             coolantMaxOverclock = Math.max(coolantMaxOverclock, controller.getLocalCoolingMaxOverclock());
             for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
                 if (worker.isWorking()) {
-                    activeFxCount = saturatingIntAdd(activeFxCount, 1);
+                    activeFxCount = NEMath.saturatingAddInt(activeFxCount, 1);
                 }
-                runningBatchCount = saturatingIntAdd(runningBatchCount, worker.getRunningBatchCount());
+                runningBatchCount = NEMath.saturatingAddInt(runningBatchCount, worker.getRunningBatchCount());
             }
         }
         boolean overclocked = leader != null && leader.isLocallyOverclocked();
@@ -370,10 +370,6 @@ public class NECraftingNetworkCluster {
             capabilityCapacityCache = buildCapabilitySnapshot();
         }
         return capabilityCapacityCache;
-    }
-
-    private static int saturatingIntAdd(int left, int right) {
-        return (int) Math.min(Integer.MAX_VALUE, (long) Math.max(0, left) + Math.max(0, right));
     }
 
     public int getThreadCount() {
@@ -479,7 +475,7 @@ public class NECraftingNetworkCluster {
         for (NECraftingCluster member : members) {
             ECOCraftingSystemBlockEntity controller = member.getController();
             if (controller == null) continue;
-            available = saturatingIntAdd(available,
+            available = NEMath.saturatingAddInt(available,
                 controller.getLocalAvailableCoolant(amount - available, requiredOverclock));
             if (available >= amount) return true;
         }

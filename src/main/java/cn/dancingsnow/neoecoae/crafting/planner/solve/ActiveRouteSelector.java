@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
@@ -346,14 +347,14 @@ public final class ActiveRouteSelector {
 
         private static RouteWorkBudget create(CraftingDependencyGraph universe,
                 Map<AEKey, List<CompiledPattern>> candidatesByKey) {
-            long structuralWork = saturatingAdd(universe.nodes().size(), universe.edges().size());
-            long analysisWork = Math.max(1L, saturatingMultiply(structuralWork, 2L));
+            long structuralWork = NEMath.saturatingAdd(universe.nodes().size(), universe.edges().size());
+            long analysisWork = Math.max(1L, NEMath.saturatingMultiply(structuralWork, 2L));
             long candidateCount = 0L;
             for (List<CompiledPattern> candidates : candidatesByKey.values()) {
-                candidateCount = saturatingAdd(candidateCount, candidates.size());
+                candidateCount = NEMath.saturatingAdd(candidateCount, candidates.size());
             }
-            long requested = saturatingAdd(saturatingMultiply(analysisWork, 8L),
-                saturatingMultiply(candidateCount, 4L));
+            long requested = NEMath.saturatingAdd(NEMath.saturatingMultiply(analysisWork, 8L),
+                NEMath.saturatingMultiply(candidateCount, 4L));
             long limit = Math.max(analysisWork, Math.min(MAX_ROUTE_WORK,
                 Math.max(MIN_ROUTE_WORK, requested)));
             return new RouteWorkBudget(limit, analysisWork);
@@ -366,14 +367,6 @@ public final class ActiveRouteSelector {
             if (used > limit - amount) return false;
             used += amount;
             return true;
-        }
-
-        private static long saturatingAdd(long left, long right) {
-            return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
-        }
-
-        private static long saturatingMultiply(long left, long right) {
-            return left != 0L && right > Long.MAX_VALUE / left ? Long.MAX_VALUE : left * right;
         }
     }
 }
