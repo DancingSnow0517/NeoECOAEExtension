@@ -21,6 +21,16 @@ public final class ECOMegaStorageCellItem extends ECOStorageCellItem {
         IECOTier tier,
         AEKeyType keyType,
         Supplier<ECOCellType> type,
+        long capacity
+    ) {
+        this(properties, tier, keyType, type, capacity, null);
+    }
+
+    public ECOMegaStorageCellItem(
+        Properties properties,
+        IECOTier tier,
+        AEKeyType keyType,
+        Supplier<ECOCellType> type,
         long capacity,
         @Nullable Predicate<AEKey> blacklist
     ) {

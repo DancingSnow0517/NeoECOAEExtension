@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.megacells;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.integration.appmek.MekanismCellFilter;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -9,6 +10,7 @@ import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.Item;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.MEGA_4G_CAPACITY;
 
@@ -19,9 +21,13 @@ final class NEMegaChemicalItems {
 
     private static ItemEntry<ECOMegaStorageCellItem> cell(String size, ECOTier tier, long capacity, Rarity rarity) {
         return NEMegaItems.optionalCell("mega_chemical", "Mega Chemical", size, tier, capacity, rarity,
-            (properties, cellTier, type, cellCapacity) -> new ECOMegaStorageCellItem(
-                properties, cellTier, MekanismKeyType.TYPE, type, cellCapacity, MekanismCellFilter::isBlackListed),
-            NEMegaChemicalCellType.MEGA_CHEMICAL);
+            NEMegaChemicalItems::createCell, NEMegaChemicalCellType.MEGA_CHEMICAL);
+    }
+
+    private static ECOMegaStorageCellItem createCell(Item.Properties properties, ECOTier tier,
+                                                     Supplier<ECOCellType> type, long capacity) {
+        return new ECOMegaStorageCellItem(properties, tier, MekanismKeyType.TYPE, type, capacity,
+            MekanismCellFilter::isBlackListed);
     }
 
     static List<ItemEntry<ECOMegaStorageCellItem>> cells() {

@@ -416,22 +416,17 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
             custom.put(DATA_TAG, data);
         }
 
-        writeCustomTag(stack, custom);
+        if (custom.isEmpty()) {
+            stack.remove(DataComponents.CUSTOM_DATA);
+        } else {
+            stack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
+        }
         persisted = true;
     }
 
     /** Mutations copy the tag and replace the component; the live component must never be edited in place. */
     private static CompoundTag copyCustomTag(ItemStack stack) {
         return stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-    }
-
-    /** An empty tag removes the component so that a cell with no bulk data keeps no custom data. */
-    private static void writeCustomTag(ItemStack stack, CompoundTag custom) {
-        if (custom.isEmpty()) {
-            stack.remove(DataComponents.CUSTOM_DATA);
-        } else {
-            stack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
-        }
     }
 
     private List<AEItemKey> readFilters(LookupContext context) {
@@ -452,7 +447,12 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
      * variant from the same chain must not consume another type slot or create a second storage entry.
      */
     private boolean hasFilterForChain(List<AEItemKey> configured, AEItemKey candidate, LookupContext context) {
-        return configured.stream().anyMatch(existing -> sameCompressionChain(existing, candidate, context));
+        for (AEItemKey existing : configured) {
+            if (sameCompressionChain(existing, candidate, context)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void loadStoredUnits() {

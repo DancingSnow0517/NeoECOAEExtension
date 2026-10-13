@@ -62,7 +62,7 @@ public final class NEMegaItems {
     private static ItemEntry<ECOMegaStorageCellItem> itemCell(String size, long capacity, Rarity rarity) {
         return REGISTRATE.item("eco_mega_item_cell_" + size,
                 p -> new ECOMegaStorageCellItem(p.stacksTo(1).rarity(rarity), ECOTier.L9,
-                    AEKeyType.items(), NEMegaCellTypes.MEGA_ITEM, capacity, null))
+                    AEKeyType.items(), NEMegaCellTypes.MEGA_ITEM, capacity))
             .lang(cellName("Mega Item", ECOTier.L9))
             .model((ctx, prov) -> {})
             .register();
@@ -71,7 +71,7 @@ public final class NEMegaItems {
     private static ItemEntry<ECOMegaStorageCellItem> fluidCell(String size, long capacity, Rarity rarity) {
         return REGISTRATE.item("eco_mega_fluid_cell_" + size,
                 p -> new ECOMegaStorageCellItem(p.stacksTo(1).rarity(rarity), ECOTier.L9,
-                    AEKeyType.fluids(), NEMegaCellTypes.MEGA_FLUID, capacity, null))
+                    AEKeyType.fluids(), NEMegaCellTypes.MEGA_FLUID, capacity))
             .lang(cellName("Mega Fluid", ECOTier.L9))
             .model((ctx, prov) -> {})
             .register();

@@ -48,8 +48,10 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
 
     @Override
     public BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
-        if (!ECOBigIntegerStorage.checkRequest(what, amount, mode, source)) return BigInteger.ZERO;
-        if (!allowInsert.getAsBoolean() || !canStoreForInsert(what)) return BigInteger.ZERO;
+        if (what == null || amount == null || amount.signum() <= 0 || !allowInsert.getAsBoolean()
+                || !canStoreForInsert(what)) {
+            return BigInteger.ZERO;
+        }
         return engine.insert(what, amount, mode);
     }
 
