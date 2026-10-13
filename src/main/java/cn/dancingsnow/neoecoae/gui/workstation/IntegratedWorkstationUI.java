@@ -8,10 +8,13 @@ import appeng.items.tools.NetworkToolItem;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -24,7 +27,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.google.gson.JsonObject;
 import dev.vfyjxf.taffy.style.AlignContent;
@@ -85,7 +87,7 @@ public final class IntegratedWorkstationUI {
 
         root.addChild(new TextElement()
             .setText("block.neoecoae.integrated_working_station", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(Palette.INK_403E53)));
 
         UIElement inputArea = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW).marginBottom(5));
         // Input Fluid
@@ -138,12 +140,8 @@ public final class IntegratedWorkstationUI {
                 .layout(layout -> layout.height(18).width(6))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                     Float value = ((WorkstationProgressBar) event.currentElement).getValue();
-                    event.hoverTooltips = new HoverTooltips(
-                        List.of(Component.literal("%.0f%%".formatted(value / config.maxProcessingSteps() * 100))),
-                        null,
-                        null,
-                        null
-                    );
+                    event.hoverTooltips = HostElements.hoverTooltips(
+                        List.of(Component.literal("%.0f%%".formatted(value / config.maxProcessingSteps() * 100))));
                 })
         );
 
@@ -184,7 +182,7 @@ public final class IntegratedWorkstationUI {
                     List<Component> tooltips = new ArrayList<>();
                     tooltips.add(GuiText.CompatibleUpgrades.text());
                     tooltips.addAll(Upgrades.getTooltipLinesForMachine(NEBlocks.INTEGRATED_WORKING_STATION));
-                    event.hoverTooltips = new HoverTooltips(tooltips, null, null, null);
+                    event.hoverTooltips = HostElements.hoverTooltips(tooltips);
                 }));
         }
         root.addChild(HostSideButtonBar.rightSlots(upgradeSlots));
@@ -199,7 +197,7 @@ public final class IntegratedWorkstationUI {
 
         root.addChild(new TextElement()
             .setText("container.inventory", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(Palette.INK_403E53)));
 
         UIElement playerArea = new UIElement().layout(layout -> layout
             .flexDirection(FlexDirection.ROW)
@@ -233,10 +231,6 @@ public final class IntegratedWorkstationUI {
             throw new IllegalArgumentException("Unknown integrated workstation custom element: "
                 + string(node, "custom", ""));
         }
-
-        private static String string(JsonObject node, String key, String fallback) {
-            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
-        }
     }
 
     private Button createAutoExportButton() {
@@ -253,14 +247,9 @@ public final class IntegratedWorkstationUI {
         });
         syncedState.setDisplay(false);
         button.addChild(syncedState);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-            List.of(
-                ButtonToolTips.AutoExport.text().withColor(-1),
-                (config.autoExport().getAsBoolean() ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
-            ),
-            null,
-            null,
-            null
+        HostElements.tooltips(button, () -> List.of(
+            ButtonToolTips.AutoExport.text().withColor(-1),
+            (config.autoExport().getAsBoolean() ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
         ));
         return button;
     }

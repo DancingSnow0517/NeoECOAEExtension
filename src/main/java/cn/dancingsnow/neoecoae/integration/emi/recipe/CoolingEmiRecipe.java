@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
+import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
 import dev.emi.emi.api.stack.EmiStack;
@@ -32,8 +32,8 @@ public class CoolingEmiRecipe extends BasicEmiRecipe {
         FluidStack output = recipe.output();
         widgets.addTank(EmiStack.of(output.getFluid(), output.getAmount()), 71, 10, 18, 18, 1).recipeContext(this);
 
-        widgets.addTexture(NeoECOAE.id("textures/gui/recipe/cooling_progress_empty.png"), 35, 5, 30, 30, 0, 0, 30, 30, 30, 30);
-        widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/recipe/cooling_progress.png"), 35, 5, 30, 30, 0, 0, 30, 30, 30, 30, 2000, false, true, false);
+        widgets.addTexture(TextureConstants.COOLING_PROGRESS_EMPTY, 35, 5, 30, 30, 0, 0, 30, 30, 30, 30);
+        widgets.addAnimatedTexture(TextureConstants.COOLING_PROGRESS, 35, 5, 30, 30, 0, 0, 30, 30, 30, 30, 2000, false, true, false);
 
         widgets.addText(Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()), 5, 40, 0, false);
         widgets.addText(Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()), 5, 50, 0, false);

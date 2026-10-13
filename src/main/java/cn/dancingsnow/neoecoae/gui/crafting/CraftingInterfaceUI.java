@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -134,10 +135,6 @@ public final class CraftingInterfaceUI {
                 ? Math.round(host.getPatternTransferProgress() * 100F) / 100F : 0F).build());
             operationStatus.attach(progress);
             return progress;
-        }
-
-        private static String string(JsonObject node, String key, String fallback) {
-            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
         }
     }
 

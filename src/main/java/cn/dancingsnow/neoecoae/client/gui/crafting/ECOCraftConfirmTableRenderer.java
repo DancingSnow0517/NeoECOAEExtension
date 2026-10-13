@@ -7,6 +7,7 @@ import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.AbstractTableRenderer;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -14,9 +15,6 @@ import net.minecraft.network.chat.Component;
 
 /** AE2 report cells with the ECO report's seven visible rows. */
 final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingPlanSummaryEntry> {
-    private static final int MISSING_OVERLAY = 0x1AFF0000;
-    private static final int CYCLE_OVERLAY = 0x1AB86BFF;
-    private static final int FUZZY_PLANNING_OVERLAY = 0x264CAF70;
     private final Predicate<AEKey> cycleParticipant;
     private final Predicate<AEKey> fuzzyPlanningItem;
 
@@ -52,9 +50,9 @@ final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingP
     }
 
     @Override protected int getEntryOverlayColor(CraftingPlanSummaryEntry entry) {
-        if (entry.getMissingAmount() > 0) return MISSING_OVERLAY;
-        if (cycleParticipant.test(entry.getWhat())) return CYCLE_OVERLAY;
-        if (fuzzyPlanningItem.test(entry.getWhat())) return FUZZY_PLANNING_OVERLAY;
+        if (entry.getMissingAmount() > 0) return Palette.OVERLAY_MISSING;
+        if (cycleParticipant.test(entry.getWhat())) return Palette.OVERLAY_CYCLE;
+        if (fuzzyPlanningItem.test(entry.getWhat())) return Palette.OVERLAY_FUZZY_PLANNING;
         return 0;
     }
 }

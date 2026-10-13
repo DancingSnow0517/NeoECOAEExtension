@@ -17,6 +17,7 @@ import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
@@ -64,6 +65,23 @@ public final class HostElements {
     public static <T extends UIElement> T tooltips(T element, Component... lines) {
         element.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
             event.hoverTooltips = HoverTooltips.empty().append(lines));
+        return element;
+    }
+
+    /** The hover payload for a list of lines, for handlers that assign {@code event.hoverTooltips} directly. */
+    public static HoverTooltips hoverTooltips(List<Component> lines) {
+        return new HoverTooltips(lines, null, null, null);
+    }
+
+    /** Same display as {@link #tooltips(UIElement, Component...)}, for a list built at the call site. */
+    public static <T extends UIElement> T tooltips(T element, List<Component> lines) {
+        element.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = hoverTooltips(lines));
+        return element;
+    }
+
+    /** As {@link #tooltips(UIElement, List)}, but the list is evaluated each time the tooltip is shown. */
+    public static <T extends UIElement> T tooltips(T element, Supplier<List<Component>> lines) {
+        element.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = hoverTooltips(lines.get()));
         return element;
     }
 

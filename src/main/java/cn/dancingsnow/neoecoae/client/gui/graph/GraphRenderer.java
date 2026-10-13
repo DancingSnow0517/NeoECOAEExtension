@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 import cn.dancingsnow.neoecoae.crafting.graph.InterCycleFlow;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,9 +23,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Immediate-mode renderer. Only queried viewport primitives reach the draw loops. */
 public final class GraphRenderer {
-    private static final int TEXT = 0xffe8edf2;
-    private static final int MUTED = 0xffaab3bd;
-
     public record Frame(@Nullable ClientCraftingGraph.Node hovered, List<Component> tooltip) {}
     public record VisiblePlan(List<GraphLayoutSnapshot.Box> nodes, List<ClientCraftingGraph.Link> edges) {}
     private final CompactTreeRenderer compactTreeRenderer = new CompactTreeRenderer();
@@ -171,7 +169,7 @@ public final class GraphRenderer {
         var font = Minecraft.getInstance().font;
         int width = font.width(text) + 6;
         graphics.fill(x - width / 2, y - 8, x + (width + 1) / 2, y + 3, 0xcc171b20);
-        graphics.drawCenteredString(font, text, x, y - 7, MUTED);
+        graphics.drawCenteredString(font, text, x, y - 7, Palette.GRAPH_MUTED);
     }
 
     private static String edgeAmount(ClientCraftingGraph graph, ClientCraftingGraph.Link link) {
@@ -276,21 +274,21 @@ public final class GraphRenderer {
                 var material = node.material();
                 if (zoom >= 0.7f && pixelWidth >= 82 && pixelHeight >= 48) {
                     AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 7, y + 8, material.key());
-                    drawFitted(graphics, font, node.label(), x + 29, y + 7, pixelWidth - 35, TEXT);
+                    drawFitted(graphics, font, node.label(), x + 29, y + 7, pixelWidth - 35, Palette.GRAPH_TEXT);
                     drawFitted(graphics, font, statusSymbol(material.status()) + " " + material.status().name(),
                         x + 29, y + 18, pixelWidth - 35, border);
                     drawFitted(graphics, font,
                         "需求 " + compactAmount(material.exactRequested()) + "  库存 "
                             + compactAmount(material.exactFromInventory()),
-                        x + 7, y + 38, pixelWidth - 14, MUTED);
+                        x + 7, y + 38, pixelWidth - 14, Palette.GRAPH_MUTED);
                     if (pixelHeight >= 64) {
                         drawFitted(graphics, font,
                             "变化 " + signedTaskChange(material),
-                            x + 7, y + 53, pixelWidth - 14, MUTED);
+                            x + 7, y + 53, pixelWidth - 14, Palette.GRAPH_MUTED);
                     }
                 } else if (zoom >= 0.42f && pixelWidth >= 48 && pixelHeight >= 22) {
                     AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 4, y + 4, material.key());
-                    drawFitted(graphics, font, node.label(), x + 24, y + 4, pixelWidth - 28, TEXT);
+                    drawFitted(graphics, font, node.label(), x + 24, y + 4, pixelWidth - 28, Palette.GRAPH_TEXT);
                     if (pixelHeight >= 31) {
                         drawFitted(graphics, font, statusSymbol(material.status()) + " " + material.status().name(),
                             x + 24, y + 15, pixelWidth - 28, border);
@@ -308,7 +306,7 @@ public final class GraphRenderer {
                 if (pixelHeight >= 28 && pixelWidth >= 32) {
                     graphics.drawCenteredString(font,
                         fit(font, "× " + compactAmount(Long.toString(pattern.firingCount())), pixelWidth - 6),
-                        (x + right) / 2, y + 18, TEXT);
+                        (x + right) / 2, y + 18, Palette.GRAPH_TEXT);
                 }
             }
             case CYCLE_GROUP -> {
@@ -317,13 +315,13 @@ public final class GraphRenderer {
                     pixelWidth - 14, border);
                 if (zoom >= 0.6f && pixelHeight >= 38) {
                     drawFitted(graphics, font, cycle.memberNodeIds().size() + " 个成员 · " + cycle.status(),
-                        x + 7, y + 23, pixelWidth - 14, TEXT);
+                        x + 7, y + 23, pixelWidth - 14, Palette.GRAPH_TEXT);
                     String required = cycle.requiredOutputs().isEmpty() ? "变化：-"
                         : "所需产物：" + cycle.requiredOutputs().size();
                     if (pixelHeight >= 55) drawFitted(graphics, font, required, x + 7, y + 40,
-                        pixelWidth - 14, MUTED);
+                        pixelWidth - 14, Palette.GRAPH_MUTED);
                     if (pixelHeight >= 68) drawFitted(graphics, font, "双击查看内部图", x + 7, y + 54,
-                        pixelWidth - 14, MUTED);
+                        pixelWidth - 14, Palette.GRAPH_MUTED);
                 }
             }
             case CYCLE_CLUSTER -> {
@@ -332,9 +330,9 @@ public final class GraphRenderer {
                     pixelWidth - 14, border);
                 if (zoom >= 0.6f && pixelHeight >= 38) {
                     drawFitted(graphics, font, cluster.componentIds().size() + " 个独立循环 · "
-                        + cluster.flows().size() + " 条跨环流", x + 7, y + 23, pixelWidth - 14, TEXT);
+                        + cluster.flows().size() + " 条跨环流", x + 7, y + 23, pixelWidth - 14, Palette.GRAPH_TEXT);
                     if (pixelHeight >= 55) drawFitted(graphics, font, "双击查看循环簇", x + 7, y + 40,
-                        pixelWidth - 14, MUTED);
+                        pixelWidth - 14, Palette.GRAPH_MUTED);
                 }
             }
             case FOLDER -> { }
@@ -373,20 +371,20 @@ public final class GraphRenderer {
 
     private static CompactCycleValue compactCycleValue(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
         if (node.kind() == ClientCraftingGraph.Kind.PATTERN && node.pattern() != null) {
-            return new CompactCycleValue(compactAmount(Long.toString(node.pattern().firingCount())), TEXT);
+            return new CompactCycleValue(compactAmount(Long.toString(node.pattern().firingCount())), Palette.GRAPH_TEXT);
         }
-        if (node.material() == null) return new CompactCycleValue("-", MUTED);
+        if (node.material() == null) return new CompactCycleValue("-", Palette.GRAPH_MUTED);
         var cycle = graph.source().cycleGroups().stream()
             .filter(value -> graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS
                 ? value.componentId() == graph.focusedCycleId()
                 : value.memberNodeIds().contains(node.material().nodeId()))
             .findFirst().orElse(null);
-        if (cycle == null) return new CompactCycleValue("-", MUTED);
+        if (cycle == null) return new CompactCycleValue("-", Palette.GRAPH_MUTED);
         BigInteger consumed = node.material().consumedBigInteger();
         BigInteger produced = node.material().producedBigInteger();
         BigInteger delta = produced.subtract(consumed);
         String text = signedTaskChange(node.material());
-        int color = delta.signum() > 0 ? 0xff75c48b : delta.signum() < 0 ? 0xffe07a7a : MUTED;
+        int color = delta.signum() > 0 ? 0xff75c48b : delta.signum() < 0 ? 0xffe07a7a : Palette.GRAPH_MUTED;
         return new CompactCycleValue(text, color);
     }
 
@@ -495,7 +493,11 @@ public final class GraphRenderer {
         if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && graph.isBoundaryMaterial(node.id())) {
             return 0xff71808a;
         }
-        return switch (node.material().status()) {
+        return materialStatusColor(node.material().status());
+    }
+
+    static int materialStatusColor(CraftingGraphSnapshot.MaterialStatus status) {
+        return switch (status) {
             case SATISFIED -> 0xff68a878;
             case CRAFTING -> 0xff5f9fc5;
             case MISSING -> 0xffcf5e5e;

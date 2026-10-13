@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
@@ -25,7 +26,7 @@ public final class HostPanelElements {
         style.adaptiveHeight(true)
             .adaptiveWidth(true)
             .textWrap(TextWrap.HOVER_ROLL)
-            .textColor(0x3f3d52)
+            .textColor(Palette.INK)
             .textShadow(false);
     }
 

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeProjection;
@@ -10,6 +11,7 @@ import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutCache;
 import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -167,7 +169,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             graphics.fill(x - 2, y - 2, x + 3, y + 3, color);
         }
         graphics.drawCenteredString(font, cn.dancingsnow.neoecoae.gui.common.HostText.expandedNumber(cycle.memberNodeIds().size()), centerX,
-            centerY - font.lineHeight / 2, 0xffe8edf2);
+            centerY - font.lineHeight / 2, Palette.GRAPH_TEXT);
     }
 
     private static int cycleStatusColor(String status) {
@@ -195,9 +197,11 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     private void drawStats(GuiGraphics graphics) {
         String stats = String.format(Locale.ROOT,
-            "nodes %,d/%,d  edges %,d/%,d  zoom %.0f%%  layout %,.2f ms  index %,.2f ms  render %,.2f ms  v%d",
-            profiler.visibleNodes(), snapshot.summary().materialNodes() + snapshot.summary().patternNodes(),
-            profiler.visibleEdges(), snapshot.summary().edges(), zoom * 100,
+            "nodes %s/%s  edges %s/%s  zoom %.0f%%  layout %,.2f ms  index %,.2f ms  render %,.2f ms  v%d",
+            DisplayNumbers.grouped(String.valueOf(profiler.visibleNodes())),
+            DisplayNumbers.grouped(String.valueOf(snapshot.summary().materialNodes() + snapshot.summary().patternNodes())),
+            DisplayNumbers.grouped(String.valueOf(profiler.visibleEdges())),
+            DisplayNumbers.grouped(String.valueOf(snapshot.summary().edges())), zoom * 100,
             layout.layoutNanos() / 1_000_000.0, layout.spatialIndexNanos() / 1_000_000.0,
             profiler.renderNanos() / 1_000_000.0, layout.version());
         graphics.drawString(font, stats, Math.max(7, width - font.width(stats) - 7), height - 14, 0xff8e9aa6, false);
@@ -723,7 +727,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             int rowTop = top + 1 + i * 18;
             if (mouseX >= left && mouseX < right && mouseY >= rowTop && mouseY < rowTop + 18)
                 graphics.fill(left, rowTop, right, rowTop + 18, 0xff3a4650);
-            graphics.drawString(font, fit(node.label(), search.getWidth() - 8), left + 4, rowTop + 5, 0xffe8edf2, false);
+            graphics.drawString(font, fit(node.label(), search.getWidth() - 8), left + 4, rowTop + 5, Palette.GRAPH_TEXT, false);
         }
     }
 

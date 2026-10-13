@@ -103,8 +103,7 @@ final class CraftingControllerInteractions {
         information.addEventListener(UIEvents.MOUSE_ENTER, event -> information.style(style -> style.backgroundTexture(highlighted)));
         information.addEventListener(UIEvents.MOUSE_LEAVE, event -> information.style(style -> style.backgroundTexture(normal)));
         icon.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).right(-21).top(0).width(23).height(30));
-        information.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-            maintenanceTooltipLines(syncedStatus.getValue()), null, null, null));
+        HostElements.tooltips(information, () -> maintenanceTooltipLines(syncedStatus.getValue()));
         return icon;
     }
 

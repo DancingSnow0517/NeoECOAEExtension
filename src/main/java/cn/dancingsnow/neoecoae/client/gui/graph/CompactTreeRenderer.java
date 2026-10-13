@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
 import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,9 +21,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Minecraft-style compact tree renderer. */
 public final class CompactTreeRenderer {
-    private static final int TEXT = 0xffe8edf2;
-    private static final int MUTED = 0xffaab3bd;
-
     public GraphRenderer.Frame render(GuiGraphics graphics, ClientCraftingGraph graph,
             GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom, int screenWidth, int screenHeight,
             int mouseX, int mouseY, @Nullable Integer selectedId, GraphProfiler profiler) {
@@ -214,20 +212,20 @@ public final class CompactTreeRenderer {
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
             var cycle = node.cycle();
             String label = cycle == null ? node.label() : "↻ 循环 #" + cycle.componentId();
-            graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
+            graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, Palette.GRAPH_TEXT, false);
             if (cycle != null) graphics.drawString(font, cycle.memberNodeIds().size() + " 个成员", x + 6, y + 19,
-                MUTED, false);
+                Palette.GRAPH_MUTED, false);
             graphics.drawString(font, "↻", right - 14, y + 9, border, false);
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
             var cluster = node.cluster();
             String label = cluster == null ? node.label() : "◎ 循环簇 #" + cluster.clusterId();
-            graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
+            graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, Palette.GRAPH_TEXT, false);
             if (cluster != null) graphics.drawString(font, cluster.componentIds().size() + " 个循环", x + 6,
-                y + 19, MUTED, false);
+                y + 19, Palette.GRAPH_MUTED, false);
             graphics.drawString(font, "◎", right - 14, y + 9, border, false);
         } else if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
             graphics.drawString(font, fit(font, node.label(), Math.max(20, right - x - 10)), x + 6, y + 9,
-                MUTED, false);
+                Palette.GRAPH_MUTED, false);
         }
     }
 
@@ -243,7 +241,7 @@ public final class CompactTreeRenderer {
         pose.pushPose();
         pose.translate(centerX, textY, 0);
         pose.scale(scale, scale, 1.0f);
-        graphics.drawString(font, amount, -font.width(amount) / 2, 0, TEXT, false);
+        graphics.drawString(font, amount, -font.width(amount) / 2, 0, Palette.GRAPH_TEXT, false);
         pose.popPose();
     }
 
@@ -313,13 +311,7 @@ public final class CompactTreeRenderer {
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) return 0xffcf8f45;
         if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) return 0xff8d98a3;
         if (node.material() == null) return 0xff8293a4;
-        return switch (node.material().status()) {
-            case SATISFIED -> 0xff68a878;
-            case CRAFTING -> 0xff5f9fc5;
-            case MISSING -> 0xffcf5e5e;
-            case UNSUPPORTED -> 0xffa36c9a;
-            case CYCLE -> 0xffd59b45;
-        };
+        return GraphRenderer.materialStatusColor(node.material().status());
     }
 
     private static String statusSymbol(CraftingGraphSnapshot.MaterialStatus status) {

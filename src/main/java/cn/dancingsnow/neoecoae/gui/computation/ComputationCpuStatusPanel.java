@@ -7,8 +7,10 @@ import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.gui.common.FittedText;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
@@ -17,7 +19,6 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -48,7 +49,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private static final int ITEM_X = 97, ITEM_Y = 19, ITEM_WIDTH = 67, ITEM_HEIGHT = 22, ITEM_COLUMN_STRIDE = 68;
     private static final int ITEM_COLS = 3, ITEM_ROWS = 9, ITEM_STRIDE = 23, ITEM_PAGE = ITEM_COLS * ITEM_ROWS;
     private static final int ITEM_TRACK_X = 306;
-    private static final int TEXT = 0x413F54;
+    private static final int TEXT = Palette.INK_413F54;
     private static final int BATCH_ICON_SIZE = 16, BATCH_ICON_LEFT = -1;
     private static final ResourceLocation BATCH_ICON = NeoECOAE.id("textures/gui/computation/eco_batching.png");
     // The source sheet is 384x384, but only the 326x254 top slice is the page background.
@@ -173,8 +174,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         });
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             if (cpuOffset == cpuPageOffset && row < cpus.size()) {
-                event.hoverTooltips = HoverTooltips.empty().append(
-                    ComputationCpuPanel.tooltip(cpus.get(row)).toArray(Component[]::new));
+                event.hoverTooltips = HostElements.hoverTooltips(ComputationCpuPanel.tooltip(cpus.get(row)));
             }
         });
         return hitbox;
@@ -191,7 +191,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (item.batched()) {
                 lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF));
             }
-            event.hoverTooltips = HoverTooltips.empty().append(lines.toArray(Component[]::new));
+            event.hoverTooltips = HostElements.hoverTooltips(lines);
         });
         return hitbox;
     }
@@ -261,7 +261,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 Math.round(y + (ITEM_HEIGHT - BATCH_ICON_SIZE) / 2F), 0, 0,
                 BATCH_ICON_SIZE, BATCH_ICON_SIZE, BATCH_ICON_SIZE, BATCH_ICON_SIZE);
         }
-        key(context, entry.key(), x + ITEM_WIDTH - 19, y + 3, 1.0F);
+        ComputationCpuPanel.key(context, entry.key(), x + ITEM_WIDTH - 19, y + 3, 1.0F);
         drawItemDescription(context, font, itemDescription(entry, false), x, y);
     }
 
@@ -270,13 +270,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         float height = lines.size() * font.lineHeight * scale + Math.max(0, lines.size() - 1);
         float top = Math.round(y + (ITEM_HEIGHT - height) / 2);
         for (int line = 0; line < lines.size(); line++) {
-            Component value = lines.get(line);
-            context.graphics.pose().pushPose();
-            context.graphics.pose().translate(x + ITEM_WIDTH - 21 - font.width(value) * scale,
-                top + line * (font.lineHeight * scale + 1), 0);
-            context.graphics.pose().scale(scale, scale, 1);
-            context.graphics.drawString(font, value, 0, 0, 0xFF000000 | TEXT, false);
-            context.graphics.pose().popPose();
+            FittedText.drawScaled(context.graphics, font, lines.get(line), x, top + line * (font.lineHeight * scale + 1),
+                ITEM_WIDTH - 21, scale, 0xFF000000 | TEXT, false, FittedText.Align.RIGHT);
         }
     }
 
@@ -286,14 +281,6 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         if (item.active().signum() > 0) lines.add(GuiText.Crafting.text(item.amount(item.active(), full)));
         if (item.pending().signum() > 0) lines.add(GuiText.Scheduled.text(item.amount(item.pending(), full)));
         return lines;
-    }
-
-    private static void key(GUIContext context, appeng.api.stacks.AEKey key, float x, float y, float scale) {
-        context.graphics.pose().pushPose();
-        context.graphics.pose().translate(x, y, 0);
-        context.graphics.pose().scale(scale, scale, 1);
-        AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, key);
-        context.graphics.pose().popPose();
     }
 
     private static UIElement hitbox(int x, int y, int width, int height) {

@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import com.google.gson.JsonObject;
@@ -133,11 +134,6 @@ public final class CraftingHostPanelUI {
                 case "overclocked", "active_cooling" -> true;
                 default -> false;
             };
-        }
-
-        private static String string(JsonObject definition, String name, String fallback) {
-            return definition.has(name) && definition.get(name).isJsonPrimitive()
-                ? definition.get(name).getAsString() : fallback;
         }
     }
 

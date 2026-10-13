@@ -1,11 +1,14 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
 import appeng.api.orientation.RelativeSide;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.gui.workstation.IntegratedWorkstationUI.Config;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -15,7 +18,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
@@ -42,12 +44,7 @@ final class WorkstationOutputPanel {
             .noText()
             .addPostIcon(NETextures.OUTPUTS)
             .setOnClick(e -> allowOutputWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)));
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                List.of(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE)),
-                null,
-                null,
-                null
-            ));
+        HostElements.tooltips(button, List.of(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE)));
         return button;
     }
 
@@ -67,7 +64,7 @@ final class WorkstationOutputPanel {
 
         titleBar.addChild(new TextElement()
             .setText("gui.neoecoae.integrated_working_station.allow_outputs", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(Palette.INK_403E53)));
 
         titleBar.addChild(new Button()
             .noText()
@@ -149,17 +146,13 @@ final class WorkstationOutputPanel {
             toggle.bind(DataBindingBuilder.boolS2C(() -> config.outputAllowed().test(internalSide)).build());
             toggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 var enabled = config.outputAllowed().test(internalSide);
-                event.hoverTooltips = new HoverTooltips(
+                event.hoverTooltips = HostElements.hoverTooltips(
                     List.of(
                         Component.translatable(labelKey).withStyle(ChatFormatting.WHITE),
                         Component.translatable(enabled
                             ? "gui.neoecoae.integrated_working_station.allow_outputs.enabled"
                             : "gui.neoecoae.integrated_working_station.allow_outputs.disabled").withStyle(ChatFormatting.GRAY)
-                    ),
-                    null,
-                    null,
-                    null
-                );
+                    ));
             });
 
             toggle.layout(layout -> layout.width(20).height(20).paddingAll(0));
@@ -210,10 +203,6 @@ final class WorkstationOutputPanel {
             if ("workstation_output_panel".equals(string(node, "id", ""))) {
                 element.layout(layout -> layout.display(TaffyDisplay.NONE));
             }
-        }
-
-        private static String string(JsonObject node, String key, String fallback) {
-            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
         }
     }
 }

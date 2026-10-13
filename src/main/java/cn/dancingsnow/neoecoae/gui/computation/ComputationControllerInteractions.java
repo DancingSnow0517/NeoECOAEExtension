@@ -45,9 +45,9 @@ final class ComputationControllerInteractions {
         button.addChild(syncedMode);
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             CpuSelectionMode mode = cpuSelectionModeFromOrdinal(syncedMode.getValue());
-            event.hoverTooltips = new HoverTooltips(List.of(
+            event.hoverTooltips = HostElements.hoverTooltips(List.of(
                     ButtonToolTips.CpuSelectionMode.text(),
-                    cpuSelectionModeTooltip(mode)), null, null, null);
+                    cpuSelectionModeTooltip(mode)));
         });
         return button;
     }

@@ -2,34 +2,27 @@ package cn.dancingsnow.neoecoae.gui.common;
 
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.core.math.BigIntegers;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import net.minecraft.network.chat.Component;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.util.Locale;
-import java.util.function.ToIntFunction;
 
 public final class HostText {
-    public static final int PRIMARY = 0xD6D0E0;
-    public static final int VALUE = 0x8377FF;
-    public static final int USED = 0x00FC00;
-    public static final int MUTED = 0xAAA4B2;
-    public static final int WARNING = 0xFFD65A;
-    public static final int ORANGE = 0xFF9A3D;
-    public static final int ERROR = 0xFF6A75;
+    public static final int PRIMARY = Palette.HOST_PRIMARY;
+    public static final int VALUE = Palette.HOST_VALUE;
+    public static final int USED = Palette.HOST_USED;
+    public static final int MUTED = Palette.HOST_MUTED;
+    public static final int WARNING = Palette.HOST_WARNING;
+    public static final int ORANGE = Palette.HOST_ORANGE;
+    public static final int ERROR = Palette.HOST_ERROR;
 
-    private static final int BYTES_IN_K = 1024;
-    private static final BigInteger BIG_BYTES_IN_K = BigInteger.valueOf(BYTES_IN_K);
-    // Continue the binary-prefix display beyond yotta for effectively unbounded storage amounts.
-    private static final String[] EXPANDED_BYTE_UNITS = {
-        "", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"
-    };
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
@@ -39,18 +32,6 @@ public final class HostText {
     }
 
     public record UsedTotal(String usedText, String maxText, Component suffix) {
-    }
-
-    public static UsedTotal energyUsage(long used, long max, int maxWidth) {
-        String prefix = "Energy Storage: ";
-        String usedText = number(used);
-        String maxText = number(max);
-        Component suffix = Component.literal("AE");
-        if (usedTotalWidth(prefix, usedText, maxText, "AE") > maxWidth) {
-            usedText = compactTaskAmount(used);
-            maxText = compactTaskAmount(max);
-        }
-        return new UsedTotal(usedText, maxText, suffix);
     }
 
     public static UsedTotal typeProgress(long used, long max) {
@@ -68,64 +49,17 @@ public final class HostText {
 
     /** Exact byte counts for tooltips, including values beyond the long range. */
     public static String fullBytes(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        return DisplayNumbers.grouped(safe.toString());
+        return DisplayNumbers.grouped(BigIntegers.nonNegative(value).toString());
     }
 
     public static String expandedStorageBytes(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        return BigNumberFormatter.format(safe, 1, true);
-    }
-
-    public static String fitHugeAmount(BigInteger value, int maxWidth) {
-        return fitHugeAmount(value, maxWidth, HostText::estimatedTextWidth);
-    }
-
-    public static String fitHugeAmount(BigInteger value, int maxWidth, ToIntFunction<String> width) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        String exact = expandedStorageBytes(safe);
-        if (width.applyAsInt(exact) <= maxWidth) {
-            return exact;
-        }
-
-        int naturalUnitIndex = 0;
-        BigInteger naturalUnit = BigInteger.ONE;
-        while (naturalUnitIndex < EXPANDED_BYTE_UNITS.length - 1
-            && safe.compareTo(naturalUnit.multiply(BIG_BYTES_IN_K)) >= 0) {
-            naturalUnit = naturalUnit.multiply(BIG_BYTES_IN_K);
-            naturalUnitIndex++;
-        }
-        for (int decimals = 2; decimals >= 0; decimals--) {
-            BigInteger unit = BIG_BYTES_IN_K;
-            for (int unitIndex = 1; unitIndex <= naturalUnitIndex; unitIndex++) {
-                String candidate = DisplayNumbers.grouped(new BigDecimal(safe)
-                    .divide(new BigDecimal(unit), decimals, RoundingMode.HALF_UP)
-                    .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
-                if (width.applyAsInt(candidate) <= maxWidth) {
-                    return candidate;
-                }
-                unit = unit.multiply(BIG_BYTES_IN_K);
-            }
-        }
-
-        int exponent = Math.max(0, safe.toString().length() - 1);
-        BigDecimal divisor = BigDecimal.TEN.pow(exponent);
-        for (int decimals = 3; decimals >= 0; decimals--) {
-            String candidate = new BigDecimal(safe)
-                .divide(divisor, decimals, RoundingMode.HALF_UP)
-                .stripTrailingZeros()
-                .toPlainString() + "e" + exponent;
-            if (width.applyAsInt(candidate) <= maxWidth) {
-                return candidate;
-            }
-        }
-        return "e" + exponent;
+        return BigNumberFormatter.format(BigIntegers.nonNegative(value), 1, true);
     }
 
     public static Component fullByteProgress(long used, long max) {
-        return Component.literal(number(Math.max(0L, used)))
+        return Component.literal(expandedNumber(used))
             .append(" / ")
-            .append(number(Math.max(0L, max)))
+            .append(expandedNumber(max))
             .append(" ")
             .append(Component.translatable("gui.neoecoae.host.metric.bytes"));
     }
@@ -181,64 +115,15 @@ public final class HostText {
         return palette[Math.floorMod(index, palette.length)];
     }
 
-    private static String number(long value) {
-        return NUMBER_FORMAT.get().format(value);
-    }
-
-    private static int usedTotalWidth(String prefix, String usedText, String maxText, String suffix) {
-        int width = estimatedTextWidth(prefix + usedText + " / " + maxText);
-        return suffix.isEmpty() ? width : width + estimatedTextWidth(" " + suffix);
-    }
-
-    private static int estimatedTextWidth(String text) {
-        int width = 0;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c == ' ') {
-                width += 4;
-            } else if (c < 128) {
-                width += 6;
-            } else {
-                width += 8;
-            }
-        }
-        return width;
-    }
-
     public static String ae2Amount(long value) {
         return DisplayNumbers.grouped(ReadableNumberConverter.format(Math.max(0L, value), 4));
     }
 
     public static String ae2Amount(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        BigInteger safe = BigIntegers.nonNegative(value);
         if (safe.bitLength() < Long.SIZE) {
             return ae2Amount(safe.longValue());
         }
         return BigNumberFormatter.format(safe, 1, false);
-    }
-
-    private static String compactTaskAmount(long value) {
-        long safe = Math.max(0L, value);
-        if (safe < 1_000L) {
-            return Long.toString(safe);
-        }
-        if (safe < 1_000_000L) {
-            return compactDecimal(safe, 1_000L, "K");
-        }
-        if (safe < 1_000_000_000L) {
-            return compactDecimal(safe, 1_000_000L, "M");
-        }
-        if (safe < 1_000_000_000_000L) {
-            return compactDecimal(safe, 1_000_000_000L, "G");
-        }
-        return compactDecimal(safe, 1_000_000_000_000L, "T");
-    }
-
-    private static String compactDecimal(long value, long unit, String suffix) {
-        double scaled = (double) Math.max(0L, value) / (double) unit;
-        if (scaled >= 100.0D || Math.abs(scaled - Math.rint(scaled)) < 0.05D) {
-            return String.format(Locale.US, "%,.0f%s", scaled, suffix);
-        }
-        return String.format(Locale.US, "%,.1f%s", scaled, suffix);
     }
 }

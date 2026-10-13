@@ -69,13 +69,13 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
     private MutableComponent neoecoae$formatCpuStatus(
             GuiText text, Object[] args, Operation<MutableComponent> original) {
         if (text != GuiText.ConfirmCraftCpuStatus || args.length < 2
-                || !(args[0] instanceof Number storage)
                 || !(args[1] instanceof Number coProcessors)) {
             return original.call(text, args);
         }
 
+        // Storage stays the raw count, as AE2 shows it; only the co-processor count is abbreviated here.
         return original.call(text, new Object[] {
-            Component.literal(NEByteFormatter.formatCpuStorage(storage.longValue())),
+            args[0],
             Component.literal(NEByteFormatter.formatCpuCoProcessors(coProcessors.longValue()))
         });
     }

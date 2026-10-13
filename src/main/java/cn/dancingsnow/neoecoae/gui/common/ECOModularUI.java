@@ -12,8 +12,15 @@ import net.minecraft.world.entity.player.Player;
 public final class ECOModularUI {
     private ECOModularUI() {}
 
+    public static ModularUI create(UIElement root) {
+        return new ModularUI(ui(root));
+    }
+
     public static ModularUI create(UIElement root, Player player) {
-        return new ModularUI(UI.of(root,
-            List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player);
+        return new ModularUI(ui(root), player);
+    }
+
+    private static UI ui(UIElement root) {
+        return UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO)));
     }
 }

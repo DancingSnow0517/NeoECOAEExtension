@@ -6,8 +6,6 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -27,13 +25,12 @@ public final class CreativeStorageInputButton {
             style.backgroundTexture(icon(Boolean.TRUE.equals(value)))));
         synced.setDisplay(false);
         button.addChild(synced);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = new HoverTooltips(List.of(
-                Component.translatable(Boolean.TRUE.equals(synced.getValue())
-                    ? "gui.neoecoae.storage_interface.ignore_creative.on"
-                    : "gui.neoecoae.storage_interface.ignore_creative.off"),
-                Component.translatable("gui.neoecoae.storage_interface.ignore_creative.description")
-            ), null, null, null));
+        HostElements.tooltips(button, () -> List.of(
+            Component.translatable(Boolean.TRUE.equals(synced.getValue())
+                ? "gui.neoecoae.storage_interface.ignore_creative.on"
+                : "gui.neoecoae.storage_interface.ignore_creative.off"),
+            Component.translatable("gui.neoecoae.storage_interface.ignore_creative.description")
+        ));
         return button;
     }
 

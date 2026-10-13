@@ -7,14 +7,11 @@ import appeng.client.gui.widgets.InfoBar;
 import appeng.core.localization.Tooltips;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
-import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -51,39 +48,6 @@ public class CpuSelectionListMixin {
         if (texture != null) {
             guiGraphics.blit(texture, x + buttonBg.getSrcWidth() - 10, y + 2, 0, 0, 7, 7, 7, 7);
         }
-    }
-
-    @WrapOperation(
-        method = "drawBackgroundLayer",
-        at = @At(
-            value = "INVOKE",
-            target = "Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IFII)V",
-            ordinal = 1
-        )
-    )
-    private void wrapStorageAdd(
-        InfoBar instance,
-        String text,
-        int color,
-        float scale,
-        int xPos,
-        int yPos,
-        Operation<Void> original,
-        @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
-    ) {
-        // Both AE2 19.2.17 and 19.2.18 use this call after formatting storage differently.
-        original.call(instance, NEByteFormatter.formatCpuStorage(cpu.storage()), color, scale, xPos, yPos);
-    }
-
-    @WrapOperation(
-        method = "getTooltip",
-        at = @At(
-            value = "INVOKE",
-            target = "Lappeng/core/localization/Tooltips;ofBytes(J)Lnet/minecraft/network/chat/MutableComponent;"
-        )
-    )
-    private MutableComponent wrapStorageTooltip(long storage, Operation<MutableComponent> original) {
-        return Component.literal(NEByteFormatter.format(storage)).withStyle(Tooltips.NUMBER_TEXT);
     }
 
     @WrapOperation(

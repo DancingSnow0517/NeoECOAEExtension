@@ -99,7 +99,7 @@ class ComputationCpuEntryTest {
     void largeCapacityTooltipKeepsFullBytesWithoutAe2UnitOverflow() {
         when(cpu.getAvailableStorage()).thenReturn(Long.MAX_VALUE);
         ComputationCpuEntry entry = ComputationCpuEntry.sample(cpu, 1);
-        assertEquals("8 EB", entry.storageText());
-        assertEquals("8 EB (9,223,372,036,854,775,807 B)", entry.fullStorageText());
+        assertEquals("8E", entry.storageText());
+        assertEquals("8E (9,223,372,036,854,775,807 B)", entry.fullStorageText());
     }
 }

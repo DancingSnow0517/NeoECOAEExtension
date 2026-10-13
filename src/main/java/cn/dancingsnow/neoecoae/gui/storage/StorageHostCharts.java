@@ -1,11 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
@@ -18,7 +19,6 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Comparator;
-import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
@@ -27,7 +27,7 @@ import net.minecraft.world.item.ItemStack;
 
 /** Dynamic custom nodes for storage_controller.json; each draws at its own resolved position. */
 final class StorageHostCharts {
-    private static final int TEXT = 0xFF3F3D52;
+    private static final int TEXT = 0xFF000000 | Palette.INK;
     private final StoragePanelSync sync;
     private final int pageSize;
     private final TypePanel typePanel;
@@ -72,8 +72,7 @@ final class StorageHostCharts {
             .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(3).width(21).height(21));
         information.addEventListener(UIEvents.MOUSE_ENTER, event -> information.style(style -> style.backgroundTexture(highlighted)));
         information.addEventListener(UIEvents.MOUSE_LEAVE, event -> information.style(style -> style.backgroundTexture(normal)));
-        information.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = new HoverTooltips(domainTooltip(), null, null, null));
+        HostElements.tooltips(information, this::domainTooltip);
         // Match the crafting host's frame; the JSON owns its placement and only the icon has a tooltip.
         return new UIElement().style(style -> style.backgroundTexture(SpriteTexture.of(
             NeoECOAE.id("textures/gui/common/side_bar/mirrored_button_slot_up.png")))).addChild(information);
@@ -82,11 +81,6 @@ final class StorageHostCharts {
     private abstract class PanelElement extends UIElement {
         void texture(GUIContext context, SpriteTexture texture) {
             context.drawTexture(texture, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
-        }
-
-        void tooltips(Supplier<List<Component>> lines) {
-            addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = new HoverTooltips(lines.get(), null, null, null));
         }
 
         void text(GUIContext context, Component component, float x, float y, float width, float maxScale, int color) {
@@ -123,7 +117,7 @@ final class StorageHostCharts {
             this.metric = metric;
             this.fontScale = fontScale;
             this.rightAligned = rightAligned;
-            tooltips(() -> switch (metric) {
+            HostElements.tooltips(this, () -> switch (metric) {
                 case "title" -> domainTooltip();
                 case "energy", "energy_stored" -> energyTooltip();
                 case "bytes" -> capacityTooltip();
@@ -205,7 +199,7 @@ final class StorageHostCharts {
 
     private final class HostIcon extends PanelElement {
         HostIcon() {
-            tooltips(() -> hostItem.isEmpty() ? List.of(state().title()) : DrawerHelper.getItemToolTip(hostItem));
+            HostElements.tooltips(this, () -> hostItem.isEmpty() ? List.of(state().title()) : DrawerHelper.getItemToolTip(hostItem));
         }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
@@ -224,7 +218,7 @@ final class StorageHostCharts {
     }
 
     private final class CapacityBar extends PanelElement {
-        CapacityBar() { tooltips(StorageHostCharts.this::capacityTooltip); }
+        CapacityBar() { HostElements.tooltips(this, StorageHostCharts.this::capacityTooltip); }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
             float width = Math.round(getSizeWidth() * (state().unbounded() ? 1 : state().usage()));
@@ -236,7 +230,7 @@ final class StorageHostCharts {
     private final class ResourceBar extends PanelElement {
         private final List<Component> hoveredTooltip = new ArrayList<>();
 
-        ResourceBar() { tooltips(() -> List.copyOf(hoveredTooltip)); }
+        ResourceBar() { HostElements.tooltips(this, () -> List.copyOf(hoveredTooltip)); }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
             hoveredTooltip.clear();
@@ -259,7 +253,7 @@ final class StorageHostCharts {
     }
 
     private final class EnergyBar extends PanelElement {
-        EnergyBar() { tooltips(StorageHostCharts.this::energyTooltip); }
+        EnergyBar() { HostElements.tooltips(this, StorageHostCharts.this::energyTooltip); }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
             SpriteTexture scale = StoragePanelTextures.SCALE;
@@ -286,10 +280,8 @@ final class StorageHostCharts {
         TypePanel() {
             for (int row = 0; row < 3; row++) {
                 final int index = row;
-                addChild(new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
-                    .left(0).top(index * 29).width(68).height(29))
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                        event.hoverTooltips = new HoverTooltips(tooltip(index), null, null, null)));
+                addChild(HostElements.tooltips(new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+                    .left(0).top(index * 29).width(68).height(29)), () -> tooltip(index)));
             }
             addEventListener(UIEvents.MOUSE_WHEEL, event -> {
                 if (event.deltaY == 0) return;
@@ -346,7 +338,7 @@ final class StorageHostCharts {
 
     private final class TypeScrollbar extends PanelElement {
         TypeScrollbar() {
-            tooltips(() -> List.of(Component.translatable("gui.neoecoae.storage.ui.scroll_types")));
+            HostElements.tooltips(this, () -> List.of(Component.translatable("gui.neoecoae.storage.ui.scroll_types")));
             addEventListener(UIEvents.MOUSE_WHEEL, event -> {
                 if (event.deltaY == 0) return;
                 typePanel.scroll(event.deltaY < 0 ? 1 : -1);
@@ -371,14 +363,14 @@ final class StorageHostCharts {
     }
 
     private final class InfiniteStatus extends PanelElement {
-        InfiniteStatus() { tooltips(StorageHostCharts.this::domainTooltip); }
+        InfiniteStatus() { HostElements.tooltips(this, StorageHostCharts.this::domainTooltip); }
         @Override public void drawBackgroundAdditional(GUIContext context) {
             if (state().unbounded()) texture(context, StoragePanelTextures.INFINITY);
         }
     }
 
     private final class InfiniteAnimation extends PanelElement {
-        InfiniteAnimation() { tooltips(() -> state().infinite() ? domainTooltip() : List.of()); }
+        InfiniteAnimation() { HostElements.tooltips(this, () -> state().infinite() ? domainTooltip() : List.of()); }
         @Override public void drawBackgroundAdditional(GUIContext context) {
             if (!state().infinite()) return;
             Minecraft minecraft = Minecraft.getInstance();
@@ -499,8 +491,8 @@ final class StorageHostCharts {
             : state().infinite() ? "gui.neoecoae.storage.ui.infinite" : "gui.neoecoae.storage.ui.normal"));
         if (!state().domainId().isEmpty()) lines.add(Component.literal("UUID: " + state().domainId()).withColor(0x55FFFF));
         if (state().missingMembers() > 0) {
-            lines.add(Component.translatable("gui.neoecoae.storage.members_missing", state().missingMembers()).withColor(0xFF6A75));
-            lines.add(Component.translatable("gui.neoecoae.storage.members_return").withColor(0xFF6A75));
+            lines.add(Component.translatable("gui.neoecoae.storage.members_missing", state().missingMembers()).withColor(Palette.HOST_ERROR));
+            lines.add(Component.translatable("gui.neoecoae.storage.members_return").withColor(Palette.HOST_ERROR));
         }
         return lines;
     }

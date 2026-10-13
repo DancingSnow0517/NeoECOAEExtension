@@ -1,10 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.multiblock;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
@@ -17,7 +19,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
@@ -93,9 +94,7 @@ public final class MultiblockBuilderUI {
                         element.layout(layout -> layout.flexDirection(FlexDirection.ROW).gapAll(4));
                     } else if ("multiblock_close".equals(name) && element instanceof Button close) {
                         close.setOnClick(event -> windowRef[0].layout(layout -> layout.display(TaffyDisplay.NONE)));
-                        close.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.multiblock.close_builder")),
-                            null, null, null));
+                        HostElements.tooltips(close, List.of(Component.translatable("gui.neoecoae.multiblock.close_builder")));
                     }
                 }
             });
@@ -113,12 +112,7 @@ public final class MultiblockBuilderUI {
         Button button = HostSideButtonBar.createButton();
         button.noText().addPostIcon(NETextures.MULTIBLOCK);
         button.setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                List.of(Component.translatable("gui.neoecoae.multiblock.builder")),
-                null,
-                null,
-                null
-            ));
+        HostElements.tooltips(button, List.of(Component.translatable("gui.neoecoae.multiblock.builder")));
         button.layout(layout -> layout.width(18).height(20));
         return button;
     }
@@ -135,15 +129,10 @@ public final class MultiblockBuilderUI {
         panel.addChild(new UIElement()
             .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(2))
             .addChildren(
-                new Button()
+                HostElements.tooltips(new Button()
                     .setText("-")
-                    .setOnServerClick(event -> config.decreaseLength().run())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                        List.of(Component.translatable("gui.neoecoae.multiblock.decrease_length")),
-                        null,
-                        null,
-                        null
-                    ))
+                    .setOnServerClick(event -> config.decreaseLength().run()),
+                    List.of(Component.translatable("gui.neoecoae.multiblock.decrease_length")))
                     .layout(layout -> layout.width(18).height(18)),
                 syncedLabel(() -> Component.translatable(
                         "gui.neoecoae.multiblock.length",
@@ -151,15 +140,10 @@ public final class MultiblockBuilderUI {
                     ))
                     .textStyle(MultiblockBuilderUI::darkTextStyle)
                     .layout(layout -> layout.width(54)),
-                new Button()
+                HostElements.tooltips(new Button()
                     .setText("+")
-                    .setOnServerClick(event -> config.increaseLength().run())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                        List.of(Component.translatable("gui.neoecoae.multiblock.increase_length")),
-                        null,
-                        null,
-                        null
-                    ))
+                    .setOnServerClick(event -> config.increaseLength().run()),
+                    List.of(Component.translatable("gui.neoecoae.multiblock.increase_length")))
                     .layout(layout -> layout.width(18).height(18))
             ));
 
@@ -251,13 +235,7 @@ public final class MultiblockBuilderUI {
             syncedConflictTooltip[0] = value == null ? Component.empty() : value)
             .bind(DataBindingBuilder.componentS2C(() ->
                 buildConflictTooltipComponent(getConflictPositions(config))).build()));
-        conflictLabel
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                List.of(syncedConflictTooltip[0]),
-                null,
-                null,
-                null
-            ));
+        HostElements.tooltips(conflictLabel, () -> List.of(syncedConflictTooltip[0]));
         panel.addChild(conflictLabel);
 
         return panel;
@@ -396,7 +374,7 @@ public final class MultiblockBuilderUI {
     }
 
     private static void darkTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(Palette.INK).textShadow(false);
     }
 
     private static void hintTextStyle(TextElement.TextStyle style) {
@@ -446,13 +424,7 @@ public final class MultiblockBuilderUI {
                     setSelected.accept(value);
                 }
             });
-            button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable(tooltipKey)),
-                    null,
-                    null,
-                    null
-                )
-            );
+            HostElements.tooltips(button, List.of(Component.translatable(tooltipKey)));
             button.layout(layout -> layout.width(32).height(18));
             return button;
         }
@@ -502,11 +474,8 @@ public final class MultiblockBuilderUI {
                 Component state = syncedHasRequiredItem
                     ? Component.translatable("gui.neoecoae.multiblock.material_enough")
                     : Component.translatable("gui.neoecoae.multiblock.material_missing");
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(stack.getHoverName(),
-                        Component.translatable("gui.neoecoae.multiblock.item_required", syncedCount), state),
-                    null, null, null
-                );
+                event.hoverTooltips = HostElements.hoverTooltips(List.of(stack.getHoverName(),
+                    Component.translatable("gui.neoecoae.multiblock.item_required", syncedCount), state));
             });
         }
 

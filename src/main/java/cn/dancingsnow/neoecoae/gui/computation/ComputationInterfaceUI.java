@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.google.gson.JsonObject;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -83,7 +84,7 @@ public final class ComputationInterfaceUI {
             .setText(GuiTitleProvider.title(blockEntity.getBlockState(),
                 Component.translatable("block.neoecoae.computation_interface")))
             .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
-                .textWrap(TextWrap.NONE).textColor(0x3F3D52).textShadow(false))
+                .textWrap(TextWrap.NONE).textColor(Palette.INK).textShadow(false))
             .layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(8).top(6).width(160).height(12));

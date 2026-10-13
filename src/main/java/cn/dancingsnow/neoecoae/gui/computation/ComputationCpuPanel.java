@@ -2,21 +2,23 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
+import appeng.api.stacks.AEKey;
 import appeng.client.gui.Icon;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
-import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.gui.common.FittedText;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -79,7 +81,7 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         summary.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             List<Component> lines = capacityTooltip();
             if (selected != null) lines.addAll(tooltip(selected));
-            event.hoverTooltips = HoverTooltips.empty().append(lines.toArray(Component[]::new));
+            event.hoverTooltips = HostElements.hoverTooltips(lines);
         });
         addChild(summary);
     }
@@ -119,7 +121,7 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         });
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             ComputationCpuEntry entry = rowEntry(row);
-            if (entry != null) event.hoverTooltips = HoverTooltips.empty().append(tooltip(entry).toArray(Component[]::new));
+            if (entry != null) event.hoverTooltips = HostElements.hoverTooltips(tooltip(entry));
         });
         return hitbox;
     }
@@ -140,13 +142,13 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         Font font = Minecraft.getInstance().font;
         float x = getPositionX(), y = getPositionY();
         context.graphics.flush();
-        text(context, font, config.title().get().getString(), x + 8, y + 5, 157, 0.85F, 0x3F3D52);
-        text(context, font, GuiText.CPUs.text().getString() + " (" + total + ")", x + LIST_X, y + 7, ROW_WIDTH, 0.75F, 0x3F3D52);
+        text(context, font, config.title().get().getString(), x + 8, y + 5, 157, 0.85F, Palette.INK);
+        text(context, font, GuiText.CPUs.text().getString() + " (" + total + ")", x + LIST_X, y + 7, ROW_WIDTH, 0.75F, Palette.INK);
         CompoundTag value = getValue();
-        metric(context, font, "cpu_storage", NEByteFormatter.format(value.getLong("usedBytes")) + " / " + NEByteFormatter.format(value.getLong("totalBytes")), x, y + 27);
+        metric(context, font, "cpu_storage", Tooltips.getByteAmount(value.getLong("usedBytes")) + " / " + Tooltips.getByteAmount(value.getLong("totalBytes")), x, y + 27);
         metric(context, font, "thread_usage", HostText.ae2Amount(value.getInt("usedThreads")) + " / " + HostText.ae2Amount(value.getInt("totalThreads")), x, y + 39);
         metric(context, font, "parallel_count", HostText.ae2Amount(value.getInt("parallel")), x, y + 51);
-        metric(context, font, "free_memory", NEByteFormatter.format(value.getLong("availableBytes")), x, y + 63);
+        metric(context, font, "free_memory", Tooltips.getByteAmount(value.getLong("availableBytes")).toString(), x, y + 63);
         context.graphics.fill((int) x + 13, (int) y + 72, (int) x + 162, (int) y + 73, 0xFF484252);
         if (selected == null) {
             text(context, font, GuiText.NoCraftingJobs.text().getString(), x + 13, y + 80, 149, 0.85F, HostText.MUTED);
@@ -154,7 +156,7 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
             text(context, font, name(selected).getString() + " · " + status(selected).getString(), x + 13, y + 76, 149, 0.85F, HostText.PRIMARY);
             if (selected.output() != null) {
                 float outputY = y + 87, textScale = 0.85F, iconScale = 0.666F;
-                key(context, selected, x + 13,
+                key(context, selected.output(), x + 13,
                     outputY + (font.lineHeight * textScale - 16 * iconScale) / 2, iconScale);
                 text(context, font, selected.output().getDisplayName().getString(), x + 26, outputY, 136, textScale, HostText.PRIMARY);
                 text(context, font, selected.amount(selected.remaining(), false) + " / " + selected.amount(selected.requested(), false),
@@ -183,13 +185,13 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
             boolean chosen, IGuiTexture normal, IGuiTexture selected) {
         context.drawTexture(chosen ? selected : normal, x, y, ROW_WIDTH, ROW_HEIGHT);
         context.graphics.flush();
-        int color = 0x413F54;
+        int color = Palette.INK_413F54;
         text(context, font, name(entry).getString(), x + 3, y + 2, 50, 0.666F, color);
         context.graphics.blit(entry.overlay(), Math.round(x + 55), Math.round(y), 0, 0, 10, 10, 10, 10);
         if (entry.output() != null && !entry.status().equals("idle")) {
             icon(context, Icon.S_CRAFT, x + 2, y + 10);
             fittedText(context, font, entry.amount(entry.requested(), false), x + 14, y + 13, 39, 0.666F, color);
-            key(context, entry, x + 55, y + 10, 0.625F);
+            key(context, entry.output(), x + 55, y + 10, 0.625F);
             context.graphics.fill(Math.round(x + 1), Math.round(y + 20), Math.round(x + 1 + entry.progress() * 66), Math.round(y + 21),
                 chosen ? 0xFF7DA9D2 : 0xFFACE9FF);
         } else {
@@ -222,7 +224,7 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
     }
 
     static void fittedText(GUIContext context, Font font, String value, float x, float y, int width, float scale, int color) {
-        float fittedScale = Math.min(scale, width / (float) Math.max(1, font.width(value)));
+        float fittedScale = FittedText.fitScale(font, value, width, scale);
         context.graphics.pose().pushPose();
         context.graphics.pose().translate(x, y + (scale - fittedScale) * font.lineHeight / 2, 0);
         context.graphics.pose().scale(fittedScale, fittedScale, 1);
@@ -230,11 +232,11 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         context.graphics.pose().popPose();
     }
 
-    private static void key(GUIContext context, ComputationCpuEntry entry, float x, float y, float scale) {
+    static void key(GUIContext context, AEKey key, float x, float y, float scale) {
         context.graphics.pose().pushPose();
         context.graphics.pose().translate(x, y, 0);
         context.graphics.pose().scale(scale, scale, 1);
-        AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, entry.output());
+        AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, key);
         context.graphics.pose().popPose();
     }
 

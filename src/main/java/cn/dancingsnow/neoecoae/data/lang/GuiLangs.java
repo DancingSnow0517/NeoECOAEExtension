@@ -464,6 +464,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle found");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycles off");
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
+        provider.add("gui.neoecoae.crafting_report.missing_startup_seed_amount", "Missing startup seed amount: %s");
         provider.add("gui.neoecoae.crafting_report.seed_shortfall_estimate", "Startup shortfall: at least %s");
         provider.add("gui.neoecoae.crafting_report.seed_shortfall_estimate_hint", "This is a lower bound; supplying it has not been verified to complete the order.");
         provider.add("gui.neoecoae.crafting_report.seed_requirement_unknown", "Required startup amount is not yet known");

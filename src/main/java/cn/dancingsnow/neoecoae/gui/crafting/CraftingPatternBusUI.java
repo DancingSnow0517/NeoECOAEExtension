@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import static cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.COL_SIZE;
 import static cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.ROW_SIZE;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -78,10 +79,6 @@ public final class CraftingPatternBusUI {
             if ("crafting_pattern_bus_root".equals(string(node, "id", ""))) {
                 element.layout(layout -> layout.justifyContent(AlignContent.CENTER));
             }
-        }
-
-        private static String string(JsonObject node, String key, String fallback) {
-            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
         }
     }
 

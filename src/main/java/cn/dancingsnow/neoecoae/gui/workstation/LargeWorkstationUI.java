@@ -3,9 +3,11 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -113,10 +115,6 @@ public final class LargeWorkstationUI {
             }
             return inventory;
         }
-
-        private static String string(JsonObject node, String key, String fallback) {
-            return node.has(key) && node.get(key).isJsonPrimitive() ? node.get(key).getAsString() : fallback;
-        }
     }
 
     private static UIElement fluidGauge(IFluidHandler fluids, int tank, int left, boolean withLayout) {
@@ -158,7 +156,7 @@ public final class LargeWorkstationUI {
                 .textWrap(TextWrap.HOVER_ROLL)
                 .adaptiveHeight(false)
                 .textShadow(false)
-                .textColor(0x403E53));
+                .textColor(Palette.INK_403E53));
         label.layout(layout -> layout
             .positionType(TaffyPosition.ABSOLUTE)
             .left(left)
@@ -183,7 +181,7 @@ public final class LargeWorkstationUI {
         Label label = new Label();
         label.setText(supplier.get());
         label.bind(DataBindingBuilder.componentS2C(supplier).build());
-        label.textStyle(style -> style.fontSize(6).adaptiveWidth(false).textWrap(textWrap).adaptiveHeight(false).textShadow(false).textColor(0x403E53));
+        label.textStyle(style -> style.fontSize(6).adaptiveWidth(false).textWrap(textWrap).adaptiveHeight(false).textShadow(false).textColor(Palette.INK_403E53));
         label.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(left).top(top).width(width).height(height));
         return label;
     }

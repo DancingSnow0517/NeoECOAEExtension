@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
+import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import appeng.api.stacks.GenericStack;
@@ -71,24 +73,24 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
 
     @Override
     public void addWidgets(WidgetHolder widgets) {
-        widgets.addTexture(NeoECOAE.id("textures/guis/integration_working_station.png"), 0, 0, 168, 75, 0, 0, 168, 75, 168, 75);
-        widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/recipe/progress_bar.png"), 136, 30, 6, 18, 0, 0, 6, 18, 6, 18, 2000, false, true, false);
+        widgets.addTexture(TextureConstants.INTEGRATED_WORKING_STATION, 0, 0, 168, 75, 0, 0, 168, 75, 168, 75);
+        widgets.addAnimatedTexture(TextureConstants.PROGRESS_BAR, 136, 30, 6, 18, 0, 0, 6, 18, 6, 18, 2000, false, true, false);
 
         Component text = category == NeoECOAEEmiPlugin.LARGE_WORKING_STATION
             ? Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy", energy)
             : Component.translatable("gui.neoecoae.integrated_working_station.energy", energy / 1000);
-        widgets.addText(text, 24, 66, 0x403e53, false);
+        widgets.addText(text, 24, 66, Palette.INK_403E53, false);
         if (!extraInputs.isEmpty()) {
             var extra = extraInputs.getFirst();
             widgets.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_amount",
-                extra.amount()), 0, 79, 0x403e53, false);
-            widgets.addText(extra.what().getDisplayName(), 0, 91, 0x403e53, false);
+                extra.amount()), 0, 79, Palette.INK_403E53, false);
+            widgets.addText(extra.what().getDisplayName(), 0, 91, Palette.INK_403E53, false);
         }
         if (sourceType != null) {
             var font = Minecraft.getInstance().font;
             var lines = font.split(sourceType, 168);
             for (int i = 0; i < lines.size(); i++) {
-                widgets.addText(lines.get(i), 0, 105 + i * font.lineHeight, 0x403e53, false);
+                widgets.addText(lines.get(i), 0, 105 + i * font.lineHeight, Palette.INK_403E53, false);
             }
             widgets.addTooltipText(List.of(sourceType), 0, 105, 168, 34);
         }

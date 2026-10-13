@@ -41,7 +41,7 @@ final class CraftingOutputSlot extends ItemSlot {
     @Override
     protected void drawItemStack(GUIContext context, ItemStack item) {
         super.drawItemStack(context, item);
-        String count = BigNumberFormatter.formatSI(amount, 1).replace("K", "k");
+        String count = BigNumberFormatter.formatSI(amount, 1, true);
         Font font = Minecraft.getInstance().font;
         float scale = Math.min(0.8F, 16F / Math.max(1, font.width(count)));
         context.pose.pushPose();

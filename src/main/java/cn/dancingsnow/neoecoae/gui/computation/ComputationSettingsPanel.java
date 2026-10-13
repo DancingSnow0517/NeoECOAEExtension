@@ -4,6 +4,7 @@ import appeng.core.AppEng;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
@@ -42,7 +43,7 @@ final class ComputationSettingsPanel extends UIElement {
     }
 
     static Label settingLabel(int width, int height, Supplier<Component> text) {
-        Label label = HostElements.textSegment(text, () -> 0x3F3D52);
+        Label label = HostElements.textSegment(text, () -> Palette.INK);
         label.textStyle(style -> style.adaptiveWidth(false).adaptiveHeight(false).textWrap(TextWrap.WRAP));
         return label;
     }

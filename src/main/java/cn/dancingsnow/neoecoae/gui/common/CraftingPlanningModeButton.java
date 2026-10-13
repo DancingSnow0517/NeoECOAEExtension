@@ -8,8 +8,6 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -53,15 +51,14 @@ public final class CraftingPlanningModeButton {
         syncedPatternCount.setDisplay(false);
         button.addChild(syncedPatternCount);
 
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = new HoverTooltips(List.of(
+        HostElements.tooltips(button, () -> List.of(
                 Component.translatable(Boolean.TRUE.equals(syncedMode.getValue())
                     ? "gui.neoecoae.crafting.planning.ignore_substitutions.on"
                     : "gui.neoecoae.crafting.planning.ignore_substitutions.off"),
                 Component.translatable(
                     "gui.neoecoae.crafting.planning.substitution_pattern_count",
                     Math.max(0, syncedPatternCount.getValue() == null ? 0 : syncedPatternCount.getValue()))
-            ), null, null, null));
+        ));
         return button;
     }
 

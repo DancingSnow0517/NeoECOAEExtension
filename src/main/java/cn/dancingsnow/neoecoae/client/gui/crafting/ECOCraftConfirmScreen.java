@@ -126,7 +126,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 cpuDetails = GuiText.PartialPlan.text();
             } else if (menu.getCpuAvailableBytes() > 0) {
                 cpuDetails = GuiText.ConfirmCraftCpuStatus.text(
-                    Component.literal(NEByteFormatter.formatCpuStorage(menu.getCpuAvailableBytes())),
+                    menu.getCpuAvailableBytes(),
                     Component.literal(NEByteFormatter.formatCpuCoProcessors(menu.getCpuCoProcessors())));
             } else {
                 cpuDetails = GuiText.ConfirmCraftNoCpu.text();

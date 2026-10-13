@@ -818,6 +818,7 @@
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "存在循环",
   "gui.neoecoae.crafting_report.cycle_planning_disabled": "未开启循环规划",
   "gui.neoecoae.crafting_report.missing_startup_seed": "缺少启动种子",
+  "gui.neoecoae.crafting_report.missing_startup_seed_amount": "缺少启动种子数量：%s",
   "gui.neoecoae.crafting_report.seed_shortfall_estimate": "启动材料至少还需：%s",
   "gui.neoecoae.crafting_report.seed_shortfall_estimate_hint": "此数量是最低估计，尚未确认补齐后能完成订单。",
   "gui.neoecoae.crafting_report.seed_requirement_unknown": "启动材料需求尚未确定",

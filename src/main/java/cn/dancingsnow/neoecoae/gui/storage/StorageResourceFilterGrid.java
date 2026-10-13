@@ -6,6 +6,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.impl.storage.StorageInterfaceFilter;
 import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
@@ -16,7 +17,6 @@ import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -147,7 +147,7 @@ final class StorageResourceFilterGrid extends UIElement {
 
         @Override
         protected void onHoverTooltips(UIEvent event) {
-            event.hoverTooltips = new HoverTooltips(getFullTooltipTexts(), null, null, null);
+            event.hoverTooltips = HostElements.hoverTooltips(getFullTooltipTexts());
         }
     }
 }

@@ -2,17 +2,19 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_WIDTH;
+import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.gui.common.FittedText;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelElements;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.Config;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import dev.vfyjxf.taffy.style.TaffyPosition;
-import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.function.Function;
@@ -26,11 +28,6 @@ import net.neoforged.neoforge.fluids.FluidStack;
 final class CraftingControllerArtwork extends UIElement {
     private static final int[] PLUS_X = {1, 13, 25};
     private static final int[] STATUS_CORNER_X = {19, 35, 51};
-    private static final int PRIMARY = 0xFFE4E4EE;
-    private static final int SECONDARY = 0xFFB4B6CC;
-    private static final int QUEUE_VALUE_COLOR = 0xB4E2FF;
-    private static final int PARALLEL_VALUE_COLOR = 0xFFC2ED;
-    private static final int OVERFLOW_VALUE_COLOR = 0xFFDB99;
     private static final float INFO_TEXT_SCALE = 0.75F;
     private static final float INFO_TEXT_GAP = 4.0F;
     private static final int INFO_TEXT_X = 196;
@@ -46,7 +43,6 @@ final class CraftingControllerArtwork extends UIElement {
     private static final int STAT_COLUMN_WIDTH = 49;
     private static final int PROGRESS_BAR_WIDTH = 44;
     private static final int PROGRESS_BAR_HEIGHT = 7;
-    private static final String[] NUMBER_UNITS = {"", "K", "M", "G", "T", "P", "E"};
     private final Config config;
     private final ItemStack hostItem;
     private final CraftingOutputSlot[] workerSlots = new CraftingOutputSlot[CraftingControllerPanelState.SLOT_COUNT];
@@ -77,10 +73,8 @@ final class CraftingControllerArtwork extends UIElement {
     }
 
     private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<List<Component>> lines) {
-        return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
-            .left(x).top(y).width(width).height(height))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                lines.get(), null, null, null));
+        return HostElements.tooltips(new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+            .left(x).top(y).width(width).height(height)), lines);
     }
 
     private void updateWorkerSlots() {
@@ -107,9 +101,9 @@ final class CraftingControllerArtwork extends UIElement {
     }
 
     private void drawHeader(GUIContext context) {
-        drawText(context, config.title().get(), 40, 10, 105, PRIMARY);
+        drawText(context, config.title().get(), 40, 10, 105, Palette.CRAFTING_PRIMARY);
         drawCenteredText(context, Component.literal(HostPanelElements.formatPerformanceCornerValue(view.performanceAverageNanos)),
-            210, 10, 39, PRIMARY);
+            210, 10, 39, Palette.CRAFTING_PRIMARY);
         drawSectionHeadings(context);
     }
 
@@ -154,14 +148,14 @@ final class CraftingControllerArtwork extends UIElement {
         Font font = Minecraft.getInstance().font;
         float textHeight = (font.lineHeight - 1) * INFO_TEXT_SCALE;
         float firstY = y + (INFO_ROW_HEIGHT - textHeight * 2 - INFO_TEXT_GAP) / 2.0F;
-        drawInfoText(context, font, first, firstY, PRIMARY);
-        drawInfoText(context, font, second, firstY + textHeight + INFO_TEXT_GAP, SECONDARY);
+        drawInfoText(context, font, first, firstY, Palette.CRAFTING_PRIMARY);
+        drawInfoText(context, font, second, firstY + textHeight + INFO_TEXT_GAP, Palette.CRAFTING_SECONDARY);
     }
 
     private void drawInfoText(GUIContext context, Font font, Component text, float y, int color) {
         String value = text == null ? "" : text.getString();
         if (value.isEmpty()) return;
-        float scale = Math.min(INFO_TEXT_SCALE, (INFO_TEXT_WIDTH - 1.0F) / Math.max(1, font.width(value)));
+        float scale = FittedText.fitScale(font, value, INFO_TEXT_WIDTH - 1.0F, INFO_TEXT_SCALE);
         float textY = y + (font.lineHeight - 1) * (INFO_TEXT_SCALE - scale) / 2.0F;
         var pose = context.graphics.pose();
         pose.pushPose();
@@ -263,11 +257,11 @@ final class CraftingControllerArtwork extends UIElement {
                 values -> Component.translatable("gui.neoecoae.crafting.ui.queue_capacity_short",
                     view.batchCapacity == Long.MAX_VALUE ? "∞" : values[0]), view.batchCapacity),
             Component.translatable("gui.neoecoae.crafting.ui.queue_used_short",
-                Component.literal(tooltips.percent(view.state.queuePermille())).withColor(QUEUE_VALUE_COLOR))));
+                Component.literal(tooltips.percent(view.state.queuePermille())).withColor(Palette.CRAFTING_QUEUE_VALUE))));
         drawStatisticLines(context, PARALLEL_COLUMN_X, List.of(
             statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
                 values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_count_short",
-                    Component.literal(values[0]).withColor(PARALLEL_VALUE_COLOR)),
+                    Component.literal(values[0]).withColor(Palette.CRAFTING_PARALLEL_VALUE)),
                 view.ftParallelCapacity),
             statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
                 values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_limit_short", values[0]),
@@ -277,7 +271,7 @@ final class CraftingControllerArtwork extends UIElement {
                 view.overflowCapacity),
             Component.translatable("gui.neoecoae.crafting.ui.parallel_overflow_percent_short",
                 view.overflowCapacity > 0
-                    ? Component.literal(tooltips.overflowPercent()).withColor(OVERFLOW_VALUE_COLOR)
+                    ? Component.literal(tooltips.overflowPercent()).withColor(Palette.CRAFTING_OVERFLOW_VALUE)
                     : Component.literal(tooltips.overflowPercent()))));
     }
 
@@ -289,7 +283,7 @@ final class CraftingControllerArtwork extends UIElement {
             try {
                 pose.translate(getPositionX() + x, getPositionY() + STAT_TEXT_Y + row * STAT_LINE_SPACING, 0.0D);
                 pose.scale(STAT_TEXT_SCALE, STAT_TEXT_SCALE, 1.0F);
-                context.graphics.drawString(font, lines.get(row), 0, 0, PRIMARY, true);
+                context.graphics.drawString(font, lines.get(row), 0, 0, Palette.CRAFTING_PRIMARY, true);
             } finally {
                 pose.popPose();
             }
@@ -302,7 +296,8 @@ final class CraftingControllerArtwork extends UIElement {
         Component text = Component.empty();
         for (int decimalPlaces = 2; decimalPlaces >= 0; decimalPlaces--) {
             for (int i = 0; i < numbers.length; i++) {
-                values[i] = decimalPlaces == 2 ? Long.toString(numbers[i]) : compactNumber(numbers[i], decimalPlaces);
+                values[i] = decimalPlaces == 2 ? Long.toString(numbers[i])
+                    : BigNumberFormatter.compactFixed(BigInteger.valueOf(numbers[i]), decimalPlaces, RoundingMode.DOWN, false);
             }
             text = formatter.apply(values);
             if (font.width(text) * scale <= width - 1) break;
@@ -320,22 +315,10 @@ final class CraftingControllerArtwork extends UIElement {
         try {
             pose.translate(getPositionX() + left, getPositionY() + y, 0.0D);
             pose.scale(scale, scale, 1.0F);
-            context.graphics.drawString(font, text, 0, 0, PRIMARY, true);
+            context.graphics.drawString(font, text, 0, 0, Palette.CRAFTING_PRIMARY, true);
         } finally {
             pose.popPose();
         }
-    }
-
-    private String compactNumber(long value, int decimalPlaces) {
-        long safe = Math.max(0L, value);
-        long divisor = 1L;
-        int unit = 0;
-        while (unit < NUMBER_UNITS.length - 1 && safe / divisor >= 1_000L) {
-            divisor *= 1_000L;
-            unit++;
-        }
-        return BigDecimal.valueOf(safe).divide(BigDecimal.valueOf(divisor), decimalPlaces, RoundingMode.DOWN)
-            .stripTrailingZeros().toPlainString() + NUMBER_UNITS[unit];
     }
 
     private void drawFluidGauge(GUIContext context, int x, FluidStack fluid, int amount, int capacity, int tickX) {

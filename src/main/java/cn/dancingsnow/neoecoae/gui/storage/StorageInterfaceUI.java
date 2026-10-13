@@ -4,11 +4,14 @@ import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 import cn.dancingsnow.neoecoae.gui.common.CreativeStorageInputButton;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import cn.dancingsnow.neoecoae.gui.common.FittedText;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.common.SampledValue;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.google.gson.JsonObject;
@@ -21,8 +24,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import java.util.List;
 import java.util.function.LongSupplier;
@@ -35,7 +36,6 @@ import net.minecraft.world.entity.player.Player;
 public final class StorageInterfaceUI {
     private static final ResourceLocation JSON_LAYOUT =
         ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/storage/storage_interface");
-    private static final int TEXT = 0x3F3D52;
 
     private StorageInterfaceUI() {}
 
@@ -122,8 +122,7 @@ public final class StorageInterfaceUI {
             button.setOnServerClick(event -> {
                 if (event.button == 0 && canEdit(button, host, player)) host.setStorageInterfaceMode(selected);
             });
-            button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                List.of(Component.translatable(modeKey(selected))), null, null, null));
+            HostElements.tooltips(button, () -> List.of(Component.translatable(modeKey(selected))));
             return button;
         }
     }
@@ -162,15 +161,14 @@ public final class StorageInterfaceUI {
     private static Label label(Component value, float size) {
         Label text = new FittedLabel();
         text.setText(value);
-        text.textStyle(style -> style.fontSize(size).textColor(TEXT).textShadow(false)
+        text.textStyle(style -> style.fontSize(size).textColor(Palette.INK).textShadow(false)
             .adaptiveWidth(false).adaptiveHeight(false).textWrap(TextWrap.NONE));
         return text;
     }
 
     private static UIElement status(Supplier<Component> value, float size) {
         Label text = label(value, size);
-        text.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = new HoverTooltips(List.of(text.getValue()), null, null, null));
+        HostElements.tooltips(text, () -> List.of(text.getValue()));
         return text;
     }
 
@@ -180,8 +178,7 @@ public final class StorageInterfaceUI {
         full.bind(DataBindingBuilder.componentS2C(tooltip).initialValue(tooltip.get()).build());
         full.setDisplay(false);
         text.addChild(full);
-        text.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = new HoverTooltips(List.of(full.getValue()), null, null, null));
+        HostElements.tooltips(text, () -> List.of(full.getValue()));
         return text;
     }
 
@@ -189,24 +186,15 @@ public final class StorageInterfaceUI {
     private static final class FittedLabel extends Label {
         @Override
         public void drawBackgroundAdditional(GUIContext context) {
-            Component value = getValue();
-            if (value == null || value.getString().isEmpty()) return;
             var font = getFont();
-            float width = getContentWidth();
             float height = getContentHeight();
-            if (width <= 0 || height <= 0) return;
-            float size = Math.min(getTextStyle().fontSize(), height);
-            float scale = Math.min(size / font.lineHeight, width / Math.max(1, font.width(value)));
-            if (scale <= 0) return;
-            var pose = context.graphics.pose();
-            pose.pushPose();
-            try {
-                pose.translate(getContentX(), getContentY() + (height - font.lineHeight * scale) / 2, 0);
-                pose.scale(scale, scale, 1);
-                context.graphics.drawString(font, value, 0, 0, getTextStyle().textColor(), getTextStyle().textShadow());
-            } finally {
-                pose.popPose();
-            }
+            float maxScale = Math.min(getTextStyle().fontSize(), height) / font.lineHeight;
+            float width = getContentWidth();
+            float scale = FittedText.fitScale(font, getValue(), width, maxScale);
+            // Vertical centring depends on the fitted scale, so the helper's top-aligned draw cannot be used here.
+            float y = getContentY() + (height - font.lineHeight * scale) / 2;
+            FittedText.drawScaled(context.graphics, font, getValue(), getContentX(), y, width, scale,
+                getTextStyle().textColor(), getTextStyle().textShadow(), FittedText.Align.LEFT);
         }
     }
 }

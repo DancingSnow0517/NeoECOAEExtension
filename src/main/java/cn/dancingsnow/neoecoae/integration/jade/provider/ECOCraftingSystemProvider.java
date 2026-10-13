@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.jade.provider;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
-import java.util.Locale;
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -56,7 +56,7 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
                 data.getInt("normalSwitchHosts"), normalSwitches,
                 data.getInt("highEnergySwitchHosts"), highEnergySwitches));
             Component total = virtual ? Component.translatable("gui.neoecoae.storage.infinite_value")
-                : Component.literal(String.format(Locale.ROOT, "%,d", data.getLong("totalBatchCapacity")))
+                : Component.literal(DisplayNumbers.grouped(Long.toString(data.getLong("totalBatchCapacity"))))
                     .withStyle(ChatFormatting.LIGHT_PURPLE);
             iTooltip.add(Component.translatable("jade.neoecoae.total_crafting_capacity", total));
         }

@@ -126,6 +126,20 @@ class ECOCraftReportHeaderRendererTest {
         assertFalse(ECOCraftReportHeaderRenderer.isHovered(155, 20));
     }
 
+    @Test
+    void bytesUseBase1000InTheFirstTierAndInTheFallback() {
+        assertEquals("1,500 B", argument(ECOCraftReportHeaderRenderer.completed(0, BigInteger.valueOf(1_500),
+            text -> 0).bytes()));
+        assertEquals("1.0 MB", argument(ECOCraftReportHeaderRenderer.completed(0, BigInteger.valueOf(1_048_576),
+            text -> 0).bytes()));
+        assertEquals("100 EB", argument(ECOCraftReportHeaderRenderer.completed(0, BigInteger.TEN.pow(20),
+            text -> 0).bytes()));
+        BigInteger wide = BigInteger.valueOf(123_456_789).multiply(BigInteger.TEN.pow(20));
+        var narrow = ECOCraftReportHeaderRenderer.completed(0, wide,
+            text -> ("字节：" + argument(text)).length() * 9);
+        assertEquals("12 RB", argument(narrow.bytes()));
+    }
+
     private static String key(Component component) {
         return ((TranslatableContents) component.getContents()).getKey();
     }

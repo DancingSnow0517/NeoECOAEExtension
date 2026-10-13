@@ -2,10 +2,9 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AEKey;
+import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
-import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -20,15 +19,12 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
         BigInteger requested, BigInteger remaining, float progress, long elapsed,
         long storage, int parallel, CpuSelectionMode mode, ResourceLocation overlay, String status) {
     String amount(BigInteger value, boolean full) {
-        int unit = output == null ? 1 : Math.max(1, output.getAmountPerUnit());
-        String number = full ? DisplayNumbers.grouped(new BigDecimal(value)
-            .divide(BigDecimal.valueOf(unit), 6, RoundingMode.DOWN).stripTrailingZeros().toPlainString())
-            : BigNumberFormatter.formatSI(value, unit);
+        int unit = output == null ? 1 : output.getAmountPerUnit();
         String suffix = output == null ? null : output.getUnitSymbol();
-        return number + (suffix == null ? "" : " " + suffix);
+        return BigNumberFormatter.format(value, unit, full) + (suffix == null ? "" : " " + suffix);
     }
 
-    String storageText() { return NEByteFormatter.formatCpuStorage(storage); }
+    String storageText() { return Tooltips.getByteAmount(storage).toString(); }
     String fullStorageText() { return storageText() + " (" + HostText.expandedNumber(storage) + " B)"; }
 
     static ComputationCpuEntry sample(ECOCraftingCPU cpu, int serial) {

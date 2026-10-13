@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -17,7 +19,6 @@ import org.jetbrains.annotations.Nullable;
 /** Fitted byte summary inside the report texture's 102 by 15 pixel text area. */
 final class ECOCraftReportHeaderRenderer {
     private static final String KEY_PREFIX = "gui.neoecoae.crafting_report.";
-    private static final int TEXT_COLOR = 0xFFFFFF;
     private static final int LEFT = 53;
     private static final int TOP = 5;
     private static final int RIGHT = 155;
@@ -68,7 +69,7 @@ final class ECOCraftReportHeaderRenderer {
         String compact = HostText.ae2Amount(value);
         int maxWidth = (int) (BYTES_WIDTH / MAX_BYTES_SCALE);
         if (width.applyAsInt(text("bytes_only", byteUnit(compact))) > maxWidth) {
-            compact = HostText.fitHugeAmount(value, maxWidth,
+            compact = BigNumberFormatter.fit(value, maxWidth,
                 amount -> width.applyAsInt(text("bytes_only", byteUnit(amount))));
         }
         return text("bytes_only", byteUnit(compact));
@@ -99,8 +100,8 @@ final class ECOCraftReportHeaderRenderer {
             drawBytes(graphics, font, offsetX, offsetY, summary.bytes());
             if (progressMillis != null) {
                 int fill = 1 + (int) (progressMillis % 2_000L) * (BYTES_WIDTH - 1) / 1_999;
-                graphics.fill(BYTES_LEFT, 19, BYTES_RIGHT - 1, 20, 0xFF6A6A72);
-                graphics.fill(BYTES_LEFT, 19, BYTES_LEFT + fill, 20, 0xFF3D9B62);
+                graphics.fill(BYTES_LEFT, 19, BYTES_RIGHT - 1, 20, Palette.REPORT_BYTES_TRACK);
+                graphics.fill(BYTES_LEFT, 19, BYTES_LEFT + fill, 20, Palette.REPORT_BYTES_FILL);
             }
         } finally {
             graphics.flush();
@@ -122,7 +123,7 @@ final class ECOCraftReportHeaderRenderer {
         try {
             pose.translate(BYTES_LEFT, textY, 0);
             pose.scale(scale, scale, 1);
-            graphics.drawString(font, text, 0, 0, TEXT_COLOR, true);
+            graphics.drawString(font, text, 0, 0, Palette.REPORT_TEXT, true);
         } finally {
             graphics.flush();
             pose.popPose();

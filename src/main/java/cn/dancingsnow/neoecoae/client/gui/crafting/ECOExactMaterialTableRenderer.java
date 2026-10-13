@@ -9,6 +9,7 @@ import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -43,9 +44,6 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             && !snapshot.nodes().isEmpty();
     }
 
-    private static final int MISSING_OVERLAY = 0x1AFF0000;
-    private static final int CYCLE_OVERLAY = 0x1AB86BFF;
-    private static final int FUZZY_PLANNING_OVERLAY = 0x264CAF70;
     private final Predicate<AEKey> cycleParticipant;
     private final Predicate<AEKey> missingStartupSeed;
     private final Predicate<AEKey> estimatedStartupSeed;
@@ -112,9 +110,9 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
 
     @Override
     protected int getEntryOverlayColor(CraftingGraphSnapshot.MaterialNode entry) {
-        if (entry.missingBigInteger().signum() > 0) return MISSING_OVERLAY;
-        if (cycleParticipant.test(entry.key())) return CYCLE_OVERLAY;
-        if (fuzzyPlanningItem.test(entry.key())) return FUZZY_PLANNING_OVERLAY;
+        if (entry.missingBigInteger().signum() > 0) return Palette.OVERLAY_MISSING;
+        if (cycleParticipant.test(entry.key())) return Palette.OVERLAY_CYCLE;
+        if (fuzzyPlanningItem.test(entry.key())) return Palette.OVERLAY_FUZZY_PLANNING;
         return 0;
     }
 
@@ -150,7 +148,8 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             return Component.translatable("gui.neoecoae.crafting_report.seed_shortfall_estimate", amount);
         }
         return isMissingStartupSeed(key)
-            ? Component.literal("缺少启动种子数量：" + amount) : GuiText.Missing.text(amount);
+            ? Component.translatable("gui.neoecoae.crafting_report.missing_startup_seed_amount", amount)
+            : GuiText.Missing.text(amount);
     }
 
     private static String formatAmount(AEKey key, BigInteger amount, AmountFormat format) {

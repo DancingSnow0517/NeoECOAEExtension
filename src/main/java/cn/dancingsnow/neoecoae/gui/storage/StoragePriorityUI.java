@@ -3,9 +3,11 @@ package cn.dancingsnow.neoecoae.gui.storage;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -190,15 +192,15 @@ public final class StoragePriorityUI {
     }
 
     private static HoverTooltips tooltip(String key) {
-        return new HoverTooltips(List.of(Component.translatable(key)), null, null, null);
+        return HostElements.hoverTooltips(List.of(Component.translatable(key)));
     }
 
     private static void titleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(0x413f54).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(Palette.INK_413F54).textShadow(false);
     }
 
     private static void helpTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(0x413f54).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(Palette.INK_413F54).textShadow(false);
     }
 
     private static final class PriorityAmountButton extends Button {
@@ -238,7 +240,7 @@ public final class StoragePriorityUI {
             int color;
             if (!isActive()) {
                 yOffset = -1;
-                color = 0xFF413F54;
+                color = 0xFF000000 | Palette.INK_413F54;
             } else if (getState() == State.DEFAULT) {
                 yOffset = 1;
                 color = 0xFFF2F2F2;
