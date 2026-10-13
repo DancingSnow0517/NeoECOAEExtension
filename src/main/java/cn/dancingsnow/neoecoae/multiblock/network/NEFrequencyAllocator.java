@@ -53,4 +53,14 @@ public final class NEFrequencyAllocator {
     public static int normalize(int frequency) {
         return Math.floorMod(frequency - 1, FREQUENCY_COUNT) + 1;
     }
+
+    /** Whether a host's stored frequency is one of the assignable frequencies. */
+    public static boolean isAssigned(int frequency) {
+        return frequency >= 1 && frequency <= FREQUENCY_COUNT;
+    }
+
+    /** Returns the frequency when assigned, otherwise {@link #DEFAULT_FREQUENCY}. */
+    public static int orDefault(int frequency) {
+        return isAssigned(frequency) ? frequency : DEFAULT_FREQUENCY;
+    }
 }

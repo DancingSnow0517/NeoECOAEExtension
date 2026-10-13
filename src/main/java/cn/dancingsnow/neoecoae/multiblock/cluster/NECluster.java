@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.core.network.NetworkSwitchMultipliers;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchHost;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -11,10 +13,16 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
 public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
+    /** Member order of a logical network: controller position by X, then Y, then Z. */
+    static final Comparator<BlockPos> CONTROLLER_POS_ORDER = Comparator.<BlockPos>comparingInt(BlockPos::getX)
+        .thenComparingInt(BlockPos::getY)
+        .thenComparingInt(BlockPos::getZ);
+
     private final BlockPos boundMin;
     private final BlockPos boundMax;
     protected final List<BlockEntity> blockEntities = new ArrayList<>();
@@ -65,12 +73,21 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         return null;
     }
 
+    /** The Network Switch host of this cluster, or null when the cluster cannot carry a network switch. */
+    protected @Nullable NENetworkSwitchHost networkSwitchHost() {
+        return null;
+    }
+
     public boolean isNetworkMode() {
-        return false;
+        NENetworkSwitchHost host = networkSwitchHost();
+        return host != null && host.hasNetworkSwitch();
     }
 
     public int getNetworkMultiplier() {
-        return 1;
+        NENetworkSwitchHost host = networkSwitchHost();
+        return host == null
+            ? 1
+            : NetworkSwitchMultipliers.of(host.hasNormalNetworkSwitch(), host.hasHighEnergyNetworkSwitch());
     }
 
     public boolean shouldCasingRenderInClassic(NEBlockEntity<T, ?> blockEntity) {

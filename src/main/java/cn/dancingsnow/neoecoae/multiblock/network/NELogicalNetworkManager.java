@@ -2,6 +2,9 @@ package cn.dancingsnow.neoecoae.multiblock.network;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationNetworkCluster;
@@ -20,6 +23,9 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Server-thread authority for network-switch group membership. A logical group is scoped to one
@@ -46,17 +52,9 @@ public final class NELogicalNetworkManager {
         }
         LevelState state = LEVELS.computeIfAbsent(serverLevel, ignored -> new LevelState());
         if (cluster instanceof NECraftingCluster craftingCluster) {
-            if (state.crafting.add(craftingCluster)) {
-                assignCraftingFrequencyIfNeeded(craftingCluster, state.crafting);
-                rebuildCrafting(state);
-                refreshAfterGridChange(craftingCluster);
-            }
+            state.crafting.attach(craftingCluster);
         } else if (cluster instanceof NEComputationCluster computationCluster) {
-            if (state.computation.add(computationCluster)) {
-                assignComputationFrequencyIfNeeded(computationCluster, state.computation);
-                rebuildComputation(state);
-                refreshAfterGridChange(computationCluster);
-            }
+            state.computation.attach(computationCluster);
         }
     }
 
@@ -72,13 +70,9 @@ public final class NELogicalNetworkManager {
         }
         LevelState state = LEVELS.computeIfAbsent(serverLevel, ignored -> new LevelState());
         if (cluster instanceof NECraftingCluster craftingCluster) {
-            state.crafting.add(craftingCluster);
-            assignCraftingFrequencyIfNeeded(craftingCluster, state.crafting);
-            rebuildCrafting(state);
+            state.crafting.refresh(craftingCluster);
         } else if (cluster instanceof NEComputationCluster computationCluster) {
-            state.computation.add(computationCluster);
-            assignComputationFrequencyIfNeeded(computationCluster, state.computation);
-            rebuildComputation(state);
+            state.computation.refresh(computationCluster);
         }
     }
 
@@ -129,17 +123,9 @@ public final class NELogicalNetworkManager {
         if (state == null) {
             return;
         }
-        for (NECraftingCluster cluster : state.crafting) {
-            cluster.setNetworkCluster(null);
-        }
-        for (NEComputationCluster cluster : state.computation) {
-            cluster.setNetworkCluster(null);
-        }
-        state.pendingGridRefresh.clear();
-        state.craftingNetworks.clear();
-        state.computationNetworks.clear();
         state.crafting.clear();
         state.computation.clear();
+        state.pendingGridRefresh.clear();
     }
 
     private static void detach(NECluster<?> cluster) {
@@ -154,203 +140,169 @@ public final class NELogicalNetworkManager {
             return;
         }
         if (cluster instanceof NECraftingCluster craftingCluster) {
-            if (state.crafting.remove(craftingCluster)) {
-                rebuildCrafting(state);
-            }
-            craftingCluster.setNetworkCluster(null);
+            state.crafting.detach(craftingCluster);
         } else if (cluster instanceof NEComputationCluster computationCluster) {
-            if (state.computation.remove(computationCluster)) {
-                rebuildComputation(state);
-            }
-            computationCluster.setNetworkCluster(null);
+            state.computation.detach(computationCluster);
         }
         if (state.crafting.isEmpty() && state.computation.isEmpty()) {
             LEVELS.remove(serverLevel);
         }
     }
 
-    private static void rebuildCrafting(LevelState state) {
-        state.crafting.removeIf(cluster -> {
-            var controller = cluster.getController();
-            boolean stale = cluster.isDestroyed() || controller == null || controller.getCluster() != cluster;
-            if (stale) {
-                cluster.setNetworkCluster(null);
-            }
-            return stale;
-        });
-        if (state.crafting.isEmpty()) {
-            state.craftingNetworks.clear();
-            return;
-        }
-
-        Map<NetworkGroupKey, List<NECraftingCluster>> groups = new HashMap<>();
-        for (NECraftingCluster cluster : state.crafting) {
-            cluster.setNetworkCluster(null);
-            groups.computeIfAbsent(craftingNetworkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
-        }
-
-        Set<NetworkPartitionKey> activeKeys = new HashSet<>();
-        for (Map.Entry<NetworkGroupKey, List<NECraftingCluster>> entry : groups.entrySet()) {
-            List<NECraftingCluster> clusters = entry.getValue();
-            for (int start = 0; start < clusters.size(); start += NETWORK_HOST_LIMIT) {
-                int partition = start / NETWORK_HOST_LIMIT;
-                NetworkPartitionKey key = new NetworkPartitionKey(entry.getKey(), partition);
-                activeKeys.add(key);
-                List<NECraftingCluster> members = clusters.subList(
-                    start,
-                    Math.min(start + NETWORK_HOST_LIMIT, clusters.size())
-                );
-                if (members.size() < 2) {
-                    // Solo member: no multiplier applies, so no network cluster is needed.
-                    continue;
-                }
-                NECraftingNetworkCluster network = state.craftingNetworks.computeIfAbsent(
-                    key,
-                    ignored -> new NECraftingNetworkCluster()
-                );
-                for (NECraftingCluster cluster : members) {
-                    cluster.setNetworkCluster(network);
-                }
-                network.configure(members);
-            }
-        }
-        state.craftingNetworks.keySet().retainAll(activeKeys);
-    }
-
-    private static void rebuildComputation(LevelState state) {
-        state.computation.removeIf(cluster -> {
-            var controller = cluster.getController();
-            boolean stale = cluster.isDestroyed() || controller == null || controller.getCluster() != cluster;
-            if (stale) {
-                cluster.setNetworkCluster(null);
-            }
-            return stale;
-        });
-        if (state.computation.isEmpty()) {
-            state.computationNetworks.clear();
-            return;
-        }
-
-        Map<NetworkGroupKey, List<NEComputationCluster>> groups = new HashMap<>();
-        for (NEComputationCluster cluster : state.computation) {
-            cluster.setNetworkCluster(null);
-            groups.computeIfAbsent(computationNetworkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
-        }
-
-        Set<NetworkPartitionKey> activeKeys = new HashSet<>();
-        for (Map.Entry<NetworkGroupKey, List<NEComputationCluster>> entry : groups.entrySet()) {
-            List<NEComputationCluster> clusters = entry.getValue();
-            for (int start = 0; start < clusters.size(); start += NETWORK_HOST_LIMIT) {
-                int partition = start / NETWORK_HOST_LIMIT;
-                NetworkPartitionKey key = new NetworkPartitionKey(entry.getKey(), partition);
-                activeKeys.add(key);
-                List<NEComputationCluster> members = clusters.subList(
-                    start,
-                    Math.min(start + NETWORK_HOST_LIMIT, clusters.size())
-                );
-                if (members.size() < 2) {
-                    // Solo member: no multiplier applies, so no network cluster is needed.
-                    continue;
-                }
-                NEComputationNetworkCluster network = state.computationNetworks.computeIfAbsent(
-                    key,
-                    ignored -> new NEComputationNetworkCluster()
-                );
-                for (NEComputationCluster cluster : members) {
-                    cluster.setNetworkCluster(network);
-                }
-                network.configure(members);
-            }
-        }
-        state.computationNetworks.keySet().retainAll(activeKeys);
-    }
-
-    private static void assignCraftingFrequencyIfNeeded(
-        NECraftingCluster cluster,
-        Set<NECraftingCluster> clusters
-    ) {
-        var controller = cluster.getController();
-        if (controller == null || controller.hasNetworkFrequency()) {
-            return;
-        }
-        Object network = networkObject(cluster);
-        if (network == null) {
-            return;
-        }
-        IntArrayList assignedFrequencies = new IntArrayList();
-        for (NECraftingCluster other : clusters) {
-            if (other == cluster || networkObject(other) != network) {
-                continue;
-            }
-            var otherController = other.getController();
-            if (otherController != null && otherController.hasNetworkFrequency()) {
-                assignedFrequencies.add(otherController.getNetworkFrequency());
-            }
-        }
-        controller.assignNetworkFrequency(NEFrequencyAllocator.allocate(assignedFrequencies));
-    }
-
-    private static void assignComputationFrequencyIfNeeded(
-        NEComputationCluster cluster,
-        Set<NEComputationCluster> clusters
-    ) {
-        var controller = cluster.getController();
-        if (controller == null || controller.hasNetworkFrequency()) {
-            return;
-        }
-        Object network = networkObject(cluster);
-        if (network == null) {
-            return;
-        }
-        IntArrayList assignedFrequencies = new IntArrayList();
-        for (NEComputationCluster other : clusters) {
-            if (other == cluster || networkObject(other) != network) {
-                continue;
-            }
-            var otherController = other.getController();
-            if (otherController != null && otherController.hasNetworkFrequency()) {
-                assignedFrequencies.add(otherController.getNetworkFrequency());
-            }
-        }
-        controller.assignNetworkFrequency(NEFrequencyAllocator.allocate(assignedFrequencies));
-    }
-
-    private static NetworkGroupKey craftingNetworkKey(NECraftingCluster cluster) {
-        return networkKey(cluster, cluster.getController() == null ? 0 : cluster.getController().getNetworkFrequency());
-    }
-
-    private static NetworkGroupKey computationNetworkKey(NEComputationCluster cluster) {
-        return networkKey(cluster, cluster.getController() == null ? 0 : cluster.getController().getNetworkFrequency());
-    }
-
-    private static NetworkGroupKey networkKey(NECluster<?> cluster, int frequency) {
-        Object network = networkObject(cluster);
-        return new NetworkGroupKey(network == null ? cluster : network, frequency);
-    }
-
-    private static Object networkObject(NECluster<?> cluster) {
-        if (cluster instanceof NECraftingCluster craftingCluster) {
-            var controller = craftingCluster.getController();
-            if (controller != null && controller.getMainNode().isOnline() && controller.getMainNode().getGrid() != null) {
-                return controller.getMainNode().getGrid();
-            }
-        } else if (cluster instanceof NEComputationCluster computationCluster) {
-            var controller = computationCluster.getController();
-            if (controller != null && controller.getMainNode().isOnline() && controller.getMainNode().getGrid() != null) {
-                return controller.getMainNode().getGrid();
-            }
-        }
-        return null;
-    }
-
     private static @Nullable Level getLevel(NECluster<?> cluster) {
-        if (cluster instanceof NECraftingCluster craftingCluster && craftingCluster.getController() != null) {
-            return craftingCluster.getController().getLevel();
+        NEBlockEntity<?, ?> controller = controllerOf(cluster);
+        return controller == null ? null : controller.getLevel();
+    }
+
+    private static @Nullable NEBlockEntity<?, ?> controllerOf(NECluster<?> cluster) {
+        if (cluster instanceof NECraftingCluster craftingCluster) {
+            return craftingCluster.getController();
         }
-        if (cluster instanceof NEComputationCluster computationCluster && computationCluster.getController() != null) {
-            return computationCluster.getController().getLevel();
+        if (cluster instanceof NEComputationCluster computationCluster) {
+            return computationCluster.getController();
         }
         return null;
+    }
+
+    /**
+     * Membership and shared groups of one network-switch domain (crafting or computation). The member
+     * set is a {@link HashSet} on purpose: group construction iterates it, so its order decides which
+     * hosts share a partition.
+     */
+    private static final class Domain<C extends NECluster<C>, H extends NEBlockEntity<C, ?> & NENetworkSwitchHost, N> {
+        private final Set<C> members = new HashSet<>();
+        private final Map<NetworkPartitionKey, N> networks = new HashMap<>();
+        private final Supplier<N> newNetwork;
+        private final BiConsumer<C, N> bindNetwork;
+        private final BiConsumer<N, List<C>> configure;
+        private final Function<C, H> controllerLookup;
+
+        private Domain(
+            Supplier<N> newNetwork,
+            BiConsumer<C, N> bindNetwork,
+            BiConsumer<N, List<C>> configure,
+            Function<C, H> controllerLookup
+        ) {
+            this.newNetwork = newNetwork;
+            this.bindNetwork = bindNetwork;
+            this.configure = configure;
+            this.controllerLookup = controllerLookup;
+        }
+
+        boolean isEmpty() {
+            return members.isEmpty();
+        }
+
+        void attach(C cluster) {
+            if (members.add(cluster)) {
+                assignFrequencyIfNeeded(cluster);
+                rebuild();
+                refreshAfterGridChange(cluster);
+            }
+        }
+
+        void refresh(C cluster) {
+            members.add(cluster);
+            assignFrequencyIfNeeded(cluster);
+            rebuild();
+        }
+
+        void detach(C cluster) {
+            if (members.remove(cluster)) {
+                rebuild();
+            }
+            bindNetwork.accept(cluster, null);
+        }
+
+        void clear() {
+            for (C cluster : members) {
+                bindNetwork.accept(cluster, null);
+            }
+            networks.clear();
+            members.clear();
+        }
+
+        private void rebuild() {
+            members.removeIf(cluster -> {
+                var controller = controllerLookup.apply(cluster);
+                boolean stale = cluster.isDestroyed() || controller == null || controller.getCluster() != cluster;
+                if (stale) {
+                    bindNetwork.accept(cluster, null);
+                }
+                return stale;
+            });
+            if (members.isEmpty()) {
+                networks.clear();
+                return;
+            }
+
+            Map<NetworkGroupKey, List<C>> groups = new HashMap<>();
+            for (C cluster : members) {
+                bindNetwork.accept(cluster, null);
+                groups.computeIfAbsent(networkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
+            }
+
+            Set<NetworkPartitionKey> activeKeys = new HashSet<>();
+            for (Map.Entry<NetworkGroupKey, List<C>> entry : groups.entrySet()) {
+                List<C> clusters = entry.getValue();
+                for (int start = 0; start < clusters.size(); start += NETWORK_HOST_LIMIT) {
+                    int partition = start / NETWORK_HOST_LIMIT;
+                    NetworkPartitionKey key = new NetworkPartitionKey(entry.getKey(), partition);
+                    activeKeys.add(key);
+                    List<C> partitionMembers = clusters.subList(
+                        start,
+                        Math.min(start + NETWORK_HOST_LIMIT, clusters.size())
+                    );
+                    if (partitionMembers.size() < 2) {
+                        // Solo member: no multiplier applies, so no network cluster is needed.
+                        continue;
+                    }
+                    N network = networks.computeIfAbsent(key, ignored -> newNetwork.get());
+                    for (C cluster : partitionMembers) {
+                        bindNetwork.accept(cluster, network);
+                    }
+                    configure.accept(network, partitionMembers);
+                }
+            }
+            networks.keySet().retainAll(activeKeys);
+        }
+
+        private void assignFrequencyIfNeeded(C cluster) {
+            H controller = controllerLookup.apply(cluster);
+            if (controller == null || controller.hasNetworkFrequency()) {
+                return;
+            }
+            Object network = networkObject(cluster);
+            if (network == null) {
+                return;
+            }
+            IntArrayList assignedFrequencies = new IntArrayList();
+            for (C other : members) {
+                if (other == cluster || networkObject(other) != network) {
+                    continue;
+                }
+                H otherController = controllerLookup.apply(other);
+                if (otherController != null && otherController.hasNetworkFrequency()) {
+                    assignedFrequencies.add(otherController.getNetworkFrequency());
+                }
+            }
+            controller.assignNetworkFrequency(NEFrequencyAllocator.allocate(assignedFrequencies));
+        }
+
+        private NetworkGroupKey networkKey(C cluster) {
+            H controller = controllerLookup.apply(cluster);
+            int frequency = controller == null ? 0 : controller.getNetworkFrequency();
+            Object network = networkObject(cluster);
+            return new NetworkGroupKey(network == null ? cluster : network, frequency);
+        }
+
+        private @Nullable Object networkObject(C cluster) {
+            H controller = controllerLookup.apply(cluster);
+            if (controller != null && controller.getMainNode().isOnline() && controller.getMainNode().getGrid() != null) {
+                return controller.getMainNode().getGrid();
+            }
+            return null;
+        }
     }
 
     private static final class NetworkPartitionKey {
@@ -398,10 +350,20 @@ public final class NELogicalNetworkManager {
     }
 
     private static final class LevelState {
-        private final Set<NECraftingCluster> crafting = new HashSet<>();
-        private final Set<NEComputationCluster> computation = new HashSet<>();
-        private final Map<NetworkPartitionKey, NECraftingNetworkCluster> craftingNetworks = new HashMap<>();
-        private final Map<NetworkPartitionKey, NEComputationNetworkCluster> computationNetworks = new HashMap<>();
+        private final Domain<NECraftingCluster, ECOCraftingSystemBlockEntity, NECraftingNetworkCluster> crafting =
+            new Domain<>(
+                NECraftingNetworkCluster::new,
+                NECraftingCluster::setNetworkCluster,
+                NECraftingNetworkCluster::configure,
+                NECraftingCluster::getController
+            );
+        private final Domain<NEComputationCluster, ECOComputationSystemBlockEntity, NEComputationNetworkCluster> computation =
+            new Domain<>(
+                NEComputationNetworkCluster::new,
+                NEComputationCluster::setNetworkCluster,
+                NEComputationNetworkCluster::configure,
+                NEComputationCluster::getController
+            );
         private final Set<NECluster<?>> pendingGridRefresh = Collections.newSetFromMap(new IdentityHashMap<>());
     }
 }

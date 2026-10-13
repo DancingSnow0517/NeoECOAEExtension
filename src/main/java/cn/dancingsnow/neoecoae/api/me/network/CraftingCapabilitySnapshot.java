@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.api.me.network;
 
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.core.math.NEMath;
+import cn.dancingsnow.neoecoae.core.network.NetworkSwitchMultipliers;
 import java.util.List;
 
 /**
@@ -54,8 +55,8 @@ public record CraftingCapabilitySnapshot(
         int normalHosts = Math.max(0, input.normalSwitchHosts());
         int highEnergyHosts = Math.max(0, input.highEnergySwitchHosts());
         long multiplierLong = NEMath.saturatingAdd(
-            NEMath.saturatingMultiply(normalHosts, 2L),
-            NEMath.saturatingMultiply(highEnergyHosts, 8L)
+            NEMath.saturatingMultiply(normalHosts, NetworkSwitchMultipliers.NORMAL),
+            NEMath.saturatingMultiply(highEnergyHosts, NetworkSwitchMultipliers.HIGH_ENERGY)
         );
         int multiplier = (int) Math.min(Integer.MAX_VALUE, multiplierLong);
         boolean exchange = normalHosts + highEnergyHosts >= 2 && multiplier > 0;

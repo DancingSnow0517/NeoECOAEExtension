@@ -74,22 +74,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     @Override
-    public boolean isNetworkMode() {
-        return controller != null && controller.hasNetworkSwitch();
-    }
-
-    @Override
-    public int getNetworkMultiplier() {
-        if (controller == null) {
-            return 1;
-        }
-        if (controller.hasHighEnergyNetworkSwitch()) {
-            return 8;
-        }
-        if (controller.hasNormalNetworkSwitch()) {
-            return 2;
-        }
-        return 1;
+    protected ECOComputationSystemBlockEntity networkSwitchHost() {
+        return controller;
     }
 
     public void setNetworkCluster(@Nullable NEComputationNetworkCluster networkCluster) {

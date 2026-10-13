@@ -34,9 +34,7 @@ public class NEComputationNetworkCluster {
         this.members.addAll(newMembers);
         this.members.sort(Comparator.comparing(
             member -> member.getController().getBlockPos(),
-            Comparator.<net.minecraft.core.BlockPos>comparingInt(pos -> pos.getX())
-                .thenComparingInt(pos -> pos.getY())
-                .thenComparingInt(pos -> pos.getZ())
+            NECluster.CONTROLLER_POS_ORDER
         ));
         synchronizeSelectionMode();
     }

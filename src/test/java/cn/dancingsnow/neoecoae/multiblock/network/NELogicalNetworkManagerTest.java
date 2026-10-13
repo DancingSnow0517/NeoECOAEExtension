@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -19,7 +20,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -163,6 +167,48 @@ class NELogicalNetworkManagerTest {
             assertNull(cluster.getNetworkCluster());
             assertSame(cluster, cluster.getPatternDomain());
         }
+    }
+
+    @org.junit.jupiter.api.Test
+    void craftingHostsAboveHostLimitSplitIntoBoundedGroups() {
+        ServerLevel level = level();
+        IManagedGridNode node = node();
+        when(node.isOnline()).thenReturn(true);
+        // Two full partitions plus one overflow host, all on the same grid and frequency.
+        List<NECraftingCluster> clusters = new ArrayList<>();
+        for (int i = 0; i < 2 * NEFrequencyAllocator.HOST_LIMIT + 1; i++) {
+            var controller = controller(ECOCraftingSystemBlockEntity.class, level, node, i);
+            when(controller.hasNetworkSwitch()).thenReturn(true);
+            when(controller.hasNetworkFrequency()).thenReturn(true);
+            when(controller.getNetworkFrequency()).thenReturn(7);
+            var cluster = new NECraftingCluster(BlockPos.ZERO, BlockPos.ZERO);
+            doCallRealMethod().when(controller).updateCluster(cluster);
+            controller.updateCluster(cluster);
+            cluster.addBlockEntity(controller);
+            NELogicalNetworkManager.attach(cluster);
+            clusters.add(cluster);
+        }
+
+        Set<NECraftingNetworkCluster> networks = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (NECraftingCluster cluster : clusters) {
+            if (cluster.getNetworkCluster() != null) {
+                networks.add(cluster.getNetworkCluster());
+            }
+        }
+        assertEquals(2, networks.size());
+
+        Set<NECraftingCluster> listed = Collections.newSetFromMap(new IdentityHashMap<>());
+        int listedCount = 0;
+        for (NECraftingNetworkCluster network : networks) {
+            assertTrue(network.getMembers().size() <= NEFrequencyAllocator.HOST_LIMIT);
+            listed.addAll(network.getMembers());
+            listedCount += network.getMembers().size();
+        }
+        // Each grouped host is listed in exactly one group; the overflow host is in none.
+        assertEquals(listedCount, listed.size());
+        assertEquals(2 * NEFrequencyAllocator.HOST_LIMIT, listed.size());
+        assertEquals(1, clusters.stream().filter(cluster -> cluster.getNetworkCluster() == null).count());
+        clusters.forEach(cluster -> assertEquals(cluster.getNetworkCluster() != null, listed.contains(cluster)));
     }
 
     private static ServerLevel level() {

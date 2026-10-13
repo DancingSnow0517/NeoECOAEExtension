@@ -18,6 +18,8 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchHost;
+import cn.dancingsnow.neoecoae.multiblock.network.NetworkSwitchHostSupport;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -41,7 +43,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputationCluster, ECOComputationSystemBlockEntity>
-        implements ISyncPersistRPCBlockEntity, MultiBlockBuildController.Host {
+        implements ISyncPersistRPCBlockEntity, MultiBlockBuildController.Host, NENetworkSwitchHost {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -176,24 +178,16 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     private boolean isIgnoringPatternSubstitutions() {
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        return settings != null
-                ? settings.neoecoae$isIgnoringPatternSubstitutions()
-                : ignorePatternSubstitutions;
+        return NetworkSwitchHostSupport.isIgnoringPatternSubstitutions(getMainNode().getGrid(), ignorePatternSubstitutions);
     }
 
     private int getSubstitutionPatternCount() {
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        return settings == null ? 0 : settings.neoecoae$getSubstitutionPatternCount();
+        return NetworkSwitchHostSupport.substitutionPatternCount(getMainNode().getGrid());
     }
 
     private void toggleIgnoringPatternSubstitutions(Player player) {
         if (!canPlayerInteract(player)) return;
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        if (settings != null) {
-            settings.neoecoae$setIgnoringPatternSubstitutions(
-                    !settings.neoecoae$isIgnoringPatternSubstitutions());
-        } else {
+        if (!NetworkSwitchHostSupport.toggleGridIgnoringPatternSubstitutions(getMainNode().getGrid())) {
             applyNetworkIgnoringPatternSubstitutions(!ignorePatternSubstitutions);
         }
     }
@@ -276,31 +270,30 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         }
     }
 
+    @Override
     public boolean hasNormalNetworkSwitch() {
-        BlockState state = getBlockState();
-        return state.hasProperty(ECOComputationSystem.NETWORK_SWITCH) && state.getValue(ECOComputationSystem.NETWORK_SWITCH);
+        return NetworkSwitchHostSupport.isSwitchOn(getBlockState(), ECOComputationSystem.NETWORK_SWITCH);
     }
 
+    @Override
     public boolean hasHighEnergyNetworkSwitch() {
-        BlockState state = getBlockState();
-        return state.hasProperty(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH) && state.getValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH);
+        return NetworkSwitchHostSupport.isSwitchOn(getBlockState(), ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH);
     }
 
-    public boolean hasNetworkSwitch() {
-        return hasNormalNetworkSwitch() || hasHighEnergyNetworkSwitch();
-    }
-
+    @Override
     public boolean hasNetworkFrequency() {
-        return networkFrequency >= 1 && networkFrequency <= NEFrequencyAllocator.FREQUENCY_COUNT;
+        return NEFrequencyAllocator.isAssigned(networkFrequency);
     }
 
+    @Override
     public int getNetworkFrequency() {
-        return hasNetworkFrequency() ? networkFrequency : NEFrequencyAllocator.DEFAULT_FREQUENCY;
+        return NEFrequencyAllocator.orDefault(networkFrequency);
     }
 
     /**
      * Manager-only: assigns a frequency to a newly-eligible host that has none yet.
      */
+    @Override
     public void assignNetworkFrequency(int frequency) {
         if (hasNetworkFrequency()) {
             return;
@@ -315,7 +308,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     public void adjustNetworkFrequency(int delta) {
-        int current = hasNetworkFrequency() ? networkFrequency : NEFrequencyAllocator.DEFAULT_FREQUENCY;
+        int current = NEFrequencyAllocator.orDefault(networkFrequency);
         setNetworkFrequency(NEFrequencyAllocator.normalize(current + delta));
     }
 

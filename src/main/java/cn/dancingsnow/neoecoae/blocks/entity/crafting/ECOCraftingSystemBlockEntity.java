@@ -17,7 +17,6 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
-import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -37,6 +36,8 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchHost;
+import cn.dancingsnow.neoecoae.multiblock.network.NetworkSwitchHostSupport;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
@@ -75,7 +76,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluster, ECOCraftingSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IGridTickable, MultiBlockBuildController.Host {
+    implements ISyncPersistRPCBlockEntity, IGridTickable, MultiBlockBuildController.Host, NENetworkSwitchHost {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
@@ -558,22 +559,19 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return false;
     }
 
+    @Override
     public boolean hasNormalNetworkSwitch() {
-        BlockState state = getBlockState();
-        return state.hasProperty(ECOCraftingSystem.NETWORK_SWITCH) && state.getValue(ECOCraftingSystem.NETWORK_SWITCH);
+        return NetworkSwitchHostSupport.isSwitchOn(getBlockState(), ECOCraftingSystem.NETWORK_SWITCH);
     }
 
+    @Override
     public boolean hasHighEnergyNetworkSwitch() {
-        BlockState state = getBlockState();
-        return state.hasProperty(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH) && state.getValue(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH);
+        return NetworkSwitchHostSupport.isSwitchOn(getBlockState(), ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH);
     }
 
-    public boolean hasNetworkSwitch() {
-        return hasNormalNetworkSwitch() || hasHighEnergyNetworkSwitch();
-    }
-
+    @Override
     public boolean hasNetworkFrequency() {
-        return networkFrequency >= 1 && networkFrequency <= NEFrequencyAllocator.FREQUENCY_COUNT;
+        return NEFrequencyAllocator.isAssigned(networkFrequency);
     }
 
     public int getLocalThreadCount() { return threadCount; }
@@ -587,11 +585,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             ? cluster.getNetworkCluster().getRunningThreadCount() : runningThreadCount;
     }
 
+    @Override
     public int getNetworkFrequency() {
-        return hasNetworkFrequency() ? networkFrequency : NEFrequencyAllocator.DEFAULT_FREQUENCY;
+        return NEFrequencyAllocator.orDefault(networkFrequency);
     }
 
     /** Manager-only: assigns a frequency to a newly-eligible host that has none yet. */
+    @Override
     public void assignNetworkFrequency(int frequency) {
         if (hasNetworkFrequency()) {
             return;
@@ -606,7 +606,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public void adjustNetworkFrequency(int delta) {
-        int current = hasNetworkFrequency() ? networkFrequency : NEFrequencyAllocator.DEFAULT_FREQUENCY;
+        int current = NEFrequencyAllocator.orDefault(networkFrequency);
         setNetworkFrequency(NEFrequencyAllocator.normalize(current + delta));
     }
 
@@ -989,24 +989,16 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private boolean isIgnoringPatternSubstitutions() {
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        return settings != null
-            ? settings.neoecoae$isIgnoringPatternSubstitutions()
-            : ignorePatternSubstitutions;
+        return NetworkSwitchHostSupport.isIgnoringPatternSubstitutions(getMainNode().getGrid(), ignorePatternSubstitutions);
     }
 
     private int getSubstitutionPatternCount() {
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        return settings == null ? 0 : settings.neoecoae$getSubstitutionPatternCount();
+        return NetworkSwitchHostSupport.substitutionPatternCount(getMainNode().getGrid());
     }
 
     private void toggleIgnoringPatternSubstitutions(Player player) {
         if (!canPlayerInteract(player)) return;
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        if (settings != null) {
-            settings.neoecoae$setIgnoringPatternSubstitutions(
-                !settings.neoecoae$isIgnoringPatternSubstitutions());
-        } else {
+        if (!NetworkSwitchHostSupport.toggleGridIgnoringPatternSubstitutions(getMainNode().getGrid())) {
             applyNetworkIgnoringPatternSubstitutions(!ignorePatternSubstitutions);
         }
     }
