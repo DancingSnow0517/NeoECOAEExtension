@@ -12,8 +12,6 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.function.ToIntFunction;
 
@@ -27,22 +25,13 @@ public final class HostText {
     public static final int ERROR = 0xFF6A75;
 
     private static final int BYTES_IN_K = 1024;
-    private static final long BYTES_IN_M = BYTES_IN_K * 1024L;
-    private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
-    private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
-    private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
     private static final BigInteger BIG_BYTES_IN_K = BigInteger.valueOf(BYTES_IN_K);
-    private static final int TOOLTIP_BYTE_DIGITS = 4;
     // Continue the binary-prefix display beyond yotta for effectively unbounded storage amounts.
     private static final String[] EXPANDED_BYTE_UNITS = {
         "", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"
     };
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
-    private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
-        ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US)));
-    private static final ThreadLocal<DecimalFormat> PRECISE_HUGE_DECIMAL =
-        ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
         ThreadLocal.withInitial(() -> new DecimalFormat("0.0", DecimalFormatSymbols.getInstance(Locale.US)));
 
@@ -68,10 +57,6 @@ public final class HostText {
         return new UsedTotal(ae2Amount(used), max < 0L ? "\u221E" : ae2Amount(max), Component.empty());
     }
 
-    public static UsedTotal byteProgress(long used, long max) {
-        return typeProgress(used, max);
-    }
-
     public static String expandedNumber(long value) {
         return NUMBER_FORMAT.get().format(Math.max(0L, value));
     }
@@ -87,73 +72,9 @@ public final class HostText {
         return DisplayNumbers.grouped(safe.toString());
     }
 
-    public static String expandedStorageBytes(long value) {
-        return expandedNumber(value);
-    }
-
     public static String expandedStorageBytes(BigInteger value) {
         BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
         return BigNumberFormatter.format(safe, 1, true);
-    }
-
-    public static String compactStorageBytes(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        BigInteger unit = BigInteger.ONE;
-        int unitIndex = 0;
-        BigInteger limit = BigInteger.TEN.pow(TOOLTIP_BYTE_DIGITS);
-        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1 && safe.divide(unit).compareTo(limit) >= 0) {
-            unit = unit.multiply(BIG_BYTES_IN_K);
-            unitIndex++;
-        }
-        return DisplayNumbers.grouped(new BigDecimal(safe)
-            .divide(new BigDecimal(unit), 0, RoundingMode.HALF_UP)
-            .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
-    }
-
-    /** Matches the 1.20.1 System Load tooltip: retain up to ten integer digits plus two decimals. */
-    public static String preciseHugeAmount(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        if (safe.signum() == 0) {
-            return "0";
-        }
-        int unitIndex = 0;
-        BigInteger unit = BigInteger.ONE;
-        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1
-            && safe.compareTo(unit.multiply(BIG_BYTES_IN_K)) >= 0) {
-            unit = unit.multiply(BIG_BYTES_IN_K);
-            unitIndex++;
-        }
-        while (unitIndex > 0) {
-            BigInteger smallerUnit = unit.divide(BIG_BYTES_IN_K);
-            if (safe.divide(smallerUnit).toString().length() > 10) {
-                break;
-            }
-            unit = smallerUnit;
-            unitIndex--;
-        }
-        if (unitIndex == 0) {
-            return NUMBER_FORMAT.get().format(safe);
-        }
-        BigDecimal scaled = new BigDecimal(safe)
-            .divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
-        return PRECISE_HUGE_DECIMAL.get().format(scaled) + EXPANDED_BYTE_UNITS[unitIndex];
-    }
-
-    public static String hugeStackAmount(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        BigInteger unit = BigInteger.ONE;
-        int unitIndex = 0;
-        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1
-            && safe.compareTo(unit.multiply(BIG_BYTES_IN_K)) >= 0) {
-            unit = unit.multiply(BIG_BYTES_IN_K);
-            unitIndex++;
-        }
-        if (unitIndex == 0) {
-            return NUMBER_FORMAT.get().format(safe);
-        }
-        return DisplayNumbers.grouped(new BigDecimal(safe)
-            .divide(new BigDecimal(unit), 2, RoundingMode.DOWN)
-            .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
     public static String fitHugeAmount(BigInteger value, int maxWidth) {
@@ -201,34 +122,6 @@ public final class HostText {
         return "e" + exponent;
     }
 
-    public static List<Component> exactAmountTooltip(BigInteger value, int color) {
-        String exact = expandedStorageBytes(value);
-        List<Component> lines = new ArrayList<>();
-        int start = 0;
-        while (start < exact.length()) {
-            int end = Math.min(exact.length(), start + 32);
-            lines.add(Component.literal(exact.substring(start, end)).withColor(color));
-            start = end;
-        }
-        return lines;
-    }
-
-    public static UsedTotal fullTypeProgress(long used, long max) {
-        return new UsedTotal(
-            number(Math.max(0L, used)),
-            max < 0L ? "\u221E" : number(max),
-            Component.empty()
-        );
-    }
-
-    public static UsedTotal fullByteProgressValues(long used, long max) {
-        return new UsedTotal(
-            number(Math.max(0L, used)),
-            number(Math.max(0L, max)),
-            Component.translatable("gui.neoecoae.host.metric.bytes")
-        );
-    }
-
     public static Component fullByteProgress(long used, long max) {
         return Component.literal(number(Math.max(0L, used)))
             .append(" / ")
@@ -274,10 +167,6 @@ public final class HostText {
         }
         double clamped = Math.max(0.0D, Math.min(1.0D, ratio));
         return PERCENT_DECIMAL.get().format(clamped * 100.0D) + "%";
-    }
-
-    public static int gaugeColor(float ratio) {
-        return 0xBF000000 | gaugeTextColor(ratio);
     }
 
     public static int gaugeTextColor(float ratio) {

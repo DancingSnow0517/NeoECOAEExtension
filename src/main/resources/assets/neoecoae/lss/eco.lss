@@ -12,7 +12,7 @@
 // button
 button:host {
   base-background: built-in(ui-eco:BUTTON);
-  hover-background: built-in(ui-eco:BUTTON_HOVER);
+  hover-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
   pressed-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
   padding-all: 3;
   height: 16;
@@ -26,7 +26,7 @@ button.__disabled__ .__button_text__ {
 // toggle
 .__toggle_button__ {
   base-background: built-in(ui-eco:BUTTON);
-  hover-background: built-in(ui-eco:BUTTON_HOVER);
+  hover-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
   pressed-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
 }
 
@@ -44,15 +44,6 @@ pattern-item-slot {
 fluid-slot {
   background: built-in(ui-eco:ITEM_SLOT);
   hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
-}
-
-// progress bar
-.__progress-bar_bar-container__ {
-  background: built-in(ui-eco:BAR_CONTAINER);
-}
-
-.__progress-bar_bar__ {
-  background: built-in(ui-eco:BAR);
 }
 
 // unified ECO host UI
@@ -79,37 +70,6 @@ fluid-slot {
   gap-all: 3;
 }
 
-
-.eco-host-progress .__progress-bar_bar-container__ {
-  background: #1f2f3428;
-}
-
-.eco-host-progress .__progress-bar_bar__ {
-  background: #26a6bd;
-}
-
-.eco-pattern-transfer-progress .__progress-bar_bar-container__ {
-  padding-all: 1;
-  background: #151d2b;
-}
-
-.eco-pattern-transfer-progress .__progress-bar_bar__ {
-  background: #32d6ff;
-}
-
-.eco-host-stats-progress {
-  padding-all: 2;
-  background: built-in(ui-eco:HOST_PANEL_BORDER);
-}
-
-.eco-host-stats-progress .__progress-bar_bar-container__ {
-  padding-all: 1;
-  background: #201e27;
-}
-
-.eco-host-stats-progress .__progress-bar_bar__ {
-  background: #8377ff;
-}
 
 .eco-host-panel-row {
   gap-all: 6;
@@ -145,28 +105,6 @@ fluid-slot {
 
 .eco-host-gauge-row {
   gap-all: 14;
-}
-
-.eco-host-energy-gauge {
-  padding-all: 3;
-  background: built-in(ui-eco:HOST_PANEL_BORDER);
-}
-
-.eco-host-energy-gauge .__progress-bar_bar-container__ {
-  padding-all: 1;
-  background: #17141e;
-}
-
-.eco-host-energy-gauge .__progress-bar_bar__ {
-  background: #00fc00;
-}
-
-.eco-host-energy-medium .__progress-bar_bar__ {
-  background: #e7a943;
-}
-
-.eco-host-energy-warning .__progress-bar_bar__ {
-  background: #ffd65a;
 }
 
 .eco-host-coolant-gauge {

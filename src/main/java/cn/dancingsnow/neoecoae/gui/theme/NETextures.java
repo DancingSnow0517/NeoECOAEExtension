@@ -28,13 +28,6 @@ public class NETextures {
     public static IGuiTexture INVENTORY_BORDER = SpriteTexture.of(NeoECOAE.id("textures/gui/common/inventory_border.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(1, 1, 1, 1);
-    public static IGuiTexture CARD_BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/common/card_background.png"))
-        .setSpriteSize(Size.of(16, 16))
-        .setBorder(3, 3, 3, 3);
-    public static IGuiTexture NBT_BENCH = SpriteTexture.of(NeoECOAE.id("textures/guis/nbtbench.png"))
-        .setSprite(0, 0, 176, 253);
-    public static IGuiTexture PATTERN_MANAGER = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
-        .setSprite(0, 0, 195, 237);
     public static IGuiTexture PATTERN_MANAGER_SLOT = Crafting.widget(38, 129, 16, 16);
     public static IGuiTexture PATTERN_MANAGER_SCROLLBAR_TRACK = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
         .setSprite(178, 31, 6, 108).setBorder(1);
@@ -47,8 +40,6 @@ public class NETextures {
         .setSprite(1, 15, 13, 13).setBorder(4, 4, 4, 4);
     public static IGuiTexture RECT_RD_DARK = SpriteTexture.of(LDLIB_ATLAS)
         .setSprite(1, 43, 13, 13).setBorder(4, 4, 4, 4);
-    public static IGuiTexture RECT_RD_T = SpriteTexture.of(LDLIB_ATLAS)
-        .setSprite(15, 29, 13, 13).setBorder(4, 4, 4, 4);
     public static IGuiTexture HOST_PANEL_BORDER = SpriteTexture.of(LDLIB_ATLAS)
         .setSprite(205, 154, 16, 16).setBorder(6, 6, 6, 6);
 
@@ -71,9 +62,6 @@ public class NETextures {
         SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/sprites/button_disabled.png"))
             .setSprite(0, 0, 200, 20)
             .setBorder(3);
-    public static IGuiTexture PRIORITY_BACKGROUND =
-        SpriteTexture.of(NeoECOAE.id("textures/guis/priority.png"))
-            .setSprite(0, 0, 176, 125);
     public static IGuiTexture PRIORITY_TEXT_FIELD =
         SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/text_field.png"))
             .setSprite(0, 0, 128, 12)
@@ -86,21 +74,6 @@ public class NETextures {
         SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/text_field.png"))
             .setSprite(0, 24, 128, 12)
             .setBorder(1, 0, 1, 0);
-    public static IGuiTexture AE2_TOOLBOX =
-        SpriteTexture.of(NeoECOAE.id("textures/guis/eco_extra_panels.png"))
-            .setSprite(0, 0, 61, 66);
-
-    public static IGuiTexture SWITCH_OFF = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/checkbox.png"))
-        .setSprite(0,28, 22, 12);
-    public static IGuiTexture SWITCH_OFF_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/checkbox.png"))
-        .setSprite(22, 28, 22, 12);
-    public static IGuiTexture SWITCH_ON = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/checkbox.png"))
-        .setSprite(0, 40, 22, 12);
-    public static IGuiTexture SWITCH_ON_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/checkbox.png"))
-        .setSprite(22, 40, 22, 12);
-
-    public static IGuiTexture AE_SCROLLBAR_TRACK = CARD_BACKGROUND;
-    public static IGuiTexture AE_SCROLLBAR_THUMB = BUTTON;
 
     public static IGuiTexture ITEM_SLOT = SpriteTexture.of(NeoECOAE.id("textures/gui/common/slot.png"))
         .setSpriteSize(Size.of(18, 18))
@@ -163,7 +136,6 @@ public class NETextures {
         );
     }
 
-    public static IGuiTexture PATTERN_OVERLAY = guiTexture("widget/pattern_overlay.png");
     public static IGuiTexture OUTPUTS = guiTexture("widget/outputs.png");
     public static IGuiTexture MULTIBLOCK = guiTexture("widget/multiblock.png");
 

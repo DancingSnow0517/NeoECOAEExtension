@@ -9,23 +9,14 @@ import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Quaternionf;
 
-public class ECOComputationDriveRenderer
-    implements
-    IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity>,
-    BlockEntityRenderer<ECOComputationDriveBlockEntity> {
+public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity> {
 
     public ECOComputationDriveRenderer() {
-
-    }
-
-    public ECOComputationDriveRenderer(BlockEntityRendererProvider.Context context) {
 
     }
 
@@ -111,9 +102,5 @@ public class ECOComputationDriveRenderer
             packedOverlay
         );
         poseStack.popPose();
-    }
-
-    @Override
-    public void render(ECOComputationDriveBlockEntity driveBlockEntity, float v, PoseStack poseStack, MultiBufferSource multiBufferSource, int i, int i1) {
     }
 }

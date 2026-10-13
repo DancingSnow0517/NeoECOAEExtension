@@ -37,11 +37,4 @@ public final class HostPanelElements {
         }
         return PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D) + " ms";
     }
-
-    public static String formatPerformanceValue(long averageNanos) {
-        long safeNanos = Math.max(0L, averageNanos);
-        long micros = Math.round(safeNanos / 1_000.0D);
-        String millis = PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D);
-        return HostText.expandedNumber(micros) + " us/" + millis + " ms";
-    }
 }
