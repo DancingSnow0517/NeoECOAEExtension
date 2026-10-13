@@ -16,7 +16,8 @@
 5. **子代理不得写临时文件到仓库内**；只读调查任务不得改任何文件。
 6. 每个任务完成后提交"改动清单 + 理由 + 未处理项"，由总策划审 diff；不符合要求的退回重做。
 7. 对 fork 自 AE2 的类，语义以 AE2 19.2.18 为准（源码在 `~/.gradle/caches/modules-2/files-2.1/org.appliedenergistics/appliedenergistics2/19.2.18`）。
-8. **多版本约束优先**：第 2～4 批新增或移动的代码，一律按第 3 节的分层落位。新的纯逻辑辅助类不得引入 `net.minecraft`、`net.neoforged`、`appeng`、`lowdragmc`、`com.mojang`、`com.tterrag` 依赖。审查时，层级放错按不合格退回。
+8. **以简化为目标**：明显无意义的代码直接删掉，比如死分支、只做转发的包装方法、重复的副本；明显有更简洁写法的就改，比如手写循环其实就是 `anyMatch`、`sum`、`Map.merge`、`removeIf`。**不做**为了风格统一而把循环批量改成 Stream；热路径保持原样。不引入 Kotlin。
+9. **多版本约束优先**：第 2～4 批新增或移动的代码，一律按第 3 节的分层落位。新的纯逻辑辅助类不得引入 `net.minecraft`、`net.neoforged`、`appeng`、`lowdragmc`、`com.mojang`、`com.tterrag` 依赖。审查时，层级放错按不合格退回。
 
 ---
 
@@ -305,3 +306,105 @@
 **提交前复核（2026-10-13）**：实际重跑全部 1106 项测试，1102 项通过、4 项跳过，零失败；`check`、`jar`、独立输出目录的 `runData` 均通过，另启用 AppBotania 集成完成编译。核对本次修改的语言 key 和 6 个进度文件与新生成结果一致，删除的 22 个 Java 类无生产引用，33 个单元模型及冷却控制器模型无残留引用，产物包含按钮悬停修正。未进行客户端或真实存档验证。
 
 本次按存储、算法、合成路由、配置配方、工作站、旧代码清理、界面资源和审计文档拆为 8 次本地提交。检查期间开始写入的第 2 批内容另行保留，不纳入这 8 次提交。
+
+### 11.2 用户决定（2026-10-13）
+
+- **D5**：1.7.10 采用 jvmDowngrader。`core` 可以使用 Java 21 的语法和标准库。依赖采用白名单：只允许 `java.*`、`it.unimi.dsi.fastutil.*`、`org.jetbrains.annotations.*` 和 `cn.dancingsnow.neoecoae.core.*`。
+- **D9**：`eco.lss` 里的 `BUTTON_HOVER` 改为指向 `BUTTON_HIGHLIGHTED`。
+- **D10**：有了智能翻倍，`ecoCpuPushTickLimit` 已经没有作用。删除这个配置项和它的语言 key，保留固定上限 64 的现有行为。
+
+### 11.3 第 2 批执行波次
+
+| 波次 | 内容 |
+|---|---|
+| B0（单独） | T2-0：`core` 包骨架、依赖白名单测试、`core.math.BigIntegers`、`core.graph.TopoSort` |
+| C（并行） | D9/D10；T2-1/2 格式化；T2-3/7 BigInteger 编解码与校验；T2-4/5 NBT 辅助类（`StorageInterfaceFilter` 和批量盘的键编解码挪到 T4-8，因为要兼容旧存档）；T2-6 规划器拓扑排序/SCC、客户端图邻接表；T2-8 方块实体持久化与同步；T2-9 yRotation、ThreadScope、存储辅助；T2-10 JSON 属性辅助、`ECOModularUI` 无玩家重载；死资源核实 |
+| D（并行） | 数字显示与 CPU 字节格式对齐 AE2；T2-11 输出累加；T2-12 ModIds；工作站 `readCounter` 接入 NBT 辅助类 |
+| E（并行） | FittedText/Palette/tooltip 公共件及各界面、客户端渲染器、JEI/EMI 调用接入 |
+| F（单独，待执行） | 把纯逻辑类（`NEMath`、格式化的数值部分、图算法）迁入 `core`，同时更新 import |
+
+NBT 辅助类属于 L2 平台层，不放进 `core`；`DataWriter`/`DataReader` 抽象仍放在 T4-16。
+
+### 11.4 第 2 批第 B0/C 波执行记录
+
+B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`，以及依赖白名单测试 `CoreDependencyBoundaryTest`。
+
+第 C 波合入情况（编译通过，测试 1145 个通过）：
+
+- **C1（D10）**：删除 `ecoCpuPushTickLimit`。`beginTick()` 改为无参，返回常量 64。
+- **C2a 格式化**：
+  - `BigNumberFormatter` 成为唯一的十进制（1000 进位）简写实现，新增 `formatSI(..., lowercaseKilo)`、`compactFixed`、`fit`。
+  - 删除 `ExtendedDecimalUnits`，以及 `HostText` 中 1024 进位的简写路径和若干死方法。
+  - 报表头的字节显示统一为 1000 进位，与 AE2 一致。
+- **C3 BigInteger**：
+  - `ExactMapSync` 新增有符号读写，原来的严格版改为"有符号版 + 负数检查"；编解码只剩一份实现，线上字节格式不变。
+  - 插入请求和结果的校验统一放到 `ECOBigIntegerStorage`。
+- **C4a/C4b**：新增 `platform.nbt.AmountMapNbt`、`GenericStackNbt`，存档格式按字节保持一致。
+  - `ECOExactInventory`、`ECOExecutionPlanNbtCodec` 以及 `OutputDelivery` 的读取路径没有改：它们的布局或失败策略和辅助类不同。
+- **C5a/C5b**：
+  - 规划器里 3 处 Kahn 排序换成 `TopoSort`（新增带取消检查点的重载）。
+  - SCC 统一为 `core.graph.StronglyConnected`，`ECOExecutionSchedule` 和 `TarjanSccAnalyzer` 共用。
+  - 客户端新增 `GraphAdjacency`。
+- **C6a/C6b**：`NEBlockEntity.persistAndSync()`（public）、`persistAndSyncOnServerThread()`、`ServerTaskUtil.isServerStopping()` 已落地，约 40 处调用替换；裸 `executeIfPossible` 全部加了保护。
+- **C7a/b/c**：
+  - 新增 `BlockStateUtil.yRotation`（21 处），新增 `core.concurrent.ThreadScope`（2 处使用）。
+  - 压缩链判断收口为一个谓词，并补了 CustomData 辅助方法。
+  - "清空存储盘"的 4 份实现语义各不相同（封存/截断/创造），**保留**。
+- **C8**：新增 `gui/json/JsonAttrs`，替换 7 份重复副本；新增 `ECOModularUI.create(root)`，无需玩家参数。
+- **C9**：
+  - 删除 MEGA 16m/64m 的死物品模型 18 个、父模型 18 个，以及对应语言条目 18 组。
+  - 删除 `ECOThunderboltBatchBridge.capacity()`。
+
+**遗留**：确认界面中 CPU 存储那一行（`NEByteFormatter.formatCpuStorage`）仍是 1024 进位，而报表头已经改为 1000 进位。交给第 D 波按 AE2 的做法统一。
+
+### 11.5 第 2 批第 D/E 波执行记录
+
+**第 D 波**：
+- **D1**：Jade、图界面的 `%,d` 改用 `DisplayNumbers.grouped`；CPU 条目改用 `BigNumberFormatter.format`；硬编码中文改为翻译 key `gui.neoecoae.crafting_report.missing_startup_seed_amount`。
+  - CPU 存储字节的显示**对齐 AE2**：删除 `CpuSelectionListMixin` 中对存储的两处覆盖，确认界面传原始数值，ECO 自己的 CPU 页改用 AE2 的 `Tooltips.getByteAmount`。
+  - 删除 `NEByteFormatter.format`/`formatCpuStorage` 和已过时的 `CpuSelectionListMixinContractTest`。
+  - 百分比、表格 `formatAmount` 这几处如果合并，显示会变，**保留**。
+- **D3**：新增 `crafting/execution/ExecutionOutputs`（2 处使用）。`ECOCraftingThread` 的栈转换方法迁入 `ECOCraftingStackCodec`。`addAllSaturating` 保留，因为 AE2 的版本会溢出。
+- **D4**：新增 `integration/ModIds`（19 个常量，`isLoaded` 带 null 保护），替换 31 个文件；删除 Omni 中死掉的 `supports()`。其余重复检查各有原因，保留。
+- **D5**：大型工作站 `readCounter` 改用 `GenericStackNbt.readBounded`，写入改用 `writePositive`，行为表与改前一致。
+
+**第 E 波**：
+- **E0**：新增 `gui/common/FittedText`、`gui/theme/Palette`（三种近似墨色暂时分开保存，带 TODO）；`HostElements` 新增 `hoverTooltips(List)` 和 `tooltips(element, List|Supplier)`。
+- **E1**（storage）、**E2**（computation）、**E3**（crafting/workstation/multiblock/common 按钮）、**E4**（client 渲染器与 JEI/EMI）：颜色、tooltip、文字适配改用公共件。
+  - 读实时状态的 tooltip 一律用 Supplier 重载。
+  - 有测试钉住了具体绘制调用序列的地方（`ComputationCpuPanel.text/fittedText`、`CraftingControllerArtwork.drawInfoText`）保留原绘制调用，只复用 `fitScale`。
+  - 图渲染中重复的状态颜色映射合并为 `GraphRenderer.materialStatusColor`。
+- **审核修正**：C8 删除 `string()` 后，7 个 GUI 文件出现 `        }    }` 两个括号挤在一行的格式残留，已拆回两行（保持 CRLF）。
+
+## 12. 暂停点（2026-10-13）
+
+**状态**：
+- 分支 `refactor/architecture-cleanup`。第 0、1 批已分 8 个提交合入；本次从 `8b96e4da` 起新增 12 个中文标题及描述的本地提交，未推送。
+- 第 2 批的 B0、C、D、E 波**已按功能分批提交**，源码提交截至 `c5d880b7`；最后一批更新本审计记录。
+- 本次复核：编译、`check`、`jar` 均通过；强制重跑全部 1153 项测试，1149 项通过、4 项跳过，零失败；启用 AppBotania 可选集成后的主代码与测试代码编译也通过。
+
+**下次继续前先做**：
+1. 执行 `git status` 和 `git log`，确认工作区仍是上面的状态；用户可能已经提交或另做了修改。
+2. 跑 `./gradlew compileJava compileTestJava test --offline`，确认基线为绿。
+3. 重读第 1 节执行规则、第 3 节多版本分层，以及 11.2 的用户决定（D5 用 jvmDowngrader；`core` 依赖白名单；"以简化为目标、不做为风格而改写"）。
+
+**剩余工作**：
+- **第 2 批第 F 波（单独执行）**：把纯逻辑类迁入 `core`，同时更新 import。
+  - 候选：`crafting/amount/NEMath`；`crafting/display/format` 中不依赖 MC/AE2 的部分（`BigNumberFormatter`、`DisplayNumbers`，需先确认没有 MC/AE2 依赖）；`crafting/graph` 中的纯类。
+  - 迁移后 `CoreDependencyBoundaryTest` 必须为绿。
+  - 这一步会改动大量 import，不能和其他任务并行。
+- **第 2 批遗留的小项**：
+  - `HostText.storageTypeAccentColor` 等未收进 Palette 的颜色；状态颜色是否加 `Palette.STATUS_*`。
+  - 三种近似墨色（`0x3F3D52`/`0x403E53`/`0x413F54`）是否统一：需要用户做设计决定。
+  - `ECOCraftingGraphScreen.cycleStatusColor` 的绿色和 `materialStatusColor` 不一致，是否统一：需要用户决定。
+  - `ECOCellMutationBatch`、`ExactAmountCollector` 不适合用 `ThreadScope`，保留现状。
+- **第 3 批**（第 7 节 T3-1～T3-13）：合并平行类。注意：
+  - I0-1 已确认 ExtendedAE 的 IO 端口两个 mixin 必需，T3-8 只抽公共方法体。
+  - I0-4 的流体仓跳过集群成员，并入 T3-5。
+- **第 4 批**（第 8 节 T4-1～T4-19，含多版本 T4-13～T4-19）：每项先出设计说明，用户确认后再动手。T4-11 的 fork 差异清单见 11.1（I0-1/I0-6 调查结论）。
+
+**执行经验**：
+- 同时运行的 Haiku 代理超过约 9 个会触发 429 限流，每波控制在 8 个以内。
+- datagen 结果依赖开发环境装了哪些可选模组，不能直接采用：先删 `src/generated/resources/.cache`，把输出生成到临时目录，再只合并需要的 key 或文件。
+- 测试里有大量 Mockito 验证钉住了具体调用（重载类型、调用次数）。对 GUI 和渲染器的"等价替换"，必须实际跑测试确认。
+- 代理会把文件改成 LF，有时还会残留格式问题。审核时要 grep 检查 `}    }` 这类拼接痕迹。
