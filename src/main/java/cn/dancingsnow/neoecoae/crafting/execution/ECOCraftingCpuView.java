@@ -71,12 +71,7 @@ final class ECOCraftingCpuView {
             addAllSaturating(out, job.waitingFor.list);
             job.deferredEmitted.forEach((key, amount) -> out.set(key, Math.max(out.get(key),
                 cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(amount))));
-            for (var task : job.tasks.entrySet()) {
-                for (var output : task.getKey().getOutputs()) {
-                    long amount = NEMath.saturatingMultiply(output.amount(), task.getValue().value);
-                    out.set(output.what(), NEMath.saturatingAdd(out.get(output.what()), amount));
-                }
-            }
+            ExecutionOutputs.addSaturating(job.tasks, out);
         }
     }
 

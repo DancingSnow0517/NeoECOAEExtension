@@ -305,7 +305,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     public List<ItemStack> getRemainingItems() {
-        return copyStacks(remainingItems);
+        return ECOCraftingStackCodec.copyStacks(remainingItems);
     }
 
     public Snapshot createSnapshot() {
@@ -483,11 +483,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         clearVirtualCraftingDiagnostic();
         worker.markDisplayDirty();
         outputItems.clear();
-        copyStacks(work.itemOutputs(), outputItems);
+        ECOCraftingStackCodec.copyStacks(work.itemOutputs(), outputItems);
         inputItems.clear();
-        copyStacks(work.itemInputs(), inputItems);
+        ECOCraftingStackCodec.copyStacks(work.itemInputs(), inputItems);
         remainingItems.clear();
-        copyStacks(work.itemRemaining(), remainingItems);
+        ECOCraftingStackCodec.copyStacks(work.itemRemaining(), remainingItems);
         batchOutputItems.clear();
         batchOutputItems.addAll(work.genericOutputs());
         batchInputItems.clear();
@@ -515,20 +515,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             clearWork();
             throw e;
         }
-    }
-
-    private static void copyStacks(List<ItemStack> source, List<ItemStack> target) {
-        for (ItemStack stack : source) {
-            if (!stack.isEmpty()) {
-                target.add(stack.copy());
-            }
-        }
-    }
-
-    private static List<ItemStack> copyStacks(List<ItemStack> source) {
-        List<ItemStack> copy = new ArrayList<>();
-        copyStacks(source, copy);
-        return copy;
     }
 
     private List<ItemStack> snapshotCraftingInputs() {
@@ -755,23 +741,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private KeyCounter collectOutputItems() {
         KeyCounter outputs = new KeyCounter();
         for (ItemStack outputItem : outputItems) {
-            addStack(outputs, outputItem);
+            ECOCraftingStackCodec.addStack(outputs, outputItem);
         }
         for (ItemStack remainingItem : remainingItems) {
-            addStack(outputs, remainingItem);
+            ECOCraftingStackCodec.addStack(outputs, remainingItem);
         }
-        addGenericStacks(outputs, batchOutputItems);
-        addGenericStacks(outputs, batchRemainingItems);
+        ECOCraftingStackCodec.addGenericStacks(outputs, batchOutputItems);
+        ECOCraftingStackCodec.addGenericStacks(outputs, batchRemainingItems);
         return outputs;
-    }
-
-    private static void addStack(KeyCounter counter, ItemStack stack) {
-        if (stack != null && !stack.isEmpty()) {
-            GenericStack genericStack = GenericStack.fromItemStack(stack);
-            if (genericStack != null && genericStack.amount() > 0L) {
-                counter.add(genericStack.what(), genericStack.amount());
-            }
-        }
     }
 
     private KeyCounter ejectAllAndCollectRemainder(CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
@@ -939,7 +916,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         try {
         KeyCounter stacks = ECOCraftingStackCodec.collect(recoverable);
-            addGenericStacks(stacks, recoverableGeneric);
+            ECOCraftingStackCodec.addGenericStacks(stacks, recoverableGeneric);
             // Commit whatever fits. The insertion loop persists the remainder after each successful
             // key, so a full cell or a later exception cannot replay earlier transfers on retry.
             KeyCounter remainder = insertAllAndCollectRemainder(storage, stacks, recoverOutputs);
@@ -1269,14 +1246,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         for (ItemStack stack : stacks) {
             if (!stack.isEmpty()) {
                 copySerializableStacks(stack, tag, provider);
-            }
-        }
-    }
-
-    private static void addGenericStacks(KeyCounter counter, List<GenericStack> stacks) {
-        for (GenericStack stack : stacks) {
-            if (stack != null && stack.amount() > 0) {
-                counter.add(stack.what(), stack.amount());
             }
         }
     }
