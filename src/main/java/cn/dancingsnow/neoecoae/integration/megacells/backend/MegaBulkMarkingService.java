@@ -32,6 +32,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Function;
 
 /** Writes host-wide compression-chain filters into ECO MEGA long bulk cells. */
 public final class MegaBulkMarkingService {
@@ -62,11 +63,23 @@ public final class MegaBulkMarkingService {
         if (leftKey == null || rightKey == null) {
             return false;
         }
-        if (leftKey.equals(rightKey)) {
+        return isSameMarkerChain(leftKey, rightKey, CompressionService::getChain);
+    }
+
+    /**
+     * The single compression-chain identity used by marker, filter and migration matching. {@code chainOf} is
+     * consulted only as far as the predicate needs, so callers with cached lookups keep their call order.
+     */
+    public static boolean isSameMarkerChain(
+        AEItemKey first,
+        AEItemKey second,
+        Function<AEItemKey, CompressionChain> chainOf
+    ) {
+        if (first.equals(second)) {
             return true;
         }
-        CompressionChain leftChain = CompressionService.getChain(leftKey);
-        return !leftChain.isEmpty() && leftChain.equals(CompressionService.getChain(rightKey));
+        CompressionChain firstChain = chainOf.apply(first);
+        return !firstChain.isEmpty() && firstChain.equals(chainOf.apply(second));
     }
 
     public static MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold, boolean migrate) {
@@ -347,9 +360,7 @@ public final class MegaBulkMarkingService {
     }
 
     private static boolean sameMarker(AEItemKey first, AEItemKey second) {
-        if (first.equals(second)) return true;
-        CompressionChain firstChain = CompressionService.getChain(first);
-        return !firstChain.isEmpty() && firstChain.equals(CompressionService.getChain(second));
+        return isSameMarkerChain(first, second, CompressionService::getChain);
     }
 
     private static MarkResult result(Status status) {

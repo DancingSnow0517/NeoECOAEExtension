@@ -26,8 +26,7 @@ public final class ECOInfiniteStorageMember {
     }
 
     public static boolean isSealed(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return false;
-        return isSealedData(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+        return hasStack(stack) && isSealedData(customData(stack));
     }
 
     static boolean isSealedData(CustomData data) {
@@ -44,18 +43,17 @@ public final class ECOInfiniteStorageMember {
     }
 
     public static UUID identity(ItemStack stack) {
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (tag.hasUUID(IDENTITY_TAG)) return tag.getUUID(IDENTITY_TAG);
+        Optional<UUID> existing = getIdentity(stack);
+        if (existing.isPresent()) return existing.get();
         UUID identity = UUID.randomUUID();
+        CompoundTag tag = copyTag(stack);
         tag.putUUID(IDENTITY_TAG, identity);
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        writeTag(stack, tag);
         return identity;
     }
 
     public static Optional<UUID> getIdentity(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return Optional.empty();
-        CompoundTag tag = readTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
-        return tag.hasUUID(IDENTITY_TAG) ? Optional.of(tag.getUUID(IDENTITY_TAG)) : Optional.empty();
+        return storedUuid(stack, IDENTITY_TAG);
     }
 
     public static boolean isMigrating(@Nullable ItemStack stack) {
@@ -63,14 +61,11 @@ public final class ECOInfiniteStorageMember {
     }
 
     public static @Nullable UUID getMigrationId(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return null;
-        return migrationId(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+        return hasStack(stack) ? migrationId(customData(stack)) : null;
     }
 
     public static Optional<UUID> getMigrationDomainId(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return Optional.empty();
-        CompoundTag tag = readTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
-        return tag.hasUUID(MIGRATION_DOMAIN_TAG) ? Optional.of(tag.getUUID(MIGRATION_DOMAIN_TAG)) : Optional.empty();
+        return storedUuid(stack, MIGRATION_DOMAIN_TAG);
     }
 
     static @Nullable UUID migrationId(CustomData data) {
@@ -79,7 +74,7 @@ public final class ECOInfiniteStorageMember {
     }
 
     public static UUID beginMigration(ItemStack stack, UUID domain) {
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag tag = copyTag(stack);
         if (tag.hasUUID(MIGRATION_TAG)) {
             if (!tag.hasUUID(MIGRATION_DOMAIN_TAG) || !domain.equals(tag.getUUID(MIGRATION_DOMAIN_TAG))) {
                 throw new IllegalStateException("Storage cell belongs to another migration");
@@ -89,14 +84,12 @@ public final class ECOInfiniteStorageMember {
         UUID id = UUID.randomUUID();
         tag.putUUID(MIGRATION_TAG, id);
         tag.putUUID(MIGRATION_DOMAIN_TAG, domain);
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        writeTag(stack, tag);
         return id;
     }
 
     public static boolean isMember(@Nullable ItemStack stack) {
-        return stack != null
-                && !stack.isEmpty()
-                && isMemberData(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+        return hasStack(stack) && isMemberData(customData(stack));
     }
 
     static boolean isMemberData(CustomData data) {
@@ -104,10 +97,7 @@ public final class ECOInfiniteStorageMember {
     }
 
     public static Optional<UUID> getDomainId(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return Optional.empty();
-        }
-        return domainId(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+        return hasStack(stack) ? domainId(customData(stack)) : Optional.empty();
     }
 
     static Optional<UUID> domainId(CustomData data) {
@@ -123,37 +113,33 @@ public final class ECOInfiniteStorageMember {
     }
 
     public static void markMember(@Nullable ItemStack stack, UUID domainId) {
-        if (stack == null || stack.isEmpty()) {
+        if (!hasStack(stack)) {
             return;
         }
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag tag = copyTag(stack);
         tag.putBoolean(MEMBER_TAG, true);
         tag.remove(MIGRATION_TAG);
         tag.remove(MIGRATION_DOMAIN_TAG);
         tag.putUUID(DOMAIN_TAG, domainId);
         if (!tag.hasUUID(IDENTITY_TAG)) tag.putUUID(IDENTITY_TAG, UUID.randomUUID());
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        writeTag(stack, tag);
     }
 
     public static void clearMember(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        if (!hasStack(stack)) {
             return;
         }
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag tag = copyTag(stack);
         tag.remove(MEMBER_TAG);
         tag.remove(DOMAIN_TAG);
         // Identities identify one membership lifetime. Keeping them on an ordinary cell makes
         // creative/NBT copies indistinguishable during the next restore.
         tag.remove(IDENTITY_TAG);
-        if (tag.isEmpty()) {
-            stack.remove(DataComponents.CUSTOM_DATA);
-        } else {
-            stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-        }
+        writeTag(stack, tag);
     }
 
     public static void clearStoredContents(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        if (!hasStack(stack)) {
             return;
         }
         var inventory = ECOStorageCells.getCellInventory(stack, null);
@@ -168,5 +154,32 @@ public final class ECOInfiniteStorageMember {
         }
         // Standard ECO cells use this component. Removing it is also a safe fallback if no handler was available.
         stack.remove(AEComponents.STORAGE_CELL_INV);
+    }
+
+    private static boolean hasStack(@Nullable ItemStack stack) {
+        return stack != null && !stack.isEmpty();
+    }
+
+    private static CustomData customData(ItemStack stack) {
+        return stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
+    }
+
+    private static CompoundTag copyTag(ItemStack stack) {
+        return customData(stack).copyTag();
+    }
+
+    /** An empty tag removes the component, so a stack without membership or identity data carries no custom data. */
+    private static void writeTag(ItemStack stack, CompoundTag tag) {
+        if (tag.isEmpty()) {
+            stack.remove(DataComponents.CUSTOM_DATA);
+        } else {
+            stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        }
+    }
+
+    private static Optional<UUID> storedUuid(@Nullable ItemStack stack, String key) {
+        if (!hasStack(stack)) return Optional.empty();
+        CompoundTag tag = readTag(customData(stack));
+        return tag.hasUUID(key) ? Optional.of(tag.getUUID(key)) : Optional.empty();
     }
 }

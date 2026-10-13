@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.concurrent.ThreadScope;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 
 import java.math.BigInteger;
@@ -13,25 +14,20 @@ import java.util.function.LongSupplier;
 
 /** Filters actual source inventories, so a creative disk cannot hide a finite disk's debit. */
 public final class ECOCreativeExtractionFilter {
-    private static final ThreadLocal<State> ACTIVE = new ThreadLocal<>();
+    private static final ThreadScope<State> ACTIVE = new ThreadScope<>();
 
     private ECOCreativeExtractionFilter() {}
 
     public static long extract(MEStorage storage, AEKey key, long amount, IActionSource source) {
-        State previous = ACTIVE.get();
-        ACTIVE.set(new State());
-        try {
+        try (ThreadScope.Scope ignored = ACTIVE.open(new State())) {
             return extractSource(storage, key, Actionable.MODULATE,
                 () -> storage.extract(key, amount, Actionable.MODULATE, source));
-        } finally {
-            if (previous == null) ACTIVE.remove();
-            else ACTIVE.set(previous);
         }
     }
 
     /** Called at each NetworkStorage mount, only while a filtered interface input is active. */
     public static long extractSource(MEStorage storage, AEKey key, Actionable mode, LongSupplier extraction) {
-        State state = ACTIVE.get();
+        State state = ACTIVE.current();
         if (state == null || mode != Actionable.MODULATE) return extraction.getAsLong();
         long checkedBefore = state.checkedSources;
         ExactAmount before = storedAmount(storage, key);
