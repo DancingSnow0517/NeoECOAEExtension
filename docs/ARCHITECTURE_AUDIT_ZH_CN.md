@@ -257,7 +257,7 @@
 | 基线 | ✅ | 103,965（`4908324b`） | 测试通过 |
 | 第 0 批 | ✅ 完成（已分批提交） | 见下 | T0-1～T0-11 全部合入；编译通过，测试 1102 个通过、4 个跳过 |
 | 第 1 批 | ✅ 完成（已分批提交） | `src/main/java` 103,965 → 102,137（−1,828）；全仓 +493 / −3,994 | 另删 33 个模型 JSON、14 个空目录 |
-| 第 2 批 | 未开始 | | |
+| 第 2 批 | ✅ 完成（B0～F 已分批提交） | `src/main/java` 102,137 → 102,258（+121） | 以收口为主，新增公共件抵消了删除量；测试 1153 个，1149 通过、4 跳过 |
 | 第 3 批 | 未开始 | | |
 | 第 4 批 | 未开始 | | |
 
@@ -321,7 +321,7 @@
 | C（并行） | D9/D10；T2-1/2 格式化；T2-3/7 BigInteger 编解码与校验；T2-4/5 NBT 辅助类（`StorageInterfaceFilter` 和批量盘的键编解码挪到 T4-8，因为要兼容旧存档）；T2-6 规划器拓扑排序/SCC、客户端图邻接表；T2-8 方块实体持久化与同步；T2-9 yRotation、ThreadScope、存储辅助；T2-10 JSON 属性辅助、`ECOModularUI` 无玩家重载；死资源核实 |
 | D（并行） | 数字显示与 CPU 字节格式对齐 AE2；T2-11 输出累加；T2-12 ModIds；工作站 `readCounter` 接入 NBT 辅助类 |
 | E（并行） | FittedText/Palette/tooltip 公共件及各界面、客户端渲染器、JEI/EMI 调用接入 |
-| F（单独，待执行） | 把纯逻辑类（`NEMath`、格式化的数值部分、图算法）迁入 `core`，同时更新 import |
+| F（单独，✅ 已完成） | 把纯逻辑类（`NEMath`、格式化的数值部分、图算法）迁入 `core`，同时更新 import |
 
 NBT 辅助类属于 L2 平台层，不放进 `core`；`DataWriter`/`DataReader` 抽象仍放在 T4-16。
 
@@ -376,11 +376,31 @@ B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`�
   - 图渲染中重复的状态颜色映射合并为 `GraphRenderer.materialStatusColor`。
 - **审核修正**：C8 删除 `string()` 后，7 个 GUI 文件出现 `        }    }` 两个括号挤在一行的格式残留，已拆回两行（保持 CRLF）。
 
+### 11.6 第 2 批第 F 波执行记录
+
+纯逻辑类迁入 `core`（只改包名、import 和全限定名，类体逐字未动）：
+
+| 原位置 | 新位置 |
+|---|---|
+| `crafting/amount/NEMath` | `core/math/NEMath` |
+| `crafting/amount/ExactAmount`、`PlannerAmount` | `core/amount/` |
+| `crafting/display/format/BigNumberFormatter`、`DisplayNumbers`、`NEByteFormatter` | `core/format/` |
+| `crafting/graph/GraphAdjacency` | `core/graph/GraphAdjacency` |
+
+- `crafting/amount` 包删除；`crafting/display/format` 只剩依赖 `AEKey` 的 `ExactAmountFormatter`。约 140 个文件的 import 随之更新。
+- 测试：`NEMathTest` 移到 `core/math`；`GraphAdjacencyTest` 拆分，纯邻接表测试移到 `core/graph`，依赖包私有 `ClientCraftingGraph.synthetic` 的那一条留在 `crafting/graph/ClientCraftingGraphAdjacencyTest`。`CraftingModuleBoundaryTest` 去掉已不存在的 `amount` 目录（`core` 由 `CoreDependencyBoundaryTest` 以更严的白名单把守）。
+- **未迁移**：`crafting/graph` 其余类依赖 `CraftingGraphSnapshot`（AE2/MC）或 slf4j，留待 T4-2 图模型统一时处理；`ExactAmountFormatter` 依赖 `AEKey`，属 L1。
+- 验证：`compileJava compileTestJava test` 通过，1153 项（1149 通过、4 跳过）；`-PenableAppBotIntegration=true` 编译通过。
+
+**第 2 批遗留项结论**：
+- `HostText.storageTypeAccentColor` 的回退色表、图界面状态色都只在一处使用，并入 `Palette` 只是换位置，**不做**。
+- 需要用户决定：三种近似墨色是否统一；`ECOCraftingGraphScreen.cycleStatusColor` 的绿色是否改成与 `materialStatusColor` 一致。
+
 ## 12. 暂停点（2026-10-13）
 
 **状态**：
-- 分支 `refactor/architecture-cleanup`。第 0、1 批已分 8 个提交合入；本次从 `8b96e4da` 起新增 12 个中文标题及描述的本地提交，未推送。
-- 第 2 批的 B0、C、D、E 波**已按功能分批提交**，源码提交截至 `c5d880b7`；最后一批更新本审计记录。
+- 分支 `refactor/architecture-cleanup`。第 0、1 批已分 8 个提交合入；本次从 `8b96e4da` 起新增 16 个中文标题及描述的本地提交，未推送。
+- 第 2 批的 B0、C、D、E、F 波**已按功能分批提交**，源码提交截至 `785fda94`；最后一批更新本审计记录。
 - 本次复核：编译、`check`、`jar` 均通过；强制重跑全部 1153 项测试，1149 项通过、4 项跳过，零失败；启用 AppBotania 可选集成后的主代码与测试代码编译也通过。
 
 **下次继续前先做**：
@@ -389,15 +409,7 @@ B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`�
 3. 重读第 1 节执行规则、第 3 节多版本分层，以及 11.2 的用户决定（D5 用 jvmDowngrader；`core` 依赖白名单；"以简化为目标、不做为风格而改写"）。
 
 **剩余工作**：
-- **第 2 批第 F 波（单独执行）**：把纯逻辑类迁入 `core`，同时更新 import。
-  - 候选：`crafting/amount/NEMath`；`crafting/display/format` 中不依赖 MC/AE2 的部分（`BigNumberFormatter`、`DisplayNumbers`，需先确认没有 MC/AE2 依赖）；`crafting/graph` 中的纯类。
-  - 迁移后 `CoreDependencyBoundaryTest` 必须为绿。
-  - 这一步会改动大量 import，不能和其他任务并行。
-- **第 2 批遗留的小项**：
-  - `HostText.storageTypeAccentColor` 等未收进 Palette 的颜色；状态颜色是否加 `Palette.STATUS_*`。
-  - 三种近似墨色（`0x3F3D52`/`0x403E53`/`0x413F54`）是否统一：需要用户做设计决定。
-  - `ECOCraftingGraphScreen.cycleStatusColor` 的绿色和 `materialStatusColor` 不一致，是否统一：需要用户决定。
-  - `ECOCellMutationBatch`、`ExactAmountCollector` 不适合用 `ThreadScope`，保留现状。
+- **待用户决定**：三种近似墨色（`0x3F3D52`/`0x403E53`/`0x413F54`）是否统一；`ECOCraftingGraphScreen.cycleStatusColor` 的绿色是否与 `materialStatusColor` 一致。
 - **第 3 批**（第 7 节 T3-1～T3-13）：合并平行类。注意：
   - I0-1 已确认 ExtendedAE 的 IO 端口两个 mixin 必需，T3-8 只抽公共方法体。
   - I0-4 的流体仓跳过集群成员，并入 T3-5。
