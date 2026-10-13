@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOComputationHostRouting;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningStageLogger;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
@@ -391,18 +392,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             && settings.neoecoae$hasComputationHost(requester.getActionSource());
         boolean useEco = fastPlannerEnabled && hasComputationHost;
         neoecoae$ecoPlannerAvailable = useEco;
-        String routeReason = settings == null
-            ? "CRAFTING_SERVICE_HAS_NO_ECO_SETTINGS"
-            : !fastPlannerEnabled
-                ? (hasComputationHost ? "FAST_PLANNER_DISABLED" : "FAST_PLANNER_DISABLED_AND_NO_ELIGIBLE_HOST")
-                : !hasComputationHost
-                    ? (settings.neoecoae$hasComputationHost()
-                        ? "NO_HOST_ACCEPTS_REQUEST_SOURCE" : "NO_FORMED_ONLINE_COMPUTATION_HOST")
-                    : "ELIGIBLE";
+        String routeReason = ECOComputationHostRouting.routeReason(settings, fastPlannerEnabled, hasComputationHost);
         ECOPlanningStageLogger.logRoute(NEConfig.ecoPlanningStageDebug,
             useEco ? "ECO_FAST" : "AE2_NATIVE", routeReason, what, amount);
         if (NEConfig.ecoCraftSubmissionDebug) {
-            neoecoae$logEcoScreenRouting(settings, fastPlannerEnabled, hasComputationHost, useEco, what, amount);
+            neoecoae$logEcoScreenRouting(settings, fastPlannerEnabled, hasComputationHost, useEco,
+                requester.getActionSource(), what, amount);
         }
         if (useEco) {
             neoecoae$originalOptions = ECOPlannerOptions.from(settings);
@@ -456,6 +451,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             boolean fastPlannerEnabled,
             boolean hasComputationHost,
             boolean useEco,
+            IActionSource requestSource,
             AEKey what,
             long amount) {
         String player = getActionSrc().player()
@@ -474,14 +470,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             long formedHosts = hosts.stream().filter(ECOComputationSystemBlockEntity::isFormed).count();
             long onlineHosts = hosts.stream().filter(host -> host.getMainNode().isOnline()).count();
             long eligibleHosts = hosts.stream()
-                .filter(host -> host.isFormed() && host.getMainNode().isOnline())
-                .filter(host -> host.getCluster() != null
-                    && host.getCluster().canBeAutoSelectedFor(getActionSrc()))
+                .filter(host -> ECOComputationHostRouting.isEligibleHost(host, requestSource))
                 .count();
-            String reason = !fastPlannerEnabled
-                ? (hasComputationHost ? "FAST_PLANNER_DISABLED" : "FAST_PLANNER_DISABLED_AND_NO_ELIGIBLE_HOST")
-                : settings.neoecoae$hasComputationHost()
-                    ? "NO_HOST_ACCEPTS_REQUEST_SOURCE" : "NO_FORMED_ONLINE_COMPUTATION_HOST";
+            String reason = ECOComputationHostRouting.routeReason(settings, fastPlannerEnabled, hasComputationHost);
             NEOECOAE_LOGGER.warn(
                 "[ECO-CRAFT-SUBMIT] ECO screen unavailable: reason={}, player={}, output={}, amount={}, "
                     + "fastPlannerEnabled={}, computationHosts(total/formed/online/eligible)={}/{}/{}/{}",
@@ -835,11 +826,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                             : target.getClass().getName() + "@"
                             + Integer.toHexString(System.identityHashCode(target)));
         }
-        ECOPlanningResult planningResult = result instanceof ECOCraftingPlanDiagnostics diagnostics
-            ? diagnostics.neoecoae$getPlanningResult()
-            : null;
+        ECOPlanningResult planningResult = neoecoae$resolveOwnedPlanningResult(result);
         if (planningResult == null) planningResult = neoecoae$confirmedPlanningResult;
-        if (planningResult == null) planningResult = ECOPlanningResultRegistry.find(result);
         ECOPlanningResult boundResult = planningResult;
         ICraftingSubmitResult submitResult = ECOPlanningResultRegistry.withSubmissionAlias(submittedPlan, boundResult,
             () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));
@@ -886,17 +874,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             "[ECO-CRAFT-SUBMIT] stage=start-button-return container={} elapsedMs={} error={}",
             menu.containerId, Math.max(0L, System.nanoTime() - startedNanos) / 1_000_000.0D,
             String.valueOf(menu.submitError));
-    }
-
-    @Unique
-    private static long neoecoae$amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
-        return values.stream().filter(value -> value.key().equals(key)).mapToLong(
-            CraftingGraphSnapshot.KeyAmount::amount).findFirst().orElse(0L);
-    }
-
-    @Unique
-    private static boolean neoecoae$hasAmountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
-        return values.stream().anyMatch(value -> value.key().equals(key));
     }
 
     @Unique

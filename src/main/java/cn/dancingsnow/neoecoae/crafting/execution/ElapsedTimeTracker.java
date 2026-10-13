@@ -54,10 +54,9 @@ public class ElapsedTimeTracker {
         readLongByTypeMap(data.getCompound(NBT_STARTED_WORK), startedWorkByType);
         readLongByTypeMap(data.getCompound(NBT_COMPLETED_WORK), completedWorkByType);
         exact = data.getBoolean("exactWork");
-        if (exact) for (var type : AEKeyTypes.getAll()) {
-            String id = type.getId().toString();
-            exactStarted.put(type, new java.math.BigInteger(data.getCompound("exactStarted").getString(id)));
-            exactCompleted.put(type, new java.math.BigInteger(data.getCompound("exactCompleted").getString(id)));
+        if (exact) {
+            readExactByTypeMap(data.getCompound("exactStarted"), exactStarted);
+            readExactByTypeMap(data.getCompound("exactCompleted"), exactCompleted);
         }
     }
 
@@ -83,6 +82,22 @@ public class ElapsedTimeTracker {
     private static void readLongByTypeMap(CompoundTag tag, Reference2LongMap<AEKeyType> output) {
         for (var keyType : AEKeyTypes.getAll()) {
             output.put(keyType, tag.getLong(keyType.getId().toString()));
+        }
+    }
+
+    /** Missing, empty, malformed or negative entries load as zero so one bad ledger cannot fail the whole job load. */
+    private static void readExactByTypeMap(CompoundTag tag, java.util.Map<AEKeyType, java.math.BigInteger> output) {
+        for (var keyType : AEKeyTypes.getAll()) {
+            output.put(keyType, readExactAmount(tag.getString(keyType.getId().toString())));
+        }
+    }
+
+    private static java.math.BigInteger readExactAmount(String value) {
+        try {
+            var amount = new java.math.BigInteger(value);
+            return amount.signum() < 0 ? java.math.BigInteger.ZERO : amount;
+        } catch (NumberFormatException e) {
+            return java.math.BigInteger.ZERO;
         }
     }
 
@@ -155,7 +170,7 @@ public class ElapsedTimeTracker {
         return Math.clamp((float) (completedUnits / startedUnits), 0, 1);
     }
 
-    /** Returns the started work for one key type without exposing the mutable backing map. */
+    /** Switches to exact (BigInteger) accounting and clears all started/completed work, exact and long alike. */
     void startExactWork() {
         exact = true;
         exactStarted.clear();

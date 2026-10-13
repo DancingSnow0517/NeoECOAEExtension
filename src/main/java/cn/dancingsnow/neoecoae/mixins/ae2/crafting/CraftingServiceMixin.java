@@ -20,6 +20,7 @@ import appeng.crafting.pattern.AECraftingPattern;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOComputationHostRouting;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
@@ -404,15 +405,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Override
     public boolean neoecoae$hasComputationHost(IActionSource actionSource) {
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
-            NEComputationCluster cluster = host.getCluster();
-            if (host.isFormed() && host.getMainNode().isOnline()
-                    && cluster != null && cluster.isActive()
-                    && cluster.canBeAutoSelectedFor(actionSource)) {
-                return true;
-            }
-        }
-        return false;
+        return ECOComputationHostRouting.hasEligibleHost(grid, actionSource);
     }
 
     @Override
