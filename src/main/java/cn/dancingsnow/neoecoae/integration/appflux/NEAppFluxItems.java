@@ -1,9 +1,10 @@
 package cn.dancingsnow.neoecoae.integration.appflux;
 
 import appeng.items.materials.MaterialItem;
-import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.integration.IntegrationCells;
+import cn.dancingsnow.neoecoae.integration.IntegrationCells.Size;
 import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.appflux.item.ECOFeStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
@@ -13,12 +14,8 @@ import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
-import net.minecraft.data.recipes.ShapelessRecipeBuilder;
-import net.minecraft.world.item.Rarity;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
-
-import java.util.List;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -44,67 +41,37 @@ public class NEAppFluxItems {
         .model(ItemModelUtil.importedCellModel("eco_energy_cell_housing"))
         .register();
 
-    public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_16M = REGISTRATE
-        .item("eco_fe_storage_cell_16m", p -> new ECOFeStorageCellItem(
+    public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_16M = IntegrationCells
+        .cell("eco_fe_storage_cell_16m", Size.L4, p -> new ECOFeStorageCellItem(
             p,
             ECOTier.L4,
             NEAppFluxCellTypes.FLUX
         ))
-        .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
-        .recipe((ctx, prov) -> {
-            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPFLUX));
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(ECO_FE_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_16M)
-                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
-                .save(appFluxInstalled);
-            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_FE_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
-            appFluxInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
-        })
+        .recipe(IntegrationCells.housingRecipe(ModIds.APPFLUX, ECO_FE_CELL_HOUSING, Size.L4))
         .lang("ECO - LE4 Storage Matrix (FE)")
-        .model(ItemModelUtil.cellModel("fe", "16m"))
+        .model(ItemModelUtil.cellModel("fe", Size.L4.suffix()))
         .register();
 
-    public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_64M = REGISTRATE
-        .item("eco_fe_storage_cell_64m", p -> new ECOFeStorageCellItem(
+    public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_64M = IntegrationCells
+        .cell("eco_fe_storage_cell_64m", Size.L6, p -> new ECOFeStorageCellItem(
             p,
             ECOTier.L6,
             NEAppFluxCellTypes.FLUX
         ))
-        .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
-        .recipe((ctx, prov) -> {
-            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPFLUX));
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(ECO_FE_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_64M)
-                .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
-                .save(appFluxInstalled);
-            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_FE_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
-            appFluxInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
-        })
+        .recipe(IntegrationCells.housingRecipe(ModIds.APPFLUX, ECO_FE_CELL_HOUSING, Size.L6))
         .lang("ECO - LE6 Storage Matrix (FE)")
-        .model(ItemModelUtil.cellModel("fe", "64m"))
+        .model(ItemModelUtil.cellModel("fe", Size.L6.suffix()))
         .register();
 
-    public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_256M = REGISTRATE
-        .item("eco_fe_storage_cell_256m", p -> new ECOFeStorageCellItem(
+    public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_256M = IntegrationCells
+        .cell("eco_fe_storage_cell_256m", Size.L9, p -> new ECOFeStorageCellItem(
             p,
             ECOTier.L9,
             NEAppFluxCellTypes.FLUX
         ))
-        .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
-        .recipe((ctx, prov) -> {
-            RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPFLUX));
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(ECO_FE_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_256M)
-                .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
-                .save(appFluxInstalled);
-            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_FE_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
-            appFluxInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
-        })
+        .recipe(IntegrationCells.housingRecipe(ModIds.APPFLUX, ECO_FE_CELL_HOUSING, Size.L9))
         .lang("ECO - LE9 Storage Matrix (FE)")
-        .model(ItemModelUtil.cellModel("fe", "256m"))
+        .model(ItemModelUtil.cellModel("fe", Size.L9.suffix()))
         .register();
 
     public static void register() {

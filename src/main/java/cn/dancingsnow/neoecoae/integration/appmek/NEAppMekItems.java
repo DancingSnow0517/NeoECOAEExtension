@@ -1,11 +1,12 @@
 package cn.dancingsnow.neoecoae.integration.appmek;
 
 import appeng.items.materials.MaterialItem;
-import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.integration.IntegrationCells;
+import cn.dancingsnow.neoecoae.integration.IntegrationCells.Size;
 import cn.dancingsnow.neoecoae.integration.ModIds;
 import cn.dancingsnow.neoecoae.integration.appmek.item.ECOChemicalStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
@@ -14,12 +15,8 @@ import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
-import net.minecraft.data.recipes.ShapelessRecipeBuilder;
-import net.minecraft.world.item.Rarity;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
-
-import java.util.List;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 public class NEAppMekItems {
@@ -47,64 +44,34 @@ public class NEAppMekItems {
         .model(ItemModelUtil.importedCellModel("eco_chemical_cell_housing"))
         .register();
 
-    public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE
-        .item("eco_chemical_storage_cell_16m", p -> new ECOChemicalStorageCellItem(
+    public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_16M = IntegrationCells
+        .cell("eco_chemical_storage_cell_16m", Size.L4, p -> new ECOChemicalStorageCellItem(
             p,
             ECOTier.L4
         ))
-        .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
-        .recipe((ctx, prov) -> {
-            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPMEK));
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_16M)
-                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
-                .save(appmekInstalled);
-            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
-            appmekInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
-        })
+        .recipe(IntegrationCells.housingRecipe(ModIds.APPMEK, ECO_CHEMICAL_CELL_HOUSING, Size.L4))
         .lang("ECO - LE4 Storage Matrix (Chemical)")
-        .model(ItemModelUtil.cellModel("chemical", "16m"))
+        .model(ItemModelUtil.cellModel("chemical", Size.L4.suffix()))
         .register();
 
-    public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_64M = REGISTRATE
-        .item("eco_chemical_storage_cell_64m", p -> new ECOChemicalStorageCellItem(
+    public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_64M = IntegrationCells
+        .cell("eco_chemical_storage_cell_64m", Size.L6, p -> new ECOChemicalStorageCellItem(
             p,
             ECOTier.L6
         ))
-        .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
-        .recipe((ctx, prov) -> {
-            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPMEK));
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_64M)
-                .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
-                .save(appmekInstalled);
-            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
-            appmekInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
-        })
+        .recipe(IntegrationCells.housingRecipe(ModIds.APPMEK, ECO_CHEMICAL_CELL_HOUSING, Size.L6))
         .lang("ECO - LE6 Storage Matrix (Chemical)")
-        .model(ItemModelUtil.cellModel("chemical", "64m"))
+        .model(ItemModelUtil.cellModel("chemical", Size.L6.suffix()))
         .register();
 
-    public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_256M = REGISTRATE
-        .item("eco_chemical_storage_cell_256m", p -> new ECOChemicalStorageCellItem(
+    public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_256M = IntegrationCells
+        .cell("eco_chemical_storage_cell_256m", Size.L9, p -> new ECOChemicalStorageCellItem(
             p,
             ECOTier.L9
         ))
-        .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
-        .recipe((ctx, prov) -> {
-            RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition(ModIds.APPMEK));
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_256M)
-                .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
-                .save(appmekInstalled);
-            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
-            appmekInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
-        })
+        .recipe(IntegrationCells.housingRecipe(ModIds.APPMEK, ECO_CHEMICAL_CELL_HOUSING, Size.L9))
         .lang("ECO - LE9 Storage Matrix (Chemical)")
-        .model(ItemModelUtil.cellModel("chemical", "256m"))
+        .model(ItemModelUtil.cellModel("chemical", Size.L9.suffix()))
         .register();
 
     public static void register() {
