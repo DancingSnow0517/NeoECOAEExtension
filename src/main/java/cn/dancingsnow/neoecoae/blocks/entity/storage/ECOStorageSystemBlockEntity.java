@@ -478,8 +478,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         storagePriority = priority;
-        setChanged();
-        markForUpdate();
+        persistAndSync();
         refreshDriveStorageProviders();
     }
 
@@ -522,8 +521,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         invalidateInfiniteMembers();
         invalidateStorageStatistics();
         infiniteRestore.invalidateExtractionCheck();
-        setChanged();
-        markForUpdate();
+        persistAndSync();
         refreshDriveStorageProviders();
     }
 
@@ -691,8 +689,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode));
         }
         refreshDriveStorageProviders();
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     public boolean isStorageInterfaceTransferMode() {
@@ -981,7 +978,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     public void buildStateChanged() {
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 }

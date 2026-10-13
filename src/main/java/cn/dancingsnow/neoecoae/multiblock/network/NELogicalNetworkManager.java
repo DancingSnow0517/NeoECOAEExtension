@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationNetworkCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -93,7 +94,7 @@ public final class NELogicalNetworkManager {
     /** Drain after AE2's grid update, once boot, power and channel state have settled. */
     public static void tick(ServerLevel level) {
         LevelState state = LEVELS.get(level);
-        if (state == null || level.getServer().isStopped() || state.pendingGridRefresh.isEmpty()) {
+        if (state == null || ServerTaskUtil.isServerStopping(level) || state.pendingGridRefresh.isEmpty()) {
             return;
         }
         List<NECluster<?>> pending = new ArrayList<>(state.pendingGridRefresh);

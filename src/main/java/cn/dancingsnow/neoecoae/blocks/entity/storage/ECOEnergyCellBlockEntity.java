@@ -15,7 +15,6 @@ import appeng.me.energy.StoredEnergyAmount;
 import appeng.util.Platform;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
-import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
@@ -110,12 +109,7 @@ public class ECOEnergyCellBlockEntity extends cn.dancingsnow.neoecoae.blocks.ent
 
     @Override
     public void notifyPersistence() {
-        if (level instanceof ServerLevel serverLevel) {
-            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
-                setChanged();
-                markForUpdate();
-            });
-        }
+        persistAndSyncOnServerThread();
     }
 
     private void onEnergyChanged() {

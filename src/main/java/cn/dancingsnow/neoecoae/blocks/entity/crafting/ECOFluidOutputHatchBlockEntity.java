@@ -20,8 +20,7 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
     public FluidTank tank = new FluidTank(16000) {
         @Override
         protected void onContentsChanged() {
-            setChanged();
-            markForUpdate();
+            persistAndSync();
         }
     };
 

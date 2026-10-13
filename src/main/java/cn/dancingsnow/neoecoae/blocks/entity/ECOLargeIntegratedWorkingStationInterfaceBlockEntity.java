@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.PatternStorageHost;
 import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
@@ -350,7 +351,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         }
 
         workstationProviderRefreshQueued = true;
-        serverLevel.getServer().executeIfPossible(() -> {
+        ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
             workstationProviderRefreshQueued = false;
             if (!isServerStopping() && !isRemoved() && level == serverLevel
                 && getMainNode().isReady() && workstationProvider == provider) {
@@ -465,8 +466,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     @Override
     public void saveChanges() {
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     @Override

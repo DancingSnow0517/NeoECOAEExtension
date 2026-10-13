@@ -210,8 +210,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public void toggleIgnoreCreativeStorageInput() {
         if (level == null || level.isClientSide || !supportsStorageInterfaceUi()) return;
         ignoreCreativeStorageInput = !ignoreCreativeStorageInput;
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
     public boolean isStorageInputMode() { return getStorageInterfaceMode() == ECOStorageInterfaceMode.INPUT; }
     public boolean isStorageTransferMode() { return getStorageInterfaceMode() != ECOStorageInterfaceMode.STORAGE; }
@@ -281,8 +280,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 .setValue(cn.dancingsnow.neoecoae.blocks.ECOMachineInterface.STORAGE_MODE, next));
         }
         transferredLastTick = 0L;
-        setChanged();
-        markForUpdate();
+        persistAndSync();
         if (cluster instanceof NEStorageCluster storage && storage.getController() != null) {
             storage.getController().onStorageInterfaceModeChanged();
         }

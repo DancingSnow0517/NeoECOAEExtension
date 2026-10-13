@@ -166,8 +166,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     public void applyNetworkIgnoringPatternSubstitutions(boolean value) {
         if (ignorePatternSubstitutions == value) return;
         ignorePatternSubstitutions = value;
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     private boolean isIgnoringPatternSubstitutions() {
@@ -200,8 +199,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     public void applyNetworkFastCraftingPlannerEnabled(boolean enabled) {
         if (fastCraftingPlannerEnabled == enabled) return;
         fastCraftingPlannerEnabled = enabled;
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     public boolean isLocallyCyclePlanningEnabled() {
@@ -211,8 +209,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     public void applyNetworkCyclePlanningEnabled(boolean enabled) {
         if (cyclePlanningEnabled == enabled) return;
         cyclePlanningEnabled = enabled;
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     public boolean isFastCraftingPlannerEnabled() {
@@ -259,8 +256,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
     public void setCpuSelectionMode(CpuSelectionMode mode) {
         this.cpuSelectionMode = mode.ordinal();
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     private void adjustCpuSelectionMode(Player player, int delta) {
@@ -304,8 +300,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             return;
         }
         this.networkFrequency = NEFrequencyAllocator.normalize(frequency);
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     public void cycleNetworkFrequency(Player player) {
@@ -323,8 +318,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
      */
     public void setNetworkFrequency(int frequency) {
         this.networkFrequency = NEFrequencyAllocator.normalize(frequency);
-        setChanged();
-        markForUpdate();
+        persistAndSync();
         if (cluster != null) {
             NELogicalNetworkManager.refresh(cluster);
         }
@@ -527,7 +521,6 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
     @Override
     public void buildStateChanged() {
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 }

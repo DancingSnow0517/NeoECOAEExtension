@@ -987,8 +987,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return;
         }
         currentPage = clamped;
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     private static int clampPages(int pages) {

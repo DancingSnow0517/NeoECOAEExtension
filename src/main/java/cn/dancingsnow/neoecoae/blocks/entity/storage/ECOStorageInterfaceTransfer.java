@@ -58,8 +58,7 @@ final class ECOStorageInterfaceTransfer {
             storageInterface::acceptsStorageResource
         );
         if (moved > 0L) {
-            host.setChanged();
-            host.markForUpdate();
+            host.persistAndSync();
         }
         return moved;
     }

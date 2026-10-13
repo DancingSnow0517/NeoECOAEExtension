@@ -26,8 +26,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     public final FluidTank tank = new FluidTank(CAPACITY, this::isCoolant) {
         @Override
         protected void onContentsChanged() {
-            setChanged();
-            markForUpdate();
+            persistAndSync();
             notifyController();
         }
     };

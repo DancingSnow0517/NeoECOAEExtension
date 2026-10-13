@@ -186,8 +186,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
-                setChanged();
-                markForUpdate();
+                persistAndSync();
                 updateInfo();
             });
         }
@@ -594,8 +593,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             return;
         }
         this.networkFrequency = NEFrequencyAllocator.normalize(frequency);
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     public void cycleNetworkFrequency(Player player) {
@@ -611,8 +609,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     /** Player-facing: manually reassigns this host's frequency, splitting/rejoining groups. */
     public void setNetworkFrequency(int frequency) {
         this.networkFrequency = NEFrequencyAllocator.normalize(frequency);
-        setChanged();
-        markForUpdate();
+        persistAndSync();
         if (cluster != null) {
             NELogicalNetworkManager.refresh(cluster);
         }
@@ -824,24 +821,21 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public void applyNetworkIgnoringPatternSubstitutions(boolean value) {
         if (ignorePatternSubstitutions == value) return;
         ignorePatternSubstitutions = value;
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     public void applyNetworkOverclocked(boolean value) {
         if (overclocked == value) return;
         overclocked = value;
         updateInfo();
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     public void applyNetworkActiveCooling(boolean value) {
         if (activeCooling == value) return;
         activeCooling = value;
         invalidateCapabilitySnapshot();
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     void updateLocalCoolantState(int amount, int maxOverclock, FluidStack fluid) {
@@ -849,8 +843,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         coolantMaxOverclock = maxOverclock;
         currentCoolantFluid = fluid;
         invalidateCapabilitySnapshot();
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
@@ -1269,8 +1262,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     @Override
     public void buildStateChanged() {
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
 }

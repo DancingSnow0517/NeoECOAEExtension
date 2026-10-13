@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
 import lombok.Getter;
 import lombok.Setter;
@@ -108,7 +109,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
             // During chunk loading, neighboring block entities may not be available yet. A single
             // immediate calculation can therefore leave a valid structure disconnected until a
             // block update occurs. Retry after the load queue has finished restoring the chunk.
-            serverLevel.getServer().executeIfPossible(() -> {
+            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 if (!isRemoved() && level == serverLevel && hasLevel() && level.hasChunkAt(worldPosition)) {
                     calculator.calculateMultiblock(serverLevel, worldPosition);
                 }
@@ -237,7 +238,20 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     }
 
     protected boolean isServerStopping() {
-        return this.level instanceof ServerLevel serverLevel && serverLevel.getServer().isStopped();
+        return ServerTaskUtil.isServerStopping(level);
+    }
+
+    /** Marks the block entity dirty and pushes the new state to tracking clients. */
+    public final void persistAndSync() {
+        setChanged();
+        markForUpdate();
+    }
+
+    /** Runs {@link #persistAndSync()} on the server thread, dropping it if the server is shutting down. */
+    protected final void persistAndSyncOnServerThread() {
+        if (level instanceof ServerLevel serverLevel) {
+            ServerTaskUtil.executeIfServerRunning(serverLevel, this::persistAndSync);
+        }
     }
 
     @Override

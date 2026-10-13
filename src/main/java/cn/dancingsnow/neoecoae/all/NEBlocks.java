@@ -565,7 +565,7 @@ public class NEBlocks {
                     boolean formed = s.getValue(ECOIntegratedWorkingStation.FORMED);
                     return ConfiguredModel.builder()
                         .modelFile(formed ? (working ? formedWorkingModel : formedModel) : (working ? modelFileWorking : modelFile))
-                        .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING).toYRot() + 180) % 360)
+                        .rotationY(BlockStateUtil.yRotation(s.getValue(ECOIntegratedWorkingStation.FACING)))
                         .build();
                 });
         })
@@ -729,7 +729,7 @@ public class NEBlocks {
                     int level = state.getValue(ECOEnergyCellBlock.LEVEL);
                     return ConfiguredModel.builder()
                         .modelFile(provider.models().getExistingFile(provider.modLoc("block/storage_energy_cell/cell_l4_%d".formatted(level))))
-                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .rotationY(BlockStateUtil.yRotation(state.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                         .build();
                 }, ECOEnergyCellBlock.FORMED);
         })
@@ -762,7 +762,7 @@ public class NEBlocks {
                     int level = state.getValue(ECOEnergyCellBlock.LEVEL);
                     return ConfiguredModel.builder()
                         .modelFile(provider.models().getExistingFile(provider.modLoc("block/storage_energy_cell/cell_l6_%d".formatted(level))))
-                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .rotationY(BlockStateUtil.yRotation(state.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                         .build();
                 }, ECOEnergyCellBlock.FORMED);
         })
@@ -795,7 +795,7 @@ public class NEBlocks {
                     int level = state.getValue(ECOEnergyCellBlock.LEVEL);
                     return ConfiguredModel.builder()
                         .modelFile(provider.models().getExistingFile(provider.modLoc("block/storage_energy_cell/cell_l9_%d".formatted(level))))
-                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .rotationY(BlockStateUtil.yRotation(state.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                         .build();
                 }, ECOEnergyCellBlock.FORMED);
         })
@@ -827,7 +827,7 @@ public class NEBlocks {
             provider.getVariantBuilder(ctx.get())
                 .forAllStatesExcept(state -> ConfiguredModel.builder()
                     .modelFile(new ModelFile.UncheckedModelFile(provider.modLoc("block/builtin/eco_drive")))
-                    .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                    .rotationY(BlockStateUtil.yRotation(state.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                     .build(), ECODriveBlock.FORMED, ECODriveBlock.HAS_CELL);
         })
         .recipe((ctx, prov) -> {
@@ -860,7 +860,7 @@ public class NEBlocks {
                 .forAllStatesExcept(s ->
                         ConfiguredModel.builder()
                             .modelFile(modelFile)
-                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                             .build(),
                     ECOStorageVentBlock.FORMED
                 );
@@ -1008,7 +1008,7 @@ public class NEBlocks {
                         modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()));
                     }
                     return ConfiguredModel.builder()
-                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                         .modelFile(modelFile)
                         .build();
                 });
@@ -1042,7 +1042,7 @@ public class NEBlocks {
                 .forAllStates(s -> {
                     Boolean formed = s.getValue(ECOComputationDrive.FORMED);
                     return ConfiguredModel.builder()
-                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                         .modelFile(formed ? modelFileFull : modelFileEmpty)
                         .build();
                 });
@@ -1167,7 +1167,7 @@ public class NEBlocks {
                     boolean formed = s.getValue(ECOCraftingWorker.FORMED);
                     boolean working = s.getValue(ECOCraftingWorker.WORKING);
                     ConfiguredModel.Builder<?> builder = ConfiguredModel.builder()
-                        .rotationY((int) ((facing.toYRot() + 180) % 360));
+                        .rotationY(BlockStateUtil.yRotation(facing));
                     if (working) {
                         builder.modelFile(modelFileWorking);
                     } else if (formed) {
@@ -1199,7 +1199,7 @@ public class NEBlocks {
                     boolean formed = s.getValue(ECOCraftingWorker.FORMED);
                     boolean working = s.getValue(ECOCraftingWorker.WORKING);
                     ConfiguredModel.Builder<?> builder = ConfiguredModel.builder()
-                        .rotationY((int) ((facing.toYRot() + 180) % 360));
+                        .rotationY(BlockStateUtil.yRotation(facing));
                     if (working) {
                         builder.modelFile(modelFileWorking);
                     } else if (formed) {
@@ -1236,7 +1236,7 @@ public class NEBlocks {
                     boolean formed = s.getValue(ECOCraftingPatternBus.FORMED);
                     return ConfiguredModel.builder()
                         .modelFile(formed ? modelFileFormed : modelFile)
-                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                         .build();
                 });
         })
@@ -1300,7 +1300,7 @@ public class NEBlocks {
                         boolean formed = s.getValue(ECOCraftingVent.FORMED);
                         return ConfiguredModel.builder()
                             .modelFile(formed ? modelFileFormed : modelFile)
-                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                             .build();
                     }
                 );
@@ -1370,7 +1370,7 @@ public class NEBlocks {
                                     ? (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredOutputModel : outputModel)
                                     : (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredFormedModel : formedModel))
                                 : modelFile)
-                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                             .build()
                     );
             })
@@ -1398,7 +1398,7 @@ public class NEBlocks {
                             Boolean formed = s.getValue(ECOCraftingParallelCore.FORMED);
                             return ConfiguredModel.builder()
                                 .modelFile(formed ? modelFileFormed : modelFile)
-                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                                .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                                 .build();
                         }
                     );
@@ -1438,7 +1438,7 @@ public class NEBlocks {
                                     : (s.getValue(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH) ? powerNetworkFormedModel
                                         : s.getValue(ECOCraftingSystem.NETWORK_SWITCH) ? networkFormedModel : formedModel))
                                 : modelFile)
-                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                             .build()
                     );
             })
@@ -1478,7 +1478,7 @@ public class NEBlocks {
                                     : (s.getValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH) ? powerNetworkFormedModel
                                         : s.getValue(ECOComputationSystem.NETWORK_SWITCH) ? networkFormedModel : formedModel))
                                 : modelFile)
-                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                             .build()
                     );
             })
@@ -1506,7 +1506,7 @@ public class NEBlocks {
                     .forAllStates(s ->
                         ConfiguredModel.builder()
                             .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? modelFileFormed : modelFile)
-                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)))
                             .build()
                     );
             })
@@ -1534,7 +1534,7 @@ public class NEBlocks {
                         boolean formed = s.getValue(ECOComputationThreadingCore.FORMED);
                         boolean working = s.getValue(ECOComputationThreadingCore.WORKING);
                         ConfiguredModel.Builder<?> builder = ConfiguredModel.builder()
-                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360);
+                            .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)));
                         if (working) {
                             builder.modelFile(modelFileWorking);
                         } else {
@@ -1577,7 +1577,7 @@ public class NEBlocks {
                                 .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 270) % 360);
                         } else {
                             builder.modelFile(modelFile)
-                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360);
+                                .rotationY(BlockStateUtil.yRotation(s.getValue(BlockStateProperties.HORIZONTAL_FACING)));
                         }
                         return builder.build();
                     });

@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.blocks;
 
 import appeng.block.AEBaseEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
@@ -99,7 +99,7 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
 
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
-        if (level instanceof ServerLevel serverLevel && serverLevel.getServer().isStopped()) {
+        if (ServerTaskUtil.isServerStopping(level)) {
             return;
         }
         final NEBlockEntity<?, T> be = this.getBlockEntity(level, pos);

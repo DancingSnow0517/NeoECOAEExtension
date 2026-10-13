@@ -4,7 +4,6 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
-import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
@@ -14,7 +13,6 @@ import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -79,12 +77,7 @@ public class ECOComputationDriveBlockEntity
 
     @Override
     public void notifyPersistence() {
-        if (level instanceof ServerLevel serverLevel) {
-            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
-                setChanged();
-                markForUpdate();
-            });
-        }
+        persistAndSyncOnServerThread();
     }
 
     @Override

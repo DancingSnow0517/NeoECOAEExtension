@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.client.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import cn.dancingsnow.neoecoae.util.BlockStateUtil;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -31,7 +32,7 @@ public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<EC
     ) {
         ItemStack itemStack = blockEntity.getCellStack();
         Direction facing = blockEntity.getBlockState().getValue(ECOComputationDrive.FACING);
-        int rotateDegrees = ((int) facing.toYRot() + 180) % 360;
+        int rotateDegrees = BlockStateUtil.yRotation(facing);
         Quaternionf facingRot = Axis.YN.rotationDegrees(rotateDegrees);
         poseStack.pushPose();
 

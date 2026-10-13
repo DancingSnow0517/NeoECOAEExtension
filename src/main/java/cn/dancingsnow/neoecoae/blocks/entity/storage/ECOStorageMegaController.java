@@ -88,8 +88,7 @@ final class ECOStorageMegaController {
             drives.get(driveIndex).onCellConfigurationChanged();
         }
         host.notifyStorageConfigurationChanged();
-        host.setChanged();
-        host.markForUpdate();
+        host.persistAndSync();
     }
 
     public boolean hasEcoMegaBulkCell() {
@@ -146,14 +145,12 @@ final class ECOStorageMegaController {
         }
         host.selectEcoMegaBulkCell(Math.floorMod(getSelectedEcoMegaBulkCell() + delta, count));
         host.selectEcoMegaPage(0);
-        host.setChanged();
-        host.markForUpdate();
+        host.persistAndSync();
     }
 
     public void changeSelectedEcoMegaPage(int delta) {
         host.selectEcoMegaPage(Math.floorMod(getSelectedEcoMegaPage() + delta, getEcoMegaPageCount()));
-        host.setChanged();
-        host.markForUpdate();
+        host.persistAndSync();
     }
 
     EcoMegaFilterResult setEcoMegaFilterDirect(int driveIndex, int page, int visualSlot, ItemStack stack) {

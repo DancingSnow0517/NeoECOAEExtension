@@ -268,8 +268,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (level instanceof ServerLevel serverLevel) {
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 updateCellState();
-                setChanged();
-                markForUpdate();
+                persistAndSync();
             });
         }
     }
@@ -293,8 +292,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             return;
         }
         updateCellState();
-        setChanged();
-        markForUpdate();
+        persistAndSync();
         IStorageProvider.requestUpdate(getMainNode());
         var controller = getStorageController();
         if (controller != null) controller.invalidateInfiniteMembers();
@@ -322,8 +320,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         ECOInfiniteStorageMember.markMember(cellStack, domainId);
         var controller = getStorageController();
         if (controller != null) controller.invalidateInfiniteMembers();
-        setChanged();
-        markForUpdate();
+        persistAndSync();
     }
 
     public boolean convertInfiniteMemberToNormalStorage(UUID domainId) {
@@ -334,8 +331,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         var controller = getStorageController();
         if (controller != null) controller.invalidateInfiniteMembers();
         clearRestoreReceipts();
-        setChanged();
-        markForUpdate();
+        persistAndSync();
         return true;
     }
 

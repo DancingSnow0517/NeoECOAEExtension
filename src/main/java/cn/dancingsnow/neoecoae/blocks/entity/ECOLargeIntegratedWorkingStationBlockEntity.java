@@ -38,6 +38,7 @@ import cn.dancingsnow.neoecoae.platform.nbt.GenericStackNbt;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -131,7 +132,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         setPowerSides(EnumSet.allOf(Direction.class));
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
-            serverLevel.getServer().executeIfPossible(() -> {
+            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 if (!isRemoved() && level == serverLevel) {
                     rebuildMultiblock();
                     // A restored batch is loaded before the AE2 grid finishes booting.  Re-forming the

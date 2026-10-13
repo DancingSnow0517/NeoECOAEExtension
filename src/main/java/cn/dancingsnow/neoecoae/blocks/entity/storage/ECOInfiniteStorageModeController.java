@@ -126,8 +126,7 @@ final class ECOInfiniteStorageModeController {
             host.infiniteRestore().invalidateExtractionCheck();
             host.invalidateStorageStatistics();
             host.refreshDriveStorageProviders();
-            host.setChanged();
-            host.markForUpdate();
+            host.persistAndSync();
         }
     }
 
@@ -288,8 +287,7 @@ final class ECOInfiniteStorageModeController {
         IStorageProvider.requestUpdate(drive.getMainNode());
         host.invalidateStorageStatistics();
         drive.setChanged();
-        host.setChanged();
-        host.markForUpdate();
+        host.persistAndSync();
     }
 
     private void sealTransferSources(ServerLevel serverLevel, UUID domainId) {
@@ -370,8 +368,7 @@ final class ECOInfiniteStorageModeController {
         host.infiniteMemberIds().clear();
         host.infiniteMigrationSourceIds().clear();
         host.refreshDriveStorageProviders();
-        host.setChanged();
-        host.markForUpdate();
+        host.persistAndSync();
     }
 
     @Nullable

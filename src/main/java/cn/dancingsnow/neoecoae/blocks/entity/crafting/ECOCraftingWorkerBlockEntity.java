@@ -288,8 +288,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         ECOCraftingThread thread = new ECOCraftingThread(this);
         craftingThreads.add(thread);
         nextFreeThreadIndex = craftingThreads.size() % Math.max(1, threadCapacity);
-        setChanged();
-        markForUpdate();
+        persistAndSync();
         boolean accepted = submit.test(thread);
         if (accepted) {
             refreshDisplayedJob();
@@ -539,8 +538,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         if (cluster != null && cluster.getController() != null) {
             cluster.getController().recalculateRunningThreadCountFromWorkers();
         }
-        setChanged();
-        markForUpdate();
+        persistAndSync();
         wakeTickingDevice();
         return new ClearResult(busyThreads, jobIds);
     }
