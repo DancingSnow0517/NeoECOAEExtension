@@ -19,13 +19,6 @@ public final class AmountMapNbt {
     private static final String KEY = "key";
     private static final String AMOUNT = "amount";
 
-    public enum InvalidEntryPolicy {
-        /** Drops entries whose key does not resolve, without parsing their amount. Zero amounts are kept. */
-        SKIP,
-        /** An unresolvable key or a non-positive amount throws IllegalArgumentException. */
-        THROW
-    }
-
     private AmountMapNbt() {}
 
     public static ListTag write(Map<AEKey, BigInteger> amounts, HolderLookup.Provider registries) {
@@ -39,20 +32,14 @@ public final class AmountMapNbt {
         return list;
     }
 
-    /** Malformed amount strings always throw; {@code policy} only decides how unresolved keys and zero amounts are treated. */
-    public static void read(ListTag list, HolderLookup.Provider registries, Map<AEKey, BigInteger> target,
-            InvalidEntryPolicy policy) {
+    /** An unresolvable key, a non-positive amount, or a malformed amount string throws IllegalArgumentException. */
+    public static void read(ListTag list, HolderLookup.Provider registries, Map<AEKey, BigInteger> target) {
         for (int i = 0; i < list.size(); i++) {
             var entry = list.getCompound(i);
             var stack = GenericStack.readTag(registries, entry.getCompound(KEY));
-            if (stack == null) {
-                if (policy == InvalidEntryPolicy.THROW) throw new IllegalArgumentException("Invalid deferred material");
-                continue;
-            }
+            if (stack == null) throw new IllegalArgumentException("Invalid deferred material");
             var amount = ECOBigCraftingOrder.decode(entry.getString(AMOUNT));
-            if (policy == InvalidEntryPolicy.THROW && amount.signum() <= 0) {
-                throw new IllegalArgumentException("Invalid deferred material");
-            }
+            if (amount.signum() <= 0) throw new IllegalArgumentException("Invalid deferred material");
             target.put(stack.what(), amount);
         }
     }

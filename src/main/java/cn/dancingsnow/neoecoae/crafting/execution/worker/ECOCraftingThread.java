@@ -31,6 +31,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity.VirtualLaneStartResult;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.platform.nbt.GenericStackNbt;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
@@ -305,7 +306,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     public List<ItemStack> getRemainingItems() {
-        return ECOCraftingStackCodec.copyStacks(remainingItems);
+        return copyStacks(remainingItems);
     }
 
     public Snapshot createSnapshot() {
@@ -483,11 +484,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         clearVirtualCraftingDiagnostic();
         worker.markDisplayDirty();
         outputItems.clear();
-        ECOCraftingStackCodec.copyStacks(work.itemOutputs(), outputItems);
+        copyStacks(work.itemOutputs(), outputItems);
         inputItems.clear();
-        ECOCraftingStackCodec.copyStacks(work.itemInputs(), inputItems);
+        copyStacks(work.itemInputs(), inputItems);
         remainingItems.clear();
-        ECOCraftingStackCodec.copyStacks(work.itemRemaining(), remainingItems);
+        copyStacks(work.itemRemaining(), remainingItems);
         batchOutputItems.clear();
         batchOutputItems.addAll(work.genericOutputs());
         batchInputItems.clear();
@@ -515,6 +516,20 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             clearWork();
             throw e;
         }
+    }
+
+    private static void copyStacks(List<ItemStack> source, List<ItemStack> target) {
+        for (ItemStack stack : source) {
+            if (!stack.isEmpty()) {
+                target.add(stack.copy());
+            }
+        }
+    }
+
+    private static List<ItemStack> copyStacks(List<ItemStack> source) {
+        List<ItemStack> copy = new ArrayList<>();
+        copyStacks(source, copy);
+        return copy;
     }
 
     private List<ItemStack> snapshotCraftingInputs() {
@@ -741,14 +756,24 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private KeyCounter collectOutputItems() {
         KeyCounter outputs = new KeyCounter();
         for (ItemStack outputItem : outputItems) {
-            ECOCraftingStackCodec.addStack(outputs, outputItem);
+            addStack(outputs, outputItem);
         }
         for (ItemStack remainingItem : remainingItems) {
-            ECOCraftingStackCodec.addStack(outputs, remainingItem);
+            addStack(outputs, remainingItem);
         }
-        ECOCraftingStackCodec.addGenericStacks(outputs, batchOutputItems);
-        ECOCraftingStackCodec.addGenericStacks(outputs, batchRemainingItems);
+        addGenericStacks(outputs, batchOutputItems);
+        addGenericStacks(outputs, batchRemainingItems);
         return outputs;
+    }
+
+    /** Adds one item stack, following AE2's generic-stack unwrapping; empty or unkeyable stacks are ignored. */
+    private static void addStack(KeyCounter counter, ItemStack stack) {
+        if (stack != null && !stack.isEmpty()) {
+            GenericStack genericStack = GenericStack.fromItemStack(stack);
+            if (genericStack != null && genericStack.amount() > 0L) {
+                counter.add(genericStack.what(), genericStack.amount());
+            }
+        }
     }
 
     private KeyCounter ejectAllAndCollectRemainder(CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
@@ -916,7 +941,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         try {
         KeyCounter stacks = ECOCraftingStackCodec.collect(recoverable);
-            ECOCraftingStackCodec.addGenericStacks(stacks, recoverableGeneric);
+            addGenericStacks(stacks, recoverableGeneric);
             // Commit whatever fits. The insertion loop persists the remainder after each successful
             // key, so a full cell or a later exception cannot replay earlier transfers on retry.
             KeyCounter remainder = insertAllAndCollectRemainder(storage, stacks, recoverOutputs);
@@ -1210,9 +1235,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         if (batchGenericWork) {
             tag.putBoolean("batchGenericWork", true);
-            tag.put("batchOutputItems", ECOFastPathStacks.writeGenericStacks(provider, batchOutputItems));
-            tag.put("batchInputItems", ECOFastPathStacks.writeGenericStacks(provider, batchInputItems));
-            tag.put("batchRemainingItems", ECOFastPathStacks.writeGenericStacks(provider, batchRemainingItems));
+            tag.put("batchOutputItems", GenericStackNbt.writePositive(provider, batchOutputItems));
+            tag.put("batchInputItems", GenericStackNbt.writePositive(provider, batchInputItems));
+            tag.put("batchRemainingItems", GenericStackNbt.writePositive(provider, batchRemainingItems));
         } else {
             tag.put("outputItem", saveSerializableStack(firstOutputItem(), provider));
         }
@@ -1246,6 +1271,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         for (ItemStack stack : stacks) {
             if (!stack.isEmpty()) {
                 copySerializableStacks(stack, tag, provider);
+            }
+        }
+    }
+
+    private static void addGenericStacks(KeyCounter counter, List<GenericStack> stacks) {
+        for (GenericStack stack : stacks) {
+            if (stack != null && stack.amount() > 0) {
+                counter.add(stack.what(), stack.amount());
             }
         }
     }

@@ -225,10 +225,6 @@ public final class ECOFastPathStacks {
         return true;
     }
 
-    public static ListTag writeGenericStacks(HolderLookup.Provider registries, List<GenericStack> stacks) {
-        return GenericStackNbt.writePositive(registries, stacks);
-    }
-
     public static Optional<List<GenericStack>> readValidatedBatchItemStacks(
         HolderLookup.Provider registries,
         ListTag tag,

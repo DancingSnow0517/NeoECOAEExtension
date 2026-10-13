@@ -343,7 +343,11 @@ final class ECOBigOrderController {
         var forecast = tag.getList("pendingPreview", 10);
         if (forecast.size() > 100000) throw new IllegalArgumentException("Too many forecast items");
         var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
-        AmountMapNbt.read(forecast, registries, amounts, AmountMapNbt.InvalidEntryPolicy.SKIP);
+        for (int i = 0; i < forecast.size(); i++) {
+            var entry = forecast.getCompound(i);
+            var stack = GenericStack.readTag(registries, entry.getCompound("key"));
+            if (stack != null) amounts.put(stack.what(), ECOBigCraftingOrder.decode(entry.getString("amount")));
+        }
         pendingPreview = amounts;
         bindStandaloneLink();
     }

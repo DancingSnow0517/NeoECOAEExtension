@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.platform.nbt;
 
-import cn.dancingsnow.neoecoae.platform.nbt.AmountMapNbt.InvalidEntryPolicy;
-
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import net.minecraft.core.HolderLookup;
@@ -64,49 +62,35 @@ class AmountMapNbtTest {
         assertEquals(Set.of("key", "amount"), list.getCompound(0).getAllKeys());
         assertEquals("100000000000000000000", list.getCompound(0).getString("amount"));
         var restored = new HashMap<AEKey, BigInteger>();
-        AmountMapNbt.read(list, registries, restored, InvalidEntryPolicy.THROW);
+        AmountMapNbt.read(list, registries, restored);
         assertEquals(amounts, restored);
     }
 
     @Test
-    void skipDropsUnresolvedEntriesWithoutParsingTheirAmountAndKeepsZero() {
-        var list = new ListTag();
-        list.add(entry("ghost", "not-a-number"));
-        list.add(entry("stone", "0"));
-        var target = new HashMap<AEKey, BigInteger>();
-
-        AmountMapNbt.read(list, registries, target, InvalidEntryPolicy.SKIP);
-
-        assertEquals(Map.of(stone, BigInteger.ZERO), target);
-    }
-
-    @Test
-    void throwRejectsUnresolvedKey() {
+    void rejectsUnresolvedKey() {
         var list = new ListTag();
         list.add(entry("ghost", "1"));
 
         assertThrows(IllegalArgumentException.class,
-                () -> AmountMapNbt.read(list, registries, new HashMap<>(), InvalidEntryPolicy.THROW));
+                () -> AmountMapNbt.read(list, registries, new HashMap<>()));
     }
 
     @Test
-    void throwRejectsZeroAmount() {
+    void rejectsZeroAmount() {
         var list = new ListTag();
         list.add(entry("stone", "0"));
 
         assertThrows(IllegalArgumentException.class,
-                () -> AmountMapNbt.read(list, registries, new HashMap<>(), InvalidEntryPolicy.THROW));
+                () -> AmountMapNbt.read(list, registries, new HashMap<>()));
     }
 
     @Test
-    void bothPoliciesRejectMalformedAmounts() {
-        for (var policy : InvalidEntryPolicy.values()) {
-            for (var malformed : List.of("", "-1", "1.5", "abc")) {
-                var list = new ListTag();
-                list.add(entry("stone", malformed));
-                assertThrows(IllegalArgumentException.class,
-                        () -> AmountMapNbt.read(list, registries, new HashMap<>(), policy), policy + " " + malformed);
-            }
+    void rejectsMalformedAmounts() {
+        for (var malformed : List.of("", "-1", "1.5", "abc")) {
+            var list = new ListTag();
+            list.add(entry("stone", malformed));
+            assertThrows(IllegalArgumentException.class,
+                    () -> AmountMapNbt.read(list, registries, new HashMap<>()), malformed);
         }
     }
 

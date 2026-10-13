@@ -214,10 +214,8 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
         ECOExecutionPlan restoredPlan = null;
         exactOrder = data.getBoolean("exactOrder");
-        AmountMapNbt.read(data.getList("deferredStock", Tag.TAG_COMPOUND), registries, deferredStock,
-                AmountMapNbt.InvalidEntryPolicy.THROW);
-        AmountMapNbt.read(data.getList("deferredEmitted", Tag.TAG_COMPOUND), registries, deferredEmitted,
-                AmountMapNbt.InvalidEntryPolicy.THROW);
+        AmountMapNbt.read(data.getList("deferredStock", Tag.TAG_COMPOUND), registries, deferredStock);
+        AmountMapNbt.read(data.getList("deferredEmitted", Tag.TAG_COMPOUND), registries, deferredEmitted);
         ECOExecutionRuntime restoredRuntime = null;
         boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED)
             || exactOrder && taskDefinitionLost;
