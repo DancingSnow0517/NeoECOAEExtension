@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.component.AcyclicComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.component.ComponentDependency;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.component.PlanningComponent;
-import java.util.ArrayDeque;
+import cn.dancingsnow.neoecoae.core.graph.TopoSort;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -80,24 +80,13 @@ public final class CondensationGraph {
             components.put(scc.componentId(), component);
         }
 
-        Map<Integer, Integer> indegree = new HashMap<>();
-        for (Integer id : components.keySet()) indegree.put(id, 0);
-        for (ComponentDependency edge : dependencies) indegree.merge(edge.toComponentId(), 1, Integer::sum);
-        ArrayDeque<Integer> ready = new ArrayDeque<>();
-        for (Integer id : components.keySet()) if (indegree.get(id) == 0) ready.addLast(id);
-        List<PlanningComponent> order = new ArrayList<>(components.size());
-        while (!ready.isEmpty()) {
-            cancellation.checkpoint();
-            int id = ready.removeFirst();
-            order.add(components.get(id));
-            for (ComponentDependency edge : outgoing.getOrDefault(id, List.of())) {
-                int remaining = indegree.merge(edge.toComponentId(), -1, Integer::sum);
-                if (remaining == 0) ready.addLast(edge.toComponentId());
-            }
-        }
-        if (order.size() != components.size()) {
+        TopoSort.Result<Integer> sorted = TopoSort.kahn(components.keySet(),
+            id -> outgoing.getOrDefault(id, List.of()).stream().map(ComponentDependency::toComponentId).toList(),
+            null, cancellation::checkpoint);
+        if (!sorted.acyclic()) {
             throw new IllegalStateException("SCC condensation graph must be acyclic");
         }
+        List<PlanningComponent> order = sorted.order().stream().map(components::get).toList();
         return new CondensationGraph(graph, components, componentByKey, dependencies, order);
     }
 

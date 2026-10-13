@@ -4,6 +4,8 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.core.graph.StronglyConnected;
+import cn.dancingsnow.neoecoae.core.graph.TopoSort;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.ExecutionProvenance;
@@ -12,13 +14,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.Map;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.PriorityQueue;
 import java.util.HashSet;
-import java.util.Iterator;
+import java.util.stream.IntStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -175,7 +176,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         }
 
         List<Set<Integer>> outgoing = new ArrayList<>(phases.size());
-        int[] indegree = new int[phases.size()];
         Map<PhaseDependency, Set<String>> edgeKeys = new LinkedHashMap<>();
         for (int i = 0; i < phases.size(); i++) outgoing.add(new LinkedHashSet<>());
         if (provenance != null) {
@@ -214,7 +214,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                     throw new IllegalStateException("Unresolved selected task self-cycle: demand=" + demand
                         + " allocation=" + allocation);
                 }
-                addAttributedDependency(phases, outgoing, indegree, edgeKeys, producer, consumer,
+                addAttributedDependency(phases, outgoing, edgeKeys, producer, consumer,
                     demand.consumer(), allocation.material(), null, allocation.toString());
             }
         } else {
@@ -227,7 +227,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                         Set<Integer> fallbackProducers = primaryProducersByKey.getOrDefault(
                             key, producersByKey.getOrDefault(key, Set.of()));
                         for (int producer : fallbackProducers) {
-                            addAttributedDependency(phases, outgoing, indegree, edgeKeys, producer, consumer,
+                            addAttributedDependency(phases, outgoing, edgeKeys, producer, consumer,
                                 pattern, key, semantics, "legacy");
                         }
                     }
@@ -235,23 +235,16 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             }
         }
 
-        PriorityQueue<Integer> ready = new PriorityQueue<>();
-        for (int i = 0; i < indegree.length; i++) if (indegree[i] == 0) ready.add(i);
-        List<ComponentExecutionPhase> ordered = new ArrayList<>(phases.size());
-        List<Integer> orderedIndices = new ArrayList<>(phases.size());
-        while (!ready.isEmpty()) {
-            int phaseIndex = ready.remove();
-            ordered.add(phases.get(phaseIndex));
-            orderedIndices.add(phaseIndex);
-            for (int dependent : outgoing.get(phaseIndex)) {
-                if (--indegree[dependent] == 0) ready.add(dependent);
-            }
-        }
-        if (ordered.size() != phases.size()) {
+        // Natural order on phase indices: among ready phases, the lowest index is emitted first.
+        TopoSort.Result<Integer> sorted = TopoSort.kahn(IntStream.range(0, phases.size()).boxed().toList(),
+            i -> outgoing.get(i), Comparator.naturalOrder());
+        List<Integer> orderedIndices = sorted.order();
+        if (!sorted.acyclic()) {
             String cycles = describeResidualCycles(phases, outgoing, edgeKeys, orderedIndices);
             throw new IllegalStateException(
                 "Final executable pattern dependencies contain a cycle outside a solved cycle phase: " + cycles);
         }
+        List<ComponentExecutionPhase> ordered = orderedIndices.stream().map(i -> phases.get(i)).toList();
         int[] remapped = new int[phases.size()];
         for (int i = 0; i < orderedIndices.size(); i++) remapped[orderedIndices.get(i)] = i;
         List<PhaseDependency> dependencies = new ArrayList<>();
@@ -311,59 +304,18 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
 
     // Visible for testing.
     static List<List<Integer>> stronglyConnectedComponents(Set<Integer> nodes, List<Set<Integer>> outgoing) {
-        List<List<Integer>> result = new ArrayList<>();
-        Map<Integer, Integer> index = new HashMap<>(), low = new HashMap<>();
-        Set<Integer> onStack = new HashSet<>();
-        java.util.ArrayDeque<Integer> stack = new java.util.ArrayDeque<>();
-        // Explicit replacement for recursion: each call frame is a node plus its iterator over remaining edges.
-        java.util.ArrayDeque<Integer> callNodes = new java.util.ArrayDeque<>();
-        java.util.ArrayDeque<Iterator<Integer>> callEdges = new java.util.ArrayDeque<>();
-        int[] next = {0};
-        for (int root : nodes) {
-            if (index.containsKey(root)) continue;
-            index.put(root, next[0]); low.put(root, next[0]++); stack.push(root); onStack.add(root);
-            callNodes.push(root); callEdges.push(outgoing.get(root).iterator());
-            while (!callNodes.isEmpty()) {
-                int v = callNodes.peek();
-                Iterator<Integer> edges = callEdges.peek();
-                if (edges.hasNext()) {
-                    int w = edges.next();
-                    if (!nodes.contains(w)) continue;
-                    if (!index.containsKey(w)) {
-                        index.put(w, next[0]); low.put(w, next[0]++); stack.push(w); onStack.add(w);
-                        callNodes.push(w); callEdges.push(outgoing.get(w).iterator());
-                    } else if (onStack.contains(w)) {
-                        low.put(v, Math.min(low.get(v), index.get(w)));
-                    }
-                    continue;
-                }
-                callNodes.pop(); callEdges.pop();
-                if (low.get(v).equals(index.get(v))) { List<Integer> scc = new ArrayList<>(); int w; do { w=stack.pop(); onStack.remove(w); scc.add(w); } while (w!=v); result.add(scc); }
-                // Mirrors the low-link update a recursive call performed after returning to its caller.
-                if (!callNodes.isEmpty()) { int parent = callNodes.peek(); low.put(parent, Math.min(low.get(parent), low.get(v))); }
-            }
-        }
-        return result;
-    }
-
-    private static boolean addDependency(List<Set<Integer>> outgoing, int[] indegree,
-            int producer, int consumer) {
-        if (producer == consumer) return false;
-        if (outgoing.get(producer).add(consumer)) {
-            indegree[consumer]++;
-            return true;
-        }
-        return false;
+        return StronglyConnected.components(nodes,
+            node -> outgoing.get(node).stream().filter(nodes::contains).toList(), () -> {});
     }
 
     private static void addAttributedDependency(List<ComponentExecutionPhase> phases,
-            List<Set<Integer>> outgoing, int[] indegree, Map<PhaseDependency, Set<String>> edgeKeys,
+            List<Set<Integer>> outgoing, Map<PhaseDependency, Set<String>> edgeKeys,
             int producer, int consumer, IPatternDetails consumerPattern, AEKey key,
             PatternSemantics semantics, String source) {
         if (producer == consumer) return;
         edgeKeys.computeIfAbsent(new PhaseDependency(producer, consumer), ignored -> new LinkedHashSet<>())
             .add(key + " (" + source + ")");
-        addDependency(outgoing, indegree, producer, consumer);
+        outgoing.get(producer).add(consumer);
     }
 
     private static Integer matchingPhase(IPatternDetails pattern, PatternIndex phaseOfPattern) {

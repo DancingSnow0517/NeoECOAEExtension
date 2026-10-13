@@ -60,17 +60,13 @@ public final class CycleClusterProjection {
             .thenComparingInt(InterCycleFlow::toComponentId).thenComparingInt(InterCycleFlow::materialNodeId)
             .thenComparingInt(InterCycleFlow::producerPatternId).thenComparingInt(InterCycleFlow::consumerPatternId));
 
-        Map<Integer, Set<Integer>> undirected = new HashMap<>();
-        for (InterCycleFlow flow : flows) {
-            undirected.computeIfAbsent(flow.fromComponentId(), ignored -> new LinkedHashSet<>())
-                .add(flow.toComponentId());
-            undirected.computeIfAbsent(flow.toComponentId(), ignored -> new LinkedHashSet<>())
-                .add(flow.fromComponentId());
-        }
+        // Connectivity only depends on membership, and members are sorted below, so neighbour order is irrelevant.
+        GraphAdjacency adjacency = GraphAdjacency.of(flows, InterCycleFlow::fromComponentId,
+            InterCycleFlow::toComponentId);
         List<CycleCluster> result = new ArrayList<>();
         Set<Integer> visited = new LinkedHashSet<>();
         for (int start : components.stream().sorted().toList()) {
-            if (visited.contains(start) || !undirected.containsKey(start)) continue;
+            if (visited.contains(start) || adjacency.neighborhood(start).isEmpty()) continue;
             ArrayDeque<Integer> queue = new ArrayDeque<>();
             List<Integer> members = new ArrayList<>();
             queue.add(start);
@@ -78,7 +74,7 @@ public final class CycleClusterProjection {
             while (!queue.isEmpty()) {
                 int current = queue.removeFirst();
                 members.add(current);
-                for (int next : undirected.getOrDefault(current, Set.of())) if (visited.add(next)) queue.addLast(next);
+                for (int next : adjacency.neighborhood(current)) if (visited.add(next)) queue.addLast(next);
             }
             if (members.size() < 2) continue;
             members.sort(Integer::compareTo);

@@ -1,13 +1,11 @@
 package cn.dancingsnow.neoecoae.crafting.graph;
 
-import java.util.ArrayDeque;
+import cn.dancingsnow.neoecoae.core.graph.TopoSort;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Places independent SCC circles in condensation-DAG layers and routes explicit bridge materials between them. */
 public final class CycleClusterLayout implements GraphLayoutEngine {
@@ -95,27 +93,17 @@ public final class CycleClusterLayout implements GraphLayoutEngine {
     }
 
     private static Map<Integer, Integer> condensationDepths(CycleCluster cluster) {
-        Map<Integer, Set<Integer>> outgoing = new HashMap<>();
-        Map<Integer, Integer> indegree = new HashMap<>();
-        for (int componentId : cluster.componentIds()) indegree.put(componentId, 0);
-        for (InterCycleFlow flow : cluster.flows()) if (outgoing
-                .computeIfAbsent(flow.fromComponentId(), ignored -> new LinkedHashSet<>()).add(flow.toComponentId())) {
-            indegree.merge(flow.toComponentId(), 1, Integer::sum);
-        }
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
-        indegree.entrySet().stream().filter(entry -> entry.getValue() == 0).map(Map.Entry::getKey).sorted()
-            .forEach(queue::addLast);
-        Map<Integer, Integer> depth = new HashMap<>();
-        while (!queue.isEmpty()) {
-            int current = queue.removeFirst();
-            int nextDepth = depth.getOrDefault(current, 0) + 1;
-            for (int next : outgoing.getOrDefault(current, Set.of())) {
-                depth.merge(next, nextDepth, Math::max);
-                if (indegree.merge(next, -1, Integer::sum) == 0) queue.addLast(next);
-            }
-        }
+        GraphAdjacency adjacency = GraphAdjacency.of(cluster.flows(), InterCycleFlow::fromComponentId,
+            InterCycleFlow::toComponentId);
+        List<Integer> components = cluster.componentIds().stream().sorted().toList();
         // Snapshot SCCs should make this a DAG. If malformed client data contains a cycle, keep SCC identities
         // separate and place the unprocessed components in layer zero instead of attempting a client-side merge.
+        TopoSort.Result<Integer> sorted = TopoSort.kahn(components, adjacency::downstream, null);
+        Map<Integer, Integer> depth = new HashMap<>();
+        for (int current : sorted.order()) {
+            int nextDepth = depth.getOrDefault(current, 0) + 1;
+            for (int next : adjacency.downstream(current)) depth.merge(next, nextDepth, Math::max);
+        }
         for (int componentId : cluster.componentIds()) depth.putIfAbsent(componentId, 0);
         return depth;
     }

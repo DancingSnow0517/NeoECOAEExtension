@@ -1,0 +1,75 @@
+package cn.dancingsnow.neoecoae.crafting.graph;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+
+class GraphAdjacencyTest {
+    private record Edge(int from, int to) {}
+
+    private static GraphAdjacency sample() {
+        return GraphAdjacency.of(List.of(
+            new Edge(0, 2), new Edge(0, 1), new Edge(3, 1), new Edge(0, 2)), Edge::from, Edge::to);
+    }
+
+    @Test
+    void neighboursKeepFirstOccurrenceOrderAndCollapseDuplicatePairs() {
+        var adjacency = sample();
+        assertEquals(List.of(2, 1), List.copyOf(adjacency.downstream(0)));
+        assertEquals(List.of(0, 3), List.copyOf(adjacency.upstream(1)));
+        assertEquals(List.of(0), List.copyOf(adjacency.upstream(2)));
+    }
+
+    @Test
+    void unknownNodesHaveNoNeighboursAndSetsAreImmutable() {
+        var adjacency = sample();
+        assertTrue(adjacency.downstream(2).isEmpty());
+        assertTrue(adjacency.upstream(0).isEmpty());
+        assertTrue(adjacency.downstream(99).isEmpty());
+        assertThrows(UnsupportedOperationException.class, () -> adjacency.downstream(0).add(7));
+        assertThrows(UnsupportedOperationException.class, () -> adjacency.upstream(1).remove(0));
+    }
+
+    @Test
+    void neighborhoodListsUpstreamBeforeDownstreamWithoutRepeats() {
+        var adjacency = GraphAdjacency.of(List.of(new Edge(0, 1), new Edge(1, 0), new Edge(1, 2)),
+            Edge::from, Edge::to);
+        assertEquals(List.of(0, 2), List.copyOf(adjacency.neighborhood(1)));
+        assertEquals(List.of(1), List.copyOf(adjacency.neighborhood(0)));
+        assertEquals(List.of(2, 1), List.copyOf(sample().neighborhood(0)));
+    }
+
+    @Test
+    void factoryMapsAnyEdgeTypeAndCanReverseDirection() {
+        var reversed = GraphAdjacency.of(List.of(new Edge(5, 6)), Edge::to, Edge::from);
+        assertEquals(List.of(5), List.copyOf(reversed.downstream(6)));
+        assertEquals(List.of(6), List.copyOf(reversed.upstream(5)));
+    }
+
+    @Test
+    void emptyEdgeListYieldsEmptyAdjacency() {
+        var adjacency = GraphAdjacency.of(List.of(), Edge::from, Edge::to);
+        assertTrue(adjacency.downstream(0).isEmpty());
+        assertTrue(adjacency.upstream(0).isEmpty());
+        assertTrue(adjacency.neighborhood(0).isEmpty());
+    }
+
+    @Test
+    void clientGraphAccessorsDelegateToItsAdjacency() {
+        var graph = ClientCraftingGraph.synthetic(0, Map.of(0, node(0), 1, node(1), 2, node(2)), List.of(
+            new ClientCraftingGraph.Link(0, 1, 2, CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, true),
+            new ClientCraftingGraph.Link(0, 2, 3, CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, true)));
+        assertEquals(List.of(1, 2), List.copyOf(graph.downstream(0)));
+        assertEquals(List.of(0), List.copyOf(graph.upstream(1)));
+        assertEquals(graph.adjacency().neighborhood(1), graph.neighborhood(1));
+        assertEquals(List.of(0), List.copyOf(graph.neighborhood(1)));
+    }
+
+    private static ClientCraftingGraph.Node node(int id) {
+        return new ClientCraftingGraph.Node(id, ClientCraftingGraph.Kind.MATERIAL, "Material " + id, null, null,
+            null, null);
+    }
+}

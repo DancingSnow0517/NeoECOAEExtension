@@ -50,8 +50,7 @@ public final class ClientCraftingGraph {
     private final Set<Integer> boundaryMaterialIds;
     private final Set<Integer> externalInputIds;
     private final Set<Integer> boundaryOutputIds;
-    private final Map<Integer, Set<Integer>> upstream;
-    private final Map<Integer, Set<Integer>> downstream;
+    private final GraphAdjacency adjacency;
 
     private ClientCraftingGraph(CraftingGraphSnapshot source, View view, int rootId, int focusedCycleId,
             Map<Integer, Node> nodes, List<Link> links) {
@@ -84,14 +83,7 @@ public final class ClientCraftingGraph {
         this.boundaryMaterialIds = boundaryMaterialIds;
         this.externalInputIds = externalInputIds;
         this.boundaryOutputIds = boundaryOutputIds;
-        Map<Integer, Set<Integer>> up = new HashMap<>();
-        Map<Integer, Set<Integer>> down = new HashMap<>();
-        for (Link link : links) {
-            down.computeIfAbsent(link.fromId(), ignored -> new LinkedHashSet<>()).add(link.toId());
-            up.computeIfAbsent(link.toId(), ignored -> new LinkedHashSet<>()).add(link.fromId());
-        }
-        this.upstream = freeze(up);
-        this.downstream = freeze(down);
+        this.adjacency = GraphAdjacency.of(links, Link::fromId, Link::toId);
     }
 
     /** Package-visible benchmark fixture factory; production callers use {@link #main} and {@link #cycle}. */
@@ -326,20 +318,15 @@ public final class ClientCraftingGraph {
         if (view != View.MAIN || !nodes.containsKey(rootId)) return this;
 
         boolean hasSelectedLinks = links.stream().anyMatch(Link::selected);
-        Map<Integer, Set<Integer>> activeUpstream = new HashMap<>();
-        Map<Integer, Set<Integer>> activeDownstream = new HashMap<>();
-        for (Link link : links) {
-            if (hasSelectedLinks && !link.selected()) continue;
-            activeDownstream.computeIfAbsent(link.fromId(), ignored -> new LinkedHashSet<>()).add(link.toId());
-            activeUpstream.computeIfAbsent(link.toId(), ignored -> new LinkedHashSet<>()).add(link.fromId());
-        }
+        List<Link> activeLinks = links.stream().filter(link -> !hasSelectedLinks || link.selected()).toList();
+        GraphAdjacency active = GraphAdjacency.of(activeLinks, Link::fromId, Link::toId);
         Set<Integer> reachable = new LinkedHashSet<>();
         var frontier = new ArrayDeque<Integer>();
         frontier.add(rootId);
         while (!frontier.isEmpty()) {
             int id = frontier.removeFirst();
             if (!reachable.add(id)) continue;
-            for (int child : activeDownstream.getOrDefault(id, Set.of())) frontier.addLast(child);
+            for (int child : active.downstream(id)) frontier.addLast(child);
         }
 
         Set<Integer> visible = new LinkedHashSet<>();
@@ -354,7 +341,7 @@ public final class ClientCraftingGraph {
         }
         while (!missingFrontier.isEmpty()) {
             int id = missingFrontier.removeFirst();
-            for (int parent : activeUpstream.getOrDefault(id, Set.of())) {
+            for (int parent : active.upstream(id)) {
                 if (reachable.contains(parent) && visible.add(parent)) missingFrontier.addLast(parent);
             }
         }
@@ -363,8 +350,7 @@ public final class ClientCraftingGraph {
         visible.add(rootId);
         Map<Integer, Node> subset = new LinkedHashMap<>();
         for (int id : visible) subset.put(id, nodes.get(id));
-        List<Link> subsetLinks = links.stream()
-            .filter(link -> !hasSelectedLinks || link.selected())
+        List<Link> subsetLinks = activeLinks.stream()
             .filter(link -> visible.contains(link.fromId()) && visible.contains(link.toId())).toList();
         return new ClientCraftingGraph(source, view, rootId, focusedCycleId, focusedCluster, focusedMaterialId,
             subset, subsetLinks, Map.of(), false, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
@@ -384,14 +370,10 @@ public final class ClientCraftingGraph {
     public boolean isBoundaryOutput(int id) { return boundaryOutputIds.contains(id); }
     public Map<Integer, CompactTreeNode> compactTreeNodes() { return compactTreeNodes; }
     public CompactTreeNode compactTreeNode(int id) { return compactTreeNodes.get(id); }
-    public Set<Integer> upstream(int id) { return upstream.getOrDefault(id, Set.of()); }
-    public Set<Integer> downstream(int id) { return downstream.getOrDefault(id, Set.of()); }
-
-    public Set<Integer> neighborhood(int id) {
-        Set<Integer> result = new LinkedHashSet<>(upstream(id));
-        result.addAll(downstream(id));
-        return result;
-    }
+    public GraphAdjacency adjacency() { return adjacency; }
+    public Set<Integer> upstream(int id) { return adjacency.upstream(id); }
+    public Set<Integer> downstream(int id) { return adjacency.downstream(id); }
+    public Set<Integer> neighborhood(int id) { return adjacency.neighborhood(id); }
 
     public static int cycleVisualId(int componentId) { return Integer.MIN_VALUE + componentId; }
     public static int clusterVisualId(int clusterId) { return Integer.MIN_VALUE / 2 + clusterId; }
@@ -420,11 +402,5 @@ public final class ClientCraftingGraph {
 
     private static Node patternNode(int id, CraftingGraphSnapshot.PatternNode pattern) {
         return new Node(id, Kind.PATTERN, pattern.displayIdentity(), null, null, pattern, null);
-    }
-
-    private static Map<Integer, Set<Integer>> freeze(Map<Integer, Set<Integer>> values) {
-        Map<Integer, Set<Integer>> result = new HashMap<>();
-        values.forEach((key, value) -> result.put(key, value));
-        return result;
     }
 }
