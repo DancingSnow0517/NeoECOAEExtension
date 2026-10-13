@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
-import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
@@ -224,11 +223,11 @@ public final class IntegratedWorkstationUI {
 
         @Override
         public UIElement createCustom(JsonObject node) {
-            if ("content".equals(string(node, "custom", ""))) {
+            if ("content".equals(node.has("custom") ? node.get("custom").getAsString() : "")) {
                 return owner.createLegacyRoot(player);
             }
             throw new IllegalArgumentException("Unknown integrated workstation custom element: "
-                + string(node, "custom", ""));
+                + (node.has("custom") ? node.get("custom").getAsString() : ""));
         }
     }
 

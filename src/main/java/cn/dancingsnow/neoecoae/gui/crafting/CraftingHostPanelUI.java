@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
-import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import com.google.gson.JsonObject;
@@ -84,7 +83,7 @@ public final class CraftingHostPanelUI {
 
         @Override
         public UIElement createCustom(JsonObject definition) {
-            String custom = string(definition, "custom", string(definition, "id", ""));
+            String custom = definition.has("custom") ? definition.get("custom").getAsString() : (definition.has("id") ? definition.get("id").getAsString() : "");
             return switch (custom) {
                 case "crafting_artwork" -> new CraftingControllerArtwork(config);
                 case "mode_button" -> modeButton(definition);
@@ -98,21 +97,21 @@ public final class CraftingHostPanelUI {
             // Geometry, classes and ordering are interpreted by NeoUiJsonLoader.  The custom
             // factories above inject the corresponding binding and server action, while keeping
             // this hook available for future static nodes and loader diagnostics.
-            if ("crafting_controller_root".equals(string(definition, "id", ""))) {
+            if ("crafting_controller_root".equals(definition.has("id") ? definition.get("id").getAsString() : "")) {
                 element.setOverflowVisible(true);
             }
-            String action = string(definition, "action", "");
+            String action = definition.has("action") ? definition.get("action").getAsString() : "";
             if (!action.isEmpty() && !isKnownAction(action)) {
                 throw new IllegalArgumentException("Unknown crafting UI action: " + action);
             }
-            String binding = string(definition, "binding", "");
+            String binding = definition.has("binding") ? definition.get("binding").getAsString() : "";
             if (!binding.isEmpty() && !isKnownBinding(binding)) {
                 throw new IllegalArgumentException("Unknown crafting UI binding: " + binding);
             }
         }
 
         private Button modeButton(JsonObject definition) {
-            String mode = string(definition, "mode", "");
+            String mode = definition.has("mode") ? definition.get("mode").getAsString() : "";
             return switch (mode) {
                 case "overclock" -> CraftingControllerInteractions.createModeButton(
                     mode, config.overclocked(), config.toggleOverclocked());

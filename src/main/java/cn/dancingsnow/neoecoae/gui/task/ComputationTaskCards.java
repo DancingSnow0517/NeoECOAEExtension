@@ -6,6 +6,7 @@ import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 
@@ -22,8 +23,8 @@ public final class ComputationTaskCards {
 
     public static int statusColor(ComputationTaskEntry.Status status) {
         return switch (status) {
-            case RUNNING -> HostText.USED;
-            case QUEUED -> HostText.WARNING;
+            case RUNNING -> Palette.HOST_USED;
+            case QUEUED -> Palette.HOST_WARNING;
             case WAITING_OUTPUT -> STATUS_BLUE;
         };
     }

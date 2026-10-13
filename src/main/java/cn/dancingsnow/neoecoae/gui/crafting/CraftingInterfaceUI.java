@@ -5,7 +5,6 @@ import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
-import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -85,7 +84,7 @@ public final class CraftingInterfaceUI {
 
         @Override
         public UIElement createCustom(JsonObject node) {
-            return switch (string(node, "custom", "")) {
+            return switch (node.has("custom") ? node.get("custom").getAsString() : "") {
                 case "operation_status" -> operationStatus;
                 case "title" -> boundLabel(() -> GuiTitleProvider.title(host.getBlockState(),
                     Component.translatable("gui.neoecoae.crafting_interface.title")));
@@ -101,13 +100,13 @@ public final class CraftingInterfaceUI {
                 case "transfer_progress" -> transferProgress();
                 case "player_inventory" -> playerInventory(previewState, false);
                 default -> throw new IllegalArgumentException("Unknown crafting interface custom element: "
-                    + string(node, "custom", ""));
+                    + (node.has("custom") ? node.get("custom").getAsString() : ""));
             };
         }
 
         @Override
         public void configure(JsonObject node, UIElement element) {
-            if ("crafting_interface_root".equals(string(node, "id", ""))) {
+            if ("crafting_interface_root".equals(node.has("id") ? node.get("id").getAsString() : "")) {
                 element.setOverflowVisible(true);
             }
         }

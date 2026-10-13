@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.CellEntry;
-import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import appeng.api.storage.cells.CellState;
 import java.math.BigInteger;
@@ -124,7 +124,7 @@ class StoragePanelStateTest {
     @Test
     void finiteCapacityShowsColoredUsedAndMaximumWhileInfiniteShowsOnlyPurpleUsage() {
         int[] used = {0, 90, 100};
-        int[] usedColors = {HostText.USED, HostText.ORANGE, HostText.ERROR};
+        int[] usedColors = {Palette.HOST_USED, Palette.HOST_ORANGE, Palette.HOST_ERROR};
         for (int index = 0; index < used.length; index++) {
             StoragePanelState state = new StoragePanelState(Component.empty(), 2, true, false, false,
                 0, 100, 0, Integer.toString(used[index]), used[index] / 100D, 1, 0,
@@ -136,11 +136,11 @@ class StoragePanelStateTest {
                 if (!text.isEmpty()) colors.add(style.getColor().getValue());
                 return java.util.Optional.<Void>empty();
             }, net.minecraft.network.chat.Style.EMPTY);
-            assertEquals(List.of(usedColors[index], 0x3F3D52, HostText.VALUE), colors);
+            assertEquals(List.of(usedColors[index], 0x3F3D52, Palette.HOST_VALUE), colors);
         }
         Component infinite = StorageHostCharts.capacityValue(barState(true, 1, List.of()));
         assertEquals("150", infinite.getString());
-        assertEquals(HostText.VALUE, infinite.getStyle().getColor().getValue());
+        assertEquals(Palette.HOST_VALUE, infinite.getStyle().getColor().getValue());
     }
 
     @Test

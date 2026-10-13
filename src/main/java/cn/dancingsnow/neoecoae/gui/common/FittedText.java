@@ -8,14 +8,14 @@ import net.minecraft.network.chat.Component;
  * Single-line text drawn at a scale, shared by the GUI panels.
  *
  * <p>Shrink-to-fit uses one rule: {@code scale = min(maxScale, maxWidth / textWidth)}, where the text width is
- * clamped to at least 1 so that empty text never divides by zero. Text is never enlarged beyond maxScale and
- * {@link #draw} never clips it; callers that need clipping at a fixed scale use {@link #drawClipped}.
+ * clamped to at least 1 so that empty text never divides by zero. Text is never enlarged beyond maxScale.
+ * Callers that draw at a fixed scale use {@link #drawScaled}, which neither fits nor clips.
  *
  * <p>Coordinates and widths are floats because the panels position text at fractional offsets; int arguments
  * widen implicitly.
  *
- * <p>Edge cases shared by every overload: null or empty text draws nothing; a non-positive maxWidth or scale
- * draws nothing. Colours are ARGB values passed straight through, as the existing callers do.
+ * <p>Edge cases for {@link #drawScaled}: null or empty text, or a non-positive scale, draws nothing.
+ * Colours are ARGB values passed straight through, as the existing callers do.
  *
  * <p>The {@code y} argument is the top of the scaled text. Callers that centre text vertically compute it from
  * {@link #fitScale} and {@code font.lineHeight}; this class does not do vertical layout.
@@ -48,44 +48,14 @@ public final class FittedText {
     }
 
     /**
-     * Draws text shrunk to fit maxWidth (see class docs for the rule) and aligned inside the box
-     * {@code [x, x + maxWidth]}. The text is never clipped.
-     */
-    public static void draw(GuiGraphics g, Font font, Component text, float x, float y, float maxWidth, int color,
-                            boolean shadow, Align align, float maxScale) {
-        if (!hasText(text) || maxWidth <= 0) return;
-        float scale = fitScale(font, text, maxWidth, maxScale);
-        if (scale <= 0) return;
-        drawScaled(g, font, text, x, y, maxWidth, scale, color, shadow, align);
-    }
-
-    /** {@link #draw(GuiGraphics, Font, Component, float, float, float, int, boolean, Align, float)} for a plain string. */
-    public static void draw(GuiGraphics g, Font font, String text, float x, float y, float maxWidth, int color,
-                            boolean shadow, Align align, float maxScale) {
-        draw(g, font, text == null ? null : Component.literal(text), x, y, maxWidth, color, shadow, align, maxScale);
-    }
-
-    /**
-     * Draws text at a caller-chosen scale, aligned inside the box {@code [x, x + maxWidth]}. Unlike
-     * {@link #draw}, this neither fits nor clips, so long text can extend past the box edge.
+     * Draws text at a caller-chosen scale, aligned inside the box {@code [x, x + maxWidth]}. It neither
+     * fits nor clips, so long text can extend past the box edge.
      */
     public static void drawScaled(GuiGraphics g, Font font, Component text, float x, float y, float maxWidth,
                                   float scale, int color, boolean shadow, Align align) {
         if (!hasText(text) || scale <= 0) return;
         float left = alignedLeft(x, maxWidth, font.width(text) * scale, align);
         paint(g, font, text, left, y, scale, color, shadow);
-    }
-
-    /**
-     * Draws a plain string at a fixed scale, left-aligned at {@code x}, clipped to {@code maxWidth} in unscaled
-     * units. The clip is {@code (int) (maxWidth / scale)}, which matches the metric labels that depend on it; the
-     * callers compute maxWidth with a ceiling so the final glyph is not lost to rounding.
-     */
-    public static void drawClipped(GuiGraphics g, Font font, String text, float x, float y, float maxWidth,
-                                   float scale, int color, boolean shadow) {
-        if (text == null || text.isEmpty() || scale <= 0) return;
-        String visible = font.plainSubstrByWidth(text, Math.max(0, (int) (maxWidth / scale)));
-        paint(g, font, Component.literal(visible), x, y, scale, color, shadow);
     }
 
     private static boolean hasText(Component text) {

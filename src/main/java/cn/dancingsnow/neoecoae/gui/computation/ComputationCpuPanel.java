@@ -148,26 +148,26 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         metric(context, font, "free_memory", Tooltips.getByteAmount(value.getLong("availableBytes")).toString(), x, y + 63);
         context.graphics.fill((int) x + 13, (int) y + 72, (int) x + 162, (int) y + 73, 0xFF484252);
         if (selected == null) {
-            text(context, font, GuiText.NoCraftingJobs.text().getString(), x + 13, y + 80, 149, 0.85F, HostText.MUTED);
+            text(context, font, GuiText.NoCraftingJobs.text().getString(), x + 13, y + 80, 149, 0.85F, Palette.HOST_MUTED);
         } else {
-            text(context, font, name(selected).getString() + " · " + status(selected).getString(), x + 13, y + 76, 149, 0.85F, HostText.PRIMARY);
+            text(context, font, name(selected).getString() + " · " + status(selected).getString(), x + 13, y + 76, 149, 0.85F, Palette.HOST_PRIMARY);
             if (selected.output() != null) {
                 float outputY = y + 87, textScale = 0.85F, iconScale = 0.666F;
                 key(context, selected.output(), x + 13,
                     outputY + (font.lineHeight * textScale - 16 * iconScale) / 2, iconScale);
-                text(context, font, selected.output().getDisplayName().getString(), x + 26, outputY, 136, textScale, HostText.PRIMARY);
+                text(context, font, selected.output().getDisplayName().getString(), x + 26, outputY, 136, textScale, Palette.HOST_PRIMARY);
                 text(context, font, selected.amount(selected.remaining(), false) + " / " + selected.amount(selected.requested(), false),
-                    x + 13, y + 99, 149, 0.85F, HostText.VALUE);
+                    x + 13, y + 99, 149, 0.85F, Palette.HOST_VALUE);
             }
             if (!selected.status().equals("idle")) {
                 text(context, font, Tooltips.ofPercent(selected.progress()).getString() + " · " + Tooltips.ofDuration(selected.elapsed(), TimeUnit.NANOSECONDS).getString(),
-                    x + 13, y + 111, 149, 0.7F, HostText.MUTED);
+                    x + 13, y + 111, 149, 0.7F, Palette.HOST_MUTED);
             }
         }
         String connection = Component.translatable(value.getBoolean("connected")
             ? "gui.neoecoae.host.network.connected" : "gui.neoecoae.host.network.disconnected").getString();
         text(context, font, connection + " · x" + Math.max(1, value.getInt("multiplier")), x + 8, y + 13, 157, 0.6F,
-            value.getBoolean("connected") ? HostText.USED : HostText.ERROR);
+            value.getBoolean("connected") ? Palette.HOST_USED : Palette.HOST_ERROR);
         for (int row = 0; row < ROWS; row++) {
             ComputationCpuEntry entry = rowEntry(row);
             if (entry != null) drawRow(context, font, entry, x + LIST_X, y + LIST_Y + row * ROW_STRIDE);
@@ -208,8 +208,8 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         float scale = 0.8F;
         // Rounding down here can clip the final digit or unit when text() unscales the width.
         int valueWidth = (int) Math.ceil(font.width(value) * scale);
-        text(context, font, label, x + 13, y, Math.max(0, 145 - valueWidth), scale, HostText.MUTED);
-        text(context, font, value, x + 162 - valueWidth, y, valueWidth, scale, HostText.VALUE);
+        text(context, font, label, x + 13, y, Math.max(0, 145 - valueWidth), scale, Palette.HOST_MUTED);
+        text(context, font, value, x + 162 - valueWidth, y, valueWidth, scale, Palette.HOST_VALUE);
     }
 
     private static void text(GUIContext context, Font font, String value, float x, float y, int width, float scale, int color) {

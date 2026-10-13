@@ -15,14 +15,6 @@ import java.text.NumberFormat;
 import java.util.Locale;
 
 public final class HostText {
-    public static final int PRIMARY = Palette.HOST_PRIMARY;
-    public static final int VALUE = Palette.HOST_VALUE;
-    public static final int USED = Palette.HOST_USED;
-    public static final int MUTED = Palette.HOST_MUTED;
-    public static final int WARNING = Palette.HOST_WARNING;
-    public static final int ORANGE = Palette.HOST_ORANGE;
-    public static final int ERROR = Palette.HOST_ERROR;
-
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
@@ -66,19 +58,19 @@ public final class HostText {
 
     public static int usedValueColor(long used, long max) {
         if (used <= 0 || max <= 0) {
-            return USED;
+            return Palette.HOST_USED;
         }
         double pct = (double) used / (double) max;
         if (pct >= 1.0D) {
-            return ERROR;
+            return Palette.HOST_ERROR;
         }
         if (pct >= 0.9D) {
-            return ORANGE;
+            return Palette.HOST_ORANGE;
         }
         if (pct >= 0.75D) {
-            return WARNING;
+            return Palette.HOST_WARNING;
         }
-        return USED;
+        return Palette.HOST_USED;
     }
 
     public static float usageRatio(long used, long max) {

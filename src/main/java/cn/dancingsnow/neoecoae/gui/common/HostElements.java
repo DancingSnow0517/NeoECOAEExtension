@@ -58,9 +58,7 @@ public final class HostElements {
     }
 
     public static <T extends UIElement> T tooltips(T element, Component... lines) {
-        element.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = HoverTooltips.empty().append(lines));
-        return element;
+        return tooltips(element, List.of(lines));
     }
 
     /** The hover payload for a list of lines, for handlers that assign {@code event.hoverTooltips} directly. */

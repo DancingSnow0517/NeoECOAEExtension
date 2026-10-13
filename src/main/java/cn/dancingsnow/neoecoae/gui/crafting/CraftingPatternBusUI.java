@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import static cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.COL_SIZE;
 import static cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.ROW_SIZE;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
-import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -63,12 +62,12 @@ public final class CraftingPatternBusUI {
 
         @Override
         public UIElement createCustom(JsonObject node) {
-            return switch (string(node, "custom", "")) {
+            return switch (node.has("custom") ? node.get("custom").getAsString() : "") {
                 case "header" -> headerRow(config);
                 case "pattern_inventory" -> patternInventory(config);
                 case "player_inventory" -> new InventorySlots().layout(layout -> layout.marginTop(5));
                 default -> throw new IllegalArgumentException("Unknown crafting pattern bus custom element: "
-                    + string(node, "custom", ""));
+                    + (node.has("custom") ? node.get("custom").getAsString() : ""));
             };
         }
 
@@ -76,7 +75,7 @@ public final class CraftingPatternBusUI {
         public void configure(JsonObject node, UIElement element) {
             // The loader applies the static root class and geometry.  Page buttons and slot
             // handlers are constructed by the custom nodes because they depend on live state.
-            if ("crafting_pattern_bus_root".equals(string(node, "id", ""))) {
+            if ("crafting_pattern_bus_root".equals(node.has("id") ? node.get("id").getAsString() : "")) {
                 element.layout(layout -> layout.justifyContent(AlignContent.CENTER));
             }
         }

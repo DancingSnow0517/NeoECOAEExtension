@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.core.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeProjection;
@@ -197,11 +196,9 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     private void drawStats(GuiGraphics graphics) {
         String stats = String.format(Locale.ROOT,
-            "nodes %s/%s  edges %s/%s  zoom %.0f%%  layout %,.2f ms  index %,.2f ms  render %,.2f ms  v%d",
-            DisplayNumbers.grouped(String.valueOf(profiler.visibleNodes())),
-            DisplayNumbers.grouped(String.valueOf(snapshot.summary().materialNodes() + snapshot.summary().patternNodes())),
-            DisplayNumbers.grouped(String.valueOf(profiler.visibleEdges())),
-            DisplayNumbers.grouped(String.valueOf(snapshot.summary().edges())), zoom * 100,
+            "nodes %,d/%,d  edges %,d/%,d  zoom %.0f%%  layout %,.2f ms  index %,.2f ms  render %,.2f ms  v%d",
+            profiler.visibleNodes(), snapshot.summary().materialNodes() + snapshot.summary().patternNodes(),
+            profiler.visibleEdges(), snapshot.summary().edges(), zoom * 100,
             layout.layoutNanos() / 1_000_000.0, layout.spatialIndexNanos() / 1_000_000.0,
             profiler.renderNanos() / 1_000_000.0, layout.version());
         graphics.drawString(font, stats, Math.max(7, width - font.width(stats) - 7), height - 14, 0xff8e9aa6, false);

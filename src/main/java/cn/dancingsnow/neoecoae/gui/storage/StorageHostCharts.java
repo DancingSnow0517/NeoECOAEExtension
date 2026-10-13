@@ -333,7 +333,7 @@ final class StorageHostCharts {
                 Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
                     HostText.fullBytes(type.exactUsedBytes()),
                     state().unbounded() ? "∞" : HostText.fullBytes(type.totalBytes())),
-                Component.translatable("gui.neoecoae.storage.ui.scroll_types").withColor(HostText.MUTED));
+                Component.translatable("gui.neoecoae.storage.ui.scroll_types").withColor(Palette.HOST_MUTED));
         }
     }
 
@@ -409,18 +409,18 @@ final class StorageHostCharts {
 
     static Component capacityValue(StoragePanelState state) {
         var used = Component.literal(state.usedBytes()).withColor(state.unbounded()
-            ? HostText.VALUE : HostText.gaugeTextColor((float) state.usage()));
+            ? Palette.HOST_VALUE : HostText.gaugeTextColor((float) state.usage()));
         if (state.unbounded()) return used;
         return used.append(Component.literal(" / ").withColor(TEXT))
-            .append(Component.literal(HostText.ae2Amount(state.totalBytes())).withColor(HostText.VALUE));
+            .append(Component.literal(HostText.ae2Amount(state.totalBytes())).withColor(Palette.HOST_VALUE));
     }
 
     private static Component fullCapacityValue(StoragePanelState state) {
         var used = Component.literal(fullUsedBytes(state)).withColor(state.unbounded()
-            ? HostText.VALUE : HostText.gaugeTextColor((float) state.usage()));
+            ? Palette.HOST_VALUE : HostText.gaugeTextColor((float) state.usage()));
         if (state.unbounded()) return used;
         return used.append(Component.literal(" / ").withColor(TEXT))
-            .append(Component.literal(HostText.fullBytes(state.totalBytes())).withColor(HostText.VALUE));
+            .append(Component.literal(HostText.fullBytes(state.totalBytes())).withColor(Palette.HOST_VALUE));
     }
 
     private static String fullUsedBytes(StoragePanelState state) {

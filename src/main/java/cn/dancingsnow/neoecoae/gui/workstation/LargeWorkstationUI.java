@@ -4,7 +4,6 @@ import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
-import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
@@ -92,13 +91,13 @@ public final class LargeWorkstationUI {
 
         @Override
         public UIElement createCustom(JsonObject node) {
-            return switch (string(node, "custom", "")) {
+            return switch (node.has("custom") ? node.get("custom").getAsString() : "") {
                 case "content" -> createLegacyRoot(config, player);
                 case "player_inventory" -> playerInventory(node, player);
                 case "input_fluid" -> fluidGauge(config.fluids(), 0, 8, false);
                 case "output_fluid" -> fluidGauge(config.fluids(), 1, 150, false);
                 default -> throw new IllegalArgumentException("Unknown large workstation custom element: "
-                    + string(node, "custom", ""));
+                    + (node.has("custom") ? node.get("custom").getAsString() : ""));
             };
         }
 

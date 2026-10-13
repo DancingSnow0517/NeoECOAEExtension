@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
-import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
@@ -189,14 +188,14 @@ final class WorkstationOutputPanel {
 
         @Override
         public UIElement createCustom(JsonObject node) {
-            if ("content".equals(string(node, "custom", ""))) return createLegacy(config);
+            if ("content".equals(node.has("custom") ? node.get("custom").getAsString() : "")) return createLegacy(config);
             throw new IllegalArgumentException("Unknown workstation output panel custom element: "
-                + string(node, "custom", ""));
+                + (node.has("custom") ? node.get("custom").getAsString() : ""));
         }
 
         @Override
         public void configure(JsonObject node, UIElement element) {
-            if ("workstation_output_panel".equals(string(node, "id", ""))) {
+            if ("workstation_output_panel".equals(node.has("id") ? node.get("id").getAsString() : "")) {
                 element.layout(layout -> layout.display(TaffyDisplay.NONE));
             }
         }

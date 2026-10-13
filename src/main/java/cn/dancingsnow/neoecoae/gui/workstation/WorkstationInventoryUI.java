@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 
 import appeng.api.inventories.InternalInventory;
 import appeng.items.contents.NetworkToolMenuHost;
-import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
@@ -60,11 +59,11 @@ final class WorkstationInventoryUI {
 
         @Override
         public UIElement createCustom(JsonObject node) {
-            if ("content".equals(string(node, "custom", ""))) {
+            if ("content".equals(node.has("custom") ? node.get("custom").getAsString() : "")) {
                 return createLegacyNetworkToolbox(networkTool);
             }
             throw new IllegalArgumentException("Unknown workstation inventory custom element: "
-                + string(node, "custom", ""));
+                + (node.has("custom") ? node.get("custom").getAsString() : ""));
         }
     }
 

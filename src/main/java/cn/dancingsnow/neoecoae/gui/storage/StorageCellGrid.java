@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.storage;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
@@ -154,15 +155,15 @@ final class StorageCellGrid extends UIElement {
                 (!cell.online() || !state.formed() ? "offline" : cell.infinite() ? "infinite"
                     : cell.state().name().toLowerCase(java.util.Locale.ROOT))));
             if (cell.extractionBlockReason() != null) lines.add(cell.extractionBlockReason().copy().withColor(0xFF5555));
-            else lines.add(Component.translatable("gui.neoecoae.storage.ui.take_cell").withColor(HostText.MUTED));
+            else lines.add(Component.translatable("gui.neoecoae.storage.ui.take_cell").withColor(Palette.HOST_MUTED));
         } else {
             lines.add(Component.translatable("gui.neoecoae.storage.ui.cell_state.absent"));
             if (cell(index).position() != null) {
-                lines.add(Component.translatable("gui.neoecoae.storage.ui.insert_cell").withColor(HostText.MUTED));
+                lines.add(Component.translatable("gui.neoecoae.storage.ui.insert_cell").withColor(Palette.HOST_MUTED));
             }
         }
         lines.add(pageText(state, columns * 3));
-        lines.add(Component.translatable("gui.neoecoae.storage.ui.scroll_cells").withColor(HostText.MUTED));
+        lines.add(Component.translatable("gui.neoecoae.storage.ui.scroll_cells").withColor(Palette.HOST_MUTED));
         return lines;
     }
 
