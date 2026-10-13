@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
@@ -10,7 +11,7 @@ import net.minecraft.nbt.Tag;
 final class StoragePanelSync {
     private final Supplier<StorageHostUI.Config> config;
     private final int pageSize;
-    private final BindableValue<Integer> pageRequest = new BindableValue<>(0);
+    private final BindableValue<Integer> pageRequest;
     private int requestedOffset;
     private StoragePanelState state = StoragePanelState.EMPTY;
 
@@ -18,13 +19,10 @@ final class StoragePanelSync {
         this.config = config;
         this.pageSize = pageSize;
         Tag initial = snapshot();
-        BindableValue<Tag> synced = new BindableValue<>(initial);
-        synced.bind(DataBindingBuilder.tagS2C(this::snapshot).build());
-        synced.registerValueListener(value -> state = StoragePanelState.fromTag(value, config.get().registries()));
-        synced.setDisplay(false);
-        pageRequest.bind(DataBindingBuilder.intValC2S(value -> requestedOffset = Math.max(0, value)).build());
-        pageRequest.setDisplay(false);
-        parent.addChildren(synced, pageRequest);
+        HostElements.hiddenValue(parent, initial, DataBindingBuilder.tagS2C(this::snapshot).build(),
+            value -> state = StoragePanelState.fromTag(value, config.get().registries()));
+        pageRequest = HostElements.hiddenValue(parent, 0,
+            DataBindingBuilder.intValC2S(value -> requestedOffset = Math.max(0, value)).build());
     }
 
     StoragePanelState state() { return state; }

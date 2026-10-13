@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.FittedText;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.TabBackButton;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
@@ -62,9 +63,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         NeoECOAE.id("textures/guis/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
 
     private final ComputationHostPanelUI.Config config;
-    private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
-    private final BindableValue<Integer> cpuScrollRequest = new BindableValue<>(0);
-    private final BindableValue<Integer> itemScrollRequest = new BindableValue<>(0);
+    private final BindableValue<Integer> selectionRequest;
+    private final BindableValue<Integer> cpuScrollRequest;
+    private final BindableValue<Integer> itemScrollRequest;
     private final StatusButton pauseButton = new StatusButton();
     private final StatusButton cancelButton = new StatusButton();
     private final ComputationScrollbar cpuScrollbar;
@@ -85,13 +86,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         var cpuAction = addRPCEvent(RPCEventBuilder.simple(Integer.class, Integer.class, server::action));
         bind(DataBindingBuilder.create(server::snapshot, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
-        selectionRequest.bind(DataBindingBuilder.intValC2S(server::select).build());
-        cpuScrollRequest.bind(DataBindingBuilder.intValC2S(server::scrollCpu).build());
-        itemScrollRequest.bind(DataBindingBuilder.intValC2S(server::scrollItems).build());
-        selectionRequest.setDisplay(false);
-        cpuScrollRequest.setDisplay(false);
-        itemScrollRequest.setDisplay(false);
-        addChildren(selectionRequest, cpuScrollRequest, itemScrollRequest);
+        selectionRequest = HostElements.hiddenValue(this, -1, DataBindingBuilder.intValC2S(server::select).build());
+        cpuScrollRequest = HostElements.hiddenValue(this, 0, DataBindingBuilder.intValC2S(server::scrollCpu).build());
+        itemScrollRequest = HostElements.hiddenValue(this, 0, DataBindingBuilder.intValC2S(server::scrollItems).build());
         for (int row = 0; row < ROWS; row++) addChild(cpuHitbox(row));
         for (int cell = 0; cell < ITEM_PAGE; cell++) addChild(itemHitbox(cell));
         cpuScrollbar = new ComputationScrollbar(this, CPU_TRACK_X, TRACK_Y, TRACK_HEIGHT, this::scrollCpuTo);
@@ -110,7 +107,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             }
         }, true);
 
-        Button back = new ComputationSettingsPanel.BackButton().noText()
+        Button back = new TabBackButton()
             .setOnClick(event -> backAction.run());
         back.setId("computation-status-back");
         back.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(302).top(-5).width(20).height(20).paddingAll(0));
@@ -321,49 +318,37 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
     }
 
-    private static final class ServerState {
-        private final ComputationHostPanelUI.Config config;
-        private final CpuSelectionState<ECOCraftingCPU> selection;
+    private static final class ServerState extends CpuSelectionServerState {
         private CompoundTag cached;
         private long sampledTick = Long.MIN_VALUE;
         private int itemOffset;
 
         private ServerState(ComputationHostPanelUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
-            this.config = config;
-            selection = new CpuSelectionState<>(ROWS, identities);
-        }
-
-        private void refresh() {
-            selection.update(config.cpus().get(), ECOCraftingCPU::isBusy,
-                cpu -> cpu.getName() == null ? null : cpu.getName().getString());
+            super(config, ROWS, identities);
         }
 
         private void select(int serial) {
-            if (!config.canInteract().getAsBoolean()) return;
-            refresh();
+            if (!beginInteraction()) return;
             selection.select(serial);
             itemOffset = 0;
             cached = null;
         }
 
         private void scrollCpu(int offset) {
-            if (!config.canInteract().getAsBoolean()) return;
-            refresh();
+            if (!beginInteraction()) return;
             selection.scroll(offset);
             cached = null;
         }
 
         private void scrollItems(int offset) {
-            if (!config.canInteract().getAsBoolean()) return;
-            refresh();
+            if (!beginInteraction()) return;
             int total = selectedItems(selection.selected()).size();
             itemOffset = Math.clamp(offset / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
             cached = null;
         }
 
         private void action(int serial, int action) {
-            if (!config.canInteract().getAsBoolean()) return;
-            refresh();
+            if (!beginInteraction()) return;
             // Carry the target in this request; selection synchronization may arrive on a later tick.
             if (!selection.select(serial)) return;
             ECOCraftingCPU cpu = selection.selected();

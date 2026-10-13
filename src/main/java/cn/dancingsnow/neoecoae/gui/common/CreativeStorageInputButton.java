@@ -19,12 +19,10 @@ public final class CreativeStorageInputButton {
         Button button = HostSideButtonBar.createButton().noText().addPreIcon(icon(ignoring.getAsBoolean()));
         var image = button.getChildren().getFirst();
         button.setOnServerClick(event -> toggle.run());
-        BindableValue<Boolean> synced = new BindableValue<>(ignoring.getAsBoolean());
-        synced.bind(DataBindingBuilder.boolS2C(ignoring::getAsBoolean).build());
-        synced.registerValueListener(value -> image.style(style ->
-            style.backgroundTexture(icon(Boolean.TRUE.equals(value)))));
-        synced.setDisplay(false);
-        button.addChild(synced);
+        BindableValue<Boolean> synced = HostElements.hiddenValue(button, ignoring.getAsBoolean(),
+            DataBindingBuilder.boolS2C(ignoring::getAsBoolean).build(),
+            value -> image.style(style ->
+                style.backgroundTexture(icon(Boolean.TRUE.equals(value)))));
         HostElements.tooltips(button, () -> List.of(
             Component.translatable(Boolean.TRUE.equals(synced.getValue())
                 ? "gui.neoecoae.storage_interface.ignore_creative.on"

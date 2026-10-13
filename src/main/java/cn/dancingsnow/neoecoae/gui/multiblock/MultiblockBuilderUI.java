@@ -104,15 +104,9 @@ public final class MultiblockBuilderUI {
         return window;
     }
 
-    public static UIElement createOpenButton(UIElement window) {
-        return HostSideButtonBar.left(createInlineOpenButton(window));
-    }
-
     public static Button createInlineOpenButton(UIElement window) {
-        Button button = HostSideButtonBar.createButton();
-        button.noText().addPostIcon(NETextures.MULTIBLOCK);
-        button.setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
-        HostElements.tooltips(button, List.of(Component.translatable("gui.neoecoae.multiblock.builder")));
+        Button button = HostSideButtonBar.openWindowButton(NETextures.MULTIBLOCK, window,
+            Component.translatable("gui.neoecoae.multiblock.builder"));
         button.layout(layout -> layout.width(18).height(20));
         return button;
     }

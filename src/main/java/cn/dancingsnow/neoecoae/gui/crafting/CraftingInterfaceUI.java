@@ -20,6 +20,7 @@ import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
@@ -296,20 +297,23 @@ public final class CraftingInterfaceUI {
     }
 
     private static final class StatusTooltips extends UIElement {
-        private final TooltipLine network;
-        private final TooltipLine primary;
-        private final TooltipLine secondary;
+        private final BindableValue<Component> network;
+        private final BindableValue<Component> primary;
+        private final BindableValue<Component> secondary;
 
         private StatusTooltips(ECOMachineInterfaceBlockEntity<?> host) {
-            network = new TooltipLine(() -> Component.translatable("gui.neoecoae.storage_interface.network").append(": ")
+            Supplier<Component> networkStatus = () -> Component.translatable("gui.neoecoae.storage_interface.network").append(": ")
                     .append(Component.translatable(host.isTargetOnline()
-                            ? "gui.neoecoae.storage_interface.connected" : "gui.neoecoae.storage_interface.disconnected")));
-            primary = new TooltipLine(host::getPatternTransferPrimaryStatus);
-            secondary = new TooltipLine(() -> host.hasPatternTransferSecondaryStatus()
-                    ? host.getPatternTransferSecondaryStatus() : Component.empty());
-            addChild(network);
-            addChild(primary);
-            addChild(secondary);
+                            ? "gui.neoecoae.storage_interface.connected" : "gui.neoecoae.storage_interface.disconnected"));
+            Supplier<Component> primaryStatus = host::getPatternTransferPrimaryStatus;
+            Supplier<Component> secondaryStatus = () -> host.hasPatternTransferSecondaryStatus()
+                    ? host.getPatternTransferSecondaryStatus() : Component.empty();
+            network = HostElements.hiddenValue(this, networkStatus.get(),
+                DataBindingBuilder.componentS2C(networkStatus).build());
+            primary = HostElements.hiddenValue(this, primaryStatus.get(),
+                DataBindingBuilder.componentS2C(primaryStatus).build());
+            secondary = HostElements.hiddenValue(this, secondaryStatus.get(),
+                DataBindingBuilder.componentS2C(secondaryStatus).build());
         }
 
         private void attach(UIElement element) {
@@ -319,22 +323,6 @@ public final class CraftingInterfaceUI {
                 event.hoverTooltips = event.hoverTooltips.append(statusTooltipLines(
                         network.getValue(), primary.getValue(), secondary.getValue()).toArray(Component[]::new));
             });
-        }
-    }
-
-    private static final class TooltipLine extends UIElement implements IBindable<Component> {
-        private Component text;
-
-        private TooltipLine(Supplier<Component> supplier) {
-            text = supplier.get();
-            bind(DataBindingBuilder.componentS2C(supplier).build());
-            setDisplay(false);
-        }
-
-        @Override public Component getValue() { return text; }
-        @Override public IDataSource<Component> setValue(Component value) {
-            text = value == null ? Component.empty() : value;
-            return this;
         }
     }
 

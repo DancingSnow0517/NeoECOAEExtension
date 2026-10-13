@@ -40,16 +40,12 @@ public final class CraftingPlanningModeButton {
         UIElement icon = button.getChildren().getFirst();
         button.setOnServerClick(event -> toggle.run());
 
-        BindableValue<Boolean> syncedMode = new BindableValue<>(ignoringSubstitutions.getAsBoolean());
-        syncedMode.bind(DataBindingBuilder.boolS2C(ignoringSubstitutions::getAsBoolean).build());
-        syncedMode.registerValueListener(value -> updateIcon(icon, Boolean.TRUE.equals(value)));
-        syncedMode.setDisplay(false);
-        button.addChild(syncedMode);
+        BindableValue<Boolean> syncedMode = HostElements.hiddenValue(button, ignoringSubstitutions.getAsBoolean(),
+            DataBindingBuilder.boolS2C(ignoringSubstitutions::getAsBoolean).build(),
+            value -> updateIcon(icon, Boolean.TRUE.equals(value)));
 
-        BindableValue<Integer> syncedPatternCount = new BindableValue<>(substitutionPatternCount.getAsInt());
-        syncedPatternCount.bind(DataBindingBuilder.intValS2C(substitutionPatternCount::getAsInt).build());
-        syncedPatternCount.setDisplay(false);
-        button.addChild(syncedPatternCount);
+        BindableValue<Integer> syncedPatternCount = HostElements.hiddenValue(button, substitutionPatternCount.getAsInt(),
+            DataBindingBuilder.intValS2C(substitutionPatternCount::getAsInt).build());
 
         HostElements.tooltips(button, () -> List.of(
                 Component.translatable(Boolean.TRUE.equals(syncedMode.getValue())

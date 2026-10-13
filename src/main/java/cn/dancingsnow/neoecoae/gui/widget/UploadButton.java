@@ -28,8 +28,7 @@ public class UploadButton extends Button {
     @Override
     protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         int yOffset = isHovered() ? 1 : 0;
-        ECOIcon bgIcon = isHovered() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
-            : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
+        ECOIcon bgIcon = ECOIcon.toolbarBackground(isHovered(), isFocused());
         bgIcon.blit(guiGraphics, getX() - 1, getY() + yOffset, 100);
 
         guiGraphics.blit(

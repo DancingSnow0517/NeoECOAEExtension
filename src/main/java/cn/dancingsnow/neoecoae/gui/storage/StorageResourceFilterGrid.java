@@ -15,7 +15,6 @@ import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
@@ -48,11 +47,8 @@ final class StorageResourceFilterGrid extends UIElement {
             addChild(element);
             if (host.getLevel() != null && host.getLevel().isClientSide) element.xeiPhantom();
         }
-        BindableValue<Tag> filters = new BindableValue<>(host.getStorageResourceFilters());
-        filters.setDisplay(false);
-        filters.bind(DataBindingBuilder.tagS2C(host::getStorageResourceFilters).build());
-        filters.registerValueListener(this::receive);
-        addChild(filters);
+        HostElements.hiddenValue(this, host.getStorageResourceFilters(),
+            DataBindingBuilder.tagS2C(host::getStorageResourceFilters).build(), this::receive);
         receive(host.getStorageResourceFilters());
     }
 

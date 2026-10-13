@@ -37,12 +37,10 @@ final class ComputationControllerInteractions {
             else if (event.button == 1) config.adjustCpuSelectionMode().accept(-1);
         });
 
-        BindableValue<Integer> syncedMode = new BindableValue<>(config.cpuSelectionMode().get().ordinal());
-        syncedMode.bind(DataBindingBuilder.intValS2C(() -> config.cpuSelectionMode().get().ordinal()).build());
-        syncedMode.registerValueListener(value -> icon.style(style ->
-            style.backgroundTexture(cpuSelectionModeIcon(cpuSelectionModeFromOrdinal(value)))));
-        syncedMode.setDisplay(false);
-        button.addChild(syncedMode);
+        BindableValue<Integer> syncedMode = HostElements.hiddenValue(button, config.cpuSelectionMode().get().ordinal(),
+            DataBindingBuilder.intValS2C(() -> config.cpuSelectionMode().get().ordinal()).build(),
+            value -> icon.style(style ->
+                style.backgroundTexture(cpuSelectionModeIcon(cpuSelectionModeFromOrdinal(value)))));
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             CpuSelectionMode mode = cpuSelectionModeFromOrdinal(syncedMode.getValue());
             event.hoverTooltips = HostElements.hoverTooltips(List.of(
@@ -63,10 +61,9 @@ final class ComputationControllerInteractions {
         button.addClass("eco-host-network-frequency-button");
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
 
-        BindableValue<Component> syncedTooltip = new BindableValue<>(HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt()));
-        syncedTooltip.bind(DataBindingBuilder.componentS2C(() -> HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt())).build());
-        syncedTooltip.setDisplay(false);
-        button.addChild(syncedTooltip);
+        BindableValue<Component> syncedTooltip = HostElements.hiddenValue(button,
+            HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt()),
+            DataBindingBuilder.componentS2C(() -> HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt())).build());
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
                 event.hoverTooltips = HoverTooltips.empty().append(syncedTooltip.getValue()));
         return button;

@@ -9,7 +9,9 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import net.minecraft.network.chat.Component;
 
 import java.util.Arrays;
 import java.util.List;
@@ -107,6 +109,15 @@ public final class HostSideButtonBar {
         return new AE2IconButton();
     }
 
+    /** Side button that opens {@code window} on click and shows {@code tooltip} on hover. */
+    public static Button openWindowButton(IGuiTexture icon, UIElement window, Component tooltip) {
+        Button button = createButton();
+        button.noText().addPostIcon(icon);
+        button.setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
+        HostElements.tooltips(button, tooltip);
+        return button;
+    }
+
     public static void placeButton(Button button, int left, int top) {
         button.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
@@ -195,12 +206,7 @@ public final class HostSideButtonBar {
     private static final class AE2IconButton extends Button {
         @Override
         public void drawBackgroundAdditional(GUIContext guiContext) {
-            ECOIcon background = switch (getState()) {
-                case DEFAULT -> isFocused()
-                    ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
-                    : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
-                case HOVERED, PRESSED -> ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER;
-            };
+            ECOIcon background = ECOIcon.toolbarBackground(getState() != State.DEFAULT, isFocused());
             // Match ECOCraftConfirmScreen.CraftingGraphButton's native atlas rendering.
             // drawContents applies the shared hover offset to the background and icon.
             guiContext.graphics.flush();

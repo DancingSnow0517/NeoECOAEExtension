@@ -39,11 +39,9 @@ final class CraftingControllerInteractions {
         // contract here so the atlas sprite remains pixel aligned in either path.
         button.layout(layout -> layout.paddingAll(0));
         button.addClass("eco-crafting-" + mode + "-button");
-        BindableValue<Boolean> synced = new BindableValue<>(enabled.getAsBoolean());
-        synced.bind(DataBindingBuilder.boolS2C(enabled::getAsBoolean).build());
-        synced.registerValueListener(value -> updateModeButtonStyle(button, Boolean.TRUE.equals(value)));
-        synced.setDisplay(false);
-        button.addChild(synced);
+        BindableValue<Boolean> synced = HostElements.hiddenValue(button, enabled.getAsBoolean(),
+            DataBindingBuilder.boolS2C(enabled::getAsBoolean).build(),
+            value -> updateModeButtonStyle(button, Boolean.TRUE.equals(value)));
         updateModeButtonStyle(button, Boolean.TRUE.equals(synced.getValue()));
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty().append(
             Component.translatable("gui.neoecoae.crafting." + mode
@@ -74,10 +72,9 @@ final class CraftingControllerInteractions {
         frequency.buttonStyle(style -> style.baseTexture(NETextures.RECT_RD)
             .hoverTexture(NETextures.RECT_RD_LIGHT).pressedTexture(NETextures.RECT_RD_DARK));
         frequency.layout(layout -> layout.width(16).height(16));
-        BindableValue<Component> frequencyTip = new BindableValue<>(HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt()));
-        frequencyTip.bind(DataBindingBuilder.componentS2C(() -> HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt())).build());
-        frequencyTip.setDisplay(false);
-        frequency.addChild(frequencyTip);
+        BindableValue<Component> frequencyTip = HostElements.hiddenValue(frequency,
+            HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt()),
+            DataBindingBuilder.componentS2C(() -> HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt())).build());
         frequency.addEventListener(UIEvents.HOVER_TOOLTIPS,
             event -> event.hoverTooltips = HoverTooltips.empty().append(frequencyTip.getValue()));
         return List.of(CraftingPlanningModeButton.create(
@@ -86,10 +83,9 @@ final class CraftingControllerInteractions {
     }
 
     static UIElement createMaintenanceStatusIcon(Supplier<Component> status) {
-        BindableValue<Component> syncedStatus = new BindableValue<>(status.get());
-        syncedStatus.bind(DataBindingBuilder.componentS2C(status).build());
-        syncedStatus.setDisplay(false);
-        UIElement icon = new UIElement().addChild(syncedStatus);
+        UIElement icon = new UIElement();
+        BindableValue<Component> syncedStatus = HostElements.hiddenValue(icon, status.get(),
+            DataBindingBuilder.componentS2C(status).build());
         SpriteTexture normal = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information.png"));
         SpriteTexture highlighted = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information_highlight.png"));
         UIElement information = new UIElement().style(style -> style.backgroundTexture(normal))

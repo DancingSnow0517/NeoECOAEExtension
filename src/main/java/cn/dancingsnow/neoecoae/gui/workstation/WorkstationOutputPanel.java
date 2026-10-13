@@ -40,12 +40,8 @@ final class WorkstationOutputPanel {
     private static final ResourceLocation JSON_LAYOUT =
         ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/output_panel");
     static Button createOpenButton(UIElement allowOutputWindow) {
-        Button button = HostSideButtonBar.createButton()
-            .noText()
-            .addPostIcon(NETextures.OUTPUTS)
-            .setOnClick(e -> allowOutputWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)));
-        HostElements.tooltips(button, List.of(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE)));
-        return button;
+        return HostSideButtonBar.openWindowButton(NETextures.OUTPUTS, allowOutputWindow,
+            Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE));
     }
 
     static UIElement create(Config config) {

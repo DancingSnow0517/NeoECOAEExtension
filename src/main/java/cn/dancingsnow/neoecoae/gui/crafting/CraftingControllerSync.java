@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.Config;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,14 +30,10 @@ final class CraftingControllerSync {
         CompoundTag initial = codec.snapshot();
         codec.read(initial, view);
         onUpdate.run();
-        BindableValue<Tag> synced = new BindableValue<>(initial);
-        synced.bind(DataBindingBuilder.tagS2C(codec::snapshot).build());
-        synced.registerValueListener(value -> {
+        HostElements.hiddenValue(parent, initial, DataBindingBuilder.tagS2C(codec::snapshot).build(), value -> {
             codec.read(value, view);
             onUpdate.run();
         });
-        synced.setDisplay(false);
-        parent.addChild(synced);
     }
     private CompoundTag snapshot() {
         CompoundTag tag = config.panelState().get().toTag();

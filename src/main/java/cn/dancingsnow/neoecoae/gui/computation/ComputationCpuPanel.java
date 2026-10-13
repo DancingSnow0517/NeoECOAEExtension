@@ -44,8 +44,8 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
 
     private final ComputationHostPanelUI.Config config;
     private final IntConsumer openDetails;
-    private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
-    private final BindableValue<Integer> scrollRequest = new BindableValue<>(0);
+    private final BindableValue<Integer> selectionRequest;
+    private final BindableValue<Integer> scrollRequest;
     private final ComputationScrollbar scrollbar;
     private List<ComputationCpuEntry> page = List.of();
     private ComputationCpuEntry selected;
@@ -62,11 +62,8 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         ServerState server = new ServerState(config, identities);
         bind(DataBindingBuilder.create(server::snapshot, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
-        selectionRequest.bind(DataBindingBuilder.intValC2S(server::select).build());
-        scrollRequest.bind(DataBindingBuilder.intValC2S(server::scroll).build());
-        selectionRequest.setDisplay(false);
-        scrollRequest.setDisplay(false);
-        addChildren(selectionRequest, scrollRequest);
+        selectionRequest = HostElements.hiddenValue(this, -1, DataBindingBuilder.intValC2S(server::select).build());
+        scrollRequest = HostElements.hiddenValue(this, 0, DataBindingBuilder.intValC2S(server::scroll).build());
         for (int row = 0; row < ROWS; row++) addChild(rowHitbox(row));
 
         scrollbar = new ComputationScrollbar(this, TRACK_X, TRACK_Y, TRACK_HEIGHT, this::scrollTo);
@@ -293,30 +290,21 @@ final class ComputationCpuPanel extends BindableValue<CompoundTag> {
         return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x).top(y).width(width).height(height));
     }
 
-    private static final class ServerState {
-        private final ComputationHostPanelUI.Config config;
-        private final CpuSelectionState<ECOCraftingCPU> selection;
+    private static final class ServerState extends CpuSelectionServerState {
         private CompoundTag cached;
         private long sampledTick = Long.MIN_VALUE, revision;
 
         private ServerState(ComputationHostPanelUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
-            this.config = config;
-            selection = new CpuSelectionState<>(ROWS, identities);
-        }
-        private void refresh() {
-            selection.update(config.cpus().get(), ECOCraftingCPU::isBusy,
-                cpu -> cpu.getName() == null ? null : cpu.getName().getString());
+            super(config, ROWS, identities);
         }
         private void select(int serial) {
-            if (!config.canInteract().getAsBoolean()) return;
-            refresh();
+            if (!beginInteraction()) return;
             selection.select(serial);
             cached = null;
             revision++;
         }
         private void scroll(int offset) {
-            if (!config.canInteract().getAsBoolean()) return;
-            refresh();
+            if (!beginInteraction()) return;
             selection.scroll(offset);
             cached = null;
             revision++;

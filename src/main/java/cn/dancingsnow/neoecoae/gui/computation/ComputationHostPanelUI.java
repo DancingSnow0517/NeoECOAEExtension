@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.common.TabBackButton;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -92,7 +93,7 @@ public final class ComputationHostPanelUI {
                                 + (node.has("key") ? node.get("key").getAsString() : "")));
                         case "computation_settings_toggle" -> ComputationSettingsPanel.createToggle(config,
                             node.has("key") ? node.get("key").getAsString() : "");
-                        case "computation_settings_back" -> new ComputationSettingsPanel.BackButton().noText()
+                        case "computation_settings_back" -> new TabBackButton()
                             .layout(layout -> layout.paddingAll(0));
                         default -> null;
                     };

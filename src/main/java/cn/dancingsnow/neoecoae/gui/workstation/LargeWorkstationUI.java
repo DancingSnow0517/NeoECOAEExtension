@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import static cn.dancingsnow.neoecoae.gui.json.JsonAttrs.string;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
@@ -138,10 +139,8 @@ public final class LargeWorkstationUI {
                                         java.util.function.Supplier<Component> tooltip) {
         Button button = HostSideButtonBar.createButton().noText()
             .addPostIcon(icon).setOnServerClick(event -> action.run());
-        BindableValue<Component> text = new BindableValue<>(tooltip.get());
-        text.bind(DataBindingBuilder.componentS2C(tooltip).build());
-        text.setDisplay(false);
-        button.addChild(text);
+        BindableValue<Component> text = HostElements.hiddenValue(button, tooltip.get(),
+            DataBindingBuilder.componentS2C(tooltip).build());
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
             event.hoverTooltips = HoverTooltips.empty().append(text.getValue()));
         return button;

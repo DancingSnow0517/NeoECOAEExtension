@@ -531,10 +531,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         @Override
         public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             int yOffset = isHovered() ? 1 : 0;
-            var background = isHovered()
-                ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
-                : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
-                : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
+            var background = ECOIcon.toolbarBackground(isHovered(), isFocused());
             background.blit(graphics, getX() - 1, getY() + yOffset, 2);
             ECOIcon.CRAFT_HAMMER.blit(
                 graphics, getX(), getY() + 1 + yOffset, 3);

@@ -53,4 +53,10 @@ public enum ECOIcon {
     public void blit(GuiGraphics graphics, int x, int y, int z) {
         graphics.blit(ATLAS, x, y, z, this.x, this.y, width, height, 256, 256);
     }
+
+    public static ECOIcon toolbarBackground(boolean hovered, boolean focused) {
+        return hovered ? TOOLBAR_BUTTON_BACKGROUND_HOVER
+            : focused ? TOOLBAR_BUTTON_BACKGROUND_FOCUS
+            : TOOLBAR_BUTTON_BACKGROUND;
+    }
 }

@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.common.TabBackButton;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
@@ -80,7 +81,7 @@ public final class StoragePriorityUI {
                 case "title" -> new TextElement()
                     .setText(Component.translatable("gui.ae2.Priority"))
                     .textStyle(StoragePriorityUI::titleTextStyle);
-                case "back" -> new PriorityBackButton()
+                case "back" -> new TabBackButton()
                     .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
                     .addEventListener(UIEvents.HOVER_TOOLTIPS,
                         event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.close"));
@@ -105,20 +106,12 @@ public final class StoragePriorityUI {
         }
     }
 
-    public static UIElement createOpenButton(UIElement window) {
-        return HostSideButtonBar.left(createInlineOpenButton(window));
-    }
-
     public static Button createInlineOpenButton(UIElement window) {
-        Button button = HostSideButtonBar.createButton()
-            .noText()
-            .addPostIcon(AETextures.icon(ECOIcon.PRIORITY))
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
-        button.getChildren().get(button.getChildren().size() - 1).layout(layout -> layout
+        Button button = HostSideButtonBar.openWindowButton(AETextures.icon(ECOIcon.PRIORITY), window,
+            Component.translatable("gui.neoecoae.storage_priority.open"));
+        button.getChildren().getLast().layout(layout -> layout
             .width(14)
             .height(14));
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS,
-            event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.open"));
         button.layout(layout -> {
             layout.width(18);
             layout.height(20);
@@ -249,31 +242,6 @@ public final class StoragePriorityUI {
                 color = 0xFF517497;
             }
             guiContext.graphics.drawString(font, label, textX, textY - yOffset, color, false);
-        }
-    }
-
-    private static final class PriorityBackButton extends Button {
-        private PriorityBackButton() {
-            noText();
-        }
-
-        @Override
-        public void drawBackgroundAdditional(GUIContext guiContext) {
-            IGuiTexture texture = isFocused()
-                ? AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS)
-                : AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND);
-            float size = isFocused() ? 22 : 20;
-            guiContext.drawTexture(texture, getPositionX(), getPositionY(), size, size);
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            super.drawContents(guiContext);
-            guiContext.drawTexture(AETextures.icon(ECOIcon.BACK),
-                getPositionX() + 2,
-                getPositionY() + 1,
-                16,
-                16);
         }
     }
 

@@ -103,10 +103,7 @@ public class NeoECOAEClient {
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             int yOffset = isHovered() ? 1 : 0;
-            ECOIcon background = isHovered()
-                ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
-                : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
-                : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
+            ECOIcon background = ECOIcon.toolbarBackground(isHovered(), isFocused());
             background.blit(graphics, getX() - 1, getY() + yOffset, 100);
 
             graphics.blit(ICON_TEXTURE, getX(), getY() + 2 + yOffset,

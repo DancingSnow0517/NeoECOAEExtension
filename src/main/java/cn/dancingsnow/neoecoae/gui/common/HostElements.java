@@ -1,24 +1,20 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SimpleBinding;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
@@ -26,25 +22,24 @@ public final class HostElements {
     private HostElements() {
     }
 
-    public static UIElement syncedDisplay(BooleanSupplier display) {
-        SyncedDisplayElement element = new SyncedDisplayElement(display.getAsBoolean());
-        element.bind(DataBindingBuilder.boolS2C(display::getAsBoolean).build());
-        return element;
+    /** A hidden value fed by {@code binding}, attached to {@code parent} so it syncs with the UI. */
+    public static <T> BindableValue<T> hiddenValue(UIElement parent, T initial, SimpleBinding<T> binding) {
+        BindableValue<T> value = new BindableValue<>(initial);
+        value.bind(binding);
+        value.setDisplay(false);
+        parent.addChild(value);
+        return value;
     }
 
-    public static Label sectionLabel(Supplier<Component> text, IntSupplier color) {
-        Label label = textSegment(text, color);
-        label.textStyle(HostElements::sectionTextStyle);
-        return label;
-    }
-
-    public static Label panelTitle(Supplier<Component> text) {
-        Label label = new Label();
-        Supplier<Component> styledText = () -> text.get().copy().withColor(HostText.PRIMARY);
-        label.setText(styledText.get());
-        label.bind(DataBindingBuilder.componentS2C(styledText).build());
-        label.textStyle(HostElements::panelTitleTextStyle);
-        return label;
+    /** As {@link #hiddenValue(UIElement, Object, SimpleBinding)}, also notifying {@code listener} on each value. */
+    public static <T> BindableValue<T> hiddenValue(UIElement parent, T initial, SimpleBinding<T> binding,
+                                                   Consumer<T> listener) {
+        BindableValue<T> value = new BindableValue<>(initial);
+        value.bind(binding);
+        value.registerValueListener(listener);
+        value.setDisplay(false);
+        parent.addChild(value);
+        return value;
     }
 
     public static Label textSegment(Supplier<Component> text, IntSupplier color) {
@@ -85,15 +80,6 @@ public final class HostElements {
         return element;
     }
 
-    public static UIElement horizontalRow(int height, int gap) {
-        return new UIElement().layout(layout -> {
-            layout.height(height);
-            layout.flexDirection(FlexDirection.ROW);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(gap);
-        });
-    }
-
     public static <T extends UIElement> T absolute(T element, int left, int top, int width, int height) {
         element.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
@@ -107,37 +93,5 @@ public final class HostElements {
 
     private static void lineTextStyle(TextElement.TextStyle style) {
         style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textShadow(false);
-    }
-
-    private static void sectionTextStyle(TextElement.TextStyle style) {
-        lineTextStyle(style);
-    }
-
-    private static void panelTitleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true)
-            .adaptiveWidth(false)
-            .textAlignHorizontal(Horizontal.CENTER)
-            .textWrap(TextWrap.HOVER_ROLL)
-            .textShadow(false);
-    }
-
-    private static final class SyncedDisplayElement extends UIElement implements IBindable<Boolean> {
-        private boolean display;
-
-        private SyncedDisplayElement(boolean display) {
-            setValue(display);
-        }
-
-        @Override
-        public Boolean getValue() {
-            return display;
-        }
-
-        @Override
-        public IDataSource<Boolean> setValue(@Nullable Boolean value) {
-            display = Boolean.TRUE.equals(value);
-            setDisplay(display);
-            return this;
-        }
     }
 }

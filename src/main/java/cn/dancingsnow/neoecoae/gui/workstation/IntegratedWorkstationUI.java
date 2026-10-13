@@ -22,7 +22,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
@@ -239,14 +238,11 @@ public final class IntegratedWorkstationUI {
             .addPostIcon(config.autoExport().getAsBoolean() ? AUTO_EXPORT_ON : AUTO_EXPORT_OFF)
             .setOnServerClick(e -> config.setAutoExport().accept(!config.autoExport().getAsBoolean()));
         UIElement icon = button.getChildren().getLast();
-        BindableValue<Boolean> syncedState = new BindableValue<>(config.autoExport().getAsBoolean());
-        syncedState.bind(DataBindingBuilder.boolS2C(() -> config.autoExport().getAsBoolean()).build());
-        syncedState.registerValueListener(on -> {
-            config.syncAutoExport().accept(Boolean.TRUE.equals(on));
-            icon.style(style -> style.backgroundTexture(config.autoExport().getAsBoolean() ? AUTO_EXPORT_ON : AUTO_EXPORT_OFF));
-        });
-        syncedState.setDisplay(false);
-        button.addChild(syncedState);
+        HostElements.hiddenValue(button, config.autoExport().getAsBoolean(),
+            DataBindingBuilder.boolS2C(() -> config.autoExport().getAsBoolean()).build(), on -> {
+                config.syncAutoExport().accept(Boolean.TRUE.equals(on));
+                icon.style(style -> style.backgroundTexture(config.autoExport().getAsBoolean() ? AUTO_EXPORT_ON : AUTO_EXPORT_OFF));
+            });
         HostElements.tooltips(button, () -> List.of(
             ButtonToolTips.AutoExport.text().withColor(-1),
             (config.autoExport().getAsBoolean() ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)

@@ -174,10 +174,8 @@ public final class StorageInterfaceUI {
 
     private static UIElement status(Supplier<Component> value, Supplier<Component> tooltip, float size) {
         Label text = label(value, size);
-        BindableValue<Component> full = new BindableValue<>(tooltip.get());
-        full.bind(DataBindingBuilder.componentS2C(tooltip).initialValue(tooltip.get()).build());
-        full.setDisplay(false);
-        text.addChild(full);
+        BindableValue<Component> full = HostElements.hiddenValue(text, tooltip.get(),
+            DataBindingBuilder.componentS2C(tooltip).initialValue(tooltip.get()).build());
         HostElements.tooltips(text, () -> List.of(full.getValue()));
         return text;
     }

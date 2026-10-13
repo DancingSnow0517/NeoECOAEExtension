@@ -2,18 +2,15 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.core.AppEng;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
-import cn.dancingsnow.neoecoae.gui.theme.AETextures;
-import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
+import cn.dancingsnow.neoecoae.gui.common.TabBackButton;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
@@ -69,11 +66,8 @@ final class ComputationSettingsPanel extends UIElement {
         Button button = new Button().noText();
         button.setId("computation-settings-" + key);
         button.layout(layout -> layout.paddingAll(0));
-        BindableValue<Boolean> value = new BindableValue<>(enabled.getAsBoolean());
-        value.bind(DataBindingBuilder.boolS2C(enabled::getAsBoolean).build());
-        value.registerValueListener(state -> toggleTexture(button, Boolean.TRUE.equals(state)));
-        value.setDisplay(false);
-        button.addChild(value);
+        HostElements.hiddenValue(button, enabled.getAsBoolean(), DataBindingBuilder.boolS2C(enabled::getAsBoolean).build(),
+            state -> toggleTexture(button, Boolean.TRUE.equals(state)));
         toggleTexture(button, enabled.getAsBoolean());
         button.setOnServerClick(event -> action.run());
         HostElements.tooltips(button, setting(key));
@@ -81,7 +75,7 @@ final class ComputationSettingsPanel extends UIElement {
     }
 
     void addBackButton(Runnable back) {
-        Button button = new BackButton().noText();
+        Button button = new TabBackButton();
         button.setId("computation-settings-back");
         HostElements.absolute(button, ComputationCpuPanel.WIDTH - 24, -5, 20, 20);
         button.layout(layout -> layout.paddingAll(0));
@@ -91,26 +85,13 @@ final class ComputationSettingsPanel extends UIElement {
         addChild(button);
     }
 
-    static final class BackButton extends Button {
-        @Override
-        public void drawBackgroundAdditional(GUIContext context) {
-            // AE2's box tab changes only with focus and draws both sprites at native size.
-            ECOIcon background = isFocused() ? ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS : ECOIcon.TAB_BUTTON_BACKGROUND;
-            context.drawTexture(AETextures.icon(background), getPositionX(), getPositionY(), background.width, background.height);
-            context.drawTexture(AETextures.icon(ECOIcon.BACK), getPositionX() + 2, getPositionY() + 1, 16, 16);
-        }
-    }
-
     private void toggle(String key, int y, BooleanSupplier enabled, Runnable action) {
         Button button = new Button().noText();
         button.setId("computation-settings-" + key);
         HostElements.absolute(button, 10, y, 22, 12);
         button.layout(layout -> layout.paddingAll(0));
-        BindableValue<Boolean> value = new BindableValue<>(enabled.getAsBoolean());
-        value.bind(DataBindingBuilder.boolS2C(enabled::getAsBoolean).build());
-        value.registerValueListener(state -> toggleTexture(button, Boolean.TRUE.equals(state)));
-        value.setDisplay(false);
-        button.addChild(value);
+        HostElements.hiddenValue(button, enabled.getAsBoolean(), DataBindingBuilder.boolS2C(enabled::getAsBoolean).build(),
+            state -> toggleTexture(button, Boolean.TRUE.equals(state)));
         toggleTexture(button, enabled.getAsBoolean());
         button.setOnServerClick(event -> action.run());
         HostElements.tooltips(button, setting(key));
