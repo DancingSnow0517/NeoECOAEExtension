@@ -413,16 +413,22 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         setPauseReason(PauseReason.INPUT_RETURN_BLOCKED, OutputBlockedReason.INPUT_RETURN);
     }
 
+    /**
+     * Combined view over the tanks currently in use. The handler is created once and resolves
+     * getInputTank()/getOutputTank() on each call, so hatch changes are picked up without re-allocating.
+     */
+    private final IFluidHandler fluidCombined = new IFluidHandler() {
+        public int getTanks() { return 2; }
+        public FluidStack getFluidInTank(int tank) { return tank == 0 ? getInputTank().getFluid() : getOutputTank().getFluid(); }
+        public int getTankCapacity(int tank) { return tank == 0 ? getInputTank().getCapacity() : getOutputTank().getCapacity(); }
+        public boolean isFluidValid(int tank, FluidStack stack) { return tank == 0 ? getInputTank().isFluidValid(stack) : getOutputTank().isFluidValid(stack); }
+        public int fill(FluidStack stack, FluidAction action) { return getInputTank().fill(stack, action); }
+        public FluidStack drain(FluidStack stack, FluidAction action) { return getOutputTank().drain(stack, action); }
+        public FluidStack drain(int amount, FluidAction action) { return getOutputTank().drain(amount, action); }
+    };
+
     public IFluidHandler getFluidCombined() {
-        return new IFluidHandler() {
-            public int getTanks() { return 2; }
-            public FluidStack getFluidInTank(int tank) { return tank == 0 ? getInputTank().getFluid() : getOutputTank().getFluid(); }
-            public int getTankCapacity(int tank) { return tank == 0 ? getInputTank().getCapacity() : getOutputTank().getCapacity(); }
-            public boolean isFluidValid(int tank, FluidStack stack) { return tank == 0 ? getInputTank().isFluidValid(stack) : getOutputTank().isFluidValid(stack); }
-            public int fill(FluidStack stack, FluidAction action) { return getInputTank().fill(stack, action); }
-            public FluidStack drain(FluidStack stack, FluidAction action) { return getOutputTank().drain(stack, action); }
-            public FluidStack drain(int amount, FluidAction action) { return getOutputTank().drain(amount, action); }
-        };
+        return fluidCombined;
     }
 
     public void onChangeTankFromHatch() {

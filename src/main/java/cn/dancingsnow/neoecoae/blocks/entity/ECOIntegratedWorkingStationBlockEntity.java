@@ -137,44 +137,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     boolean shouldAutoExport;
 
     @Getter
-    private final IFluidHandler fluidCombined = new IFluidHandler() {
-        @Override
-        public int getTanks() {
-            return 2;
-        }
-
-        @Override
-        public FluidStack getFluidInTank(int tank) {
-            return tank == 0 ? getInputTank().getFluid() : getOutputTank().getFluid();
-        }
-
-        @Override
-        public int getTankCapacity(int tank) {
-            return MAX_TANK_CAPACITY;
-        }
-
-        @Override
-        public boolean isFluidValid(int tank, FluidStack stack) {
-            return tank == 0 ? getInputTank().isFluidValid(stack) : getOutputTank().isFluidValid(stack);
-        }
-
-        @Override
-        public int fill(FluidStack resource, FluidAction action) {
-            return getInputTank().fill(resource, action);
-        }
-
-        @Override
-        public FluidStack drain(FluidStack resource, FluidAction action) {
-            return getOutputTank().drain(resource, action);
-        }
-
-        @Override
-        public FluidStack drain(int maxDrain, FluidAction action) {
-            return getOutputTank().drain(maxDrain, action);
-        }
-    };
-
-    @Getter
     @DescSynced
     private boolean working = false;
 

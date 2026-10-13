@@ -26,18 +26,20 @@ public class AppBotaniaIntegration {
     }
 
     private void initUpgrades(FMLCommonSetupEvent event) {
-        String storageCellGroup = GuiText.StorageCells.getTranslationKey();
+        event.enqueueWork(() -> {
+            String storageCellGroup = GuiText.StorageCells.getTranslationKey();
 
-        List<ItemEntry<ECOStorageCellItem>> cells = List.of(
-            NEAppBotItems.ECO_MANA_CELL_16M,
-            NEAppBotItems.ECO_MANA_CELL_64M,
-            NEAppBotItems.ECO_MANA_CELL_256M
-        );
+            List<ItemEntry<ECOStorageCellItem>> cells = List.of(
+                NEAppBotItems.ECO_MANA_CELL_16M,
+                NEAppBotItems.ECO_MANA_CELL_64M,
+                NEAppBotItems.ECO_MANA_CELL_256M
+            );
 
-        for (ItemEntry<ECOStorageCellItem> cell : cells) {
-            Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
-            Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
-            Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
-        }
+            for (ItemEntry<ECOStorageCellItem> cell : cells) {
+                Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
+                Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
+                Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
+            }
+        });
     }
 }
