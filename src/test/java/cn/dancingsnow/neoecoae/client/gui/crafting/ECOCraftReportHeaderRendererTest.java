@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.core.format.DisplayNumbers;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.math.BigInteger;
 import java.util.ArrayDeque;

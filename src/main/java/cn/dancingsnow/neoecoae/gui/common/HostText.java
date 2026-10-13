@@ -2,9 +2,9 @@ package cn.dancingsnow.neoecoae.gui.common;
 
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.core.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.core.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.core.math.BigIntegers;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import net.minecraft.network.chat.Component;
 

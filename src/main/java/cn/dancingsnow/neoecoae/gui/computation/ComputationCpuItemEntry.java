@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.core.format.BigNumberFormatter;
 import java.math.BigInteger;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;

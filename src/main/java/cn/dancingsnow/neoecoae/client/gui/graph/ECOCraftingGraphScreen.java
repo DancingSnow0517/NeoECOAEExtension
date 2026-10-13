@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.core.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeProjection;

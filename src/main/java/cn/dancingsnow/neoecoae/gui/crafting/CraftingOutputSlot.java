@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.core.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;

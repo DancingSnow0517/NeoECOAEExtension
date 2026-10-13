@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.crafting.display.format;
+package cn.dancingsnow.neoecoae.core.format;
 
 import java.math.BigInteger;
 import java.math.RoundingMode;

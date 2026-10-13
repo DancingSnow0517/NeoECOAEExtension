@@ -4,7 +4,7 @@ import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AEKey;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.core.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigDecimal;
 import java.math.BigInteger;

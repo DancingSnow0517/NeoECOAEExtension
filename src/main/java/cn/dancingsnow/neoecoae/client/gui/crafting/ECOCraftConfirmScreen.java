@@ -15,7 +15,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen;
-import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.core.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;

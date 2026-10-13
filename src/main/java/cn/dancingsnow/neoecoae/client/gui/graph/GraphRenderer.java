@@ -611,7 +611,7 @@ public final class GraphRenderer {
 
     private static String formatMagnitude(AEKey key, long amount) {
         long magnitude = amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount);
-        return cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(key.formatAmount(magnitude, AmountFormat.SLOT));
+        return cn.dancingsnow.neoecoae.core.format.DisplayNumbers.grouped(key.formatAmount(magnitude, AmountFormat.SLOT));
     }
 
 }

@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_WIDTH;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.core.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.gui.common.FittedText;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelElements;

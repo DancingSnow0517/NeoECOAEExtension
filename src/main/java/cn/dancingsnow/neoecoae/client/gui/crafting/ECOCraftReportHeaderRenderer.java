@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.core.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.core.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import java.math.BigDecimal;

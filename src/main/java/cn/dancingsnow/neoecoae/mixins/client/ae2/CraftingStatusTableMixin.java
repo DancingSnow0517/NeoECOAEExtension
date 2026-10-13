@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.client.ae2;
 import appeng.client.gui.me.crafting.CraftingStatusTableRenderer;
 import appeng.menu.me.crafting.CraftingStatusEntry;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.core.format.BigNumberFormatter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

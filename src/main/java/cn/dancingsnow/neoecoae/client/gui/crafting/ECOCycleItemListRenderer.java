@@ -9,7 +9,7 @@ import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.PaletteColor;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.core.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigInteger;
 import java.util.List;

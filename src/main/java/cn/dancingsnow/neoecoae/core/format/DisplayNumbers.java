@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.crafting.display.format;
+package cn.dancingsnow.neoecoae.core.format;
 
 /** Locale-independent grouping for display strings, preserving fractions and unit suffixes. */
 public final class DisplayNumbers {
