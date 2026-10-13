@@ -329,8 +329,6 @@
   "neoecoae.configuration.computationSystemMaxLength.tooltip": "運算子系統多方塊結構允許嘅最大長度（單位：方塊）。\n數值越大，可擴展嘅模組/組件越長，但結構檢測開銷亦可能更高。",
   "neoecoae.configuration.craftingSystemMaxLength": "合成子系統最大長度",
   "neoecoae.configuration.craftingSystemMaxLength.tooltip": "合成子系統多方塊結構允許嘅最大長度（單位：方塊）。\n數值越大，可擴展嘅模組/組件越長，但結構檢測開銷亦可能更高。",
-  "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 推送 Tick 上限",
-  "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "每個 CPU 每 tick 最多嘗試推送嘅普通合成 pattern 數量。\n實際生效值為 min(64, 配置值)：普通回退路徑每 CPU 每 tick 最多 64 次，高於 64 嘅值唔會生效。\n該額度不受協處理器數量同歷史 tick 限制；配置範圍上限 393216 僅用於輸入校驗。\nFastPath 批量發配唔會消耗此額度。",
   "neoecoae.configuration.ecoFastPathCacheSize": "快速路徑快取大小",
   "neoecoae.configuration.ecoFastPathCacheSize.tooltip": "每個 ECO 快速路徑快取最多保留嘅配方條目數量。",
   "neoecoae.configuration.ecoPlanningMaxMillis": "ECO 規劃耗時預算（毫秒）",

@@ -62,15 +62,6 @@ public class ConfigLangs {
             "ECO AE2 fast path cache and batch crafting limits.\n" +
                 "Fast Path is enabled by default and falls back to single-craft execution when Post Crafting Event is enabled."
         );
-
-        provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
-        provider.add(
-            "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
-            "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n" +
-                "Effective limit is min(64, this value): ordinary dispatch is capped at 64 per CPU per tick, and values above 64 have no effect.\n" +
-                "Independent of co-processors and previous ticks. The range maximum of 393216 is only an input validation bound.\n" +
-                "FastPath batch dispatch does not consume this limit."
-        );
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(
             "neoecoae.configuration.ecoFastPathCacheSize.tooltip",

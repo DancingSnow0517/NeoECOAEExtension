@@ -64,7 +64,6 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOSingleCraftingExecutor;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
@@ -183,7 +182,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
             return;
         }
 
-        int operationLimit = dispatchStrategy.beginTick(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
+        int operationLimit = dispatchStrategy.beginTick();
         int acceptedNormalPushes = 0;
         // Thunderbolt 会包装此处的 executeCrafting 调用；快速路径的批量操作不消耗此慢速路径额度。
         taskScheduler.beginSharedProbeBudget(operationLimit);

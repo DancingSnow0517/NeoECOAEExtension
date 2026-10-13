@@ -556,8 +556,6 @@
   "neoecoae.configuration.craftingSystemMaxLength.tooltip": "冶造之分多方構極長（以方計）。\n數愈大，可展愈遠，然驗構之費或增。",
   "neoecoae.configuration.debug": "調試",
   "neoecoae.configuration.debug.tooltip": "僅用於排查問題的選項。正常遊玩時建議保持關閉。",
-  "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 每刻推送之限",
-  "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "每 CPU 每刻可試推普通合成 pattern 之最大數。\n實效取二者之小：普通回退每 CPU 每刻至多六十四，高於六十四之數無效。\n不受協處理器之數及前刻所拘；配置上限 393216 僅為校驗。",
   "neoecoae.configuration.ecoCraftSubmissionDebug": "UNLOCALIZED: Enable ECO Craft Submission Detail Logs",
   "neoecoae.configuration.ecoCraftSubmissionDebug.tooltip": "UNLOCALIZED: Diagnose why the crafting-confirm Start button is unavailable or why submission is delayed or fails.\nIncludes Start-button state, plan and CPU selection, submission route and elapsed time.",
   "neoecoae.configuration.ecoCraftConfirmDebug": "合成確認開始按鈕診斷",

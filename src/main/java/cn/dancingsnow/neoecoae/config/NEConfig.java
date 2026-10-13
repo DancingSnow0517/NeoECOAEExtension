@@ -13,11 +13,6 @@ public class NEConfig {
     public static final int PATTERN_BUS_MIN_PAGES = 1;
     public static final int PATTERN_BUS_MAX_PAGES = 8;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
-    /**
-     * Upper bound accepted by ecoCpuPushTickLimit (input validation only). The effective ordinary dispatch limit is
-     * additionally capped at 64 per CPU per tick by ECOCraftingDispatchStrategy.
-     */
-    public static final int MAX_ECO_CPU_PUSH_TICK_LIMIT = 393_216;
 
     /*
      * Spec defaults. Each one is used in its define call and as the initial value of the matching static mirror
@@ -30,7 +25,6 @@ public class NEConfig {
     private static final boolean DEFAULT_POST_CRAFTING_EVENT = false;
     private static final boolean DEFAULT_LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED = false;
     private static final int DEFAULT_CRAFTING_PATTERN_BUS_PAGES = 1;
-    private static final int DEFAULT_ECO_CPU_PUSH_TICK_LIMIT = 200_000;
     private static final int DEFAULT_ECO_FAST_PATH_CACHE_SIZE = 512;
     private static final int DEFAULT_ECO_PLANNING_MAX_MILLIS = 10_000;
     private static final int DEFAULT_ECO_PLANNING_MAX_WORK = 5_000_000;
@@ -132,18 +126,6 @@ public class NEConfig {
                 "FastPath is enabled by default and falls back to single-craft execution when postCraftingEvent is enabled.")
             .push("fastPath");
     }
-
-    private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
-        .comment(
-            "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
-            "实际生效值为 min(64, 配置值)：普通回退路径每 CPU 每 tick 最多 64 次；配置更低的值会进一步降低该额度，高于 64 的值不会生效。",
-            "该额度不受协处理器数量和历史 tick 限制；配置范围上限 393216 仅用于输入校验。",
-            "FastPath 批量发配不消耗此额度。",
-            "Maximum number of regular crafting patterns each CPU attempts to push per tick.",
-            "Effective limit is min(64, configured value): the ordinary fallback path is capped at 64 per CPU per tick, and values above 64 have no effect.",
-            "The limit is independent of co-processors and previous ticks. The range maximum 393216 is only an input validation bound.",
-            "Verified FastPath batches do not consume this limit.")
-        .defineInRange("ecoCpuPushTickLimit", DEFAULT_ECO_CPU_PUSH_TICK_LIMIT, 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment(
@@ -247,7 +229,6 @@ public class NEConfig {
     public static boolean postCraftingEvent = DEFAULT_POST_CRAFTING_EVENT;
     public static boolean largeWorkstationCompatRecipesEnabled = DEFAULT_LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED;
     public static int craftingPatternBusPages = DEFAULT_CRAFTING_PATTERN_BUS_PAGES;
-    public static int ecoCpuPushTickLimit = DEFAULT_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = DEFAULT_ECO_FAST_PATH_CACHE_SIZE;
     public static int ecoPlanningMaxMillis = DEFAULT_ECO_PLANNING_MAX_MILLIS;
     public static int ecoPlanningMaxWork = DEFAULT_ECO_PLANNING_MAX_WORK;
@@ -275,7 +256,6 @@ public class NEConfig {
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         largeWorkstationCompatRecipesEnabled = LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
-        ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         ecoPlanningMaxMillis = ECO_PLANNING_MAX_MILLIS.get();
         ecoPlanningMaxWork = ECO_PLANNING_MAX_WORK.get();

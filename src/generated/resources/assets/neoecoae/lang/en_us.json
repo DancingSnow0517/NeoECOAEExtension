@@ -847,8 +847,6 @@
   "neoecoae.configuration.craftingSystemMaxLength.tooltip": "Maximum length (in blocks) allowed for the Crafting System multiblock.\nHigher values allow longer expansions but may increase structure check cost.",
   "neoecoae.configuration.debug": "Debug",
   "neoecoae.configuration.debug.tooltip": "Troubleshooting options. Keep these disabled during normal play.",
-  "neoecoae.configuration.ecoCpuPushTickLimit": "CPU Push Tick Limit",
-  "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "Maximum normal crafting pattern pushes a CPU may attempt per tick.\nEffective limit is min(64, this value): ordinary dispatch is capped at 64 per CPU per tick, and values above 64 have no effect.\nIndependent of co-processors and previous ticks. The range maximum of 393216 is only an input validation bound.\nFastPath batch dispatch does not consume this limit.",
   "neoecoae.configuration.ecoCraftSubmissionDebug": "Enable ECO Craft Submission Detail Logs",
   "neoecoae.configuration.ecoCraftSubmissionDebug.tooltip": "Diagnose why the crafting-confirm Start button is unavailable or why submission is delayed or fails.\nIncludes Start-button state, plan and CPU selection, submission route and elapsed time.",
   "neoecoae.configuration.ecoCraftingOutputDeliveryDebug": "ECO Output Delivery Debug",

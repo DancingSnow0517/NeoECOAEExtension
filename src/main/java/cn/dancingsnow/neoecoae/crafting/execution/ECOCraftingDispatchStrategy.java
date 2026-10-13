@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
-import cn.dancingsnow.neoecoae.config.NEConfig;
-
 /**
  * Per-tick ordinary crafting budget for an ECO CPU.
  *
@@ -12,22 +10,12 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
  */
 public final class ECOCraftingDispatchStrategy {
     private static final int HISTORY_SIZE = 3;
+    private static final int ORDINARY_PUSHES_PER_TICK = 64;
     private final int[] usedOperations = new int[HISTORY_SIZE];
 
-    /**
-     * Returns the ordinary one-copy operations available for the current tick.
-     *
-     * @param coProcessors number of CPU co-processors
-     * @param configuredLimit ECO's ordinary-path safety limit
-     */
-    public int beginTick(int coProcessors, int configuredLimit) {
-        long cpuLimit = 64L;
-        long safeConfiguredLimit = Math.min(
-            (long) NEConfig.MAX_ECO_CPU_PUSH_TICK_LIMIT,
-            Math.max(0L, configuredLimit)
-        );
-        long available = Math.min(cpuLimit, safeConfiguredLimit);
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, available));
+    /** Returns the ordinary one-copy operations available for the current tick. */
+    public int beginTick() {
+        return ORDINARY_PUSHES_PER_TICK;
     }
 
     /** Records only accepted ordinary pushes; FastPath batches must not be passed here. */
