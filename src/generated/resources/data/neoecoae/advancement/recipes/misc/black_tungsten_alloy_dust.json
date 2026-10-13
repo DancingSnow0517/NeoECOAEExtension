@@ -1,7 +1,7 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_aluminum_dust": {
+    "has_aluminum_alloy_dust": {
       "conditions": {
         "items": [
           {
@@ -41,7 +41,7 @@
   "requirements": [
     [
       "has_the_recipe",
-      "has_aluminum_dust",
+      "has_aluminum_alloy_dust",
       "has_tungsten_dust",
       "has_certus_quartz_dust"
     ]

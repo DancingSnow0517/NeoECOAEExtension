@@ -13,8 +13,32 @@ public class NEConfig {
     public static final int PATTERN_BUS_MIN_PAGES = 1;
     public static final int PATTERN_BUS_MAX_PAGES = 8;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
-    /** Temporary ordinary-path parallel dispatch ceiling until adaptive scheduling is wired in. */
+    /**
+     * Upper bound accepted by ecoCpuPushTickLimit (input validation only). The effective ordinary dispatch limit is
+     * additionally capped at 64 per CPU per tick by ECOCraftingDispatchStrategy.
+     */
     public static final int MAX_ECO_CPU_PUSH_TICK_LIMIT = 393_216;
+
+    /*
+     * Spec defaults. Each one is used in its define call and as the initial value of the matching static mirror
+     * field, so the two cannot drift apart before the config is loaded.
+     */
+    private static final int DEFAULT_CRAFTING_SYSTEM_MAX_LENGTH = 15;
+    private static final int DEFAULT_COMPUTATION_SYSTEM_MAX_LENGTH = 15;
+    private static final int DEFAULT_STORAGE_SYSTEM_MAX_LENGTH = 15;
+    private static final long DEFAULT_MEGA_BULK_AUTO_MARK_THRESHOLD = 20_000L;
+    private static final boolean DEFAULT_POST_CRAFTING_EVENT = false;
+    private static final boolean DEFAULT_LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED = false;
+    private static final int DEFAULT_CRAFTING_PATTERN_BUS_PAGES = 1;
+    private static final int DEFAULT_ECO_CPU_PUSH_TICK_LIMIT = 200_000;
+    private static final int DEFAULT_ECO_FAST_PATH_CACHE_SIZE = 512;
+    private static final int DEFAULT_ECO_PLANNING_MAX_MILLIS = 10_000;
+    private static final int DEFAULT_ECO_PLANNING_MAX_WORK = 5_000_000;
+    private static final int DEFAULT_ECO_PLANNING_MAX_MEMORY_MIB = 64;
+    private static final boolean DEFAULT_ECO_PLANNING_STAGE_DEBUG = false;
+    private static final boolean DEFAULT_ECO_CRAFT_SUBMISSION_DEBUG = false;
+    private static final boolean DEFAULT_ECO_DISPATCH_WATCHDOG_DEBUG = false;
+    private static final boolean DEFAULT_ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG = false;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
@@ -32,7 +56,7 @@ public class NEConfig {
             "更高的值允许更长的扩展，但可能增加结构检查开销。",
             "Maximum allowed length of the crafting system multiblock, measured in blocks.",
             "Higher values allow longer extensions but may increase structure validation overhead.")
-        .defineInRange("craftingSystemMaxLength", 15, 5, Integer.MAX_VALUE);
+        .defineInRange("craftingSystemMaxLength", DEFAULT_CRAFTING_SYSTEM_MAX_LENGTH, 5, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue COMPUTATION_SYSTEM_MAX_LENGTH = BUILDER
         .comment(
@@ -40,7 +64,7 @@ public class NEConfig {
             "更高的值允许更长的扩展，但可能增加结构检查开销。",
             "Maximum allowed length of the computation system multiblock, measured in blocks.",
             "Higher values allow longer extensions but may increase structure validation overhead.")
-        .defineInRange("computationSystemMaxLength", 15, 5, Integer.MAX_VALUE);
+        .defineInRange("computationSystemMaxLength", DEFAULT_COMPUTATION_SYSTEM_MAX_LENGTH, 5, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue STORAGE_SYSTEM_MAX_LENGTH = BUILDER
         .comment(
@@ -48,7 +72,7 @@ public class NEConfig {
             "更高的值允许更长的扩展，但可能增加结构检查开销。",
             "Maximum allowed length of the storage system multiblock, measured in blocks.",
             "Higher values allow longer extensions but may increase structure validation overhead.")
-        .defineInRange("storageSystemMaxLength", 15, 4, Integer.MAX_VALUE);
+        .defineInRange("storageSystemMaxLength", DEFAULT_STORAGE_SYSTEM_MAX_LENGTH, 4, Integer.MAX_VALUE);
 
     static {
         BUILDER.pop();
@@ -66,7 +90,7 @@ public class NEConfig {
         .comment(
             "ECO 存储主机自动标记可压缩物品时使用的数量阈值；只有数量严格大于此值的物品才会被标记。",
             "Amount threshold used when an ECO storage host automatically marks compressible items; only amounts strictly greater than this value are marked.")
-        .defineInRange("megaBulkAutoMarkThreshold", 20_000L, 0L, Long.MAX_VALUE);
+        .defineInRange("megaBulkAutoMarkThreshold", DEFAULT_MEGA_BULK_AUTO_MARK_THRESHOLD, 0L, Long.MAX_VALUE);
 
     static {
         BUILDER.pop();
@@ -78,7 +102,7 @@ public class NEConfig {
             "可能引入额外的事件/监听器开销；安装 Balm 等模组时可能会有较明显影响。",
             "Post the vanilla ItemCraftedEvent when the crafting system completes a recipe.",
             "This may add event/listener overhead, especially when mods such as Balm are installed.")
-        .define("postCraftingEvent", false);
+        .define("postCraftingEvent", DEFAULT_POST_CRAFTING_EVENT);
 
     private static final ModConfigSpec.BooleanValue LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED = BUILDER
         .comment(
@@ -89,7 +113,7 @@ public class NEConfig {
             "When disabled, only native integrated workstation recipes are available.",
             "Reopen the world or restart the server after changing this option to refresh recipe viewers.")
         .worldRestart()
-        .define("largeWorkstationCompatRecipesEnabled", false);
+        .define("largeWorkstationCompatRecipesEnabled", DEFAULT_LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED);
 
     private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
         .comment(
@@ -97,7 +121,7 @@ public class NEConfig {
             "每页可存储 63 个编码样板。",
             "Number of pattern pages exposed by one ECO smart pattern bus.",
             "Each page stores 63 encoded patterns.")
-        .defineInRange("craftingPatternBusPages", 1, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
+        .defineInRange("craftingPatternBusPages", DEFAULT_CRAFTING_PATTERN_BUS_PAGES, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
 
     static {
         BUILDER
@@ -112,13 +136,14 @@ public class NEConfig {
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
             "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
-            "普通回退路径每 CPU 每 tick 最多 64 次；可配置更低额度，不受协处理器数和历史 tick 限制。",
-            "当前上限为 393216；FastPath 批量发配不消耗此额度。",
+            "实际生效值为 min(64, 配置值)：普通回退路径每 CPU 每 tick 最多 64 次；配置更低的值会进一步降低该额度，高于 64 的值不会生效。",
+            "该额度不受协处理器数量和历史 tick 限制；配置范围上限 393216 仅用于输入校验。",
+            "FastPath 批量发配不消耗此额度。",
             "Maximum number of regular crafting patterns each CPU attempts to push per tick.",
-            "Verified FastPath batches do not consume this limit.",
-            "Ordinary fallback is capped at 64 per CPU per tick, independent of co-processors and previous ticks.",
-            "The hard ceiling is 393216 to keep ordinary dispatch bounded.")
-        .defineInRange("ecoCpuPushTickLimit", 200_000, 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
+            "Effective limit is min(64, configured value): the ordinary fallback path is capped at 64 per CPU per tick, and values above 64 have no effect.",
+            "The limit is independent of co-processors and previous ticks. The range maximum 393216 is only an input validation bound.",
+            "Verified FastPath batches do not consume this limit.")
+        .defineInRange("ecoCpuPushTickLimit", DEFAULT_ECO_CPU_PUSH_TICK_LIMIT, 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment(
@@ -127,7 +152,7 @@ public class NEConfig {
         .worldRestart()
         .defineInRange(
             "ecoFastPathCacheSize",
-            512,
+            DEFAULT_ECO_FAST_PATH_CACHE_SIZE,
             ECOCraftingFastPathCache.MIN_CACHE_SIZE,
             ECOCraftingFastPathCache.MAX_CACHE_SIZE
         );
@@ -135,17 +160,17 @@ public class NEConfig {
     private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_MILLIS = BUILDER
         .comment("一次 ECO 规划会话的总耗时预算（毫秒），路线、种子和 CRAFT_LESS 探测共享；超限显示未解。",
             "Shared cooperative time budget for one ECO planning session, including routes, seeds and CRAFT_LESS probes.")
-        .defineInRange("ecoPlanningMaxMillis", 10_000, 1, 600_000);
+        .defineInRange("ecoPlanningMaxMillis", DEFAULT_ECO_PLANNING_MAX_MILLIS, 1, 600_000);
 
     private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_WORK = BUILDER
         .comment("一次 ECO 规划会话的检查点总预算；切换路线和种子不会重置预算。",
             "Shared checkpoint work budget; changing routes or startup seeds does not reset it.")
-        .defineInRange("ecoPlanningMaxWork", 5_000_000, 1, Integer.MAX_VALUE);
+        .defineInRange("ecoPlanningMaxWork", DEFAULT_ECO_PLANNING_MAX_WORK, 1, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_MEMORY_MIB = BUILDER
         .comment("循环求解保留数据的估算内存预算（MiB），覆盖矩阵和搜索状态；超限显示未解。",
             "Estimated retained memory budget in MiB for cycle matrices and search states; exhaustion remains unknown.")
-        .defineInRange("ecoPlanningMaxMemoryMiB", 64, 1, Integer.MAX_VALUE);
+        .defineInRange("ecoPlanningMaxMemoryMiB", DEFAULT_ECO_PLANNING_MAX_MEMORY_MIB, 1, Integer.MAX_VALUE);
 
     static {
         BUILDER.pop();
@@ -175,7 +200,7 @@ public class NEConfig {
             "Log every ECO fast-planning calculation stage, including acyclic and cyclic planning.",
             "Also log whether each request selects ECO fast planning or the native AE2 planner, and why.",
             "Logs stage duration, success state, failure reason, target item and requested amount.")
-        .define("ecoPlanningStageDebug", false);
+        .define("ecoPlanningStageDebug", DEFAULT_ECO_PLANNING_STAGE_DEBUG);
 
     private static final ModConfigSpec.BooleanValue ECO_CRAFT_SUBMISSION_DEBUG = BUILDER
         .comment(
@@ -183,7 +208,7 @@ public class NEConfig {
             "记录开始按钮状态、计划与 CPU 选择、提交路由和提交耗时。",
             "Diagnose why the crafting-confirm Start button is unavailable or why submission is delayed or fails.",
             "Logs the Start-button state, plan and CPU selection, submission route and submission duration.")
-        .define("ecoCraftSubmissionDebug", false);
+        .define("ecoCraftSubmissionDebug", DEFAULT_ECO_CRAFT_SUBMISSION_DEBUG);
 
     private static final ModConfigSpec.BooleanValue ECO_DISPATCH_WATCHDOG_DEBUG = BUILDER
         .comment(
@@ -193,7 +218,7 @@ public class NEConfig {
             "Log ECO dispatch candidate reasons and task accounting before and after dispatch.",
             "Logs an aggregated diagnostic after 200 ticks without real progress, then every 1200 ticks.",
             "This may produce many logs and only collects diagnostics; it does not change crafting state.")
-        .define("ecoDispatchWatchdogDebug", false);
+        .define("ecoDispatchWatchdogDebug", DEFAULT_ECO_DISPATCH_WATCHDOG_DEBUG);
 
     static {
         BUILDER.pop();
@@ -207,7 +232,7 @@ public class NEConfig {
             "Enable ECO crafting output-delivery wait diagnostic logs.",
             "Logs one aggregated warning per job after its workers have been unable to deliver outputs for 200 ticks, then every 1200 ticks.",
             "Logs a recovery message when the wait ends; this option only controls logging and never changes output ownership, retry or recovery behavior.")
-        .define("ecoCraftingOutputDeliveryDebug", false);
+        .define("ecoCraftingOutputDeliveryDebug", DEFAULT_ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG);
 
     static {
         BUILDER.pop();
@@ -215,22 +240,22 @@ public class NEConfig {
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
-    public static int craftingSystemMaxLength;
-    public static int computationSystemMaxLength;
-    public static int storageSystemMaxLength;
-    public static long megaBulkAutoMarkThreshold = 20_000L;
-    public static boolean postCraftingEvent;
-    public static boolean largeWorkstationCompatRecipesEnabled = false;
-    public static int craftingPatternBusPages = 1;
-    public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
-    public static int ecoFastPathCacheSize = 512;
-    public static int ecoPlanningMaxMillis = 10_000;
-    public static int ecoPlanningMaxWork = 5_000_000;
-    public static int ecoPlanningMaxMemoryMiB = 64;
-    public static boolean ecoPlanningStageDebug = false;
-    public static boolean ecoCraftSubmissionDebug = false;
-    public static boolean ecoDispatchWatchdogDebug = false;
-    public static boolean ecoCraftingOutputDeliveryDebug = false;
+    public static int craftingSystemMaxLength = DEFAULT_CRAFTING_SYSTEM_MAX_LENGTH;
+    public static int computationSystemMaxLength = DEFAULT_COMPUTATION_SYSTEM_MAX_LENGTH;
+    public static int storageSystemMaxLength = DEFAULT_STORAGE_SYSTEM_MAX_LENGTH;
+    public static long megaBulkAutoMarkThreshold = DEFAULT_MEGA_BULK_AUTO_MARK_THRESHOLD;
+    public static boolean postCraftingEvent = DEFAULT_POST_CRAFTING_EVENT;
+    public static boolean largeWorkstationCompatRecipesEnabled = DEFAULT_LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED;
+    public static int craftingPatternBusPages = DEFAULT_CRAFTING_PATTERN_BUS_PAGES;
+    public static int ecoCpuPushTickLimit = DEFAULT_ECO_CPU_PUSH_TICK_LIMIT;
+    public static int ecoFastPathCacheSize = DEFAULT_ECO_FAST_PATH_CACHE_SIZE;
+    public static int ecoPlanningMaxMillis = DEFAULT_ECO_PLANNING_MAX_MILLIS;
+    public static int ecoPlanningMaxWork = DEFAULT_ECO_PLANNING_MAX_WORK;
+    public static int ecoPlanningMaxMemoryMiB = DEFAULT_ECO_PLANNING_MAX_MEMORY_MIB;
+    public static boolean ecoPlanningStageDebug = DEFAULT_ECO_PLANNING_STAGE_DEBUG;
+    public static boolean ecoCraftSubmissionDebug = DEFAULT_ECO_CRAFT_SUBMISSION_DEBUG;
+    public static boolean ecoDispatchWatchdogDebug = DEFAULT_ECO_DISPATCH_WATCHDOG_DEBUG;
+    public static boolean ecoCraftingOutputDeliveryDebug = DEFAULT_ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {

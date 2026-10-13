@@ -236,7 +236,7 @@ public class NEItems {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(NETags.Items.ALUMINUM_ALLOY_INGOT)
                 .requires(NEItems.ENERGIZED_FLUIX_CRYSTAL)
-                .unlockedBy("has_aliminim_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
+                .unlockedBy("has_aluminum_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
                 .save(prov);
         })
         .register();
@@ -578,7 +578,7 @@ public class NEItems {
                 .requires(NETags.Items.ALUMINUM_ALLOY_DUST)
                 .requires(ConventionTags.FLUIX_DUST)
                 .requires(ConventionTags.FLUIX_DUST)
-                .unlockedBy("has_aluminum_dust", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_DUST))
+                .unlockedBy("has_aluminum_alloy_dust", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_DUST))
                 .unlockedBy("has_tungsten_dust", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_DUST))
                 .unlockedBy("has_certus_quartz_dust", RegistrateRecipeProvider.has(ConventionTags.CERTUS_QUARTZ_DUST))
                 .save(prov);
@@ -614,7 +614,7 @@ public class NEItems {
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 4)
                 .requires(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
-                .unlockedBy("has_energized_fluix_crytal_block", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK))
+                .unlockedBy("has_energized_fluix_crystal_block", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK))
                 .save(prov, NeoECOAE.id("energized_fluix_crystal_from_block"));
 
             TransformRecipeBuilder.transform(
@@ -718,7 +718,7 @@ public class NEItems {
                 .requires(ConventionTags.SKY_STONE_DUST)
                 .requires(Items.SNOWBALL)
                 .requires(Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_DUST), 4)
-                .unlockedBy("has_energized_cryztal_dust", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL_DUST))
+                .unlockedBy("has_energized_crystal_dust", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL_DUST))
                 .save(prov);
         })
         .register();
@@ -903,7 +903,7 @@ public class NEItems {
                 .define('C', NETags.Items.ALUMINUM_ALLOY_INGOT)
                 .unlockedBy("has_crystal_matrix", RegistrateRecipeProvider.has(NEItems.CRYSTAL_MATRIX))
                 .unlockedBy("has_redstone", RegistrateRecipeProvider.has(Tags.Items.DUSTS_REDSTONE))
-                .unlockedBy("has_aluminum_allot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
+                .unlockedBy("has_aluminum_alloy", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
                 .save(prov);
         })
         .lang("ECO Storage Matrix Housing (Fluid)")

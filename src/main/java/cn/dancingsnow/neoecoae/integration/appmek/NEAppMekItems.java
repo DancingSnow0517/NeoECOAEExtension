@@ -39,7 +39,7 @@ public class NEAppMekItems {
                 .define('C', NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
                 .unlockedBy("has_crystal_matrix", RegistrateRecipeProvider.has(NEItems.CRYSTAL_MATRIX))
                 .unlockedBy("has_redstone", RegistrateRecipeProvider.has(Tags.Items.DUSTS_REDSTONE))
-                .unlockedBy("has_black_tungsten_alloy", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
+                .unlockedBy("has_black_tungsten_alloy", RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
                 .save(appmekInstalled);
         })
         .lang("ECO Storage Matrix Housing (Chemical)")

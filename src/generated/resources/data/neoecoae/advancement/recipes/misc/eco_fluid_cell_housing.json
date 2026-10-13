@@ -1,7 +1,7 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_aluminum_allot": {
+    "has_aluminum_alloy": {
       "conditions": {
         "items": [
           {
@@ -43,7 +43,7 @@
       "has_the_recipe",
       "has_crystal_matrix",
       "has_redstone",
-      "has_aluminum_allot"
+      "has_aluminum_alloy"
     ]
   ],
   "rewards": {

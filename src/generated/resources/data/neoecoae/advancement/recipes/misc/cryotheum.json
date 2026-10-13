@@ -1,7 +1,7 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_energized_cryztal_dust": {
+    "has_energized_crystal_dust": {
       "conditions": {
         "items": [
           {
@@ -21,7 +21,7 @@
   "requirements": [
     [
       "has_the_recipe",
-      "has_energized_cryztal_dust"
+      "has_energized_crystal_dust"
     ]
   ],
   "rewards": {
