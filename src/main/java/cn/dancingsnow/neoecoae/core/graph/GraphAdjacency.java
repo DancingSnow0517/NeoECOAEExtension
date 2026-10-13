@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.crafting.graph;
+package cn.dancingsnow.neoecoae.core.graph;
 
 import java.util.Collections;
 import java.util.HashMap;

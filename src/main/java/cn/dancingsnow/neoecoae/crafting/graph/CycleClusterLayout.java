@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.graph;
 
+import cn.dancingsnow.neoecoae.core.graph.GraphAdjacency;
 import cn.dancingsnow.neoecoae.core.graph.TopoSort;
 import java.util.ArrayList;
 import java.util.HashMap;

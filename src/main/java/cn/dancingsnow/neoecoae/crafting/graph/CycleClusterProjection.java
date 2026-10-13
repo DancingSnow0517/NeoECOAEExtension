@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.graph;
 
+import cn.dancingsnow.neoecoae.core.graph.GraphAdjacency;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
