@@ -132,6 +132,8 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         if (ECOInfiniteStorageMember.isMember(stack)) {
             lines.add(CellTooltips.infiniteMemberHint());
             ECOInfiniteStorageMember.getDomainId(stack).ifPresent(id -> lines.add(CellTooltips.uuidLine(id)));
+            // Infinite members have no cell inventory; subclasses still get the hook with a null handler.
+            appendCellLines(stack, null, lines);
             return;
         }
         appendCellLines(stack, getCellInventory(stack), lines);

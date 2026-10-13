@@ -2,12 +2,12 @@ package cn.dancingsnow.neoecoae.integration.megacells;
 
 import appeng.api.upgrades.Upgrades;
 import appeng.api.networking.GridServices;
-import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.integration.ModIds;
+import cn.dancingsnow.neoecoae.integration.OptionalCellUpgrades;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaCellsBackend;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaBulkMarkingService;
@@ -63,14 +63,10 @@ public final class MegaCellsIntegration {
     private void commonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             String group = GuiText.StorageCells.getTranslationKey();
-            for (ItemEntry<? extends ECOStorageCellItem> cell : allCells()) {
-                if (cell.get() == NEMegaItems.ECO_MEGA_LONG_BULK_CELL.get()) {
-                    continue;
-                }
-                Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, group);
-                Upgrades.add(AEItems.INVERTER_CARD, cell, 1, group);
-                Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
-            }
+            List<ItemEntry<? extends ECOStorageCellItem>> standardCells = allCells().stream()
+                .filter(cell -> cell.get() != NEMegaItems.ECO_MEGA_LONG_BULK_CELL.get())
+                .toList();
+            OptionalCellUpgrades.addStandard(standardCells, group);
             Upgrades.add(NEMegaItems.ECO_MEGA_UPGRADE_CARD, NEMegaItems.ECO_MEGA_LONG_BULK_CELL, 1, group);
             Upgrades.add(MEGAItems.COMPRESSION_CARD, NEMegaItems.ECO_MEGA_LONG_BULK_CELL, 1, group);
         });

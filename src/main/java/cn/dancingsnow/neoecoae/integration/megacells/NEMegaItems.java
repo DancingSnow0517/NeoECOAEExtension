@@ -1,13 +1,13 @@
 package cn.dancingsnow.neoecoae.integration.megacells;
 
+import appeng.api.stacks.AEKeyType;
 import appeng.api.upgrades.Upgrades;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
-import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaFluidStorageCellItem;
-import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaItemStorageCellItem;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaLongBulkStorageCellItem;
+import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaStorageCellItem;
 import cn.dancingsnow.neoecoae.integration.megacells.item.MegaCellHousingItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -38,9 +38,9 @@ public final class NEMegaItems {
             .model((ctx, prov) -> {})
             .register();
 
-    public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_4G =
+    public static final ItemEntry<ECOMegaStorageCellItem> ECO_MEGA_ITEM_CELL_4G =
         itemCell("4g", MEGA_4G_CAPACITY, Rarity.EPIC);
-    public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_4G =
+    public static final ItemEntry<ECOMegaStorageCellItem> ECO_MEGA_FLUID_CELL_4G =
         fluidCell("4g", MEGA_4G_CAPACITY, Rarity.EPIC);
     public static final ItemEntry<ECOMegaLongBulkStorageCellItem> ECO_MEGA_LONG_BULK_CELL =
         REGISTRATE.item("eco_mega_long_bulk_cell",
@@ -59,19 +59,19 @@ public final class NEMegaItems {
             .register();
     }
 
-    private static ItemEntry<ECOMegaItemStorageCellItem> itemCell(String size, long capacity, Rarity rarity) {
+    private static ItemEntry<ECOMegaStorageCellItem> itemCell(String size, long capacity, Rarity rarity) {
         return REGISTRATE.item("eco_mega_item_cell_" + size,
-                p -> new ECOMegaItemStorageCellItem(p.stacksTo(1).rarity(rarity), ECOTier.L9,
-                    NEMegaCellTypes.MEGA_ITEM, capacity))
+                p -> new ECOMegaStorageCellItem(p.stacksTo(1).rarity(rarity), ECOTier.L9,
+                    AEKeyType.items(), NEMegaCellTypes.MEGA_ITEM, capacity, null))
             .lang(cellName("Mega Item", ECOTier.L9))
             .model((ctx, prov) -> {})
             .register();
     }
 
-    private static ItemEntry<ECOMegaFluidStorageCellItem> fluidCell(String size, long capacity, Rarity rarity) {
+    private static ItemEntry<ECOMegaStorageCellItem> fluidCell(String size, long capacity, Rarity rarity) {
         return REGISTRATE.item("eco_mega_fluid_cell_" + size,
-                p -> new ECOMegaFluidStorageCellItem(p.stacksTo(1).rarity(rarity), ECOTier.L9,
-                    NEMegaCellTypes.MEGA_FLUID, capacity))
+                p -> new ECOMegaStorageCellItem(p.stacksTo(1).rarity(rarity), ECOTier.L9,
+                    AEKeyType.fluids(), NEMegaCellTypes.MEGA_FLUID, capacity, null))
             .lang(cellName("Mega Fluid", ECOTier.L9))
             .model((ctx, prov) -> {})
             .register();

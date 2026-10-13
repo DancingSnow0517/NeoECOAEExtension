@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.command.NECommands;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
+import cn.dancingsnow.neoecoae.integration.OptionalCellUpgrades;
 import cn.dancingsnow.neoecoae.util.DrainOnlyFluidHandler;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
@@ -184,11 +185,7 @@ public class NeoECOAE {
                 NEItems.ECO_BULK_ITEM_CELL_16M, NEItems.ECO_BULK_ITEM_CELL_64M, NEItems.ECO_BULK_ITEM_CELL_256M,
                 NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_FLUID_CELL_64M, NEItems.ECO_FLUID_CELL_256M
             );
-            for (ItemEntry<ECOStorageCellItem> cell : cells) {
-                Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
-                Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
-                Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
-            }
+            OptionalCellUpgrades.addStandard(cells, storageCellGroup);
         });
     }
 

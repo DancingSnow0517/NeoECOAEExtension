@@ -1,7 +1,8 @@
 package cn.dancingsnow.neoecoae.integration.megacells;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaEnergyStorageCellItem;
+import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaStorageCellItem;
+import com.glodblock.github.appflux.common.me.key.type.FluxKeyType;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.Item;
@@ -13,14 +14,16 @@ import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.M
 final class NEMegaEnergyItems {
     static final ItemEntry<Item> MEGA_ENERGY_CELL_HOUSING =
         NEMegaItems.housing("mega_energy", "Mega Energy");
-    static final ItemEntry<ECOMegaEnergyStorageCellItem> CELL_4G = cell("4g", ECOTier.L9, MEGA_4G_CAPACITY, Rarity.EPIC);
+    static final ItemEntry<ECOMegaStorageCellItem> CELL_4G = cell("4g", ECOTier.L9, MEGA_4G_CAPACITY, Rarity.EPIC);
 
-    private static ItemEntry<ECOMegaEnergyStorageCellItem> cell(String size, ECOTier tier, long capacity, Rarity rarity) {
+    private static ItemEntry<ECOMegaStorageCellItem> cell(String size, ECOTier tier, long capacity, Rarity rarity) {
         return NEMegaItems.optionalCell("mega_energy", "Mega Energy", size, tier, capacity, rarity,
-            ECOMegaEnergyStorageCellItem::new, NEMegaEnergyCellType.MEGA_ENERGY);
+            (properties, cellTier, type, cellCapacity) -> new ECOMegaStorageCellItem(
+                properties, cellTier, FluxKeyType.TYPE, type, cellCapacity, null),
+            NEMegaEnergyCellType.MEGA_ENERGY);
     }
 
-    static List<ItemEntry<ECOMegaEnergyStorageCellItem>> cells() {
+    static List<ItemEntry<ECOMegaStorageCellItem>> cells() {
         return List.of(CELL_4G);
     }
 

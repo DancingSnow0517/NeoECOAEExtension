@@ -14,10 +14,13 @@ import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaLongBulkStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ItemLike;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -184,15 +187,13 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context,
-            List<net.minecraft.network.chat.Component> lines, net.minecraft.world.item.TooltipFlag flag) {
-        super.appendHoverText(stack, context, lines, flag);
-        lines.add(net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.mega_filter.cutoff_hint"));
-        if (getCellInventory(stack) instanceof ECOMegaLongBulkStorageCell cell
-                && cell.getUnresolvedEntryCount() > 0) {
-            lines.add(net.minecraft.network.chat.Component.translatable(
+    protected void appendCellLines(ItemStack stack, @Nullable ECOStorageCell handler, List<Component> lines) {
+        super.appendCellLines(stack, handler, lines);
+        lines.add(Component.translatable("gui.neoecoae.storage.mega_filter.cutoff_hint"));
+        if (handler instanceof ECOMegaLongBulkStorageCell cell && cell.getUnresolvedEntryCount() > 0) {
+            lines.add(Component.translatable(
                 "tooltip.neoecoae.storage.bulk_unresolved", cell.getUnresolvedEntryCount())
-                .withStyle(net.minecraft.ChatFormatting.RED));
+                .withStyle(ChatFormatting.RED));
         }
     }
 
