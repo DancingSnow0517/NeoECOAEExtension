@@ -1,12 +1,11 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
-import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.ECOInfiniteResourceCell;
+import cn.dancingsnow.neoecoae.items.CellTooltips;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -28,8 +27,7 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
                 .withStyle(ChatFormatting.RED));
         }
         if (serverData.getBoolean("infiniteMember")) {
-            iTooltip.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
+            iTooltip.add(CellTooltips.infiniteMemberHint());
             return;
         }
         if (serverData.getBoolean("infiniteResource")) {
@@ -48,40 +46,14 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
             }
         }
         if (serverData.contains("usedBytes") && serverData.contains("totalBytes")) {
-            iTooltip.add(bytesUsedLine(serverData.getLong("usedBytes"), serverData.getLong("totalBytes")));
+            iTooltip.add(CellTooltips.bytesUsed(serverData.getLong("usedBytes"), serverData.getLong("totalBytes")));
         }
         if (serverData.contains("storedItemTypes") && serverData.contains("totalItemTypes")) {
-            long storedItemTypes = serverData.getLong("storedItemTypes");
-            if (serverData.getBoolean("infiniteTypeCapacity")) {
-                iTooltip.add(Tooltips.of(
-                    Tooltips.ofUnformattedNumberWithRatioColor(storedItemTypes, 0, false),
-                    Tooltips.of(" "),
-                    Tooltips.of(GuiText.Of),
-                    Tooltips.of(" "),
-                    Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT),
-                    Tooltips.of(" "),
-                    Tooltips.of(GuiText.Types)
-                ));
-            } else {
-                iTooltip.add(Tooltips.typesUsed(storedItemTypes, serverData.getLong("totalItemTypes")));
-            }
+            iTooltip.add(CellTooltips.typesUsed(
+                serverData.getLong("storedItemTypes"),
+                serverData.getLong("totalItemTypes"),
+                serverData.getBoolean("infiniteTypeCapacity")));
         }
-    }
-
-    private static Component bytesUsedLine(long used, long total) {
-        if (total != Long.MAX_VALUE) {
-            return Tooltips.bytesUsed(used, total);
-        }
-        return Tooltips.of(
-            GuiText.BytesUsed,
-            Tooltips.of(
-                Tooltips.ofUnformattedNumberWithRatioColor(used, 0.0, false),
-                Tooltips.of(" "),
-                Tooltips.of(GuiText.Of),
-                Tooltips.of(" "),
-                Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT)
-            )
-        );
     }
 
     @Override

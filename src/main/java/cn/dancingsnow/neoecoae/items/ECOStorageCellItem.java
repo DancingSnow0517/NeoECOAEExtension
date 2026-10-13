@@ -9,12 +9,8 @@ import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.core.AEConfig;
-import appeng.core.localization.GuiText;
-import appeng.core.localization.PlayerMessages;
-import appeng.core.localization.Tooltips;
 import appeng.items.contents.CellConfig;
 import appeng.items.storage.StorageCellTooltipComponent;
-import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -25,12 +21,10 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import lombok.Getter;
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.Item;
@@ -136,38 +130,20 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
         if (ECOInfiniteStorageMember.isMember(stack)) {
-            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
-            ECOInfiniteStorageMember.getDomainId(stack).ifPresent(id -> lines.add(
-                Component.literal("UUID: " + id).withStyle(ChatFormatting.AQUA)));
+            lines.add(CellTooltips.infiniteMemberHint());
+            ECOInfiniteStorageMember.getDomainId(stack).ifPresent(id -> lines.add(CellTooltips.uuidLine(id)));
             return;
         }
-        var handler = getCellInventory(stack);
+        appendCellLines(stack, getCellInventory(stack), lines);
+    }
+
+    protected void appendCellLines(ItemStack stack, @Nullable ECOStorageCell handler, List<Component> lines) {
         if (handler == null) {
             return;
         }
-        lines.add(bytesUsedLine(handler.getUsedBytes(), handler.getTotalBytes()));
-        lines.add(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
-    }
-
-    /**
-     * {@link Long#MAX_VALUE} is the saturation sentinel for an unbounded capacity, so render it as
-     * an infinity symbol instead of the raw number.
-     */
-    private static Component bytesUsedLine(long used, long total) {
-        if (total != Long.MAX_VALUE) {
-            return Tooltips.bytesUsed(used, total);
-        }
-        return Tooltips.of(
-            GuiText.BytesUsed,
-            Tooltips.of(
-                Tooltips.ofUnformattedNumberWithRatioColor(used, 0.0, false),
-                Tooltips.of(" "),
-                Tooltips.of(GuiText.Of),
-                Tooltips.of(" "),
-                Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT)
-            )
-        );
+        lines.add(CellTooltips.bytesUsed(handler.getUsedBytes(), handler.getTotalBytes()));
+        lines.add(CellTooltips.typesUsed(
+            handler.getStoredItemTypes(), handler.getTotalItemTypes(), handler.hasInfiniteTypeCapacity()));
     }
 
     @Override
@@ -298,38 +274,10 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
             return false;
         }
 
-        // Only the server can authoritatively inspect contents and replace the held cell.
-        if (level.isClientSide()) {
-            return true;
-        }
-
-        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
-        if (disassembledStacks.isEmpty()) {
-            return false;
-        }
-
-        Inventory playerInventory = player.getInventory();
-        if (playerInventory.getSelected() != stack) {
-            return false;
-        }
-
-        ECOStorageCell cellInventory = getCellInventory(stack);
-        if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()) {
-            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
-            return false;
-        }
-
-        playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);
-
-        // Drop items from the recipe.
-        for (var disassembledStack : disassembledStacks) {
-            playerInventory.placeItemBackInInventory(disassembledStack.copy());
-        }
-
-        // Drop upgrades
-        getUpgrades(stack).forEach(playerInventory::placeItemBackInInventory);
-
-        return true;
+        return CellDisassembly.disassemble(stack, level, player, getUpgrades(stack), () -> {
+            var cellInventory = getCellInventory(stack);
+            return cellInventory != null && cellInventory.getAvailableStacks().isEmpty();
+        });
     }
 
     public static class Handler implements IECOCellHandler {

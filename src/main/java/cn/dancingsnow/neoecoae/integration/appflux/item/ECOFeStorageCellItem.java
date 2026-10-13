@@ -5,13 +5,14 @@ import appeng.api.stacks.KeyCounter;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.glodblock.github.appflux.common.me.key.FluxKey;
 import com.glodblock.github.appflux.common.me.key.type.FluxKeyType;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -22,9 +23,8 @@ public class ECOFeStorageCellItem extends ECOStorageCellItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
-        super.appendHoverText(stack, context, lines, tooltipFlag);
-        var handler = getCellInventory(stack);
+    protected void appendCellLines(ItemStack stack, @Nullable ECOStorageCell handler, List<Component> lines) {
+        super.appendCellLines(stack, handler, lines);
         if (handler == null) {
             return;
         }

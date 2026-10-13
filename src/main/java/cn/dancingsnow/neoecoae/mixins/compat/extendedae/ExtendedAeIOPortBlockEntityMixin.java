@@ -17,10 +17,6 @@ import org.spongepowered.asm.mixin.injection.At;
 public class ExtendedAeIOPortBlockEntityMixin {
     @WrapOperation(method = "tickingRequest", at = @At(value = "INVOKE", target = "Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;"))
     private StorageCell wrapGetCellInventory(ItemStack inventory, ISaveProvider ch, Operation<StorageCell> original) {
-        StorageCell invOriginal = original.call(inventory, ch);
-        if (invOriginal != null) {
-            return invOriginal;
-        }
-        return ECOStorageCells.getCellInventory(inventory, ch);
+        return ECOStorageCells.orEcoCellInventory(original.call(inventory, ch), inventory, ch);
     }
 }

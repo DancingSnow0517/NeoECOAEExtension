@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.storage;
 
 import appeng.api.storage.cells.ISaveProvider;
+import appeng.api.storage.cells.StorageCell;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import net.minecraft.world.item.ItemStack;
@@ -45,6 +46,15 @@ public class ECOStorageCells {
             }
         }
         return null;
+    }
+
+    /** Returns AE2's inventory when present, otherwise the ECO cell inventory for the same stack. */
+    @Nullable
+    public static StorageCell orEcoCellInventory(@Nullable StorageCell original, ItemStack stack, @Nullable ISaveProvider host) {
+        if (original != null) {
+            return original;
+        }
+        return getCellInventory(stack, host);
     }
 
     public static synchronized void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {

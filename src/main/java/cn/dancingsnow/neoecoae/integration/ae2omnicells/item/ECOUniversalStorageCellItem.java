@@ -2,8 +2,6 @@ package cn.dancingsnow.neoecoae.integration.ae2omnicells.item;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
-import appeng.core.localization.PlayerMessages;
-import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.InteractionUtil;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalCellHandler;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.OmniLongCapacityProvider;
@@ -11,16 +9,16 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.items.CellDisassembly;
+import cn.dancingsnow.neoecoae.items.CellTooltips;
 import com.wintercogs.ae2omnicells.common.items.AEUniversalCellItem;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
 import com.wintercogs.ae2omnicells.common.me.localization.AEUniversalTooltips;
 import lombok.Getter;
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -94,8 +92,7 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
         if (ECOInfiniteStorageMember.isMember(stack)) {
-            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
+            lines.add(CellTooltips.infiniteMemberHint());
             return;
         }
         if (getECOStorageTotalBytes() > MAX_EXTERNAL_STORAGE_BYTES) {
@@ -146,34 +143,9 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
             return false;
         }
 
-        // Omni's SavedData inventory is unavailable on the client, not necessarily empty.
-        if (level.isClientSide()) {
-            return true;
-        }
-
-        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
-        if (disassembledStacks.isEmpty()) {
-            return false;
-        }
-
-        Inventory playerInventory = player.getInventory();
-        if (playerInventory.getSelected() != stack) {
-            return false;
-        }
-
-        var cellInventory = ECOUniversalCellHandler.INSTANCE.getCellInventory(stack, null);
-        if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()) {
-            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
-            return false;
-        }
-
-        playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);
-
-        for (var disassembledStack : disassembledStacks) {
-            playerInventory.placeItemBackInInventory(disassembledStack.copy());
-        }
-
-        getUpgrades(stack).forEach(playerInventory::placeItemBackInInventory);
-        return true;
+        return CellDisassembly.disassemble(stack, level, player, getUpgrades(stack), () -> {
+            var cellInventory = ECOUniversalCellHandler.INSTANCE.getCellInventory(stack, null);
+            return cellInventory != null && cellInventory.getAvailableStacks().isEmpty();
+        });
     }
 }

@@ -106,8 +106,7 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
         if (ECOInfiniteStorageMember.isMember(stack)) {
-            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
+            lines.add(CellTooltips.infiniteMemberHint());
             return;
         }
         lines.add(Component.translatable("tooltip.neoecoae.infinite_resource.contents")
