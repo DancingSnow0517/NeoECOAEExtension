@@ -17,12 +17,6 @@ import org.jetbrains.annotations.Nullable;
 public final class ECOThunderboltBatchBridge {
     private ECOThunderboltBatchBridge() {}
 
-    public static long capacity(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern) {
-        if (!fastPathEligible(bus, pattern)) return 0L;
-        int slots = bus.getAvailableThreadSlots();
-        return slots > 1 ? slots : 0L;
-    }
-
     public static long push(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern,
             KeyCounter[] oneCopy, long maxCraft, Level level, @Nullable UUID jobId) {
         if (maxCraft <= 0L) return 0L;

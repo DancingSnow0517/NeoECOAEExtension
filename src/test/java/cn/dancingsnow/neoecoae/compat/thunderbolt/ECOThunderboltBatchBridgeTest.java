@@ -96,18 +96,4 @@ class ECOThunderboltBatchBridgeTest {
             assertEquals(8L, ECOThunderboltBatchBridge.push(bus, pattern, inputs, 8L, level, job));
         }
     }
-
-    @Test
-    void capacityIsZeroWhenTheBusIsBusy() {
-        var bus = mock(ECOCraftingPatternBusBlockEntity.class);
-        when(bus.isBusy()).thenReturn(true);
-        assertEquals(0L, ECOThunderboltBatchBridge.capacity(bus, mock(IPatternDetails.class)));
-    }
-
-    @Test
-    void capacityIsZeroForNonMolecularPatterns() {
-        var bus = mock(ECOCraftingPatternBusBlockEntity.class);
-        when(bus.isBusy()).thenReturn(false);
-        assertEquals(0L, ECOThunderboltBatchBridge.capacity(bus, mock(IPatternDetails.class)));
-    }
 }
