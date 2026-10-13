@@ -31,7 +31,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.Font;
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.nbt.Tag;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
@@ -63,6 +62,36 @@ class StorageHostUiTest {
             Class.forName(UIElement.class.getName());
             Class.forName(NETextures.class.getName());
             AccessorRegistries.init();
+        }
+    }
+
+    @Test
+    void guiAtlasLoadsTheOriginalInfinitySheetWithItsAnimationMetadata() throws Exception {
+        var loader = getClass().getClassLoader();
+        try (var atlas = loader.getResourceAsStream("assets/minecraft/atlases/gui.json")) {
+            assertNotNull(atlas);
+            var source = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(atlas,
+                java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonArray("sources")
+                .get(0).getAsJsonObject();
+            assertEquals("minecraft:single", source.get("type").getAsString());
+            assertEquals("neoecoae:storage/infinity", source.get("sprite").getAsString());
+            String path = "assets/neoecoae/textures/" + source.get("resource").getAsString().split(":", 2)[1] + ".png";
+            try (var png = loader.getResourceAsStream(path);
+                 var metadata = loader.getResourceAsStream(path + ".mcmeta")) {
+                assertNotNull(png);
+                assertNotNull(metadata);
+                var image = javax.imageio.ImageIO.read(png);
+                var animation = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(metadata,
+                    java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonObject("animation");
+                var parsed = net.minecraft.client.resources.metadata.animation.AnimationMetadataSection.SERIALIZER
+                    .fromJson(animation);
+                var frame = parsed.calculateFrameSize(image.getWidth(), image.getHeight());
+                assertEquals(12, frame.width());
+                assertEquals(12, frame.height());
+                assertEquals(10, image.getHeight() / frame.height());
+                assertEquals(3, parsed.getDefaultFrameTime());
+                assertTrue(parsed.isInterpolatedFrames());
+            }
         }
     }
 
@@ -677,13 +706,9 @@ class StorageHostUiTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void infiniteAnimationInterpolatesAcrossTheLastFrameAtItsResolvedPosition() {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
+    void infiniteAnimationUsesTheRegisteredGuiSpriteOnlyInInfiniteMode() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
-            Minecraft client = mock(Minecraft.class);
-            client.level = mock(ClientLevel.class);
-            when(client.level.getGameTime()).thenReturn(29L);
-            minecraft.when(Minecraft::getInstance).thenReturn(client);
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), true));
             UIElement animation = spy(node(root, "infinite_animation"));
             doReturn(322F).when(animation).getPositionX();
@@ -691,18 +716,9 @@ class StorageHostUiTest {
             doReturn(12F).when(animation).getSizeWidth();
             doReturn(12F).when(animation).getSizeHeight();
             GUIContext context = mock(GUIContext.class);
-            context.partialTick = 0.5F;
             animation.drawBackgroundAdditional(context);
-            assertEquals(12, StoragePanelTextures.infinityFrame(9).getImageSize().width);
-            assertEquals(120, StoragePanelTextures.infinityFrame(9).getImageSize().height);
-            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.getImageLocation().getPath().equals("textures/guis/storage/storage_ifinity_icon.png")
-                && sprite.spritePosition.y == 108 && sprite.spriteSize.width == 12 && sprite.spriteSize.height == 12
-                && sprite.color == -1), eq(322F), eq(411F), eq(12F), eq(12F));
-            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.getImageLocation().getPath().equals("textures/guis/storage/storage_ifinity_icon.png")
-                && sprite.spritePosition.y == 0 && sprite.spriteSize.width == 12 && sprite.spriteSize.height == 12
-                && (sprite.color >>> 24) == 213), eq(322F), eq(411F), eq(12F), eq(12F));
+            assertEquals("neoecoae:storage/infinity", StoragePanelTextures.INFINITE_ANIMATION.getSprite().toString());
+            verify(context).drawTexture(StoragePanelTextures.INFINITE_ANIMATION, 322F, 411F, 12F, 12F);
             BindableValue<Tag> display = (BindableValue<Tag>) root.getChildren().getFirst();
             Tag active = display.getValue();
             for (boolean migrating : List.of(false, true)) {
@@ -718,7 +734,7 @@ class StorageHostUiTest {
             }
             display.setValue(active);
             animation.drawBackgroundAdditional(context);
-            verify(context, times(2)).drawTexture(any(SpriteTexture.class), eq(322F), eq(411F), eq(12F), eq(12F));
+            verify(context).drawTexture(StoragePanelTextures.INFINITE_ANIMATION, 322F, 411F, 12F, 12F);
         }
     }
 

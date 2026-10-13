@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.storage;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import com.google.gson.JsonObject;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
@@ -80,7 +81,7 @@ final class StorageHostCharts {
     }
 
     private abstract class PanelElement extends UIElement {
-        void texture(GUIContext context, SpriteTexture texture) {
+        void texture(GUIContext context, IGuiTexture texture) {
             context.drawTexture(texture, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
         }
 
@@ -381,18 +382,9 @@ final class StorageHostCharts {
         InfiniteAnimation() { tooltips(() -> state().infinite() ? domainTooltip() : List.of()); }
         @Override public void drawBackgroundAdditional(GUIContext context) {
             if (!state().infinite()) return;
-            Minecraft minecraft = Minecraft.getInstance();
-            long tick = minecraft.level == null ? 0 : minecraft.level.getGameTime();
-            int frame = animationFrame(tick);
-            texture(context, StoragePanelTextures.infinityFrame(frame));
-            float blend = (Math.floorMod(tick, 3) + context.partialTick) / 3F;
-            int alpha = Math.clamp(Math.round(blend * 255), 0, 255);
-            if (alpha > 0) texture(context, StoragePanelTextures.infinityFrame(frame + 1)
-                .setColor(alpha << 24 | 0xFFFFFF));
+            texture(context, StoragePanelTextures.INFINITE_ANIMATION);
         }
     }
-
-    static int animationFrame(long tick) { return (int) (Math.floorMod(tick, 30) / 3); }
 
     record CapacitySegment(int swatch, int color, int width) {}
     private record ResourceColor(int swatch, int color) {}
