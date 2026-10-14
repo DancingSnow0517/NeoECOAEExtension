@@ -228,9 +228,27 @@ final class StorageHostCharts {
         CapacityBar() { tooltips(StorageHostCharts.this::capacityTooltip); }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
-            float width = Math.round(getSizeWidth() * (state().unbounded() ? 1 : state().usage()));
+            var snapshot = state();
+            float width = Math.round(getSizeWidth() * (snapshot.unbounded() ? 1 : snapshot.usage()));
             if (width > 0) context.drawTexture(StoragePanelTextures.CAPACITY_BAR,
                 getPositionX(), getPositionY(), width, getSizeHeight());
+            if (snapshot.unbounded() && width > 0 && getSizeHeight() > 0) {
+                Font font = Minecraft.getInstance().font;
+                String symbol = "∞";
+                int symbolWidth = Math.max(1, font.width(symbol));
+                float scale = Math.min(0.75F, Math.min(getSizeWidth() / symbolWidth,
+                    getSizeHeight() / Math.max(1, font.lineHeight)));
+                var pose = context.graphics.pose();
+                pose.pushPose();
+                try {
+                    pose.translate(getPositionX() + (getSizeWidth() - symbolWidth * scale) / 2,
+                        getPositionY() + (getSizeHeight() - font.lineHeight * scale) / 2 + 1, 0);
+                    pose.scale(scale, scale, 1);
+                    context.graphics.drawString(font, symbol, 0, 0, 0xFFFFFFFF, true);
+                } finally {
+                    pose.popPose();
+                }
+            }
         }
     }
 
