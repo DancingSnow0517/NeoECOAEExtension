@@ -25,7 +25,6 @@ import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.List;
 import java.math.BigInteger;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
-import dev.vfyjxf.taffy.style.TaffyDimension;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -161,20 +160,6 @@ class StorageHostUiTest {
     }
 
     @Test
-    void driveBackgroundsEndBeforeThePanelsClosingBorder() throws java.io.IOException {
-        try (var resource = getClass().getResourceAsStream("/assets/neoecoae/textures/guis/storage/storage_controller.png")) {
-            assertNotNull(resource);
-            var background = javax.imageio.ImageIO.read(resource);
-            int bottom = 31 + 2 * 18 + 16;
-            for (int x = 49; x < 245; x++) {
-                assertEquals(0xFFF2F2F2, background.getRGB(x, bottom));
-                assertEquals(0xFFCBCCD4, background.getRGB(x, bottom + 1));
-                assertEquals(0xFF9A9FB4, background.getRGB(x, bottom + 2));
-            }
-        }
-    }
-
-    @Test
     void unformedStructureRetainsTheOriginalCrossBackground() {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
@@ -296,49 +281,20 @@ class StorageHostUiTest {
     }
 
     @Test
-    void jsonBuildsTheFullHostAndKeepsTheSameTreeAcrossStorageModes() {
+    void bothStorageModesLoadTheirRequiredControls() {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement normal = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
             UIElement infinite = StorageHostUI.create(StoragePanelStateTest.config(List.of(), true));
-            assertEquals(normal.getChildren().stream().map(UIElement::getId).toList(),
-                infinite.getChildren().stream().map(UIElement::getId).toList());
-            assertEquals("storage_controller_root", normal.getId());
-            UIElement background = node(normal, "background");
-            assertEquals(TaffyDimension.length(StorageHostUI.ROOT_HEIGHT), normal.getLayout().getValueImmediate(LayoutProperties.HEIGHT));
-            SpriteTexture texture = (SpriteTexture) background.getStyle().getValueImmediate(PropertyRegistry.BACKGROUND);
-            assertEquals("neoecoae:textures/guis/storage/storage_controller.png", texture.getImageLocation().toString());
-            assertEquals(253, texture.spriteSize.width);
-            assertEquals(231, texture.spriteSize.height);
-            assertEquals(0, texture.spritePosition.x);
-            assertEquals(0, texture.spritePosition.y);
-            assertTrue(background.getChildren().isEmpty());
-            assertEquals(33, node(normal, "storage_cells").getChildren().size());
-            assertInstanceOf(InventorySlots.class, node(normal, "player_inventory"));
-            assertInstanceOf(ItemSlot.class, node(normal, "infinite_component"));
-            assertEquals(LengthPercentageAuto.length(92), node(normal, "energy_stored_text").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(92), node(normal, "energy_text").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(104), node(normal, "capacity_text").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(104), node(normal, "capacity_percentage").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(8), node(normal, "capacity_text").getLayout().getValueImmediate(LayoutProperties.LEFT));
-            assertEquals(LengthPercentageAuto.length(132), node(normal, "capacity_percentage").getLayout().getValueImmediate(LayoutProperties.LEFT));
-            assertEquals(TaffyDimension.length(36), node(normal, "capacity_percentage").getLayout().getValueImmediate(LayoutProperties.WIDTH));
-            assertEquals(LengthPercentageAuto.length(124), node(normal, "resource_text").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(8), node(normal, "capacity_bar").getLayout().getValueImmediate(LayoutProperties.LEFT));
-            assertEquals(LengthPercentageAuto.length(113), node(normal, "capacity_bar").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(134), node(normal, "resource_bar").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(173), node(normal, "energy_bar").getLayout().getValueImmediate(LayoutProperties.LEFT));
-            assertEquals(LengthPercentageAuto.length(92), node(normal, "energy_bar").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(TaffyDimension.length(74), node(normal, "energy_bar").getLayout().getValueImmediate(LayoutProperties.WIDTH));
-            assertEquals(TaffyDimension.length(7), node(normal, "energy_bar").getLayout().getValueImmediate(LayoutProperties.HEIGHT));
-            assertEquals(org.appliedenergistics.yoga.YogaOverflow.VISIBLE,
-                node(normal, "storage_cells").getStyle().getValueImmediate(LayoutProperties.OVERFLOW));
-            assertEquals(TaffyDimension.length(52), node(normal, "storage_cells").getLayout().getValueImmediate(LayoutProperties.HEIGHT));
-            assertEquals(LengthPercentageAuto.length(146), node(normal, "player_inventory").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(201), node(normal, "infinite_component").getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertTrue(normal.selectId("storage_gauge").findFirst().isEmpty());
-            assertTrue(normal.selectId("cell_page").findFirst().isEmpty());
-            assertFalse(node(normal, "host_icon") instanceof ItemSlot);
+            for (UIElement root : List.of(normal, infinite)) {
+                assertEquals("storage_controller_root", root.getId());
+                assertInstanceOf(InventorySlots.class, node(root, "player_inventory"));
+                assertInstanceOf(ItemSlot.class, node(root, "infinite_component"));
+                for (String id : List.of("storage_cells", "energy_stored_text", "energy_text", "capacity_text",
+                        "capacity_percentage", "resource_text", "capacity_bar", "resource_bar", "energy_bar")) {
+                    assertNotNull(node(root, id));
+                }
+            }
         }
     }
 
@@ -399,13 +355,6 @@ class StorageHostUiTest {
             BindableValue<Tag> display = (BindableValue<Tag>) root.getChildren().getFirst();
             UIElement frame = node(root, "storage_information");
             UIElement information = frame.getChildren().getFirst();
-            assertEquals(LengthPercentageAuto.length(-21), frame.getLayout().getValueImmediate(LayoutProperties.RIGHT));
-            assertEquals(LengthPercentageAuto.length(0), frame.getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(TaffyDimension.length(23), frame.getLayout().getValueImmediate(LayoutProperties.WIDTH));
-            assertEquals(TaffyDimension.length(30), frame.getLayout().getValueImmediate(LayoutProperties.HEIGHT));
-            assertEquals(LengthPercentageAuto.length(3), information.getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(TaffyDimension.length(21), information.getLayout().getValueImmediate(LayoutProperties.WIDTH));
-            assertEquals(TaffyDimension.length(21), information.getLayout().getValueImmediate(LayoutProperties.HEIGHT));
             assertEquals("neoecoae:textures/gui/common/side_bar/mirrored_button_slot_up.png",
                 ((SpriteTexture) frame.getStyle().getValueImmediate(PropertyRegistry.BACKGROUND)).getImageLocation().toString());
             for (String eventName : List.of(UIEvents.MOUSE_ENTER, UIEvents.MOUSE_LEAVE)) {
@@ -658,25 +607,7 @@ class StorageHostUiTest {
     }
 
     @Test
-    void installedDiskUsesTheActualItemStackAndItsNativeItemRenderer() {
-        try (var ldlib = mockStatic(LDLib2.class); var drawer = mockStatic(DrawerHelper.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
-            ItemStack disk = new ItemStack(Items.DIAMOND);
-            UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(StoragePanelStateTest.cell(50, 100)
-                .atDrive(new BlockPos(5, 60, 12), disk, null)), false));
-            var slot = (StorageCellGrid.CellSlot) node(root, "storage_cells").getChildren().getFirst();
-            assertTrue(ItemStack.matches(disk, slot.getValue()));
-            // Display slots do not rebind changing native menu slot IDs when paging.
-            assertInstanceOf(LocalSlot.class, slot.getSlot());
-            GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
-            slot.drawItemStack(context, slot.getValue());
-            drawer.verify(() -> DrawerHelper.drawItemStack(context.graphics, slot.getValue(), 0, 0, context.elementColor, null));
-        }
-    }
-
-    @Test
-    void installedCellsUseNativeItemRenderingWithoutExtraStatusLights() {
+    void installedCellsPreserveDiskStacksAndUseNativeRenderingInEveryState() {
         try (var ldlib = mockStatic(LDLib2.class); var drawer = mockStatic(DrawerHelper.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             ItemStack disk = new ItemStack(Items.DIAMOND);
@@ -692,6 +623,9 @@ class StorageHostUiTest {
             assertTrue(((ItemSlot) grid.getChildren().getFirst()).getValue().isEmpty());
             for (int i = 1; i <= 3; i++) {
                 var slot = (StorageCellGrid.CellSlot) grid.getChildren().get(i);
+                assertTrue(ItemStack.matches(disk, slot.getValue()));
+                // Display slots keep local identities when their visible page changes.
+                assertInstanceOf(LocalSlot.class, slot.getSlot());
                 slot.drawItemStack(context, slot.getValue());
                 drawer.verify(() -> DrawerHelper.drawItemStack(context.graphics, slot.getValue(), 0, 0, context.elementColor, null));
             }

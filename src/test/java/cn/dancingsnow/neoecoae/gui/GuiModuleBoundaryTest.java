@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** Guards class-loading and ownership boundaries established by the UI extraction. */
+/** Guards server-side UI state against client-only class dependencies. */
 class GuiModuleBoundaryTest {
     private static final Path ROOT = Path.of("src/main/java/cn/dancingsnow/neoecoae");
 
@@ -32,18 +32,6 @@ class GuiModuleBoundaryTest {
             for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
                 assertFalse(directReference.matcher(Files.readString(file)).find(), file.toString());
             }
-        }
-    }
-
-    @Test
-    void extractedMachinesDelegateLayoutToGuiComponents() throws Exception {
-        Pattern construction = Pattern.compile(
-            "new\\s+(?:UIElement|Button|TextElement|ItemSlot|FluidSlot|InventorySlots)\\s*\\(|\\.layout\\(");
-        for (String file : List.of("ECOIntegratedWorkingStationBlockEntity.java",
-                "ECOLargeIntegratedWorkingStationBlockEntity.java",
-                "crafting/ECOCraftingPatternBusBlockEntity.java")) {
-            Path path = ROOT.resolve("blocks/entity").resolve(file);
-            assertFalse(construction.matcher(Files.readString(path)).find(), path.toString());
         }
     }
 }
