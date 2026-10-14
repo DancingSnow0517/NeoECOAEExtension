@@ -1,8 +1,8 @@
 # 架构冗余审计与整改计划
 
-> 基线：`4908324b`，`src/main/java` 103,965 行。当前 HEAD `1ecf242f`，`src/main/java` 101,226 行（净减 2,739 行）。
+> 基线：`4908324b`，`src/main/java` 103,965 行。本次收尾代码 HEAD `85a6d77b`（起点 `d2e42073`）；`src/main/java` 102,695 行（净减 1,270 行，包含收尾前已加入的大型工作站功能）。
 > 路径默认相对 `src/main/java/cn/dancingsnow/neoecoae/`。
-> 最近一次完整验证记录见 10.4（测试 1163 项，1159 通过、4 跳过）。本次整理只改文档，未重跑测试。
+> 最新完整验证见 10.6（1174 项，1171 通过、3 跳过）；AppBot 可选集成编译通过。
 > 第 4 批的设计说明已并入本文件 §14（原 `ARCHITECTURE_T4_DESIGNS_ZH_CN.md` 已删除，可从 `69a20949` 恢复）。
 
 ---
@@ -14,8 +14,8 @@
 | 基线 | — | `4908324b` | 103,965 |
 | 第 0 批 正确性修复 | ✅ | 分批本地提交 | — |
 | 第 1 批 删除死代码 | ✅ | 分批本地提交 | 102,137 |
-| 第 2 批 横切能力收口 | ✅（`JsonAttrs` 已撤回，见 5.3） | 分批本地提交 | 102,258 |
-| 第 3 批 合并平行类 | ✅ | 第 1～2 波 `1173ccc7`～`c905c901`（7 个提交）；第 3 波 5 个提交 | 101,033 |
+| 第 2 批 横切能力收口 | ✅ 已收尾并通过完整回归（见 10.6）；存储编码迁移归 T4-8 | 分批本地提交 + `aef79f56` | — |
+| 第 3 批 合并平行类 | ✅ 已收尾并通过完整回归（见 10.6） | 第 1～3 波提交 + `1fa605ba` / `85a6d77b` | — |
 | 第 4 批第一组（T4-9～T4-12） | ✅ | `7a99dff1`～`c8ccd192`（6 个代码提交），记录于 `1ecf242f` | 101,226 |
 | 第 4 批其余（T4-1～T4-8、T4-13～T4-19） | T4-3～T4-8 设计完成，待确认；其余未开始 | — | — |
 
@@ -194,14 +194,14 @@ T1-1～T1-10 全部完成，共删除 22 个 Java 类、33 个未引用的模型
 | T2-0 | `core` 包骨架、依赖白名单测试 `CoreDependencyBoundaryTest`、`core.math.BigIntegers`、`core.graph.TopoSort` | ✅ |
 | T2-1 | 数字格式化统一：`BigNumberFormatter` 为唯一的十进制（1000 进位）简写实现，`ExtendedDecimalUnits` 删除 | ✅ |
 | T2-2 | 千位分组与百分比统一用 `DisplayNumbers.grouped`、`HostText.percent` | ✅（D 波） |
-| T2-3 | BigInteger 网络编解码统一到 `ExactMapSync`（有符号版 + 负数检查）；线上字节格式不变 | 基本完成：`ExactMapSync` 已被 `ECOBigOrderProgressS2CPacket`、`ECOExactPending`、`ECOCycleItemList`、`ExactKeyAmount`、`ExactCpuSnapshot`、`MenuDataCodecs` 等使用；`MaterialNode` 的字符串编码未评估 |
-| T2-4 | `AmountMapNbt` 辅助类，`ECOBigOrderController`、`ExecutingCraftingJob` 等共用 | 部分：`AEKey` 键编解码（`ECOMegaLongBulkStorageCell`、`StorageInterfaceFilter`）移到 T4-8，因为要兼容旧存档 |
-| T2-5 | `GenericStackNbt` 有界读取 | 部分：工作站 `readCounter` 已接入；`ECOExecutionPlanNbtCodec`、`ECOCraftingOutputDelivery` 保留自有读取路径 |
-| T2-6 | `TopoSort`（`kahnFifo`/`kahnOrdered`）、`StronglyConnected` 统一 SCC、客户端 `GraphAdjacency` | 基本完成：审计列出的 4 处 Kahn 已换；`AcyclicCraftingSolver` 另有一份手写 Kahn（审计未列，待处理） |
+| T2-3 | BigInteger 网络编解码统一到 `ExactMapSync`（有符号版 + 负数检查）；线上字节格式不变 | ✅：精确数值编码共用 `ExactMapSync`；用户确认保留 `MaterialNode` 六个字符串字段及 UTF 协议，图模型调整归 T4-2 |
+| T2-4 | `AmountMapNbt` 辅助类，`ECOBigOrderController`、`ExecutingCraftingJob` 等共用 | ✅（本批范围）：数量表共用 `AmountMapNbt`；`AEKey` 键编解码与旧存档兼容明确归 T4-8 |
+| T2-5 | `GenericStackNbt` 有界读取 | ✅：工作站 `readCounter` 已接入；执行计划与输出交付的读取布局、失败策略不同，有意保留自有路径 |
+| T2-6 | `TopoSort`（`kahnFifo`/`kahnOrdered`）、`StronglyConnected` 统一 SCC、客户端 `GraphAdjacency` | ✅：`AcyclicCraftingSolver` 剩余手写 Kahn 已换为带取消检查点的 `TopoSort.kahnFifo` |
 | T2-7 | `BigIntegers` 校验统一；插入请求和结果的校验放到 `ECOBigIntegerStorage` | ✅ |
 | T2-8 | `NEBlockEntity.persistAndSync()`、`ServerTaskUtil.isServerStopping()`；约 40 处替换；裸 `executeIfPossible` 全部加保护 | ✅ |
-| T2-9 | `BlockStateUtil.yRotation`（21 处）、`ThreadScope`、压缩链判等、CustomData 辅助方法 | 部分：yRotation、压缩链、CustomData 已完成；`ThreadScope` 只用于 2 处，`ECOCellMutationBatch`、`ExactAmountCollector` 仍手写 ThreadLocal；"清空存储盘"的 4 份实现语义不同，保留 |
-| T2-10 | `FittedText`、`Palette`、`HostElements.tooltips`、`ECOModularUI.create(root)` | 部分：`JsonAttrs` 已撤回（见 10.5），`string()` 辅助现只剩 `NeoUiJsonLoader` 一份，其余 GUI 文件是内联 `getAsString()` 写法（约 17 个文件），需要确认是否接受 |
+| T2-9 | `BlockStateUtil.yRotation`（21 处）、`ThreadScope`、压缩链判等、CustomData 辅助方法 | ✅：通用作用域已收口；保留已确认的两种专用 ThreadLocal 生命周期及原计划中四种不同的清盘语义，见 10.6 |
+| T2-10 | `FittedText`、`Palette`、`HostElements.tooltips`、`ECOModularUI.create(root)` | ✅：用户接受内联 `getAsString()`，不再增加 JSON 包装；墨色与状态色保持现有差异，见 10.6 |
 | T2-11 | `ExecutionOutputs.accumulate`（2 处）；`ECOCraftingStackCodec` | ✅（`addAllSaturating` 保留，AE2 版会溢出） |
 | T2-12 | `integration/ModIds`（19 个常量，`isLoaded` 带 null 保护）；删除 Omni 中死掉的 `supports()` | ✅ |
 
@@ -213,11 +213,11 @@ T1-1～T1-10 全部完成，共删除 22 个 Java 类、33 个未引用的模型
 | T3-2 | `NEClusterCalculator.verifyEitherMirror`；`NENetworkSwitchClusterCalculator` 中间基类 | ✅ |
 | T3-3 | `NELogicalNetworkManager` 泛型 `Domain`；`NetworkSwitchMultipliers`；`CONTROLLER_POS_ORDER` | ✅ |
 | T3-4 | `MultiBlockBuildController.Host` 缩减为默认方法；三个控制器的 get/set 改用 Lombok | ✅（构建状态与 `autoBuild` 不移，见 8.1） |
-| T3-5 | 流体仓 4 合 1、散热口与并行核心参数化；idle 功耗由构造参数传入；旧类 16 个删除 | ✅（行为变化见 9） |
+| T3-5 | 流体仓 4 合 1、散热口与并行核心参数化；idle 功耗由构造参数传入；旧类 16 个删除 | ✅（行为变化见 9；旧公开入口已在 `d2e42073` 恢复） |
 | T3-6 | 集成工作站与大型工作站共用 `isValidScale` 等；删除遮蔽常量和重复电力设置 | ✅（`PowerDrawHelper` 不做，见 8.1） |
 | T3-7 | `NEBlockEntity.onUnloadOrRemove()` 钩子 | ✅ |
 | T3-8 | AE2/AdvancedAE CPU mixin 共用 `ECOExternalCpuMixinSupport`；`ECOExternalCpuOutputRouter` 被实时扫描和 AdvancedAE 扫描共用；IO 端口 mixin 共用 `ECOStorageCells.orEcoCellInventory` | ✅ |
-| T3-9 | `TextureConstants` 移到 `integration/xei`；EMI 多方块列表从 `NEMultiBlocks.DEFINITIONS` 推导 | 部分：纹理常量与多方块列表已统一（行为变化见 9）；JEI/EMI 布局常量的共用未核实 |
+| T3-9 | `TextureConstants` 移到 `integration/xei`；EMI 多方块列表从 `NEMultiBlocks.DEFINITIONS` 推导 | ✅：新增 `RecipeLayouts` 共用冷却与工作站的几何常量；用户确认保留两种浏览器的显示差异 |
 | T3-10 | `IntegrationCells`（`Size` 枚举 L4/L6/L9）、`OptionalCellUpgrades.addStandard`；MEGA 4 个子类合并为 `ECOMegaStorageCellItem` | ✅（审计原文的 `ECOCellModels.registerTiers` 不存在） |
 | T3-11 | `ToolKind` 收掉 20 个工具；`NEBlockEntities` 新增 `clusterBlockEntity`、`tieredBlockEntity` 等；`NEMultiBlocks.byTier` | ✅（差异项保留，见 10.3） |
 | T3-12 | `HostElements.hiddenValue`、`TabBackButton`、`ECOIcon.toolbarBackground`、`CpuSelectionServerState` | ✅（`BindableElement`、`GridSlot` 不存在；滚动条不换，见 8.1） |
@@ -266,13 +266,13 @@ T1-1～T1-10 全部完成，共删除 22 个 Java 类、33 个未引用的模型
 
 ### 7.2 执行过程中产生的待用户决定
 
-1. **JEI 与 EMI 显示差异**（11.7）：冷却配方文字缩放（0.75 与 1.0）、动画时长（20/100 tick 与 2000）、闪电配方文案（`lightning_cost` 单行，还是 `lightning_amount` 加名称两行）、多方块分类图标（COMPUTATION_L4 与 STORAGE_L4）。
-2. **AE2LT 的 `finishJob` 失败钩子**（11.7）：只调用 `ECOCraftingJobLifecycle.finish`，不像 AE2 和 AdvancedAE 那样走 `cancelAndRecover`，因此不会唤醒工作线程回收。是否对齐？
-3. **计算系统计算器的镜像状态**（11.7）：结构校验失败时不重置冷却控制器的镜像状态（现有行为，已保留）。是否要修？
-4. **界面墨色与状态色**（11.5、11.6）：三种近似墨色是否统一？`ECOCraftingGraphScreen.cycleStatusColor` 的绿色是否改成与 `GraphRenderer.materialStatusColor` 一致？
+1. **JEI 与 EMI 显示差异**：✅ 用户确认只共享相同布局参数，保留缩放、动画时长、闪电文案和分类图标差异（10.6）。
+2. **AE2LT 的 `finishJob` 失败钩子**：✅ 用户确认对齐 AE2/AdvancedAE，改用 `cancelAndRecover`，发布取消决定并唤醒已加载工作线程回收（10.6）。
+3. **计算系统计算器的镜像状态**：✅ 用户确认修复；两种方向均校验失败后，清除网络开关状态并重置检查范围内冷却控制器的镜像状态（10.6）。
+4. **界面墨色与状态色**：✅ 用户确认保留三种面板墨色及图界面不同状态域的绿色（10.6）。
 5. **`common.on/off` 的文案**（10.4）：这两个 key 已删（死 key）。大型工作站的 `enabled/disabled` 与镜像的 `on/off` 中文是"开/关"，`common.*` 是"开启/关闭"。若要统一，需要先定统一后的中文文案。
 6. **生成文件刷新**（10.4）：`en_ud.json` 比当前生成结果少 259 个 key，另有 25 个值不同；unfinished 下的文件也有旧值。需要在装齐可选模组的环境里整体重新生成，建议另开一项。
-7. **`MaterialNode` 字符串编码**（T2-3）：是否纳入 BigInteger 编码统一，尚未评估。
+7. **`MaterialNode` 字符串编码**：✅ 用户确认保留字符串与 UTF 协议；图模型统一留在 T4-2。
 8. **`ECOExternalProviderBlocking`**（10.4）：移到 `crafting/adapter/ae2` 后仍向上依赖 `LargeWorkstationPatternProvider` 与 AdvancedAE 桥接，不是干净的 L1。彻底解耦需要加钩子，本批不做。
 
 ---
@@ -514,6 +514,22 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 - **保留**：核心层与三次包迁移、`NEBlockEntities` 的注册封装、`NEMultiBlocks.byTier`、`createStorageBlock`、`NENetworkSwitchClusterCalculator` 的命名钩子、能量晶簇的 `(height, inset)` 参数（同原版紫水晶簇）、`ModIds`。
 - 验证：`compileJava compileTestJava test` 为绿。第 14 节回调的 datagen 核对已在 10.4 的验证中完成，零差异。
 
+### 10.6 第 2、3 批收尾（2026-10-14）
+
+代码提交：`aef79f56`（第二批）、`1fa605ba`（配方布局）、`85a6d77b`（行为修复）。
+
+- 用户确认六项推荐方案：保留图 DTO 的 UTF 字符串协议、公开 `bounded` 的负数/null 行为、两个专用 ThreadLocal 生命周期、内联 JSON 读取及现有颜色；JEI/EMI 只共享相同几何参数。
+- 第二批：`AcyclicCraftingSolver` 改用 `TopoSort.kahnFifo`，保持 FIFO 与取消检查；`bounded` 的非负数计算共用 `NEMath.clampToLong`；图界面的两处限幅改用 Java 21 `Math.clamp`；大型工作站继承 AE2 基类而非 `NEBlockEntity`，两对持久化/同步调用保持原样；删除 `Palette` 中已决定保留差异的 TODO。
+- 第三批：新增 `integration/xei/RecipeLayouts`，冷却与普通/大型工作站的相同尺寸、槽位、进度条和耗电文字坐标由 JEI/EMI 共用。JEI 槽位内容坐标仍在框内偏移一像素；文字缩放与动画时长仍各自保持。
+- 用户另确认两项行为修复：AE2LT 失败终结改走 `ECOCraftingJobLifecycle.cancelAndRecover`；计算系统两种方向均校验失败后，将范围内冷却控制器设为未镜像。
+- 回归：增加 `bounded` 数值边界测试、AE2LT 取消回收测试与计算系统三种镜像校验结果测试。核对实际依赖 JAR 后确认时间轮任务仍持有 `link`，原桥接只找 `id`，会静默退场；桥接现兼容直接 UUID 与 `link.getCraftingID()` 两种形状，并测试真实 JAR 的私有任务结构及空任务。
+- 兼容入口：`d2e42073` 恢复合成/计算并行核心的旧二进制入口类，以及大型工作站流体输入/输出仓的旧类入口。保留的旧类是兼容垫片，参数化实现仍是单一行为来源。
+- 范围已明确：旧存档键编码归 T4-8；图模型归 T4-2；面板状态与领域编解码归 T4-17/T4-16。AE2LT 传输反射和四种槽位子类有意保留，不再计为第二、三批未核实项。
+- 验证：`compileJava compileTestJava test` 通过；1174 项测试，1171 通过、3 跳过、0 失败。`ECOAe2LtCancellationBridgeTest` 4 项、`NEComputationClusterCalculatorTest` 3 项、`ECOExactCraftingPlanTest` 2 项，以及既有拓扑/库存路由回归均通过。`-PenableAppBotIntegration=true compileJava` 通过。未进行真实游戏世界或客户端视觉验证。
+- 构建环境：离线构建初始缺少 NeoForge 21.1.251；在线代理已显式配置。Minecraft 客户端/服务端文件经 SHA-1 核对后从本机 Windows 缓存复用，Maven 依赖也复用了现有缓存。Modrinth 的固定 Useless Mod 版本返回 404，KubeJS Maven TLS 连接失败；使用仓库外临时 init script 指向相同坐标的已缓存 JAR/POM/module，未修改仓库依赖配置。
+
+---
+
 ## 11. 与原审计报告的对齐（2026-10-14 复核）
 
 复核方法：对审计中每条可以 grep 的结论重新搜索源码。无法通过搜索判断的（如通读大文件）标为"未做"。
@@ -530,14 +546,14 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 | B9 `eco.lss` 引用不存在的纹理 | ✅ | `BUTTON_HOVER`、`BAR`、`BAR_CONTAINER` 均已无引用 |
 | B10 解锁条件错用 | ✅ | |
 | B11 工作站处理器与 AppBotania `enqueueWork` | ✅ | |
-| 一.1 数字格式化入口多 | 基本完成 | `.replace("K","k")` 与 `compactNumber` 已删除；`CraftingStatusTableMixin.formatExact` 仍是本地实现 |
-| 一.2 clampToLong | 部分 | 已新增 `NEMath.clampToLong`；`ECOExactCraftingPlan.bounded` 仍是独立副本 |
-| 一.3 BigInteger 网络编解码 | 部分 | 见 5.3 T2-3 |
+| 一.1 数字格式化入口多 | ✅ | `formatExact` 仅按空值与显示模式选择 `AEKey.formatAmount` / `BigNumberFormatter` / `HostText`，没有独立数值格式化算法 |
+| 一.2 clampToLong | ✅ | `bounded` 的非负数计算共用 `NEMath.clampToLong`，保留负数、负溢出与 null 的公开行为 |
+| 一.3 BigInteger 网络编解码 | ✅ | 见 5.3 T2-3；图 DTO 字符串协议有意保留 |
 | 一.4 AEKey 与 `Map<AEKey,BigInteger>` 的 NBT | 部分 | `ECOExactInventory` 未改；`StorageInterfaceFilter` 与批量盘键编解码归入 T4-8 |
 | 一.5 精确数量类型 | 未开始 | T4-1 |
 | 一.6 图模型 | 未开始 | 图模型统一是 T4-2；Kahn 见 5.3 T2-6 |
-| 一.7 线程作用域栈 | 部分 | 见 5.3 T2-9 |
-| 一.7 `setChanged(); markForUpdate();` | 大部分 | 剩余 `markForUpdate()` 17 处，分布在 7 个文件中（审计时约 37 对） |
+| 一.7 线程作用域栈 | ✅ | 专用生命周期有意保留，见 5.3 T2-9 |
+| 一.7 `setChanged(); markForUpdate();` | ✅（等价调用对） | NEBlockEntity 的等价调用对已收口；大型工作站走 AE2 基类，不能复用该方法；独立同步或带分支的路径保留 |
 | 一.7 yRot、`executeIfPossible`、压缩链判等 | ✅ | `BlockStateUtil` 中只剩 1 处 `toYRot() + 180` |
 | 二 集成工作站与大型工作站 | 部分 | 常量遮蔽、电力设置、`isValidScale` 已合并；`PowerDrawHelper` 与 `autoBuild` 不做（见 8.1） |
 | 二 合成/计算系统网络开关 | ✅ | T3-1 |
@@ -547,10 +563,10 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 | 二 `MultiBlockBuildController.Host` 访问器 | ✅ | T3-4 |
 | 二 流体仓、散热口、并行核心 | ✅ | T3-5 |
 | 二 AE2 / AdvancedAE mixin 成对 | 部分 | 方法体共用 `ECOExternalCpuMixinSupport`；IO 端口两份 mixin 保留（I0-1 结论：都必需） |
-| 二 JEI / EMI | 部分 | 见 5.4 T3-9 |
+| 二 JEI / EMI | ✅ | 见 5.4 T3-9 |
 | 二 集成存储盘族与升级卡循环 | ✅ | T3-10 |
 | 二 注册链（NEItems / NEBlocks / NEBlockEntities） | ✅ | T3-11；过度抽象的部分已回滚（10.5） |
-| 二 GUI 小件 | 部分 | `string()` 已不是 7 份重复（只剩 `NeoUiJsonLoader` 一份，其余内联，见 5.3 T2-10）；4 个 `ItemSlot` 子类未处理（`PatternItemSlotClient`、两个 `RequiredItemSlot`、`FuzzyPlanningItemSlot`）；面板状态 NBT 编解码 5 份未处理；墨色三值未决（7.2 第 4 条）；`IBindable`、`BindableElement`、`GridSlot` 不存在 |
+| 二 GUI 小件 | ✅（本批范围） | JSON 内联、颜色差异已确认；四个槽位子类的绘制、同步与交互职责不同，有意保留；面板状态编码归 T4-17；不存在的类已排除 |
 | 三 `ECOStorageCell` 对 `BasicCellInventory` | 部分 | 已用 `ConfigInventory` 与 `IPartitionList`；剩余偏离是有意的（315 类型、封存、迁移、批量语义），见设计说明 T4-8 |
 | 三 批量盘的父类初始化开销 | 未做 | T4-8 |
 | 三 存储盘 tooltip 与拆解 | 部分 | `CellTooltips`、`CellDisassembly` 已抽出，tooltip 只构建一次；未改用 AE2 `BasicCellHandler` 本身 |
@@ -558,8 +574,8 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 | 三 `ECOIOPortTransfer` 对 `transferContents` | 未做 | T4-8 |
 | 三 `ECOCraftingCpuView.addAllSaturating` | 保留 | 与审计结论不同：AE2 `KeyCounter.addAll` 会溢出，保留（见 5.3 T2-11） |
 | 三 `NEBlockEntityTicker` | 不删除 | 被 `NEBlockEntityBuilder.serverTicker` 使用，见 §12 |
-| 三 `ECOAe2LtDirectDispatch` 反射 `getSendList` | 未做 | `PatternProviderLogicAccessor` 已存在，需确认 AE2LT 的类型能否直接转换 |
-| 三 `clamp(float…)` 自写版本 | 未做 | `ECOCraftingGraphScreen.clamp`，审计列出，但未纳入计划 |
+| 三 `ECOAe2LtDirectDispatch` 反射 `getSendList` | 有意保留 | 可选适配器用反射预解析完整传输契约；直接依赖任一 mixin accessor 会改变未注入环境与测试的兼容条件 |
+| 三 `clamp(float…)` 自写版本 | ✅ | 两处调用改用 `Math.clamp`；上下界为 0.15 / 2.5 与 0.15 / 1.5 |
 | 三 `MultiBlockInfoWrapper` 手工 ModularUI | ✅ | 改用 `ECOModularUI.create(root)` |
 | 三 fork 类对照 AE2 19.2.18 | ✅ | T4-11：两个都保留 |
 | 四 执行模式、规划结果、模式身份、DTO、推送守卫、并行提供者、存储透传、规划会话样板、两个 C2S 包、mixin 业务逻辑 | 未开始 | T4-3 至 T4-8 |
@@ -577,7 +593,7 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 | 六 mixin 插件的三种探测方式 | 未做 | `Class.forName` 等仍分散在各处 |
 | 六 `mods.toml` 漏写可选依赖 | ✅ | T4-9 |
 | 六 配置注释与语言文案漂移 | ✅ | T4-10，`common.on`/`common.off` 已删 |
-| 局限：`ECOMachineInterfaceBlockEntity`（1,857 行）、`ECOCraftingPatternBusBlockEntity`（1,272 行）、三个执行核心类 | 未做 | 审计只抽样读过，仍未通读 |
+| 局限：`ECOMachineInterfaceBlockEntity`、`ECOCraftingPatternBusBlockEntity`、三个执行核心类 | 已通读 | 通读结论与疑似 bug 在 §14；正确性修复需另行验证 |
 | 局限：`/tmp/refs_<pid>.txt` 临时文件 | 不存在 | 复核时未找到 |
 
 ## 12. 第 2 批收尾项复核（只读，2026-10-14）
@@ -601,7 +617,7 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 - 需要单独设计：2。
 - 撤回：5、6、8。
 
-**其余待复核**：`ECOAe2LtDirectDispatch` 的 `getSendList` 反射（未核对）；4 个 `ItemSlot` 子类（未核对）。
+**后续收尾结果**（10.6）：直接可做项已完成；负数公共契约保留，专用 ThreadLocal 生命周期保留；AE2LT 反射边界与四个槽位的不同职责有意保留。上表是开工前的历史复核，不再代表当前待办。
 
 ## 13. 只读审计结果汇总（2026-10-14）
 
