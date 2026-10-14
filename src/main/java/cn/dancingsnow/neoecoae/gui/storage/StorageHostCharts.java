@@ -382,9 +382,9 @@ final class StorageHostCharts {
         @Override public void drawBackgroundAdditional(GUIContext context) {
             int maximum = typePanel.maximumOffset();
             if (maximum == 0) return;
-            float height = Math.min(13, getSizeHeight());
+            float height = Math.min(StoragePanelTextures.SLIDER.spriteSize.height, getSizeHeight());
             float y = getPositionY() + (getSizeHeight() - height) * typePanel.currentOffset() / maximum;
-            context.drawTexture(StoragePanelTextures.SLIDER.copy().setSprite(70, 114, 2, 13),
+            context.drawTexture(StoragePanelTextures.SLIDER,
                 getPositionX(), y, getSizeWidth(), height);
         }
     }

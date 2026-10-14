@@ -203,9 +203,9 @@
       "custom": "storage_type_scrollbar",
       "layout": {
         "position": "absolute",
-        "left": 245,
+        "left": 243,
         "top": 104,
-        "width": 2,
+        "width": 6,
         "height": 87
       }
     },
