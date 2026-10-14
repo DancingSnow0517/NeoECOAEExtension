@@ -27,10 +27,9 @@ class StorageIntegrationApiTest {
     }
 
     @Test
-    void oldCellHostImplementationsExposeThePublicApi() {
-        assertTrue(ICellHost.class.isAssignableFrom(cn.dancingsnow.neoecoae.util.ICellHost.class));
-        assertTrue(cn.dancingsnow.neoecoae.util.ICellHost.class.isAssignableFrom(ECODriveBlockEntity.class));
-        assertTrue(cn.dancingsnow.neoecoae.util.ICellHost.class.isAssignableFrom(ECOComputationDriveBlockEntity.class));
+    void drivesImplementThePublicCellHostApi() {
+        assertTrue(ICellHost.class.isAssignableFrom(ECODriveBlockEntity.class));
+        assertTrue(ICellHost.class.isAssignableFrom(ECOComputationDriveBlockEntity.class));
     }
 
     @Test

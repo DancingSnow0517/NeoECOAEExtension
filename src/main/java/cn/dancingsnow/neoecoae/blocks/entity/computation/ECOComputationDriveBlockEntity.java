@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.storage.ICellHost;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
-import cn.dancingsnow.neoecoae.util.ICellHost;
 
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;

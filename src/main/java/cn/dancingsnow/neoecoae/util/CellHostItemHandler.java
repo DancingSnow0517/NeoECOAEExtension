@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.util;
 
+import cn.dancingsnow.neoecoae.api.storage.ICellHost;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
 
