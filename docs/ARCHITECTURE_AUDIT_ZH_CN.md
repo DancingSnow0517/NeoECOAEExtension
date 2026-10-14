@@ -2,7 +2,7 @@
 
 > 基线：`4908324b`，`src/main/java` 103,965 行。本次正确性修复代码 HEAD `46ebae48`（第二、三批收尾起点 `d2e42073`）；`src/main/java` 102,706 行（净减 1,259 行，包含收尾前已加入的大型工作站功能）。
 > 路径默认相对 `src/main/java/cn/dancingsnow/neoecoae/`。
-> 最新完整验证见 10.7（1185 项，1182 通过、3 跳过）；AppBot 可选集成编译通过。
+> 最新完整验证见 10.8（1182 项，1179 通过、3 跳过）；AppBot 可选集成编译结果见 10.7。
 > 第 4 批的设计说明已并入本文件 §14（原 `ARCHITECTURE_T4_DESIGNS_ZH_CN.md` 已删除，可从 `69a20949` 恢复）。
 
 ---
@@ -543,6 +543,19 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 
 ---
 
+### 10.8 精简低价值界面测试（2026-10-15）
+
+代码提交：`45716d27`。用户授权按测试价值精简，不设用例数量目标。
+
+- `GuiModuleBoundaryTest`：删除禁止方块实体出现 UI 构造或 `.layout()` 的源码正则检查；保留服务端状态与公共菜单不引用客户端实现的两项检查。
+- `CraftingUiJsonResourceTest`：保留三份资源的存在/解析、必要控件和动作名称检查；按控件 ID 递归查找，撤销固定尺寸、坐标、子节点数量与索引顺序断言。
+- `StorageHostUiTest`：普通和无限模式分别验证必要控件及库存类型，撤销 JSON 布局的逐项坐标与旧树结构快照；信息图标保留 hover 和同步状态检查，撤销静态尺寸断言；删除只核对未参与渲染的 PNG 固定边框像素的测试。
+- 合并两份磁盘原生绘制用例：合并后仍检查真实 ItemStack、LocalSlot，以及 TYPES_FULL / FULL / NOT_EMPTY 三种磁盘状态和无额外绘制调用。
+- 三个文件净减 74 行；测试方法 26 → 23，显式断言调用 113 → 65。像素绘制位置、服务端锁、分页、资源同步、存档/守恒、算法和外部模组兼容回归继续保留。本次没有修改生产代码、资源或依赖。
+- 验证：`compileJava compileTestJava test --offline --no-configuration-cache` 通过；1182 项，1179 通过、3 跳过、0 失败。沿用仓库外缓存 Maven init script，未排除任何测试。此次优化主要减少维护成本，没有据此宣称性能提升。
+
+---
+
 ## 11. 与原审计报告的对齐（2026-10-14 复核）
 
 复核方法：对审计中每条可以 grep 的结论重新搜索源码。无法通过搜索判断的（如通读大文件）标为"未做"。
@@ -987,7 +1000,7 @@ StorageByteAccounting +25；ECOStorageCell −20；批量盘 −25（8.3a 时约
 
 #### (d) 不动
 
-- `src/test/.../gui/GuiModuleBoundaryTest.java:39–48` 钉住 PB 不得含 `new UIElement(` 或 `.layout(`，UI 代码不要搬进两个 BE。
+- 原 `GuiModuleBoundaryTest.extractedMachinesDelegateLayoutToGuiComponents` 的布局位置限制已在 `45716d27` 撤销（10.8）。UI 归属仍按架构判断，测试只保留客户端依赖隔离检查。
 - `CraftingInterfaceRenderingTest.java:245` 通过反射读取字段 `patternOrganizeInProgress`，不可改名。
 - RPC 名 `openPatternPreview`、`actOnPatternPreview`、`quickMovePatternPreview` 被测试与客户端字符串引用（`CraftingPatternPreviewStateTest:130`、`CraftingInterfaceRenderingTest:111/190`、`gui/crafting/CraftingPatternPreviewState.java:168/252/278`）。
 - `PatternRefundTest` 钉住 PatternRefund 的数量与清源规则。
