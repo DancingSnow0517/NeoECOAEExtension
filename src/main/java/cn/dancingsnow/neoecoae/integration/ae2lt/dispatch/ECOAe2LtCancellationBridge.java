@@ -14,8 +14,7 @@ import net.minecraft.world.level.Level;
  * cancellation callback. Keeping those details here lets the optional mixin
  * remain inert when AE2LT is absent or changes its private implementation.</p>
  *
- * <p><b>Fixed for AE2LT Reborn 2.1.0+</b>: BigCraftingJob directly contains a public
- * UUID id field instead of a separate link object. This bridge now accesses job.id directly.</p>
+ * <p>Supports both jobs with a direct UUID and time-wheel jobs that retain a crafting link.</p>
  */
 public final class ECOAe2LtCancellationBridge {
     private static final String JOB_FIELD = "job";
@@ -52,15 +51,16 @@ public final class ECOAe2LtCancellationBridge {
             if (job == null) {
                 return;
             }
-            // AE2LT Reborn 2.1.0+: BigCraftingJob has "public final UUID id" field
-            UUID jobId = (UUID) access.jobId.get(job);
+            Object identity = access.jobIdentity.get(job);
+            UUID jobId = access.linkId == null ? (UUID) identity
+                : identity == null ? null : (UUID) access.linkId.invoke(identity);
             if (jobId == null) {
                 return;
             }
             Object cpu = access.cpu.get(logic);
             Level level = cpu == null ? null : (Level) access.level.invoke(cpu);
             // The live CPU normally always supplies a server level; otherwise let cancellation proceed quietly.
-            ECOCraftingJobLifecycle.finish(level, jobId, false);
+            ECOCraftingJobLifecycle.cancelAndRecover(level, jobId);
         } catch (ReflectiveOperationException | ClassCastException ignored) {
             // Private AE2LT details are optional and version-sensitive. A failed bridge must not cancel the CPU.
         }
@@ -69,14 +69,23 @@ public final class ECOAe2LtCancellationBridge {
     private static final class Access {
         private final Field job;
         private final Field cpu;
-        private final Field jobId;
+        private final Field jobIdentity;
+        private final Method linkId;
         private final Method level;
 
         private Access(Class<?> logicType) throws ReflectiveOperationException {
             this.job = field(logicType, JOB_FIELD);
             this.cpu = field(logicType, CPU_FIELD);
-            // BigCraftingJob.id is a public final field, but we still need reflection to access it
-            this.jobId = field(job.getType(), JOB_ID_FIELD);
+            Field identity;
+            Method linkId = null;
+            try {
+                identity = field(job.getType(), JOB_ID_FIELD);
+            } catch (NoSuchFieldException noDirectId) {
+                identity = field(job.getType(), "link");
+                linkId = method(identity.getType(), "getCraftingID");
+            }
+            this.jobIdentity = identity;
+            this.linkId = linkId;
             this.level = method(cpu.getType(), "getLevel");
         }
     }

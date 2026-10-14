@@ -129,7 +129,10 @@ public class NEComputationClusterCalculator extends NENetworkSwitchClusterCalcul
                 setCoolingControllersMirrored(level, min, max, mirrored);
                 syncNetworkSwitchState(level, controllerPos, controllerState, mirrored);
             },
-            () -> clearNetworkSwitchState(level, controllerPos, controllerState)
+            () -> {
+                clearNetworkSwitchState(level, controllerPos, controllerState);
+                setCoolingControllersMirrored(level, min, max, false);
+            }
         );
     }
 
