@@ -167,6 +167,7 @@ public class NETextures {
     public static IGuiTexture OUTPUTS = guiTexture("widget/outputs.png");
     public static IGuiTexture MULTIBLOCK = guiTexture("widget/multiblock.png");
     public static IGuiTexture CPU_SELECTOR = guiTexture("widget/cpu_selector.png");
+    public static IGuiTexture CPU_SELECTOR_CLOSED = guiTexture("widget/cpu_selector_closed.png");
 
     private static IGuiTexture guiTexture(String path) {
         return SpriteTexture.of(NeoECOAE.id("textures/gui/" + path));

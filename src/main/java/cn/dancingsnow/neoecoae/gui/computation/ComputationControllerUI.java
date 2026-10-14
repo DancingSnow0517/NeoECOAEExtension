@@ -106,12 +106,17 @@ public final class ComputationControllerUI {
         info.style(style -> style.backgroundTexture(SpriteTexture.of(
             ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/common/side_bar/mirrored_button_slot_up.png"))));
         Button listToggle = HostSideButtonBar.createButton();
-        listToggle.noText().addPostIcon(NETextures.CPU_SELECTOR);
+        UIElement listToggleIcon = new UIElement().layout(layout -> layout.heightPercent(100).setAspectRatio(1f))
+            .style(style -> style.backgroundTexture(NETextures.CPU_SELECTOR_CLOSED))
+            .addClasses("__icon__", "__button_post-icon__");
+        listToggle.noText().addChild(listToggleIcon);
         listToggle.layout(layout -> layout.width(18).height(20));
         listToggle.setId("computation-cpu-list-toggle");
         listToggle.setOnClick(event -> {
             boolean show = !selector.isDisplayed();
             selector.setDisplay(show);
+            listToggleIcon.style(style -> style.backgroundTexture(
+                show ? NETextures.CPU_SELECTOR : NETextures.CPU_SELECTOR_CLOSED));
             info.setDisplay(!show);
             setViewSize(rootRef[0], show ? 362 : 295, 231);
             recenter();
