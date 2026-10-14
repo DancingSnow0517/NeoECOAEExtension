@@ -298,7 +298,6 @@ sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 
 sourceSets.main.resources {
     srcDirs 'src/generated/resources'
-    exclude 'kubejs.plugins.txt'
 }
 
 configurations {
