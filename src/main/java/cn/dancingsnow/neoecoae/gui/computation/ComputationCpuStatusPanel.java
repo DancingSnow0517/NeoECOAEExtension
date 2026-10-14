@@ -5,9 +5,10 @@ import appeng.api.util.AEColor;
 import appeng.client.gui.widgets.AE2Button;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -50,17 +51,18 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private static final int ITEM_TRACK_X = 306;
     private static final int TEXT = 0x413F54;
     private static final int BATCH_ICON_SIZE = 16, BATCH_ICON_LEFT = -1;
-    private static final ResourceLocation BATCH_ICON = NeoECOAE.id("textures/gui/computation/eco_batching.png");
+    private static final ResourceLocation BATCH_ICON =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/eco_batching.png");
     // The source sheet is 384x384, but only the 326x254 top slice is the page background.
     // The two 67x22 CPU row states live at y=260 in the same sheet.
     private static final IGuiTexture BACKGROUND = SpriteTexture.of(
-        NeoECOAE.id("textures/guis/eco_craftingcpu.png")).setSprite(0, 0, WIDTH, HEIGHT);
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 0, WIDTH, HEIGHT);
     private static final IGuiTexture CPU_NORMAL = SpriteTexture.of(
-        NeoECOAE.id("textures/guis/eco_craftingcpu.png")).setSprite(0, 260, CPU_WIDTH, CPU_HEIGHT);
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 260, CPU_WIDTH, CPU_HEIGHT);
     private static final IGuiTexture CPU_SELECTED = SpriteTexture.of(
-        NeoECOAE.id("textures/guis/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
 
-    private final ComputationHostPanelUI.Config config;
+    private final ComputationControllerUI.Config config;
     private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
     private final BindableValue<Integer> cpuScrollRequest = new BindableValue<>(0);
     private final BindableValue<Integer> itemScrollRequest = new BindableValue<>(0);
@@ -74,7 +76,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private int selectedSerial = -1, total, cpuOffset, cpuPageOffset, itemTotal, itemOffset, itemPageOffset;
     private Runnable backAction = () -> {};
 
-    ComputationCpuStatusPanel(ComputationHostPanelUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
+    ComputationCpuStatusPanel(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
         super(new CompoundTag());
         this.config = config;
         layout(layout -> layout.width(WIDTH).height(HEIGHT).paddingAll(0));
@@ -109,7 +111,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             }
         }, true);
 
-        Button back = new ComputationSettingsPanel.BackButton().noText()
+        Button back = new BackButton().noText()
             .setOnClick(event -> backAction.run());
         back.setId("computation-status-back");
         back.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(302).top(-5).width(20).height(20).paddingAll(0));
@@ -146,11 +148,11 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         itemTotal = value.getInt("itemTotal");
         itemOffset = itemPageOffset = value.getInt("itemOffset");
         cpus = value.getList("cpus", Tag.TAG_COMPOUND).stream()
-            .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries().get())).toList();
+            .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
         items = value.getList("items", Tag.TAG_COMPOUND).stream()
-            .map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, config.registries().get())).toList();
+            .map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, config.registries())).toList();
         selected = value.contains("selected")
-            ? ComputationCpuEntry.read(value.getCompound("selected"), config.registries().get()) : null;
+            ? ComputationCpuEntry.read(value.getCompound("selected"), config.registries()) : null;
         cpuScrollRequest.setValue(cpuOffset, false);
         itemScrollRequest.setValue(itemOffset, false);
         selectionRequest.setValue(selectedSerial, false);
@@ -174,7 +176,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             if (cpuOffset == cpuPageOffset && row < cpus.size()) {
                 event.hoverTooltips = HoverTooltips.empty().append(
-                    ComputationCpuPanel.tooltip(cpus.get(row)).toArray(Component[]::new));
+                    ComputationCpuSelector.tooltip(cpus.get(row)).toArray(Component[]::new));
             }
         });
         return hitbox;
@@ -243,7 +245,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private void drawCpu(GUIContext context, Font font, ComputationCpuEntry entry, float x, float y) {
-        ComputationCpuPanel.drawCpuRow(context, font, entry, x, y, entry.serial() == selectedSerial,
+        ComputationCpuSelector.drawCpuRow(context, font, entry, x, y, entry.serial() == selectedSerial,
             CPU_NORMAL, CPU_SELECTED);
     }
 
@@ -304,6 +306,16 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         button.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x).top(y).width(50).height(20).paddingAll(0));
     }
 
+    private static final class BackButton extends Button {
+        @Override
+        public void drawBackgroundAdditional(GUIContext context) {
+            // AE2's box tab changes only with focus and draws both sprites at native size.
+            ECOIcon background = isFocused() ? ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS : ECOIcon.TAB_BUTTON_BACKGROUND;
+            context.drawTexture(AETextures.icon(background), getPositionX(), getPositionY(), background.width, background.height);
+            context.drawTexture(AETextures.icon(ECOIcon.BACK), getPositionX() + 2, getPositionY() + 1, 16, 16);
+        }
+    }
+
     private static final class StatusButton extends Button {
         private Component label = Component.empty();
 
@@ -335,13 +347,13 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private static final class ServerState {
-        private final ComputationHostPanelUI.Config config;
+        private final ComputationControllerUI.Config config;
         private final CpuSelectionState<ECOCraftingCPU> selection;
         private CompoundTag cached;
         private long sampledTick = Long.MIN_VALUE;
         private int itemOffset;
 
-        private ServerState(ComputationHostPanelUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
+        private ServerState(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
             this.config = config;
             selection = new CpuSelectionState<>(ROWS, identities);
         }
@@ -394,7 +406,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             tag.putInt("total", selection.size());
             tag.putInt("cpuOffset", selection.offset());
             tag.putInt("selectedSerial", selection.selectedSerial());
-            var registries = config.registries().get();
+            var registries = config.registries();
             ListTag cpuPage = new ListTag();
             for (ECOCraftingCPU cpu : selection.page()) cpuPage.add(ComputationCpuEntry.sample(cpu, selection.serial(cpu)).write(registries));
             tag.put("cpus", cpuPage);
