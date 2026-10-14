@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync;
-import cn.dancingsnow.neoecoae.compat.extendedaeplus.EAEPForcedCrafting;
+import cn.dancingsnow.neoecoae.integration.extendedaeplus.dispatch.EAEPForcedCrafting;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;

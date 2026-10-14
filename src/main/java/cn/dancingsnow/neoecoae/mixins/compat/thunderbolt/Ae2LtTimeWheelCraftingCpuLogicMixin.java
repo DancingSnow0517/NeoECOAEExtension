@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.compat.thunderbolt;
 
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCancellationBridge;
+import cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtCancellationBridge;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;

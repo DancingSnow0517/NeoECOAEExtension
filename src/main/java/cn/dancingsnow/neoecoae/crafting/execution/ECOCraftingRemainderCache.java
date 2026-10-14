@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternIntrospection;
 import com.google.common.collect.MapMaker;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;

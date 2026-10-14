@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.compat.thunderbolt;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider;
-import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltWorkstationBridge;
+import cn.dancingsnow.neoecoae.integration.thunderbolt.dispatch.ECOThunderboltWorkstationBridge;
 import com.moakiee.thunderbolt.api.crafting.batch.BatchJobView;
 import com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider;
 import org.spongepowered.asm.mixin.Mixin;

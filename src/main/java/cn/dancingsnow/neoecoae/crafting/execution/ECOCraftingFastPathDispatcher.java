@@ -16,7 +16,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
+import cn.dancingsnow.neoecoae.integration.useless.dispatch.ECOUselessDynamicOutputBridge;
 
 /**
  * Optional batch dispatch boundary. It owns FastPath preparation, energy reservation, physical push, and rollback;

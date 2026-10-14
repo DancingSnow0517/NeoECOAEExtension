@@ -124,7 +124,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         }
         // EAEP's vanilla/quantum mixins do not run on ECO's independent executor.
         // Use the normal persisted ledger so missing inputs survive reload and follow normal insertion/cancellation.
-        for (var entry : cn.dancingsnow.neoecoae.compat.extendedaeplus.EAEPForcedCrafting.manualMissing(plan)) {
+        for (var entry : cn.dancingsnow.neoecoae.integration.extendedaeplus.dispatch.EAEPForcedCrafting.manualMissing(plan)) {
             waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
             timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
         }
@@ -139,7 +139,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         // ECO plans already carry base recipes and a verified execution schedule. Only
         // imported plans need EAEP automatic wrappers converted back to logical crafts.
         if (executionPlan == null && !exactOrder) {
-            var normalized = cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExternalPatternNormalization
+            var normalized = cn.dancingsnow.neoecoae.integration.extendedaeplus.dispatch.ECOExternalPatternNormalization
                     .normalize(plan.patternTimes());
             tasks.clear();
             normalized.forEach((pattern, count) -> {

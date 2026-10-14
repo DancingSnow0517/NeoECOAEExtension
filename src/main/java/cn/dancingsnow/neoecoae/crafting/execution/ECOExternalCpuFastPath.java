@@ -12,8 +12,8 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
-import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
-import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.integration.useless.dispatch.ECOUselessDynamicOutputBridge;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExternalProviderBlocking;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 

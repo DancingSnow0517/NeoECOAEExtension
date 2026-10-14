@@ -6,7 +6,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.storage.cells.StorageCell;
 import appeng.items.storage.CreativeCellItem;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.compat.storage.ECOOptionalUnboundedCells;
+import cn.dancingsnow.neoecoae.integration.ECOOptionalUnboundedCells;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;

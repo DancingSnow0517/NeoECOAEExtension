@@ -21,7 +21,7 @@ import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.helpers.patternprovider.PatternProviderLogic;
-import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExternalProviderBlocking;
 import net.pedroksl.advanced_ae.common.logic.AdvPatternProviderLogic;
 import net.pedroksl.advanced_ae.common.patterns.AdvProcessingPattern;
 import net.pedroksl.advanced_ae.common.patterns.IAdvPatternDetails;
@@ -63,7 +63,7 @@ class ECOProcessingDispatchIntegrationTest {
     @Test
     void directTransportPartialAcceptanceRefundsOnlyUnownedCopiesAndStopsRamp() {
         var f = new Fixture();
-        var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        var session = mock(cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.Session.class);
         when(session.maxBatchSize(any())).thenReturn((long) Integer.MAX_VALUE);
         var offers = new ArrayList<Long>();
         when(session.submit(any(), any(), anyLong())).thenAnswer(call -> {
@@ -71,9 +71,9 @@ class ECOProcessingDispatchIntegrationTest {
             offers.add(offer);
             return cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.accepted(1, offer == 1);
         });
-        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.class)) {
-            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
-            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
+        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.class)) {
+            bridge.when(() -> cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
+            bridge.when(() -> cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
             var result = f.scaled(0, (request, provider) -> { fail("Direct adapter must not replay ordinary push"); return false; });
             assertEquals(List.of(1L, 2L), offers);
             assertEquals(2, result.acceptedCrafts());
@@ -86,12 +86,12 @@ class ECOProcessingDispatchIntegrationTest {
     @Test
     void directTransportExceptionRetainsDebitedInputsAndSuspendsWithoutReplay() {
         var f = new Fixture();
-        var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        var session = mock(cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.Session.class);
         when(session.maxBatchSize(any())).thenReturn((long) Integer.MAX_VALUE);
         when(session.submit(any(), any(), anyLong())).thenThrow(new IllegalStateException("Failure after machine insertion"));
-        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.class)) {
-            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
-            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
+        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.class)) {
+            bridge.when(() -> cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
+            bridge.when(() -> cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
             assertNull(f.scaled(0, (request, provider) -> { fail("Uncertain ownership cannot be retried"); return false; }));
             assertEquals(99, f.inventory.list.get(f.key));
             assertTrue(f.request.job().suspended);
@@ -367,7 +367,7 @@ class ECOProcessingDispatchIntegrationTest {
         when(config.getSettings()).thenReturn(Set.of(advancedBlocking));
         when(config.getSetting(advancedBlocking)).thenReturn(YesNo.YES);
         when(f.provider.getConfigManager()).thenReturn(config);
-        assertTrue(cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking.isEnabled(config));
+        assertTrue(cn.dancingsnow.neoecoae.integration.extendedaeplus.dispatch.ECOExtendedAEPlusBlocking.isEnabled(config));
         when(f.provider.isBlocking()).thenReturn(true);
         assertTrue(ECOExternalProviderBlocking.isEnabled(f.provider));
         assertFalse(ECOProcessingPatternDispatcher.supportsScaledDispatch(f.request, f.provider));
@@ -395,13 +395,13 @@ class ECOProcessingDispatchIntegrationTest {
     @Test
     void routedTransportCountsEveryNativeCopyAgainstAttemptBudget() {
         var f = new Fixture(1_000_000, 2_000_000);
-        var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        var session = mock(cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.Session.class);
         when(session.maxBatchSize(any())).thenReturn(1L);
         when(session.submit(any(), any(), eq(1L))).thenReturn(
                 cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.accepted(1, true));
-        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.class)) {
-            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
-            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
+        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.class)) {
+            bridge.when(() -> cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
+            bridge.when(() -> cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
             for (int i = 0; i < 3; i++) f.scaled(0, (request, provider) -> fail("Direct transport owns these pushes"));
             verify(session, times(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK))
                     .submit(eq(f.request.pattern()), any(), eq(1L));

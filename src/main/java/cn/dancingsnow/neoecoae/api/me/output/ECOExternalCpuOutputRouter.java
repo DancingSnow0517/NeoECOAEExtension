@@ -4,7 +4,7 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKey;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCraftingAdapter;
+import cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtCraftingAdapter;
 import java.util.HashSet;
 import java.util.OptionalLong;
 import java.util.Set;

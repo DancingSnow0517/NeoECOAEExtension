@@ -18,7 +18,7 @@ import appeng.crafting.execution.CraftingCpuHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
-import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExternalProviderBlocking;
 import appeng.hooks.ticking.TickHandler;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -65,8 +65,8 @@ final class ECOCraftingProviderDispatcher {
         return budget.canAttemptOrdinary()
                 || fastPath.supportsBatch(provider)
                 || ECOParallelCraftingProviders.find(provider) != null
-                || cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(provider) != null
-                || cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.isEligible(provider)
+                || cn.dancingsnow.neoecoae.integration.ae2lt.dispatch.ECOAe2LtDirectDispatch.open(provider) != null
+                || cn.dancingsnow.neoecoae.integration.omnisequence.dispatch.ECOOmniSequenceDirectDispatch.isEligible(provider)
                 || processing.supports(provider, null);
     }
 
@@ -265,10 +265,10 @@ final class ECOCraftingProviderDispatcher {
             ECODispatchStallDiagnostics diagnostics,
             Consumer<ICraftingProvider> markProviderAttempt,
             Runnable markNormalResume) {
-        if (!cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.isLoaded()) {
+        if (!cn.dancingsnow.neoecoae.integration.omnisequence.dispatch.ECOOmniSequenceDirectDispatch.isLoaded()) {
             return null;
         }
-        try (var omni = cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.open(
+        try (var omni = cn.dancingsnow.neoecoae.integration.omnisequence.dispatch.ECOOmniSequenceDirectDispatch.open(
                 provider, request.pattern(), request.inputs(), request.allowedCrafts())) {
             if (omni == null) {
                 return null;

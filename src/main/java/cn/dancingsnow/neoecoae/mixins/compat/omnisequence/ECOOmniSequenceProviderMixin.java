@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.compat.omnisequence;
 
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
-import cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceBatchAdapter;
+import cn.dancingsnow.neoecoae.integration.omnisequence.dispatch.ECOOmniSequenceBatchAdapter;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchAdmission;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchCraftingProvider;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchProbe;

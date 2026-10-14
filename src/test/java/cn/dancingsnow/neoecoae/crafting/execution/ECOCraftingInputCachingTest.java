@@ -13,7 +13,7 @@ import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.execution.InputTemplate;
 import appeng.crafting.inv.ICraftingInventory;
 import appeng.crafting.inv.ListCraftingInventory;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternIntrospection;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

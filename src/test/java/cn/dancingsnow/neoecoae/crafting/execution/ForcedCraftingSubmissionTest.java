@@ -8,7 +8,7 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.*;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.CraftingPlan;
-import cn.dancingsnow.neoecoae.compat.extendedaeplus.EAEPForcedCrafting;
+import cn.dancingsnow.neoecoae.integration.extendedaeplus.dispatch.EAEPForcedCrafting;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOForcedCraftingPlan;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.Map;

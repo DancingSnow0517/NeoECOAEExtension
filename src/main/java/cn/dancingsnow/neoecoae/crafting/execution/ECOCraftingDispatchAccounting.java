@@ -61,7 +61,7 @@ final class ECOCraftingDispatchAccounting {
             beforeNotifications.run();
             dispatchEvent.accept(new ECOCraftingDispatchEvent(contextFactory.apply(job), request.pattern(),
                 batch.craftCount(), provider));
-            cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.flushAfterCpuAccounting(provider);
+            cn.dancingsnow.neoecoae.integration.omnisequence.dispatch.ECOOmniSequenceDirectDispatch.flushAfterCpuAccounting(provider);
             batch.outputs().keySet().forEach(postChange);
             batch.remainders().keySet().forEach(postChange);
             markDirty.run();
@@ -78,7 +78,7 @@ final class ECOCraftingDispatchAccounting {
             Runnable beforeNotifications, ICraftingProvider provider) {
         var job = request.job();
         audit(request, result.acceptedCrafts(), result.outputs(), result.remainders(), "dispatch", () -> {
-            boolean virtual = cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusVirtualCrafting
+            boolean virtual = cn.dancingsnow.neoecoae.integration.extendedaeplus.dispatch.ECOExtendedAEPlusVirtualCrafting
                     .isEnabled(provider) && !job.exactOrder && hasTerminalVirtualOutput(request);
             for (var output : result.outputs()) {
                 boolean virtualOutput = virtual && output.what().equals(job.finalOutput.what());
@@ -108,7 +108,7 @@ final class ECOCraftingDispatchAccounting {
             if (provider != null) {
                 dispatchEvent.accept(new ECOCraftingDispatchEvent(
                         contextFactory.apply(request.job()), request.pattern(), result.acceptedCrafts(), provider));
-                cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.flushAfterCpuAccounting(provider);
+                cn.dancingsnow.neoecoae.integration.omnisequence.dispatch.ECOOmniSequenceDirectDispatch.flushAfterCpuAccounting(provider);
             }
             for (var output : request.pattern().getOutputs()) {
                 postChange.accept(output.what());

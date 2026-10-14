@@ -18,7 +18,7 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import appeng.menu.AutoCraftingMenu;
 import cn.dancingsnow.neoecoae.api.NEFakePlayer;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingWork;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;

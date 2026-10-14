@@ -9,7 +9,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ICraftingInventory;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.execution.InputTemplate;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternIntrospection;
 import com.google.common.collect.MapMaker;
 import net.minecraft.world.level.Level;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;

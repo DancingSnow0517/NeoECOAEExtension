@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.compat.useless.UselessPatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.integration.useless.dispatch.UselessPatternSemanticAdapter;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;

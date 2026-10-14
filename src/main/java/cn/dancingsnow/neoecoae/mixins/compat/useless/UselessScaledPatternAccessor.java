@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.compat.useless;
 
 import appeng.api.crafting.IPatternDetails;
-import cn.dancingsnow.neoecoae.compat.useless.UselessScaledPatternView;
+import cn.dancingsnow.neoecoae.integration.useless.dispatch.UselessScaledPatternView;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.gen.Invoker;

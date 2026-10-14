@@ -12,7 +12,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
-import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
+import cn.dancingsnow.neoecoae.integration.extendedaeplus.dispatch.ECOExtendedAEPlusBlocking;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;

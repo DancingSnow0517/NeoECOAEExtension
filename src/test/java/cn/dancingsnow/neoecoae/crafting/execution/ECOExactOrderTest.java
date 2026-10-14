@@ -119,9 +119,9 @@ class ECOExactOrderTest {
         var dispatcher = new ECOCraftingFastPathDispatcher(new Object(),
             new ECOCraftingEnergyTransaction(() -> {}, () -> 0), accounting);
         try (var types = mockStatic(AEKeyTypes.class);
-             var dynamic = mockStatic(cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge.class)) {
-            dynamic.when(() -> cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge.prepareExact(any(), any(), any()))
-                .thenReturn(mock(cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge.Registration.class));
+             var dynamic = mockStatic(cn.dancingsnow.neoecoae.integration.useless.dispatch.ECOUselessDynamicOutputBridge.class)) {
+            dynamic.when(() -> cn.dancingsnow.neoecoae.integration.useless.dispatch.ECOUselessDynamicOutputBridge.prepareExact(any(), any(), any()))
+                .thenReturn(mock(cn.dancingsnow.neoecoae.integration.useless.dispatch.ECOUselessDynamicOutputBridge.Registration.class));
             var plan = new ECOExactCraftingPlan(result(output, Map.of(pattern, PlannerAmount.of(HUGE))), false);
             var execution = new ECOExecutionPlan(
                 new PlanIdentity.Signature(output, 10, Map.of(), Map.of(), Map.of(), Map.of()),

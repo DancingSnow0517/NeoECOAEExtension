@@ -27,7 +27,7 @@ import cn.dancingsnow.neoecoae.api.fastpath.EcoFastpathHost;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
-import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
+import cn.dancingsnow.neoecoae.integration.thunderbolt.dispatch.ECOThunderboltBatchBridge;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
