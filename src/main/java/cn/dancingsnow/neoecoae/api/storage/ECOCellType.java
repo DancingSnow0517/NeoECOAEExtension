@@ -22,7 +22,7 @@ public record ECOCellType(Component desc, int typeCount, boolean visible) {
     @Setter
     @Accessors(fluent = true, chain = true)
     public static class Builder {
-        Component desc = Component.translatable("neoecoae.unknow_cell_type");
+        Component desc = Component.translatable("neoecoae.unknown_cell_type");
         int typeCount = 1;
         boolean visible = true;
 

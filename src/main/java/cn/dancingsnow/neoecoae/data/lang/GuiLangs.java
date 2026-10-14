@@ -65,24 +65,10 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.legacy.cell_info", "%s (%s)");
         provider.add("gui.neoecoae.storage.legacy.cell_info.item", "Item Storage Matrix");
         provider.add("gui.neoecoae.storage.legacy.cell_info.fluid", "Fluid Storage Matrix");
-        provider.add("gui.neoecoae.storage.legacy.cell_info.gas", "Gas Storage Matrix");
-        provider.add("gui.neoecoae.storage.legacy.cell_info.custom", "%s Storage Matrix");
         provider.add("gui.neoecoae.storage.legacy.cell_info.other", "Other Storage Matrix");
-        provider.add("gui.neoecoae.storage.legacy.cell_info.empty", "Unknown");
         provider.add("gui.neoecoae.storage.legacy.cell_types", "Types: %s / %s");
-        provider.add("gui.neoecoae.storage.legacy.cell_types.used", "Types: %s");
-        provider.add("gui.neoecoae.storage.legacy.cell_bytes.used", "Bytes: %s");
         provider.add("gui.neoecoae.storage.legacy.cell_bytes", "Bytes: %s / %s");
-        provider.add("gui.neoecoae.storage.legacy.cell_tooltip", "%s (%s)\nBytes: %s / %s");
-        provider.add("gui.neoecoae.storage.legacy.graph.item", "Item storage: %s");
-        provider.add("gui.neoecoae.storage.legacy.graph.fluid", "Fluid storage: %s");
-        provider.add("gui.neoecoae.storage.legacy.graph.gas", "Other storage: %s");
-        provider.add("gui.neoecoae.storage.legacy.graph.total", "Total storage: %s");
-        provider.add("gui.neoecoae.storage.legacy.graph.item_type", "Item types: %s / %s");
-        provider.add("gui.neoecoae.storage.legacy.graph.fluid_type", "Fluid types: %s / %s");
-        provider.add("gui.neoecoae.storage.legacy.graph.gas_type", "Other types: %s / %s");
         provider.add("gui.neoecoae.storage.legacy.graph.energy_usage", "Total energy: %s AE/t");
-        provider.add("gui.neoecoae.storage.legacy.graph.energy_stored", "Energy stored: %s");
         provider.add("gui.neoecoae.storage.legacy.graph.total_bytes", "Total bytes: %s");
         provider.add("gui.neoecoae.storage.legacy.graph.total_usage", "Total usage: %s");
         provider.add("gui.neoecoae.storage.ui.title", "Storage Controller");
@@ -146,43 +132,25 @@ public class GuiLangs {
         provider.add("gui.neoecoae.relative_side.bottom", "Bottom");
         provider.add("gui.neoecoae.common.yes", "Yes");
         provider.add("gui.neoecoae.common.no", "No");
-        provider.add("gui.neoecoae.common.on", "On");
-        provider.add("gui.neoecoae.common.off", "Off");
         provider.add("gui.neoecoae.machine.formed", "Formed");
 
         // storage
-        provider.add("gui.neoecoae.storage.energy", "Energy Monitoring");
-        provider.add("gui.neoecoae.storage.energy_storage", "Energy Storage");
-        provider.add("gui.neoecoae.storage.bytes_used", "bytes used");
-        provider.add("gui.neoecoae.storage.system_load", "System Load");
-        provider.add("gui.neoecoae.storage.current_load", "Current Load");
-        provider.add("gui.neoecoae.storage.max_load", "Max Load");
-        provider.add("gui.neoecoae.storage.status", "Status");
-        provider.add("gui.neoecoae.storage.status.full", "%s capacity full");
-        provider.add("gui.neoecoae.storage.status.high", "%s near capacity");
-        provider.add("gui.neoecoae.storage.status.warning", "%s pressure rising");
-        provider.add("gui.neoecoae.storage.status.stable", "Stable");
-        provider.add("gui.neoecoae.storage.idle_matrices", "Idle Matrices");
         provider.add("gui.neoecoae.storage.infinite_value", "infinite");
-        provider.add("gui.neoecoae.common.types", "types");
         provider.add("gui.neoecoae.host.crafting.subtitle", "Crafting System Host");
         provider.add("gui.neoecoae.storage_priority.open", "Open priority panel");
         provider.add("gui.neoecoae.storage_priority.close", "Close priority panel");
-        provider.add("gui.neoecoae.storage.bulk_mark", "Right-click: only mark network compressible items above %s; Shift + right-click: mark and migrate all matching network items into this host's bulk cells");
         provider.add("gui.neoecoae.storage.bulk_mark.result.success",
             "Auto-marked %s; already marked %s; no space %s; migrated %s");
         provider.add("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell", "No ECO MEGA long bulk cell installed");
         provider.add("gui.neoecoae.storage.bulk_mark.result.busy", "Storage transfer or migration is in progress");
         provider.add("gui.neoecoae.storage.bulk_mark.result.invalid_threshold", "The auto-mark threshold is invalid");
         provider.add("gui.neoecoae.storage.bulk_mark.result.unavailable", "MEGA bulk-cell integration is unavailable");
-        provider.add("gui.neoecoae.host.metric.types", "Types");
         provider.add("gui.neoecoae.host.metric.bytes", "Bytes");
 
         // computation
         provider.add("gui.neoecoae.host.computation.cpu_storage", "CPU Storage");
         provider.add("gui.neoecoae.host.computation.thread_usage", "Thread Usage");
         provider.add("gui.neoecoae.host.computation.parallel_count", "Parallel Count");
-        provider.add("gui.neoecoae.host.computation.capacity", "Computation Capacity");
         provider.add("gui.neoecoae.host.computation.free_memory", "Free CPU Memory");
         provider.add("gui.neoecoae.cpu.status.idle", "Idle");
         provider.add("gui.neoecoae.cpu.status.running", "Running");
@@ -253,7 +221,6 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Runtime");
         provider.add("gui.neoecoae.crafting.ui.batch_per_thread.detail", "Authoritative Crafting Capability");
         provider.add("gui.neoecoae.crafting.ui.batch_per_thread.total", "Max Crafts per Tick: %s");
-        provider.add("gui.neoecoae.host.crafting.host_line", "%s · FT Parallel Capacity %d · Batch %d");
         provider.add("gui.neoecoae.crafting.capability.fx", "FX Cores: %d active / %d physical");
         provider.add("gui.neoecoae.crafting.capability.network_composition", "Network: x2 %d / x8 %d");
         provider.add("gui.neoecoae.crafting.capability.network_multiplier", "Network Multiplier M: %d");
@@ -261,8 +228,6 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.capability.total", "Total Batch Capacity: %s");
         provider.add("gui.neoecoae.crafting.capability.ft_parallel", "FT Parallel Capacity: %s");
         provider.add("gui.neoecoae.crafting.capability.overclock", "Overclock: %d theoretical / %d effective");
-        provider.add("gui.neoecoae.host.crafting.host_type.high_energy", "High-Energy");
-        provider.add("gui.neoecoae.host.crafting.host_type.normal", "Normal");
         provider.add("gui.neoecoae.crafting.ui.energy_usage", "Energy Usage");
         provider.add("gui.neoecoae.crafting.performance", "Performance");
         provider.add("gui.neoecoae.crafting.task.status.running", "Running");
@@ -351,13 +316,9 @@ public class GuiLangs {
             "Currently %d substitution-enabled patterns");
         provider.add("gui.neoecoae.host.network_frequency.cycle", "Cycle Network Frequency (Current: %d)");
         provider.add("gui.neoecoae.host.network_frequency.cycle.unassigned", "Cycle Network Frequency (Unassigned)");
-        provider.add("gui.neoecoae.host.network.mode.local", "LOCAL x1");
-        provider.add("gui.neoecoae.host.network.mode.normal", "NETWORK SWITCH x2");
-        provider.add("gui.neoecoae.host.network.mode.high_energy", "HIGH-ENERGY x8");
         provider.add("gui.neoecoae.host.network.connected", "NETWORK ONLINE");
         provider.add("gui.neoecoae.host.network.disconnected", "NETWORK OFFLINE");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");
-        provider.add("gui.neoecoae.host.crafting.overflow", "Overflow");
         provider.add("gui.neoecoae.host.crafting.coolant", "Coolant");
         provider.add("gui.neoecoae.storage_interface.filter.title", "Resource Filters");
         provider.add("gui.neoecoae.storage_interface.filter.hint", "Left-click: Set | Right-click: Clear");

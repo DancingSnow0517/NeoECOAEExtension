@@ -25,6 +25,7 @@
 - 修复 EAEP 虚拟合成兼容，并兼容旧版合成 CPU 注入目标。
 - 样板磁盘集成要求 AE2 Pattern Disk 0.7.1 或更新：集成入口按反射探测它需要的 API 入口，本次把版本地板提到了 0.7.1 新增的那个入口点上。装更旧版本时集成整体退场（只打一行日志），机器行为回到它还不认识样板磁盘之前；不使用样板磁盘的存档不受影响。
 - 恢复 KubeJS 插件注册：`kubejs.plugins.txt` 自 2026-08-29 起被删除并从资源中排除，`NEKubeJSPlugin` 一直未被 KubeJS 加载。
+- 修正拼写错误的翻译键：`tooltip.neoecoae.storage_dirve.0/1` → `tooltip.neoecoae.storage_drive.0/1`，`tooltip.neoecoae.max_lenth` → `tooltip.neoecoae.max_length`，`neoecoae.unknow_cell_type` → `neoecoae.unknown_cell_type`。旧键不再保留，覆盖这些键的资源包需要同步改名。
 
 > 调查范围：beta6 发布提交 `0be241ad`（2026-09-24）之后，至当前 HEAD `d52cb21b`（2026-09-24），共 19 个提交。
 

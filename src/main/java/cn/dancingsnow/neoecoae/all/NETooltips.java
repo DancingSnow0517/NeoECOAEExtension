@@ -45,19 +45,19 @@ public class NETooltips {
         if (STORAGE_SYSTEMS.contains(stack.getItem())) {
             addTooltips(tooltip, flags,
                 Component.translatable("tooltip.neoecoae.storage_system"),
-                Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.storageSystemMaxLength)
+                Component.translatable("tooltip.neoecoae.max_length", NEConfig.storageSystemMaxLength)
             );
         }
         if (stack.is(NEBlocks.ECO_DRIVE.asItem())) {
             addTooltips(tooltip, flags,
-                Component.translatable("tooltip.neoecoae.storage_dirve.0"),
-                Component.translatable("tooltip.neoecoae.storage_dirve.1")
+                Component.translatable("tooltip.neoecoae.storage_drive.0"),
+                Component.translatable("tooltip.neoecoae.storage_drive.1")
             );
         }
         if (CRAFTING_SYSTEMS.contains(stack.getItem())) {
             addTooltips(tooltip, flags,
                 Component.translatable("tooltip.neoecoae.crafting_system"),
-                Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.craftingSystemMaxLength)
+                Component.translatable("tooltip.neoecoae.max_length", NEConfig.craftingSystemMaxLength)
             );
         }
         if (stack.is(NEBlocks.INTEGRATED_WORKING_STATION.asItem())) {
@@ -132,7 +132,7 @@ public class NETooltips {
         if (COMPUTATION_SYSTEMS.contains(stack.getItem())) {
             addTooltips(tooltip, flags,
                 Component.translatable("tooltip.neoecoae.computation_system"),
-                Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.computationSystemMaxLength),
+                Component.translatable("tooltip.neoecoae.max_length", NEConfig.computationSystemMaxLength),
                 Component.translatable("tooltip.neoecoae.computation_system_desc.0"),
                 Component.translatable("tooltip.neoecoae.computation_system_desc.1"),
                 Component.translatable("tooltip.neoecoae.computation_system_desc.2"),

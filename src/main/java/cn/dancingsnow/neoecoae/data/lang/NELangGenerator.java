@@ -4,25 +4,7 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
-        provider.add("gui.neoecoae.big_order.reason.output_storage", "Waiting for output storage");
-        provider.add("gui.neoecoae.big_order.reason.child_incomplete", "Incomplete segment; further planning stopped");
-        provider.add("gui.neoecoae.big_order.planning", "Planning");
-        provider.add("gui.neoecoae.big_order.running_child", "Running segment");
-        provider.add("gui.neoecoae.big_order.waiting_materials", "Waiting for materials");
-        provider.add("gui.neoecoae.big_order.waiting_capacity", "Waiting for capacity");
-        provider.add("gui.neoecoae.big_order.completed", "Completed");
-        provider.add("gui.neoecoae.big_order.cancelled", "Cancelled");
-        provider.add("gui.neoecoae.big_order.failed", "Failed");
-        provider.add("gui.neoecoae.big_order.reason.capacity", "CPU capacity unavailable");
-        provider.add("gui.neoecoae.big_order.reason.materials", "Missing materials");
-        provider.add("gui.neoecoae.big_order.reason.source_unavailable", "Waiting for network or requesting player");
-        provider.add("gui.neoecoae.big_order.reason.planner_busy", "Planner busy");
-        provider.add("gui.neoecoae.big_order.reason.planning_failed", "Planning failed");
-        provider.add("gui.neoecoae.big_order.total", "Total %s");
         provider.add("gui.neoecoae.big_order.requested", "Requested: %s");
-        provider.add("gui.neoecoae.big_order.done", "Completed %s");
-        provider.add("gui.neoecoae.big_order.remaining", "Remaining %s");
-        provider.add("gui.neoecoae.big_order.child", "Segment %s · remaining %s");
         provider.add("gui.neoecoae.big_order.requires_cpu", "BigInt orders require an ECO CPU");
         provider.add("gui.neoecoae.big_order.single_task", "ECO CPU: execute the complete order as one task");
         provider.add("gui.neoecoae.storage_interface.ignore_creative.on", "Ignore creative cell input: On");
@@ -116,9 +98,6 @@ public class NELangGenerator {
         provider.add("cell_type.neoecoae.mega_mana", "MEGA Mana");
         provider.add("item.neoecoae.mega_mana_cell_housing", "ECO MEGA Storage Matrix Housing (Mana)");
         provider.add("item.neoecoae.eco_mega_mana_cell_4g", "ECO - LE9 Storage Matrix (Mega Mana)");
-        provider.add("tooltip.neoecoae.megacells.4g", "4 GiB storage capacity");
-        provider.add("tooltip.neoecoae.megacells.empty_only", "Only an empty storage matrix can be disassembled");
-        provider.add("tooltip.neoecoae.megacells.storage_type", "MEGA storage type: %s");
 
         provider.add("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");
@@ -156,15 +135,10 @@ public class NELangGenerator {
         provider.add("tag.item.neoecoae.superconductive_ingot_base", "Superconductive Ingot Base");
 
         provider.add("tooltip.neoecoae.holdshift", "Hold [Shift] to show more info");
-        provider.add("tooltip.neoecoae.max_lenth", "Maximum length of structure: %d");
-        provider.add("tooltip.neoecoae.pattern.verified_normal", "Verified: normal pattern");
-        provider.add("tooltip.neoecoae.pattern.verified_smithing_stonecutting", "Verified: smithing/stonecutting recipe");
-        provider.add("tooltip.neoecoae.pattern.verified_durability", "Verified: durability pattern");
-        provider.add("tooltip.neoecoae.pattern.verified_self_growing", "Verified: self-growing pattern");
-        provider.add("tooltip.neoecoae.pattern.verified_special_nbt", "Verified: special NBT pattern");
+        provider.add("tooltip.neoecoae.max_length", "Maximum length of structure: %d");
 
         provider.add("tooltip.neoecoae.storage_system", "The core of the storage subsystem");
-        addLangs(provider, "tooltip.neoecoae.storage_dirve",
+        addLangs(provider, "tooltip.neoecoae.storage_drive",
             "Can drive storage matrix",
             "The drivable storage matrix tier depends on the storage subsystem host controller"
         );
@@ -183,9 +157,6 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.infinite_resource.contents", "Infinite supply: Water / Cobblestone / Lava");
         provider.add("tooltip.neoecoae.infinite_resource.unbounded", "Can be extracted directly by the ME network and never runs out");
         provider.add("tooltip.neoecoae.infinite_resource.sink", "Accepts only the three listed resources; inserted resources are destroyed");
-        provider.add("gui.neoecoae.storage.status.degraded", "Infinite storage data needs repair");
-        provider.add("gui.neoecoae.storage.status.recovery", "Infinite storage is temporarily read-only");
-        provider.add("gui.neoecoae.storage.status.unavailable", "Infinite storage is unavailable");
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting subsystem");
         provider.add("tooltip.neoecoae.large_integrated_working_station",
@@ -217,8 +188,8 @@ public class NELangGenerator {
 
         addLangs(provider, "tooltip.neoecoae.crafting_pattern_bus",
             "ECO - FD Smart Pattern Bus is the main part of the crafting subsystem",
-            "Each bus can store 63 patten",
-            "When encoding patten on the ME Encoding Terminal, you can use the adjacent button to quickly upload them"
+            "Each bus can store 63 patterns",
+            "When encoding patterns on the ME Encoding Terminal, you can use the adjacent button to quickly upload them"
         );
 
         provider.add("tooltip.neoecoae.computation_system", "The core of the computation subsystem");
@@ -249,7 +220,7 @@ public class NELangGenerator {
             "Right-click a computation subsystem host to install directly");
 
         provider.add("neoecoae.classic_pack", "Neo ECO AE Extension Classic Textures");
-        provider.add("neoecoae.unknow_cell_type", "Unknown cell type");
+        provider.add("neoecoae.unknown_cell_type", "Unknown cell type");
 
         provider.add("tooltip.neoecoae.budding_energized_crystal_block", "Obtained by striking Budding Certus Quartz with lightning");
     }
