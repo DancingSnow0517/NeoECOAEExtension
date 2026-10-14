@@ -212,11 +212,11 @@ final class StorageHostCharts {
         @Override public void drawBackgroundAdditional(GUIContext context) {
             texture(context, StoragePanelTextures.HOST_ICON_BACKGROUND);
             if (state().formed() && state().tier() >= 1 && state().tier() <= 3) {
-                float x = getPositionX() + (getSizeWidth() - 12) / 2;
+                float x = getPositionX() + Math.round((getSizeWidth() - 13) / 2);
                 context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), false),
-                    x, getPositionY() + 2, 12, 7);
+                    x, getPositionY() + 1, 13, 8);
                 context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), true),
-                    x, getPositionY() + getSizeHeight() - 9, 12, 7);
+                    x, getPositionY() + getSizeHeight() - 9, 13, 8);
             }
             if (!hostItem.isEmpty()) context.graphics.renderItem(hostItem,
                 Math.round(getPositionX() + (getSizeWidth() - 16) / 2),

@@ -113,14 +113,15 @@ class StorageHostUiTest {
                 doReturn(111F).when(grid).getPositionY();
                 GUIContext context = mock(GUIContext.class);
                 grid.drawBackgroundAdditional(context);
-                verify(context, times(columns * 3)).drawTexture(any(SpriteTexture.class), anyFloat(), anyFloat(), eq(16F), eq(18F));
+                verify(context, times(columns * 2)).drawTexture(any(SpriteTexture.class), anyFloat(), anyFloat(), eq(16F), eq(18F));
+                verify(context, times(columns)).drawTexture(any(SpriteTexture.class), anyFloat(), anyFloat(), eq(16F), eq(16F));
                 verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                     && sprite.spritePosition.y == 52 && sprite.spriteSize.height == 18), eq(222F), eq(111F), eq(16F), eq(18F));
                 verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                     && sprite.spritePosition.y == 70 && sprite.spriteSize.height == 18), eq(240F), eq(129F), eq(16F), eq(18F));
                 verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                    && sprite.spritePosition.y == 87 && sprite.spriteSize.height == 18),
-                    eq(222F + (columns - 1) * 18), eq(147F), eq(16F), eq(18F));
+                    && sprite.spritePosition.y == 88 && sprite.spriteSize.height == 16),
+                    eq(222F + (columns - 1) * 18), eq(147F), eq(16F), eq(16F));
                 if (columns < 11) verify(context, never()).drawTexture(any(SpriteTexture.class), eq(222F + columns * 18), anyFloat(), anyFloat(), anyFloat());
                 int visualDisk = 11 + 1;
                 assertTrue(((ItemSlot) grid.getChildren().get(visualDisk)).getValue().is(Items.DIAMOND));
@@ -143,27 +144,32 @@ class StorageHostUiTest {
                 }
             }
             SpriteTexture bottom = StoragePanelTextures.cellBackground(2);
-            assertEquals(18, bottom.spriteSize.height);
-            assertEquals(54, java.util.stream.IntStream.range(0, 3)
+            assertEquals(16, bottom.spriteSize.height);
+            assertEquals(52, java.util.stream.IntStream.range(0, 3)
                 .map(row -> StoragePanelTextures.cellBackground(row).spriteSize.height).sum());
-            for (int x = 0; x < 16; x++) {
-                assertEquals(0xFFCBCCD4, atlas.getRGB(bottom.spritePosition.x + x, bottom.spritePosition.y));
-                assertEquals(0xFFCBCCD4, atlas.getRGB(bottom.spritePosition.x + x,
-                    bottom.spritePosition.y + bottom.spriteSize.height - 1));
+            // Every row must contain the same complete 16px glyph, with no leading separator.
+            for (int row = 1; row < 3; row++) {
+                var texture = StoragePanelTextures.cellBackground(row);
+                for (int y = 0; y < 16; y++) {
+                    for (int x = 0; x < 16; x++) {
+                        assertEquals(atlas.getRGB(x, 52 + y), atlas.getRGB(texture.spritePosition.x + x,
+                            texture.spritePosition.y + y));
+                    }
+                }
             }
         }
     }
 
     @Test
-    void expandedDriveFrameKeepsItsClosingBorderBelowTheWholeThreeSlotColumn() throws java.io.IOException {
+    void driveBackgroundsEndBeforeThePanelsClosingBorder() throws java.io.IOException {
         try (var resource = getClass().getResourceAsStream("/assets/neoecoae/textures/guis/storage/storage_controller.png")) {
             assertNotNull(resource);
             var background = javax.imageio.ImageIO.read(resource);
-            int bottom = 31 + 3 * 18;
+            int bottom = 31 + 2 * 18 + 16;
             for (int x = 49; x < 245; x++) {
-                assertEquals(0xFF9A9FB4, background.getRGB(x, bottom));
+                assertEquals(0xFFF2F2F2, background.getRGB(x, bottom));
                 assertEquals(0xFFCBCCD4, background.getRGB(x, bottom + 1));
-                assertEquals(0xFFCBCCD4, background.getRGB(x, bottom + 2));
+                assertEquals(0xFF9A9FB4, background.getRGB(x, bottom + 2));
             }
         }
     }
@@ -327,7 +333,7 @@ class StorageHostUiTest {
             assertEquals(TaffyDimension.length(7), node(normal, "energy_bar").getLayout().getValueImmediate(LayoutProperties.HEIGHT));
             assertEquals(org.appliedenergistics.yoga.YogaOverflow.VISIBLE,
                 node(normal, "storage_cells").getStyle().getValueImmediate(LayoutProperties.OVERFLOW));
-            assertEquals(TaffyDimension.length(54), node(normal, "storage_cells").getLayout().getValueImmediate(LayoutProperties.HEIGHT));
+            assertEquals(TaffyDimension.length(52), node(normal, "storage_cells").getLayout().getValueImmediate(LayoutProperties.HEIGHT));
             assertEquals(LengthPercentageAuto.length(146), node(normal, "player_inventory").getLayout().getValueImmediate(LayoutProperties.TOP));
             assertEquals(LengthPercentageAuto.length(201), node(normal, "infinite_component").getLayout().getValueImmediate(LayoutProperties.TOP));
             assertTrue(normal.selectId("storage_gauge").findFirst().isEmpty());
@@ -483,13 +489,13 @@ class StorageHostUiTest {
                         if (formed) {
                             int sourceX = 18 + (tier - 1) * 16;
                             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                                && sprite.spritePosition.x == sourceX && sprite.spritePosition.y == 20
-                                && sprite.spriteSize.width == 12 && sprite.spriteSize.height == 7),
-                                eq(211F), eq(242F), eq(12F), eq(7F));
+                                && sprite.spritePosition.x == sourceX && sprite.spritePosition.y == 19
+                                && sprite.spriteSize.width == 13 && sprite.spriteSize.height == 8),
+                                eq(211F), eq(241F), eq(13F), eq(8F));
                             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                                 && sprite.spritePosition.x == sourceX && sprite.spritePosition.y == 43
-                                && sprite.spriteSize.width == 12 && sprite.spriteSize.height == 7),
-                                eq(211F), eq(265F), eq(12F), eq(7F));
+                                && sprite.spriteSize.width == 13 && sprite.spriteSize.height == 8),
+                                eq(211F), eq(265F), eq(13F), eq(8F));
                         }
                         verify(context.graphics).renderItem(argThat(stack -> ItemStack.matches(expected, stack)), eq(209), eq(249));
                         verifyNoMoreInteractions(context, context.graphics);
@@ -501,7 +507,7 @@ class StorageHostUiTest {
     }
 
     @Test
-    void realDriveItemAndHoverFollowTheBottomBackgroundOffsetTogether() {
+    void realDriveItemsAndHoverUseTheSameRowSpacing() {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var cells = List.of(StorageHostUI.CellEntry.EMPTY.atDrive(new BlockPos(2, 1, 0), ItemStack.EMPTY, null),
@@ -512,7 +518,7 @@ class StorageHostUiTest {
             var middle = (StorageCellGrid.CellSlot) grid.getChildren().get(11);
             var bottom = (StorageCellGrid.CellSlot) grid.getChildren().get(22);
             assertEquals(LengthPercentageAuto.length(18), middle.getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(37), bottom.getLayout().getValueImmediate(LayoutProperties.TOP));
+            assertEquals(LengthPercentageAuto.length(36), bottom.getLayout().getValueImmediate(LayoutProperties.TOP));
             middle.drawHover(context);
             bottom.drawHover(context);
             verify(context, times(2)).drawTexture(NETextures.AE2_SLOT_HIGHLIGHT, 0F, 0F, 16F, 16F);

@@ -21,7 +21,7 @@ final class StoragePanelTextures {
     static final SpriteTexture SCALE = sprite(0, 133, 74, 7);
     static final SpriteTexture INFINITY = sprite(16, 52, 24, 10);
     static final SpriteTexture RESOURCE_HOVER = sprite(24, 78, 8, 8);
-    static final SpriteTexture CELL_COLUMN = sprite(0, 52, 16, 53);
+    static final SpriteTexture CELL_COLUMN = sprite(0, 52, 16, 52);
     static final int FALLBACK_SWATCH = 14;
     static final int[] COLORS = {
         0x17B86D, 0x3894FF, 0xEC8600, 0xCCCCCC, 0xCC493D, 0xFFB2D8,
@@ -51,14 +51,14 @@ final class StoragePanelTextures {
     }
 
     static SpriteTexture hostMarker(int tier, boolean bottom) {
-        return sprite(18 + (Math.clamp(tier, 1, 3) - 1) * 16, bottom ? 43 : 20, 12, 7);
+        return sprite(18 + (Math.clamp(tier, 1, 3) - 1) * 16, bottom ? 43 : 19, 13, 8);
     }
 
-    /** Three complete 18px tiles; the bottom repeats a separator to move its glyph down one pixel. */
+    /** Two 18px rows and a final 16px slot; the panel artwork supplies the closing border. */
     static SpriteTexture cellBackground(int row) {
-        int offset = row * 18 - (row == 2 ? 1 : 0);
+        int offset = row * 18;
         return sprite(CELL_COLUMN.spritePosition.x, CELL_COLUMN.spritePosition.y + offset,
-            CELL_COLUMN.spriteSize.width, 18);
+            CELL_COLUMN.spriteSize.width, row == 2 ? 16 : 18);
     }
 
     static SpriteTexture swatch(int index, int color) {
