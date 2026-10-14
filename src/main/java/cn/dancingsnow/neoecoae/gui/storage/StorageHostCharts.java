@@ -148,7 +148,22 @@ final class StorageHostCharts {
                 case "resources" -> Component.translatable("gui.neoecoae.storage.ui.resource_distribution");
                 default -> throw new IllegalArgumentException("Unknown storage caption metric: " + metric);
             };
-            text(context, caption, 0, 0, getSizeWidth(), fontScale, TEXT, metric.equals("title"), rightAligned);
+            float scale = metric.equals("energy_stored") ? energyRowScale() : fontScale;
+            text(context, caption, 0, 0, getSizeWidth(), scale, TEXT, metric.equals("title"), rightAligned);
+        }
+
+        /**
+         * The stored and drain captions share one row, so both take the scale that fits them side by side.
+         * Otherwise longer translations (e.g. English) overlap each other.
+         */
+        private float energyRowScale() {
+            Font font = Minecraft.getInstance().font;
+            int gap = 8;
+            int stored = font.width(Component.translatable("gui.neoecoae.storage.ui.energy",
+                HostText.ae2Amount(state().energy()), HostText.ae2Amount(state().maxEnergy())).getString());
+            int drain = font.width(Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage",
+                HostText.ae2Amount(state().drain())).getString());
+            return Math.max(0.5F, Math.min(fontScale, getSizeWidth() / Math.max(1, stored + gap + drain)));
         }
 
         /** Draw the drain amount under the stored amount, keeping both numeric values on one vertical axis. */
@@ -162,8 +177,7 @@ final class StorageHostCharts {
             String suffix = template.substring(markerStart + marker.length());
             String amount = HostText.ae2Amount(state().drain());
             String complete = prefix + amount + suffix;
-            float scale = Math.max(0.5F, Math.min(fontScale,
-                getSizeWidth() / Math.max(1, font.width(Component.literal(complete)))));
+            float scale = energyRowScale();
 
             // Use the prefix from the stored-energy translation as the shared numeric anchor.
             int valueX;
@@ -206,11 +220,11 @@ final class StorageHostCharts {
         @Override public void drawBackgroundAdditional(GUIContext context) {
             texture(context, StoragePanelTextures.HOST_ICON_BACKGROUND);
             if (state().formed() && state().tier() >= 1 && state().tier() <= 3) {
-                float x = getPositionX() + (getSizeWidth() - 12) / 2;
+                float x = getPositionX() + Math.round((getSizeWidth() - 13) / 2);
                 context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), false),
-                    x, getPositionY() + 2, 12, 7);
+                    x, getPositionY() + 1, 13, 8);
                 context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), true),
-                    x, getPositionY() + getSizeHeight() - 9, 12, 7);
+                    x, getPositionY() + getSizeHeight() - 9, 13, 8);
             }
             if (!hostItem.isEmpty()) context.graphics.renderItem(hostItem,
                 Math.round(getPositionX() + (getSizeWidth() - 16) / 2),
@@ -222,9 +236,27 @@ final class StorageHostCharts {
         CapacityBar() { HostElements.tooltips(this, StorageHostCharts.this::capacityTooltip); }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
-            float width = Math.round(getSizeWidth() * (state().unbounded() ? 1 : state().usage()));
+            var snapshot = state();
+            float width = Math.round(getSizeWidth() * (snapshot.unbounded() ? 1 : snapshot.usage()));
             if (width > 0) context.drawTexture(StoragePanelTextures.CAPACITY_BAR,
                 getPositionX(), getPositionY(), width, getSizeHeight());
+            if (snapshot.unbounded() && width > 0 && getSizeHeight() > 0) {
+                Font font = Minecraft.getInstance().font;
+                String symbol = "∞";
+                int symbolWidth = Math.max(1, font.width(symbol));
+                float scale = Math.min(0.75F, Math.min(getSizeWidth() / symbolWidth,
+                    getSizeHeight() / Math.max(1, font.lineHeight)));
+                var pose = context.graphics.pose();
+                pose.pushPose();
+                try {
+                    pose.translate(getPositionX() + (getSizeWidth() - symbolWidth * scale) / 2,
+                        getPositionY() + (getSizeHeight() - font.lineHeight * scale) / 2 + 1, 0);
+                    pose.scale(scale, scale, 1);
+                    context.graphics.drawString(font, symbol, 0, 0, 0xFFFFFFFF, true);
+                } finally {
+                    pose.popPose();
+                }
+            }
         }
     }
 
@@ -304,13 +336,11 @@ final class StorageHostCharts {
                 context.drawTexture(StoragePanelTextures.TYPE_PANEL, getPositionX(), y, 68, 29);
                 StoragePanelState.TypeLine type = state().types().get(index);
                 context.drawTexture(StoragePanelTextures.resourceIcon(type.swatch(), type.color()), getPositionX() + 2, y + 2, 6, 6);
-                text(context, type.name(), 12, row * 29 + 2, nameWidth, nameFontScale, TEXT);
-                String types = HostText.ae2Amount(type.usedTypes());
-                if (type.totalTypes() >= 0 && !state().unbounded()) types += "/" + StorageCellGrid.capacity(type.totalTypes());
-                String bytes = type.bytesText();
-                if (type.totalBytes() >= 0 && !state().unbounded()) bytes += "/" + StorageCellGrid.capacity(type.totalBytes());
-                text(context, Component.literal(types), 3, row * 29 + 13, 29, valueFontScale, TEXT);
-                text(context, Component.literal(bytes), 35, row * 29 + 13, 30, valueFontScale, TEXT);
+                text(context, type.name(), 10, row * 29 + 2, nameWidth, nameFontScale, TEXT);
+                text(context, usage(HostText.ae2Amount(type.usedTypes()), type.usedTypes(), type.totalTypes(),
+                    StorageCellGrid.capacity(type.totalTypes())), 3, row * 29 + 13, 29, valueFontScale, TEXT);
+                text(context, usage(type.bytesText(), type.usedBytes(), type.totalBytes(),
+                    StorageCellGrid.capacity(type.totalBytes())), 35, row * 29 + 13, 30, valueFontScale, TEXT);
                 bar(context, StoragePanelTextures.BLUE_BAR, type.usedTypes(), type.totalTypes(), 3, y + 21);
                 bar(context, StoragePanelTextures.PINK_BAR, type.usedBytes(), type.totalBytes(), 36, y + 21);
             }
@@ -323,16 +353,23 @@ final class StorageHostCharts {
                 texture.spritePosition.y, width, 4), getPositionX() + x, y, width, 4);
         }
 
+        /** Panel figure: coloured used part over a bounded total, or the plain used figure when unbounded. */
+        private Component usage(String used, long usedValue, long totalValue, String total) {
+            if (totalValue < 0 || state().unbounded()) return HostText.totalPart(used);
+            return HostText.usedOfTotal(HostText.usedPart(used, usedValue, totalValue), "/", HostText.totalPart(total));
+        }
+
         List<Component> tooltip(int row) {
             int index = currentOffset() + row;
             if (index >= state().types().size()) return List.of();
             StoragePanelState.TypeLine type = state().types().get(index);
             return List.of(type.name(),
                 Component.translatable("gui.neoecoae.storage.legacy.cell_types",
-                    HostText.ae2Amount(type.usedTypes()), state().unbounded() ? "∞" : StorageCellGrid.capacity(type.totalTypes())),
+                    HostText.usedPart(HostText.ae2Amount(type.usedTypes()), type.usedTypes(), type.totalTypes()),
+                    HostText.totalPart(state().unbounded() ? "∞" : StorageCellGrid.capacity(type.totalTypes()))),
                 Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
-                    HostText.fullBytes(type.exactUsedBytes()),
-                    state().unbounded() ? "∞" : HostText.fullBytes(type.totalBytes())),
+                    HostText.usedPart(HostText.fullBytes(type.exactUsedBytes()), type.usedBytes(), type.totalBytes()),
+                    HostText.totalPart(state().unbounded() ? "∞" : HostText.fullBytes(type.totalBytes()))),
                 Component.translatable("gui.neoecoae.storage.ui.scroll_types").withColor(Palette.HOST_MUTED));
         }
     }
@@ -356,9 +393,9 @@ final class StorageHostCharts {
         @Override public void drawBackgroundAdditional(GUIContext context) {
             int maximum = typePanel.maximumOffset();
             if (maximum == 0) return;
-            float height = Math.min(13, getSizeHeight());
+            float height = Math.min(StoragePanelTextures.SLIDER.spriteSize.height, getSizeHeight());
             float y = getPositionY() + (getSizeHeight() - height) * typePanel.currentOffset() / maximum;
-            context.drawTexture(StoragePanelTextures.SLIDER.copy().setSprite(70, 114, 2, 13),
+            context.drawTexture(StoragePanelTextures.SLIDER,
                 getPositionX(), y, getSizeWidth(), height);
         }
     }
@@ -419,8 +456,7 @@ final class StorageHostCharts {
         var used = Component.literal(fullUsedBytes(state)).withColor(state.unbounded()
             ? Palette.HOST_VALUE : HostText.gaugeTextColor((float) state.usage()));
         if (state.unbounded()) return used;
-        return used.append(Component.literal(" / ").withColor(TEXT))
-            .append(Component.literal(HostText.fullBytes(state.totalBytes())).withColor(Palette.HOST_VALUE));
+        return HostText.usedOfTotal(used, " / ", HostText.totalPart(HostText.fullBytes(state.totalBytes())));
     }
 
     private static String fullUsedBytes(StoragePanelState state) {
@@ -438,8 +474,9 @@ final class StorageHostCharts {
 
     private List<Component> energyTooltip() {
         return List.of(
-            Component.translatable("gui.neoecoae.storage.ui.energy", HostText.ae2Amount(state().energy()),
-                HostText.ae2Amount(state().maxEnergy())),
+            Component.translatable("gui.neoecoae.storage.ui.energy",
+                HostText.usedPart(HostText.ae2Amount(state().energy()), state().energy(), state().maxEnergy()),
+                HostText.totalPart(HostText.ae2Amount(state().maxEnergy()))),
             Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage", HostText.ae2Amount(state().drain())));
     }
 

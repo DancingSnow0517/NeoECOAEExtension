@@ -100,6 +100,19 @@ class ECOCraftingControllerWorkerItemsTest {
         assertTrue(host.getCraftingControllerWorkerItems().stream().allMatch(ItemStack::isEmpty));
     }
 
+    @Test
+    void pooledGroupOutputsMergeSameItemAndSkipIdleWorkers() {
+        var merged = ECOCraftingSystemBlockEntity.mergeOutputs(List.of(
+            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(512)),
+            CraftingOutputDisplay.EMPTY,
+            new CraftingOutputDisplay(new ItemStack(Items.EMERALD), BigInteger.valueOf(8)),
+            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(64))));
+        assertEquals(2, merged.size());
+        assertTrue(merged.get(0).item().is(Items.DIAMOND));
+        assertEquals(BigInteger.valueOf(576), merged.get(0).amount());
+        assertTrue(merged.get(1).item().is(Items.EMERALD));
+    }
+
     private static ECOCraftingWorkerBlockEntity worker(int distance, ItemStack output) {
         var worker = mock(ECOCraftingWorkerBlockEntity.class);
         when(worker.getBlockPos()).thenReturn(new BlockPos(distance, 0, 0));

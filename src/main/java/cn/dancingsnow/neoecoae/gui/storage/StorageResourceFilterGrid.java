@@ -13,7 +13,6 @@ import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
@@ -98,7 +97,7 @@ final class StorageResourceFilterGrid extends UIElement {
             this.index = index;
             layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
                 .left(index % 9 * 18).top(index / 9 * 18).width(18).height(18).paddingAll(1));
-            style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+            style(style -> style.backgroundTexture(NETextures.ITEM_SLOT));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
         }
 
@@ -126,8 +125,13 @@ final class StorageResourceFilterGrid extends UIElement {
         }
 
         @Override
+        protected void drawSlotOverlay(GUIContext context) {
+            super.drawSlotOverlay(context);
+            if (key == null) context.drawTexture(StoragePanelTextures.EMPTY_FILTER, 0, 0, 16, 16);
+        }
+
+        @Override
         protected void drawItemStack(GUIContext context, ItemStack stack) {
-            context.drawTexture(StoragePanelTextures.sprite(16, 78, 8, 8), 0, 0, 16, 16);
             if (key instanceof AEItemKey) super.drawItemStack(context, stack);
             else if (key != null) AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, key);
         }

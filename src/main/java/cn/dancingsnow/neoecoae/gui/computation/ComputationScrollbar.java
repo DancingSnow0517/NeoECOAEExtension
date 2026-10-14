@@ -13,14 +13,21 @@ import net.minecraft.client.renderer.Rect2i;
 /** Adapts AE2's native scrollbar, including track paging and held-click repeats, to LDLib events. */
 final class ComputationScrollbar extends UIElement {
     static final int WIDTH = 12, THUMB_HEIGHT = 15;
-    private final Scrollbar scrollbar = new Scrollbar(Scrollbar.BIG);
+    static final int SMALL_WIDTH = 7;
+    private final Scrollbar scrollbar;
     private final IntConsumer onScroll;
     private int published;
     private boolean pressed;
 
     ComputationScrollbar(UIElement owner, int x, int y, int height, IntConsumer onScroll) {
+        this(owner, x, y, height, Scrollbar.BIG, WIDTH, onScroll);
+    }
+
+    ComputationScrollbar(UIElement owner, int x, int y, int height, Scrollbar.Style style, int width,
+            IntConsumer onScroll) {
+        scrollbar = new Scrollbar(style);
         this.onScroll = onScroll;
-        HostElements.absolute(this, x, y, WIDTH, height);
+        HostElements.absolute(this, x, y, width, height);
         scrollbar.setHeight(height).setCaptureMouseWheel(false);
         addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button != 0) return;

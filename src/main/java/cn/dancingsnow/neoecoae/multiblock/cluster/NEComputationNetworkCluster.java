@@ -60,6 +60,28 @@ public class NEComputationNetworkCluster {
         return members;
     }
 
+    public int getNormalSwitchHostCount() {
+        int count = 0;
+        for (NEComputationCluster member : members) {
+            ECOComputationSystemBlockEntity controller = member.getController();
+            if (controller != null && controller.hasNormalNetworkSwitch()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public int getHighEnergySwitchHostCount() {
+        int count = 0;
+        for (NEComputationCluster member : members) {
+            ECOComputationSystemBlockEntity controller = member.getController();
+            if (controller != null && controller.hasHighEnergyNetworkSwitch()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public boolean isLeader(NEComputationCluster member) {
         return !members.isEmpty() && members.getFirst() == member;
     }
@@ -134,6 +156,35 @@ public class NEComputationNetworkCluster {
         return areAllDriveSlotsFilled(driveStacks);
     }
 
+    /**
+     * Lang-key suffixes for every unmet endgame precondition, each at most once, in display order.
+     */
+    static List<String> endgameBlockers(List<NEComputationCluster> members) {
+        List<String> blockers = new ArrayList<>();
+        if (members.size() != 8) {
+            blockers.add("host_count");
+        }
+        boolean wrongTier = false, wrongLength = false, noHighEnergySwitch = false, drivesMissing = false;
+        for (NEComputationCluster member : members) {
+            ECOComputationSystemBlockEntity controller = member.getController();
+            if (controller != null) {
+                wrongTier |= controller.getTier().getTier() != ECOTier.L9.getTier();
+                wrongLength |= controller.getSelectedBuildLength() != controller.getMaxBuildLength();
+                noHighEnergySwitch |= !controller.hasHighEnergyNetworkSwitch();
+            }
+            drivesMissing |= !hasAllDriveSlotsFilled(member);
+        }
+        if (wrongTier) blockers.add("tier");
+        if (wrongLength) blockers.add("max_length");
+        if (noHighEnergySwitch) blockers.add("high_energy_switch");
+        if (drivesMissing) blockers.add("drives");
+        return blockers;
+    }
+
+    public List<String> getEndgameBlockers() {
+        return endgameBlockers(members);
+    }
+
     record EndgameHost(
         boolean maxTier,
         boolean maxBuildLength,
@@ -154,6 +205,14 @@ public class NEComputationNetworkCluster {
             return Integer.MAX_VALUE;
         }
         long total = sumMultiplied(NEComputationCluster::getCPUAccelerators);
+        return (int) Math.min(Integer.MAX_VALUE, total);
+    }
+
+    public int getTotalFullParallelism() {
+        if (isEndgameEligible()) {
+            return Integer.MAX_VALUE;
+        }
+        long total = sumMultiplied(NEComputationCluster::getFullCPUAccelerators);
         return (int) Math.min(Integer.MAX_VALUE, total);
     }
 

@@ -36,7 +36,9 @@ class PatternSearchDirectionsTest {
         for (var ingredient : input.getPossibleInputs()) {
             assertTrue(terms.inputs().contains(ingredient.what().getDisplayName().getString().toLowerCase(java.util.Locale.ROOT)));
         }
-        assertEquals(primary.what().getDisplayName().getString().toLowerCase(java.util.Locale.ROOT), terms.output());
+        assertEquals(primary.what().getDisplayName().getString().toLowerCase(java.util.Locale.ROOT)
+                + "\n@minecraft", terms.output());
+        assertTrue(terms.inputs().contains("@minecraft"));
         assertFalse(terms.inputs().contains(terms.output()));
         verify(details, never()).getOutputs();
         assertEquals(PatternSearchKeywords.Directions.EMPTY, PatternSearchKeywords.directions(null));

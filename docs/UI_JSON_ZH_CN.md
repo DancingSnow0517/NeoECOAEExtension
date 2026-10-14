@@ -38,7 +38,7 @@ NeoECOAE 保留 LDLib2 作为 UI 运行时，并用 `assets/neoecoae/screens/*.j
 ## 当前资源
 
 - `screens/crafting/`：合成控制器、合成接口、样板总线。
-- `screens/computation_*.json`：计算控制器、设置页、计算接口。
+- `screens/computation/`、`screens/computation_interface.json`：计算控制器、计算接口。
 - `screens/storage/`：存储控制器、存储接口、MEGA 面板、优先级面板。
 - `screens/workstation/`：整合工作站、大型工作站、输出面板和网络工具箱。
 - `screens/multiblock_builder.json`、`screens/fluid_hatch.json`：多方块建造器和流体舱。

@@ -2,16 +2,21 @@ package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGridNodeListener;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
-import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
+import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerPanelState;
+import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerUI;
+import cn.dancingsnow.neoecoae.gui.computation.ComputationDriveEntry;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -29,11 +34,16 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -120,39 +130,30 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement buildWindow = buildPanel(holder);
-        ComputationHostPanelUI.Config panelConfig = createComputationPanelConfig(holder.player);
-        UIElement root = ComputationHostPanelUI.create(panelConfig,
+        ComputationControllerUI.Config panelConfig = createComputationPanelConfig(holder.player);
+        UIElement root = ComputationControllerUI.create(panelConfig,
+            this::getComputationControllerPanelState,
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
             MultiblockBuilderUI.createInlineOpenButton(buildWindow),
             buildWindow);
         return ECOModularUI.create(root, holder.player);
     }
 
-    private ComputationHostPanelUI.Config createComputationPanelConfig(Player player) {
-        return new ComputationHostPanelUI.Config(
-                () -> getItemFromBlockEntity().getDescription(),
+    private ComputationControllerUI.Config createComputationPanelConfig(Player player) {
+        return new ComputationControllerUI.Config(
                 () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
                 () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
-                () -> level == null ? 0L : level.getGameTime(),
-                () -> canPlayerInteract(player),
+                () -> cluster == null ? (hasNormalNetworkSwitch() ? 1 : 0) : cluster.getNormalSwitchHostCount(),
+                () -> cluster == null ? (hasHighEnergyNetworkSwitch() ? 1 : 0) : cluster.getHighEnergySwitchHostCount(),
                 this::getUsedComputationBytes,
                 this::getTotalBytes,
                 this::getAvailableBytes,
                 this::getUsedThread,
                 this::getTotalThread,
                 this::getParallelCount,
+                this::getFullParallelCount,
                 this::getCpuSelectionMode,
                 delta -> adjustCpuSelectionMode(player, delta),
-                this::getRegistryAccessForUi,
-                this::collectDisplayedCpus,
-                cpu -> {
-                    if (canPlayerInteract(player)) {
-                        cpu.getLogic().setJobSuspended(!cpu.getLogic().isJobSuspended());
-                    }
-                },
-                cpu -> {
-                    if (canPlayerInteract(player)) cpu.cancelJob();
-                },
                 this::isIgnoringPatternSubstitutions,
                 this::getSubstitutionPatternCount,
                 () -> toggleIgnoringPatternSubstitutions(player),
@@ -163,8 +164,88 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 this::getNetworkFrequency,
                 delta -> {
                     if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
-                }
+                },
+                () -> new ItemStack(getBlockState().getBlock()),
+                () -> getComputationUiDrives(true),
+                () -> getComputationUiDrives(false),
+                player,
+                (position, expected, toInventory) -> ComputationCellUi.extract(this, player, position, expected, toInventory),
+                (position, expected) -> ComputationCellUi.insert(this, player, position, expected),
+                () -> level == null ? 0L : level.getGameTime(),
+                () -> canPlayerInteract(player),
+                this::collectDisplayedCpus,
+                cpu -> {
+                    if (canPlayerInteract(player)) {
+                        cpu.getLogic().setJobSuspended(!cpu.getLogic().isJobSuspended());
+                    }
+                },
+                cpu -> {
+                    if (canPlayerInteract(player)) cpu.cancelJob();
+                },
+                this::getEndgameStatusTooltip
         );
+    }
+
+    Component getEndgameStatusTooltip() {
+        List<String> blockers = cluster == null ? List.of("host_count") : cluster.getEndgameBlockers();
+        if (blockers.isEmpty()) {
+            return Component.translatable("gui.neoecoae.computation.endgame.active").withColor(0xFF55FF8A);
+        }
+        MutableComponent result = Component.translatable("gui.neoecoae.computation.endgame.title")
+            .withColor(0xFFD8B4FE);
+        int memberCount = cluster == null ? 1 : cluster.getNetworkMemberCount();
+        for (String key : blockers) {
+            MutableComponent reason = "host_count".equals(key)
+                ? Component.translatable("gui.neoecoae.computation.endgame.reason.host_count", memberCount, 8)
+                : Component.translatable("gui.neoecoae.computation.endgame.reason." + key);
+            result.append("\n").append(reason.withColor(0xFFFF5555));
+        }
+        return result;
+    }
+
+    public ComputationControllerPanelState getComputationControllerPanelState() {
+        if (!formed || cluster == null) {
+            return ComputationControllerPanelState.UNFORMED;
+        }
+        Direction top = OrientationStrategies.horizontalFacing().getSide(getBlockState(), RelativeSide.TOP);
+        Map<BlockPos, Integer> parallel = new HashMap<>();
+        for (ECOParallelCoreBlockEntity<?> core : cluster.getParallelCores()) {
+            parallel.put(core.getBlockPos(), core.getTier().getTier());
+        }
+        List<ECOComputationThreadingCoreBlockEntity> cores = cluster.getThreadingCores().stream()
+            .sorted(Comparator.comparingDouble(core -> core.getBlockPos().distSqr(getBlockPos())))
+            .limit(ComputationControllerPanelState.SLOT_COUNT)
+            .toList();
+        List<Integer> upper = new ArrayList<>(cores.size());
+        List<Integer> mid = new ArrayList<>(cores.size());
+        List<Integer> lower = new ArrayList<>(cores.size());
+        for (ECOComputationThreadingCoreBlockEntity core : cores) {
+            upper.add(parallel.getOrDefault(core.getBlockPos().relative(top), 0));
+            mid.add(core.getTier().getTier());
+            lower.add(parallel.getOrDefault(core.getBlockPos().relative(top.getOpposite()), 0));
+        }
+        return ComputationControllerPanelState.of(getTier().getTier(), upper, mid, lower, mirrored);
+    }
+
+    public List<ComputationDriveEntry> getComputationUiDrives(boolean upper) {
+        if (!formed || cluster == null) return List.of();
+        return ComputationDriveLayout.entries(upper ? cluster.getUpperDrives() : cluster.getLowerDrives(), getBlockPos(), mirrored);
+    }
+
+    /** The list and capacity readouts cover the same logical computation network. */
+    private List<ECOCraftingCPU> collectDisplayedCpus() {
+        if (cluster == null || !getMainNode().isOnline()) return List.of();
+        var network = cluster.getNetworkCluster();
+        var members = network == null ? List.of(cluster) : network.getMembers();
+        List<ECOCraftingCPU> cpus = new ArrayList<>();
+        for (NEComputationCluster member : members) {
+            if (!member.isActive()) continue;
+            cpus.addAll(member.getActiveCPUs());
+            if (member.isNetworkRepresentative() && member.getActiveCPUCount() < member.getMaxThreads()) {
+                cpus.add(member.getFakeCPU());
+            }
+        }
+        return cpus;
     }
 
     public boolean isLocallyIgnoringPatternSubstitutions() {
@@ -347,33 +428,6 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         }
     }
 
-    private HolderLookup.Provider getRegistryAccessForUi() {
-        if (level != null) {
-            return level.registryAccess();
-        }
-        return net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer()
-                .getServerResources()
-                .managers()
-                .fullRegistries()
-                .get();
-    }
-
-    /** The list and capacity readouts cover the same logical computation network. */
-    private List<ECOCraftingCPU> collectDisplayedCpus() {
-        if (cluster == null || !getMainNode().isOnline()) return List.of();
-        var network = cluster.getNetworkCluster();
-        var members = network == null ? List.of(cluster) : network.getMembers();
-        List<ECOCraftingCPU> cpus = new ArrayList<>();
-        for (NEComputationCluster member : members) {
-            if (!member.isActive()) continue;
-            cpus.addAll(member.getActiveCPUs());
-            if (member.isNetworkRepresentative() && member.getActiveCPUCount() < member.getMaxThreads()) {
-                cpus.add(member.getFakeCPU());
-            }
-        }
-        return cpus;
-    }
-
     private long getUsedComputationBytes() {
         return Math.max(getTotalBytes() - getAvailableBytes(), 0);
     }
@@ -388,6 +442,10 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
     private int getParallelCount() {
         return cluster == null ? 0 : cluster.getPooledParallelism();
+    }
+
+    private int getFullParallelCount() {
+        return cluster == null ? 0 : cluster.getPooledFullParallelism();
     }
 
     private long getAvailableBytes() {

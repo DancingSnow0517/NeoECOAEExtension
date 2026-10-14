@@ -131,6 +131,16 @@ dependencies {
     testImplementation('org.junit.jupiter:junit-jupiter')
     testImplementation('org.mockito:mockito-core:5.15.2')
     testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+    // Exercise the optional search bridges against released upstream APIs; neither mod is bundled.
+    testRuntimeOnly("curse.maven:just-enough-characters-250702:8771217") { transitive = false }
+    testImplementation("curse.maven:extendedae-plus-1337639:8755074") { transitive = false }
+    // KeyMapping/EditBox tests need GLFW's native entry points, but never create a game window.
+    def nativeOs = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+    def nativeClassifier = nativeOs.contains('win') ? 'natives-windows'
+        : nativeOs.contains('mac') ? 'natives-macos' : 'natives-linux'
+    if (System.getProperty('os.arch') in ['aarch64', 'arm64']) nativeClassifier += '-arm64'
+    testRuntimeOnly("org.lwjgl:lwjgl:3.3.3:${nativeClassifier}")
+    testRuntimeOnly("org.lwjgl:lwjgl-glfw:3.3.3:${nativeClassifier}")
     // Inspect the released optional target's bytecode without installing it in the dev runtime.
     testRuntimeOnly("curse.maven:flux-networks-248020:6089446") { transitive = false }
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")

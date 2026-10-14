@@ -78,6 +78,32 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return controller;
     }
 
+    public int getNetworkMemberCount() {
+        return networkCluster == null ? 1 : networkCluster.getMembers().size();
+    }
+
+    /** Unmet endgame preconditions across this host's logical network, or for this host alone when standalone. */
+    public List<String> getEndgameBlockers() {
+        if (networkCluster != null) {
+            return networkCluster.getEndgameBlockers();
+        }
+        return NEComputationNetworkCluster.endgameBlockers(List.of(this));
+    }
+
+    public int getNormalSwitchHostCount() {
+        if (networkCluster != null) {
+            return networkCluster.getNormalSwitchHostCount();
+        }
+        return controller != null && controller.hasNormalNetworkSwitch() ? 1 : 0;
+    }
+
+    public int getHighEnergySwitchHostCount() {
+        if (networkCluster != null) {
+            return networkCluster.getHighEnergySwitchHostCount();
+        }
+        return controller != null && controller.hasHighEnergyNetworkSwitch() ? 1 : 0;
+    }
+
     public void setNetworkCluster(@Nullable NEComputationNetworkCluster networkCluster) {
         this.networkCluster = networkCluster;
     }
@@ -137,6 +163,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public int getPooledParallelism() {
         return networkCluster != null ? networkCluster.getTotalParallelism() : getCPUAccelerators();
+    }
+
+    public int getPooledFullParallelism() {
+        return networkCluster != null ? networkCluster.getTotalFullParallelism() : getFullCPUAccelerators();
     }
 
     public long getPooledTotalStorage() {
@@ -222,6 +252,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             .mapToLong(core -> core.getTier().getCPUAccelerators())
             .sum();
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, total));
+    }
+
+    /** Parallelism this cluster reaches when every parallel slot holds an L9 core (its full build). */
+    public int getFullCPUAccelerators() {
+        long total = (long) parallelCores.size() * ECOTier.L9.getCPUAccelerators();
+        return (int) Math.min(Integer.MAX_VALUE, total);
     }
 
     public boolean canBeAutoSelectedFor(IActionSource actionSource) {

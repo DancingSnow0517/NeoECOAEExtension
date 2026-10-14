@@ -146,7 +146,6 @@
 			"name": "body_connector",
 			"from": [8, 0, 1],
 			"to": [9, 16, 16],
-			"shade": false,
 			"faces": {
 				"north": {"uv": [7, 0, 8, 16], "texture": "#2", "cullface": "north"},
 				"south": {"uv": [8, 0, 9, 16], "texture": "#6", "cullface": "south"},

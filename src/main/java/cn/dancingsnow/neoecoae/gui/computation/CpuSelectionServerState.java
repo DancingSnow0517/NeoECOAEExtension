@@ -4,10 +4,10 @@ import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 
 /** Menu-side CPU selection shared by the CPU list and status views; both drop requests while the menu cannot interact. */
 abstract class CpuSelectionServerState {
-    protected final ComputationHostPanelUI.Config config;
+    protected final ComputationControllerUI.Config config;
     protected final CpuSelectionState<ECOCraftingCPU> selection;
 
-    CpuSelectionServerState(ComputationHostPanelUI.Config config, int rows, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
+    CpuSelectionServerState(ComputationControllerUI.Config config, int rows, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
         this.config = config;
         this.selection = new CpuSelectionState<>(rows, identities);
     }

@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.core.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.core.math.BigIntegers;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 import java.math.BigInteger;
 import java.text.DecimalFormat;
@@ -15,6 +16,11 @@ import java.text.NumberFormat;
 import java.util.Locale;
 
 public final class HostText {
+    // Header title of every host window; starts right of the tier logo (x 23..36) and centres on it.
+    public static final float TITLE_SCALE = 1.0F;
+    public static final int TITLE_X = 44;
+    public static final int TITLE_Y = 10;
+
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
@@ -49,11 +55,23 @@ public final class HostText {
     }
 
     public static Component fullByteProgress(long used, long max) {
-        return Component.literal(expandedNumber(used))
-            .append(" / ")
-            .append(expandedNumber(max))
-            .append(" ")
-            .append(Component.translatable("gui.neoecoae.host.metric.bytes"));
+        return usedOfTotal(usedPart(expandedNumber(used), used, max), " / ",
+            totalPart(expandedNumber(max) + " ").append(Component.translatable("gui.neoecoae.host.metric.bytes")));
+    }
+
+    /** Used figure coloured by how full the resource is. */
+    public static MutableComponent usedPart(String text, long used, long max) {
+        return Component.literal(text).withColor(usedValueColor(used, max));
+    }
+
+    /** Capacity figure in value colour. */
+    public static MutableComponent totalPart(String text) {
+        return Component.literal(text).withColor(Palette.HOST_VALUE);
+    }
+
+    /** "used / total" with a muted separator; the parts keep their own colours. */
+    public static MutableComponent usedOfTotal(Component used, String separator, Component total) {
+        return used.copy().append(Component.literal(separator).withColor(Palette.HOST_MUTED)).append(total);
     }
 
     public static int usedValueColor(long used, long max) {

@@ -71,15 +71,13 @@ final class StorageCellGrid extends UIElement {
         }
     }
 
-    private int slotYOffset(int index) { return index / columns == 2 ? 1 : 0; }
-
     final class CellSlot extends ItemSlot {
         private final int index;
 
         CellSlot(int index) {
             this.index = index;
             layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(index % columns * 18)
-                .top(index / columns * 18 + slotYOffset(index)).width(16).height(16).paddingAll(0));
+                .top(index / columns * 18).width(16).height(16).paddingAll(0));
             style(style -> style.backgroundTexture(IGuiTexture.EMPTY).overflowVisible(true));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
         }
@@ -148,9 +146,11 @@ final class StorageCellGrid extends UIElement {
             });
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_info", name, tierName(cell.tier())));
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_types",
-                HostText.ae2Amount(cell.usedTypes()), capacity(cell.totalTypes())));
+                HostText.usedPart(HostText.ae2Amount(cell.usedTypes()), cell.usedTypes(), cell.totalTypes()),
+                HostText.totalPart(capacity(cell.totalTypes()))));
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
-                HostText.fullBytes(cell.usedBytes()), fullCapacity(cell.totalBytes())));
+                HostText.usedPart(HostText.fullBytes(cell.usedBytes()), cell.usedBytes(), cell.totalBytes()),
+                HostText.totalPart(fullCapacity(cell.totalBytes()))));
             lines.add(Component.translatable("gui.neoecoae.storage.ui.cell_state." +
                 (!cell.online() || !state.formed() ? "offline" : cell.infinite() ? "infinite"
                     : cell.state().name().toLowerCase(java.util.Locale.ROOT))));

@@ -5,7 +5,6 @@ import appeng.core.definitions.AEParts;
 import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
-import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI.Config;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -24,7 +23,7 @@ import net.minecraft.world.item.ItemStack;
 final class ComputationControllerInteractions {
     private static final int CPU_MODE_BUTTON_SIZE = 18;
     private ComputationControllerInteractions() {}
-    public static Button createCpuSelectionButton(Config config) {
+    public static Button createCpuSelectionButton(ComputationControllerUI.Config config) {
         Button button = HostSideButtonBar.createButton().noText();
         button.addClass("eco-host-cpu-mode-button");
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
@@ -50,7 +49,7 @@ final class ComputationControllerInteractions {
         return button;
     }
 
-    public static Button createNetworkFrequencyButton(Config config) {
+    public static Button createNetworkFrequencyButton(ComputationControllerUI.Config config) {
         Button button = HostSideButtonBar.createButton()
                 .noText()
                 .addPreIcon(AETextures.icon(ECOIcon.SCHEDULING_ROUND_ROBIN))

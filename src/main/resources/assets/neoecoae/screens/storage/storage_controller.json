@@ -32,9 +32,9 @@
       "layout": {
         "position": "absolute",
         "left": 44,
-        "top": 2,
+        "top": 10,
         "width": 198,
-        "height": 19
+        "height": 9
       }
     },
     {
@@ -71,7 +71,7 @@
         "left": 49,
         "top": 31,
         "width": 196,
-        "height": 54
+        "height": 52
       }
     },
     {
@@ -203,9 +203,9 @@
       "custom": "storage_type_scrollbar",
       "layout": {
         "position": "absolute",
-        "left": 245,
+        "left": 243,
         "top": 104,
-        "width": 2,
+        "width": 6,
         "height": 87
       }
     },

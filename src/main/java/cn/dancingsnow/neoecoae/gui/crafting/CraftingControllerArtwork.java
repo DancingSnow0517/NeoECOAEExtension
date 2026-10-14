@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.core.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.gui.common.FittedText;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelElements;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.Config;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
@@ -28,6 +29,8 @@ import net.neoforged.neoforge.fluids.FluidStack;
 final class CraftingControllerArtwork extends UIElement {
     private static final int[] PLUS_X = {1, 13, 25};
     private static final int[] STATUS_CORNER_X = {19, 35, 51};
+    private static final int NORMAL_SWITCH_COLOR = 0xFFB4E2FF;
+    private static final int HIGH_ENERGY_SWITCH_COLOR = 0xFFFF7A6B;
     private static final float INFO_TEXT_SCALE = 0.75F;
     private static final float INFO_TEXT_GAP = 4.0F;
     private static final int INFO_TEXT_X = 196;
@@ -101,7 +104,7 @@ final class CraftingControllerArtwork extends UIElement {
     }
 
     private void drawHeader(GUIContext context) {
-        drawText(context, config.title().get(), 40, 10, 105, Palette.CRAFTING_PRIMARY);
+        drawText(context, config.title().get(), HostText.TITLE_X, HostText.TITLE_Y, 105, Palette.CRAFTING_PRIMARY);
         drawCenteredText(context, Component.literal(HostPanelElements.formatPerformanceCornerValue(view.performanceAverageNanos)),
             210, 10, 39, Palette.CRAFTING_PRIMARY);
         drawSectionHeadings(context);
@@ -140,16 +143,23 @@ final class CraftingControllerArtwork extends UIElement {
         } else {
             drawInfoRow(context,
                 Component.translatable("gui.neoecoae.crafting.ui.switch_normal", view.normalSwitchCount),
-                Component.translatable("gui.neoecoae.crafting.ui.switch_high_energy", view.highEnergySwitchCount), 180);
+                NORMAL_SWITCH_COLOR,
+                Component.translatable("gui.neoecoae.crafting.ui.switch_high_energy", view.highEnergySwitchCount),
+                HIGH_ENERGY_SWITCH_COLOR, 180);
         }
     }
 
     private void drawInfoRow(GUIContext context, Component first, Component second, int y) {
+        drawInfoRow(context, first, Palette.CRAFTING_PRIMARY, second, Palette.CRAFTING_SECONDARY, y);
+    }
+
+    private void drawInfoRow(GUIContext context, Component first, int firstColor, Component second, int secondColor,
+                             int y) {
         Font font = Minecraft.getInstance().font;
         float textHeight = (font.lineHeight - 1) * INFO_TEXT_SCALE;
         float firstY = y + (INFO_ROW_HEIGHT - textHeight * 2 - INFO_TEXT_GAP) / 2.0F;
-        drawInfoText(context, font, first, firstY, Palette.CRAFTING_PRIMARY);
-        drawInfoText(context, font, second, firstY + textHeight + INFO_TEXT_GAP, Palette.CRAFTING_SECONDARY);
+        drawInfoText(context, font, first, firstY, firstColor);
+        drawInfoText(context, font, second, firstY + textHeight + INFO_TEXT_GAP, secondColor);
     }
 
     private void drawInfoText(GUIContext context, Font font, Component text, float y, int color) {
