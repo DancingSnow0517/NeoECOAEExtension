@@ -61,9 +61,11 @@ requiredMods=["advanced_ae"]
 
 [[mixins]]
 config="${mod_id}.compat.extendedae.mixins.json"
+requiredMods=["extendedae"]
 
 [[mixins]]
 config="${mod_id}.compat.ae2omnicells.mixins.json"
+requiredMods=["ae2omnicells"]
 
 [[mixins]]
 config="${mod_id}.compat.useless_mod.mixins.json"
@@ -203,6 +205,118 @@ file="META-INF/accesstransformer.cfg"
     ordering="AFTER"
     side="BOTH"
     reason="Useless Mod integration requires 1.21.1-2.3.7.2 or newer for AlloyFurnaceBigIntegerTarget public API."
+
+[[dependencies.${mod_id}]]
+    modId="advanced_ae"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="appbot"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="appex"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="appflux"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="appliedpneumatics"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="appliedsoul"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="appmek"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="arseng"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="data_energistics"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="extendedae_plus"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="fluxnetworks"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="kubejs"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="mekanism"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="soulplied_energistics"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="thunderbolt"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="emi"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="CLIENT"
 
 [[dependencies.${mod_id}]]
     modId="jade"
