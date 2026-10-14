@@ -2,20 +2,23 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
+import appeng.api.stacks.AEKey;
 import appeng.client.gui.Icon;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.gui.common.FittedText;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -42,8 +45,8 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
 
     private final ComputationControllerUI.Config config;
     private final IntConsumer openDetails;
-    private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
-    private final BindableValue<Integer> scrollRequest = new BindableValue<>(0);
+    private final BindableValue<Integer> selectionRequest;
+    private final BindableValue<Integer> scrollRequest;
     private final ComputationScrollbar scrollbar;
     private List<ComputationCpuEntry> page = List.of();
     private int selectedSerial = -1, total, offset, pageOffset;
@@ -59,11 +62,8 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         ServerState server = new ServerState(config, identities);
         bind(DataBindingBuilder.create(server::snapshot, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
-        selectionRequest.bind(DataBindingBuilder.intValC2S(server::select).build());
-        scrollRequest.bind(DataBindingBuilder.intValC2S(server::scroll).build());
-        selectionRequest.setDisplay(false);
-        scrollRequest.setDisplay(false);
-        addChildren(selectionRequest, scrollRequest);
+        selectionRequest = HostElements.hiddenValue(this, -1, DataBindingBuilder.intValC2S(server::select).build());
+        scrollRequest = HostElements.hiddenValue(this, 0, DataBindingBuilder.intValC2S(server::scroll).build());
         for (int row = 0; row < ROWS; row++) addChild(rowHitbox(row));
 
         scrollbar = new ComputationScrollbar(this, TRACK_X, TRACK_Y, TRACK_HEIGHT, Scrollbar.SMALL, ComputationScrollbar.SMALL_WIDTH, this::scrollTo);
@@ -109,7 +109,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         });
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             ComputationCpuEntry entry = rowEntry(row);
-            if (entry != null) event.hoverTooltips = HoverTooltips.empty().append(tooltip(entry).toArray(Component[]::new));
+            if (entry != null) event.hoverTooltips = HostElements.hoverTooltips(tooltip(entry));
         });
         return hitbox;
     }
@@ -130,7 +130,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         Font font = Minecraft.getInstance().font;
         float x = getPositionX(), y = getPositionY();
         context.graphics.flush();
-        text(context, font, GuiText.CPUs.text().getString() + " (" + total + ")", x + 8, y + 6, 70, 0.75F, 0x3F3D52);
+        text(context, font, GuiText.CPUs.text().getString() + " (" + total + ")", x + 8, y + 6, 70, 0.75F, Palette.INK);
         for (int row = 0; row < ROWS; row++) {
             ComputationCpuEntry entry = rowEntry(row);
             if (entry != null) drawRow(context, font, entry, x + LIST_X, y + LIST_Y + row * ROW_STRIDE);
@@ -145,13 +145,13 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
             boolean chosen, IGuiTexture normal, IGuiTexture selected) {
         context.drawTexture(chosen ? selected : normal, x, y, ROW_WIDTH, ROW_HEIGHT);
         context.graphics.flush();
-        int color = 0x413F54;
+        int color = Palette.INK_413F54;
         text(context, font, name(entry).getString(), x + 3, y + 2, 50, 0.666F, color);
         context.graphics.blit(entry.overlay(), Math.round(x + 55), Math.round(y), 0, 0, 10, 10, 10, 10);
         if (entry.output() != null && !entry.status().equals("idle")) {
             icon(context, Icon.S_CRAFT, x + 2, y + 10);
             fittedText(context, font, entry.amount(entry.requested(), false), x + 14, y + 13, 39, 0.666F, color);
-            key(context, entry, x + 55, y + 10, 0.625F);
+            key(context, entry.output(), x + 55, y + 10, 0.625F);
             context.graphics.fill(Math.round(x + 1), Math.round(y + 20), Math.round(x + 1 + entry.progress() * 66), Math.round(y + 21),
                 chosen ? 0xFF7DA9D2 : 0xFFACE9FF);
         } else {
@@ -175,7 +175,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     }
 
     static void fittedText(GUIContext context, Font font, String value, float x, float y, int width, float scale, int color) {
-        float fittedScale = Math.min(scale, width / (float) Math.max(1, font.width(value)));
+        float fittedScale = FittedText.fitScale(font, value, width, scale);
         context.graphics.pose().pushPose();
         context.graphics.pose().translate(x, y + (scale - fittedScale) * font.lineHeight / 2, 0);
         context.graphics.pose().scale(fittedScale, fittedScale, 1);
@@ -183,11 +183,11 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         context.graphics.pose().popPose();
     }
 
-    private static void key(GUIContext context, ComputationCpuEntry entry, float x, float y, float scale) {
+    static void key(GUIContext context, AEKey key, float x, float y, float scale) {
         context.graphics.pose().pushPose();
         context.graphics.pose().translate(x, y, 0);
         context.graphics.pose().scale(scale, scale, 1);
-        AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, entry.output());
+        AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, key);
         context.graphics.pose().popPose();
     }
 

@@ -13,7 +13,6 @@ import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import java.util.List;
 import net.minecraft.network.chat.Component;
@@ -64,7 +63,7 @@ final class ComputationControllerInteractions {
             HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt()),
             DataBindingBuilder.componentS2C(() -> HostElements.networkFrequencyTooltip(config.networkFrequency().getAsInt())).build());
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(syncedTooltip.getValue()));
+                event.hoverTooltips = HostElements.hoverTooltips(List.of(syncedTooltip.getValue())));
         return button;
     }
 

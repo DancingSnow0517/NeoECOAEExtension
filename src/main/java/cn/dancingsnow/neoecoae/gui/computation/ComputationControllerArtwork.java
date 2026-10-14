@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.WIDTH;
 import cn.dancingsnow.neoecoae.core.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.gui.common.FittedText;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
@@ -11,7 +12,6 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
@@ -82,11 +82,7 @@ final class ComputationControllerArtwork extends UIElement {
         addChild(tooltipRegion(178, 201, 66, 16, this::multiplierTooltip));
         addChild(tooltipRegion(9, 39, 16, 34, this::hostTooltip));
 
-        BindableValue<Tag> synced = new BindableValue<>(initial);
-        synced.bind(DataBindingBuilder.tagS2C(this::snapshot).build());
-        synced.registerValueListener(this::read);
-        synced.setDisplay(false);
-        addChild(synced);
+        HostElements.hiddenValue(this, initial, DataBindingBuilder.tagS2C(this::snapshot).build(), this::read);
     }
 
     private CompoundTag snapshot() {
@@ -132,8 +128,7 @@ final class ComputationControllerArtwork extends UIElement {
     private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<List<Component>> lines) {
         return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(x).top(y).width(width).height(height))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                lines.get(), null, null, null));
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HostElements.hoverTooltips(lines.get()));
     }
 
     private List<Component> storageTooltip() {
@@ -233,7 +228,7 @@ final class ComputationControllerArtwork extends UIElement {
     private void drawLabels(GUIContext context) {
         Font font = Minecraft.getInstance().font;
         Component title = Component.translatable("gui.neoecoae.computation.ui.title");
-        float titleScale = Math.min(HostText.TITLE_SCALE, 92.0F / Math.max(1, font.width(title)));
+        float titleScale = FittedText.fitScale(font.width(title), 92.0F, HostText.TITLE_SCALE);
         drawText(context, title, HostText.TITLE_X, HostText.TITLE_Y, titleScale, TEXT_COLOR);
         drawText(context, Component.translatable("gui.neoecoae.computation.ui.control_heading"), 9, 90, TEXT_COLOR);
         drawSwitchLabels(context);
@@ -249,7 +244,7 @@ final class ComputationControllerArtwork extends UIElement {
         float scale = TEXT_SCALE;
         for (int i = 0; i < SWITCH_KEYS.length; i++) {
             labels[i] = Component.translatable("gui.neoecoae.computation.ui.switch." + SWITCH_KEYS[i]);
-            scale = Math.min(scale, (SWITCH_LABEL_WIDTH - 1.0F) / Math.max(1, font.width(labels[i])));
+            scale = FittedText.fitScale(font.width(labels[i]), SWITCH_LABEL_WIDTH - 1.0F, scale);
         }
         for (int i = 0; i < SWITCH_KEYS.length; i++) {
             float left = SWITCH_X[i] + (SWITCH_LABEL_WIDTH - font.width(labels[i]) * scale) / 2.0F;
@@ -353,7 +348,7 @@ final class ComputationControllerArtwork extends UIElement {
         for (int i = 0; i < lines.length; i++) {
             String value = lines[i].getString();
             if (value.isEmpty()) continue;
-            float scale = Math.min(TEXT_SCALE, 47.0F / Math.max(1, font.width(value)));
+            float scale = FittedText.fitScale(font.width(value), 47.0F, TEXT_SCALE);
             float y = firstY + i * (textHeight + 4);
             float textY = y + (font.lineHeight - 1) * (TEXT_SCALE - scale) / 2.0F;
             drawText(context, lines[i], 196, textY, scale, colors[i], true);
@@ -391,15 +386,8 @@ final class ComputationControllerArtwork extends UIElement {
 
     private void drawText(GUIContext context, Component text, float x, float y, float scale, int color,
                           boolean shadow) {
-        var pose = context.graphics.pose();
-        pose.pushPose();
-        try {
-            pose.translate(getPositionX() + x, getPositionY() + y, 0.0D);
-            pose.scale(scale, scale, 1.0F);
-            context.graphics.drawString(Minecraft.getInstance().font, text, 0, 0, color, shadow);
-        } finally {
-            pose.popPose();
-        }
+        FittedText.drawScaled(context.graphics, Minecraft.getInstance().font, text, getPositionX() + x, getPositionY() + y,
+            0, scale, color, shadow, FittedText.Align.LEFT);
     }
 
     private static String percent(int permille) {

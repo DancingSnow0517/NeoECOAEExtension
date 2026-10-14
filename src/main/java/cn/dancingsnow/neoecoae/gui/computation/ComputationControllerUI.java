@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
@@ -15,7 +16,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import java.util.ArrayList;
 import java.util.List;
@@ -121,8 +121,8 @@ public final class ComputationControllerUI {
             setViewSize(rootRef[0], show ? 362 : 295, 231);
             recenter();
         });
-        listToggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-            List.of(Component.translatable("gui.neoecoae.computation.ui.cpu_list")), null, null, null));
+        listToggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HostElements.hoverTooltips(
+            List.of(Component.translatable("gui.neoecoae.computation.ui.cpu_list"))));
         UIElement root = NeoUiJsonLoader.load(LAYOUT, new NeoUiJsonContext() {
             @Override
             public UIElement createCustom(JsonObject node) {
@@ -194,11 +194,8 @@ public final class ComputationControllerUI {
         Button button = new Button().noText();
         button.setId("computation-switch-" + key);
         button.layout(layout -> layout.paddingAll(0));
-        BindableValue<Boolean> value = new BindableValue<>(enabled.getAsBoolean());
-        value.bind(DataBindingBuilder.boolS2C(enabled::getAsBoolean).build());
-        value.registerValueListener(state -> switchTexture(button, Boolean.TRUE.equals(state)));
-        value.setDisplay(false);
-        button.addChild(value);
+        BindableValue<Boolean> value = HostElements.hiddenValue(button, enabled.getAsBoolean(),
+            DataBindingBuilder.boolS2C(enabled::getAsBoolean).build(), state -> switchTexture(button, Boolean.TRUE.equals(state)));
         BindableValue<Integer> count = "substitutions".equals(key)
             ? syncedPatternCount(button, config.substitutionPatternCount()) : null;
         switchTexture(button, enabled.getAsBoolean());
@@ -215,17 +212,13 @@ public final class ComputationControllerUI {
                 lines.add(Component.translatable("gui.neoecoae.crafting.planning.substitution_pattern_count",
                     Math.max(0, count.getValue() == null ? 0 : count.getValue())));
             }
-            event.hoverTooltips = new HoverTooltips(lines, null, null, null);
+            event.hoverTooltips = HostElements.hoverTooltips(lines);
         });
         return button;
     }
 
     private static BindableValue<Integer> syncedPatternCount(Button button, IntSupplier count) {
-        BindableValue<Integer> synced = new BindableValue<>(count.getAsInt());
-        synced.bind(DataBindingBuilder.intValS2C(count::getAsInt).build());
-        synced.setDisplay(false);
-        button.addChild(synced);
-        return synced;
+        return HostElements.hiddenValue(button, count.getAsInt(), DataBindingBuilder.intValS2C(count::getAsInt).build());
     }
 
     private static void switchTexture(Button button, boolean enabled) {

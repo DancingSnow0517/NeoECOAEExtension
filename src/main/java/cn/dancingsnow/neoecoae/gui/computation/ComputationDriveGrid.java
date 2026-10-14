@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
@@ -10,7 +11,6 @@ import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -47,11 +47,7 @@ final class ComputationDriveGrid extends UIElement {
         }
         Tag initial = snapshot();
         read(initial);
-        BindableValue<Tag> synced = new BindableValue<>(initial);
-        synced.bind(DataBindingBuilder.tagS2C(this::snapshot).build());
-        synced.registerValueListener(this::read);
-        synced.setDisplay(false);
-        addChild(synced);
+        HostElements.hiddenValue(this, initial, DataBindingBuilder.tagS2C(this::snapshot).build(), this::read);
     }
 
     private boolean isOpenMenu() {
@@ -155,7 +151,7 @@ final class ComputationDriveGrid extends UIElement {
         @Override
         protected void onHoverTooltips(UIEvent event) {
             if (entry().position() == null) return;
-            if (getValue().isEmpty()) event.hoverTooltips = new HoverTooltips(tooltip(), null, null, null);
+            if (getValue().isEmpty()) event.hoverTooltips = HostElements.hoverTooltips(tooltip());
             else super.onHoverTooltips(event);
         }
 
