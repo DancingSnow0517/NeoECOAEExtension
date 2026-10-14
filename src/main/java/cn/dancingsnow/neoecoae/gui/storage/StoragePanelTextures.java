@@ -21,6 +21,8 @@ final class StoragePanelTextures {
     static final SpriteTexture SCALE = sprite(0, 133, 74, 7);
     static final SpriteTexture INFINITY = sprite(16, 52, 24, 10);
     static final SpriteTexture RESOURCE_HOVER = sprite(24, 78, 8, 8);
+    // Marks an unset resource filter; the glyph sits inside the 16px item area.
+    static final SpriteTexture EMPTY_FILTER = sprite(240, 0, 16, 16);
     static final SpriteTexture CELL_COLUMN = sprite(0, 52, 16, 52);
     static final int FALLBACK_SWATCH = 14;
     static final int[] COLORS = {

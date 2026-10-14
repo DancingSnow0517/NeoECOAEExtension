@@ -129,8 +129,13 @@ final class StorageResourceFilterGrid extends UIElement {
         }
 
         @Override
+        protected void drawSlotOverlay(GUIContext context) {
+            super.drawSlotOverlay(context);
+            if (key == null) context.drawTexture(StoragePanelTextures.EMPTY_FILTER, 0, 0, 16, 16);
+        }
+
+        @Override
         protected void drawItemStack(GUIContext context, ItemStack stack) {
-            context.drawTexture(StoragePanelTextures.sprite(16, 78, 8, 8), 0, 0, 16, 16);
             if (key instanceof AEItemKey) super.drawItemStack(context, stack);
             else if (key != null) AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, key);
         }
