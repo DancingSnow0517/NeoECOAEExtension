@@ -259,7 +259,7 @@
 | 第 1 批 | ✅ 完成（已分批提交） | `src/main/java` 103,965 → 102,137（−1,828）；全仓 +493 / −3,994 | 另删 33 个模型 JSON、14 个空目录 |
 | 第 2 批 | ✅ 完成（B0～F 已分批提交） | `src/main/java` 102,137 → 102,258（+121） | 以收口为主，新增公共件抵消了删除量；测试 1153 个，1149 通过、4 跳过 |
 | 第 3 批 | ✅ 完成（第 1～3 波已分批提交） | 第 1、2 波：102,258 → 102,158（−100）；第 3 波：102,130 → 101,033（−1,097） | 测试 1161 个，1157 通过、4 跳过；datagen 与 HEAD 零差异；见 11.9 |
-| 第 4 批 | 未开始 | | |
+| 第 4 批 | 第一组完成（未提交） | 第一组：101,306 → 101,226（−80） | T4-12、T4-9、T4-10、T4-11；测试 1163 个，1159 通过、4 跳过；见第 15 节 |
 
 ### 11.1 第 0、1 批执行记录（2026-10-13）
 
@@ -545,22 +545,24 @@ B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`�
 - 代理会违反规则直接调用 javac，在源码目录留下 `javac.<时间戳>.args`；`sed -i` 中断时会留下全是空字节的 `sedXXXXXX`。每一波结束都要 `git status` 检查未跟踪文件。
 - 上游 502 或连接重置会让代理中途退出，用 SendMessage 恢复即可。恢复前先看工作区里已经落地了哪些改动。
 
-## 12. 暂停点（2026-10-14，第 3 批已分批提交）
+## 12. 暂停点（2026-10-14，第 4 批设计待确认）
 
 **状态**：
-- 分支 `refactor/architecture-cleanup`，第 3 批第 3 波（11.9）已按五个主题提交；本记录随第五批提交，完成后工作区干净。
-- 五个提交均为本地提交，未推送；没有正在运行的代理。
-- 提交主题依次为：多方块通用部件与注册链、工具材料与存储盘注册、MEGA 存储盘与升级卡、GUI 公共逻辑、架构审计记录。
+- 分支 `refactor/architecture-cleanup`，HEAD `20681dde`，工作区干净，均为本地提交，未推送。没有正在运行的代理。
+- 第 0～3 批全部完成。之后用户按第 14 节标准做了"过度抽象回调"，`571850f6`～`20681dde` 共 10 个提交；第 3 批的 3 个小尾巴也已随之提交。
+- 第 4 批第一组（T4-12、T4-9、T4-10、T4-11）已于 2026-10-14 按第 15 节完成，**未提交**；用户答复与执行记录见第 15 节。
 
 **下次继续前先做**：
 1. 执行 `git status` 和 `git log`，核对提交与工作区状态；用户可能另做了修改。
 2. 跑 `./gradlew compileJava compileTestJava test --offline`，确认为绿。
-3. 重读第 1 节执行规则、第 3 节多版本分层、11.2 的用户决定，以及 11.7 末尾的 3 个待决项。
+3. 重读第 1 节执行规则、第 3 节多版本分层、11.2 的用户决定、**第 14 节的判断标准**，以及第 13 节的待决点。
+4. 第 13 节的方案写在第 14 节之前，动手前要按第 14 节标准复核一遍，尤其是 13.3 方案 1 的"配置文案数据表"是否属于过度抽象。
 
 **剩余工作**：
-- **待用户决定**：11.7 末尾 3 项；第 2 批遗留的三种近似墨色是否统一，以及 `cycleStatusColor` 的绿色是否改为一致。
-- **小尾巴**（可并入第 4 批）：`HostElements.tooltips(T, Component...)` 与 `hoverTooltips(List)` 构造 `HoverTooltips` 的方式不同但效果相同，可以合一；`MultiBlockDefinition` 有一个零引用的 `BiFunction` 导入；`NEMultiBlocks.createCraftingSystem` 中散热口的朝向属性取自 `ECOComputationThreadingCore.FACING`（同一个实例，只是写法有误导性）。
-- **第 4 批**（第 8 节 T4-1～T4-12）：每项先出设计说明，用户确认后再动手。
+- **第 4 批第一组**：已完成（第 15 节），等用户审阅提交。遗留：15.4 中 `common.on/off` 是否统一的文案决定；`en_ud.json` 等生成文件的整体刷新。
+- **第 4 批其余**：T4-1～T4-8，牵涉面大，每项先出设计说明。
+- **待用户决定（旧）**：11.7 末尾 3 项；第 2 批遗留的三种近似墨色是否统一，以及 `cycleStatusColor` 的绿色是否改为一致。
+- ~~**建议补做**：第 14 节回调的 datagen 核对~~：已在 15.3 完成，零差异。
 
 **执行经验**：
 - 同时运行的 Haiku 代理超过约 9 个会触发 429 限流，每波控制在 8 个以内。
@@ -574,7 +576,7 @@ B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`�
 
 四项都已完成只读调查，下面每项给出现状、方案和需要用户决定的点。**用户确认之前不改代码。**
 
-另外，第 3 批的 3 个小尾巴已经改完，未提交：`MultiBlockDefinition` 删除无用导入；`NEMultiBlocks` 中散热口的朝向改用 `ECOVentBlock.FACING`；`HostElements.tooltips(T, Component...)` 改为委托 List 重载。改前已对照 LDLib2 2.2.40 源码确认两种写法构造出的 `HoverTooltips` 相等。编译和测试均为绿。
+另外，第 3 批的 3 个小尾巴已经改完并已提交：`MultiBlockDefinition` 删除无用导入；`NEMultiBlocks` 中散热口的朝向改用 `ECOVentBlock.FACING`；`HostElements.tooltips(T, Component...)` 改为委托 List 重载。改前已对照 LDLib2 2.2.40 源码确认两种写法构造出的 `HoverTooltips` 相等。编译和测试均为绿。
 
 ### 13.1 T4-12：`util.ICellHost` 别名并入 API
 
@@ -667,7 +669,7 @@ B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`�
 
 **待决**：上面第 1、2 条是否作为小修纳入本批？**默认：纳入**，先写测试复现，再修。
 
-## 14. 过度抽象回调（2026-10-14，未提交）
+## 14. 过度抽象回调（2026-10-14，已提交 `571850f6`～`20681dde`）
 
 用户认为 `bfd21d3b` 的物品注册参数化不如原作者的写法好维护。随后按同一标准审查了 `7c1ab38d`～`df20f156` 的全部重构提交，结论与处理如下。
 
@@ -699,3 +701,96 @@ B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`�
 - `a7df30c8` 删除了 `CpuSelectionListMixinContractTest`，存储 InfoBar 注入目前没有测试覆盖。
 
 `compileJava compileTestJava test` 为绿。未运行 datagen；改动均声称生成结果不变，提交前建议按 datagen 流程核对一次。
+
+## 15. 第 4 批第一组执行记录（2026-10-14，未提交）
+
+### 15.1 用户对第 13 节待决点的答复
+
+开工前按第 14 节标准复核了第 13 节方案，有 4 处与标准冲突或默认方案不成立，经用户确认如下；其余按默认。
+
+| 待决点 | 决定 | 理由 |
+|---|---|---|
+| 13.1 删除还是标废弃 | 直接删除（默认） | |
+| 13.2a `compat/` 并入 `integration/<modid>` | 并入（默认） | |
+| 13.2b KubeJS 插件 | 恢复（默认） | |
+| 13.2c toml 版本下限 | `[0,)`（默认） | |
+| 13.2 方案 3（MEGA 守卫新增两个接口） | **取消** | `instanceof` 只加载类、不触发校验；两个 MEGA 类的父类和接口都是本模组的类型，加载时碰不到 MEGA 类；mixin 方法体中都是同类型赋值，校验器无需加载 MEGA。所以崩溃不成立，而且为单一调用点新建接口违反第 14 节 |
+| 13.3 方案 1（配置文案数据表） | **改为手工对齐加一致性测试** | 数据表属于过度抽象；`zh_cn.json` 是手写的整份文件，生成器只输出配置部分会和它在 jar 中同路径冲突。改为手工统一三处文案（中文以 zh_cn 为准），新增测试断言 `NEConfig` 注释等于 zh_cn 与 en_us tooltip 的拼接。数据表留到 T4-18 |
+| 13.3a 拼写错误的 key | **直接改名，在 CHANGELOG 中说明，不保留别名** | 资源包翻译的是旧 key，代码改查新 key 后旧翻译不会再显示，别名达不到目的 |
+| 13.3b zh_cn 配置文案以谁为准 | 以 zh_cn 为准（默认） | |
+| 13.3c `jade.neoecoae.activeCooling` | **不改** | 不是拼写错误 |
+| 13.4 小修 1、2 | 纳入（默认） | |
+
+另两点澄清：
+- 13.2 方案 2 所说的"门面"就是现有的 `ECOAdvancedAEPatternScaling`（已有 `detect()` 守卫），迁移后改为从新位置导入，不新建转发类。
+- `ECOExternalProviderBlocking` 移到 `crafting/adapter/ae2` 后仍向上依赖 `LargeWorkstationPatternProvider` 与 AdvancedAE 桥接，还不是干净的 L1；彻底解耦需要加钩子，本批不做。
+
+### 15.2 T4-12（13.1）：完成
+
+删除 `util/ICellHost`；两个驱动器方块实体与 `CellHostItemHandler` 改为导入 `api.storage.ICellHost`；`StorageIntegrationApiTest` 的别名断言改为 `drivesImplementThePublicCellHostApi`，只断言两个驱动器实现了 API 接口。5 个文件，+5 / −30。编译与测试为绿（1161 项，1157 通过、4 跳过）。
+
+### 15.3 T4-9（13.2）：完成
+
+**包迁移**（8 个代理，按模组拆分；4 个只有 1 个文件的小包两两合并）。58 个文件只改了包名与导入，另改 33 个外部文件的导入或全限定名，`compat/` 包已删除：
+
+| 原包 | 新包 |
+|---|---|
+| `compat.ae2` | `crafting.adapter.ae2`（L1，与已有的 `ECOExactCraftingPlan` 等同包） |
+| `compat.advanced_ae` | `integration.advancedae.dispatch` |
+| `compat.ae2lt` | `integration.ae2lt.dispatch`；其中 `ECOAe2LtUnboundedCells` 属于存储适配，放在 `integration.ae2lt` |
+| `compat.extendedae` | `integration.extendedae` |
+| `compat.extendedaeplus` | `integration.extendedaeplus.dispatch` |
+| `compat.mekenergistics` | `integration.mekenergistics.dispatch` |
+| `compat.omnisequence` | `integration.omnisequence.dispatch` |
+| `compat.storage` | `integration`（`ECOOptionalUnboundedCells` 与 `ModIds` 同包） |
+| `compat.thunderbolt` | `integration.thunderbolt.dispatch` |
+| `compat.useless` | `integration.useless.dispatch` |
+| 测试 `compat.advancedae`、`compat.fluxnetworks` | `mixins.compat.advancedae`、`mixins.compat.fluxnetworks`（这两个测试的被测对象是 mixin） |
+
+mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响；资源文件中没有引用旧包名的字符串。`ECOOptionalUnboundedCellsTest` 中按字符串写的类名已同步修改。
+
+**KubeJS**：`9d2f6c61` 当时是有意停用 KubeJS 的（排除源码、删除插件文件，并在 `build.gradle` 中 `exclude 'kubejs.plugins.txt'`）。`ba1ca93f` 为了配方 schema 重新启用了源码，但漏掉了插件文件和这条 exclude。本次恢复 `src/main/resources/kubejs.plugins.txt`，并删除 `build.gradle` 中的这条 exclude；`processResources` 后插件文件已在产物中。
+
+**`mods.toml`**：新增 16 个可选依赖（`[0,)`、`AFTER`；emi 为 `CLIENT`）；`extendedae`、`ae2omnicells` 两个 mixin 配置加上 `requiredMods`。已检查本地缓存中这些模组的 15 个 jar，它们的 toml 都没有引用 neoecoae，`AFTER` 不会形成环。
+
+**验证**：编译通过，测试 1161 项（1157 通过、4 跳过）；启用 AppBot 集成后主源码与测试源码编译通过。datagen 在仓库外分别从 HEAD 和当前工作区生成，711 个输出文件零差异。另外，第 3 批基线（`9943989b`）与 HEAD 的生成结果也零差异，§12 中"建议补做"的第 14 节回调 datagen 核对已完成。
+
+**执行问题**：两个代理违规用 `sed -i` 改了包名行，一个代理执行了只读的 `git show`；均已复查，没有残留文件，行尾与 HEAD 一致。
+
+### 15.4 T4-10（13.3）：完成
+
+**死 key**：两个只读调查代理按族逐一核对（字面量、前缀拼接、枚举名、资源文件），总策划抽查确认，共 68 个死 key：
+- `gui.neoecoae.big_order.*` 18 个（`requested`、`requires_cpu`、`single_task` 仍在使用，保留）；
+- `gui.neoecoae.storage.status` 及 `status.*` 8 个；
+- `gui.neoecoae.storage.legacy.*` 14 个（`cell_info.gas/custom/empty`、`cell_bytes.used`、`cell_types.used`、`cell_tooltip`、`graph.*` 中的 8 个）；
+- `gui.neoecoae.storage.*` 8 个（`bulk_mark` 基础 key、`bytes_used`、`current_load`、`max_load`、`system_load`、`energy`、`energy_storage`、`idle_matrices`；`bulk_mark.result.*` 仍在使用）；
+- `gui.neoecoae.host.*` 9 个；
+- `tooltip.neoecoae.pattern.verified_*` 5 个；
+- `tooltip.neoecoae.megacells.{4g,empty_only,storage_type}` 3 个；
+- `gui.neoecoae.common.{on,off,types}` 3 个。
+
+这些 key 已从 `GuiLangs`（39 个）、`NELangGenerator`（29 个）和 4 个手写语言文件中删除。孤儿 key 一并删除：zh_cn 的 `soulkey.description`，zh_hk/zh_tw/lzh 的 `ecoCraftConfirmDebug` 及其 `.tooltip`。
+
+**方案 3（复用 `common.on/off`）的前提不成立**：调查发现 `common.on/off` 本身就是死 key。真正在用的同义 key 是大型工作站的 `enabled/disabled` 和镜像的 `on/off`，它们的中文是"开/关"，而 `common.*` 是"开启/关闭"；其中镜像用的是窄的分段按钮。改用 `common.*` 会改变界面文字，所以没有替换，只删除了死的 `common.on/off`。**这一点待用户确认**：如果希望统一，需要先定下统一后的中文文案。
+
+**拼写**：`storage_dirve` → `storage_drive`、`max_lenth` → `max_length`、`unknow_cell_type` → `unknown_cell_type`，同时修改代码、生成器和 4 个手写语言文件，不保留旧 key，已在 CHANGELOG 中说明。英文文案中的 `patten` 改为 `patterns`。
+
+**配置文案**：`NEConfig` 的 20 处 `.comment()` 改为"zh_cn tooltip 各行 + en_us tooltip 各行"。zh_cn 的 `ecoPlanningStageDebug` 原来缺少英文里的第二句，已补上。新增 `NEConfigCommentLangTest`：遍历 `NEConfig.SPEC`，断言每个值和每个分节的注释都等于 zh_cn 与 en_us tooltip 的拼接，并且覆盖 en_us 中全部 `neoecoae.configuration.*.tooltip`。NeoForge 会在值注释后追加 ` Default:` / ` Range:` 行，测试比较前先截掉。生产代码没有新增任何结构。toml 中写出的注释文字会随之变化（只是注释）。
+
+**datagen**：生成器有改动，所以不能直接采用生成结果；按 key 级差量合并到仓库的 5 个生成文件（en_us、en_ud、unfinished 下的 3 个）：每个文件删 68 个、原位改名 4 个，en_us/en_ud 另有 2 处值修改。零差异判定：比较"HEAD 时仓库与 HEAD 生成结果的差异"和"当前仓库与当前生成结果的差异"，两者唯一的不同是被删除 key 上原有的旧值漂移消失了，没有引入新的差异。
+
+**顺带发现（以前就存在，未处理）**：仓库中的 `en_ud.json` 比当前生成结果少 259 个 key，另有 25 个值不同；unfinished 下的文件也有少量旧值。这些都是生成结果长期没有整体刷新造成的，需要在装齐可选模组的环境里重新生成，建议另开一项。
+
+### 15.5 T4-11（13.4）：完成
+
+- 评估结论不变：两个 fork 类都保留。
+- **小修 1**：`ExecutingCraftingJob` 的 NBT 构造器中，`exactTotal/exactRemaining` 解码失败时不再中断整个任务的恢复，而是设 `exactProgressLost`，走现有的 `EXECUTION_METADATA_LOST` 挂起路径；任务仍以 long 进度保留。先写测试 `ECOExactOrderTest.corruptExactTaskAmountSuspendsInsteadOfAbortingRestore`，用修复前的文件实测会抛 `IllegalArgumentException: Invalid exact order amount`，修复后通过。
+- **小修 2 不成立**：精确订单提交给 CPU 的是 `ECOExactCraftingPlan`。它不是 EAEP 的 `IForcedCraftingPlan`，强制合成缺少的材料已经通过 `deferredStock` 计入，所以 `manualMissing(plan)` 对精确订单总是返回空，tracker 与 `waitingFor` 不会出现不一致。不修改。
+- **小修 3**（按第 1 节规则 8 顺手处理）：删除 plan 构造器中多余的 `exactOrder = true`，以及 NBT 构造器中第二次读取的 `exactOrder`。
+
+### 15.6 第一组小结
+
+- `src/main/java`：101,306 → 101,226 行（−80）。新增文件：`kubejs.plugins.txt` 和 `NEConfigCommentLangTest`。
+- 编译通过，测试 1163 项（1159 通过、4 跳过，新增 2 项），零失败；启用 AppBot 集成后编译通过。
+- 每一波结束后都检查了未跟踪文件，没有 `sed*` 或 `javac.*.args` 残留。
+- 有多个代理把 CRLF 工作副本改成了 LF（git 会提示 "LF will be replaced by CRLF"）。由于 `core.autocrlf=true`，提交时会被规范化，对提交内容没有影响。
