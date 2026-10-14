@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.integration.xei.TextureConstants;
+import cn.dancingsnow.neoecoae.integration.xei.RecipeLayouts.Cooling;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
 import dev.emi.emi.api.stack.EmiStack;
@@ -14,7 +15,7 @@ public class CoolingEmiRecipe extends BasicEmiRecipe {
     private final CoolingRecipe recipe;
 
     public CoolingEmiRecipe(RecipeHolder<CoolingRecipe> holder) {
-        super(NeoECOAEEmiPlugin.COOLING, holder.id(), 100, 60);
+        super(NeoECOAEEmiPlugin.COOLING, holder.id(), Cooling.WIDTH, Cooling.HEIGHT);
         this.recipe = holder.value();
 
         inputs.add(NeoECOAEEmiPlugin.of(recipe.input()));
@@ -27,15 +28,24 @@ public class CoolingEmiRecipe extends BasicEmiRecipe {
 
     @Override
     public void addWidgets(WidgetHolder widgets) {
-        widgets.addTank(NeoECOAEEmiPlugin.of(recipe.input()), 9, 10, 18, 18, 1);
+        widgets.addTank(NeoECOAEEmiPlugin.of(recipe.input()),
+            Cooling.INPUT_X, Cooling.SLOT_Y, Cooling.SLOT_SIZE, Cooling.SLOT_SIZE, 1);
 
         FluidStack output = recipe.output();
-        widgets.addTank(EmiStack.of(output.getFluid(), output.getAmount()), 71, 10, 18, 18, 1).recipeContext(this);
+        widgets.addTank(EmiStack.of(output.getFluid(), output.getAmount()),
+            Cooling.OUTPUT_X, Cooling.SLOT_Y, Cooling.SLOT_SIZE, Cooling.SLOT_SIZE, 1).recipeContext(this);
 
-        widgets.addTexture(TextureConstants.COOLING_PROGRESS_EMPTY, 35, 5, 30, 30, 0, 0, 30, 30, 30, 30);
-        widgets.addAnimatedTexture(TextureConstants.COOLING_PROGRESS, 35, 5, 30, 30, 0, 0, 30, 30, 30, 30, 2000, false, true, false);
+        widgets.addTexture(TextureConstants.COOLING_PROGRESS_EMPTY,
+            Cooling.PROGRESS_X, Cooling.PROGRESS_Y, Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE,
+            0, 0, Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE);
+        widgets.addAnimatedTexture(TextureConstants.COOLING_PROGRESS,
+            Cooling.PROGRESS_X, Cooling.PROGRESS_Y, Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE,
+            0, 0, Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE,
+            2000, false, true, false);
 
-        widgets.addText(Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()), 5, 40, 0, false);
-        widgets.addText(Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()), 5, 50, 0, false);
+        widgets.addText(Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()),
+            Cooling.TEXT_X, Cooling.TEXT_Y, 0, false);
+        widgets.addText(Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()),
+            Cooling.TEXT_X, Cooling.TEXT_Y + Cooling.TEXT_LINE_HEIGHT, 0, false);
     }
 }

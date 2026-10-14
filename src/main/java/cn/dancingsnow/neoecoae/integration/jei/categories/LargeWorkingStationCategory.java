@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.jei.categories;
 
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
+import cn.dancingsnow.neoecoae.integration.xei.RecipeLayouts.Workstation;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
@@ -25,7 +26,7 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
     @Override public Component getTitle() { return Component.translatable("category.neoecoae.large_integrated_working_station"); }
     @Override public IDrawable getIcon() { return layout.getIcon(); }
     @Override public int getWidth() { return layout.getWidth(); }
-    @Override public int getHeight() { return 139; }
+    @Override public int getHeight() { return Workstation.LARGE_HEIGHT; }
 
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, LargeWorkstationRecipe recipe, IFocusGroup focuses) {
@@ -40,12 +41,12 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
     @Override
     public void createRecipeExtras(IRecipeExtrasBuilder builder, LargeWorkstationRecipe recipe, IFocusGroup focuses) {
         builder.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy", recipe.energy()), 144, 12)
-            .setPosition(24, 66).setColor(Palette.INK_403E53);
+            .setPosition(Workstation.ENERGY_X, Workstation.ENERGY_Y).setColor(Palette.INK_403E53);
         if (!recipe.extraInputs().isEmpty()) {
             var extra = recipe.extraInputs().getFirst();
             builder.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_cost",
-                extra.amount(), extra.what().getDisplayName()), 168, 26).setPosition(0, 78).setColor(Palette.INK_403E53);
+                extra.amount(), extra.what().getDisplayName()), Workstation.WIDTH, 26).setPosition(0, 78).setColor(Palette.INK_403E53);
         }
-        builder.addText(recipe.sourceTypeDescription(), 168, 34).setPosition(0, 105).setColor(Palette.INK_403E53);
+        builder.addText(recipe.sourceTypeDescription(), Workstation.WIDTH, 34).setPosition(0, 105).setColor(Palette.INK_403E53);
     }
 }

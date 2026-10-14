@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.xei.TextureConstants;
+import cn.dancingsnow.neoecoae.integration.xei.RecipeLayouts.Cooling;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.mojang.blaze3d.vertex.PoseStack;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
@@ -34,12 +35,14 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
     public CoolingCategory(IGuiHelper helper) {
         icon = helper.createDrawableItemStack(NEBlocks.CRAFTING_SYSTEM_L9.asStack());
         title = Component.translatable("category.neoecoae.cooling");
-        progessEmpty = helper.drawableBuilder(TextureConstants.COOLING_PROGRESS_EMPTY, 0, 0, 30, 30)
-            .setTextureSize(30, 30)
+        progessEmpty = helper.drawableBuilder(TextureConstants.COOLING_PROGRESS_EMPTY, 0, 0,
+                Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE)
+            .setTextureSize(Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE)
             .build();
         progress = helper.createAnimatedDrawable(
-            helper.drawableBuilder(TextureConstants.COOLING_PROGRESS, 0, 0, 30, 30)
-                .setTextureSize(30, 30)
+            helper.drawableBuilder(TextureConstants.COOLING_PROGRESS, 0, 0,
+                    Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE)
+                .setTextureSize(Cooling.PROGRESS_SIZE, Cooling.PROGRESS_SIZE)
                 .build(),
             20,
             IDrawableAnimated.StartDirection.TOP,
@@ -64,35 +67,35 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
 
     @Override
     public int getWidth() {
-        return 100;
+        return Cooling.WIDTH;
     }
 
     @Override
     public int getHeight() {
-        return 60;
+        return Cooling.HEIGHT;
     }
 
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, RecipeHolder<CoolingRecipe> recipeHolder, IFocusGroup focuses) {
         CoolingRecipe recipe = recipeHolder.value();
-        builder.addInputSlot(10, 11)
+        builder.addInputSlot(Cooling.INPUT_X + 1, Cooling.SLOT_Y + 1)
             .addIngredients(NeoForgeTypes.FLUID_STACK, Arrays.asList(recipe.input().getFluids()))
             .setStandardSlotBackground()
-            .setFluidRenderer(1,false, 16,16);
-        builder.addOutputSlot(72, 11)
+            .setFluidRenderer(1, false, Cooling.SLOT_SIZE - 2, Cooling.SLOT_SIZE - 2);
+        builder.addOutputSlot(Cooling.OUTPUT_X + 1, Cooling.SLOT_Y + 1)
             .addFluidStack(recipe.output().getFluid(), recipe.output().getAmount())
             .setStandardSlotBackground()
-            .setFluidRenderer(1,false, 16,16);
+            .setFluidRenderer(1, false, Cooling.SLOT_SIZE - 2, Cooling.SLOT_SIZE - 2);
     }
 
     @Override
     public void draw(RecipeHolder<CoolingRecipe> recipe, IRecipeSlotsView recipeSlotsView, GuiGraphics guiGraphics, double mouseX, double mouseY) {
-        progessEmpty.draw(guiGraphics, 35, 5);
-        progress.draw(guiGraphics, 35, 5);
+        progessEmpty.draw(guiGraphics, Cooling.PROGRESS_X, Cooling.PROGRESS_Y);
+        progress.draw(guiGraphics, Cooling.PROGRESS_X, Cooling.PROGRESS_Y);
 
         PoseStack poseStack = guiGraphics.pose();
         poseStack.pushPose();
-        poseStack.translate(5, 40, 0);
+        poseStack.translate(Cooling.TEXT_X, Cooling.TEXT_Y, 0);
         poseStack.scale(0.75f, 0.75f, 0.75f);
         guiGraphics.drawString(
             Minecraft.getInstance().font,
@@ -106,7 +109,7 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
             Minecraft.getInstance().font,
             Component.translatable("category.neoecoae.cooling.max_overclock", recipe.value().maxOverclock()),
             0,
-            10,
+            Cooling.TEXT_LINE_HEIGHT,
             0,
             false
         );

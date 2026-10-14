@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.xei.TextureConstants;
+import cn.dancingsnow.neoecoae.integration.xei.RecipeLayouts.Workstation;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
@@ -40,11 +41,13 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     public IntegrationWorkingStationCategory(IGuiHelper helper) {
         icon = helper.createDrawableItemStack(NEBlocks.INTEGRATED_WORKING_STATION.asStack());
         title = Component.translatable("category.neoecoae.integrated_working_station");
-        background = helper.drawableBuilder(TextureConstants.INTEGRATED_WORKING_STATION, 0, 0, 168, 75)
-            .setTextureSize(168, 75)
+        background = helper.drawableBuilder(TextureConstants.INTEGRATED_WORKING_STATION, 0, 0,
+                Workstation.WIDTH, Workstation.HEIGHT)
+            .setTextureSize(Workstation.WIDTH, Workstation.HEIGHT)
             .build();
-        progress = helper.drawableBuilder(TextureConstants.PROGRESS_BAR, 0, 0, 6, 18)
-            .setTextureSize(6, 18)
+        progress = helper.drawableBuilder(TextureConstants.PROGRESS_BAR, 0, 0,
+                Workstation.PROGRESS_WIDTH, Workstation.PROGRESS_HEIGHT)
+            .setTextureSize(Workstation.PROGRESS_WIDTH, Workstation.PROGRESS_HEIGHT)
             .buildAnimated(100, IDrawableAnimated.StartDirection.BOTTOM, false);
     }
 
@@ -80,17 +83,18 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
         // input fluid
         SizedFluidIngredient inputFluid = recipe.inputFluid();
         if (!inputFluid.ingredient().isEmpty()) {
-            builder.addInputSlot(5, 9)
+            builder.addInputSlot(Workstation.FLUID_INPUT_X + 1, Workstation.FLUID_Y + 1)
                 .addIngredients(NeoForgeTypes.FLUID_STACK, Arrays.asList(inputFluid.getFluids()))
-                .setFluidRenderer(16000, false, 16, 58);
+                .setFluidRenderer(Workstation.FLUID_CAPACITY, false,
+                    Workstation.FLUID_WIDTH - 2, Workstation.FLUID_HEIGHT - 2);
         }
 
         // input items
         List<SizedIngredient> inputItems = recipe.inputItems();
         for (int i = 0; i < inputItems.size(); i++) {
             SizedIngredient input = inputItems.get(i);
-            var x = 38 + i % 3 * 18;
-            var y = 12 + i / 3 * 18;
+            var x = Workstation.ITEM_INPUT_X + 1 + i % Workstation.ITEM_COLUMNS * Workstation.SLOT_SIZE;
+            var y = Workstation.ITEM_INPUT_Y + 1 + i / Workstation.ITEM_COLUMNS * Workstation.SLOT_SIZE;
             if (!input.ingredient().isEmpty()) {
                 builder.addInputSlot(x, y).addIngredients(VanillaTypes.ITEM_STACK, Arrays.asList(input.getItems()));
             }
@@ -99,29 +103,30 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
         // output item
         ItemStack itemOutput = recipe.itemOutput();
         if (!itemOutput.isEmpty()) {
-            builder.addOutputSlot(114, 31).addItemStack(itemOutput);
+            builder.addOutputSlot(Workstation.ITEM_OUTPUT_X + 1, Workstation.ITEM_OUTPUT_Y + 1).addItemStack(itemOutput);
         }
 
         // output fluid
         FluidStack fluidOutput = recipe.fluidOutput();
         if (!fluidOutput.isEmpty()) {
-            builder.addOutputSlot(147, 9)
+            builder.addOutputSlot(Workstation.FLUID_OUTPUT_X + 1, Workstation.FLUID_Y + 1)
                 .addFluidStack(fluidOutput.getFluid(), fluidOutput.getAmount())
-                .setFluidRenderer(16000, false, 16, 58);
+                .setFluidRenderer(Workstation.FLUID_CAPACITY, false,
+                    Workstation.FLUID_WIDTH - 2, Workstation.FLUID_HEIGHT - 2);
         }
     }
 
     @Override
     public void draw(RecipeHolder<IntegratedWorkingStationRecipe> recipe, IRecipeSlotsView recipeSlotsView, GuiGraphics guiGraphics, double mouseX, double mouseY) {
         background.draw(guiGraphics);
-        progress.draw(guiGraphics, 136, 30);
+        progress.draw(guiGraphics, Workstation.PROGRESS_X, Workstation.PROGRESS_Y);
     }
 
     @Override
     public void createRecipeExtras(IRecipeExtrasBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder, IFocusGroup focuses) {
         IntegratedWorkingStationRecipe recipe = holder.value();
         Component text = Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
-        builder.addText(text, 120, 12).setPosition(24, 66).setColor(Palette.INK_403E53);
+        builder.addText(text, 120, 12).setPosition(Workstation.ENERGY_X, Workstation.ENERGY_Y).setColor(Palette.INK_403E53);
     }
 
     public static void registerRecipes(IRecipeRegistration registration) {
