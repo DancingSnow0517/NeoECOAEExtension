@@ -35,19 +35,19 @@ final class ComputationControllerArtwork extends UIElement {
     private static final int PURPLE = 0xFF915DCD;
     private static final int PINK = 0xFFB738A2;
     private static final int WARN = 0xFFD95B25;
-    private static final int ONLINE = 0xFF3C8D4F;
-    private static final int OFFLINE = 0xFFCC493D;
     private static final int PANEL_PRIMARY = 0xFFE4E4EE;
     private static final int PANEL_SECONDARY = 0xFFB4B6CC;
     private static final int PANEL_ONLINE = 0xFF7BE495;
     private static final int PANEL_OFFLINE = 0xFFFF7A6B;
     private static final int PANEL_PINK = 0xFFFF8FDD;
+    private static final int PANEL_CHANNEL = 0xFFB4E2FF;
+    private static final int PANEL_HIGH_ENERGY = 0xFFFF7A6B;
     private static final int FREE = 0xFF2F8A4B;
-    private static final int[] SWITCH_X = {7, 30, 53};
+    private static final int[] SWITCH_X = {6, 29, 52};
     private static final String[] SWITCH_KEYS = {"substitutions", "cycle_planning", "fast_planner"};
-    private static final int[] PANEL_X = {79, 136, 193};
+    private static final int[] PANEL_X = {78, 135, 192};
     private static final String[] PANEL_KEYS = {"cpu", "threads", "parallel"};
-    private static final int[] BAR_X = {83, 141, 198};
+    private static final int[] BAR_X = {83, 140, 197};
     private static final int ROW_Y = 102;
     private static final int ROW_SPACING = 7;
     private static final int ROW_WIDTH = 44;
@@ -71,11 +71,11 @@ final class ComputationControllerArtwork extends UIElement {
         read(initial);
         layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0).width(WIDTH).height(HEIGHT));
 
-        addChild(tooltipRegion(79, 99, 54, 43, this::storageTooltip));
+        addChild(tooltipRegion(78, 99, 54, 43, this::storageTooltip));
         addChild(tooltipRegion(178, 176, 16, 16, () -> switchTooltip(0)));
-        addChild(tooltipRegion(136, 99, 54, 43, this::threadTooltip));
+        addChild(tooltipRegion(135, 99, 54, 43, this::threadTooltip));
         addChild(tooltipRegion(202, 176, 16, 16, () -> switchTooltip(1)));
-        addChild(tooltipRegion(193, 99, 54, 43, this::parallelTooltip));
+        addChild(tooltipRegion(192, 99, 54, 43, this::parallelTooltip));
         addChild(tooltipRegion(226, 176, 16, 16, () -> switchTooltip(2)));
         addChild(tooltipRegion(178, 151, 66, 16, this::connectionTooltip));
         addChild(tooltipRegion(178, 201, 66, 16, this::multiplierTooltip));
@@ -232,13 +232,13 @@ final class ComputationControllerArtwork extends UIElement {
     private void drawLabels(GUIContext context) {
         Font font = Minecraft.getInstance().font;
         Component title = Component.translatable("gui.neoecoae.computation.ui.title");
-        float titleScale = Math.min(1.0F, 92.0F / Math.max(1, font.width(title)));
-        drawText(context, title, 45 + 6, 11 + (9 - 8 * titleScale) / 2.0F, titleScale, TEXT_COLOR);
+        float titleScale = Math.min(HostText.TITLE_SCALE, 92.0F / Math.max(1, font.width(title)));
+        drawText(context, title, HostText.TITLE_X, HostText.TITLE_Y, titleScale, TEXT_COLOR);
         drawText(context, Component.translatable("gui.neoecoae.computation.ui.control_heading"), 9, 90, TEXT_COLOR);
         drawSwitchLabels(context);
         for (int i = 0; i < PANEL_KEYS.length; i++) {
             drawText(context, Component.translatable("gui.neoecoae.computation.ui." + PANEL_KEYS[i]),
-                PANEL_X[i] + 6, 91, TEXT_COLOR);
+                PANEL_X[i] + 2, 91, TEXT_COLOR);
         }
     }
 
@@ -283,8 +283,6 @@ final class ComputationControllerArtwork extends UIElement {
             byteCandidates(totalBytes));
         drawRow(context, 0, 2, Component.translatable("gui.neoecoae.computation.ui.stat.free"),
             availableBytes == 0 && totalBytes > 0 ? WARN : FREE, byteCandidates(availableBytes));
-        drawRow(context, 0, 3, Component.translatable("gui.neoecoae.computation.ui.stat.usage"),
-            usageColor(permilles[0], BLUE), percent(permilles[0]));
         drawRow(context, 1, 0, Component.translatable("gui.neoecoae.computation.ui.stat.busy"), PURPLE,
             counts(usedThreads));
         drawRow(context, 1, 1, Component.translatable("gui.neoecoae.computation.ui.stat.total"), TEXT_COLOR,
@@ -292,17 +290,12 @@ final class ComputationControllerArtwork extends UIElement {
         drawRow(context, 1, 2, Component.translatable("gui.neoecoae.computation.ui.stat.free"),
             totalThreads - usedThreads == 0 && totalThreads > 0 ? WARN : FREE,
             counts(Math.max(0, totalThreads - usedThreads)));
-        drawRow(context, 1, 3, Component.translatable("gui.neoecoae.computation.ui.stat.usage"),
-            usageColor(permilles[1], PURPLE), percent(permilles[1]));
         drawRow(context, 2, 0, Component.translatable("gui.neoecoae.computation.ui.stat.parallel"), PINK,
             counts(parallelCount));
         drawRow(context, 2, 1, Component.translatable("gui.neoecoae.computation.ui.stat.multiplier"),
             networkMultiplier > 1 ? WARN : TEXT_COLOR, "x" + networkMultiplier);
         drawRow(context, 2, 2, Component.translatable("gui.neoecoae.computation.ui.stat.threads"), TEXT_COLOR,
             counts(totalThreads));
-        drawRow(context, 2, 3, Component.translatable("gui.neoecoae.computation.ui.stat.link"),
-            connected ? ONLINE : OFFLINE, Component.translatable(connected
-                ? "gui.neoecoae.computation.ui.stat.online" : "gui.neoecoae.computation.ui.stat.offline").getString());
     }
 
     private void drawStatusIcons(GUIContext context) {
@@ -313,7 +306,9 @@ final class ComputationControllerArtwork extends UIElement {
         if (cyclePlanning) sprite(context, ComputationControllerTextures.statusIcon(2, pink), 204, 178, 12, 12);
         if (fastPlanner) sprite(context, ComputationControllerTextures.statusIcon(3, pink), 228, 178, 12, 12);
         if (networkMultiplier > 1) {
-            sprite(context, ComputationControllerTextures.statusIcon(4, pink), 180, 203, 12, 12);
+            // Index 4 is the normal switch; index 5 is the high-energy switch. Pink overrides both.
+            boolean highEnergy = highEnergySwitchCount > 0 && !pink;
+            sprite(context, ComputationControllerTextures.statusIcon(highEnergy ? 5 : 4, pink), 180, 203, 12, 12);
         }
     }
 
@@ -329,19 +324,22 @@ final class ComputationControllerArtwork extends UIElement {
             networkFrequency == NEFrequencyAllocator.UNASSIGNED
                 ? Component.translatable("gui.neoecoae.computation.ui.panel.frequency.unassigned")
                 : Component.translatable("gui.neoecoae.computation.ui.panel.frequency", networkFrequency),
-            PANEL_SECONDARY, 146);
+            PANEL_CHANNEL, 147);
         Component switchFirst;
         Component switchSecond;
+        int switchFirstColor = PANEL_PRIMARY;
+        int switchSecondColor = PANEL_HIGH_ENERGY;
         if (normalSwitchCount == 0 && highEnergySwitchCount == 0) {
             switchFirst = Component.translatable("gui.neoecoae.computation.ui.panel.switch_none");
             switchSecond = Component.translatable("gui.neoecoae.computation.ui.panel.network", networkMultiplier);
+            switchSecondColor = PANEL_SECONDARY;
         } else {
             switchFirst = Component.translatable("gui.neoecoae.computation.ui.panel.switch_normal", normalSwitchCount);
             switchSecond = Component.translatable(
                 "gui.neoecoae.computation.ui.panel.switch_high_energy", highEnergySwitchCount);
+            switchFirstColor = endgamePink() ? PANEL_PINK : PANEL_CHANNEL;
         }
-        drawInfoRow(context, switchFirst, endgamePink() ? PANEL_PINK : PANEL_PRIMARY, switchSecond, PANEL_SECONDARY,
-            196);
+        drawInfoRow(context, switchFirst, switchFirstColor, switchSecond, switchSecondColor, 197);
     }
 
     private void drawInfoRow(GUIContext context, Component first, int firstColor, Component second, int secondColor,
@@ -401,10 +399,6 @@ final class ComputationControllerArtwork extends UIElement {
         } finally {
             pose.popPose();
         }
-    }
-
-    private static int usageColor(int permille, int accent) {
-        return permille >= 900 ? WARN : accent;
     }
 
     private static String percent(int permille) {

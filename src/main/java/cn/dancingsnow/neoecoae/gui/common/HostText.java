@@ -26,6 +26,10 @@ public final class HostText {
     public static final int WARNING = 0xFFD65A;
     public static final int ORANGE = 0xFF9A3D;
     public static final int ERROR = 0xFF6A75;
+    // Header title of every host window; starts right of the tier logo (x 23..36) and centres on it.
+    public static final float TITLE_SCALE = 1.0F;
+    public static final int TITLE_X = 44;
+    public static final int TITLE_Y = 10;
 
     private static final int BYTES_IN_K = 1024;
     private static final long BYTES_IN_M = BYTES_IN_K * 1024L;
