@@ -295,7 +295,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             return true;
         }
         float oldZoom = zoom;
-        zoom = clamp((float) (zoom * Math.pow(1.12, scrollY)), MIN_ZOOM, MAX_ZOOM);
+        zoom = Math.clamp((float) (zoom * Math.pow(1.12, scrollY)), MIN_ZOOM, MAX_ZOOM);
         float worldX = ((float) mouseX - cameraX) / oldZoom;
         float worldY = ((float) mouseY - cameraY) / oldZoom;
         cameraX = (float) mouseX - worldX * zoom;
@@ -562,7 +562,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         float availableWidth = Math.max(1, width - 40 - detailsReserve);
         int contentTop = graphContentTop();
         float availableHeight = Math.max(1, height - contentTop - 24);
-        zoom = clamp(Math.min(availableWidth / bounds.width(), availableHeight / bounds.height()), MIN_ZOOM, 1.5f);
+        zoom = Math.clamp(Math.min(availableWidth / bounds.width(), availableHeight / bounds.height()), MIN_ZOOM, 1.5f);
         cameraX = 20 - bounds.left() * zoom + (availableWidth - bounds.width() * zoom) / 2;
         cameraY = contentTop + 12 - bounds.top() * zoom
             + (availableHeight - bounds.height() * zoom) / 2;
@@ -777,5 +777,4 @@ public final class ECOCraftingGraphScreen extends Screen {
     private static Component tr(String suffix, Object... args) {
         return Component.translatable("gui.neoecoae.crafting_graph." + suffix, args);
     }
-    private static float clamp(float value, float min, float max) { return Math.max(min, Math.min(max, value)); }
 }

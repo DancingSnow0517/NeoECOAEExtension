@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.graph.TopoSort;
 import cn.dancingsnow.neoecoae.integration.useless.dispatch.UselessPatternSemanticAdapter;
 
 import appeng.api.stacks.AEKey;
@@ -20,7 +21,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceEdge;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -222,13 +222,11 @@ public final class AcyclicCraftingSolver {
         if (!allowed.contains(network.goal())) return List.of();
 
         Map<AEKey, Set<AEKey>> outgoing = new LinkedHashMap<>();
-        Map<AEKey, Integer> indegree = new LinkedHashMap<>();
         ArrayDeque<AEKey> discover = new ArrayDeque<>();
         Set<AEKey> reachable = new LinkedHashSet<>();
         for (AEKey goal : goals) {
             discover.add(goal);
             reachable.add(goal);
-            indegree.put(goal, 0);
         }
 
         while (!discover.isEmpty()) {
@@ -242,27 +240,15 @@ public final class AcyclicCraftingSolver {
                 if (selected.specialAnalysis().excludesFromCycleGraph(input)) continue;
                 AEKey dependency = input.key();
                 if (!allowed.contains(dependency) || !dependencies.add(dependency)) continue;
-                indegree.merge(dependency, 1, Integer::sum);
                 if (reachable.add(dependency)) {
-                    indegree.putIfAbsent(dependency, 0);
                     discover.addLast(dependency);
                 }
             }
         }
 
-        ArrayDeque<AEKey> ready = new ArrayDeque<>();
-        for (AEKey key : reachable) if (indegree.getOrDefault(key, 0) == 0) ready.addLast(key);
-        List<AEKey> ordered = new ArrayList<>(reachable.size());
-        while (!ready.isEmpty()) {
-            cancellation.checkpoint();
-            AEKey key = ready.removeFirst();
-            ordered.add(key);
-            for (AEKey dependency : outgoing.getOrDefault(key, Set.of())) {
-                int remaining = indegree.merge(dependency, -1, Integer::sum);
-                if (remaining == 0) ready.addLast(dependency);
-            }
-        }
-        return ordered.size() == reachable.size() ? ordered : null;
+        var sorted = TopoSort.kahnFifo(reachable,
+            key -> outgoing.getOrDefault(key, Set.of()), cancellation::checkpoint);
+        return sorted.acyclic() ? sorted.order() : null;
     }
 
     private static CompiledPattern selectedPattern(CompiledNetwork network, AEKey key,

@@ -11,6 +11,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.math.NEMath;
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -91,7 +92,10 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         return initial;
     }
 
-    public static long bounded(BigInteger amount) { return amount.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact(); }
+    /** Keeps the signed public contract: negative values are exact, and null or negative overflow still throws. */
+    public static long bounded(BigInteger amount) {
+        return amount.signum() < 0 ? amount.longValueExact() : NEMath.clampToLong(amount);
+    }
     public BigInteger theoreticalBytes() { return storage; }
     public Map<IPatternDetails, BigInteger> exactTasks() { return tasks; }
     public Map<AEKey, BigInteger> deferredStock() { return deferredStock; }

@@ -7,8 +7,7 @@ package cn.dancingsnow.neoecoae.gui.theme;
  */
 public final class Palette {
     // Dark ink on light panels (storage, workstation, computation, multiblock, HostPanelElements, EMI/JEI).
-    // TODO: INK, INK_403E53 and INK_413F54 differ by at most 3 per channel and sit on different panels.
-    // Unify them only as a design decision, because each change alters pixels.
+    // These three inks intentionally retain the colours of their different panels.
     public static final int INK = 0x3F3D52;
     public static final int INK_403E53 = 0x403E53;
     public static final int INK_413F54 = 0x413F54;
