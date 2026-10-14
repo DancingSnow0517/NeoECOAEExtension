@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -230,11 +231,23 @@ public final class HostText {
     }
 
     public static Component fullByteProgress(long used, long max) {
-        return Component.literal(number(Math.max(0L, used)))
-            .append(" / ")
-            .append(number(Math.max(0L, max)))
-            .append(" ")
-            .append(Component.translatable("gui.neoecoae.host.metric.bytes"));
+        return usedOfTotal(usedPart(number(Math.max(0L, used)), used, max), " / ",
+            totalPart(number(Math.max(0L, max)) + " ").append(Component.translatable("gui.neoecoae.host.metric.bytes")));
+    }
+
+    /** Used figure coloured by how full the resource is. */
+    public static MutableComponent usedPart(String text, long used, long max) {
+        return Component.literal(text).withColor(usedValueColor(used, max));
+    }
+
+    /** Capacity figure in value colour. */
+    public static MutableComponent totalPart(String text) {
+        return Component.literal(text).withColor(VALUE);
+    }
+
+    /** "used / total" with a muted separator; the parts keep their own colours. */
+    public static MutableComponent usedOfTotal(Component used, String separator, Component total) {
+        return used.copy().append(Component.literal(separator).withColor(MUTED)).append(total);
     }
 
     public static int usedValueColor(long used, long max) {

@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.List;
 import net.minecraft.network.chat.Component;
 
@@ -31,8 +32,10 @@ final class CraftingControllerTooltips {
 
     List<Component> queueTooltip() {
         return List.of(Component.translatable("gui.neoecoae.crafting.ui.queue",
-                view.queuedCraftCount, formatCapacity(view.batchCapacity)),
-            Component.literal(view.queuedCraftCount + " / " + formatCapacity(view.batchCapacity)),
+                HostText.usedPart(Long.toString(view.queuedCraftCount), view.queuedCraftCount, view.batchCapacity),
+                HostText.totalPart(formatCapacity(view.batchCapacity))),
+            HostText.usedOfTotal(HostText.usedPart(Long.toString(view.queuedCraftCount), view.queuedCraftCount,
+                view.batchCapacity), " / ", HostText.totalPart(formatCapacity(view.batchCapacity))),
             Component.translatable("gui.neoecoae.crafting.ui.queue_percent", percent(view.state.queuePermille())));
     }
 
@@ -54,15 +57,17 @@ final class CraftingControllerTooltips {
     List<Component> coolantTooltip() {
         return List.of(Component.translatable("gui.neoecoae.host.crafting.coolant"),
             coolantVisible() ? view.coolantFluid.getHoverName() : Component.translatable("ldlib.fluid.empty"),
-            Tooltips.ofNumber(view.coolantAmount).append(" / ").append(Tooltips.ofNumber(view.coolantCapacity)).append(" mB"),
+            HostText.usedOfTotal(HostText.usedPart(HostText.expandedNumber(view.coolantAmount), view.coolantAmount,
+                view.coolantCapacity), " / ", HostText.totalPart(HostText.expandedNumber(view.coolantCapacity) + " mB")),
             Component.translatable("gui.neoecoae.crafting.ui.coolant_overclock", Math.max(0, view.coolantMaxOverclock)));
     }
 
     List<Component> outputTooltip() {
         return List.of(Component.translatable("gui.neoecoae.crafting.ui.cooling_output"),
             view.outputFluid.isEmpty() ? Component.translatable("ldlib.fluid.empty") : view.outputFluid.getHoverName(),
-            Tooltips.ofNumber(view.outputFluid.getAmount()).append(" / ")
-                .append(Tooltips.ofNumber(view.outputCapacity)).append(" mB"));
+            HostText.usedOfTotal(HostText.usedPart(HostText.expandedNumber(view.outputFluid.getAmount()),
+                view.outputFluid.getAmount(), view.outputCapacity), " / ",
+                HostText.totalPart(HostText.expandedNumber(view.outputCapacity) + " mB")));
     }
 
     List<Component> fxTooltip() {
