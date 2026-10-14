@@ -976,11 +976,37 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public List<CraftingOutputDisplay> getCraftingControllerWorkerOutputs() {
         var outputs = new ArrayList<>(java.util.Collections.nCopies(
             CraftingControllerPanelState.SLOT_COUNT, CraftingOutputDisplay.EMPTY));
+        NECraftingNetworkCluster network = formed && cluster != null ? cluster.getNetworkCluster() : null;
+        if (network != null) {
+            // Jobs run on any member, so the cells list the group's busy workers, not just this host's.
+            List<CraftingOutputDisplay> pooled = mergeOutputs(network.collectCandidateWorkers().stream()
+                .map(ECOCraftingWorkerBlockEntity::getCraftingDisplayOutput).toList());
+            for (int slot = 0; slot < Math.min(pooled.size(), outputs.size()); slot++) {
+                outputs.set(CraftingControllerPanelState.cellOf(slot, mirrored), pooled.get(slot));
+            }
+            return outputs;
+        }
         List<ECOCraftingWorkerBlockEntity> workers = getCraftingControllerWorkers();
         for (int slot = 0; slot < workers.size(); slot++) {
             outputs.set(CraftingControllerPanelState.cellOf(slot, mirrored), workers.get(slot).getCraftingDisplayOutput());
         }
         return outputs;
+    }
+
+    /** Idle workers drop out and workers on the same item merge, so a pooled group fits the panel's cells. */
+    static List<CraftingOutputDisplay> mergeOutputs(List<CraftingOutputDisplay> perWorker) {
+        List<CraftingOutputDisplay> merged = new ArrayList<>();
+        for (CraftingOutputDisplay output : perWorker) {
+            if (output.item().isEmpty()) continue;
+            int index = 0;
+            while (index < merged.size() && !ItemStack.isSameItemSameComponents(merged.get(index).item(), output.item())) index++;
+            if (index == merged.size()) {
+                merged.add(output);
+            } else {
+                merged.set(index, new CraftingOutputDisplay(output.item(), merged.get(index).amount().add(output.amount())));
+            }
+        }
+        return merged;
     }
 
     public long getDisplayedQueuedCraftCount() {
