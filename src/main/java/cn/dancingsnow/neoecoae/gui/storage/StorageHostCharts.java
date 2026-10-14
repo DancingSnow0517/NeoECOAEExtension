@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.common.FittedText;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
@@ -92,7 +93,7 @@ final class StorageHostCharts {
             boolean centerVertically, boolean rightAligned) {
             if (component == null || component.getString().isEmpty() || width <= 0) return;
             Font font = Minecraft.getInstance().font;
-            float scale = Math.max(0.5F, Math.min(maxScale, width / Math.max(1, font.width(component))));
+            float scale = Math.max(0.5F, FittedText.fitScale(font, component, width, maxScale));
             if (centerVertically) y += (getSizeHeight() - font.lineHeight * scale) / 2;
             var value = Language.getInstance().getVisualOrder(
                 font.substrByWidth(component, Math.max(1, (int) (width / scale))));

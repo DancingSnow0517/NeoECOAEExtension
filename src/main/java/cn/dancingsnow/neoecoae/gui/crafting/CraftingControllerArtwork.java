@@ -318,7 +318,7 @@ final class CraftingControllerArtwork extends UIElement {
     private void drawStatisticText(GUIContext context, Component text, int x, int y, int width,
                                    float preferredScale, boolean centered) {
         Font font = Minecraft.getInstance().font;
-        float scale = Math.min(preferredScale, (width - 1.0F) / Math.max(1, font.width(text)));
+        float scale = FittedText.fitScale(font, text, width - 1.0F, preferredScale);
         float left = x + (centered ? (width - font.width(text) * scale) / 2.0F : 0);
         var pose = context.graphics.pose();
         pose.pushPose();
