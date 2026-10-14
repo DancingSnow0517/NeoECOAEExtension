@@ -12,7 +12,6 @@ import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
@@ -102,7 +101,7 @@ final class StorageResourceFilterGrid extends UIElement {
             this.index = index;
             layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
                 .left(index % 9 * 18).top(index / 9 * 18).width(18).height(18).paddingAll(1));
-            style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+            style(style -> style.backgroundTexture(NETextures.ITEM_SLOT));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
         }
 
