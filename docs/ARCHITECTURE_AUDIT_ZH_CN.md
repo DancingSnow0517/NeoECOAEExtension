@@ -1,46 +1,97 @@
 # 架构冗余审计与整改计划
 
-> 日期：2026-10-13　基线：`src/main/java` 104,250 行，`./gradlew test --offline` 通过（BUILD SUCCESSFUL）。
-> 路径默认相对 `src/main/java/cn/dancingsnow/neoecoae/`。✅ = 已人工复核；未标 = 子代理报告、执行前需再确认。
+> 基线：`4908324b`，`src/main/java` 103,965 行。当前 HEAD `1ecf242f`，`src/main/java` 101,226 行（净减 2,739 行）。
+> 路径默认相对 `src/main/java/cn/dancingsnow/neoecoae/`。
+> 最近一次完整验证记录见 10.4（测试 1163 项，1159 通过、4 跳过）。本次整理只改文档，未重跑测试。
 
 ---
 
-## 1. 执行规则
+## 1. 当前状态与下一步
+
+| 批次 | 状态 | 提交 | `src/main/java` 行数 |
+|---|---|---|---|
+| 基线 | — | `4908324b` | 103,965 |
+| 第 0 批 正确性修复 | ✅ | 分批本地提交 | — |
+| 第 1 批 删除死代码 | ✅ | 分批本地提交 | 102,137 |
+| 第 2 批 横切能力收口 | ✅（`JsonAttrs` 已撤回，见 5.3） | 分批本地提交 | 102,258 |
+| 第 3 批 合并平行类 | ✅ | 第 1～2 波 `1173ccc7`～`c905c901`（7 个提交）；第 3 波 5 个提交 | 101,033 |
+| 第 4 批第一组（T4-9～T4-12） | ✅ | `7a99dff1`～`c8ccd192`（6 个代码提交），记录于 `1ecf242f` | 101,226 |
+| 第 4 批其余（T4-1～T4-8、T4-13～T4-19） | 未开始 | — | — |
+
+**下一步**：
+1. 第 4 批其余项逐项写设计说明，经用户确认后再动手（见 6、4.5）。
+2. 等待 7 节的待决项。其中 D6 阻塞 T4-19，D7 阻塞 UI 相关工作。
+3. 另开小修：`en_ud.json` 等生成文件整体刷新（见 7）。
+
+---
+
+## 2. 执行规则与经验
+
+### 2.1 规则
 
 1. **分工**：总策划（Opus）负责拆分、派发、审查与集中编译测试；执行由 Haiku 子代理完成，每个任务尽量小、文件集互不重叠。
-2. **不提交**：全程不 `git commit` / `git push` / `git stash`，不切分支。
-3. **保护未提交改动**：分支 `refactor/architecture-cleanup` 从 `4908324b` 切出，切出时工作区干净。每一波开工前总策划都要重新执行 `git status`；如果出现不是本计划产生的改动（你可能同时在改代码），一律视为用户改动，只能在其上增量修改，禁止 `checkout`、`restore`、覆盖或恢复。
-4. **子代理不跑 Gradle**（避免并发锁），由总策划每波结束后统一执行：
+2. **提交**：按主题分批本地提交，标题用中文，不推送，不 `stash`，不切分支。
+3. **保护未提交改动**：每一波开工前执行 `git status`。非本计划产生的改动一律视为用户改动，只能在其上增量修改，禁止 `checkout`、`restore`、覆盖或恢复。
+4. **子代理不跑 Gradle**（避免并发锁）。每波结束后由总策划统一执行：
    - `./gradlew compileJava compileTestJava test --offline`
-   - 涉及数据生成的波次再跑 `./gradlew runData --offline`，并检查 `src/generated` 的 diff 只含预期变更。
-5. **子代理不得写临时文件到仓库内**；只读调查任务不得改任何文件。
+   - 启用 AppBot 集成时加 `-PenableAppBotIntegration=true compileJava`
+   - 涉及数据生成的波次再跑 datagen（见 2.3）。
+5. **子代理不得在仓库内写临时文件**；只读调查任务不得改任何文件。
 6. 每个任务完成后提交"改动清单 + 理由 + 未处理项"，由总策划审 diff；不符合要求的退回重做。
-7. 对 fork 自 AE2 的类，语义以 AE2 19.2.18 为准（源码在 `~/.gradle/caches/modules-2/files-2.1/org.appliedenergistics/appliedenergistics2/19.2.18`）。
-8. **以简化为目标**：明显无意义的代码直接删掉，比如死分支、只做转发的包装方法、重复的副本；明显有更简洁写法的就改，比如手写循环其实就是 `anyMatch`、`sum`、`Map.merge`、`removeIf`。**不做**为了风格统一而把循环批量改成 Stream；热路径保持原样。不引入 Kotlin。
-9. **多版本约束优先**：第 2～4 批新增或移动的代码，一律按第 3 节的分层落位。新的纯逻辑辅助类不得引入 `net.minecraft`、`net.neoforged`、`appeng`、`lowdragmc`、`com.mojang`、`com.tterrag` 依赖。审查时，层级放错按不合格退回。
+7. **AE2 fork 类的语义以 AE2 19.2.18 为准**（源码在 `~/.gradle/caches/modules-2/files-2.1/org.appliedenergistics/appliedenergistics2/19.2.18`）。与原版的偏离视为 bug，需整组修正，不能只修一部分。
+8. **以简化为目标**：死分支、只做转发的包装方法、重复副本直接删掉；手写循环明显可以用 `anyMatch`、`sum`、`Map.merge`、`removeIf` 表达的，改成这些写法。**不做**为了风格统一而把循环批量改成 Stream；热路径保持原样。不引入 Kotlin。
+9. **多版本约束**：第 2～4 批新增或移动的代码按 4 节分层落位。`core` 包不得引入 `net.minecraft`、`net.neoforged`、`appeng`、`lowdragmc`、`com.mojang`、`com.tterrag` 依赖，由 `CoreDependencyBoundaryTest` 把守（依赖白名单：`java.*`、`fastutil`、`org.jetbrains.annotations`、`core.*`）。
+10. **判断标准**（用于审查第 2～4 批的抽象是否过度，见 10.5）：
+    - 注册名、语言键、模型路径必须能按字面量搜到；
+    - 不为少数调用点新建枚举或函数式接口；
+    - 不加大量位置参数（尤其相邻同类型），不用 `null`/boolean 表示含义；
+    - 不留只包一层调用的转发方法；
+    - 不做新旧写法混用的半途替换；
+    - 热路径（每 tick、每次推送、每次插入）不新增分配：不要每次 new lambda、方法引用或 `HashSet`；
+    - 真正相同的逻辑（算法、编解码、同步、生命周期）去重保留。
+
+### 2.2 执行与审核经验
+
+- 同时运行的 Haiku 代理超过约 9 个会触发 429，每波控制在 8 个以内。上游 502 或连接重置会让代理中途退出，用 `SendMessage` 恢复，恢复前先看工作区已落地了哪些改动。
+- 代理会违反规则直接调用 `javac`、用 `sed -i` 改文件，留下 `javac.<时间戳>.args` 或全是空字节的 `sedXXXXXX`。每波结束都要 `git status` 检查未跟踪文件。
+- 代理常把 CRLF 文件改成 LF，或留下 `}    }` 这类两个括号挤在一行的拼接痕迹。审核时用 grep 检查。
+- 测试里有大量 Mockito 验证钉住了具体调用（重载类型、调用次数）。GUI 和渲染器的"等价替换"必须实际跑测试确认。
+- 匿名子类里，与继承来的 `protected` 字段同名的参数会遮蔽字段（`return cluster` 实际返回了继承字段 null）。
+- 抽出公共类后行数可能反而增加。以"单一来源"为准，但要在记录中写明净行数。
+- 工作副本是 CRLF，仓库索引是 LF（`core.autocrlf=true`）。提交时会规范化，内容不受影响。
+
+### 2.3 datagen 流程
+
+`runData` 的结果依赖开发环境装了哪些可选模组，**不能直接采用生成结果**。
+
+1. 生成前删除 `src/generated/resources/.cache`。
+2. 用 `git archive` 把 HEAD 和当前工作区分别导出到仓库外。
+3. 把 `run/mods/*.jar` 拷到导出目录的 `run/mods`（否则会因缺少 curios 而失败）。
+4. 分别执行 `./gradlew runData --offline`，比较两份输出，要求零差异。
+5. 如果生成器有改动，只按 key 级差量合并到仓库里的生成文件，不整文件覆盖。
 
 ---
 
-## 2. 审计结论摘要
+## 3. 审计结论摘要
 
 | 维度 | 主要问题 |
 |---|---|
 | 横切能力重复 | 数字格式化约 12 个入口 / 5 套单位表；溢出安全运算 9～11 份私有副本且负数语义不一；BigInteger 网络编解码 4+1 份；`Map<AEKey,BigInteger>` NBT 3～4 套；精确数量类型 ≥6 种；配方图模型 5 套；Kahn 拓扑 ×4、Tarjan ×2 |
-| 平行类复制 | 集成/大型工作站；合成/计算系统控制器；三个集群计算器���`NELogicalNetworkManager` 双路径；流体仓 ×4；散热口、并行核心；AE2/AdvancedAE mixin 成对；JEI/EMI 类别；集成存储盘族；`NEBlocks`/`NEItems` 构建链 |
+| 平行类复制 | 集成/大型工作站；合成/计算系统控制器；三个集群计算器；`NELogicalNetworkManager` 双路径；流体仓 ×4；散热口、并行核心；AE2/AdvancedAE mixin 成对；JEI/EMI 类别；集成存储盘族；`NEBlocks`/`NEItems` 构建链 |
 | 重造轮子 | `ECOStorageCell`≈AE2 `BasicCellInventory`；存储盘 tooltip/拆解≈`BasicCellHandler`；`StorageInterfaceFilter` 未用 `ConfigInventory`/`IPartitionList`；自写 AEKey 编解码；`ECOIOPortTransfer`≈`IOPortBlockEntity.transferContents` |
 | 过度分层 | 执行模式枚举 ×4；规划结果载体 ×5；模式身份 ×3；工作 DTO ×5；并行提供者 3 层包装；存储 BE 约 20 个透传方法；两个同义 C2S 包 |
 | 死代码 | 已核实整类 1,632 行 + 若干死方法/字段 + 33 个模型 JSON |
-| 结构 | `integration/` 与 `compat/` 边界失守；模组 ID 无中心注册；`mods.toml` 漏约 13 个可选依赖；配置注释与语言文案漂移 |
+| 结构 | `integration/` 与 `compat/` 边界失守；模组 ID 无中心注册；`mods.toml` 漏约 16 个可选依赖；配置注释与语言文案漂移 |
 
-预计收益：第 1～3 批约 −6,000～7,500 行（6～7%），连第 4 批约 −10%。主要收益是消除"多份实现各自漂移"引起的 bug。
+**收益核对**：审计预计第 1～3 批约 −6,000～7,500 行。截至 HEAD 实际净减 2,739 行（2.6%），低于预计。主要收益仍是消除"多份实现各自漂移"引起的 bug，行数不是目标。
 
 ---
 
-## 3. 多版本移植架构（1.7.10 / 1.20.1 / 1.21.1 / 26.1.2）
+## 4. 多版本移植架构（1.7.10 / 1.20.1 / 1.21.1 / 26.1.2）
 
 本次重构要同时为后续移植铺路：先把"与版本无关的逻辑"和"与版本绑定的胶水代码"分开，以后每移植一个版本，只重写胶水层。
 
-### 3.1 目标版本矩阵
+### 4.1 目标版本矩阵
 
 | 项 | 1.7.10 | 1.20.1 | 1.21.1（当前） | 26.1.2 |
 |---|---|---|---|---|
@@ -48,7 +99,7 @@
 | AE2 | **GTNH AE2**（`Applied-Energistics-2-Unofficial`，rv3 系） | AE2 15.x | AE2 19.2.18 | AE2 26.1.x（当前 beta） |
 | AE2 物品/数量模型 | `IAEStack<T>`：键与数量**合为一个可变对象**，`IAEStackType` 注册表，`IItemList`；用 `isSameType` 判等 | `AEKey`（不可变）+ long，`KeyCounter`、`GenericStack` | 同 1.20.1 | 同 1.20.1 ✅ |
 | AE2 合成 API | `ICraftingPatternDetails`（`getCondensedAEInputs/Outputs`）、`ICraftingMedium`、`ICraftingProvider` | `IPatternDetails`、`ICraftingProvider`、`CraftingService` | 同 1.20.1 | 同 1.20.1 ✅（`CraftingCpuLogic`、`ListCraftingInventory` 都还在） |
-| Java | 字节码 Java 8，开发时用 Jabel 或 **jvmDowngrader**（GTNH AE2 构建脚本同时支持，后者连同标准库 API 一起降级） | 17 | 21 | **25**（AE2 26.1 的 class 版本为 69 ✅） |
+| Java | 字节码 Java 8，开发时用 Jabel 或 **jvmDowngrader**（见 7 的 D5） | 17 | 21 | **25**（AE2 26.1 的 class 版本为 69 ✅） |
 | 持久化 | `NBTTagCompound` | `CompoundTag`，`ItemStack` 带 NBT | `CompoundTag` + `HolderLookup` + DataComponents | **`ValueInput`/`ValueOutput`**（AE2 26.1 `AEKey.toTag(ValueOutput)` ✅） |
 | 网络 | `SimpleNetworkWrapper` + `ByteBuf` | `SimpleChannel` + `FriendlyByteBuf` | `CustomPacketPayload` + `StreamCodec` | 同 1.21.1（AE2 26.1 仍有 `AEKey.STREAM_CODEC` ✅） |
 | UI | GTNH **ModularUI2**（GTNH AE2 依赖它）/ `GuiContainer` | 无 LDLib2（需评估 LDLib 1.x 或 AE2 `AEBaseScreen`） | LDLib2 | LDLib2 `26.1` 分支 ✅ |
@@ -60,7 +111,7 @@
 - 1.20.1、1.21.1、26.1.2 属于同一代 AE2 API（`AEKey` 系），可以共享大部分 AE2 相关代码，差异集中在持久化、网络、能力、渲染和 UI。
 - 1.7.10 是另一代 API（`IAEStack` 系），能共享的只有不依赖 AE2 的纯逻辑。
 
-### 3.2 目标分层
+### 4.2 目标分层
 
 依赖方向只允许从上往下：L3 → L2 → L1 → L0。
 
@@ -71,673 +122,344 @@
 | **L2 platform** | 持久化抽象 `DataWriter/DataReader`、网络缓冲抽象 `PacketBuf`、注册、能力、服务端 tick 调度、配置绑定、语言/模型生成器输出 | L0/L1 + MC/加载器 | 每个版本一套，尽量薄 |
 | **L3 content/ui/compat** | 方块、方块实体、渲染器、界面控件、mixin、JEI/EMI/Jade、第三方模组集成 | 全部 | 每个版本一套；mixin 只负责挂钩，逻辑委托给 L1/L0 |
 
-### 3.3 当前代码的可移植性（"纯"= 不 import MC/NeoForge/AE2/LDLib/Mojang/Registrate）
+### 4.3 当前代码的可移植性
+
+"纯"指不 import MC/NeoForge/AE2/LDLib/Mojang/Registrate。
 
 | 包 | 文件数 | 纯文件 | import AE2 | 说明 |
 |---|---|---|---|---|
-| `crafting/amount` | 4 | 4 | 0 | 可直接作为 L0 |
-| `crafting/graph` | 16 | 15 | 1 | 基本可直接作为 L0 |
-| `crafting/planner` | 115 | 35 | 80 | 主要障碍：`AEKey`（100 处 import）、`IPatternDetails`（65 处）。需要泛型化 |
-| `crafting/execution` | 87 | 17 | 66 | 调度决策抽到 L0，执行胶水放 L1 |
+| `crafting/amount` | 4 | 4 | 0 | 已迁入 `core`（10.2 F 波） |
+| `crafting/graph` | 16 | 15 | 1 | 基本可直接作为 L0；其余依赖 `CraftingGraphSnapshot`，留给 T4-2 |
+| `crafting/planner` | 115 | 35 | 80 | 主要障碍：`AEKey`（100 处 import）、`IPatternDetails`（65 处）。需要泛型化（T4-13） |
+| `crafting/execution` | 87 | 17 | 66 | 调度决策抽到 L0，执行胶水放 L1（T4-14） |
 | `api/me` | 54 | 18 | 31 | 对外 API，各版本分别发布 |
-| `impl/storage` | 26 | 6 | 17 | 字节计算、无限存储引擎可以泛型化 |
+| `impl/storage` | 26 | 6 | 17 | 字节计算、无限存储引擎可以泛型化（T4-15） |
 | `gui` / `blocks` / `client` / `integration` / `mixins` | 346 | 33 | — | 属于 L3，按版本重写；视图模型抽到 L0 |
 
-### 3.4 关键设计决定
+### 4.4 关键设计决定
 
 1. **规划器对键类型做泛型**：规划器写成 `<K>` 泛型，配一个 `KeyOps<K>` 策略，而不是给每个 `AEKey` 包一层对象，热路径上零额外分配。1.7.10 的 `IAEStack` 是可变的，进入规划器前必须转成不可变键（由 L1 负责，例如 `IAEStack.copy().setStackSize(1)` 后驻留）。
 2. **`planner/compile` 是唯一的 AE→core 翻译边界**：只有编译层读取 `IPatternDetails` / `ICraftingPatternDetails`，下游求解器只认编译后的结构。
-3. **持久化走 `DataWriter`/`DataReader`**：规划、任务、精确数量表等领域编解码器只写这个抽象接口，各版本分别实现在 `CompoundTag`、`ValueOutput`、`NBTTagCompound` 上。第 2 批的 NBT 辅助类（T2-4、T2-5）直接按这个接口实现。
+3. **持久化走 `DataWriter`/`DataReader`**：规划、任务、精确数量表等领域编解码器只写这个抽象接口，各版本分别实现在 `CompoundTag`、`ValueOutput`、`NBTTagCompound` 上。NBT 辅助类（`AmountMapNbt`、`GenericStackNbt`）属于 L2，不放进 `core`。
 4. **网络走 `PacketBuf`**：领域数据的编码（BigInteger、键→数量差量、图快照）写到抽象缓冲上，每个版本只包一层载荷。
-5. **mixin 只做挂钩**：`CraftingServiceMixin`（824 行）、`CraftConfirmMenuMixin`（969 行）里的逻辑迁到 L1 服务类，mixin 只剩注入点加一行委托。每个版本的 mixin 目标都不同，mixin 越薄，移植量越小。
-6. **内容声明式化**：等级、存储盘规格、工具套装、多方块结构、配置项、语言 key 都改成 L0 数据表；各版本的注册代码、数据生成代码只遍历这些表（1.7.10 输出 `.lang`，新版本输出 JSON）。
-7. **UI 视图模型与控件分离**：面板状态、文字、格式化、tooltip 行这些内容放在 L0；控件构建（LDLib2、ModularUI2、AE2 Screen）各版本分别实现。`screens/*.json` 布局的 schema 尽量保持稳定。
-8. **L0 的 Java 语言约束**（以最严格的 1.7.10 为准，见 D5）：
-   - 如采用 jvmDowngrader，L0 可以使用 Java 21 的语法和标准库；
-   - 如采用 Jabel，L0 **不能用 record**，也不能用 Java 9+ 标准库（`List.of`、`Math.clamp`、`String.formatted`、`Stream.toList` 等）。
-   - 这个决定会影响第 2～4 批新写代码的写法，**必须在第 2 批开工前定下来**。
+5. **mixin 只做挂钩**：`CraftingServiceMixin`（814 行）、`CraftConfirmMenuMixin`（946 行）里的逻辑迁到 L1 服务类，mixin 只剩注入点加一行委托。
+6. **内容声明式化**：等级、存储盘规格、工具套装、多方块结构、配置项、语言 key 都改成 L0 数据表；各版本的注册代码、数据生成代码只遍历这些表（1.7.10 输出 `.lang`，新版本输出 JSON）。**注意**：第 4 批 T4-18 之前，不把配置文案做成数据表（见 10.4）。
+7. **UI 视图模型与控件分离**：面板状态、文字、格式化、tooltip 行放在 L0；控件构建（LDLib2、ModularUI2、AE2 Screen）各版本分别实现。`screens/*.json` 布局的 schema 尽量保持稳定。
+8. **L0 的 Java 语言约束**：按 D5 采用 jvmDowngrader 后，L0 可以使用 Java 21 的语法和标准库。若改用 Jabel，则 L0 不能用 record 和 Java 9+ 标准库。
 
-### 3.5 新增与调整的任务
+### 4.5 第 4 批 L 系列任务（T4-13～T4-19）
 
-| ID | 批次 | 内容 |
+| ID | 状态 | 内容 |
 |---|---|---|
-| T2-0 | 第 2 批开头 | 建立 `cn.dancingsnow.neoecoae.core` 包，并加一个单元测试，扫描 `core` 下所有源码，禁止出现上述禁用的 import（相当于简化版 ArchUnit）。第 2 批的纯辅助类（`NEMath`、`TopoSort`、SCC、`ThreadScope`、格式化的数值部分、`BigIntegers`）一律放进 `core` |
-| T2-4/T2-5（调整） | 第 2 批 | NBT 辅助类按 `DataWriter`/`DataReader` 接口设计，1.21.1 实现基于 `CompoundTag` |
-| T2-3（调整） | 第 2 批 | BigInteger 编解码写到 `PacketBuf` 抽象上 |
-| T3-11（调整） | 第 3 批 | 构建链参数化时，先把规格抽成 `core` 里的数据表，再由 Registrate 遍历 |
-| T4-7（调整） | 第 4 批 | mixin 瘦身的目标是"每个注入方法 ≤ 5 行，只做委托" |
-| T4-13 | 第 4 批 | 规划器泛型化（`<K>` + `KeyOps<K>` + `PatternView<K>`），收紧 `planner/compile` 边界，并把 `planner` 下的纯逻辑迁到 `core` |
-| T4-14 | 第 4 批 | 执行层拆分：调度、限额、停滞诊断、批量规划放 `core`；CPU、提供者推送放 L1 |
-| T4-15 | 第 4 批 | 存储引擎泛型化：无限存储引擎、字节计算、迁移模拟放 `core`；存储盘与 AE2 存储的适配放 L1 |
-| T4-16 | 第 4 批 | 持久化与网络抽象落地：`DataWriter`/`DataReader`/`PacketBuf` 的接口放 `core`，1.21.1 实现放 L2 |
-| T4-17 | 第 4 批 | UI 视图模型抽离：`StoragePanelState`、`CraftingControllerPanelState`、`HostText` 的内容部分等移入 `core`，不能引用 LDLib |
-| T4-18 | 第 4 批 | 语言 key 表与配置项表移入 `core`；1.21.1 的生成器读这些表 |
-| T4-19 | 第 4 批末 | 拆成 Gradle 多项目（`:core` 加各版本工程），方案见 D6。拆分前先保证 `core` 包的禁用 import 测试长期为绿 |
+| T4-13 | 未开始 | 规划器泛型化（`<K>` + `KeyOps<K>` + `PatternView<K>`），收紧 `planner/compile` 边界，并把 `planner` 下的纯逻辑迁到 `core` |
+| T4-14 | 未开始 | 执行层拆分：调度、限额、停滞诊断、批量规划放 `core`；CPU、提供者推送放 L1 |
+| T4-15 | 未开始 | 存储引擎泛型化：无限存储引擎、字节计算、迁移模拟放 `core`；存储盘与 AE2 存储的适配放 L1 |
+| T4-16 | 未开始 | 持久化与网络抽象落地：`DataWriter`/`DataReader`/`PacketBuf` 的接口放 `core`，1.21.1 实现放 L2 |
+| T4-17 | 未开始 | UI 视图模型抽离：`StoragePanelState`、`CraftingControllerPanelState`、`HostText` 的内容部分等移入 `core`，不能引用 LDLib |
+| T4-18 | 未开始 | 语言 key 表与配置项表移入 `core`；1.21.1 的生成器读这些表 |
+| T4-19 | 未开始，阻塞于 D6 | 拆成 Gradle 多项目（`:core` 加各版本工程）。拆分前先保证 `core` 包的禁用 import 测试长期为绿 |
 
 ---
 
-## 4. 第 0 批：正确性修复
+## 5. 第 0～3 批任务状态
 
-### 第 A 波（并行）
+### 5.1 第 0 批：正确性修复
 
-| ID | 问题 | 文件集 | 做法 | 验收 |
-|---|---|---|---|---|
-| T0-1 ✅ | **嵌套存储盘检查对 ECO 盘无效**：ECO 盘未注册进 AE2 `StorageCells`，`getCellInventory` 恒为 null，非空 ECO 盘可被塞进 ECO 盘或无限域 | `impl/storage/ECOStorageCell.java`（`canStoreKeyInsideStorageCell`）、`impl/storage/infinite/ECOInfiniteStorage.java`（`canStoreForInsert`）、`src/test/.../impl/storage/infinite/ECOInfiniteStorageHotPathTest.java` | 先查 `ECOStorageCells.getCellInventory`，未命中再查 AE2 `StorageCells`；保留准入缓存，使 `ECOStorageCell` + `ECOStorageCellItem` 的稳定分支真正可达；同步修改测试中对 `StorageCells` 的 mock | 新增回归测试：非空 ECO 盘被拒、空 ECO 盘可存；原测试通过 |
-| T0-2a | 溢出安全运算收口（存储/集成侧） | `crafting/amount/NEMath.java`（可新增 `int` 重载、`saturatingIncrement`、`clampToLong(BigInteger)`）、`impl/storage/StorageByteAccounting.java`、`integration/ae2omnicells/ECOUniversalStorageCell.java`、`integration/megacells/backend/MegaBulkMarkingService.java`、`multiblock/cluster/NECraftingNetworkCluster.java` | 逐个调用点判断输入能否为负：语义等价才替换为 `NEMath`；不等价的保留并在报告中说明 | 每处替换附"输入非负"的依据 |
-| T0-2b | 溢出安全运算收口（合成侧）+ **递归 Tarjan 改迭代** ✅ | `crafting/planner/solve/ActiveRouteSelector.java`、`crafting/planner/result/ECOExecutionPlanBuilder.java`、`crafting/planner/result/ECOExecutionSchedule.java`、`crafting/execution/ECODispatchStallDiagnostics.java`、`crafting/execution/fastpath/ECOBatchCraftingHelper.java` | 只调用 T0-2a 新增的 `NEMath` API（T0-2a 先合入其签名）；`ECOExecutionSchedule.stronglyConnectedComponents/tarjan` 改成迭代实现，输出顺序保持不变 | 新增长链/大环测试（≥100k 节点）不栈溢出；现有规划测试通过 |
-| T0-3 ✅ | MegaCells：`applyClient()` 再调一次 `registerExternalCells()`，单人游戏下 `externalCells` 重复 | `integration/megacells/MegaCellsIntegration.java` | 让 `registerExternalCells` 幂等（先清空或加守卫） | `allCells()` 无重复 |
-| T0-4 ✅ | `ecoCpuPushTickLimit` 规格默认 200_000、静态初值 393216、注释称"最多 64 次"，三者矛盾；另缺配置翻译 key | `config/NEConfig.java`、`data/lang/ConfigLangs.java`、`src/main/resources/assets/neoecoae/lang/zh_cn.json`（及 zh_hk/zh_tw/lzh 若有对应条目） | 读 `ECOCraftingDispatchStrategy.beginTick` 确认真实行为，让注释、文案、静态初值与规格默认一致；所有 `static` 初值改成与 `define*` 默认值相同；补 `megaBulkAutoMarkThreshold`、`ecoPlanningMax{Millis,Work,MemoryMiB}`、`storage` 分类的翻译 key | runData 后 en_us 只新增这些 key |
-| T0-5 | CPU 可用主机判定不一致（一处不检查 `isActive`）+ 规划结果解析器被绕过 | `mixins/ae2/menu/CraftConfirmMenuMixin.java`、`mixins/ae2/crafting/CraftingServiceMixin.java`、新建非 mixin 辅助类（如 `crafting/planner/ECOComputationHosts.java`） | 把"路由原因阶梯 + 主机可用性谓词"抽到普通类，两个 mixin 共用；`:838-842` 改走 `neoecoae$resolveOwnedPlanningResult`。**若读代码后发现差异是有意为之，不改，写明理由** | 报告中给出每处差异的结论 |
-| T0-6 ✅ | `ECOComputationDriveRenderer` 双重注册且 Registrate 那份 `render()` 为空；`ECOComputationCoolingControllerRenderer` 未注册（注册曾在 `d3e02619` 被注释、`eddeeb6e` 被清除） | `all/NEBlockEntities.java:388`、`client/renderer/blockentity/ECOComputationCoolingControllerRenderer.java`、`client/all/NEExtraModels.java`、`models/block/compute/computation_cooling_controller_glass.json` | 删掉 `.renderer(...)`；冷却控制器渲染器按**待决 D1** 处理（默认：删除类、`NEExtraModels` 条目，以及只被它引用的模型） | 客户端 setup 无重复注册 |
-| T0-7 | `eco.lss` 引用不存在的 `ui-eco:BUTTON_HOVER`、`BAR_CONTAINER`、`BAR` | `src/main/resources/assets/neoecoae/lss/eco.lss`、`gui/theme/NETextures.java` | 查 git 历史：选择器对应的控件已不存在就删规则；仍在用就恢复纹理字段 | 报告中给出依据 |
-| T0-8 ✅ | 解锁条件错用 `ALUMINUM_ALLOY_INGOT`；4 处 criterion 名拼写错误 | `integration/appmek/NEAppMekItems.java:42`；`all/NEItems.java:239,617,721,906` | 改成 `BLACK_TUNGSTEN_ALLOY_INGOT`；修正拼写 | runData 后只有对应进度 JSON 变化 |
-| T0-9 | 大型工作站排出流体处理器每次调用都新建；基类 `fluidCombined` 死字段；AppBotania 的 `Upgrades.add` 未包 `enqueueWork` | `blocks/entity/ECOIntegratedWorkingStationBlockEntity.java`、`blocks/entity/ECOLargeIntegratedWorkingStationBlockEntity.java`、`integration/appbot/AppBotaniaIntegration.java` | 处理器缓存为字段；删除基类死字段（保留子类所需的方法签名）；改用 `event.enqueueWork` | 编译通过，能力查询行为不变 |
-
-### 第 A 波只读调查（不改代码，产出结论供后续批次使用）
-
-| ID | 内容 |
-|---|---|
-| I0-1 | ExtendedAE 的 `TileExIOPort` / `ContainerExIOPort` 是自己声明还是继承了 `tickingRequest` / `setupConfig`；`ExtendedAe*IOPort*Mixin` 是否从未匹配、是否会重复包装（查 gradle 缓存里的 jar） |
-| I0-2 | 存储接口传输不排除"迁移中"的盘，而驱动器挂载排除（`ECOStorageInterfaceTransfer:84-89` vs `ECODriveBlockEntity:223-228`）：是否有意 |
-| I0-3 | 批量盘已用字节向下取整，父类和 AE2 向上取整（`ECOMegaLongBulkStorageCell:176-180`）：是否有意 |
-| I0-4 | 合成流体仓缺少"跳过集群成员"一步（大型工作站仓有）：是否遗漏 |
-| I0-5 | `NEBlocks:1508,1572`、`NEMultiBlocks:145-147` 引用其他类的 `FORMED`/`FACING` 属性：是否为同一实例 |
-| I0-6 | `updateMultiblockAfterNeighborUpdate` 在 AE2 19.2.18 中的名称确认 |
-
-**第 A 波结束**：总策划审 diff → 编译 → 测试 → runData。
-
----
-
-## 5. 第 1 批：删除死代码（第 B 波，并行）
-
-删除前每个任务必须对类名、方法名做全仓 grep（含 `src/test`、`src/generated`、`src/main/resources` 下的 JSON/LSS/mixins.json），并检查是否存在字符串拼接、反射、`@LDLRegister` 等间接引用。**公共 API 包（`api/`）中的扩展点一律保留**：`ECOPlannerRequester`、`ECOBatchCapacityProvider`、`NEBlockEntity.registerCalculatorFactory`、零实现的 SPI 接口。
-
-| ID | 删除内容 | 状态 |
+| ID | 内容 | 结果 |
 |---|---|---|
-| T1-1 | 规划器：`crafting/planner/result/{OwnershipEvent, ReferenceOwnershipLedger, PrimitiveOwnershipState, OwnershipReplayHarness, CycleResourceLedger}`、`crafting/execution/fastpath/ECOExtractedCraft`、`crafting/planner/cycle/UnsupportedCycleSolver`、`crafting/planner/solve/CandidateAttemptStatus`。（`SinglePatternGrowthCycleSolver` 有测试使用，保留并在类注释中标为仅测试使用） | ✅ |
-| T1-2 | GUI 整类：`gui/task/HostTaskListElement`、`gui/common/HostNetworkStatusElement`、`gui/storage/StorageHostAnimatedRatio`、`gui/widget/ECOHostWidgets`、`gui/widget/ECOHostChannelScrollerView`（先确认没有 JSON 用 `eco-host-channel-scroller-view`） | ✅ |
-| T1-3 | GUI 成员：`HostText` 的 `byteProgress`、`compactStorageBytes`、`preciseHugeAmount`、`hugeStackAmount`、`exactAmountTooltip`、`fullTypeProgress`、`fullByteProgressValues`、`gaugeColor`、`COMPACT_DECIMAL`、`PRECISE_HUGE_DECIMAL`；`HostPanelElements.formatPerformanceValue`；`NETextures` 未引用字段（逐个核对 `ui-eco:NAME` 在 JSON/LSS 中无引用）；`ExactAmountFormatter.full`；`ECODriveRenderer.RNG` | ✅（HostText 部分） |
-| T1-4 | mixin：`mixins/client/accessor/MenuScreensAccessor` 及其 `neoecoae.mixins.json` 条目；`CraftConfirmMenuMixin` 的 `neoecoae$amountFor`、`neoecoae$hasAmountFor`；`ECOThunderboltProviderMixin`（确认插件对未知名称默认返回 false，测试只传字符串，删除后测试仍通过）；`AppEngInternalInventoryMixin` 中不可达的分支 | ✅ |
-| T1-5 | 兼容层：`compat/dataenergistics/ECODataEnergisticsCountedBridge`、`compat/extendedaeplus/ECOExtendedAEPlusScaling`。（`ECOAe2LtBatchCapability` 有测试使用，保留） | ✅ |
-| T1-6 | 数据生成/工具：`registration/provider/NECellModelProvider`、`data/model/CellModelGenerator`、`NEProviderTypes.CELL_MODEL`（该类若因此变空则删整个文件）；`ItemModelUtil.compatCellModel`、`compatHousingModel`；`PatternSearchKeywords.Directions.append` | ✅ |
-| T1-7 | 方块/多方块：`blocks/ECOLargeIntegratedWorkingStation.java`；`NEStorageCluster.casings`（只写不读） | ✅ |
-| T1-8 | 存储迁移 API：`IECOStorageMigrationCell.getUsedBytesForMigration` 及 3 处实现；3 参数的 `simulateInsertForMigration` 及其覆写；`ECOStorageSystemBlockEntity.getInfiniteMigrationProgressPercent` 和 `ECOInfiniteStorageModeController.migrationProgressPercent`；`ECOMegaLongBulkStorageCell.getStoredEntries`、`isCompressionEnabled` | |
-| T1-9 | 资源：`models/block/cell/` 下约 33 个未引用 JSON（必须先读 `ECOCellModels`、`ItemModelUtil`、各 Integration 的模型名拼接逻辑，逐个确认）；死语言 key `tooltip.neoecoae.infinite_component.unlock`（`NELangGenerator` 以及各手写语言 JSON）。依赖 T0-4（同改 `zh_cn.json`），放在 T0-4 之后 | |
-| T1-10 | 空目录：`mixins/{advanced_ae, extendedae, useless, sophisticated}`、`mixins/compat/{ae2lt, ftbquests, utilitarian, ae2omnicells/crafting}`、`client/craftinggraph`、`integration/jei/client`（只删确实为空的） | ✅（部分） |
+| T0-1 | 嵌套存储盘检查识别 ECO 盘：先查 `ECOStorageCells`，未命中再查 AE2 `StorageCells` | ✅ |
+| T0-2a | 溢出安全运算收口到 `NEMath`（新增 `saturatingAddInt`、`clampToLong`）；负数语义不等价的调用点保留私有实现 | ✅ |
+| T0-2b | 合成侧溢出运算收口；`ECOExecutionSchedule` 的 Tarjan 改为迭代实现 | ✅ |
+| T0-3 | MegaCells `registerExternalCells` 幂等（所有客户端都受影响，不止单人） | ✅ |
+| T0-4 | 推送上限文案如实描述 `min(64, 配置值)`；16 个默认值常量化；补齐配置翻译 key | ✅（配置项后由 D10 删除） |
+| T0-5 | 可用主机判定与路由原因抽到 `ECOComputationHostRouting`；提交路径改走带所有权检查的解析器 | ✅ |
+| T0-6 | 删除空的 BER 注册与冷却控制器渲染器 | ✅ |
+| T0-7 | 删除 `BAR`/`BAR_CONTAINER` 的死规则 | ✅（D9 处理了 `BUTTON_HOVER`） |
+| T0-8 | 解锁条件改为 `BLACK_TUNGSTEN_ALLOY_INGOT`；修正 4 处 criterion 拼写 | ✅ |
+| T0-9 | 工作站流体处理器只创建一次；AppBotania 的 `Upgrades.add` 改用 `enqueueWork` | ✅ |
+| T0-10a | 接口传输与驱动器挂载共用同一个资格谓词，迁移中的盘被排除 | ✅ |
+| T0-10b | 批量盘已用字节改为向上取整（与 AE2 一致） | ✅ |
+| T0-11 | `ElapsedTimeTracker` 精确账本读档容错 | ✅ |
+| I0-1～I0-6 | 只读调查，结论见 10.1 | ✅ |
 
-**第 B 波结束**：编译 → 测试 → runData → 统计行数 → **向用户汇报第 0、1 批结果**。
+### 5.2 第 1 批：删除死代码
 
----
+T1-1～T1-10 全部完成，共删除 22 个 Java 类、33 个未引用的模型 JSON、14 个空目录。删除清单见提交历史。删除前的 grep 复核过程中发现若干条误报，见 8.2。
 
-## 6. 第 2 批：横切能力收口
+### 5.3 第 2 批：横切能力收口
 
-| ID | 内容 | 目标 |
+| ID | 内容 | 结果 |
 |---|---|---|
-| T2-1 | 数字格式化统一门面 | `crafting/display/format` 下一个 `DisplayFormat`：long 走 AE2 `AmountFormat`/`ReadableNumberConverter`，二进制字节只用 `NEByteFormatter`，统一 1000 进位；删除 `HostText` 内重复的格式化方法、`CraftingControllerArtwork.compactNumber`、`.replace("K","k")` hack、`ECOCraftReportHeaderRenderer` 的混合进位 |
-| T2-2 | 千位分组与百分比 | 统一用 `DisplayNumbers.grouped`、`HostText.percent` |
-| T2-3 | BigInteger 网络编解码 | 统一用 `ExactMapSync.writeInteger/readInteger`（`ECOCycleItemList`、`ECOExactPending`、`ExactKeyAmount`；`MaterialNode` 的字符串编码单独评估） |
-| T2-4 | AEKey 与 `Map<AEKey,BigInteger>` 的 NBT | 新增 `AmountMapNbt` 辅助类；`ECOBigOrderController`、`ExecutingCraftingJob`、`ECOExactInventory` 共用；`ECOMegaLongBulkStorageCell.writeKey/readKey`、`StorageInterfaceFilter.encode/decode` 改用 `AEKey.toTagGeneric/fromTagGeneric`（需兼容旧存档格式，读取时回退旧格式） |
-| T2-5 | GenericStack 列表的有界读取 | `GenericStackNbt` 辅助类（`ECOFastPathStacks`、`ECOLargeIntegratedWorkingStationBlockEntity.readCounter`、`ECOCraftingOutputDelivery`、`ECOExecutionPlanNbtCodec`） |
-| T2-6 | 图算法 | `core/graph/TopoSort`，入口为 `kahnFifo` / `kahnOrdered`，替换 4 处；SCC 统一用迭代实现；`ClientCraftingGraph` 只构建一次 `GraphAdjacency`，传给各布局 |
-| T2-7 | BigInteger 校验 | `BigIntegers.nonNegative`、`checked`；`NetworkStorageMixin` 改调 `ECOBigIntegerStorage.insert` |
-| T2-8 | 方块实体持久化与同步 | `NEBlockEntity.persistAndSync()`、`isServerStopping()`；替换 37 处 `setChanged(); markForUpdate();`；3 处裸 `executeIfPossible` 改走 `ServerTaskUtil` |
-| T2-9 | 小工具 | `BlockStateUtil.yRotation(facing)`（22 处）；作用域栈 `ThreadScope<T>`（4 处）；压缩链判等 `sameChain`（4 处）；"清空存储盘"作为默认方法（4 处）；`CustomData` 读改写辅助方法 |
-| T2-10 | GUI 公共件 | `gui/json` 暴露 `string()`（7 份）；`FittedText.draw`（约 7 处）；`Palette` 统一调色板；`HostElements.tooltips` 统一 tooltip 构建；`ECOModularUI` 增加不需要 player 的重载 |
-| T2-11 | 输出累加 | `ExecutionOutputs.accumulate`（"模式产物 × 次数"共 4 处）；`ECOCraftingThread` 的栈转换移入 `ECOCraftingStackCodec` |
-| T2-12 | 模组 ID 与加载检查 | `ModIds` 常量 + `ModGate.isLoaded`；去掉 `ECOOmniSequenceDirectDispatch` 等处的重复检查 |
+| T2-0 | `core` 包骨架、依赖白名单测试 `CoreDependencyBoundaryTest`、`core.math.BigIntegers`、`core.graph.TopoSort` | ✅ |
+| T2-1 | 数字格式化统一：`BigNumberFormatter` 为唯一的十进制（1000 进位）简写实现，`ExtendedDecimalUnits` 删除 | ✅ |
+| T2-2 | 千位分组与百分比统一用 `DisplayNumbers.grouped`、`HostText.percent` | ✅（D 波） |
+| T2-3 | BigInteger 网络编解码统一到 `ExactMapSync`（有符号版 + 负数检查）；线上字节格式不变 | 基本完成：`ExactMapSync` 已被 `ECOBigOrderProgressS2CPacket`、`ECOExactPending`、`ECOCycleItemList`、`ExactKeyAmount`、`ExactCpuSnapshot`、`MenuDataCodecs` 等使用；`MaterialNode` 的字符串编码未评估 |
+| T2-4 | `AmountMapNbt` 辅助类，`ECOBigOrderController`、`ExecutingCraftingJob` 等共用 | 部分：`AEKey` 键编解码（`ECOMegaLongBulkStorageCell`、`StorageInterfaceFilter`）移到 T4-8，因为要兼容旧存档 |
+| T2-5 | `GenericStackNbt` 有界读取 | 部分：工作站 `readCounter` 已接入；`ECOExecutionPlanNbtCodec`、`ECOCraftingOutputDelivery` 保留自有读取路径 |
+| T2-6 | `TopoSort`（`kahnFifo`/`kahnOrdered`）、`StronglyConnected` 统一 SCC、客户端 `GraphAdjacency` | 基本完成：审计列出的 4 处 Kahn 已换；`AcyclicCraftingSolver` 另有一份手写 Kahn（审计未列，待处理） |
+| T2-7 | `BigIntegers` 校验统一；插入请求和结果的校验放到 `ECOBigIntegerStorage` | ✅ |
+| T2-8 | `NEBlockEntity.persistAndSync()`、`ServerTaskUtil.isServerStopping()`；约 40 处替换；裸 `executeIfPossible` 全部加保护 | ✅ |
+| T2-9 | `BlockStateUtil.yRotation`（21 处）、`ThreadScope`、压缩链判等、CustomData 辅助方法 | 部分：yRotation、压缩链、CustomData 已完成；`ThreadScope` 只用于 2 处，`ECOCellMutationBatch`、`ExactAmountCollector` 仍手写 ThreadLocal；"清空存储盘"的 4 份实现语义不同，保留 |
+| T2-10 | `FittedText`、`Palette`、`HostElements.tooltips`、`ECOModularUI.create(root)` | 部分：`JsonAttrs` 已撤回（见 10.5），`string()` 辅助现只剩 `NeoUiJsonLoader` 一份，其余 GUI 文件是内联 `getAsString()` 写法（约 17 个文件），需要确认是否接受 |
+| T2-11 | `ExecutionOutputs.accumulate`（2 处）；`ECOCraftingStackCodec` | ✅（`addAllSaturating` 保留，AE2 版会溢出） |
+| T2-12 | `integration/ModIds`（19 个常量，`isLoaded` 带 null 保护）；删除 Omni 中死掉的 `supports()` | ✅ |
 
----
+### 5.4 第 3 批：合并平行类
 
-## 7. 第 3 批：合并平行类
-
-| ID | 内容 |
-|---|---|
-| T3-1 | 合成/计算系统控制器：抽出 `NetworkSwitchHostSupport`（网络开关、频率、节点回调、忽略替代） |
-| T3-2 | 集群计算器：把"镜像试两次"和约 8 个辅助方法上提到 `NEClusterCalculator`；控制器查找每次只算一次 |
-| T3-3 | `NELogicalNetworkManager` 按集群类型泛型化；集群类抽出 `NENetworkedCluster`（网络倍率） |
-| T3-4 | `MultiBlockBuildController.Host` 给简单访问器提供默认方法，构建状态移进控制器；大型工作站的 `autoBuild` 改走控制器 |
-| T3-5 | 流体仓 4 合 1（方块实体 + 方块参数化）；散热口、并行核心各合并为一个通用类；`setIdlePowerUsage` 改由构造参数传入 |
-| T3-6 | 集成工作站与大型工作站：组合式 `MultiblockMemberSupport` + `PowerDrawHelper`，删除遮蔽常量和重复的电力设置 |
-| T3-7 | `NEBlockEntity` 增加 `onUnloadOrRemove()` 钩子，统一 `setRemoved`/`onChunkUnloaded` 两个入口 |
-| T3-8 | AE2/AdvancedAE 成对 mixin：方法体委托给同一个静态辅助类；按任务定向插入产物收口到 `ECOExternalCpuOutputRouter`；IO 端口 mixin 按 I0-1 的结论删除或合并 |
-| T3-9 | JEI/EMI：共用布局常量和配方收集；EMI 的多方块列表改为从 `NEMultiBlocks.DEFINITIONS` 推导；纹理路径常量统一 |
-| T3-10 | 集成存储盘族改为数据驱动的 `IntegrationCellFamily`；升级卡注册循环（10 份）、`ECOCellModels.registerTiers`、Mega 盘 4 个子类合并 |
-| T3-11 | `NEBlocks`/`NEItems`/`NEBlockEntities`/`NEMultiBlocks` 构建链：工具套装、存储盘、控制器族、分级核心、存储方块与外壳、能量盘、仓室、晶芽等参数化辅助方法 |
-| T3-12 | GUI 平行件：CPU 选择 `ServerState`、按钮/返回键、工具栏图标按钮、`BindableElement<T>`、`GridSlot`、滚动条适配到 AE2 `Scrollbar`、侧栏分段 |
-| T3-13 | 存储盘 tooltip、拆解、`bytesUsedLine`、无限成员提示抽成静态辅助方法（物品类和 Jade 共用，每次 tooltip 只构建一次存储盘） |
-
----
-
-## 8. 第 4 批：架构统一（每项需先出设计说明，经用户确认后再动手）
-
-| ID | 内容 |
-|---|---|
-| T4-1 | 精确数量类型以 `PlannerAmount` 为准（并入"无限"标记），逐步替换其余 5 种 |
-| T4-2 | 图模型：`CraftingGraphSnapshot` 作为网络 DTO，`CraftingDependencyGraph` 作为规划图，客户端和 trace 从这两者派生 |
-| T4-3 | 执行模式枚举、求解状态枚举各合一；规划结果统一由 `ECOExecutionContract` 承载 |
-| T4-4 | 模式身份统一；工作 DTO 合并为 `CraftWork`；推送守卫只保留一份，删除废弃的 `pushBatch`；轮询游标复用 `ECOProviderCursor` |
-| T4-5 | 并行提供者去掉多余包装层；批量规划器改为无状态单例 |
-| T4-6 | 两个 C2S 包合并（模式枚举 + 共享校验）；新增 `ECOPayload` 基础设施；增量同步通道 `DeltaSyncChannel` |
-| T4-7 | `CraftConfirmMenuMixin` 的循环物品投影、`CraftingServiceMixin` 的集群遍历移出 mixin；规划会话复用 `ECOCancellation` |
-| T4-8 | 存储：`StorageInterfaceFilter` → `ConfigInventory` + `IPartitionList`（兼容旧 NBT）；字节计算抽进 `StorageByteAccounting`；批量盘不再承担父类的初始化开销；IO 端口传输骨架复用；存储 BE 的透传方法收敛 |
-| T4-9 | `integration/`、`compat/` 边界重划（`compat/ae2` 移到 `crafting/adapter/ae2` 一类位置）；`mods.toml` 补全可选依赖 |
-| T4-10 | 语言文案：英文只在生成器中定义；复用 `common.*`；配置注释与 `ConfigLangs` 只保留一个来源；拼写错误的 key 迁移（保留旧 key 作为别名，或在 CHANGELOG 中说明） |
-| T4-11 | AE2 fork 类（`ElapsedTimeTracker`、`ExecutingCraftingJob`）对照 19.2.18 做 diff，评估能否改为"AE2 原类 + mixin" |
-| T4-12 | `util.ICellHost` 别名并入 API 版本（连同修改 `StorageIntegrationApiTest`） |
-
----
-
-## 9. 待决事项
-
-| ID | 问题 | 默认方案 |
+| ID | 内容 | 结果 |
 |---|---|---|
-| D1 | `ECOComputationCoolingControllerRenderer`（冷却控制器玻璃渲染）：注册还是删除？ | 删除（历史上已被有意注释掉） |
-| D2 | 溢出安全加法遇到负输入的统一语义 | 采用 `NEMath` 的"先截为 0"；语义不同的调用点保留私有实现并加注释 |
-| D3 | 拼写错误的语言 key（`storage_dirve`、`max_lenth`、`patten`、`unknow_cell_type`）改名会让第三方资源包失效 | 放到第 4 批，改名同时保留兼容 |
-| D4 | 第 4 批各项是否执行 | 逐项出设计说明后由用户确认 |
-| D5 | 1.7.10 的 Java 工具链：Jabel（只降级语法，`core` 不能用 record 和 Java 9+ 标准库）还是 jvmDowngrader（语法和标准库一起降级） | **jvmDowngrader**：`core` 可以按 Java 21 写，不用为 1.7.10 降低写法。需先在 GTNH 构建脚本中验证可行（**第 2 批开工前必须定**） |
-| D6 | 多版本工程组织：① 每个版本一个分支，共享 `:core` 制品；② 单仓多项目（`:core` + `:mc1710` / `:mc1201` / `:mc1211` / `:mc2612`）；③ Stonecutter 一类预处理器 | **②**：`core` 按二进制共享；AEKey 代的三个版本之间，L1 用共享源码目录加少量按版本区分的适配类。1.7.10 工具链差异太大，可以单独作为一个 Gradle 根工程，只引用 `core` |
-| D7 | 1.20.1 的 UI 方案：LDLib 1.x 还是 AE2 `AEBaseScreen` 加自写的 JSON 布局渲染器 | 先评估 LDLib 1.x 与当前 JSON 布局的契合度，再决定 |
-| D8 | 1.7.10 的功能范围：GTNH AE2 没有部分模组集成（如 MEGA、AppFlux），1.7.10 是否只移植核心机器、规划器和存储 | 只移植核心，集成按 GTNH 整合包里实际存在的模组另行规划 |
+| T3-1 | `NENetworkSwitchHost` 接口 + `NetworkSwitchHostSupport` | ✅（`@Persisted` 字段留在方块实体上，见 8.1） |
+| T3-2 | `NEClusterCalculator.verifyEitherMirror`；`NENetworkSwitchClusterCalculator` 中间基类 | ✅ |
+| T3-3 | `NELogicalNetworkManager` 泛型 `Domain`；`NetworkSwitchMultipliers`；`CONTROLLER_POS_ORDER` | ✅ |
+| T3-4 | `MultiBlockBuildController.Host` 缩减为默认方法；三个控制器的 get/set 改用 Lombok | ✅（构建状态与 `autoBuild` 不移，见 8.1） |
+| T3-5 | 流体仓 4 合 1、散热口与并行核心参数化；idle 功耗由构造参数传入；旧类 16 个删除 | ✅（行为变化见 9） |
+| T3-6 | 集成工作站与大型工作站共用 `isValidScale` 等；删除遮蔽常量和重复电力设置 | ✅（`PowerDrawHelper` 不做，见 8.1） |
+| T3-7 | `NEBlockEntity.onUnloadOrRemove()` 钩子 | ✅ |
+| T3-8 | AE2/AdvancedAE CPU mixin 共用 `ECOExternalCpuMixinSupport`；`ECOExternalCpuOutputRouter` 被实时扫描和 AdvancedAE 扫描共用；IO 端口 mixin 共用 `ECOStorageCells.orEcoCellInventory` | ✅ |
+| T3-9 | `TextureConstants` 移到 `integration/xei`；EMI 多方块列表从 `NEMultiBlocks.DEFINITIONS` 推导 | 部分：纹理常量与多方块列表已统一（行为变化见 9）；JEI/EMI 布局常量的共用未核实 |
+| T3-10 | `IntegrationCells`（`Size` 枚举 L4/L6/L9）、`OptionalCellUpgrades.addStandard`；MEGA 4 个子类合并为 `ECOMegaStorageCellItem` | ✅（审计原文的 `ECOCellModels.registerTiers` 不存在） |
+| T3-11 | `ToolKind` 收掉 20 个工具；`NEBlockEntities` 新增 `clusterBlockEntity`、`tieredBlockEntity` 等；`NEMultiBlocks.byTier` | ✅（差异项保留，见 10.3） |
+| T3-12 | `HostElements.hiddenValue`、`TabBackButton`、`ECOIcon.toolbarBackground`、`CpuSelectionServerState` | ✅（`BindableElement`、`GridSlot` 不存在；滚动条不换，见 8.1） |
+| T3-13 | `CellTooltips`、`CellDisassembly`；存储盘只构建一次；MEGA 长批量盘覆盖 `appendCellLines` | ✅（Jade 存储控制器的 UUID 行未改，因为它手里是字符串） |
 
 ---
 
-## 10. 已排除的误报
+## 6. 第 4 批待办
 
-- `client/gui/graph/CompactTreeRenderer`：被 `GraphRenderer.java:46` 用于紧凑树布局，**不是死代码**。
-- `api/me` 下零实现的 SPI（`ECOCraftingDispatchPolicy`、`ECOCraftingJobAttachment`、`ECOCraftingLifecycleListener`）以及二进制兼容垫片（`api/me/ECOCraftingCPU` 等）：是有意保留的扩展点。
+第 4 批每项都需要先写设计说明，经用户确认后再动手。
+
+| ID | 状态 | 内容 |
+|---|---|---|
+| T4-1 | 未开始 | 精确数量类型以 `PlannerAmount` 为准（并入"无限"标记），逐步替换其余 5 种 |
+| T4-2 | 未开始 | 图模型：`CraftingGraphSnapshot` 作为网络 DTO，`CraftingDependencyGraph` 作为规划图，客户端和 trace 从这两者派生 |
+| T4-3 | 未开始 | 执行模式枚举、求解状态枚举各合一；规划结果统一由 `ECOExecutionContract` 承载 |
+| T4-4 | 未开始 | 模式身份统一；工作 DTO 合并为 `CraftWork`；推送守卫只保留一份，删除废弃的 `pushBatch`；轮询游标复用 `ECOProviderCursor` |
+| T4-5 | 未开始 | 并行提供者去掉多余包装层；批量规划器改为无状态单例 |
+| T4-6 | 未开始 | 两个 C2S 包合并（模式枚举 + 共享校验）；新增 `ECOPayload` 基础设施；增量同步通道 `DeltaSyncChannel` |
+| T4-7 | 未开始 | `CraftConfirmMenuMixin` 的循环物品投影、`CraftingServiceMixin` 的集群遍历移出 mixin；规划会话复用 `ECOCancellation` |
+| T4-8 | 未开始 | 存储：`StorageInterfaceFilter` → `ConfigInventory` + `IPartitionList`（兼容旧 NBT）；字节计算抽进 `StorageByteAccounting`；批量盘不再承担父类的初始化开销；IO 端口传输骨架复用；存储 BE 的透传方法收敛。**另含** T2-4 留下的 `ECOMegaLongBulkStorageCell.writeKey/readKey`、`StorageInterfaceFilter.encode/decode` 改用 `AEKey.toTagGeneric/fromTagGeneric`，读取时回退旧格式 |
+| T4-9 | ✅ | `integration/`、`compat/` 边界重划；`mods.toml` 补全可选依赖（见 10.4） |
+| T4-10 | ✅ | 语言文案：死 key 清理、拼写改名、配置文案三处统一（见 10.4） |
+| T4-11 | ✅ | AE2 fork 类评估：两个都保留；`ExecutingCraftingJob` 的损坏恢复小修已完成（见 10.4） |
+| T4-12 | ✅ | `util.ICellHost` 别名删除，改用 API 版本 |
+| T4-13～T4-19 | 未开始 | 见 4.5 |
+
+---
+
+## 7. 待决事项
+
+### 7.1 第 0～4 批的决定项
+
+| ID | 问题 | 状态 |
+|---|---|---|
+| D1 | `ECOComputationCoolingControllerRenderer` 注册还是删除？ | ✅ 删除 |
+| D2 | 溢出安全加法遇到负输入的统一语义 | ✅ 采用 `NEMath` 的"先截为 0"；语义不同的调用点保留私有实现并加注释 |
+| D3 | 拼写错误的语言 key 改名是否保留别名 | ✅ 直接改名，不保留别名，CHANGELOG 说明（见 10.4） |
+| D4 | 第 4 批各项是否执行 | ✅ 逐项出设计说明后由用户确认 |
+| D5 | 1.7.10 的 Java 工具链 | ✅ 采用 jvmDowngrader（语法和标准库一起降级）。**GTNH 构建脚本的可行性验证结论未记录，需补** |
+| D6 | 多版本工程组织：① 每版本一分支；② 单仓多项目；③ Stonecutter 类预处理器 | ⏳ 默认 ②（`:core` + `:mc1710` / `:mc1201` / `:mc1211` / `:mc2612`），**待确认，阻塞 T4-19** |
+| D7 | 1.20.1 的 UI 方案：LDLib 1.x 还是 AE2 `AEBaseScreen` + 自写 JSON 布局渲染器 | ⏳ 默认先评估 LDLib 1.x 与当前 JSON 布局的契合度，再决定 |
+| D8 | 1.7.10 的功能范围 | ⏳ 默认只移植核心机器、规划器和存储；集成按 GTNH 整合包实际存在的模组另行规划 |
+| D9 | `eco.lss` 中 `BUTTON_HOVER` 等悬停引用 | ✅ 指向 `BUTTON_HIGHLIGHTED`，字段和 PNG 已核对 |
+| D10 | 推送上限硬编码为 64 | ✅ 删除 `ecoCpuPushTickLimit` 配置项及语言 key，保留固定上限 64 |
+
+### 7.2 执行过程中产生的待用户决定
+
+1. **JEI 与 EMI 显示差异**（11.7）：冷却配方文字缩放（0.75 与 1.0）、动画时长（20/100 tick 与 2000）、闪电配方文案（`lightning_cost` 单行，还是 `lightning_amount` 加名称两行）、多方块分类图标（COMPUTATION_L4 与 STORAGE_L4）。
+2. **AE2LT 的 `finishJob` 失败钩子**（11.7）：只调用 `ECOCraftingJobLifecycle.finish`，不像 AE2 和 AdvancedAE 那样走 `cancelAndRecover`，因此不会唤醒工作线程回收。是否对齐？
+3. **计算系统计算器的镜像状态**（11.7）：结构校验失败时不重置冷却控制器的镜像状态（现有行为，已保留）。是否要修？
+4. **界面墨色与状态色**（11.5、11.6）：三种近似墨色是否统一？`ECOCraftingGraphScreen.cycleStatusColor` 的绿色是否改成与 `GraphRenderer.materialStatusColor` 一致？
+5. **`common.on/off` 的文案**（10.4）：这两个 key 已删（死 key）。大型工作站的 `enabled/disabled` 与镜像的 `on/off` 中文是"开/关"，`common.*` 是"开启/关闭"。若要统一，需要先定统一后的中文文案。
+6. **生成文件刷新**（10.4）：`en_ud.json` 比当前生成结果少 259 个 key，另有 25 个值不同；unfinished 下的文件也有旧值。需要在装齐可选模组的环境里整体重新生成，建议另开一项。
+7. **`MaterialNode` 字符串编码**（T2-3）：是否纳入 BigInteger 编码统一，尚未评估。
+8. **`ECOExternalProviderBlocking`**（10.4）：移到 `crafting/adapter/ae2` 后仍向上依赖 `LargeWorkstationPatternProvider` 与 AdvancedAE 桥接，不是干净的 L1。彻底解耦需要加钩子，本批不做。
+
+---
+
+## 8. 有意保留、不做、误报
+
+### 8.1 有意保留或不做
+
+| 项 | 结论 | 理由 |
+|---|---|---|
+| "清空存储盘"的 4 份实现（封存/截断/创造） | 保留 | 语义各不相同（T2-9） |
+| 百分比、表格 `formatAmount` 的合并 | 保留 | 合并后显示会变 |
+| `CraftingControllerArtwork.drawInfoText` 等有测试钉住绘制调用序列的地方 | 保留原绘制调用，只复用 `fitScale` | 测试会失败（E 波） |
+| `HostText.storageTypeAccentColor` 的回退色表、图界面状态色 | 不并入 `Palette` | 只在一处使用，并入只是换位置 |
+| `crafting/graph` 其余类 | 未迁入 `core` | 依赖 `CraftingGraphSnapshot`（AE2/MC）或 slf4j，留给 T4-2 |
+| `ExactAmountFormatter` | 留在 L1 | 依赖 `AEKey` |
+| `PowerDrawHelper`（T3-6） | 不做 | 两套耗电算法在平局和容差上的语义不同 |
+| 构建状态移入控制器（T3-4） | 不做 | 要持久化并同步给客户端 |
+| 大型工作站的 `autoBuild`（T3-4） | 保留 | 行为与其他控制器不同 |
+| 两种系统控制器合并（R3） | 不做 | 方块状态读取的是各自类上的属性字段 |
+| `@Persisted` 字段留在方块实体上（T3-1） | 保留 | LDLib 的 `FieldManagedStorage` 按宿主字段管理，迁走会改变存档 |
+| 滚动条换成 AE2 `Scrollbar`（T3-12） | 不做 | 会改变行为，且有测试钉住 |
+| 侧栏两套工具包合并（T3-12） | 不做 | — |
+| `BindableElement<T>`、`GridSlot` | 不做 | 这两个类不存在 |
+| `ECOComputationCoolingControllerRenderer` 注册 | 删除（D1） | 历史上已被有意注释掉 |
+| 配置文案做成数据表（原 13.3 方案 1） | 不做，留到 T4-18 | 属于过度抽象；`zh_cn.json` 是手写整份文件，生成器只输出配置部分会和它在 jar 中同路径冲突。改为手工对齐 + 一致性测试 |
+| MEGA 守卫新增两个接口（原 13.2 方案 3） | 取消 | `instanceof` 只加载类、不触发校验；两个 MEGA 类的父类和接口都是本模组的类型。为单一调用点新建接口违反判断标准 |
+| `ElapsedTimeTracker` / `ExecutingCraftingJob` 改为 AE2 原类 + mixin | 不做 | `ExecutingCraftingJob` 的构造器和 `CraftingDifferenceListener` 都是包私有，mixin 等于重写构造器；`ElapsedTimeTracker` 的 mixin 会改变 NaN 等原生行为，收益小 |
+| `activeCooling` key 改名 | 不改 | 不是拼写错误 |
+| 空任务的剩余数量 | 保留 `Integer.MAX_VALUE`（进度为 0） | 有意为之，源码注释有说明；AE2 为 0 |
+| 推送上限 | 保留固定 64 | D10 |
+
+### 8.2 误报（审计报告中，经核实不成立）
+
+- `client/gui/graph/CompactTreeRenderer`：被 `GraphRenderer.java:46` 用于紧凑树布局，不是死代码。
+- `api/me` 下零实现的 SPI（`ECOCraftingDispatchPolicy`、`ECOCraftingJobAttachment`、`ECOCraftingLifecycleListener`）以及二进制兼容垫片（`api/me/ECOCraftingCPU` 等）：有意保留的扩展点。
 - `NEBlockEntity.registerCalculatorFactory`：对外扩展点。
+- `PatternSearchKeywords.Directions.append`：有调用。
+- `ExactAmountFormatter.full`、3 参数的 `simulateInsertForMigration`、`getStoredEntries`：测试在用。
+- `AppEngInternalInventoryMixin` 的守卫分支：测试子类会走到。
+- ExtendedAE 的 IO 端口两个 mixin（I0-1）：都必需，没有重复包装。
+- `NEBlocks`、`NEMultiBlocks` 引用的 `FORMED`/`FACING` 属性（I0-5）：同一实例，无害。
+- `updateMultiblockAfterNeighborUpdate` 方法名（I0-6）：正确。
+- `ECOCellModels.registerTiers`：不存在。
+- `ECOThunderboltBatchBridge.capacity()`：已在第 2 批删除。
+- 精确订单小修 2（EAEP `manualMissing` 与 `waitingFor` 不一致）：不成立。精确订单提交给 CPU 的是 `ECOExactCraftingPlan`，不是 `IForcedCraftingPlan`，`manualMissing(plan)` 对它总是返回空。
 
 ---
 
-## 11. 进度记录
+## 9. 已接受的行为变化
 
-| 批次 | 状态 | 行数变化 | 备注 |
-|---|---|---|---|
-| 基线 | ✅ | 103,965（`4908324b`） | 测试通过 |
-| 第 0 批 | ✅ 完成（已分批提交） | 见下 | T0-1～T0-11 全部合入；编译通过，测试 1102 个通过、4 个跳过 |
-| 第 1 批 | ✅ 完成（已分批提交） | `src/main/java` 103,965 → 102,137（−1,828）；全仓 +493 / −3,994 | 另删 33 个模型 JSON、14 个空目录 |
-| 第 2 批 | ✅ 完成（B0～F 已分批提交） | `src/main/java` 102,137 → 102,258（+121） | 以收口为主，新增公共件抵消了删除量；测试 1153 个，1149 通过、4 跳过 |
-| 第 3 批 | ✅ 完成（第 1～3 波已分批提交） | 第 1、2 波：102,258 → 102,158（−100）；第 3 波：102,130 → 101,033（−1,097） | 测试 1161 个，1157 通过、4 跳过；datagen 与 HEAD 零差异；见 11.9 |
-| 第 4 批 | 第一组完成（未提交） | 第一组：101,306 → 101,226（−80） | T4-12、T4-9、T4-10、T4-11；测试 1163 个，1159 通过、4 跳过；见第 15 节 |
+以下变化已经合入，需要在发布说明或 CHANGELOG 中注明。
 
-### 11.1 第 0、1 批执行记录（2026-10-13）
+**用户可见**
+- EMI 的多方块列表改为从 `NEMultiBlocks.DEFINITIONS` 推导，与 JEI 一致，EMI 多显示集成工作站（共 10 个）。
+- 合成系统的流体仓现在也跳过多方块内相邻成员（原先只有大型工作站输入仓如此）。在有效结构中本来就不会触发。
+- 数字显示：报表标题回退由 1024 进制改为 1000 进制（与 AE2 一致）；CPU 存储字节对齐 AE2 的 `Tooltips.getByteAmount`；CPU 协处理器数量在 1e18 以上不再封顶为 "E"；`ComputationCpuEntry` 完整显示超过 2Q 改为科学计数法。
+- 语言 key 改名（无别名）：`storage_dirve` → `storage_drive`、`max_lenth` → `max_length`、`unknow_cell_type` → `unknown_cell_type`。英文 `patten` 文案改为 `patterns`。资源包里翻译旧 key 的内容会失效。
+- 删除了约 68 个死语言 key，以及孤儿 key（`soulkey.description`、`ecoCraftConfirmDebug` 及其 `.tooltip`）。
+- 配置注释改为 zh_cn 与 en_us tooltip 拼接，toml 中的注释文字随之变化（只是注释）。
 
-**第 0 批合入**：
-- T0-1：嵌套存储盘检查先查 ECO 注册表
-- T0-2a/b：溢出安全运算收口到 `NEMath`（新增 `saturatingAddInt`、`clampToLong`）；递归 Tarjan 改为迭代
-- T0-3：MegaCells 外部盘列表幂等（所有客户端都受影响，不止单人）
-- T0-4：推送上限文案改为如实描述 `min(64, 配置值)`；16 个默认值常量化；补齐配置翻译 key
-- T0-5：可用主机判定与路由原因抽到 `ECOComputationHostRouting`；提交路径改走带所有权检查的解析器
-- T0-6：删除空的 BER 注册与冷却控制器渲染器
-- T0-7：删除 `BAR`/`BAR_CONTAINER` 的死规则
-- T0-8：修正解锁条件与拼写
-- T0-9：工作站流体处理器只创建一次；AppBotania 改用 `enqueueWork`
-- T0-10a：接口传输与挂载共用同一个资格谓词，迁移中的盘被排除
-- T0-10b：批量盘已用字节改为向上取整
-- T0-11：`ElapsedTimeTracker` 精确账本读档容错
+**存档与网络**
+- 批量盘已用字节改为向上取整；迁移中的盘不能再挂载到驱动器，也不能被存储接口传输。
+- `ExecutingCraftingJob` 读档改用 `ECOBigCraftingOrder.decode`，比 `new BigInteger` 更严格。
+- 精确订单的 `exactTotal/exactRemaining` 解码失败时不再中断整个任务的恢复，而是设 `exactProgressLost`，走 `EXECUTION_METADATA_LOST` 挂起路径。
+- `ECOExactPending` 同步拒绝负数与空报文。
 
-**调查结论**：
-- I0-1：ExtendedAE 的 IO 端口两个 mixin 都必需，没有重复包装（调整 T3-8：只抽公共方法体，不删除）
-- I0-2：bug，已修（T0-10a）
-- I0-3：已修（T0-10b）
-- I0-4：潜在不一致，并入 T3-5（合并后的流体仓统一跳过集群成员）
-- I0-5：同一实例，无害
-- I0-6：方法名正确
-- 两个 fork 类（`ElapsedTimeTracker`、`ExecutingCraftingJob`）的差异清单交给 T4-11
+**模组加载与资源**
+- KubeJS 插件恢复加载：`kubejs.plugins.txt` 在 `9d2f6c61` 中被删除，`NEKubeJSPlugin` 从此没有被 KubeJS 加载过。`ba1ca93f` 重新启用了源码，却漏掉了插件文件和 `build.gradle` 中的 exclude。
+- `mods.toml` 新增 16 个可选依赖（`[0,)`、`ordering="AFTER"`；emi 为 `side="CLIENT"`）。`extendedae`、`ae2omnicells` 两个 mixin 配置加上了 `requiredMods`。
+- 删除 `util.ICellHost`：外部代码若按这个名字编译，会失败。仓库文档从未公开过这个名字。
+- 删除 `compat/` 包：外部代码若引用旧包名，会失败。`ECOFastPathFacade` 的签名不变。
+- 删除 MEGA 16m/64m 的死物品模型 18 个，以及对应父模型和语言条目。
+- 删除 `ecoCpuPushTickLimit` 配置项。
 
-**datagen**：`runData` 结果依赖开发环境中装了哪些可选模组，不能整批采用。本次只合并了配置 key 和 6 个进度文件，其余输出全部丢弃。
+---
 
-**审核中纠正的审计误报**（以下条目未删除）：
-- `PatternSearchKeywords.Directions.append`：有调用
-- `ExactAmountFormatter.full`、3 参数的 `simulateInsertForMigration`、`getStoredEntries`：测试在用
-- `AppEngInternalInventoryMixin` 的守卫分支：测试子类会走到
+## 10. 执行记录
 
-**留给后续批次**：
-- `ECOThunderboltBatchBridge.capacity()` 现在只有测试调用 → 第 2 批
-- `eco_mega_*_cell_{16m,64m}` 物品模型疑似死资源 → 第 2 批核实
-- `ECOMegaLongBulkStorageCell` 本地复制了一份 `ceilDivide` → T4-8 字节计算收口时去掉
-- `ECOOmniSequenceDirectDispatch` 等处重复的模组加载检查 → T2-12
+### 10.1 第 0、1 批（2026-10-13）
 
-**新增待决**：
-- **D9（已解决）**：`eco.lss` 中两处按钮悬停引用已改为 `BUTTON_HIGHLIGHTED`，并核对字段和 PNG 均存在。
-- **D10** 推送上限硬编码为 64，配置值超过 64 不起作用：是否保留现状
+- 第 0 批合入：T0-1～T0-11，见 5.1。
+- 调查结论：
+  - I0-1：ExtendedAE 的两个 IO 端口 mixin 都必需。
+  - I0-2：确认是 bug，已由 T0-10a 修复。
+  - I0-3：确认是 bug，已由 T0-10b 修复。
+  - I0-4：潜在不一致，并入 T3-5。
+  - I0-5、I0-6：无害或正确，见 8.2。
+  - 两个 fork 类的差异清单交给 T4-11。
+- 第 1 批：删除 22 个 Java 类、33 个模型 JSON、14 个空目录。
+- datagen：`runData` 结果依赖开发环境中装了哪些可选模组，不能整批采用。本次只合并了配置 key 和 6 个进度文件，其余输出全部丢弃。
+- 提交前复核：全部 1106 项测试实际重跑，1102 通过、4 跳过；`check`、`jar`、独立输出目录的 `runData` 均通过，另启用 AppBotania 集成完成编译。删除的 22 个 Java 类无生产引用。未进行客户端或真实存档验证。
 
-**提交前复核（2026-10-13）**：实际重跑全部 1106 项测试，1102 项通过、4 项跳过，零失败；`check`、`jar`、独立输出目录的 `runData` 均通过，另启用 AppBotania 集成完成编译。核对本次修改的语言 key 和 6 个进度文件与新生成结果一致，删除的 22 个 Java 类无生产引用，33 个单元模型及冷却控制器模型无残留引用，产物包含按钮悬停修正。未进行客户端或真实存档验证。
+### 10.2 第 2 批（B0～F）
 
-本次按存储、算法、合成路由、配置配方、工作站、旧代码清理、界面资源和审计文档拆为 8 次本地提交。检查期间开始写入的第 2 批内容另行保留，不纳入这 8 次提交。
+- **B0**：新增 `core` 包，包括 `core.graph.TopoSort`、`core.math.BigIntegers`，以及 `CoreDependencyBoundaryTest`。
+- **C 波**：
+  - C1（D10）：删除 `ecoCpuPushTickLimit`，`beginTick()` 改为无参，返回常量 64。
+  - C2a 格式化：`BigNumberFormatter` 成为唯一的十进制简写实现，新增 `formatSI(..., lowercaseKilo)`、`compactFixed`、`fit`；删除 `ExtendedDecimalUnits` 和 `HostText` 中 1024 进位的简写路径。
+  - C3 BigInteger：`ExactMapSync` 新增有符号读写，编解码只剩一份实现。
+  - C4a/C4b：新增 `platform.nbt.AmountMapNbt`、`GenericStackNbt`，存档格式字节级保持一致。`ECOExactInventory`、`ECOExecutionPlanNbtCodec`、`OutputDelivery` 的读取路径没有改，因为布局或失败策略不同。
+  - C5a/C5b：规划器里 3 处 Kahn 排序换成 `TopoSort`（带取消检查点的重载）；SCC 统一为 `core.graph.StronglyConnected`；客户端新增 `GraphAdjacency`。
+  - C6a/C6b：`persistAndSync()`、`persistAndSyncOnServerThread()`、`ServerTaskUtil.isServerStopping()` 落地，约 40 处调用替换。
+  - C7a/b/c：`BlockStateUtil.yRotation`（21 处）、`ThreadScope`（2 处）；压缩链判断收口为一个谓词；"清空存储盘"保留 4 份实现。
+  - C8：`gui/json/JsonAttrs` 替换 7 份副本，之后已撤回（10.5）；`ECOModularUI.create(root)` 无玩家参数。
+  - C9：删除 MEGA 16m/64m 的死模型，以及 `ECOThunderboltBatchBridge.capacity()`。
+- **D 波**：
+  - D1：Jade、图界面的 `%,d` 改用 `DisplayNumbers.grouped`；CPU 条目改用 `BigNumberFormatter.format`；硬编码中文改为翻译 key。CPU 存储字节对齐 AE2：删除 `CpuSelectionListMixin` 中对存储的两处覆盖，删除 `NEByteFormatter.format`/`formatCpuStorage` 和过时的 `CpuSelectionListMixinContractTest`。
+  - D3：新增 `ExecutionOutputs`（2 处使用）；`ECOCraftingThread` 的栈转换迁入 `ECOCraftingStackCodec`。
+  - D4：`ModIds` 替换 31 个文件；删除 Omni 中死掉的 `supports()`。其余重复检查各有原因，保留。
+  - D5：大型工作站 `readCounter` 改用 `GenericStackNbt.readBounded`，写入改用 `writePositive`，行为表与改前一致。
+- **E 波**：
+  - E0：新增 `gui/common/FittedText`、`gui/theme/Palette`（三种近似墨色暂时分开保存，带 TODO）；`HostElements` 新增 `hoverTooltips(List)` 和 `tooltips(element, List|Supplier)`。
+  - E1～E4：storage、computation、crafting/workstation/multiblock/common 按钮、client 渲染器与 JEI/EMI 改用公共件。读实时状态的 tooltip 一律用 Supplier 重载。图渲染中重复的状态颜色映射合并为 `GraphRenderer.materialStatusColor`。
+  - 审核修正：C8 删除 `string()` 后，7 个 GUI 文件出现 `}    }` 拼接残留，已拆回两行。
+- **F 波**：纯逻辑类迁入 `core`（只改包名、import 和全限定名，类体逐字未动）：
+  - `crafting/amount/NEMath` → `core/math/NEMath`
+  - `crafting/amount/ExactAmount`、`PlannerAmount` → `core/amount/`
+  - `crafting/display/format/BigNumberFormatter`、`DisplayNumbers`、`NEByteFormatter` → `core/format/`
+  - `crafting/graph/GraphAdjacency` → `core/graph/GraphAdjacency`
+  - `crafting/amount` 包删除。约 140 个文件的 import 随之更新。`NEMathTest` 移到 `core/math`；`GraphAdjacencyTest` 拆分，依赖包私有 `ClientCraftingGraph.synthetic` 的那一条留在 `crafting/graph`。
+- 验证：1153 项测试，1149 通过、4 跳过；启用 AppBot 集成后编译通过。
 
-### 11.2 用户决定（2026-10-13）
-
-- **D5**：1.7.10 采用 jvmDowngrader。`core` 可以使用 Java 21 的语法和标准库。依赖采用白名单：只允许 `java.*`、`it.unimi.dsi.fastutil.*`、`org.jetbrains.annotations.*` 和 `cn.dancingsnow.neoecoae.core.*`。
-- **D9**：`eco.lss` 里的 `BUTTON_HOVER` 改为指向 `BUTTON_HIGHLIGHTED`。
-- **D10**：有了智能翻倍，`ecoCpuPushTickLimit` 已经没有作用。删除这个配置项和它的语言 key，保留固定上限 64 的现有行为。
-
-### 11.3 第 2 批执行波次
-
-| 波次 | 内容 |
-|---|---|
-| B0（单独） | T2-0：`core` 包骨架、依赖白名单测试、`core.math.BigIntegers`、`core.graph.TopoSort` |
-| C（并行） | D9/D10；T2-1/2 格式化；T2-3/7 BigInteger 编解码与校验；T2-4/5 NBT 辅助类（`StorageInterfaceFilter` 和批量盘的键编解码挪到 T4-8，因为要兼容旧存档）；T2-6 规划器拓扑排序/SCC、客户端图邻接表；T2-8 方块实体持久化与同步；T2-9 yRotation、ThreadScope、存储辅助；T2-10 JSON 属性辅助、`ECOModularUI` 无玩家重载；死资源核实 |
-| D（并行） | 数字显示与 CPU 字节格式对齐 AE2；T2-11 输出累加；T2-12 ModIds；工作站 `readCounter` 接入 NBT 辅助类 |
-| E（并行） | FittedText/Palette/tooltip 公共件及各界面、客户端渲染器、JEI/EMI 调用接入 |
-| F（单独，✅ 已完成） | 把纯逻辑类（`NEMath`、格式化的数值部分、图算法）迁入 `core`，同时更新 import |
-
-NBT 辅助类属于 L2 平台层，不放进 `core`；`DataWriter`/`DataReader` 抽象仍放在 T4-16。
-
-### 11.4 第 2 批第 B0/C 波执行记录
-
-B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`，以及依赖白名单测试 `CoreDependencyBoundaryTest`。
-
-第 C 波合入情况（编译通过，测试 1145 个通过）：
-
-- **C1（D10）**：删除 `ecoCpuPushTickLimit`。`beginTick()` 改为无参，返回常量 64。
-- **C2a 格式化**：
-  - `BigNumberFormatter` 成为唯一的十进制（1000 进位）简写实现，新增 `formatSI(..., lowercaseKilo)`、`compactFixed`、`fit`。
-  - 删除 `ExtendedDecimalUnits`，以及 `HostText` 中 1024 进位的简写路径和若干死方法。
-  - 报表头的字节显示统一为 1000 进位，与 AE2 一致。
-- **C3 BigInteger**：
-  - `ExactMapSync` 新增有符号读写，原来的严格版改为"有符号版 + 负数检查"；编解码只剩一份实现，线上字节格式不变。
-  - 插入请求和结果的校验统一放到 `ECOBigIntegerStorage`。
-- **C4a/C4b**：新增 `platform.nbt.AmountMapNbt`、`GenericStackNbt`，存档格式按字节保持一致。
-  - `ECOExactInventory`、`ECOExecutionPlanNbtCodec` 以及 `OutputDelivery` 的读取路径没有改：它们的布局或失败策略和辅助类不同。
-- **C5a/C5b**：
-  - 规划器里 3 处 Kahn 排序换成 `TopoSort`（新增带取消检查点的重载）。
-  - SCC 统一为 `core.graph.StronglyConnected`，`ECOExecutionSchedule` 和 `TarjanSccAnalyzer` 共用。
-  - 客户端新增 `GraphAdjacency`。
-- **C6a/C6b**：`NEBlockEntity.persistAndSync()`（public）、`persistAndSyncOnServerThread()`、`ServerTaskUtil.isServerStopping()` 已落地，约 40 处调用替换；裸 `executeIfPossible` 全部加了保护。
-- **C7a/b/c**：
-  - 新增 `BlockStateUtil.yRotation`（21 处），新增 `core.concurrent.ThreadScope`（2 处使用）。
-  - 压缩链判断收口为一个谓词，并补了 CustomData 辅助方法。
-  - "清空存储盘"的 4 份实现语义各不相同（封存/截断/创造），**保留**。
-- **C8**：新增 `gui/json/JsonAttrs`，替换 7 份重复副本；新增 `ECOModularUI.create(root)`，无需玩家参数。
-- **C9**：
-  - 删除 MEGA 16m/64m 的死物品模型 18 个、父模型 18 个，以及对应语言条目 18 组。
-  - 删除 `ECOThunderboltBatchBridge.capacity()`。
-
-**遗留**：确认界面中 CPU 存储那一行（`NEByteFormatter.formatCpuStorage`）仍是 1024 进位，而报表头已经改为 1000 进位。交给第 D 波按 AE2 的做法统一。
-
-### 11.5 第 2 批第 D/E 波执行记录
-
-**第 D 波**：
-- **D1**：Jade、图界面的 `%,d` 改用 `DisplayNumbers.grouped`；CPU 条目改用 `BigNumberFormatter.format`；硬编码中文改为翻译 key `gui.neoecoae.crafting_report.missing_startup_seed_amount`。
-  - CPU 存储字节的显示**对齐 AE2**：删除 `CpuSelectionListMixin` 中对存储的两处覆盖，确认界面传原始数值，ECO 自己的 CPU 页改用 AE2 的 `Tooltips.getByteAmount`。
-  - 删除 `NEByteFormatter.format`/`formatCpuStorage` 和已过时的 `CpuSelectionListMixinContractTest`。
-  - 百分比、表格 `formatAmount` 这几处如果合并，显示会变，**保留**。
-- **D3**：新增 `crafting/execution/ExecutionOutputs`（2 处使用）。`ECOCraftingThread` 的栈转换方法迁入 `ECOCraftingStackCodec`。`addAllSaturating` 保留，因为 AE2 的版本会溢出。
-- **D4**：新增 `integration/ModIds`（19 个常量，`isLoaded` 带 null 保护），替换 31 个文件；删除 Omni 中死掉的 `supports()`。其余重复检查各有原因，保留。
-- **D5**：大型工作站 `readCounter` 改用 `GenericStackNbt.readBounded`，写入改用 `writePositive`，行为表与改前一致。
-
-**第 E 波**：
-- **E0**：新增 `gui/common/FittedText`、`gui/theme/Palette`（三种近似墨色暂时分开保存，带 TODO）；`HostElements` 新增 `hoverTooltips(List)` 和 `tooltips(element, List|Supplier)`。
-- **E1**（storage）、**E2**（computation）、**E3**（crafting/workstation/multiblock/common 按钮）、**E4**（client 渲染器与 JEI/EMI）：颜色、tooltip、文字适配改用公共件。
-  - 读实时状态的 tooltip 一律用 Supplier 重载。
-  - 有测试钉住了具体绘制调用序列的地方（`ComputationCpuPanel.text/fittedText`、`CraftingControllerArtwork.drawInfoText`）保留原绘制调用，只复用 `fitScale`。
-  - 图渲染中重复的状态颜色映射合并为 `GraphRenderer.materialStatusColor`。
-- **审核修正**：C8 删除 `string()` 后，7 个 GUI 文件出现 `        }    }` 两个括号挤在一行的格式残留，已拆回两行（保持 CRLF）。
-
-### 11.6 第 2 批第 F 波执行记录
-
-纯逻辑类迁入 `core`（只改包名、import 和全限定名，类体逐字未动）：
-
-| 原位置 | 新位置 |
-|---|---|
-| `crafting/amount/NEMath` | `core/math/NEMath` |
-| `crafting/amount/ExactAmount`、`PlannerAmount` | `core/amount/` |
-| `crafting/display/format/BigNumberFormatter`、`DisplayNumbers`、`NEByteFormatter` | `core/format/` |
-| `crafting/graph/GraphAdjacency` | `core/graph/GraphAdjacency` |
-
-- `crafting/amount` 包删除；`crafting/display/format` 只剩依赖 `AEKey` 的 `ExactAmountFormatter`。约 140 个文件的 import 随之更新。
-- 测试：`NEMathTest` 移到 `core/math`；`GraphAdjacencyTest` 拆分，纯邻接表测试移到 `core/graph`，依赖包私有 `ClientCraftingGraph.synthetic` 的那一条留在 `crafting/graph/ClientCraftingGraphAdjacencyTest`。`CraftingModuleBoundaryTest` 去掉已不存在的 `amount` 目录（`core` 由 `CoreDependencyBoundaryTest` 以更严的白名单把守）。
-- **未迁移**：`crafting/graph` 其余类依赖 `CraftingGraphSnapshot`（AE2/MC）或 slf4j，留待 T4-2 图模型统一时处理；`ExactAmountFormatter` 依赖 `AEKey`，属 L1。
-- 验证：`compileJava compileTestJava test` 通过，1153 项（1149 通过、4 跳过）；`-PenableAppBotIntegration=true` 编译通过。
-
-**第 2 批遗留项结论**：
-- `HostText.storageTypeAccentColor` 的回退色表、图界面状态色都只在一处使用，并入 `Palette` 只是换位置，**不做**。
-- 需要用户决定：三种近似墨色是否统一；`ECOCraftingGraphScreen.cycleStatusColor` 的绿色是否改成与 `materialStatusColor` 一致。
-
-### 11.7 第 3 批第 1、2 波执行记录（已分批提交）
-
-开工前做了 8 路只读调查。调查纠正了第 7 节中的若干描述，结论已体现在下面的执行内容和 11.8 中。两波结束后：编译通过，测试 1159 项（1155 通过、4 跳过，新增 6 项）；启用 AppBot 集成后编译也通过。
-
-源码已按主机生命周期与建造接口、逻辑网络、结构计算器、外部 CPU、存储单元公共逻辑、兼容模组注册、配方查看器拆为 7 个中文标题及描述的本地提交，范围为 `1173ccc7`～`c905c901`，未推送。
+### 10.3 第 3 批（三波）
 
 **第 1 波**：
-- **T3-1**：新增 `multiblock/network/NENetworkSwitchHost` 接口（`hasNetworkSwitch` 为默认方法）和 `NetworkSwitchHostSupport`（开关属性判断、忽略替代品的网格读写）；`NEFrequencyAllocator` 增加 `isAssigned`、`orDefault`。两个系统控制器改为委托。`@Persisted` 字段留在方块实体上，因为 LDLib 的 `FieldManagedStorage` 按宿主字段管理，迁走会改变存档。
-- **T3-7**：`NEBlockEntity` 增加 `onUnloadOrRemove()` 钩子，在 AE2 销毁节点之前运行。机器接口、驱动器、存储控制器、合成线程迁到钩子上。合成线程的 `setRemoved` 保留尾部的 `onThreadAvailabilityChanged()`；样板总线需要在 super 之后通知，保持原样。
-- **T3-5 前置**：`NEBlockEntity` 增加带 `idlePowerUsage` 参数的构造器（原构造器默认 16，在 `onReady` 中应用）。合成线程（64）、能量元件（0）、合成控制器（64）已改为传构造参数；驱动器、存储控制器是动态计算的，保留。
-- **T3-6**：大型工作站删除与父类重复的常量、构造器调用、`getGridConnectableSides`、`onReady` 中重复的 `setPowerSides`，以及冗余的 `implements`。两个集成工作站计算器的 `checkMultiblockScale` 合为 `isValidScale`。`PowerDrawHelper` 不做：两套耗电算法在平局和容差上的语义不同。
-- **T3-8**：
-  - 新增 `crafting/execution/ECOExternalCpuMixinSupport`，AE2 与 AdvancedAE 的 CPU mixin 共用其中的 dispatch、计划校验、退还额度、finishJob 释放和 NBT 读写。
-  - `pushPattern` 处于热路径，保持内联；`dispatch` 返回布尔值，由调用方自己 `markDirty`，避免每 tick 分配。
-  - `ECOExternalCpuOutputRouter.insertIntoOwningCpu` 被实时网格扫描和 AdvancedAE 扫描共用，新增 `ECOExternalCpuOutputRouterTest`；缓存集群那条路径原本零分配，保持原样。
-  - IO 端口两个 mixin 共用 `ECOStorageCells.orEcoCellInventory`。
-- **T3-9**：`TextureConstants` 从 `integration/jei` 移到 `integration/xei`。EMI 的多方块工作站列表改为从 `NEMultiBlocks.DEFINITIONS` 推导，与 JEI 一致（**行为变化**：EMI 多显示集成工作站，共 10 个）。审计原说的"纹理常量重复"不成立，只有一份。
-- **T3-13（第 1 部分）**：新增 `items/CellTooltips`（字节、类型、无限成员、UUID 行）和 `items/CellDisassembly`。这两个类必须独立成类，因为 `StorageCellDisassemblyTest` 对 `ECOStorageCellItem` 做了 `mockStatic`。`ECOStorageCellItem.appendHoverText` 只构建一次存储盘，再调用新钩子 `appendCellLines`。
-- **T3-10（基础）**：新增 `integration/IntegrationCells`（`Size` 枚举 L4/L6/L9、`cell`、`housingRecipe`、`registerModels`）；`OptionalCellUpgrades` 放宽泛型并新增 `addStandard`。AppBot 作为试点完成转换。
+- T3-1、T3-7、T3-5 前置（`NEBlockEntity` 增加带 `idlePowerUsage` 参数的构造器，原构造器默认 16）。
+- T3-6：大型工作站删除与父类重复的常量、构造器调用、`getGridConnectableSides`、重复的 `setPowerSides`。
+- T3-8：`ECOExternalCpuMixinSupport` 共用 dispatch、计划校验、退还额度、finishJob 释放和 NBT 读写。`pushPattern` 处于热路径，保持内联；`dispatch` 返回布尔值，由调用方自己 `markDirty`，避免每 tick 分配。新增 `ECOExternalCpuOutputRouterTest`。
+- T3-9：`TextureConstants` 从 `integration/jei` 移到 `integration/xei`。审计原说的"纹理常量重复"不成立，只有一份。
+- T3-13（第 1 部分）：新增 `items/CellTooltips` 与 `items/CellDisassembly`，两者必须独立成类，因为 `StorageCellDisassemblyTest` 对 `ECOStorageCellItem` 做了 `mockStatic`。
+- T3-10（基础）：新增 `integration/IntegrationCells`，AppBot 作为试点。
 
 **第 2 波**：
-- **T3-2**：
-  - `NEClusterCalculator.verifyEitherMirror` 统一了"先试不镜像、再试镜像"，保持原有的副作用顺序（计算系统失败时仍不重置冷却控制器）。
-  - 新增 `NENetworkSwitchClusterCalculator` 作为合成和计算系统计算器的中间基类：唯一控制器只查一次；候选控制器扫描保留；`verifyStructure` 的签名不变（它是扩展点）。
-  - 存储计算器的能量元件谓词合为一个，并删掉一处恒为真的检查。
-  - 净增约 +86 行，主要是抽象钩子的声明。**这些计算器没有任何测试**，审核时已逐段核对与原逻辑等价。
-- **T3-3**：
-  - `NECluster` 增加 `networkSwitchHost()` 钩子，`isNetworkMode` 和 `getNetworkMultiplier` 只在基类写一次；合成集群中死掉的倍率覆盖也随之删除。
-  - 新增 `core/network/NetworkSwitchMultipliers`（2/8），`CraftingCapabilitySnapshot` 改用它；两个网络集群的排序比较器合为 `NECluster.CONTROLLER_POS_ORDER`。
-  - `NELogicalNetworkManager` 用泛型 `Domain` 收掉了两条平行路径，保留 `attach` 与 `refresh` 的语义差异；新增一个超过 `HOST_LIMIT` 时的分组测试。
-- **T3-4**：
-  - `MultiBlockBuildController` 的 `Host` 缩减：最小/最大长度改为默认方法；位置、世界和方块状态直接从泛型宿主读取；`isFormed`、`rebuildMultiblock`、`persistAndSync` 由 `NEBlockEntity` 继承提供。
-  - 三个控制器的 get/set 改用 Lombok；合成控制器的 `setSelectedBuildLength` 有副作用，保留。约 −170 行。
-  - 构建状态**不能**移入控制器，因为它要持久化并同步给客户端。大型工作站的 `autoBuild` 行为不同，保留。
-  - `isPlayerCloseEnough` 的公共实现暂时放在 `ECOComputationSystem`，位置不理想，见 11.8。
-- **T3-13（第 2 部分）**：
-  - Jade 的 `ECODriveProvider` 改用 `CellTooltips`；FE 盘改为覆盖 `appendCellLines`。
-  - MEGA 长批量盘**未改**：基类遇到无限成员会提前返回，改用钩子后会丢掉 cutoff 提示行。
-  - Jade 存储控制器的 UUID 行**未改**：它手里是字符串，用辅助方法需要先解析成 UUID。
-- **T3-10（推广）**：AppFlux、AppMek、Ars、Data、Appex、Pneumatics、Soul、AE2LT 都已改用 `IntegrationCells` 和 `OptionalCellUpgrades`；新增 `integration/appmek/MekanismCellFilter`，供 MEGA 化学盘复用。审计里写的 `ECOCellModels.registerTiers` 并不存在。
+- T3-2：`verifyEitherMirror` 保持原有副作用顺序（计算系统失败时仍不重置冷却控制器）。这些计算器没有任何测试，已逐段核对与原逻辑等价。
+- T3-3：`NECluster.networkSwitchHost()` 钩子；`CraftingCapabilitySnapshot` 改用 `NetworkSwitchMultipliers`；`NELogicalNetworkManager` 泛型化，保留 `attach` 与 `refresh` 的语义差异；新增超过 `HOST_LIMIT` 时的分组测试。
+- T3-13（第 2 部分）：Jade 的 `ECODriveProvider` 改用 `CellTooltips`；MEGA 长批量盘未改（后由 R5 完成）。
+- T3-10（推广）：AppFlux、AppMek、Ars、Data、Appex、Pneumatics、Soul、AE2LT 都已改用 `IntegrationCells` 和 `OptionalCellUpgrades`；新增 `integration/appmek/MekanismCellFilter`。
 
-**需要用户决定（第 3 批中发现）**：
-1. JEI 与 EMI 的显示差异：冷却配方文字缩放（0.75 与 1.0）、动画时长（20/100 tick 与 2000）、闪电配方文案（`lightning_cost` 单行，还是 `lightning_amount` 加名称两行）、多方块分类图标（COMPUTATION_L4 与 STORAGE_L4）。
-2. AE2LT 的 `finishJob` 失败钩子只调用 `ECOCraftingJobLifecycle.finish`，不像 AE2 和 AdvancedAE 那样走 `cancelAndRecover`，因此不会唤醒工作线程回收。是否对齐？
-3. 计算系统计算器在结构校验失败时不重置冷却控制器的镜像状态（现有行为，已保留）。是否要修？
+**第 3 波（R1～R5）**：
+- **R1（T3-5）**：
+  - 新增 `blocks/ECOFluidHatchBlock<C>` 与 `blocks/entity/ECOFluidHatchBlockEntity<C>`，差异由 `Spec(input, capacity, coolantOnly, titleKey)` 表达，共四个常量 `CRAFTING_INPUT/OUTPUT`、`LWS_INPUT/OUTPUT`。`tank` 保持 public 且非 final（`ECOCraftingCoolingControllerTest` 会给它赋值）。
+  - 大型工作站仓的 `notifyController()` 改为 `NECluster.onFluidHatchChanged()` 钩子（默认空实现）。
+  - 新增 `ECOVentBlock(Entity)<C>`（待机功耗 64，由构造参数传入）和 `ECOParallelCoreBlock(Entity)<C>`（`Kind.CRAFTING/COMPUTATION`；待机功耗合成 64、计算 16，两者保持不同）。
+  - 集群字段改用通配类型，按 `isInput()` 区分输入、输出仓。
+  - 两个计算器的 `matchingParallelCore` 和 `NETooltips` 都加了 `Kind` 判断，防止合成结构接受计算核心。
+- **R2（T3-10 收尾）**：`ECOMegaStorageCellItem` 构造参数为 key 类型和可空黑名单谓词。Flux、Mekanism 的类型和 `MekanismCellFilter` 只在 `NEMegaEnergyItems`、`NEMegaChemicalItems` 中引用，缺模组时不会被加载。`ECOMegaLongBulkStorageCellItem` 保留为独立类。
+- **R3（T3-11）**：
+  - `NEItems` 1,124 → 835 行；`NEBlocks` 1,591 → 1,438 行；`NEBlockEntities` 552 → 488 行；`NEMultiBlocks` 的 3 个 `switch` 合为 `byTier`，`storageSystem` 改名为 `createStorageSystem`。
+  - 所有 `public static final` 字段的名称、类型和顺序不变，创造模式物品栏顺序不变。
+  - 语言代码（F/C/FT/CT/CM/L/LT/LE）显式写出，不依赖 `replace("L", …)`；`has_*` 进度条件名逐字保持。
+  - **不要合并的差异**：批量盘的 `bytesPerType` 为容量值，普通盘为 `1 << (12 + tier)`，批量盘有 `removeTab`；母岩和晶芽的战利品表、配方、音效、光照各不相同；粗钨块要求钻石工具；萤石块的物品标签缺少 `STORAGE_BLOCKS`；计算控制器带 `noOcclusion`，合成控制器没有。
+- **R4（T3-12）**：
+  - `HostElements.hiddenValue` 替换 22 处同步隐藏值；删除零引用的 `syncedDisplay`、`sectionLabel`、`panelTitle`、`horizontalRow`，以及两个零调用的 `createOpenButton`。
+  - `TabBackButton` 替换两处返回键，绘制参数与 `ComputationCpuPanelTest` 钉住的完全一致。
+  - `CpuSelectionServerState` 只上提两个 CPU 面板共同的构造器、`refresh()` 与 `beginInteraction()` 守卫。
+- **R5**：
+  - `isPlayerCloseEnough` 的公共实现移到 `NEBlock`（protected static）。
+  - `ECOMegaLongBulkStorageCellItem` 改为覆盖 `appendCellLines`，基类在无限成员分支也以 null 调用这个钩子。
+  - `NEClusterCalculator.updateClusterUnchecked` 改为包级可见，集成工作站控制器计算器中的副本已删除。
+- **验证**：编译通过，测试 1161 项（1157 通过、4 跳过，新增 1 项）。启用 AppBot 后主源码与测试源码编译通过。datagen 在仓库外分别从 HEAD 和当前工作区生成，各 711 个文件，`src/generated` 零差异。datagen 覆盖不到的运行时属性已逐项对照 HEAD（工具攻击属性、稀有度、堆叠数、方块硬度、音效、光照、`noOcclusion`、`requiresCorrectToolForDrops`、tick 器、渲染器、54 个方块实体注册名）。
 
-### 11.8 第 3 批剩余任务（已完成调查，可直接派发）
+### 10.4 第 4 批第一组（T4-9～T4-12，2026-10-14）
 
-每项都已做过只读调查；行号以调查时为准，派发前需重新核对。
-
-**R1 T3-5 流体仓、散热口、并行核心合并**（4+4、2+2、2+2 个类；预计约 −450 行）。先 R1a，再并行 R1b/R1c/R1d，最后 R1e。
-- **R1a 新建泛型类**：
-  - `blocks/entity/ECOFluidHatchBlockEntity<C>`：构造参数为 `(type, pos, state, 计算器工厂, Spec)`，其中 `record Spec(boolean input, int capacity, boolean coolantOnly, String titleKey)`，四个常量分别为 CRAFTING_INPUT/OUTPUT（容量 16000）和 LWS_INPUT/OUTPUT（容量 1_024_000，输入仓只收冷却液，变化时通知控制器）。
-  - `tank` 字段必须保持非 final（`ECOCraftingCoolingControllerTest` 会给它赋值）。
-  - tick 时统一跳过集群成员（I0-4；有效结构中原本就不会触发，属于潜在问题的修正）。
-  - 另建 `ECOVentBlockEntity<C>`（构造器内传 idle 64）和 `ECOParallelCoreBlockEntity<C>`（构造参数 tier、工厂、idle：合成用 64，计算用 16，**不要统一**）；方块类对应建 `ECOFluidHatchBlock`、`ECOVentBlock`、`ECOParallelCoreBlock`。
-- **R1b 注册**：
-  - `NEBlocks` 和 `NEBlockEntities` 改用新类。**所有 BlockEntityType ID 不变**：4 个仓、2 个散热口、6 个并行核心。
-  - 方块属性、配方、语言、blockstate 等数据生成内容逐项保持原样。大型工作站的仓带 `strength(5,6).requiresCorrectToolForDrops()` 和空模型，**不要**与合成仓统一。
-- **R1c 集群与计算器**：`NECraftingCluster`、`NEComputationCluster`、`NEIntegratedWorkingStationCluster`、两个计算器的 `matchingParallelCore`，把按类做的 instanceof 改为 instanceof 新类，再加 `isInput()` 或种类判断。否则输出仓可能被当成输入仓。
-- **R1d 其余引用**：
-  - `NEMultiBlocks` 中引用的 `ECOComputationParallelCore.FACING` 和 `ECOStorageVentBlock.FACING` 改指新类（它们是同一个 `HORIZONTAL_FACING` 实例）。
-  - `NETooltips` 按种类分支（FT/CT 文案不同）；`ECOCraftingSystemBlockEntity` 中约 L932 的循环类型改为新类。
-  - 更新测试 `LargeWorkstationCoolantInputTest`、`LargeWorkstationLightingTest`、`ECOCraftingCoolingControllerTest`，并新增集群成员跳过的测试。
-- **R1e 收尾**：删除 16 个旧类，grep 确认没有残留引用。
-
-**R2 T3-10 收尾**：
-- MEGA 的 4 个子类（Item/Fluid/Energy/Chemical）合并为 `ECOMegaStorageCellItem`，构造参数为 key 类型、cell 类型、容量、可空的黑名单谓词；化学盘的谓词引用 `MekanismCellFilter`，以免在没有 Mekanism 时加载 Mekanism 的类。`ECOMegaLongBulkStorageCellItem` **保留**为独立类。
-- 同时更新 `NEMegaItems`、`NEMegaEnergyItems`、`NEMegaChemicalItems`、`MegaCellsIntegration`（升级卡循环改为 `addStandard`，跳过 long bulk，MEGA 卡仍单独添加）。
-- Omni：`AE2OmniCellsIntegration` 的升级循环和模型注册（它的基类是 `ECOUniversalStorageCellItem`，泛型上限已放宽）。
-- `NeoECOAE.initUpgrades` 中基础存储盘的循环改为 `OptionalCellUpgrades.addStandard`，`SPEED_CARD` 那一行保留。
-
-**R3 T3-11 注册链参数化**（预计约 −800～−1000 行；**必须在 R1 之后**，因为 R1b 也会修改 `NEBlocks`/`NEBlockEntities`）：
-- 每个文件只由一个代理按区域顺序修改：
-  - `NEItems`：五种工具 × 4 档 = 20 个，用 `ToolKind` 枚举加 `tool`/`alloyTool` 辅助方法；锻造模板；铭刻粉；金属锭；粗矿；存储盘与外壳。
-  - `NEBlocks`：存储方块、外壳、能量元件、控制器族、并行核心或线程核心、晶芽、母岩。
-  - `NEBlockEntities`：`tieredBlockEntity`、`linkedBlockEntity` 等（18 个分级条目）。
-  - `NEMultiBlocks`：`byTier` 替换 3 个 switch，统一调用 `create()`。
-- **不要合并的差异**：
-  - 批量盘的 `bytesPerType` 为容量值，普通盘为 `1 << (12 + tier)`；批量盘有 `removeTab`。
-  - 母岩和晶芽的战利品表、配方、音效、光照各不相同；粗钨块要求钻石工具；萤石块的物品标签缺少 `STORAGE_BLOCKS`。
-  - 计算控制器带 `noOcclusion`，合成控制器没有。
-  - 语言代码（F/C/FT/CT/CM/L/LT/LE）要显式写出，不要依赖 `replace("L", …)`；`has_*` 进度条件名必须逐字保持。
-- 若引用后声明的字段（如 `STORAGE_CASING`、`ENERGIZED_FLUIX_CRYSTAL`），用 `Supplier` 延迟取值。
-
-**R4 T3-12 GUI 平行件**（预计约 −80～−110 行）：
-- 先做 R4a：`HostElements` 增加 `hiddenBool`、`hiddenInt`、`hiddenComponent`、`hiddenTag`（23 处同步隐藏值）；`HostSideButtonBar` 增加 `openWindowButton`；新建 `gui/common/TabBackButton`，合并 `ComputationSettingsPanel.BackButton` 与 `PriorityBackButton`，**`drawTexture` 的参数被 `ComputationCpuPanelTest` 钉住**；新建 `client/gui/widget/ToolbarIconBackground`。
-- 再并行改调用方，按调查报告分为 B～F 共 5 组，文件互不重叠。CPU `ServerState` 只上提共同部分（构造器、`refresh`、交互守卫）。
-- **不做**：`BindableElement<T>` 与 `GridSlot`（这两个类不存在）；把滚动条换成 AE2 `Scrollbar`（会改变行为，且有测试钉住）；侧栏两套工具包合并。
-
-**R5 小项**：
-- `isPlayerCloseEnough` 的公共实现从 `ECOComputationSystem` 移到 `NEBlock`，作为 protected static 方法。
-- `ECOMegaLongBulkStorageCellItem` 接入 `appendCellLines`：需要基类在无限成员分支也调用 `appendCellLines(stack, null, lines)`。
-- `NEClusterCalculator.updateClusterUnchecked` 与集成工作站控制器计算器中的同名方法重复，可以合并。
-
-**收尾验证**：
-- `./gradlew compileJava compileTestJava test --offline`，再加 `-PenableAppBotIntegration=true compileJava`。
-- R1、R3 完成后必须做 datagen 对比。基线已生成在 `%TEMP%/eco-dg/base-gen`，来自 HEAD `9943989b` 的干净导出，共 714 个文件。
-  - 生成方法：用 `git archive` 导出到仓库外，**把 `run/mods/*.jar` 拷到导出目录的 `run/mods`**（否则会因缺少 curios 而失败），再执行 `./gradlew runData --offline`。
-  - 对比时用同样方式导出当前工作区，生成后 diff `src/generated`；预期为零差异。
-
-### 11.9 第 3 批第 3 波执行记录（2026-10-14，已按五批提交）
-
-11.8 的 R1～R5 全部完成，并已按主题拆成五个本地中文提交。基线为提交前 HEAD `43bcb0df`（`src/main/java` 102,130 行），完成后 101,033 行（−1,097）；全仓 74 个已跟踪文件 +1,212 / −2,649，另有 10 个新文件。验证结果：
-- 编译通过，测试 1161 项（1157 通过、4 跳过，新增 1 项），零失败。
-- 启用 AppBot 集成后，主源码与测试源码编译通过。
-- datagen：在仓库外分别从 HEAD 和当前工作区生成，各写出 711 个文件，`src/generated` 零差异。
-- datagen 覆盖不到的运行时属性已逐项对照 HEAD：工具攻击属性、稀有度、堆叠数、方块硬度、音效、光照、`noOcclusion`、`requiresCorrectToolForDrops`、tick 器、渲染器、54 个方块实体注册名。
-
-**R1 流体仓、散热口、并行核心合并（T3-5）**：
-- 新增 `blocks/ECOFluidHatchBlock<C>` 与 `blocks/entity/ECOFluidHatchBlockEntity<C>`。仓的差异由 `Spec(input, capacity, coolantOnly, titleKey)` 表达，共四个常量 `CRAFTING_INPUT/OUTPUT`、`LWS_INPUT/OUTPUT`。`tank` 保持 public 且非 final。
-- 大型工作站仓原来的 `notifyController()` 改为 `NECluster.onFluidHatchChanged()` 钩子（默认空实现），由 `NEIntegratedWorkingStationCluster` 覆盖。
-- tick 统一跳过本集群成员（I0-4）。**行为变化**：合成系统的仓原来不跳过，在有效结构中本来就不会触发。新增 `FluidHatchClusterNeighbourTest` 覆盖这一点。
-- 新增 `ECOVentBlock(Entity)<C>`（待机功耗 64，由构造参数传入）和 `ECOParallelCoreBlock(Entity)<C>`（`Kind.CRAFTING/COMPUTATION`；待机功耗合成 64、计算 16，保持不同）。
-- 集群字段改用通配类型（`ECOFluidHatchBlockEntity<?>`、`List<ECOParallelCoreBlockEntity<?>>`），按 `isInput()` 区分输入、输出仓。集群成员资格已由计算器的 `isValidBlockEntity` 保证，所以不需要未检查转换。
-- 两个计算器的 `matchingParallelCore` 和 `NETooltips` 都加了 `Kind` 判断，防止合成结构接受计算核心。
-- 删除 16 个旧类。所有方块与方块实体的注册 ID 不变。
-
-**R2 MEGA 存储盘（T3-10 收尾）**：
-- 4 个子类合并为 `ECOMegaStorageCellItem`，构造参数为 key 类型和可空黑名单谓词。
-- Flux、Mekanism 的类型和 `MekanismCellFilter` 只在 `NEMegaEnergyItems`、`NEMegaChemicalItems` 中引用，不会在缺模组时被加载。
-- `NeoECOAE.initUpgrades`、`MegaCellsIntegration`、`AE2OmniCellsIntegration` 的升级卡循环改用 `OptionalCellUpgrades.addStandard`。
-
-**R3 注册链参数化（T3-11）**：
-- `NEItems` 1,124 → 835 行：`ToolKind` 枚举加 `tool`/`alloyTool` 收掉 20 个工具；另有锻造模板、粉、锭、粗矿、外壳、存储盘的辅助方法。批量盘的 `bytesPerType` 与 `removeTab` 保持原样，语言文案改为显式书写。
-- `NEBlocks` 1,591 → 1,438 行：存储方块、合金外壳、母岩、晶芽、能量元件、并行核心（合成与计算合为一个泛型辅助方法）。控制器族只改为显式语言文案，两种系统控制器未合并，因为它们的方块状态读取的是各自类上的属性字段。`ECOStorageSystemBlock.FORMED` 的误导性引用改为 `NEBlock.FORMED`。
-- `NEBlockEntities` 552 → 488 行：新增 `clusterBlockEntity`、`tieredBlockEntity`、`linkedBlockEntity`、`fluidHatchBlockEntity`，47 个条目中 44 个改用这些辅助方法。两个网络开关和集成工作站带有 `onRegister` 副作用，保留手写。
-- `NEMultiBlocks`：3 个 `switch` 合为 `byTier`；`storageSystem` 改名为 `createStorageSystem`；统一调用 `create()`，并删除冗余的 `MultiBlockDefinition.Builder.create(Consumer)` 重载。
-- 所有 `public static final` 字段的名称、类型和顺序都不变，所以创造模式物品栏顺序也不变。
-
-**R4 GUI 平行件（T3-12）**：
-- 新增 `HostElements.hiddenValue(parent, initial, binding[, listener])`，22 处同步隐藏值改用它，`CraftingInterfaceUI.TooltipLine` 也随之删除。`StorageInterfaceUI` 的 `mode` 字段只在某个分支里挂到根节点，保留手写。
-- C2S 请求值从字段初始化移到构造器中，子节点顺序和 bind 顺序不变。
-- 删除 `HostElements` 中零引用的 `syncedDisplay`、`sectionLabel`、`panelTitle`、`horizontalRow`，以及两个零调用的 `createOpenButton`。
-- 新增 `HostSideButtonBar.openWindowButton`，3 处改用。
-- 新增 `gui/common/TabBackButton`，替换 `ComputationSettingsPanel.BackButton` 与 `StoragePriorityUI.PriorityBackButton`，绘制参数与测试钉住的完全一致。
-- 新增 `ECOIcon.toolbarBackground(hovered, focused)`，4 处改用，其中包括 `AE2IconButton` 的状态 `switch`（映射完全等价）。
-- 新增 `gui/computation/CpuSelectionServerState`，两个 CPU 面板的 `ServerState` 共用构造器、`refresh()` 与 `beginInteraction()` 守卫。
-
-**R5 小项**：
-- `isPlayerCloseEnough` 的公共实现移到 `NEBlock`（protected static）。
-- `ECOMegaLongBulkStorageCellItem` 改为覆盖 `appendCellLines`，每次 tooltip 只构建一次存储盘。基类在无限成员分支也会以 null 调用这个钩子。
-- `NEClusterCalculator.updateClusterUnchecked` 改为包级可见，集成工作站控制器计算器中的副本已删除。
-
-**新的执行教训**：
-- 匿名子类里，与继承来的 protected 字段同名的参数会被字段遮蔽。新测试最初在 `getCluster()` 覆盖中写 `return cluster`，实际返回的是继承字段（null）。
-- 代理会违反规则直接调用 javac，在源码目录留下 `javac.<时间戳>.args`；`sed -i` 中断时会留下全是空字节的 `sedXXXXXX`。每一波结束都要 `git status` 检查未跟踪文件。
-- 上游 502 或连接重置会让代理中途退出，用 SendMessage 恢复即可。恢复前先看工作区里已经落地了哪些改动。
-
-## 12. 暂停点（2026-10-14，第 4 批设计待确认）
-
-**状态**：
-- 分支 `refactor/architecture-cleanup`，HEAD `20681dde`，工作区干净，均为本地提交，未推送。没有正在运行的代理。
-- 第 0～3 批全部完成。之后用户按第 14 节标准做了"过度抽象回调"，`571850f6`～`20681dde` 共 10 个提交；第 3 批的 3 个小尾巴也已随之提交。
-- 第 4 批第一组（T4-12、T4-9、T4-10、T4-11）已于 2026-10-14 按第 15 节完成，**未提交**；用户答复与执行记录见第 15 节。
-
-**下次继续前先做**：
-1. 执行 `git status` 和 `git log`，核对提交与工作区状态；用户可能另做了修改。
-2. 跑 `./gradlew compileJava compileTestJava test --offline`，确认为绿。
-3. 重读第 1 节执行规则、第 3 节多版本分层、11.2 的用户决定、**第 14 节的判断标准**，以及第 13 节的待决点。
-4. 第 13 节的方案写在第 14 节之前，动手前要按第 14 节标准复核一遍，尤其是 13.3 方案 1 的"配置文案数据表"是否属于过度抽象。
-
-**剩余工作**：
-- **第 4 批第一组**：已完成（第 15 节），等用户审阅提交。遗留：15.4 中 `common.on/off` 是否统一的文案决定；`en_ud.json` 等生成文件的整体刷新。
-- **第 4 批其余**：T4-1～T4-8，牵涉面大，每项先出设计说明。
-- **待用户决定（旧）**：11.7 末尾 3 项；第 2 批遗留的三种近似墨色是否统一，以及 `cycleStatusColor` 的绿色是否改为一致。
-- ~~**建议补做**：第 14 节回调的 datagen 核对~~：已在 15.3 完成，零差异。
-
-**执行经验**：
-- 同时运行的 Haiku 代理超过约 9 个会触发 429 限流，每波控制在 8 个以内。
-- datagen 结果依赖开发环境装了哪些可选模组，不能直接采用：先删 `src/generated/resources/.cache`，把输出生成到临时目录，再只合并需要的 key 或文件。
-- 测试里有大量 Mockito 验证钉住了具体调用（重载类型、调用次数）。对 GUI 和渲染器的"等价替换"，必须实际跑测试确认。
-- 代理会把文件改成 LF，有时还会残留格式问题。审核时要 grep 检查 `}    }` 这类拼接痕迹。
-- 代理容易为了"去重"引入热路径分配（每次调用都 new lambda、方法引用或 HashSet）。审核时要专门检查每 tick、每次推送、每次插入都会走的路径。
-- 抽出公共类后行数可能反而增加，比如抽象钩子很多或者 javadoc 较长。以"单一来源"为准，但要在记录中写明净行数。
-
-## 13. 第 4 批设计说明（第一组：T4-12、T4-9、T4-10、T4-11，2026-10-14，待用户确认）
-
-四项都已完成只读调查，下面每项给出现状、方案和需要用户决定的点。**用户确认之前不改代码。**
-
-另外，第 3 批的 3 个小尾巴已经改完并已提交：`MultiBlockDefinition` 删除无用导入；`NEMultiBlocks` 中散热口的朝向改用 `ECOVentBlock.FACING`；`HostElements.tooltips(T, Component...)` 改为委托 List 重载。改前已对照 LDLib2 2.2.40 源码确认两种写法构造出的 `HoverTooltips` 相等。编译和测试均为绿。
-
-### 13.1 T4-12：`util.ICellHost` 别名并入 API
-
-**现状**：
-- `util/ICellHost`（25 行）只是 `api/storage/ICellHost` 的子接口，重新声明了相同的方法和默认值，没有新增任何内容，也没有标 `@Deprecated`。
-- 实现者只有两个驱动器方块实体，另外 `CellHostItemHandler` 也引用它。`docs/API*.md` 只提到 API 版本。
-
-**方案**：
-- 删除别名。两个驱动器和 `CellHostItemHandler` 改为导入 API 版本。
-- `StorageIntegrationApiTest.oldCellHostImplementationsExposeThePublicApi` 改为断言两个驱动器实现了 API 接口，并相应改名。
-- 预计 −25 行，改动 5 个文件。
-
-**待决**：直接删除，还是先标 `@Deprecated(forRemoval = true)` 保留一个版本？外部代码如果按这个名字编译，删除后会编译失败。仓库内的文档从未公开过这个名字。**默认直接删除。**
-
-### 13.2 T4-9：`integration/` 与 `compat/` 边界，以及 `mods.toml`
-
-**现状**：
-- `compat/` 有 34 个文件、3,159 行。其中 `compat/ae2` 的 4 个文件只做 AE2 核心适配，与可选模组无关，却被约 15 个核心文件引用。其余子包是各可选模组的执行桥接。
-- `integration/` 有 95 个文件、7,384 行，包含各模组的内容注册和 UI，也有公共设施（`ModIds`、`IntegrationCells`、`OptionalCellUpgrades` 等）。
-- 同一个模组的代码被拆在两处（ae2lt 同时有 `compat/ae2lt` 和 `integration/ae2lt`），而且 `compat` 还反向依赖 `integration.ModIds`。
-- **潜在崩溃**：常开的 `neoecoae.mixins.json` 中，`CellWorkbenchMenuMixin` 和 `CellWorkbenchBlockEntityMixin` 直接对 `integration/megacells` 的类做 `instanceof`。这两个类本身没有继承 MEGA 的类型，但方法体里引用了 MEGA 的类，没装 MEGA 时，类校验阶段有可能触发 `NoClassDefFoundError`。尚未在无 MEGA 环境中实测。
-- **确认的回归**：`kubejs.plugins.txt` 在 `9d2f6c61`（2026-08-29）中被删除，`NEKubeJSPlugin` 从此没有被 KubeJS 加载过。已用 KubeJS 2101.7.2 的 `KubeJSPlugins` 类确认，它确实通过这个文件发现插件。
-- `mods.toml` 共有 16 个在代码里用到、但 `[dependencies]` 没有声明的模组 id：
-  - 12 个 `ModIds` 常量：advanced_ae、appbot、appex、appflux、appliedpneumatics、appliedsoul、appmek、arseng、data_energistics、extendedae_plus、mekanism、soulplied_energistics；
-  - 另外还有 emi、kubejs、thunderbolt、fluxnetworks。
-  - `extendedae`、`ae2omnicells` 两个可选 mixin 配置既没有 `requiredMods`，也没有插件。
-
-**方案**：
-1. **一个模组一个包**：`compat/<mod>` 并入 `integration/<modid>/`。执行桥接放在 `integration/<modid>/dispatch/`，内容注册保持原位置。`compat/storage` 并入 `integration/` 顶层。完成后删除 `compat/` 包。
-   - 这一步只移动包，不改逻辑。mixin JSON 里的 `plugin` 字段指向 `mixins/compat/...`，不受影响。
-2. **AE2 核心适配归位**：`compat/ae2` 移到 `crafting/adapter/ae2`，对应第 3 节分层中的 L1 ae-bridge。它对 `compat/advanced_ae` 的引用改为通过 `integration/advancedae` 的门面调用，门面内部保留 `detect()` 守卫。
-3. **堵住 MEGA 守卫漏洞**：
-   - 在核心层新增两个小接口，例如 `IECOChainPartitionedCell`（提供 `getStoredChainFilters()`）和 `IECOWorkbenchConfigCell`（提供 `getConfigInventory(stack)`）。
-   - 两个 mixin 只对这两个接口做 `instanceof`，MEGA 的长批量盘去实现它们。这样常开 mixin 不再引用任何可选模组的类。
-4. **恢复 `kubejs.plugins.txt`**（一行：`cn.dancingsnow.neoecoae.integration.kubejs.NEKubeJSPlugin neoecoae`）。
-5. **`mods.toml`**：
-   - 补齐上面 16 个 id，全部写成 `type="optional"`、`ordering="AFTER"`。emi 加 `side="CLIENT"`。
-   - `extendedae`、`ae2omnicells` 的 mixin 加上 `requiredMods`。
-
-**风险**：第 1、2 步会移动约 40 个文件，并修改大量 import。好在都是机械改动，有编译器兜底。对外 API 中只有 `api/me/ECOFastPathFacade` 引用了 `compat`，包名改动不影响它的签名。
-
-**待决**：
-- a. 是否接受"`compat/` 并入 `integration/<modid>`"？另一种做法是保留 `compat/`，只移走 `compat/ae2` 并补守卫，改动更小，但两处分家的问题仍在。**默认：并入。**
-- b. 第 4 步是恢复 KubeJS 插件，还是你当初有意停用？**默认：恢复。**
-- c. 新增 toml 依赖的版本下限：统一写 `[0,)`，还是按 `build.gradle` 中的开发版本设下限？下限设得过高，会让用户的旧版本直接无法加载。**默认：`[0,)`。**
-
-### 13.3 T4-10：语言文案
-
-**现状**：
-- 英文已经只在生成器中定义：仓库里没有手写的 `en_us.json`，`en_us.json` 的 966 个 key 全部由 GuiLangs、NELangGenerator、ConfigLangs 和 Registrate 生成。所以原计划中"英文只在生成器中定义"这一条已经满足。
-- zh_cn 覆盖全部 key，只多出一个孤儿 key `soulkey.description`。zh_hk、zh_tw、lzh 各缺 171 个 key，并各有 2 个孤儿 key（`neoecoae.configuration.ecoCraftConfirmDebug` 及其 `.tooltip`）。
-- **配置文案有三份**：
-  - `NEConfig` 的 `.comment()`（中英双语，写进 toml 文件注释）；
-  - `ConfigLangs`（英文标题和 tooltip，供配置界面使用）；
-  - 手写的 zh_cn（20 项配置中只有 7 项与 `NEConfig` 的中文完全一致）。
-  - 英文有 3 处措辞不一致，例如 `ecoPlanningMaxMillis` 的说明在两处不同。
-- **拼写错误的 key**：`tooltip.neoecoae.storage_dirve.0/1`、`tooltip.neoecoae.max_lenth`、`neoecoae.unknow_cell_type`。`patten` 只出现在英文文案中，不是 key 名。此外 `jade.neoecoae.activeCooling` 与同组其他 key 的命名风格不一致。
-- **重复文案**：`common.on/off` 与大型工作站的 enabled/disabled、镜像的 on/off 文案相同。方块名与界面标题同名之类属于语义不同的 key，不在此列。
-- **疑似死 key 约 60 个**：`gui.neoecoae.big_order.*`（19 个）、`storage.status.*`、`storage.legacy.graph.*`、`host.*`、`pattern.verified_*`、`megacells.{4g,empty_only,storage_type}` 等。由于存在动态拼接的 key，这个结果只是近似的，删除前必须逐族确认。
-
-**方案**：
-1. **配置文案单一来源**：新增一张纯数据表（放在 L0 `core` 的配置项表中，见第 3.4 节第 6 条），每项包含 key、英文标题、英文说明、中文说明。`NEConfig` 的 `.comment()` 由"中文 + 英文"拼出，`ConfigLangs` 从同一张表读取英文。zh_cn 中的配置文案也改为由生成器从这张表写出，不再手写。
-2. **改正拼写**：改名后，生成器把新旧 key 都输出，文案相同，保证第三方资源包继续可用；在 CHANGELOG 中注明旧 key 将在下一个大版本移除。`patten` 直接改正文案即可，不涉及兼容问题。
-3. **复用 `common.on/off`**：代码改用 `common.*`，删除 4 个重复的 key。
-4. **死 key**：按族逐一确认（grep 字面量、前缀拼接和枚举字段）后，从生成器和所有语言文件中删除。孤儿 key 直接删除。
-5. **其他语言**：缺失的 key 不在本次处理（需要译者），保持 `unfinished/` 机制即可。
-
-**待决**：
-- a. 旧拼写 key 是保留别名（默认），还是直接改名并在 CHANGELOG 中说明？
-- b. zh_cn 的配置文案改由生成器输出，以 `NEConfig` 中的中文为准，还是以现有 zh_cn 为准？两者有 13 处不同。**默认：以 zh_cn 为准**，它是玩家实际看到的文案。
-- c. `jade.neoecoae.activeCooling` 是否一并改为 `active_cooling`（同样保留别名）？
-
-### 13.4 T4-11：AE2 fork 类评估（基于 AE2 19.2.18）
-
-**结论**：两个 fork 类都**保留**，T4-11 以"评估完成、不改架构"结项。
-
-- **`ExecutingCraftingJob`**（我们的 419 行，AE2 原版 159 行）：
-  - AE2 的两个构造器、`CraftingDifferenceListener` 和 `TaskProgress` 都是包私有的。恢复构造器要求传入 AE2 的 `CraftingCpuLogic`，而我们的 CPU 并不继承它。
-  - 我们新增了约 8 个需要持久化的字段，以及 ECO 自己的计划和运行时模型。
-  - 用 mixin 实现等于重写构造器，风险高，还会把 ECO 的字段塞进 AE2 原生任务。**不可行。**
-- **`ElapsedTimeTracker`**（234 行对 134 行）：
-  - 增加了 BigInteger 精确计数（新的 NBT key）、`snapshot()` 和合成数量 API。
-  - 理论上可以用 `@Unique` 加 `@Inject` 实现，但这会改变 AE2 原生 CPU 的行为（例如 NaN 的处理），收益又不大。**不建议改。**
-
-**顺带发现，建议另开小修**：
-1. `ExecutingCraftingJob` 的 NBT 构造器中，`ECOBigCraftingOrder.decode` 和 `setExact`（约 L209-210）不在 try 块的保护范围内。只要一个 `exactRemaining` 损坏，整个任务的恢复就会中断。`ECOCraftingCpuPersistence:34` 没有捕获这个异常，而计划解码失败时已有 `EXECUTION_METADATA_LOST` 的挂起路径。**建议**：把这两处也放进同一个降级路径。
-2. 对精确订单，EAEP 的 `manualMissing` 先计入了 tracker，随后又被 `startExactWork()` 清空，而 `waitingFor` 仍保留着这些数量。这可能导致显示不一致，需要确认能否触发。
-3. `exactOrder` 在构造器中被赋值两次，NBT 构造器中也被读取两次，属于外观问题。
-4. 空任务时，AE2 的剩余数量是 0（NaN 转整数），我们的是 `Integer.MAX_VALUE`（进度为 0）。这是有意为之，源码注释中有说明，保留。
-
-**待决**：上面第 1、2 条是否作为小修纳入本批？**默认：纳入**，先写测试复现，再修。
-
-## 14. 过度抽象回调（2026-10-14，已提交 `571850f6`～`20681dde`）
-
-用户认为 `bfd21d3b` 的物品注册参数化不如原作者的写法好维护。随后按同一标准审查了 `7c1ab38d`～`df20f156` 的全部重构提交，结论与处理如下。
-
-**判断标准**：注册名、语言键、模型路径必须能按字面量搜到；不加位置参数很多（尤其是相邻同类型）或靠 `null`/boolean 表示含义的辅助方法；不为少数调用点新建枚举或函数式接口；不留只包一层调用的转发方法；不做半途而废的替换（新旧写法混用）；热路径不新增分配。真正相同的逻辑（算法、编解码、同步、生命周期）去重仍然保留。
-
-**整体回滚**：`bfd21d3b`（`NEItems` 恢复为逐个注册的链式写法）。
-
-**局部修正**：
-- 并行核心：注册名与模型路径前缀写成 `ECOParallelCoreBlock.Kind` 的字面量字段，不再由枚举名拼出。
-- 兼容存储单元：`IntegrationCells.cell` 的工厂接收 `(properties, tier)`，等级只在 `Size` 中写一次；`registerModels` 在调用处写出三条字面量模型路径，删除 `Size.modelTier`。
-- MEGA 存储盘：`ECOMegaStorageCellItem` 增加无黑名单构造器，调用处不再传位置 `null`；化学与能量盘改用具名静态工厂。
-- `ECOMegaLongBulkStorageCell`：`hasFilterForChain` 改回循环，单一调用的 `writeCustomTag` 内联。
-- `ECOInfiniteStorage.insertBigInteger`：恢复原判断，空值或非正数返回 0，不再抛异常。
-- 删除 `ECOFastPathStacks.writeGenericStacks` 转发层；`AmountMapNbt.read` 只保留严格模式，`pendingPreview` 读取恢复为原内联循环。
-- `copyStacks`/`addStack`/`addGenericStacks` 移回 `ECOCraftingThread` 作私有方法。
-- `TopoSort.kahn(..., null)` 拆为 `kahnFifo` 与 `kahnOrdered`。
-- 界面：删除 `FittedText` 中无调用的方法；`drawStats` 恢复 `%,d`（每帧少 4 次分配）；撤掉 `JsonAttrs`，恢复内联写法；删除 `HostText` 的颜色别名，直接用 `Palette.HOST_*`。
-- 外部 CPU：`dispatch` 改名 `dispatchFailed`（返回 true 表示失败），`validatePlan`、`refundIdleCredit` 内联回 mixin。
-- `toggleGridIgnoringPatternSubstitutions` 内联回两个系统方块实体。
-- `verifyEitherMirror` 只留一个重载，调用处以两个 `BooleanSupplier` 显式写出未镜像与镜像两组参数。
-
-**审查后保留**：核心层与三次包迁移、`NEBlockEntities` 的注册封装、`NEMultiBlocks.byTier`、`createStorageBlock`、`NENetworkSwitchClusterCalculator` 的命名钩子、能量晶簇的 `(height, inset)` 参数（同原版紫水晶簇）、`ModIds`。
-
-**接受但此前未记录的行为变化**：
-- 合成流体仓也跳过多方块内相邻方块（原先只有大型工作站输入仓如此）。
-- 数字显示：报表标题回退由 1024 进制改为 1000 进制；CPU 协处理器数量 1e18 以上不再封顶为 "E"；`ComputationCpuEntry` 完整显示超过 2Q 改为科学计数法。
-- `ECOExactPending` 同步拒绝负数与空报文。
-- `ExecutingCraftingJob` 读档改用 `ECOBigCraftingOrder.decode`，比 `new BigInteger` 更严格。
-- `a7df30c8` 删除了 `CpuSelectionListMixinContractTest`，存储 InfoBar 注入目前没有测试覆盖。
-
-`compileJava compileTestJava test` 为绿。未运行 datagen；改动均声称生成结果不变，提交前建议按 datagen 流程核对一次。
-
-## 15. 第 4 批第一组执行记录（2026-10-14，未提交）
-
-### 15.1 用户对第 13 节待决点的答复
-
-开工前按第 14 节标准复核了第 13 节方案，有 4 处与标准冲突或默认方案不成立，经用户确认如下；其余按默认。
+**用户对 §13 待决点的答复**（开工前按判断标准复核后确认）：
 
 | 待决点 | 决定 | 理由 |
 |---|---|---|
-| 13.1 删除还是标废弃 | 直接删除（默认） | |
-| 13.2a `compat/` 并入 `integration/<modid>` | 并入（默认） | |
-| 13.2b KubeJS 插件 | 恢复（默认） | |
-| 13.2c toml 版本下限 | `[0,)`（默认） | |
-| 13.2 方案 3（MEGA 守卫新增两个接口） | **取消** | `instanceof` 只加载类、不触发校验；两个 MEGA 类的父类和接口都是本模组的类型，加载时碰不到 MEGA 类；mixin 方法体中都是同类型赋值，校验器无需加载 MEGA。所以崩溃不成立，而且为单一调用点新建接口违反第 14 节 |
-| 13.3 方案 1（配置文案数据表） | **改为手工对齐加一致性测试** | 数据表属于过度抽象；`zh_cn.json` 是手写的整份文件，生成器只输出配置部分会和它在 jar 中同路径冲突。改为手工统一三处文案（中文以 zh_cn 为准），新增测试断言 `NEConfig` 注释等于 zh_cn 与 en_us tooltip 的拼接。数据表留到 T4-18 |
-| 13.3a 拼写错误的 key | **直接改名，在 CHANGELOG 中说明，不保留别名** | 资源包翻译的是旧 key，代码改查新 key 后旧翻译不会再显示，别名达不到目的 |
-| 13.3b zh_cn 配置文案以谁为准 | 以 zh_cn 为准（默认） | |
-| 13.3c `jade.neoecoae.activeCooling` | **不改** | 不是拼写错误 |
-| 13.4 小修 1、2 | 纳入（默认） | |
+| `ICellHost` 删除还是标废弃 | 直接删除 | 仓库文档从未公开该名字 |
+| `compat/` 并入 `integration/<modid>` | 并入 | — |
+| KubeJS 插件 | 恢复 | — |
+| toml 版本下限 | `[0,)` | — |
+| MEGA 守卫新增两个接口 | 取消 | 见 8.1 |
+| 配置文案数据表 | 改为手工对齐 + 一致性测试 | 见 8.1 |
+| 拼写错误的 key | 直接改名，CHANGELOG 说明，不保留别名 | 资源包翻译的是旧 key，代码改查新 key 后旧翻译不会再显示，别名达不到目的 |
+| zh_cn 配置文案以谁为准 | 以 zh_cn 为准 | 玩家实际看到的文案 |
+| `jade.neoecoae.activeCooling` | 不改 | 不是拼写错误 |
+| T4-11 小修 1、2 | 纳入（小修 2 后来不成立，见下） | — |
 
-另两点澄清：
-- 13.2 方案 2 所说的"门面"就是现有的 `ECOAdvancedAEPatternScaling`（已有 `detect()` 守卫），迁移后改为从新位置导入，不新建转发类。
-- `ECOExternalProviderBlocking` 移到 `crafting/adapter/ae2` 后仍向上依赖 `LargeWorkstationPatternProvider` 与 AdvancedAE 桥接，还不是干净的 L1；彻底解耦需要加钩子，本批不做。
+**T4-12**：删除 `util/ICellHost`，两个驱动器方块实体与 `CellHostItemHandler` 改为导入 `api.storage.ICellHost`。`StorageIntegrationApiTest` 的断言改为 `drivesImplementThePublicCellHostApi`。
 
-### 15.2 T4-12（13.1）：完成
-
-删除 `util/ICellHost`；两个驱动器方块实体与 `CellHostItemHandler` 改为导入 `api.storage.ICellHost`；`StorageIntegrationApiTest` 的别名断言改为 `drivesImplementThePublicCellHostApi`，只断言两个驱动器实现了 API 接口。5 个文件，+5 / −30。编译与测试为绿（1161 项，1157 通过、4 跳过）。
-
-### 15.3 T4-9（13.2）：完成
-
-**包迁移**（8 个代理，按模组拆分；4 个只有 1 个文件的小包两两合并）。58 个文件只改了包名与导入，另改 33 个外部文件的导入或全限定名，`compat/` 包已删除：
+**T4-9（包迁移）**：8 个代理按模组拆分，58 个文件只改包名与导入，另改 33 个外部文件的导入或全限定名。`compat/` 包已删除。
 
 | 原包 | 新包 |
 |---|---|
-| `compat.ae2` | `crafting.adapter.ae2`（L1，与已有的 `ECOExactCraftingPlan` 等同包） |
+| `compat.ae2` | `crafting.adapter.ae2`（L1，与已有的 `ECOExactCraftingPlan` 同包） |
 | `compat.advanced_ae` | `integration.advancedae.dispatch` |
-| `compat.ae2lt` | `integration.ae2lt.dispatch`；其中 `ECOAe2LtUnboundedCells` 属于存储适配，放在 `integration.ae2lt` |
+| `compat.ae2lt` | `integration.ae2lt.dispatch`；`ECOAe2LtUnboundedCells` 属于存储适配，放 `integration.ae2lt` |
 | `compat.extendedae` | `integration.extendedae` |
 | `compat.extendedaeplus` | `integration.extendedaeplus.dispatch` |
 | `compat.mekenergistics` | `integration.mekenergistics.dispatch` |
@@ -745,52 +467,165 @@ B0 新增 `core` 包，内容：`core.graph.TopoSort`、`core.math.BigIntegers`�
 | `compat.storage` | `integration`（`ECOOptionalUnboundedCells` 与 `ModIds` 同包） |
 | `compat.thunderbolt` | `integration.thunderbolt.dispatch` |
 | `compat.useless` | `integration.useless.dispatch` |
-| 测试 `compat.advancedae`、`compat.fluxnetworks` | `mixins.compat.advancedae`、`mixins.compat.fluxnetworks`（这两个测试的被测对象是 mixin） |
+| 测试 `compat.advancedae`、`compat.fluxnetworks` | `mixins.compat.advancedae`、`mixins.compat.fluxnetworks` |
 
-mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响；资源文件中没有引用旧包名的字符串。`ECOOptionalUnboundedCellsTest` 中按字符串写的类名已同步修改。
+mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 
-**KubeJS**：`9d2f6c61` 当时是有意停用 KubeJS 的（排除源码、删除插件文件，并在 `build.gradle` 中 `exclude 'kubejs.plugins.txt'`）。`ba1ca93f` 为了配方 schema 重新启用了源码，但漏掉了插件文件和这条 exclude。本次恢复 `src/main/resources/kubejs.plugins.txt`，并删除 `build.gradle` 中的这条 exclude；`processResources` 后插件文件已在产物中。
+**KubeJS**：恢复 `src/main/resources/kubejs.plugins.txt`，删除 `build.gradle` 中的 `exclude 'kubejs.plugins.txt'`。`processResources` 后插件文件已在产物中。
 
-**`mods.toml`**：新增 16 个可选依赖（`[0,)`、`AFTER`；emi 为 `CLIENT`）；`extendedae`、`ae2omnicells` 两个 mixin 配置加上 `requiredMods`。已检查本地缓存中这些模组的 15 个 jar，它们的 toml 都没有引用 neoecoae，`AFTER` 不会形成环。
+**`mods.toml`**：新增 16 个可选依赖。已检查本地缓存中这些模组的 15 个 jar，它们的 toml 都没有引用 neoecoae，`AFTER` 不会形成环。
 
-**验证**：编译通过，测试 1161 项（1157 通过、4 跳过）；启用 AppBot 集成后主源码与测试源码编译通过。datagen 在仓库外分别从 HEAD 和当前工作区生成，711 个输出文件零差异。另外，第 3 批基线（`9943989b`）与 HEAD 的生成结果也零差异，§12 中"建议补做"的第 14 节回调 datagen 核对已完成。
+**T4-10（语言文案）**：
+- 死 key 共 68 个，由两个只读调查代理按族逐一核对，总策划抽查确认：`gui.neoecoae.big_order.*` 18 个；`gui.neoecoae.storage.status` 及 `status.*` 8 个；`gui.neoecoae.storage.legacy.*` 14 个；`gui.neoecoae.storage.*` 8 个；`gui.neoecoae.host.*` 9 个；`tooltip.neoecoae.pattern.verified_*` 5 个；`tooltip.neoecoae.megacells.{4g,empty_only,storage_type}` 3 个；`gui.neoecoae.common.{on,off,types}` 3 个。这些 key 已从 `GuiLangs`、`NELangGenerator` 和 4 个手写语言文件中删除。
+- 拼写改名见 9。
+- 配置文案：`NEConfig` 的 20 处 `.comment()` 改为"zh_cn tooltip 各行 + en_us tooltip 各行"。zh_cn 的 `ecoPlanningStageDebug` 原来缺第二句，已补上。新增 `NEConfigCommentLangTest`：遍历 `NEConfig.SPEC`，断言每个注释都等于 zh_cn 与 en_us tooltip 的拼接，比较前截掉 NeoForge 追加的 ` Default:` / ` Range:` 行。
+- 方案 3（复用 `common.on/off`）前提不成立：`common.on/off` 本身就是死 key，见 7.2 第 5 条。
+- datagen：生成器有改动，按 key 级差量合并到仓库的 5 个生成文件（en_us、en_ud、unfinished 下的 3 个）。每个文件删 68 个、原位改名 4 个，en_us/en_ud 另有 2 处值修改。零差异判定：比较"HEAD 时仓库与 HEAD 生成结果的差异"和"当前仓库与当前生成结果的差异"，两者唯一的不同是被删除 key 上的旧值漂移消失了。
 
-**执行问题**：两个代理违规用 `sed -i` 改了包名行，一个代理执行了只读的 `git show`；均已复查，没有残留文件，行尾与 HEAD 一致。
+**T4-11（fork 类评估）**：
+- 结论：`ExecutingCraftingJob`（419 行，AE2 原版 159 行）和 `ElapsedTimeTracker`（234 行，AE2 原版 134 行）都保留，见 8.1。
+- 小修 1（已完成）：`ExecutingCraftingJob` 的 NBT 构造器中，`exactTotal/exactRemaining` 解码失败时不再中断恢复。先写测试 `ECOExactOrderTest.corruptExactTaskAmountSuspendsInsteadOfAbortingRestore`，用修复前的文件实测会抛 `IllegalArgumentException: Invalid exact order amount`，修复后通过。
+- 小修 2（不成立）：见 8.2。
+- 小修 3（已完成）：删除 plan 构造器中多余的 `exactOrder = true`，以及 NBT 构造器中第二次读取的 `exactOrder`。
 
-### 15.4 T4-10（13.3）：完成
+**验证**：编译通过，测试 1163 项（1159 通过、4 跳过，新增 2 项）；启用 AppBot 后主源码与测试源码编译通过。datagen 在仓库外分别从 HEAD 和当前工作区生成，711 个输出文件零差异。另外，第 3 批基线（`9943989b`）与 HEAD 的生成结果也零差异。
 
-**死 key**：两个只读调查代理按族逐一核对（字面量、前缀拼接、枚举名、资源文件），总策划抽查确认，共 68 个死 key：
-- `gui.neoecoae.big_order.*` 18 个（`requested`、`requires_cpu`、`single_task` 仍在使用，保留）；
-- `gui.neoecoae.storage.status` 及 `status.*` 8 个；
-- `gui.neoecoae.storage.legacy.*` 14 个（`cell_info.gas/custom/empty`、`cell_bytes.used`、`cell_types.used`、`cell_tooltip`、`graph.*` 中的 8 个）；
-- `gui.neoecoae.storage.*` 8 个（`bulk_mark` 基础 key、`bytes_used`、`current_load`、`max_load`、`system_load`、`energy`、`energy_storage`、`idle_matrices`；`bulk_mark.result.*` 仍在使用）；
-- `gui.neoecoae.host.*` 9 个；
-- `tooltip.neoecoae.pattern.verified_*` 5 个；
-- `tooltip.neoecoae.megacells.{4g,empty_only,storage_type}` 3 个；
-- `gui.neoecoae.common.{on,off,types}` 3 个。
+有多个代理把 CRLF 工作副本改成了 LF，`core.autocrlf=true` 下提交时会规范化，对提交内容没有影响。
 
-这些 key 已从 `GuiLangs`（39 个）、`NELangGenerator`（29 个）和 4 个手写语言文件中删除。孤儿 key 一并删除：zh_cn 的 `soulkey.description`，zh_hk/zh_tw/lzh 的 `ecoCraftConfirmDebug` 及其 `.tooltip`。
+### 10.5 过度抽象回调（`571850f6`～`20681dde`）
 
-**方案 3（复用 `common.on/off`）的前提不成立**：调查发现 `common.on/off` 本身就是死 key。真正在用的同义 key 是大型工作站的 `enabled/disabled` 和镜像的 `on/off`，它们的中文是"开/关"，而 `common.*` 是"开启/关闭"；其中镜像用的是窄的分段按钮。改用 `common.*` 会改变界面文字，所以没有替换，只删除了死的 `common.on/off`。**这一点待用户确认**：如果希望统一，需要先定下统一后的中文文案。
+用户认为原来的物品注册参数化不如原作者的写法好维护。之后按 2.1 第 10 条的判断标准审查了 `7c1ab38d`～`df20f156` 的全部重构提交，处理如下。
 
-**拼写**：`storage_dirve` → `storage_drive`、`max_lenth` → `max_length`、`unknow_cell_type` → `unknown_cell_type`，同时修改代码、生成器和 4 个手写语言文件，不保留旧 key，已在 CHANGELOG 中说明。英文文案中的 `patten` 改为 `patterns`。
+- **整体回滚**：`bfd21d3b`（`NEItems` 恢复为逐个注册的链式写法）。
+- **局部修正**：
+  - 并行核心：注册名与模型路径前缀写成 `ECOParallelCoreBlock.Kind` 的字面量字段，不再由枚举名拼出。
+  - 兼容存储单元：`IntegrationCells.cell` 的工厂接收 `(properties, tier)`，等级只在 `Size` 中写一次；`registerModels` 写出三条字面量模型路径，删除 `Size.modelTier`。
+  - MEGA 存储盘：`ECOMegaStorageCellItem` 增加无黑名单构造器，调用处不再传位置 `null`；化学与能量盘改用具名静态工厂。
+  - `ECOMegaLongBulkStorageCell`：`hasFilterForChain` 改回循环，单一调用的 `writeCustomTag` 内联。
+  - `ECOInfiniteStorage.insertBigInteger`：恢复原判断，空值或非正数返回 0，不再抛异常。
+  - 删除 `ECOFastPathStacks.writeGenericStacks` 转发层；`AmountMapNbt.read` 只保留严格模式；`pendingPreview` 读取恢复为原内联循环。
+  - `copyStacks`/`addStack`/`addGenericStacks` 移回 `ECOCraftingThread` 作私有方法。
+  - `TopoSort.kahn(..., null)` 拆为 `kahnFifo` 与 `kahnOrdered`。
+  - 界面：删除 `FittedText` 中无调用的方法；`drawStats` 恢复 `%,d`（每帧少 4 次分配）；撤掉 `JsonAttrs`，恢复内联写法；删除 `HostText` 的颜色别名，直接用 `Palette.HOST_*`。
+  - 外部 CPU：`dispatch` 改名 `dispatchFailed`（返回 true 表示失败），`validatePlan`、`refundIdleCredit` 内联回 mixin。
+  - `toggleGridIgnoringPatternSubstitutions` 内联回两个系统方块实体。
+  - `verifyEitherMirror` 只留一个重载，调用处以两个 `BooleanSupplier` 显式写出未镜像与镜像两组参数。
+- **保留**：核心层与三次包迁移、`NEBlockEntities` 的注册封装、`NEMultiBlocks.byTier`、`createStorageBlock`、`NENetworkSwitchClusterCalculator` 的命名钩子、能量晶簇的 `(height, inset)` 参数（同原版紫水晶簇）、`ModIds`。
+- 验证：`compileJava compileTestJava test` 为绿。第 14 节回调的 datagen 核对已在 10.4 的验证中完成，零差异。
 
-**配置文案**：`NEConfig` 的 20 处 `.comment()` 改为"zh_cn tooltip 各行 + en_us tooltip 各行"。zh_cn 的 `ecoPlanningStageDebug` 原来缺少英文里的第二句，已补上。新增 `NEConfigCommentLangTest`：遍历 `NEConfig.SPEC`，断言每个值和每个分节的注释都等于 zh_cn 与 en_us tooltip 的拼接，并且覆盖 en_us 中全部 `neoecoae.configuration.*.tooltip`。NeoForge 会在值注释后追加 ` Default:` / ` Range:` 行，测试比较前先截掉。生产代码没有新增任何结构。toml 中写出的注释文字会随之变化（只是注释）。
+## 11. 与原审计报告的对齐（2026-10-14 复核）
 
-**datagen**：生成器有改动，所以不能直接采用生成结果；按 key 级差量合并到仓库的 5 个生成文件（en_us、en_ud、unfinished 下的 3 个）：每个文件删 68 个、原位改名 4 个，en_us/en_ud 另有 2 处值修改。零差异判定：比较"HEAD 时仓库与 HEAD 生成结果的差异"和"当前仓库与当前生成结果的差异"，两者唯一的不同是被删除 key 上原有的旧值漂移消失了，没有引入新的差异。
+复核方法：对审计中每条可以 grep 的结论重新搜索源码。无法通过搜索判断的（如通读大文件）标为"未做"。
 
-**顺带发现（以前就存在，未处理）**：仓库中的 `en_ud.json` 比当前生成结果少 259 个 key，另有 25 个值不同；unfinished 下的文件也有少量旧值。这些都是生成结果长期没有整体刷新造成的，需要在装齐可选模组的环境里重新生成，建议另开一项。
+| 审计条目 | 当前状态 | 说明 |
+|---|---|---|
+| B1 嵌套盘检查对 ECO 盘无效 | ✅ | 先查 ECO 注册表，再查 AE2 |
+| B2 溢出安全加法 9 份副本 | 基本完成 | 按签名粗查，`(long,long)` 加法副本已收口到 `NEMath`；语义不等价的调用点按 D2 保留，未穷尽核对 |
+| B3 MegaCells 重复注册 | ✅ | 未运行验证 |
+| B4 推送上限三处矛盾 | ✅ | 配置项后由 D10 删除 |
+| B5 递归 Tarjan | ✅ | 已改为迭代，统一到 `StronglyConnected` |
+| B6、B7 主机判定与结果解析绕过 | ✅ | `CraftConfirmMenuMixin` 已使用 `ECOComputationHostRouting` 与 `neoecoae$resolveOwnedPlanningResult` |
+| B8 渲染器重复注册、冷却渲染器未注册 | ✅ | 按 D1 删除 |
+| B9 `eco.lss` 引用不存在的纹理 | ✅ | `BUTTON_HOVER`、`BAR`、`BAR_CONTAINER` 均已无引用 |
+| B10 解锁条件错用 | ✅ | |
+| B11 工作站处理器与 AppBotania `enqueueWork` | ✅ | |
+| 一.1 数字格式化入口多 | 基本完成 | `.replace("K","k")` 与 `compactNumber` 已删除；`CraftingStatusTableMixin.formatExact` 仍是本地实现 |
+| 一.2 clampToLong | 部分 | 已新增 `NEMath.clampToLong`；`ECOExactCraftingPlan.bounded` 仍是独立副本 |
+| 一.3 BigInteger 网络编解码 | 部分 | 见 5.3 T2-3 |
+| 一.4 AEKey 与 `Map<AEKey,BigInteger>` 的 NBT | 部分 | `ECOExactInventory` 未改；`StorageInterfaceFilter` 与批量盘键编解码归入 T4-8 |
+| 一.5 精确数量类型 | 未开始 | T4-1 |
+| 一.6 图模型 | 未开始 | 图模型统一是 T4-2；Kahn 见 5.3 T2-6 |
+| 一.7 线程作用域栈 | 部分 | 见 5.3 T2-9 |
+| 一.7 `setChanged(); markForUpdate();` | 大部分 | 剩余 `markForUpdate()` 17 处，分布在 7 个文件中（审计时约 37 对） |
+| 一.7 yRot、`executeIfPossible`、压缩链判等 | ✅ | `BlockStateUtil` 中只剩 1 处 `toYRot() + 180` |
+| 二 集成工作站与大型工作站 | 部分 | 常量遮蔽、电力设置、`isValidScale` 已合并；`PowerDrawHelper` 与 `autoBuild` 不做（见 8.1） |
+| 二 合成/计算系统网络开关 | ✅ | T3-1 |
+| 二 三个集群计算器 | ✅ | T3-2 |
+| 二 `NELogicalNetworkManager` | ✅ | T3-3 |
+| 二 集群类 `addBlockEntity` 的 instanceof 分桶 | 未做 | 审计列出，但未纳入计划 |
+| 二 `MultiBlockBuildController.Host` 访问器 | ✅ | T3-4 |
+| 二 流体仓、散热口、并行核心 | ✅ | T3-5 |
+| 二 AE2 / AdvancedAE mixin 成对 | 部分 | 方法体共用 `ECOExternalCpuMixinSupport`；IO 端口两份 mixin 保留（I0-1 结论：都必需） |
+| 二 JEI / EMI | 部分 | 见 5.4 T3-9 |
+| 二 集成存储盘族与升级卡循环 | ✅ | T3-10 |
+| 二 注册链（NEItems / NEBlocks / NEBlockEntities） | ✅ | T3-11；过度抽象的部分已回滚（10.5） |
+| 二 GUI 小件 | 部分 | `string()` 已不是 7 份重复（只剩 `NeoUiJsonLoader` 一份，其余内联，见 5.3 T2-10）；4 个 `ItemSlot` 子类未处理（`PatternItemSlotClient`、两个 `RequiredItemSlot`、`FuzzyPlanningItemSlot`）；面板状态 NBT 编解码 5 份未处理；墨色三值未决（7.2 第 4 条）；`IBindable`、`BindableElement`、`GridSlot` 不存在 |
+| 三 `ECOStorageCell` 对 `BasicCellInventory` | 部分 | 已用 `ConfigInventory` 与 `IPartitionList`；剩余偏离是有意的（315 类型、封存、迁移、批量语义），见设计说明 T4-8 |
+| 三 批量盘的父类初始化开销 | 未做 | T4-8 |
+| 三 存储盘 tooltip 与拆解 | 部分 | `CellTooltips`、`CellDisassembly` 已抽出，tooltip 只构建一次；未改用 AE2 `BasicCellHandler` 本身 |
+| 三 `StorageInterfaceFilter` 对 `ConfigInventory` | 未做 | T4-8 |
+| 三 `ECOIOPortTransfer` 对 `transferContents` | 未做 | T4-8 |
+| 三 `ECOCraftingCpuView.addAllSaturating` | 保留 | 与审计结论不同：AE2 `KeyCounter.addAll` 会溢出，保留（见 5.3 T2-11） |
+| 三 `NEBlockEntityTicker` | 不删除 | 被 `NEBlockEntityBuilder.serverTicker` 使用，见 §12 |
+| 三 `ECOAe2LtDirectDispatch` 反射 `getSendList` | 未做 | `PatternProviderLogicAccessor` 已存在，需确认 AE2LT 的类型能否直接转换 |
+| 三 `clamp(float…)` 自写版本 | 未做 | `ECOCraftingGraphScreen.clamp`，审计列出，但未纳入计划 |
+| 三 `MultiBlockInfoWrapper` 手工 ModularUI | ✅ | 改用 `ECOModularUI.create(root)` |
+| 三 fork 类对照 AE2 19.2.18 | ✅ | T4-11：两个都保留 |
+| 四 执行模式、规划结果、模式身份、DTO、推送守卫、并行提供者、存储透传、规划会话样板、两个 C2S 包、mixin 业务逻辑 | 未开始 | T4-3 至 T4-8 |
+| 四 `ICellHost` 别名 | ✅ | T4-12 |
+| 五 死代码（类、方法、字段、33 个模型 JSON、语言 key） | 基本完成 | 残留见下 |
+| 五 残留的空目录 | 未做 | `api/me/worker`、`blocks/entity/storage/handler`、`crafting/graph/client`、`terminal/bigamount` |
+| 五 `NEBlockEntityTicker` | 不删除 | 同上，见 §12 |
+| 五 `ECOPlannerRequester` | 保留 | 按第 1 节规则，作为 API 扩展点保留 |
+| 五 `common.yes` / `common.no` | 不删除 | 动态拼接引用，`ECOCraftingGraphScreen.java:677`，见 §12 |
+| 五 `infinite_component.unlock`、迁移相关死 API | ✅ | |
+| 六 `integration/` 与 `compat/` 边界 | ✅ | `compat/` 已删除（T4-9） |
+| 六 AE2LT 代码散落 | 部分 | 已收为 `integration/ae2lt` 与其 `dispatch` 子包 |
+| 六 LDLib 必需依赖位置 | 未做 | 仍有 4 个文件在 `integration/` 中引用 `lowdragmc` |
+| 六 模组 ID 与加载检查 | ✅ | `ModIds`；直接调用 `ModList.isLoaded` 已清除 |
+| 六 mixin 插件的三种探测方式 | 未做 | `Class.forName` 等仍分散在各处 |
+| 六 `mods.toml` 漏写可选依赖 | ✅ | T4-9 |
+| 六 配置注释与语言文案漂移 | ✅ | T4-10，`common.on`/`common.off` 已删 |
+| 局限：`ECOMachineInterfaceBlockEntity`（1,857 行）、`ECOCraftingPatternBusBlockEntity`（1,272 行）、三个执行核心类 | 未做 | 审计只抽样读过，仍未通读 |
+| 局限：`/tmp/refs_<pid>.txt` 临时文件 | 不存在 | 复核时未找到 |
 
-### 15.5 T4-11（13.4）：完成
+## 12. 第 2 批收尾项复核（只读，2026-10-14）
 
-- 评估结论不变：两个 fork 类都保留。
-- **小修 1**：`ExecutingCraftingJob` 的 NBT 构造器中，`exactTotal/exactRemaining` 解码失败时不再中断整个任务的恢复，而是设 `exactProgressLost`，走现有的 `EXECUTION_METADATA_LOST` 挂起路径；任务仍以 long 进度保留。先写测试 `ECOExactOrderTest.corruptExactTaskAmountSuspendsInsteadOfAbortingRestore`，用修复前的文件实测会抛 `IllegalArgumentException: Invalid exact order amount`，修复后通过。
-- **小修 2 不成立**：精确订单提交给 CPU 的是 `ECOExactCraftingPlan`。它不是 EAEP 的 `IForcedCraftingPlan`，强制合成缺少的材料已经通过 `deferredStock` 计入，所以 `manualMissing(plan)` 对精确订单总是返回空，tracker 与 `waitingFor` 不会出现不一致。不修改。
-- **小修 3**（按第 1 节规则 8 顺手处理）：删除 plan 构造器中多余的 `exactOrder = true`，以及 NBT 构造器中第二次读取的 `exactOrder`。
+本节只记录复核结论，用于决定开工范围。没有改动任何源码。复核发现原先第 2 批收尾清单中有 3 项判断错误（第 5、6、8 项），已撤回。
 
-### 15.6 第一组小结
+| # | 项目 | 复核结论 | 依据 |
+|---|---|---|---|
+| 1 | 删除 4 个空目录：`api/me/worker`、`blocks/entity/storage/handler`、`crafting/graph/client`、`terminal/bigamount` | 可做 | `find -type d -empty` 确认为空，无文件引用 |
+| 2 | `ECOCellMutationBatch`、`ExactAmountCollector` 改用 `ThreadScope` | 不能机械替换，需设计 | `ECOCellMutationBatch.close()` 在最外层关闭时会 flush 变更并维护静态 `RETRY` 队列；`ThreadScope` 只负责保存和恢复值。`ExactAmountCollector` 有嵌套状态和 `abort()`，`begin()` 不恢复父值。可替换的只有 set/restore 部分 |
+| 3 | `ECOExactCraftingPlan.bounded` 改用 `NEMath.clampToLong` | 有条件可做 | 对非负输入等价；负数输入不等价（`bounded` 原样返回负值，`clampToLong` 返回 0）。`bounded` 是 public，共 9 处调用（`ECOCraftingCpuView`、`ElapsedTimeTracker`、`ExecutingCraftingJob` 等），需逐处确认输入非负，或保留 `bounded` 只改实现 |
+| 4 | `AcyclicCraftingSolver` 手写 Kahn 改用 `TopoSort.kahnFifo` | 可做，需跑测试 | 结构等价：入度只对去重后的边计数，初始就绪顺序为 `reachable` 的插入顺序，都是 FIFO；`TopoSort` 的 checkpoint 重载可以保留取消点。`AcyclicStockRouteTest` 覆盖该路径 |
+| 5 | 删除 `common.yes` / `common.no` | **撤回，不删除** | `ECOCraftingGraphScreen.java:677` 动态拼接 `"gui.neoecoae.common." + (value ? "yes" : "no")` 引用 |
+| 6 | 删除 `NEBlockEntityTicker` | **撤回，不删除** | 是 `NEBlockEntityBuilder.serverTicker` 的参数类型，`NEBlockEntities.java` 等处共 10 处注册调用 |
+| 7 | `ECOCraftingGraphScreen.clamp(float)` 改用 `Math.clamp` | 可做，需确认常量 | 3 处调用，min/max 为 `MIN_ZOOM`、`MAX_ZOOM` 常量；`Math.clamp` 在 min > max 时会抛异常，需确认常量顺序；NaN 语义两者一致 |
+| 8 | `ECOCycleItemList`、`ExactKeyAmount` 切换到 `ExactMapSync` | **撤回，已完成** | 两者已使用 `ExactMapSync.writeSignedInteger` / `readSignedInteger` |
 
-- `src/main/java`：101,306 → 101,226 行（−80）。新增文件：`kubejs.plugins.txt` 和 `NEConfigCommentLangTest`。
-- 编译通过，测试 1163 项（1159 通过、4 跳过，新增 2 项），零失败；启用 AppBot 集成后编译通过。
-- 每一波结束后都检查了未跟踪文件，没有 `sed*` 或 `javac.*.args` 残留。
-- 有多个代理把 CRLF 工作副本改成了 LF（git 会提示 "LF will be replaced by CRLF"）。由于 `core.autocrlf=true`，提交时会被规范化，对提交内容没有影响。
+**结论**：
+- 可直接做：1、4、7。
+- 需要先决定：3（逐处核对还是保留负数语义）。
+- 需要单独设计：2。
+- 撤回：5、6、8。
+
+**其余待复核**：`ECOAe2LtDirectDispatch` 的 `getSendList` 反射（未核对）；4 个 `ItemSlot` 子类（未核对）。
+
+## 13. 只读审计结果汇总（2026-10-14）
+
+完整设计说明与通读结论见 `docs/ARCHITECTURE_T4_DESIGNS_ZH_CN.md`。本节只记录对审计结论的修正和新发现。所有结论都是只读产出，未修改源码。
+
+**对原审计结论的修正**
+- `common.yes` / `common.no` 不是死 key，有动态拼接引用（`ECOCraftingGraphScreen:677`）。
+- `NEBlockEntityTicker` 不是死代码，被 `serverTicker` 使用 10 处。
+- `ECOCycleItemList`、`ExactKeyAmount` 已使用 `ExactMapSync`。
+- `ECOStorageCell` 已使用 `ConfigInventory` 与 `IPartitionList`，剩余偏离是有意的。
+- `StorageInterfaceFilter` 仍是自建 HashSet 加 `configured` 标志，没有用 `ConfigInventory`，审计结论成立。
+- `CraftConfirmMenuMixin` 为 946 行，`CraftingServiceMixin` 为 814 行（审计原文为 969 和 824）。
+- 审计说"游标 2 份"，实为 `ECOProviderCursor`（仅调度器使用）与两个同构环（bus 的 `roundRobinIndex`、worker 的 `nextFreeThreadIndex`），后两者才是合并候选。
+- `ECOExecutionRequirement` 与 `ExecutionMode` 基本一一对应，但 `Schedule.Type` 与 `CycleExecutionDisposition` 语义不同，不宜全部合一。
+
+**新发现（已列入设计文档）**
+- 疑似 bug，按优先级：
+  1. `CPU:373–381`：虚拟完成分支缺少 `pendingFinalOutputs.isEmpty()`，请求方可能收到 SUCCESS 而产物回流网络（中）。
+  2. `TH:1338–1342` 与写出侧：物品列表读取上限 256 条，超出部分静默丢失（低触发，数据丢失）。
+  3. `RT:640–641`：启动种子读取失败时静默跳过，不 quarantine（中）。
+  4. `PB:323` 与 `ECOThunderboltBatchBridge.drainFastPath`：中途异常会丢弃已派发批次的计数（中，未测试）。
+- 死代码：`snapshotCraftingInputs`、`startupSeedShortfall`、`DROPPED_TO_WORLD`、`insertPatternSlot`、`getPatternInterfaceStack`、`setPatternPreview`、`isDurabilityPattern`、`requestPatternDetailsRefresh` 等（均已核实仅有定义处命中或仅有 BE 自身转发）。
+- 别名机制（`RT` 的 progress alias）恒为单任务，可简化为单任务映射。
+- 退款逻辑 `MI:1313` 与 `PatternEncodingTermMenuMixin:106` 结构相同，仅 action source 不同，等价性需测试确认。
+
+**仍未完成的核实**
+- 上述疑似 bug 均为静态判断，未写测试复现。
+- `ECOAe2LtDirectDispatch` 的反射与 4 个 `ItemSlot` 子类尚未核对。
