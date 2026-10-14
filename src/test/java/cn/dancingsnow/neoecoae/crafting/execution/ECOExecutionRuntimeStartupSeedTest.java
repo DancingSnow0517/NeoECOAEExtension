@@ -18,10 +18,76 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class ECOExecutionRuntimeStartupSeedTest {
+    @Test
+    void anUnreadableStartupSeedRejectsRestoreInsteadOfRemovingItsProtection() {
+        var first = pattern(mock(AEKey.class));
+        var second = pattern(mock(AEKey.class));
+        var setup = runtime(first, second, AEFluidKey.of(Fluids.WATER));
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        try (var codec = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
+            codec.when(() -> GenericStack.writeTag(eq(registries), any())).thenAnswer(call -> new CompoundTag());
+            var saved = new CompoundTag();
+            setup.runtime().writeToNBT(saved, registries);
+            codec.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(null);
+
+            assertThrows(IllegalArgumentException.class, () -> ECOExecutionRuntime.fromNBT(
+                setup.plan(), Map.of(0, first, 1, second), setup.progress(), saved, registries));
+        }
+    }
+
+    @Test
+    void validStartupSeedReservationsSurviveRestore() {
+        var first = pattern(mock(AEKey.class));
+        var second = pattern(mock(AEKey.class));
+        var setup = runtime(first, second, AEFluidKey.of(Fluids.WATER));
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        try (var codec = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
+            codec.when(() -> GenericStack.writeTag(eq(registries), any())).thenAnswer(call -> {
+                var tag = new CompoundTag();
+                tag.putLong("amount", ((GenericStack) call.getArgument(1)).amount());
+                return tag;
+            });
+            codec.when(() -> GenericStack.readTag(eq(registries), any())).thenAnswer(call ->
+                new GenericStack(AEFluidKey.of(Fluids.WATER), ((CompoundTag) call.getArgument(1)).getLong("amount")));
+            var saved = new CompoundTag();
+            setup.runtime().writeToNBT(saved, registries);
+
+            var restored = ECOExecutionRuntime.fromNBT(setup.plan(), Map.of(0, first, 1, second),
+                setup.progress(), saved, registries);
+
+            assertEquals(setup.runtime().protectedStartupSeed(null), restored.protectedStartupSeed(null));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0L, -1L})
+    void aNonpositiveStartupSeedCannotBeSilentlyDropped(long amount) {
+        var first = pattern(mock(AEKey.class));
+        var second = pattern(mock(AEKey.class));
+        var setup = runtime(first, second, AEFluidKey.of(Fluids.WATER));
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        try (var codec = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
+            codec.when(() -> GenericStack.writeTag(eq(registries), any())).thenAnswer(call -> new CompoundTag());
+            codec.when(() -> GenericStack.readTag(eq(registries), any()))
+                .thenReturn(new GenericStack(AEFluidKey.of(Fluids.WATER), amount));
+            var saved = new CompoundTag();
+            setup.runtime().writeToNBT(saved, registries);
+
+            assertThrows(IllegalArgumentException.class, () -> ECOExecutionRuntime.fromNBT(
+                setup.plan(), Map.of(0, first, 1, second), setup.progress(), saved, registries));
+        }
+    }
+
     @BeforeAll
     static void bootstrap() {
         cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
@@ -109,7 +175,8 @@ class ECOExecutionRuntimeStartupSeedTest {
             new KeyCounter(), new KeyCounter(), new ECOCraftingRemainderCache()));
     }
 
-    private record Setup(ECOExecutionRuntime runtime, ExecutingCraftingJob.TaskProgress[] progress) {
+    private record Setup(ECOExecutionRuntime runtime, ExecutingCraftingJob.TaskProgress[] progress,
+                         ECOExecutionPlan plan) {
         ExecutingCraftingJob.TaskProgress progress(int taskId) {
             return progress[taskId];
         }
@@ -130,7 +197,7 @@ class ECOExecutionRuntimeStartupSeedTest {
             progress[taskId] = new ExecutingCraftingJob.TaskProgress();
             progress[taskId].setExact(BigInteger.valueOf(2L), BigInteger.valueOf(2L));
         }
-        return new Setup(new ECOExecutionRuntime(plan, Map.of(0, first, 1, second), progress), progress);
+        return new Setup(new ECOExecutionRuntime(plan, Map.of(0, first, 1, second), progress), progress, plan);
     }
 
     private static ECOExecutionPlan.TaskSpec task(int id, IPatternDetails pattern, long count) {

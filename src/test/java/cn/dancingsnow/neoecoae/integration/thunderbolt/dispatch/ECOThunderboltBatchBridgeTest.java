@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.thunderbolt.dispatch;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -19,6 +20,59 @@ import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
 class ECOThunderboltBatchBridgeTest {
+    @Test
+    void aLaterPreparationFailureKeepsTheAlreadyDispatchedAmount() {
+        var bus = mock(ECOCraftingPatternBusBlockEntity.class);
+        var pattern = mock(IPatternDetails.class);
+        var inputs = new KeyCounter[]{new KeyCounter()};
+        var level = mock(Level.class);
+        var batch = mock(ECOFastPathFacade.PreparedBatch.class);
+        when(batch.craftCount()).thenReturn(3L);
+        when(batch.submit(any())).thenReturn(true);
+        try (var facade = mockStatic(ECOFastPathFacade.class)) {
+            facade.when(() -> ECOFastPathFacade.prepareAllocated(bus, pattern, inputs, 8L, level, null))
+                .thenReturn(batch);
+            facade.when(() -> ECOFastPathFacade.prepareAllocated(bus, pattern, inputs, 5L, level, null))
+                .thenThrow(new IllegalStateException("Second lane preparation failed"));
+
+            assertEquals(5L, ECOThunderboltBatchBridge.push(bus, pattern, inputs, 8L, level, null));
+            verify(bus, times(0)).pushPattern(pattern, inputs, null);
+        }
+    }
+
+    @Test
+    void aPreparationFailureBeforeAnyDispatchReturnsEveryCopy() {
+        var bus = mock(ECOCraftingPatternBusBlockEntity.class);
+        var pattern = mock(IPatternDetails.class);
+        var inputs = new KeyCounter[]{new KeyCounter()};
+        var level = mock(Level.class);
+        try (var facade = mockStatic(ECOFastPathFacade.class)) {
+            facade.when(() -> ECOFastPathFacade.prepareAllocated(bus, pattern, inputs, 8L, level, null))
+                .thenThrow(new IllegalStateException("Preparation failed"));
+            assertEquals(8L, ECOThunderboltBatchBridge.drainFastPath(bus, pattern, inputs, 8L, level, null));
+        }
+    }
+
+    @Test
+    void anIndeterminateSubmissionStillStopsTheCaller() {
+        var bus = mock(ECOCraftingPatternBusBlockEntity.class);
+        var pattern = mock(IPatternDetails.class);
+        var inputs = new KeyCounter[]{new KeyCounter()};
+        var level = mock(Level.class);
+        var batch = mock(ECOFastPathFacade.PreparedBatch.class);
+        when(batch.craftCount()).thenReturn(3L);
+        var failure = new cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException(
+            "Ownership is uncertain", null);
+        when(batch.submit(any())).thenThrow(failure);
+        try (var facade = mockStatic(ECOFastPathFacade.class)) {
+            facade.when(() -> ECOFastPathFacade.prepareAllocated(bus, pattern, inputs, 8L, level, null))
+                .thenReturn(batch);
+            assertEquals(failure, assertThrows(failure.getClass(),
+                () -> ECOThunderboltBatchBridge.push(bus, pattern, inputs, 8L, level, null)));
+            verify(bus, times(0)).pushPattern(pattern, inputs, null);
+        }
+    }
+
     @Test
     void drainFillsEveryFreeLaneInsteadOfOneWorker() {
         var bus = mock(ECOCraftingPatternBusBlockEntity.class);

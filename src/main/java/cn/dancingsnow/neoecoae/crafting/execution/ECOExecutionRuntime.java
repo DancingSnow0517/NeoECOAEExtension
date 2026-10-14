@@ -638,17 +638,19 @@ public final class ECOExecutionRuntime {
         for (int i = 0; i < seeds.size(); i++) {
             CompoundTag seed = seeds.getCompound(i);
             GenericStack stack = GenericStack.readTag(registries, seed);
-            if (stack != null && stack.amount() > 0L) {
-                if (seed.contains("phase", Tag.TAG_INT)) {
-                    int phaseIndex = seed.getInt("phase");
-                    if (phaseIndex < 0 || phaseIndex >= runtime.plan.phases().size()) {
-                        throw new IllegalArgumentException("Persisted startup seed has invalid phase owner");
-                    }
-                    runtime.startupSeedRemainingByPhase.get(phaseIndex)
-                        .mergeLong(stack.what(), stack.amount(), NEMath::saturatingAdd);
-                } else {
-                    legacySeeds.merge(stack.what(), stack.amount(), NEMath::saturatingAdd);
+            if (stack == null || stack.amount() <= 0L) {
+                // The owner converts restore failure into a suspended job; never resume without its seed protection.
+                throw new IllegalArgumentException("Persisted startup seed is unreadable or has an invalid amount");
+            }
+            if (seed.contains("phase", Tag.TAG_INT)) {
+                int phaseIndex = seed.getInt("phase");
+                if (phaseIndex < 0 || phaseIndex >= runtime.plan.phases().size()) {
+                    throw new IllegalArgumentException("Persisted startup seed has invalid phase owner");
                 }
+                runtime.startupSeedRemainingByPhase.get(phaseIndex)
+                    .mergeLong(stack.what(), stack.amount(), NEMath::saturatingAdd);
+            } else {
+                legacySeeds.merge(stack.what(), stack.amount(), NEMath::saturatingAdd);
             }
         }
         runtime.restoreLegacyStartupSeeds(legacySeeds);

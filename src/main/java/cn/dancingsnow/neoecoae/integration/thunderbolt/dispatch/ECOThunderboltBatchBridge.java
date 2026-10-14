@@ -9,12 +9,15 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier;
 import java.util.UUID;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Thunderbolt/time-wheel adapter. The caller already extracted a homogeneous batch and owns energy
  * accounting; this only reports how many of those copies the F-series host actually accepted.
  */
 public final class ECOThunderboltBatchBridge {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOThunderboltBatchBridge.class);
     private ECOThunderboltBatchBridge() {}
 
     public static long push(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern,
@@ -37,7 +40,15 @@ public final class ECOThunderboltBatchBridge {
         if (maxCraft <= 0L) return 0L;
         long leftover = maxCraft;
         while (leftover > 0L) {
-            var batch = ECOFastPathFacade.prepareAllocated(bus, pattern, oneCopy, leftover, level, jobId);
+            ECOFastPathFacade.PreparedBatch batch;
+            try {
+                batch = ECOFastPathFacade.prepareAllocated(bus, pattern, oneCopy, leftover, level, jobId);
+            } catch (RuntimeException failure) {
+                // Preparation moves no resources. Earlier successful lanes remain accepted and cannot be undone.
+                LOGGER.warn("Stopping ECO batch preparation with {} of {} copies still owned by the caller",
+                    leftover, maxCraft, failure);
+                break;
+            }
             if (batch == null) break;
             long accepted = batch.craftCount();
             if (accepted <= 0L || accepted > leftover) break;

@@ -373,6 +373,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
         if (!taskScheduler.hasPendingTasks(current)
                 && current.waitingFor.list.isEmpty()
+                && !outputDelivery.hasPendingFinalOutputs()
                 && (current.executionRuntime == null || current.executionRuntime.isComplete())) {
             // A virtual provider has already accounted for the requested final output; no physical output callback
             // will arrive to decrement this field later.
