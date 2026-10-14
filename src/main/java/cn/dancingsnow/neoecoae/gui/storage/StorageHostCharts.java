@@ -330,7 +330,7 @@ final class StorageHostCharts {
                 context.drawTexture(StoragePanelTextures.TYPE_PANEL, getPositionX(), y, 68, 29);
                 StoragePanelState.TypeLine type = state().types().get(index);
                 context.drawTexture(StoragePanelTextures.resourceIcon(type.swatch(), type.color()), getPositionX() + 2, y + 2, 6, 6);
-                text(context, type.name(), 12, row * 29 + 2, nameWidth, nameFontScale, TEXT);
+                text(context, type.name(), 10, row * 29 + 2, nameWidth, nameFontScale, TEXT);
                 String types = HostText.ae2Amount(type.usedTypes());
                 if (type.totalTypes() >= 0 && !state().unbounded()) types += "/" + StorageCellGrid.capacity(type.totalTypes());
                 String bytes = type.bytesText();
