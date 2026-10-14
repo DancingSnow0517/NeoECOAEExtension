@@ -151,7 +151,6 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         }
         this.executionPlan = executionPlan;
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact) {
-            exactOrder = true;
             exact.exactTasks().forEach((pattern, count) -> tasks.get(pattern).setExact(count, count));
             deferredStock.putAll(exact.deferredStock());
             deferredEmitted.putAll(exact.deferredEmitted());
@@ -198,6 +197,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
         ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
         boolean taskDefinitionLost = false;
+        boolean exactProgressLost = false;
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
             var pattern = AEItemKey.fromTag(registries, item);
@@ -205,20 +205,25 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
-                if (item.contains("exactRemaining")) tp.setExact(
-                    ECOBigCraftingOrder.decode(item.getString("exactTotal")),
-                    ECOBigCraftingOrder.decode(item.getString("exactRemaining")));
+                if (item.contains("exactRemaining")) {
+                    try {
+                        tp.setExact(
+                            ECOBigCraftingOrder.decode(item.getString("exactTotal")),
+                            ECOBigCraftingOrder.decode(item.getString("exactRemaining")));
+                    } catch (RuntimeException corrupt) {
+                        exactProgressLost = true;
+                    }
+                }
                 this.tasks.put(details, tp);
             } else taskDefinitionLost = true;
         }
 
         ECOExecutionPlan restoredPlan = null;
-        exactOrder = data.getBoolean("exactOrder");
         AmountMapNbt.read(data.getList("deferredStock", Tag.TAG_COMPOUND), registries, deferredStock);
         AmountMapNbt.read(data.getList("deferredEmitted", Tag.TAG_COMPOUND), registries, deferredEmitted);
         ECOExecutionRuntime restoredRuntime = null;
         boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED)
-            || exactOrder && taskDefinitionLost;
+            || exactOrder && taskDefinitionLost || exactProgressLost;
         if (data.contains(NBT_EXECUTION_PLAN)) {
             try {
                 restoredPlan = ECOExecutionPlanNbtCodec.decode(

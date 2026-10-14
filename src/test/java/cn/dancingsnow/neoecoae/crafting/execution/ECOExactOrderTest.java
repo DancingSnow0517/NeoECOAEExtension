@@ -275,6 +275,34 @@ class ECOExactOrderTest {
         }
     }
 
+    @Test void corruptExactTaskAmountSuspendsInsteadOfAbortingRestore() {
+        var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        var pattern = pattern(key);
+        var definition = mock(AEItemKey.class);
+        when(pattern.getDefinition()).thenReturn(definition);
+        var registries = mock(HolderLookup.Provider.class);
+        when(definition.toTag(registries)).thenAnswer(i -> new CompoundTag());
+        var result = result(key, Map.of(pattern, PlannerAmount.of(HUGE)));
+        result.setExactMaterials(Map.of(key, PlannerAmount.of(HUGE)), Map.of(), Map.of());
+        var cpu = mock(ECOCraftingCPU.class);
+        var logic = new ECOCraftingCPULogic(cpu);
+        try (var types = mockStatic(AEKeyTypes.class);
+             var definitions = mockStatic(AEItemKey.class);
+             var patterns = mockStatic(appeng.api.crafting.PatternDetailsHelper.class);
+             var stacks = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
+            definitions.when(() -> AEItemKey.fromTag(eq(registries), any())).thenReturn(definition);
+            patterns.when(() -> appeng.api.crafting.PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(pattern);
+            stacks.when(() -> GenericStack.writeTag(eq(registries), any())).thenReturn(new CompoundTag());
+            stacks.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(key, 10));
+            var link = new CraftingLink(CraftingCpuHelper.generateLinkData(UUID.randomUUID(), true, false), cpu);
+            var data = new ExecutingCraftingJob(new ECOExactCraftingPlan(result, false), ignored -> {}, link, null).writeToNBT(registries);
+            data.getList("tasks", net.minecraft.nbt.Tag.TAG_COMPOUND).getCompound(0).putString("exactRemaining", "-1");
+            var restored = new ExecutingCraftingJob(data, registries, ignored -> {}, logic);
+            assertTrue(restored.suspended);
+            assertEquals("EXECUTION_METADATA_LOST", restored.permanentExecutionError);
+        }
+    }
+
     private static ECOExecutionPlan.TaskSpec task(int id, IPatternDetails pattern) {
         return new ECOExecutionPlan.TaskSpec(id, PlanIdentity.patternIdentityFor(pattern), pattern,
             ECOExecutionPlan.PatternRuntimeInfo.from(pattern), Long.MAX_VALUE, id, ECOExecutionPlan.TaskKind.DAG);
