@@ -22,8 +22,13 @@ final class StoragePanelTextures {
     static final SpriteTexture INFINITY = sprite(16, 52, 24, 10);
     static final SpriteTexture RESOURCE_HOVER = sprite(24, 78, 8, 8);
     static final SpriteTexture CELL_COLUMN = sprite(0, 52, 16, 53);
-    static final int[] COLORS = {0x17B86D, 0x3894FF, 0xEC8600, 0xCCCCCC, 0xCC493D, 0xFFB2D8,
-        0x72B036, 0x3AD8CB, 0xC93BED, 0x06DFFF, 0xCCCCCC};
+    static final int FALLBACK_SWATCH = 14;
+    static final int[] COLORS = {
+        0x17B86D, 0x3894FF, 0xEC8600, 0xCCCCCC, 0xCC493D, 0xFFB2D8,
+        0x72B036, 0x3AD8CB, 0xC93BED, 0x06DFFF,
+        0x2CCDB1, 0xCC4BBD, 0x6056AF, 0x6F8259,
+        0xCCCCCC
+    };
 
     private StoragePanelTextures() {}
 
@@ -57,22 +62,32 @@ final class StoragePanelTextures {
     }
 
     static SpriteTexture swatch(int index, int color) {
-        if (index < 0 || index >= 10) return sprite(16, 78, 8, 8).setBorder(1, 0, 1, 0)
+        if (index < 0 || index >= FALLBACK_SWATCH) return sprite(16, 78, 8, 8).setBorder(1, 0, 1, 0)
             .setColor(0xFF000000 | color & 0xFFFFFF);
-        return (index < 6 ? sprite(16 + index * 8, 62, 8, 8)
-            : sprite(16 + (index - 6) * 8, 70, 8, 8)).setBorder(1, 0, 1, 0);
+        if (index < 6) {
+            return sprite(16 + index * 8, 62, 8, 8).setBorder(1, 0, 1, 0);
+        } else if (index < 10) {
+            return sprite(16 + (index - 6) * 8, 70, 8, 8).setBorder(1, 0, 1, 0);
+        } else {
+            return sprite(64 + (index - 10) * 8, 62, 8, 8).setBorder(1, 0, 1, 0);
+        }
     }
 
     /** Resource pictograms follow the same channel order as the color swatches. */
     static SpriteTexture resourceIcon(int index, int color) {
-        if (index < 0 || index >= 10) return swatch(index, color);
-        return index < 6 ? sprite(16 + index * 8, 86, 8, 8)
-            : sprite(16 + (index - 6) * 8, 94, 8, 8);
+        if (index < 0 || index >= FALLBACK_SWATCH) return swatch(index, color);
+        if (index < 6) {
+            return sprite(16 + index * 8, 86, 8, 8);
+        } else if (index < 10) {
+            return sprite(16 + (index - 6) * 8, 94, 8, 8);
+        } else {
+            return sprite(64 + (index - 10) * 8, 86, 8, 8);
+        }
     }
 
     /** Fixed resource channels from the supplied legend; other channels use the tintable extra sprite. */
     static int swatchIndex(ResourceLocation id) {
-        if (id == null) return 10;
+        if (id == null) return FALLBACK_SWATCH;
         return switch (id.toString()) {
             case "neoecoae:mekanism", "neoecoae:mega_chemical", "appmek:chemical" -> 0;
             case "neoecoae:fluids", "neoecoae:mega_fluid", "ae2:f" -> 1;
@@ -84,7 +99,11 @@ final class StoragePanelTextures {
             case "neoecoae:soul", "neoecoae:mega_soul", "soulplied_energistics:soul", "appliedsoul:soul" -> 7;
             case "neoecoae:source", "neoecoae:mega_source", "arseng:source" -> 8;
             case "neoecoae:mana", "neoecoae:mega_mana", "appbot:mana" -> 9;
-            default -> 10;
+            case "neoecoae:omni", "ae2omnicells:omni", "ae2omnicells:omni_cell" -> 10;
+            case "neoecoae:complex_omni", "ae2omnicells:complex_omni", "ae2omnicells:complex_omni_cell" -> 11;
+            case "neoecoae:quantum_omni", "ae2omnicells:quantum_omni", "ae2omnicells:quantum_omni_cell" -> 12;
+            case "neoecoae:spent_nuclear_waste", "ae2omnicells:spent_nuclear_waste", "ae2omnicells:spent_nuclear_waste_cell", "mekanism:spent_nuclear_waste" -> 13;
+            default -> FALLBACK_SWATCH;
         };
     }
 }

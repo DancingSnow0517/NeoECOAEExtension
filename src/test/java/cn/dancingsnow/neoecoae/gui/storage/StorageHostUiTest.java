@@ -161,9 +161,9 @@ class StorageHostUiTest {
             var background = javax.imageio.ImageIO.read(resource);
             int bottom = 31 + 3 * 18;
             for (int x = 49; x < 245; x++) {
-                assertEquals(0xFFF2F2F2, background.getRGB(x, bottom));
+                assertEquals(0xFF9A9FB4, background.getRGB(x, bottom));
                 assertEquals(0xFFCBCCD4, background.getRGB(x, bottom + 1));
-                assertEquals(0xFF9A9FB4, background.getRGB(x, bottom + 2));
+                assertEquals(0xFFCBCCD4, background.getRGB(x, bottom + 2));
             }
         }
     }

@@ -201,22 +201,35 @@ class StoragePanelStateTest {
     @Test
     void resourceChannelsUseTheSuppliedLegendInNormalAndInfiniteModes() {
         String[] normal = {"mekanism", "fluids", "items", "air", "flux", "lightning",
-            "experience", "soul", "source", "mana"};
+            "experience", "soul", "source", "mana", "omni", "complex_omni", "quantum_omni", "spent_nuclear_waste"};
         String[] infinite = {"appmek:chemical", "ae2:f", "ae2:i", "appliedpneumatics:air_type",
-            "appflux:flux", "ae2lt:lightning", "appex:experience", "soulplied_energistics:soul", "arseng:source", "appbot:mana"};
+            "appflux:flux", "ae2lt:lightning", "appex:experience", "soulplied_energistics:soul", "arseng:source", "appbot:mana",
+            "ae2omnicells:omni", "ae2omnicells:complex_omni", "ae2omnicells:quantum_omni", "ae2omnicells:spent_nuclear_waste_cell"};
         for (int i = 0; i < normal.length; i++) {
             assertEquals(i, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:" + normal[i])));
             assertEquals(i, StoragePanelTextures.swatchIndex(ResourceLocation.parse(infinite[i])));
         }
         assertEquals(2, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:bulk_item")));
         assertEquals(9, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:mega_mana")));
-        assertEquals(10, StoragePanelTextures.swatchIndex(ResourceLocation.parse("other:mana")));
-        assertEquals(10, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:data")));
-        var unknown = StoragePanelTextures.swatch(10, 0x54E6F2);
+        assertEquals(13, StoragePanelTextures.swatchIndex(ResourceLocation.parse("mekanism:spent_nuclear_waste")));
+        assertEquals(14, StoragePanelTextures.swatchIndex(ResourceLocation.parse("other:mana")));
+        assertEquals(14, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:data")));
+        var unknown = StoragePanelTextures.swatch(14, 0x54E6F2);
         assertEquals(16, unknown.spritePosition.x);
         assertEquals(78, unknown.spritePosition.y);
         assertEquals(0xFF54E6F2, unknown.color);
         assertEquals(-1, StoragePanelTextures.swatch(7, 0xA56ACB).color);
+        for (int i = 10; i <= 13; i++) {
+            int expectedX = 64 + (i - 10) * 8;
+            var swatch = StoragePanelTextures.swatch(i, 0);
+            assertEquals(expectedX, swatch.spritePosition.x);
+            assertEquals(62, swatch.spritePosition.y);
+            assertEquals(-1, swatch.color);
+
+            var icon = StoragePanelTextures.resourceIcon(i, 0);
+            assertEquals(expectedX, icon.spritePosition.x);
+            assertEquals(86, icon.spritePosition.y);
+        }
     }
 
     @Test

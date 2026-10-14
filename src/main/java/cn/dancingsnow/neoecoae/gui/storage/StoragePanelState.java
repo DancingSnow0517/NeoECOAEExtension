@@ -42,7 +42,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
             long usedBytes, long totalBytes, String bytesText) {
             this(id, name, color, usedTypes, totalTypes, usedBytes, totalBytes, bytesText,
-                10, BigInteger.valueOf(Math.max(0, usedBytes)));
+                StoragePanelTextures.FALLBACK_SWATCH, BigInteger.valueOf(Math.max(0, usedBytes)));
         }
     }
 
@@ -61,7 +61,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             if (usedTypes == 0 && totalTypes == 0 && usedBytes == 0 && totalBytes == 0
                 && all.stream().noneMatch(cell -> cell.installed() && cell.typeId() == line.registryIndex())) continue;
             int swatch = StoragePanelTextures.swatchIndex(line.resourceId());
-            int color = swatch < 10 ? StoragePanelTextures.COLORS[swatch]
+            int color = swatch < StoragePanelTextures.FALLBACK_SWATCH ? StoragePanelTextures.COLORS[swatch]
                 : HostText.storageTypeAccentColor(line.type(), line.registryIndex());
             types.add(new TypeLine(line.registryIndex(), line.displayName().get(), color,
                 usedTypes, totalTypes, usedBytes, totalBytes,
@@ -185,7 +185,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             CompoundTag type = (CompoundTag) valueType;
             types.add(new TypeLine(type.getInt("id"), component(type, "name"), type.getInt("color"),
                 type.getLong("ut"), type.getLong("tt"), type.getLong("ub"), type.getLong("tb"), type.getString("text"),
-                type.contains("swatch") ? type.getInt("swatch") : 10,
+                type.contains("swatch") ? type.getInt("swatch") : StoragePanelTextures.FALLBACK_SWATCH,
                 type.contains("exactBytes") ? new BigInteger(type.getString("exactBytes"))
                     : BigInteger.valueOf(Math.max(0, type.getLong("ub")))));
         }
