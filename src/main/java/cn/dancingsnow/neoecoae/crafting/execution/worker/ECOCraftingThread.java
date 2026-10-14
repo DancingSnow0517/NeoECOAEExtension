@@ -61,7 +61,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     public static final int MAX_PROGRESS = 100;
     private static final int MAX_SERIALIZED_ITEM_STACK_COUNT = 99;
-    private static final int MAX_PERSISTED_ITEM_STACK_ENTRIES = 256;
     private static final long BLOCKED_PROGRESS_LOG_INTERVAL_TICKS = 100L;
     private static final long VIRTUAL_BLOCKED_NOTICE_DURATION_TICKS = 100L;
     private static final long OWNING_CPU_RECOVERY_TIMEOUT_TICKS = 2_400L;
@@ -1335,11 +1334,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         outputItems.clear();
         ListTag outputs = nbt.getList("outputItems", Tag.TAG_COMPOUND);
-        invalidPersistedState |= outputs.size() > MAX_PERSISTED_ITEM_STACK_ENTRIES;
         if (batchGenericWork) {
             outputItems.clear();
         } else if (!outputs.isEmpty()) {
-            for (int i = 0; i < Math.min(outputs.size(), MAX_PERSISTED_ITEM_STACK_ENTRIES); i++) {
+            // Saving splits large counts into multiple entries; every persisted entry still owns its items.
+            for (int i = 0; i < outputs.size(); i++) {
                 try {
                     ItemStack output = ItemStack.parseOptional(provider, outputs.getCompound(i));
                     if (output.isEmpty()) {
@@ -1365,8 +1364,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         inputItems.clear();
         ListTag inputs = nbt.getList("inputItems", Tag.TAG_COMPOUND);
-        invalidPersistedState |= inputs.size() > MAX_PERSISTED_ITEM_STACK_ENTRIES;
-        for (int i = 0; i < Math.min(inputs.size(), MAX_PERSISTED_ITEM_STACK_ENTRIES); i++) {
+        for (int i = 0; i < inputs.size(); i++) {
             try {
                 ItemStack input = ItemStack.parseOptional(provider, inputs.getCompound(i));
                 if (input.isEmpty()) {
@@ -1381,8 +1379,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         remainingItems.clear();
         ListTag remaining = nbt.getList("remainingItems", Tag.TAG_COMPOUND);
-        invalidPersistedState |= remaining.size() > MAX_PERSISTED_ITEM_STACK_ENTRIES;
-        for (int i = 0; i < Math.min(remaining.size(), MAX_PERSISTED_ITEM_STACK_ENTRIES); i++) {
+        for (int i = 0; i < remaining.size(); i++) {
             try {
                 ItemStack remainingItem = ItemStack.parseOptional(provider, remaining.getCompound(i));
                 if (remainingItem.isEmpty()) {
