@@ -114,6 +114,32 @@ flowchart TD
 
 启动候选只是建议。ECO 核对真实外部供应，以投影库存重新求解，并扣除已经保留的库存后，才接受启动恢复。某一个见证顺序中的缺口，不能证明所有生产者路线都不可行。种子需求和不足量进入诊断，缺材料结论必须在相关边界上有确定的物料依据。
 
+**启动种子与交付后保留的可复用种子。**启动种子是本次订单为开始循环而预留的材料；交付后保留的可复用种子，是订单完成后仍留在库存里、使同一循环下次还能启动的那部分。
+
+- 可复用 Key：同时被该循环自身的样板消耗和产出，且不是边界 Key。只消耗不产出的燃料，以及只产出不消耗的纯产物，都不保留。完整返还的催化剂只按种子数量保留，不按每次执行累计。
+- 保留量取该见证自身启动种子与订单开始前库存的较小值。约束为最终库存 ≥ 交付量 + 保留量；目标 Key 原有的“交付量 + 库存”目标已经覆盖这一点，不会重复追加。
+- 策略固定为“优先保留”：保留种子的方案，其见证与边界供应都通过验证时才采用，可能需要更多执行次数或燃料；否则采用普通方案并给出 `CYCLE_SEED_NOT_RETAINED`。订单不会仅因种子无法保留而失败：带保留的整单计划状态不是 `SUCCESS` 时，改为不保留重新规划整单。
+- 保留的是被接受见证自己的种子，所以补足不可复用的输入（燃料）后，同一订单可以再次启动。之后燃料不足属于物料短缺，不是种子丢失。不建模从另一种子 Key 启动的替代重启状态。
+- 运行时，保留的种子只是 CPU 结束任务时退回 ME 存储的剩余物，或从未被提取的库存；不会对其他任务加锁。
+
+### 6.3.1 边界供应反馈
+
+已验证的循环见证，其边界导入有时无法由外部 DAG 提供（外部结论为 `MISSING` 或 `FORBIDDEN_ROUTE`）。此时规划器按边界 Key 的单 Key 导入上限搜索其他执行次数向量。循环求解器把受限 Key 当作有限库存，即已有库存加上限；超过已有库存的部分，作为外部需求回报。
+
+上限相对于外部验证器，并假设供应单调：
+
+- 单 Key 上限：不带预留，单独探测该 Key，上限为最小失败数量减 1，用二分法求得。
+- 各自可供应的 Key 联合失败：分支为“其中某个 Key 少导入”。
+- 联合失败只在带上该候选的预留时出现：搜索停止，视为未完成。
+
+搜索有轮数与探测次数上限，并使用预算切片（至多为剩余额度的一半）。结果：
+
+- `CYCLE_SUPPLY_ALTERNATIVE`：找到并验证了替代方案；
+- `CYCLE_SUPPLY_SEARCH_EXHAUSTED`：每个受限分支都已被循环求解器否定；
+- `CYCLE_SUPPLY_SEARCH_INCOMPLETE`：达到上限或验证器结论未知。
+
+两种失败情况下，报告的缺料仍是第一个执行向量的缺料，与此前一致；这不是全局不可行的证明。每个候选的全部边界需求在一次外部求解中验证，所以共享的上游材料不会被重复承诺。外部结论为 `UNSUPPORTED`、`OVERFLOW`、`UNREPRESENTABLE` 时不启动搜索。
+
 ### 6.4 返还容器、催化剂与副产物
 
 输入返还 Key 可以构成反馈边。ECO 追踪每次返还数量，只有语义适配器证明完整 Key 保持不变，才按可复用工作库存处理。耐久或组件变化需要相应的特殊样板解析器，不能仅凭物品 ID 相同就认为是未变化的催化剂。
@@ -139,6 +165,7 @@ flowchart TD
 | `模具 + 锭 -> 板`，完整返还原模具 | 预留工作模具，返还后可以再用；并行批次仍需要足够的同时工作库存。 |
 | `A + 矿石 -> 2 B`、`B -> A` | 一种合法轮次可以恢复 A 并增加一个 B；没有 A 或 B 启动时，仅净增长不构成可执行证明。 |
 | `A + 原料 -> 2 A` | 增殖配方仍需要首个 A 与原料，压缩不会生成启动种子或外部供应。 |
+| `A + F -> 2B`、`B -> A`；库存 A=1、F=2，订单 2B | 两个样板各执行 2 次，交付 2B 并保留 1 个 A；若 F=1，则第一个样板执行 1 次，A 被消耗，给出 `CYCLE_SEED_NOT_RETAINED`。 |
 
 联合搜索有预算限制，不保证全局最优。当前优化成本是物理样板执行次数总和，不是机器耗时或能耗。替代输入及不安全的状态变化配方保留各自的解析路径。
 
@@ -188,6 +215,8 @@ flowchart TD
 - `CYCLE_PROVEN_INFEASIBLE_AT_CURRENT_STOCK`：组件局部证明，其他启动路线仍可能可行；
 - `ROUTE_PROVEN_UNREACHABLE`：所有已公布生产者的乐观闭包仍无法达到目标；
 - `CYCLE_BUDGET_EXHAUSTED`、`ROUTE_SEARCH_BUDGET_EXHAUSTED`：可行性搜索没完成，不能给出全局缺材料结论；
+- `CYCLE_SEED_RETAINED`、`CYCLE_SEED_NOT_RETAINED`：交付后保留或消耗可复用种子；后者不使订单失败；
+- `CYCLE_SUPPLY_ALTERNATIVE`、`CYCLE_SUPPLY_SEARCH_EXHAUSTED`、`CYCLE_SUPPLY_SEARCH_INCOMPLETE`：边界供应失败后的替代执行向量搜索，后两者的缺料仍指第一个向量，不是全局证明；
 - `ROUTE_OPTIMIZATION_BUDGET`：可选优化停止，已有且验证成功的方案仍可返回；
 - `CYCLE_TOO_COMPLEX`：可选结构上限终止求解；内存耗尽也保持未知，具体原因查看循环诊断；
 - `PLAN_MATERIAL_CLOSURE_INVALID`、`EXECUTION_AMOUNT_UNREPRESENTABLE`、`PROVENANCE_UNATTRIBUTED`：执行边界校验信息。
@@ -203,6 +232,8 @@ flowchart TD
 | `ecoPlanningMaxMillis` | 10,000 毫秒 | 一次请求或会话。 |
 | `ecoPlanningMaxWork` | 5,000,000 个检查点 | 一次请求或会话。 |
 | `ecoPlanningMaxMemoryMiB` | 64 MiB | 循环矩阵和搜索状态的保留内存估算。 |
+
+可选的种子保留与供应反馈搜索，在嵌套的预算切片内运行（每片至多为剩余额度的一半，另有固定的工作与时间上限）。切片耗尽时，静默退回普通结果；共享额度本身耗尽，仍让请求以未知结束。
 
 `CycleSolveLimits` 是可选操作上限，超限返回 `TOO_COMPLEX` 或 `UNKNOWN_BUDGET`，不构成缺材料证明。检查点是协作限制，不是能强行中断每个操作的硬时限。根据入口不同，取消可能表现为 `CANCELLED` 结果，或取消、失败的 Future；都不应继续提交。
 
@@ -260,6 +291,7 @@ public final class EcoSessionExample {
 | 关注点 | 实现 | 已有回归源码 |
 | --- | --- | --- |
 | 混合路线与多产物 | [联合优化](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/solve/JointRouteOptimizer.java) | [联合路线用例](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/JointRouteOptimizationTest.java) |
+| 交付后保留种子与边界供应反馈 | [候选搜索](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/solve/CycleCandidateSearch.java) | [种子保留用例](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/CycleSeedRetentionPlanningTest.java)、[种子保留边界用例](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/CycleSeedRetentionEdgeCaseTest.java)、[导入上限用例](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/cycle/CycleBoundaryImportCapTest.java) |
 | 启动供应与保留库存 | [组件规划](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/solve/ComponentPlanner.java)、[外部需求](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/solve/ExternalDemandPlanner.java) | [启动恢复](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/CycleStartupRecoveryTest.java)、[预留记账](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/ExternalDemandReservationTest.java) |
 | 整数平衡与循环顺序 | [状态方程](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/cycle/CycleStateEquation.java)、[有界求解器](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/cycle/BoundedCycleSolver.java) | [方程用例](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/cycle/CycleStateEquationTest.java) |
 | 结构复用 | [缓存](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/compile/CompiledStructureCache.java) | [缓存用例](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/compiled/CompiledStructureCacheTest.java) |

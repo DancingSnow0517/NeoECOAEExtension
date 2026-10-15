@@ -112,6 +112,32 @@ A **seed** is the material needed to start a cycle that current stock and active
 
 A startup candidate is only a proposal. ECO verifies real external supply, reruns the route from projected stock, and subtracts held-stock reservations before accepting it. A local deficit in one witness does not prove that every producer route is impossible. The solver reports seed amount and shortfall in the trace, and it returns `MISSING_ITEMS` only when the material result is proven at the relevant boundary.
 
+**Start-up seed versus the reusable seed kept after delivery.** The start-up seed is the material reserved for this order to start the cycle. The reusable seed kept after delivery is the part that remains in stock once the order completes, so the same cycle can start again.
+
+- Reusable key: consumed and produced by the cycle's own patterns, and not a boundary key. Fuel (consumed only) and pure products (produced only) are never retained. A fully returned catalyst is retained with its seed amount only, not per firing.
+- Retained amount is the smaller of the accepted witness's own start-up seed and the stock before the order. The constraint is final stock >= delivery + retained; the goal key's existing "delivery + stock" target already covers this, so nothing is added twice.
+- The policy is fixed to "prefer": a retaining plan is used when its witness and its boundary supply both verify, possibly at a higher firing or fuel cost; otherwise the plain plan is used and `CYCLE_SEED_NOT_RETAINED` is reported. An order never fails only because a seed cannot be kept: if the retaining whole-order run is not `SUCCESS`, the order is re-planned without retention.
+- Because the kept seed is the accepted witness's own seed, the same order can start again once its non-reusable inputs (fuel) are replenished; a later fuel shortage is a material shortage, not seed loss. Alternative restart states (starting from a different seed key) are not modelled.
+- At runtime the kept seed is ordinary CPU leftover returned to ME storage at job end, or stock that was never extracted. It is not locked against other jobs.
+
+### 6.3.1 Boundary supply feedback
+
+A verified cycle witness can import boundary keys that the external DAG cannot supply (external verdict `MISSING` or `FORBIDDEN_ROUTE`). The planner then searches other firing vectors using per-key import caps on boundary keys. The cycle solver models a capped key as finite stock (owned stock + cap); the excess over owned stock is reported back as external demand.
+
+Caps are relative to the external verifier and assume monotone supply:
+
+- Single-key cap: probe that key alone without reservations; the cap is the smallest failing amount minus 1, found by binary search.
+- Joint failure of individually suppliable keys: branch into "one of these keys imports less".
+- A joint failure that appears only with this candidate's reservations stops the search as incomplete.
+
+The search has bounded rounds and probes and runs in a budget slice (at most half of the remaining allowance). Outcomes:
+
+- `CYCLE_SUPPLY_ALTERNATIVE`: a verified alternative was accepted;
+- `CYCLE_SUPPLY_SEARCH_EXHAUSTED`: every capped branch was closed by the cycle solver;
+- `CYCLE_SUPPLY_SEARCH_INCOMPLETE`: a limit was reached or the verifier's verdict was unknown.
+
+In both failure cases the reported missing items are those of the first firing vector, exactly as before; they are not a global infeasibility proof. Shared upstream material is never promised twice, because each candidate's boundary demands are verified in one external solve. `UNSUPPORTED`, `OVERFLOW`, and `UNREPRESENTABLE` external verdicts do not start the search.
+
 ### 6.4 Returned containers, catalysts, and byproducts
 
 An input with a returned key can form a feedback edge. ECO tracks the returned amount per firing and only treats it as reusable when the semantic adapter proves the unchanged-key contract. Damageable or component-changing returns require the corresponding special-pattern resolver; they cannot be credited as unchanged catalysts by equality of item ID alone.
@@ -137,6 +163,7 @@ These examples illustrate material semantics. Every recipe must be advertised by
 | `mold + ingot -> plate`, returning exactly the unchanged mold | Reserve the working mold; after its return it can serve another firing. Parallel batches still need enough simultaneous working stock. |
 | `A + ore -> 2 B`, `B -> A` | One possible lap restores A and adds one B. With no A or B to start, positive net balance alone does not make the loop executable. |
 | `A + feed -> 2 A` | A growing recipe needs a first A and feed. Compression cannot invent its startup seed or boundary supply. |
+| `A + F -> 2B`, `B -> A`; stock A=1, F=2, request 2B | Each pattern fires twice; 2B are delivered and 1 A is kept. With F=1, the first pattern fires once, A is consumed, and `CYCLE_SEED_NOT_RETAINED` is reported. |
 
 Joint search is bounded and does not guarantee global optimality. Its current improvement cost is the sum of physical pattern firings, not elapsed machine time or energy. Substitution and unsafe state-changing recipes retain their dedicated resolver paths.
 
@@ -186,6 +213,8 @@ The ordinary planner's goal amount is still a positive long. The menu's exact ad
 - `CYCLE_PROVEN_INFEASIBLE_AT_CURRENT_STOCK`: a component-local proof; other startup routes may still work;
 - `ROUTE_PROVEN_UNREACHABLE`: the optimistic closure over advertised producers cannot reach the goal;
 - `CYCLE_BUDGET_EXHAUSTED`, `ROUTE_SEARCH_BUDGET_EXHAUSTED`: unfinished feasibility search, which is unknown;
+- `CYCLE_SEED_RETAINED`, `CYCLE_SEED_NOT_RETAINED`: the reusable seed is kept after delivery or consumed; the latter never fails the order by itself;
+- `CYCLE_SUPPLY_ALTERNATIVE`, `CYCLE_SUPPLY_SEARCH_EXHAUSTED`, `CYCLE_SUPPLY_SEARCH_INCOMPLETE`: the alternative firing-vector search after a boundary supply failure; for the last two, missing items still refer to the first vector and are not a global proof;
 - `ROUTE_OPTIMIZATION_BUDGET`: optional improvement stopped; an already verified successful incumbent can still be returned;
 - `CYCLE_TOO_COMPLEX`: an optional structural cutoff ended the attempt; memory exhaustion also remains unknown and is reported in cycle details;
 - `PLAN_MATERIAL_CLOSURE_INVALID`, `EXECUTION_AMOUNT_UNREPRESENTABLE`, `PROVENANCE_UNATTRIBUTED`: execution-boundary validation.
@@ -201,6 +230,8 @@ One `Session` shares a cooperative work/time budget across structural discovery,
 | `ecoPlanningMaxMillis` | 10,000 ms | One request/session budget. |
 | `ecoPlanningMaxWork` | 5,000,000 checkpoints | One request/session budget. |
 | `ecoPlanningMaxMemoryMiB` | 64 MiB | Estimated retained cycle matrices/states. |
+
+Optional seed-retention and supply-feedback searches run in nested slices (each at most half of the remaining allowance, plus fixed work and time caps). Exhausting a slice silently falls back to the plain result; exhausting the shared allowance still ends the request as unknown.
 
 The cycle solver's `CycleSolveLimits` are optional operational cutoffs. Exceeding a cutoff yields `TOO_COMPLEX` or `UNKNOWN_BUDGET`; it is never a missing-material proof. Checkpoints enforce cooperative limits, not a hard deadline interrupting every operation. The exact exposed cancellation may be a `CANCELLED` result or a cancelled/failed Future depending on the entry point; consume it without submission.
 
@@ -258,6 +289,7 @@ Sources: [planning service](../src/main/java/cn/dancingsnow/neoecoae/crafting/pl
 | Concern | Implementation | Existing regression source |
 | --- | --- | --- |
 | Mixed routes and coproducts | [joint optimizer](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/solve/JointRouteOptimizer.java) | [joint route cases](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/JointRouteOptimizationTest.java) |
+| Kept seed and boundary supply feedback | [candidate search](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/solve/CycleCandidateSearch.java) | [seed retention](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/CycleSeedRetentionPlanningTest.java), [seed retention edge cases](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/CycleSeedRetentionEdgeCaseTest.java), [import caps](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/cycle/CycleBoundaryImportCapTest.java) |
 | Startup supply and held-stock accounting | [component planner](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/solve/ComponentPlanner.java), [external demand](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/solve/ExternalDemandPlanner.java) | [startup recovery](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/CycleStartupRecoveryTest.java), [reservations](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/ExternalDemandReservationTest.java) |
 | Integer balance and cycle order | [state equation](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/cycle/CycleStateEquation.java), [bounded solver](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/cycle/BoundedCycleSolver.java) | [state equation cases](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/cycle/CycleStateEquationTest.java) |
 | Structure reuse | [cache](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/compile/CompiledStructureCache.java) | [cache cases](../src/test/java/cn/dancingsnow/neoecoae/crafting/planner/compiled/CompiledStructureCacheTest.java) |

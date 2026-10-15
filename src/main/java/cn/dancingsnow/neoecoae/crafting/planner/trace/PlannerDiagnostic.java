@@ -19,6 +19,16 @@ public record PlannerDiagnostic(Code code, String message) {
         CYCLE_SEED_REQUIRED,
         /** A local impossibility proof; other routes or startup suppliers may still succeed. */
         CYCLE_PROVEN_INFEASIBLE_AT_CURRENT_STOCK,
+        /** The accepted firing vector leaves the cycle's reusable seed in stock after delivery. */
+        CYCLE_SEED_RETAINED,
+        /** The reusable seed is consumed because no verified plan could keep it; the order still succeeds or fails on its own merits. */
+        CYCLE_SEED_NOT_RETAINED,
+        /** The first firing vector's boundary supply failed and a verified alternative vector was accepted. */
+        CYCLE_SUPPLY_ALTERNATIVE,
+        /** The boundary supply failed and every capped alternative firing vector was closed by the cycle solver. */
+        CYCLE_SUPPLY_SEARCH_EXHAUSTED,
+        /** The boundary supply failed and the alternative firing vector search stopped early; this is not a proof. */
+        CYCLE_SUPPLY_SEARCH_INCOMPLETE,
         /** Even optimistic availability across every producer cannot reach the requested key. */
         ROUTE_PROVEN_UNREACHABLE,
         /** The bounded cycle search ran out of budget; explicitly not a missing-items verdict. */
