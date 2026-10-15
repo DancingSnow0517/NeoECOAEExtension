@@ -23,6 +23,7 @@ public class NEConfig {
             .comment(
                 "多方块结构尺寸限制。",
                 "Multiblock structure size limits.")
+            .translation("neoecoae.configuration.structure")
             .push("structure");
     }
 
@@ -32,6 +33,7 @@ public class NEConfig {
             "更高的值允许更长的扩展，但可能增加结构检查开销。",
             "Maximum allowed length of the crafting system multiblock, measured in blocks.",
             "Higher values allow longer extensions but may increase structure validation overhead.")
+        .translation("neoecoae.configuration.craftingSystemMaxLength")
         .defineInRange("craftingSystemMaxLength", 15, 5, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue COMPUTATION_SYSTEM_MAX_LENGTH = BUILDER
@@ -40,6 +42,7 @@ public class NEConfig {
             "更高的值允许更长的扩展，但可能增加结构检查开销。",
             "Maximum allowed length of the computation system multiblock, measured in blocks.",
             "Higher values allow longer extensions but may increase structure validation overhead.")
+        .translation("neoecoae.configuration.computationSystemMaxLength")
         .defineInRange("computationSystemMaxLength", 15, 5, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue STORAGE_SYSTEM_MAX_LENGTH = BUILDER
@@ -48,6 +51,7 @@ public class NEConfig {
             "更高的值允许更长的扩展，但可能增加结构检查开销。",
             "Maximum allowed length of the storage system multiblock, measured in blocks.",
             "Higher values allow longer extensions but may increase structure validation overhead.")
+        .translation("neoecoae.configuration.storageSystemMaxLength")
         .defineInRange("storageSystemMaxLength", 15, 4, Integer.MAX_VALUE);
 
     static {
@@ -59,6 +63,7 @@ public class NEConfig {
             .comment(
                 "ECO 存储系统选项。",
                 "ECO storage system options.")
+            .translation("neoecoae.configuration.storage")
             .push("storage");
     }
 
@@ -66,6 +71,7 @@ public class NEConfig {
         .comment(
             "ECO 存储主机自动标记可压缩物品时使用的数量阈值；只有数量严格大于此值的物品才会被标记。",
             "Amount threshold used when an ECO storage host automatically marks compressible items; only amounts strictly greater than this value are marked.")
+        .translation("neoecoae.configuration.megaBulkAutoMarkThreshold")
         .defineInRange("megaBulkAutoMarkThreshold", 20_000L, 0L, Long.MAX_VALUE);
 
     static {
@@ -78,6 +84,7 @@ public class NEConfig {
             "可能引入额外的事件/监听器开销；安装 Balm 等模组时可能会有较明显影响。",
             "Post the vanilla ItemCraftedEvent when the crafting system completes a recipe.",
             "This may add event/listener overhead, especially when mods such as Balm are installed.")
+        .translation("neoecoae.configuration.postCraftingEvent")
         .define("postCraftingEvent", false);
 
     private static final ModConfigSpec.BooleanValue LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED = BUILDER
@@ -89,6 +96,7 @@ public class NEConfig {
             "When disabled, only native integrated workstation recipes are available.",
             "Reopen the world or restart the server after changing this option to refresh recipe viewers.")
         .worldRestart()
+        .translation("neoecoae.configuration.largeWorkstationCompatRecipesEnabled")
         .define("largeWorkstationCompatRecipesEnabled", false);
 
     private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
@@ -97,6 +105,7 @@ public class NEConfig {
             "每页可存储 63 个编码样板。",
             "Number of pattern pages exposed by one ECO smart pattern bus.",
             "Each page stores 63 encoded patterns.")
+        .translation("neoecoae.configuration.craftingPatternBusPages")
         .defineInRange("craftingPatternBusPages", 1, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
 
     static {
@@ -106,6 +115,7 @@ public class NEConfig {
                 "FastPath 默认启用；启用原版合成事件时会回退到逐次合成，以保留事件语义。",
                 "ECO AE2 fast-path cache and batch crafting limits.",
                 "FastPath is enabled by default and falls back to single-craft execution when postCraftingEvent is enabled.")
+            .translation("neoecoae.configuration.fastPath")
             .push("fastPath");
     }
 
@@ -118,6 +128,7 @@ public class NEConfig {
             "Verified FastPath batches do not consume this limit.",
             "Ordinary fallback is capped at 64 per CPU per tick, independent of co-processors and previous ticks.",
             "The hard ceiling is 393216 to keep ordinary dispatch bounded.")
+        .translation("neoecoae.configuration.ecoCpuPushTickLimit")
         .defineInRange("ecoCpuPushTickLimit", 200_000, 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
@@ -125,6 +136,7 @@ public class NEConfig {
             "每个 ECO 快速路径缓存最多保留的配方条目数量。",
             "Maximum number of recipe entries retained by each ECO fast-path cache.")
         .worldRestart()
+        .translation("neoecoae.configuration.ecoFastPathCacheSize")
         .defineInRange(
             "ecoFastPathCacheSize",
             512,
@@ -135,16 +147,19 @@ public class NEConfig {
     private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_MILLIS = BUILDER
         .comment("一次 ECO 规划会话的总耗时预算（毫秒），路线、种子和 CRAFT_LESS 探测共享；超限显示未解。",
             "Shared cooperative time budget for one ECO planning session, including routes, seeds and CRAFT_LESS probes.")
+        .translation("neoecoae.configuration.ecoPlanningMaxMillis")
         .defineInRange("ecoPlanningMaxMillis", 10_000, 1, 600_000);
 
     private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_WORK = BUILDER
         .comment("一次 ECO 规划会话的检查点总预算；切换路线和种子不会重置预算。",
             "Shared checkpoint work budget; changing routes or startup seeds does not reset it.")
+        .translation("neoecoae.configuration.ecoPlanningMaxWork")
         .defineInRange("ecoPlanningMaxWork", 5_000_000, 1, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_MEMORY_MIB = BUILDER
         .comment("循环求解保留数据的估算内存预算（MiB），覆盖矩阵和搜索状态；超限显示未解。",
             "Estimated retained memory budget in MiB for cycle matrices and search states; exhaustion remains unknown.")
+        .translation("neoecoae.configuration.ecoPlanningMaxMemoryMiB")
         .defineInRange("ecoPlanningMaxMemoryMiB", 64, 1, Integer.MAX_VALUE);
 
     static {
@@ -156,6 +171,7 @@ public class NEConfig {
             .comment(
                 "仅用于排查问题的调试选项。正常游玩时建议保持关闭。",
                 "Debug options intended only for troubleshooting. Keep these disabled during normal play.")
+            .translation("neoecoae.configuration.debug")
             .push("debug");
     }
 
@@ -164,6 +180,7 @@ public class NEConfig {
             .comment(
                 "ECO 合成计算与发配诊断。",
                 "ECO crafting calculation and dispatch diagnostics.")
+            .translation("neoecoae.configuration.calculating")
             .push("calculating");
     }
 
@@ -175,6 +192,7 @@ public class NEConfig {
             "Log every ECO fast-planning calculation stage, including acyclic and cyclic planning.",
             "Also log whether each request selects ECO fast planning or the native AE2 planner, and why.",
             "Logs stage duration, success state, failure reason, target item and requested amount.")
+        .translation("neoecoae.configuration.ecoPlanningStageDebug")
         .define("ecoPlanningStageDebug", false);
 
     private static final ModConfigSpec.BooleanValue ECO_CRAFT_SUBMISSION_DEBUG = BUILDER
@@ -183,6 +201,7 @@ public class NEConfig {
             "记录开始按钮状态、计划与 CPU 选择、提交路由和提交耗时。",
             "Diagnose why the crafting-confirm Start button is unavailable or why submission is delayed or fails.",
             "Logs the Start-button state, plan and CPU selection, submission route and submission duration.")
+        .translation("neoecoae.configuration.ecoCraftSubmissionDebug")
         .define("ecoCraftSubmissionDebug", false);
 
     private static final ModConfigSpec.BooleanValue ECO_DISPATCH_WATCHDOG_DEBUG = BUILDER
@@ -193,6 +212,7 @@ public class NEConfig {
             "Log ECO dispatch candidate reasons and task accounting before and after dispatch.",
             "Logs an aggregated diagnostic after 200 ticks without real progress, then every 1200 ticks.",
             "This may produce many logs and only collects diagnostics; it does not change crafting state.")
+        .translation("neoecoae.configuration.ecoDispatchWatchdogDebug")
         .define("ecoDispatchWatchdogDebug", false);
 
     static {
@@ -207,6 +227,7 @@ public class NEConfig {
             "Enable ECO crafting output-delivery wait diagnostic logs.",
             "Logs one aggregated warning per job after its workers have been unable to deliver outputs for 200 ticks, then every 1200 ticks.",
             "Logs a recovery message when the wait ends; this option only controls logging and never changes output ownership, retry or recovery behavior.")
+        .translation("neoecoae.configuration.ecoCraftingOutputDeliveryDebug")
         .define("ecoCraftingOutputDeliveryDebug", false);
 
     static {

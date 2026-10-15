@@ -24,6 +24,15 @@ public class ConfigLangs {
             "Maximum length (in blocks) allowed for the Storage System multiblock.\n" +
                 "Higher values allow longer expansions but may increase structure check cost."
         );
+        provider.add("neoecoae.configuration.storage", "Storage");
+        provider.add("neoecoae.configuration.storage.tooltip", "ECO storage system options.");
+        provider.add("neoecoae.configuration.megaBulkAutoMarkThreshold", "Bulk Storage Auto-Mark Threshold");
+        provider.add(
+            "neoecoae.configuration.megaBulkAutoMarkThreshold.tooltip",
+            "Amount threshold used when an ECO storage host automatically marks compressible items.\n" +
+                "Only items with amounts strictly greater than this value are marked."
+        );
+
         provider.add("neoecoae.configuration.postCraftingEvent", "Post Crafting Event");
         provider.add(
             "neoecoae.configuration.postCraftingEvent.tooltip",
@@ -55,8 +64,9 @@ public class ConfigLangs {
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
             "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n" +
-                "The temporary hard ceiling is 393216 until adaptive dispatch is integrated.\n" +
-                "The effective value is still capped by available co-processors."
+                "Ordinary fallback is capped at 64 per CPU per tick; a lower limit can be configured.\n" +
+                "This is independent of co-processors and previous ticks.\n" +
+                "The configuration ceiling is 393216. Fast Path batches do not consume this limit."
         );
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(
@@ -64,12 +74,31 @@ public class ConfigLangs {
             "Maximum recipe entries kept in each ECO fast path cache."
         );
 
+        provider.add("neoecoae.configuration.ecoPlanningMaxMillis", "ECO Planning Time Budget (ms)");
+        provider.add(
+            "neoecoae.configuration.ecoPlanningMaxMillis.tooltip",
+            "Shared cooperative time budget in milliseconds for one ECO planning session, including routes, startup seeds and craft-less probes.\n" +
+                "Exceeding the budget leaves the result unresolved."
+        );
+        provider.add("neoecoae.configuration.ecoPlanningMaxWork", "ECO Planning Work Budget");
+        provider.add(
+            "neoecoae.configuration.ecoPlanningMaxWork.tooltip",
+            "Shared checkpoint work budget for one ECO planning session.\n" +
+                "Changing routes or startup seeds does not reset it."
+        );
+        provider.add("neoecoae.configuration.ecoPlanningMaxMemoryMiB", "ECO Planning Memory Budget (MiB)");
+        provider.add(
+            "neoecoae.configuration.ecoPlanningMaxMemoryMiB.tooltip",
+            "Estimated retained memory budget in MiB for cycle matrices and search states.\n" +
+                "Exceeding the budget leaves the result unresolved."
+        );
+
         provider.add("neoecoae.configuration.debug", "Debug");
         provider.add(
             "neoecoae.configuration.debug.tooltip",
             "Troubleshooting options. Keep these disabled during normal play."
         );
-        provider.add("neoecoae.configuration.calculating", "Calculating");
+        provider.add("neoecoae.configuration.calculating", "Calculation and Dispatch Diagnostics");
         provider.add(
             "neoecoae.configuration.calculating.tooltip",
             "ECO crafting calculation and dispatch diagnostics."
