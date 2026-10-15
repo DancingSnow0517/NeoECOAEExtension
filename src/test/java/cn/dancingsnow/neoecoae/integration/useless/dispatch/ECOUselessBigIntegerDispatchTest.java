@@ -11,10 +11,17 @@ import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
+import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.math.BigInteger;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class ECOUselessBigIntegerDispatchTest {
+    @BeforeAll
+    static void bootstrap() {
+        InventoryTestBootstrap.initialize();
+    }
+
     private final AEKey input = mock(AEKey.class, RETURNS_DEEP_STUBS);
     private final AEKey output = mock(AEKey.class, RETURNS_DEEP_STUBS);
     private final IPatternDetails pattern = mock(IPatternDetails.class, RETURNS_DEEP_STUBS);

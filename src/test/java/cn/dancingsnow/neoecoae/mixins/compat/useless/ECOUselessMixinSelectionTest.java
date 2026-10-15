@@ -71,7 +71,8 @@ class ECOUselessMixinSelectionTest {
     void releasedBytecodeSelectsLegacyProtectionOrNativeApi() throws Exception {
         try (var input = getClass().getClassLoader().getResourceAsStream(RESOURCE)) {
             assertNotNull(input);
-            assertTrue(plugin(input.readAllBytes()).shouldApplyMixin(TARGET, MIXIN));
+            // The pinned 2.4.6 release already preserves ECO plans through the native API.
+            assertFalse(plugin(input.readAllBytes()).shouldApplyMixin(TARGET, MIXIN));
         }
         inspectRelease("ECO_USELESS_CONTRACT_JAR", true);
         inspectRelease("ECO_USELESS_NATIVE_CONTRACT_JAR", false);

@@ -155,7 +155,8 @@ dependencies {
 
     // Optional alloy-furnace scaled dispatch API; not bundled or installed in the dev runtime.
     // Requires 2.3.7.2+ for AlloyFurnaceBigIntegerTarget public API (introduced 2026-09-18)
-    compileOnly("maven.modrinth:a-useless-mod:VX1feqRC") { transitive = false } // 1.21.1-2.3.8
+    // Use CurseForge: the previous Modrinth project/version now returns 404.
+    compileOnly("curse.maven:some-useless-things-1401600:9174458") { transitive = false } // 1.21.1-2.4.6
 
     // Optional transfer fast path. Never place this on the default runtime classpath.
 
