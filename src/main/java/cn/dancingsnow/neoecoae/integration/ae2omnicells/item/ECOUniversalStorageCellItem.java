@@ -91,6 +91,10 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
         return AEKeyTypes.getAll();
     }
 
+    public boolean isSpentNuclearWasteCell() {
+        return false;
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
         if (ECOInfiniteStorageMember.isMember(stack)) {

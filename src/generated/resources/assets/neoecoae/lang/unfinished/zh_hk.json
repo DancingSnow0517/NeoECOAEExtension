@@ -670,5 +670,10 @@
   "tooltip.neoecoae.storage_dirve.1": "可驅動嘅儲存矩陣等級由儲存子系統主機決定",
   "tooltip.neoecoae.storage_system": "儲存系統嘅核心",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "鋁合金升級",
-  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "黑鎢合金升級"
+  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "黑鎢合金升級",
+  "cell_type.neoecoae.spent_nuclear_waste": "乏核廢料",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_16m": "ECO - LE4 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_256m": "ECO - LE9 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "ECO - LE6 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核廢料存儲矩陣外殼"
 }

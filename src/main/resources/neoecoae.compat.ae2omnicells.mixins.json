@@ -5,7 +5,8 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "AEUniversalCellInventoryMixin",
-    "IAEUniversalCellMixin"
+    "IAEUniversalCellMixin",
+    "OmniWasteCellRecognitionMixin"
   ],
   "client": [],
   "server": [],

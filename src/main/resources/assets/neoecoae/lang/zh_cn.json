@@ -1029,5 +1029,10 @@
   "item.neoecoae.eco_mega_source_cell_64m": "ECO - LE6 MEGA 源质存储矩阵",
   "tooltip.neoecoae.megacells.4g": "4 GiB 存储容量",
   "tooltip.neoecoae.megacells.empty_only": "只有空存储矩阵才能拆解",
-  "tooltip.neoecoae.megacells.storage_type": "MEGA 存储类型：%s"
+  "tooltip.neoecoae.megacells.storage_type": "MEGA 存储类型：%s",
+  "cell_type.neoecoae.spent_nuclear_waste": "乏核废料",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_16m": "ECO - LE4 乏核废料存储矩阵",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_256m": "ECO - LE9 乏核废料存储矩阵",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "ECO - LE6 乏核废料存储矩阵",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核废料存储矩阵外壳"
 }

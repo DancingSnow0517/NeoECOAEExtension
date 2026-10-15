@@ -788,5 +788,10 @@
   "gui.neoecoae.crafting_graph.status.unknown_budget": "\u6c42\u89e3\u9810\u7b97\u4e0d\u8db3",
   "gui.neoecoae.crafting_graph.status.too_complex": "\u904e\u65bc\u8907\u96dc",
   "gui.neoecoae.crafting_graph.status.cancelled": "\u5df2\u53d6\u6d88",
-  "neoecoae.unknow_cell_type": "\u672a\u77e5\u5b58\u5132\u5143\u4ef6\u985e\u578b"
+  "neoecoae.unknow_cell_type": "\u672a\u77e5\u5b58\u5132\u5143\u4ef6\u985e\u578b",
+  "cell_type.neoecoae.spent_nuclear_waste": "乏核廢料",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_16m": "ECO - LE4 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_256m": "ECO - LE9 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "ECO - LE6 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核廢料存儲矩陣外殼"
 }
