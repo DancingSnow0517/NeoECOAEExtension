@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.component.ComponentDependency;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
@@ -48,6 +49,24 @@ class CycleFailureCacheTest {
         cache.solve(request(0, 2, 0, false), ECOCancellation.NONE);
         cache.solve(request(0, 2, 0, false), ECOCancellation.NONE);
         assertEquals(2, calls.get());
+    }
+
+    @Test
+    void impossibilityUnderImportCapsIsNotReusedWithoutThem() throws Exception {
+        var calls = new AtomicInteger();
+        var cache = new CycleFailureCache((request, cancellation) -> {
+            calls.incrementAndGet();
+            return failure(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT);
+        });
+        var capped = request(0, 2, 0, true).withBoundaryImportCaps(Map.of(fuel, PlannerAmount.ZERO));
+        cache.solve(capped, ECOCancellation.NONE);
+        cache.solve(capped, ECOCancellation.NONE);
+        assertEquals(1, calls.get());
+        cache.solve(request(0, 2, 0, true), ECOCancellation.NONE);
+        assertEquals(2, calls.get());
+        cache.solve(request(0, 2, 0, true).withBoundaryImportCaps(Map.of(fuel, PlannerAmount.of(1L))),
+            ECOCancellation.NONE);
+        assertEquals(3, calls.get());
     }
 
     @Test

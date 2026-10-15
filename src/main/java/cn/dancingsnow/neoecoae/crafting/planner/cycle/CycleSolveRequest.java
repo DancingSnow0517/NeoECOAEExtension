@@ -15,7 +15,8 @@ public record CycleSolveRequest(
     Map<AEKey, PlannerAmount> plannerRequiredOutputs,
     Map<AEKey, Long> availableRelevantStock,
     List<ComponentDependency> externalResourceBoundary,
-    PlannerOptions options
+    PlannerOptions options,
+    Map<AEKey, PlannerAmount> boundaryImportCaps
 ) {
     /** Source-compatible constructor for callers that only have AE2-sized request amounts. */
     public CycleSolveRequest(CycleComponent component, Map<AEKey, Long> requiredOutputs,
@@ -29,12 +30,22 @@ public record CycleSolveRequest(
     public CycleSolveRequest(CycleComponent component, Map<AEKey, Long> requiredOutputs,
             Map<AEKey, PlannerAmount> plannerRequiredOutputs, Map<AEKey, Long> availableRelevantStock,
             List<ComponentDependency> externalResourceBoundary, PlannerOptions options) {
-        this.component = component;
-        this.requiredOutputs = requiredOutputs;
-        this.plannerRequiredOutputs = plannerRequiredOutputs;
-        this.availableRelevantStock = availableRelevantStock;
-        this.externalResourceBoundary = externalResourceBoundary;
-        this.options = options == null ? new PlannerOptions() : options;
+        this(component, requiredOutputs, plannerRequiredOutputs, availableRelevantStock, externalResourceBoundary,
+            options, Map.of());
+    }
+
+    public CycleSolveRequest {
+        if (options == null) options = new PlannerOptions();
+        if (boundaryImportCaps == null) boundaryImportCaps = Map.of();
+    }
+
+    /** Caps bound the total amount imported over the whole witness; uncapped boundary keys stay unlimited. */
+    public CycleSolveRequest withBoundaryImportCaps(Map<AEKey, PlannerAmount> caps) {
+        for (PlannerAmount cap : caps.values()) {
+            if (cap.signum() < 0) throw new IllegalArgumentException("Negative boundary import cap");
+        }
+        return new CycleSolveRequest(component, requiredOutputs, plannerRequiredOutputs, availableRelevantStock,
+            externalResourceBoundary, options, Map.copyOf(caps));
     }
 
     public record PlannerOptions(CycleSolveLimits limits) {

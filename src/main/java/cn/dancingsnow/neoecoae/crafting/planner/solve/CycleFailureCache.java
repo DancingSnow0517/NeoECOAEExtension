@@ -45,14 +45,16 @@ final class CycleFailureCache {
     /** Component numbering can change when unrelated routes change; it is not solver state. */
     private record Fingerprint(Set<AEKey> members, List<CompiledPattern> patterns,
             Set<CraftingGraphEdge> internalEdges, Set<CraftingGraphEdge> boundaryEdges,
-            Map<AEKey, PlannerAmount> required, Map<AEKey, Long> stock, CycleSolveLimits limits) {
+            Map<AEKey, PlannerAmount> required, Map<AEKey, Long> stock, CycleSolveLimits limits,
+            Map<AEKey, PlannerAmount> boundaryImportCaps) {
         static Fingerprint of(CycleSolveRequest request) {
             return new Fingerprint(new HashSet<>(request.component().members()),
                 request.component().patterns().stream().sorted(Comparator.comparingInt(CompiledPattern::id)).toList(),
                 new HashSet<>(request.component().internalEdges()),
                 request.externalResourceBoundary().stream().flatMap(edge -> edge.relationships().stream())
                     .collect(Collectors.toSet()),
-                request.plannerRequiredOutputs(), request.availableRelevantStock(), request.options().limits());
+                request.plannerRequiredOutputs(), request.availableRelevantStock(), request.options().limits(),
+                request.boundaryImportCaps());
         }
     }
 }

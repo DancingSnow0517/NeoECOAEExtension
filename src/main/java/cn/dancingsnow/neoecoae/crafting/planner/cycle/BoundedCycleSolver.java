@@ -157,14 +157,14 @@ public final class BoundedCycleSolver implements CycleSolver {
         Model model = (Model) prepared;
 
         List<CycleSolveDiagnostic> diagnostics = new ArrayList<>();
-        if (satisfied(model.stock, model.required)) {
+        if (satisfied(model.ownedStock, model.required)) {
             CycleSolveMetrics stockMetrics = new CycleSolveMetrics(model.keyCount(), model.transitionCount(), 1, 0,
                 0, 0, false, false);
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.SATISFIED_FROM_STOCK,
                 "Relevant stock already covers every required output; the structural cycle is cut by inventory"));
             diagnostics.add(metrics(stockMetrics));
             return new CycleSolveResult(CycleSolveStatus.SUCCESS, Map.of(), Map.of(), Map.of(), Map.of(), Map.of(),
-                deliverable(model, model.stock), List.of(), diagnostics, stockMetrics);
+                deliverable(model, model.ownedStock), List.of(), diagnostics, stockMetrics);
         }
 
         CycleSolveResult growth = growthWitness(model, growthCalculator.evaluate(request));
@@ -277,7 +277,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         diagnostics.add(metrics(ladderMetrics));
         return new CycleSolveResult(unrepresentable ? CycleSolveStatus.UNREPRESENTABLE
                 : CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(),
-            seed, shortfall, Map.of(), deliverable(model, model.stock), List.of(),
+            seed, shortfall, Map.of(), deliverable(model, model.ownedStock), List.of(),
             diagnostics, ladderMetrics).withStartupCandidates(startupCandidates(model, cancellation, memory));
     }
 
@@ -388,6 +388,16 @@ public final class BoundedCycleSolver implements CycleSolver {
             stock[i] = PlannerAmount.of(request.stockOf(keys.get(i)));
             required[i] = request.requiredOutputAmount(keys.get(i));
         }
+        // A capped boundary key is an ordinary finite key whose model stock is owned stock plus the cap.
+        boolean[] importCapped = new boolean[n];
+        PlannerAmount[] ownedStock = stock.clone();
+        for (int i = 0; i < n; i++) {
+            PlannerAmount cap = suppliable[i] ? request.boundaryImportCaps().get(keys.get(i)) : null;
+            if (cap == null) continue;
+            suppliable[i] = false;
+            importCapped[i] = true;
+            stock[i] = stock[i].add(cap);
+        }
 
         boolean[] producesRequired = new boolean[t];
         for (int p = 0; p < t; p++) {
@@ -436,7 +446,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             for (int i = 0; i < n; i++) consumedKeys[i] |= cons[p][i] > 0L;
         }
         return new Model(keys, transitions, cons, prod, suppliable, member, producesRequired, stock, required,
-            metadata, consumedKeys);
+            metadata, consumedKeys, importCapped, ownedStock);
     }
 
     private static @Nullable String unsupportedReason(CompiledPattern pattern) {
@@ -506,7 +516,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         boolean[] importable = model.suppliable.clone();
         for (int k = 0; k < importable.length; k++) {
             // Never satisfy the requested output by pretending it was supplied as an ingredient.
-            if (model.required[k].isZero()) importable[k] = true;
+            if (model.required[k].isZero() && !model.importCapped[k]) importable[k] = true;
         }
         var balance = CycleStateEquation.solve(model.cons, model.prod, importable,
             model.stock, model.required, cancellation, memory);
@@ -864,7 +874,7 @@ public final class BoundedCycleSolver implements CycleSolver {
 
         Simulation bare = simulate(model, zeroes(model.keyCount()), witness);
         Map<AEKey, PlannerAmount> exactRequiredSeed = new Object2ObjectLinkedOpenHashMap<>(bare.lazySeed);
-        Map<AEKey, PlannerAmount> exactExternalDemand = bare.lazyImport;
+        Map<AEKey, PlannerAmount> exactExternalDemand = new Object2ObjectLinkedOpenHashMap<>(bare.lazyImport);
         CircuitSummary summary = summarize(model, witness);
         // Sequential prefix replay needs only one returned catalyst, but a planned batch may use more.
         // Reserve those already available copies explicitly so the reported and executable concurrency agree.
@@ -907,6 +917,19 @@ public final class BoundedCycleSolver implements CycleSolver {
             PlannerAmount missing = amount.subtract(model.stockAmountOf(key).max(PlannerAmount.ZERO));
             if (missing.signum() > 0) exactShortfall.put(key, missing);
         });
+        // Capped keys were modelled as finite stock; the part of their seed beyond owned stock is an import.
+        Map<AEKey, PlannerAmount> cappedImports = new Object2ObjectLinkedOpenHashMap<>();
+        for (int i = 0; i < model.keyCount(); i++) {
+            if (!model.importCapped[i]) continue;
+            AEKey key = model.keys.get(i);
+            cappedImports.put(key, model.stock[i].subtract(model.ownedStock[i]));
+            PlannerAmount seed = exactRequiredSeed.getOrDefault(key, PlannerAmount.ZERO);
+            PlannerAmount excess = seed.subtract(model.ownedStock[i]);
+            if (excess.signum() <= 0) continue;
+            exactExternalDemand.merge(key, excess, PlannerAmount::add);
+            if (model.ownedStock[i].signum() > 0) exactRequiredSeed.put(key, model.ownedStock[i]);
+            else exactRequiredSeed.remove(key);
+        }
 
         Map<IPatternDetails, PlannerAmount> exactPatternTimes = new Object2ObjectLinkedOpenHashMap<>();
         for (int p = 0; p < model.transitionCount(); p++) {
@@ -961,6 +984,10 @@ public final class BoundedCycleSolver implements CycleSolver {
                 ? "Start-up seed " + describeRaw(model, exactRequiredSeed) + " is covered by relevant stock"
                 : "Start-up seed " + describeRaw(model, exactRequiredSeed) + " exceeds stock by "
                     + describeRaw(model, exactShortfall)));
+        if (!cappedImports.isEmpty()) {
+            explanation.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.BOUNDARY_IMPORT_CAPPED,
+                "Boundary imports capped at " + describeRaw(model, cappedImports)));
+        }
         explanation.add(metrics(metrics));
 
         return new CycleSolveResult(
@@ -1371,7 +1398,9 @@ public final class BoundedCycleSolver implements CycleSolver {
         PlannerAmount[] stock,
         PlannerAmount[] required,
         TransitionMetadata[] metadata,
-        boolean[] consumedKeys
+        boolean[] consumedKeys,
+        boolean[] importCapped,
+        PlannerAmount[] ownedStock
     ) {
         int keyCount() { return keys.size(); }
         int transitionCount() { return transitions.size(); }
