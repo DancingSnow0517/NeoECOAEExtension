@@ -3,6 +3,7 @@
 	"credit": "Made with Blockbench",
 	"render_type": "cutout",
 	"textures": {
+		"level": "neoecoae:block/storage/drive/cell_level",
 		"type": "neoecoae:block/storage/drive/type_neuclear_waste",
 		"particle": "neoecoae:block/storage/drive/neuclear_waste_housing",
 		"base": "neoecoae:block/storage/drive/neuclear_waste_housing"
@@ -27,6 +28,17 @@
 			"faces": {
 				"north": {"uv": [0, 0, 2, 6], "texture": "#type", "neoforge_data": {"block_light": 15, "sky_light": 15}},
 				"up": {"uv": [0, 2, 2, 0], "rotation": 180, "texture": "#type", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+			}
+		},
+		{
+			"name": "level",
+			"from": [0, 2, 0],
+			"to": [6, 4, 2],
+			"shade": false,
+			"faces": {
+				"north": {"uv": [0, 2, 6, 4], "texture": "#level", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"east": {"uv": [4, 2, 6, 4], "texture": "#level", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"west": {"uv": [0, 2, 2, 4], "texture": "#level", "neoforge_data": {"block_light": 15, "sky_light": 15}}
 			}
 		}
 	]
