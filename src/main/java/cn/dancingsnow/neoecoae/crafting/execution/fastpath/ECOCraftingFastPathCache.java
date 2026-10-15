@@ -36,7 +36,7 @@ public final class ECOCraftingFastPathCache {
     private final int limit;
     private final Object2ObjectLinkedOpenHashMap<ECOFastPathKey, ECOFastPathResult> entries;
     private final Object2ObjectLinkedOpenHashMap<ECOFastPathPatternKey, ECOPatternEligibility> patternEntries;
-    private long credentialEpoch;
+    private volatile long credentialEpoch;
 
     public ECOCraftingFastPathCache() {
         this(NEConfig.ecoFastPathCacheSize);
@@ -53,7 +53,7 @@ public final class ECOCraftingFastPathCache {
     }
 
     @Nullable
-    public ECOFastPathResult get(ECOFastPathKey key, long tick) {
+    public synchronized ECOFastPathResult get(ECOFastPathKey key, long tick) {
         ECOFastPathResult result = entries.getAndMoveToLast(key);
         if (result == null) {
             return null;
@@ -65,7 +65,7 @@ public final class ECOCraftingFastPathCache {
         return result;
     }
 
-    public void putPositive(
+    public synchronized void putPositive(
         ECOFastPathKey key,
         List<GenericStack> outputs,
         List<GenericStack> remaining,
@@ -75,7 +75,7 @@ public final class ECOCraftingFastPathCache {
         putPositive(key, outputs, remaining, inputs, tick, null);
     }
 
-    public void putPositive(
+    public synchronized void putPositive(
         ECOFastPathKey key,
         List<GenericStack> outputs,
         List<GenericStack> remaining,
@@ -98,11 +98,11 @@ public final class ECOCraftingFastPathCache {
         putEntry(entries, key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, reusableStateModel));
     }
 
-    public void putNegative(ECOFastPathKey key, long tick) {
+    public synchronized void putNegative(ECOFastPathKey key, long tick) {
         putNegative(key, tick, "VERIFICATION_REJECTED");
     }
 
-    public void putNegative(ECOFastPathKey key, long tick, String reason) {
+    public synchronized void putNegative(ECOFastPathKey key, long tick, String reason) {
         putEntry(entries, key, ECOFastPathResult.negative(tick, reason));
     }
 
@@ -111,7 +111,7 @@ public final class ECOCraftingFastPathCache {
      * result and the current execution context. A match mints an {@link ECOVerifiedFastPathRecipe}, which every
      * later stage passes around instead of comparing the three {@code List<GenericStack>} again.
      */
-    public ECOFastPathLookup lookup(ECOExtractedPatternExecution execution, long tick, long reloadGeneration) {
+    public synchronized ECOFastPathLookup lookup(ECOExtractedPatternExecution execution, long tick, long reloadGeneration) {
         ECOFastPathKey key = execution.key();
         if (key == null) {
             return ECOFastPathLookup.miss();
@@ -210,7 +210,7 @@ public final class ECOCraftingFastPathCache {
         }
     }
 
-    public void clear() {
+    public synchronized void clear() {
         entries.clear();
         patternEntries.clear();
         credentialEpoch++;

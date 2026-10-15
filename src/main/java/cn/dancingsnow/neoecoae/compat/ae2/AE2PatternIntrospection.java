@@ -5,8 +5,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.pattern.AECraftingPattern;
-import appeng.crafting.pattern.AESmithingTablePattern;
-import appeng.crafting.pattern.AEStonecuttingPattern;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOExecutionOptimizationRegistry;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathKey;
@@ -23,7 +22,7 @@ public final class AE2PatternIntrospection {
     private static boolean selfChecked = false;
     private static boolean available = false;
     private static boolean warnedUnavailable = false;
-    private static long reloadGeneration = 0L;
+    private static volatile long reloadGeneration = 0L;
 
     private AE2PatternIntrospection() {
     }
@@ -42,12 +41,10 @@ public final class AE2PatternIntrospection {
         return reloadGeneration;
     }
 
+    /** @deprecated Query the execution optimization registry; this does not classify general compatibility. */
+    @Deprecated
     public static boolean isKnownSafePatternType(IPatternDetails details) {
-        // AE2 stores smithing and stonecutting recipes as dedicated pattern implementations rather
-        // than AECraftingPattern, but both still have deterministic molecular-assembler semantics.
-        return details instanceof AECraftingPattern
-            || details instanceof AESmithingTablePattern
-            || details instanceof AEStonecuttingPattern;
+        return ECOExecutionOptimizationRegistry.resolve(details).verifiedAssemblerFastPath();
     }
 
     /**
@@ -91,7 +88,7 @@ public final class AE2PatternIntrospection {
         }
     }
 
-    public static void onRecipeReloadOrServerReload() {
+    public static synchronized void onRecipeReloadOrServerReload() {
         reloadGeneration++;
         ECOCraftingFastPathCache.clearAllCaches();
         NetGrowthPatternValidationRegistry.clear();
