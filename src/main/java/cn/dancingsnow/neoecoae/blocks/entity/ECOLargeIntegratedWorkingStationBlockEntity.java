@@ -14,6 +14,7 @@ import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.orientation.BlockOrientation;
+import appeng.api.util.AECableType;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -68,6 +69,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
@@ -116,18 +118,55 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             .addService(IGridTickable.class, this)
             .addService(IGridMultiblock.class, this::getMultiblockNodes);
         setInternalMaxPower(MAX_POWER_STORAGE);
-        setPowerSides(EnumSet.allOf(Direction.class));
+        setPowerSides(getGridConnectableSides(getOrientation()));
     }
 
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
-        return EnumSet.allOf(Direction.class);
+        if (!formed) return EnumSet.allOf(Direction.class);
+        // Keep physical links to this structure's members, so the communication interface
+        // can still supply the controller's grid services without exposing any cable ports.
+        EnumSet<Direction> sides = EnumSet.noneOf(Direction.class);
+        if (cluster != null && level != null) {
+            for (Direction side : Direction.values()) {
+                BlockPos adjacent = worldPosition.relative(side);
+                if (level.hasChunkAt(adjacent)
+                    && cluster.containsBlockEntity(level.getBlockEntity(adjacent))) {
+                    sides.add(side);
+                }
+            }
+        }
+        return sides;
+    }
+
+    @Override
+    public AECableType getCableConnectionType(Direction direction) {
+        // Client block state is available before the managed formation field is synchronized.
+        boolean formedState = getBlockState().hasProperty(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED)
+            && getBlockState().getValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED);
+        return formed || formedState ? AECableType.NONE : super.getCableConnectionType(direction);
+    }
+
+    @Override
+    public @Nullable IEnergyStorage getEnergyStorage(@Nullable Direction side) {
+        return formed ? null : super.getEnergyStorage(side);
+    }
+
+    @Override
+    protected double getFunnelPowerDemand(double maxRequired) {
+        return formed ? 0.0D : super.getFunnelPowerDemand(maxRequired);
+    }
+
+    @Override
+    protected double funnelPowerIntoStorage(double power, Actionable mode) {
+        // Also reject adapters cached before formation, while retaining internal batch refunds.
+        return formed ? power : super.funnelPowerIntoStorage(power, mode);
     }
 
     @Override
     public void onReady() {
         super.onReady();
-        setPowerSides(EnumSet.allOf(Direction.class));
+        setPowerSides(getGridConnectableSides(getOrientation()));
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
             serverLevel.getServer().executeIfPossible(() -> {
@@ -177,6 +216,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             cachedTask = null;
             super.onChangeTank();
             updateState(true);
+            setPowerSides(value ? EnumSet.noneOf(Direction.class) : EnumSet.allOf(Direction.class));
+            onGridConnectableSidesChanged();
+            if (level != null) level.invalidateCapabilities(worldPosition);
             markForUpdate();
         }
     }
