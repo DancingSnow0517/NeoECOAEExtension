@@ -180,7 +180,7 @@ final class ECOStorageHostStatistics {
             var stack = drive.getCellStack();
             if (view == null) {
                 cellEntries.add(StorageHostUI.CellEntry.EMPTY.atDrive(drive.getBlockPos(),
-                    stack == null ? ItemStack.EMPTY : stack, drive.getCellExtractionBlockReasonText()));
+                    stack == null ? ItemStack.EMPTY : stack, drive.getCellExtractionBlockReasonText(), drive.getCellInteractionId()));
                 continue;
             }
             int cellTypeId = view.type();
@@ -203,7 +203,7 @@ final class ECOStorageHostStatistics {
                     supported && view.member(),
                     supported ? view.inventory().getStatus() : CellState.ABSENT,
                     supported && drive.isOnline()
-            ).atDrive(drive.getBlockPos(), stack, drive.getCellExtractionBlockReasonText()));
+            ).atDrive(drive.getBlockPos(), stack, drive.getCellExtractionBlockReasonText(), drive.getCellInteractionId()));
             if (view.infiniteResource()) continue;
             if (view.member()) {
                 continue;

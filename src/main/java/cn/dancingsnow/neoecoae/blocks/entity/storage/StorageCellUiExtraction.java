@@ -1,22 +1,25 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import java.util.Objects;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
-/** Moves a single physical cell after validating the clicked position, stack and destination. */
+/** Moves a single physical cell after validating its installation identity and destination. */
 final class StorageCellUiExtraction {
     private StorageCellUiExtraction() {}
 
     static boolean extract(ECOStorageSystemBlockEntity host, Player player, BlockPos position,
-        ItemStack expected, boolean toInventory) {
+        UUID expected, boolean toInventory) {
         if (player.level().isClientSide || !host.isFormed() || host.getCluster() == null
-            || expected.isEmpty() || expected.getCount() != 1) return false;
+            || expected == null) return false;
         ECODriveBlockEntity drive = host.getCluster().getDrives().stream()
             .filter(candidate -> !candidate.isRemoved() && Objects.equals(candidate.getBlockPos(), position))
             .findFirst().orElse(null);
-        if (drive == null || drive.getCellStack() == null || !ItemStack.matches(expected, drive.getCellStack())) return false;
+        if (drive == null || !expected.equals(drive.getCellInteractionId())
+            || drive.getCellStack() == null || drive.getCellStack().isEmpty()
+            || drive.getCellStack().getCount() != 1) return false;
         var reason = drive.getCellExtractionBlockReasonText();
         if (reason != null) {
             player.displayClientMessage(reason, true);

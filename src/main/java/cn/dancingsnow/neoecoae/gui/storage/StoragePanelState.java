@@ -146,6 +146,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             entry.putLong("ub", cell.usedBytes()); entry.putLong("tb", cell.totalBytes());
             entry.putBoolean("infinite", cell.infinite());
             if (cell.position() != null) entry.putLong("position", cell.position().asLong());
+            if (cell.interactionId() != null) entry.putUUID("interactionId", cell.interactionId());
             if (!cell.stack().isEmpty()) entry.put("stack", cell.stack().save(registries));
             if (cell.extractionBlockReason() != null) putComponent(entry, "locked", cell.extractionBlockReason());
             entry.putInt("state", cell.state().ordinal()); entry.putBoolean("online", cell.online()); entries.add(entry);
@@ -178,7 +179,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
                 CellState.values()[Math.clamp(cell.getInt("state"), 0, CellState.values().length - 1)], cell.getBoolean("online"),
                 cell.contains("position") ? BlockPos.of(cell.getLong("position")) : null,
                 ItemStack.parseOptional(registries, cell.getCompound("stack")),
-                cell.contains("locked") ? component(cell, "locked") : null));
+                cell.contains("locked") ? component(cell, "locked") : null,
+                cell.hasUUID("interactionId") ? cell.getUUID("interactionId") : null));
         }
         List<TypeLine> types = new ArrayList<>();
         for (Tag valueType : tag.getList("types", Tag.TAG_COMPOUND)) {

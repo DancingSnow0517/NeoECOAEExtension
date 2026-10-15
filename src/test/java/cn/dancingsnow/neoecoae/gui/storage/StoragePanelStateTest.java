@@ -65,10 +65,12 @@ class StoragePanelStateTest {
         disk.set(DataComponents.CUSTOM_NAME, Component.literal("My disk"));
         BlockPos position = new BlockPos(10, 70, 34);
         Component lock = Component.translatable("tooltip.neoecoae.storage.infinite_migration_locked");
-        CellEntry entry = cell(50, 100).atDrive(position, disk, lock);
+        var interactionId = java.util.UUID.randomUUID();
+        CellEntry entry = cell(50, 100).atDrive(position, disk, lock, interactionId);
         StoragePanelState received = StoragePanelState.fromTag(StoragePanelState.capture(config(List.of(entry), false), 0, 33).toTag());
         CellEntry transported = received.cells().getFirst();
         assertEquals(position, transported.position());
+        assertEquals(interactionId, transported.interactionId());
         assertEquals(lock, transported.extractionBlockReason());
         assertTrue(ItemStack.matches(disk, transported.stack()));
         disk.set(DataComponents.CUSTOM_NAME, Component.literal("Changed after capture"));

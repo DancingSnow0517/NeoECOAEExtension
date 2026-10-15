@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
@@ -28,7 +29,7 @@ class StorageCellUiInsertionTest {
         ItemStack disk = f.carried.get();
         f.cell.set(disk);
         f.carried.set(ItemStack.EMPTY);
-        assertTrue(StorageCellUiExtraction.extract(f.host, f.player, f.position, disk.copy(), false));
+        assertTrue(StorageCellUiExtraction.extract(f.host, f.player, f.position, f.drive.getCellInteractionId(), false));
         assertSame(disk, f.carried.get());
         assertNull(f.cell.get());
         ItemStack expected = disk.copy();
@@ -123,6 +124,7 @@ class StorageCellUiInsertionTest {
             when(cluster.getDrives()).thenReturn(List.of(drive));
             when(drive.getBlockPos()).thenReturn(position);
             when(drive.getCellStack()).thenAnswer(call -> cell.get());
+            when(drive.getCellInteractionId()).thenReturn(UUID.randomUUID());
             when(drive.canExtractCell()).thenReturn(true);
             when(drive.isItemValid(any())).thenReturn(true);
             doAnswer(call -> { cell.set(call.getArgument(0)); return null; }).when(drive).setCellStack(any());

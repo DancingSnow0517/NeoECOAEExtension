@@ -18,6 +18,7 @@ import com.mojang.serialization.Lifecycle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
@@ -71,6 +72,8 @@ class ECOStorageHostStatisticsTest {
         when(first.getCellInventory().getStatus()).thenReturn(CellState.TYPES_FULL);
         when(second.getCellInventory().getStatus()).thenReturn(CellState.FULL);
         when(second.isOnline()).thenReturn(false);
+        UUID interactionId = UUID.randomUUID();
+        when(first.getCellInteractionId()).thenReturn(interactionId);
 
         List<StorageHostUI.CellEntry> cells = fixture.statistics.getCellEntries();
         assertEquals(3, cells.size());
@@ -78,6 +81,7 @@ class ECOStorageHostStatisticsTest {
         assertTrue(cells.getFirst().stack().isEmpty());
         assertEquals(empty.getBlockPos(), cells.getFirst().position());
         assertEquals(fixture.id("items"), cells.get(1).typeId());
+        assertEquals(interactionId, cells.get(1).interactionId());
         assertEquals(fixture.id("fluids"), cells.get(2).typeId());
         assertEquals(CellState.TYPES_FULL, cells.get(1).state());
         assertEquals(CellState.FULL, cells.get(2).state());
@@ -88,7 +92,10 @@ class ECOStorageHostStatisticsTest {
         when(first.getCellInventory().getUsedBytes()).thenReturn(99L);
         when(second.getCellInventory().getUsedBytes()).thenReturn(0L);
         when(fixture.host.getLevel().getGameTime()).thenReturn(25L);
+        UUID replacementId = UUID.randomUUID();
+        when(first.getCellInteractionId()).thenReturn(replacementId);
         fixture.statistics.invalidate();
+        assertEquals(replacementId, fixture.statistics.getCellEntries().get(1).interactionId());
         assertEquals(List.of(-1, fixture.id("items"), fixture.id("fluids")),
             fixture.statistics.getCellEntries().stream().map(StorageHostUI.CellEntry::typeId).toList());
     }

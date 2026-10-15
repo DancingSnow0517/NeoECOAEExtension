@@ -11,6 +11,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import java.util.List;
+import java.util.UUID;
 import java.math.BigInteger;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
@@ -101,7 +102,7 @@ public final class StorageHostUI {
 
     @FunctionalInterface
     public interface CellExtractor {
-        boolean extract(BlockPos position, ItemStack expected, boolean toInventory);
+        boolean extract(BlockPos position, UUID expected, boolean toInventory);
     }
 
     @FunctionalInterface
@@ -111,18 +112,23 @@ public final class StorageHostUI {
 
     public record CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
         long usedBytes, long totalBytes, boolean infinite, CellState state, boolean online,
-        @Nullable BlockPos position, ItemStack stack, @Nullable Component extractionBlockReason) {
+        @Nullable BlockPos position, ItemStack stack, @Nullable Component extractionBlockReason,
+        @Nullable UUID interactionId) {
         public static final CellEntry EMPTY = new CellEntry(-1, 0, 0, 0, 0, 0, 0, false, CellState.ABSENT, false);
 
         public CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
             long usedBytes, long totalBytes, boolean infinite, CellState state, boolean online) {
             this(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite, state, online,
-                null, ItemStack.EMPTY, null);
+                null, ItemStack.EMPTY, null, null);
         }
 
         public CellEntry atDrive(BlockPos position, ItemStack stack, @Nullable Component reason) {
+            return atDrive(position, stack, reason, null);
+        }
+
+        public CellEntry atDrive(BlockPos position, ItemStack stack, @Nullable Component reason, @Nullable UUID interactionId) {
             return new CellEntry(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite,
-                state, online, position, stack.copy(), reason);
+                state, online, position, stack.copy(), reason, interactionId);
         }
 
         public CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,

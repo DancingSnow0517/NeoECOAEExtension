@@ -14,6 +14,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
@@ -29,7 +30,7 @@ final class StorageCellGrid extends UIElement {
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config) {
         this.sync = sync;
         this.columns = columns;
-        extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class, Boolean.class,
+        extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class, Boolean.class,
             (position, expected, shift) -> isOpenMenu(config) && config.cellExtractor().extract(position, expected, shift)));
         insertion = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class,
             (position, expected) -> isOpenMenu(config) && config.cellInserter().insert(position, expected)));
@@ -99,10 +100,10 @@ final class StorageCellGrid extends UIElement {
                 interacting = true;
                 if (!insertion.send((Boolean success) -> interacting = false,
                     cell.position(), carried.copy())) interacting = false;
-            } else if (!cell.stack().isEmpty()) {
+            } else if (!cell.stack().isEmpty() && cell.interactionId() != null) {
                 interacting = true;
                 if (!extraction.send((Boolean success) -> interacting = false,
-                    cell.position(), cell.stack().copy(), UIElement.isShiftDown())) interacting = false;
+                    cell.position(), cell.interactionId(), UIElement.isShiftDown())) interacting = false;
             }
         }
 
