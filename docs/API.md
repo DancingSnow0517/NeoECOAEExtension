@@ -489,6 +489,51 @@ Source: [virtual crafting coolant registry](../src/main/java/cn/dancingsnow/neoe
 
 ## 8. Pattern routing and container ownership
 
+### Standard patterns and optional capabilities
+
+Ordinary patterns implement AE2's `IPatternDetails` and need no ECO registration or base class. ECO preserves the original pattern instance and AEKey components, reads input multipliers and remainders through `IInput`, and dispatches through `ICraftingProvider`. Only primary input alternatives are autocrafted; other alternatives are inventory choices. The crafting service determines which outputs advertise a producer; remaining outputs still count as byproducts. Component-insensitive planning never overrides `IInput.isValid`.
+
+Additional semantics belong in `api.me.pattern`. Register once during common initialization, before starting jobs:
+
+```java
+import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemantics;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry;
+import net.minecraft.resources.ResourceLocation;
+
+public final class EcoPatternIntegration {
+    public static void register(ECOPatternSemanticAdapter specialSemantics) {
+        ECOPatternSemanticsRegistry.register(
+            ResourceLocation.fromNamespaceAndPath("examplemod", "special_pattern"), 100,
+            specialSemantics);
+    }
+
+    // Example for a CPU-specific contract whose execution cannot be proved by static AE2 analysis.
+    public static abstract class CpuRestrictedPattern implements ECOPatternSemanticAdapter {
+        @Override public abstract boolean supports(IPatternDetails pattern);
+        @Override public ECOPatternSemantics analyze(IPatternDetails pattern, ECOPatternSemantics base) {
+            return new ECOPatternSemantics(pattern, base.physicalDefinition(), base.consumedInputs(),
+                base.producedOutputs(), base.returnedOutputs(), base.feedbackEdges(), base.matchingMode(),
+                ECOPatternSemantics.ExecutionRestriction.CPU, base.exactStaticAnalysis(), false,
+                base.unsupportedReason());
+        }
+    }
+}
+```
+
+An adapter refines the ordinary AE2 result supplied as `base`. Use `ECOPatternSemantics.unsupported(pattern, base.physicalDefinition(), reason)` if the special contract cannot be analyzed. The immutable description uses `BigInteger` for exact normalized input/feedback amounts and AE2 `GenericStack` for outputs. Return the **same physical pattern instance**. Optional `ignoresComponents` and `preferredInputKey` hooks describe special matching; actual inputs must remain accepted by the pattern. Callbacks are pure and may run on planning workers.
+
+Registration IDs must be unique. Higher priority wins; equal priorities use lexicographic ID order. Only the first matching adapter applies; no match uses ordinary AE2 semantics. Matching/analysis failures produce unsupported semantics instead of silently falling through to a broader adapter. `unregister(id)` removes a custom registration. Registration changes and recipe reloads invalidate compiled structures, phase semantics, cached verification, and previously issued optimization credentials. Register during initialization; changing contracts during a calculation makes that calculation fail safely and requires a fresh calculation.
+
+`ECOExecutionOptimizationRegistry.register(id, priority, adapter)` independently authorizes optional execution guarantees. `ECOExecutionOptimization.VERIFIED_ASSEMBLER` is only for deterministic molecular-assembler-compatible patterns whose concrete outputs/remainders ECO can verify; it never turns an ordinary processing pattern into virtual crafting. Unregistered patterns retain ordinary dispatch. Provider capacity, transaction admission, and virtual completion remain governed by their existing provider APIs. The same ID/priority rules apply; callback failures deny optimization, and `unregister` revokes existing credentials.
+
+Provider lookup wrappers may implement `ECOPatternWrappers.Wrapper.ecoProviderPattern()` or register a known external interface using `ECOPatternWrappers.register(id, priority, contractClass, accessor)`. ECO does not guess delegate method names. Unregistered patterns remain unchanged; cycles, null delegates, failing accessors, or chains beyond 128 wrappers reject unwrapping and cannot authorize optimized dispatch.
+
+Sources: [semantic registry](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOPatternSemanticsRegistry.java), [execution capabilities](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOExecutionOptimizationRegistry.java), [wrapper contracts](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOPatternWrappers.java).
+
+### Route encoded patterns
+
 ```java
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
