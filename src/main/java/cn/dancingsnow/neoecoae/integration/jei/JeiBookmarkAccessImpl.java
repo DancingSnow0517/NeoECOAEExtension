@@ -2,8 +2,10 @@ package cn.dancingsnow.neoecoae.integration.jei;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.ITypedIngredient;
+import mezz.jei.api.neoforge.NeoForgeTypes;
 import net.minecraft.world.item.ItemStack;
 
 import java.lang.reflect.Field;
@@ -18,7 +20,7 @@ final class JeiBookmarkAccessImpl {
         return NeoECOAEJeiPlugin.runtime() != null;
     }
 
-    public static List<ItemStack> itemBookmarks() {
+    public static List<AEKey> bookmarkedKeys() {
         try {
             var runtime = NeoECOAEJeiPlugin.runtime();
             if (runtime == null) return List.of();
@@ -28,7 +30,7 @@ final class JeiBookmarkAccessImpl {
             Object list = listField.get(overlay);
             Method elements = list.getClass().getMethod("getElements");
             List<?> result = (List<?>) elements.invoke(list);
-            return result.stream().map(JeiBookmarkAccessImpl::elementStack).filter(s -> !s.isEmpty())
+            return result.stream().map(JeiBookmarkAccessImpl::elementKey).filter(java.util.Objects::nonNull).distinct()
                 .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         } catch (ReflectiveOperationException | RuntimeException ignored) {
             return List.of();
@@ -60,12 +62,43 @@ final class JeiBookmarkAccessImpl {
         }
     }
 
-    private static ItemStack elementStack(Object element) {
+    private static AEKey elementKey(Object element) {
         try {
             Object typed = element.getClass().getMethod("getTypedIngredient").invoke(element);
-            return ((ITypedIngredient<?>) typed).getIngredient(VanillaTypes.ITEM_STACK).orElse(ItemStack.EMPTY);
+            return ingredientKey((ITypedIngredient<?>) typed);
         } catch (ReflectiveOperationException | RuntimeException ignored) {
-            return ItemStack.EMPTY;
+            return null;
         }
+    }
+
+    static AEKey ingredientKey(ITypedIngredient<?> ingredient) {
+        var item = ingredient.getIngredient(VanillaTypes.ITEM_STACK);
+        if (item.isPresent()) {
+            var stack = GenericStack.fromItemStack(item.get());
+            return stack == null ? null : stack.what();
+        }
+        var fluid = ingredient.getIngredient(NeoForgeTypes.FLUID_STACK);
+        if (fluid.isPresent()) {
+            var stack = GenericStack.fromFluidStack(fluid.get());
+            return stack == null ? null : stack.what();
+        }
+
+        // The optional AE2 JEI addon owns the converters registered by custom key providers
+        // (for example Applied Mekanistics). Keep it optional, just like JEI itself.
+        try {
+            Class<?> registry = Class.forName("tamaized.ae2jeiintegration.api.integrations.jei.IngredientConverters");
+            Class<?> converterType = Class.forName("tamaized.ae2jeiintegration.api.integrations.jei.IngredientConverter");
+            var converters = (List<?>) registry.getMethod("getConverters").invoke(null);
+            for (Object converter : converters) {
+                if (converterType.getMethod("getIngredientType").invoke(converter) == ingredient.getType()) {
+                    var stack = (GenericStack) converterType.getMethod("getStackFromIngredient", Object.class)
+                        .invoke(converter, ingredient.getIngredient());
+                    return stack == null ? null : stack.what();
+                }
+            }
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
+            // Unsupported JEI ingredients do not have a corresponding AE key.
+        }
+        return null;
     }
 }

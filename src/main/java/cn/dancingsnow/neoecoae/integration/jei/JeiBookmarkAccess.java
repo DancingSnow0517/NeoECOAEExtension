@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
 import appeng.api.stacks.AEKey;
-import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
 import java.util.List;
@@ -15,8 +14,8 @@ public final class JeiBookmarkAccess {
         return ModList.get().isLoaded("jei") && JeiBookmarkAccessImpl.isAvailable();
     }
 
-    public static List<ItemStack> itemBookmarks() {
-        return isAvailable() ? JeiBookmarkAccessImpl.itemBookmarks() : List.of();
+    public static List<AEKey> bookmarkedKeys() {
+        return isAvailable() ? JeiBookmarkAccessImpl.bookmarkedKeys() : List.of();
     }
 
     public static void addMissingToBookmarks(List<? extends AEKey> keys) {

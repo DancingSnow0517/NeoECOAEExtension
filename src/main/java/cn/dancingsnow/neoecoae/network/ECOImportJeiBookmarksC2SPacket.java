@@ -35,12 +35,18 @@ public record ECOImportJeiBookmarksC2SPacket(int containerId, List<AEKey> keys) 
                     || !(player.containerMenu instanceof CellWorkbenchMenu menu)
                     || menu.containerId != packet.containerId || !menu.stillValid(player)) return;
             var config = menu.getHost().getConfig();
+            var cell = menu.getHost().getCell();
+            var cellConfig = cell == null ? null : cell.getConfigInventory(menu.getWorkbenchItem());
+            int capacity = cellConfig == null ? config.size() : Math.min(config.size(), cellConfig.size());
             config.clear();
             int slot = 0;
             for (AEKey key : packet.keys) {
-                if (slot >= config.size() || !config.isAllowedIn(slot, key)) break;
+                if (slot >= capacity) break;
+                if (key == null || !config.isAllowedIn(slot, key)
+                        || cellConfig != null && !cellConfig.isAllowedIn(slot, key)) continue;
                 config.setStack(slot++, new GenericStack(key, 1));
             }
+            menu.broadcastChanges();
         });
     }
 
