@@ -14,14 +14,30 @@
   "inputItems": [
     {
       "count": 10,
+      "item": "ae2omnicells:quantum_omni_cell_component_64m"
+    },
+    {
+      "count": 1,
       "item": "ae2omnicells:spent_nuclear_waste_component"
+    },
+    {
+      "count": 40,
+      "item": "mekanism:hdpe_sheet"
+    },
+    {
+      "count": 10,
+      "item": "mekanism:pellet_antimatter"
+    },
+    {
+      "count": 20,
+      "item": "mekanism:radioactive_waste_barrel"
     },
     {
       "count": 4,
       "item": "ae2omnicells:multidimensional_expansion_processor"
     },
     {
-      "count": 16,
+      "count": 26,
       "item": "ae2omnicells:spent_nuclear_waste_singularity"
     },
     {

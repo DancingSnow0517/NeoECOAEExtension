@@ -12,8 +12,11 @@ import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.registration.NECellTypeEntry;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import com.wintercogs.ae2omnicells.common.init.OCItems;
+import mekanism.common.registries.MekanismBlocks;
+import mekanism.common.registries.MekanismItems;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.level.ItemLike;
 import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
 
 import java.util.List;
@@ -34,14 +37,18 @@ public final class NEOmniWasteCells {
         .register();
 
     public static final ItemEntry<ECOSpentNuclearWasteCellItem> ECO_SPENT_NUCLEAR_WASTE_CELL_16M =
-        cell("16m", ECOTier.L4, 1L << 28, 6561, 2, 4, 1000, Rarity.UNCOMMON);
+        cell("16m", ECOTier.L4, 1L << 28, 6561, OCItems.QUANTUM_OMNI_CELL_COMPONENT_16M,
+            2, 4, 1000, Rarity.UNCOMMON);
     public static final ItemEntry<ECOSpentNuclearWasteCellItem> ECO_SPENT_NUCLEAR_WASTE_CELL_64M =
-        cell("64m", ECOTier.L6, 1L << 30, 19683, 4, 16, 12000, Rarity.RARE);
+        cell("64m", ECOTier.L6, 1L << 30, 19683, OCItems.QUANTUM_OMNI_CELL_COMPONENT_64M,
+            4, 16, 12000, Rarity.RARE);
     public static final ItemEntry<ECOSpentNuclearWasteCellItem> ECO_SPENT_NUCLEAR_WASTE_CELL_256M =
-        cell("256m", ECOTier.L9, 1L << 32, 59049, 8, 64, 144000, Rarity.EPIC);
+        cell("256m", ECOTier.L9, 1L << 32, 59049, OCItems.QUANTUM_OMNI_CELL_COMPONENT_256M,
+            8, 64, 144000, Rarity.EPIC);
 
     private static ItemEntry<ECOSpentNuclearWasteCellItem> cell(
-        String size, ECOTier tier, long bytes, double drain, int processors, int singularities, int energy, Rarity rarity
+        String size, ECOTier tier, long bytes, double drain, ItemLike quantumComponent,
+        int processors, int singularities, int energy, Rarity rarity
     ) {
         return REGISTRATE.item("eco_spent_nuclear_waste_cell_" + size,
                 properties -> new ECOSpentNuclearWasteCellItem(
@@ -50,9 +57,14 @@ public final class NEOmniWasteCells {
                 + " Storage Matrix (Spent Nuclear Waste)")
             .model((ctx, prov) -> {})
             .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
-                .require(OCItems.SPENT_NUCLEAR_WASTE_COMPONENT, 10)
+                .require(quantumComponent, 10)
+                .require(OCItems.SPENT_NUCLEAR_WASTE_COMPONENT)
+                // Expand ten waste components so their quantum cores match the matrix tier.
+                .require(MekanismItems.HDPE_SHEET, 40)
+                .require(MekanismItems.ANTIMATTER_PELLET, 10)
+                .require(MekanismBlocks.RADIOACTIVE_WASTE_BARREL, 20)
                 .require(OCItems.MULTIDIMENSIONAL_EXPANSION_PROCESSOR, processors)
-                .require(OCItems.SPENT_NUCLEAR_WASTE_SINGULARITY, singularities)
+                .require(OCItems.SPENT_NUCLEAR_WASTE_SINGULARITY, singularities + 10)
                 .require(ECO_SPENT_NUCLEAR_WASTE_CELL_HOUSING)
                 .energy(energy)
                 .itemOutput(ctx.get())
