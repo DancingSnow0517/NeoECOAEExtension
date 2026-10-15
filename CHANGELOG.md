@@ -16,6 +16,7 @@
 - 调整 Data Energistics 存储单元容量和装配配方。
 
 ### 修复与兼容性
+- 修复 ECO 存储矩阵无法放入 AE2LT 过载 IO 端口的问题，补齐界面槽位、自动输入过滤和存储读写兼容。
 - 原版 AE2、OmniCell 量子处理器与 AdvancedAE 量子计算机统一接入 ECO 验证批量发配；将 CPU 推送额度与工作核心合成次数分离，单个推送额度可使用 FX 的 512 次可用容量，并补齐任务记账、异常暂停与能量退款持久化。
 - **修复 AdvancedAE 量子计算机无法接入 ECO F系列合成器 FastPath 批量合成的问题**：外部CPU现在只使用ECO原生的FastPath提供者（F系列合成器的PatternBus），排除桥接适配器（ExtendedAEPlus矩阵、Useless熔炉等），避免错误的provider选择。
 - ECO 发配直接接入 Mek-Energistics 智能翻倍持久化队列，无需 Thunderbolt 桥接；按实际接收批次结算材料、能量和待收产物，关闭智能翻倍时保持单份发配。

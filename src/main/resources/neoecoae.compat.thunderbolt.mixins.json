@@ -4,6 +4,6 @@
   "package": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt",
   "plugin": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["Ae2LtTimeWheelCraftingCpuLogicMixin", "ECOThunderboltWorkstationProviderMixin"],
+  "mixins": ["Ae2LtTimeWheelCraftingCpuLogicMixin", "ECOThunderboltWorkstationProviderMixin", "Ae2LtIOPortBlockEntityMixin", "Ae2LtIOPortMenuMixin"],
   "injectors": {"defaultRequire": 1}
 }
