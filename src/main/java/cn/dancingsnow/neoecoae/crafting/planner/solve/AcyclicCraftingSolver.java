@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.compat.useless.UselessPatternSemanticAdapter;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
@@ -433,7 +432,7 @@ public final class AcyclicCraftingSolver {
         for (AEKey storedKey : state.stored.keysSnapshot()) {
             if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
-            if (!UselessPatternSemanticAdapter.acceptsComponentVariant(consumer, matchingInput, storedKey)) continue;
+            if (matchingInput != null && !matchingInput.isValid(storedKey, null)) continue;
             PlannerAmount take = state.stored.available(storedKey, remaining);
             if (take.signum() <= 0) continue;
             state.stored.remove(storedKey, take);

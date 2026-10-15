@@ -4,7 +4,8 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 
-/** Planner-owned boundary for pattern contracts supplied by AE2 or an integration mod. */
+/** @deprecated Use the public pattern semantics API for new integrations. */
+@Deprecated
 public interface PatternSemanticAdapter {
     boolean supports(IPatternDetails pattern);
 

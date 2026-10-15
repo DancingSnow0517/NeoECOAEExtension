@@ -1,8 +1,11 @@
 package cn.dancingsnow.neoecoae.compat.thunderbolt;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEItemKey;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.AE2PatternSemanticAdapter;
-import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -10,7 +13,7 @@ import java.util.Set;
 import java.lang.reflect.Method;
 
 /** Normalizes AE2 Lightning Technology overload patterns for ECO's static planner. */
-public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapter {
+public final class ThunderPatternSemanticAdapter implements ECOPatternSemanticAdapter {
     private static final Method HAS_FUZZY_INPUTS = ThunderboltApi.method(ThunderboltApi.OVERLOAD, "hasFuzzyInputs");
     private static final Method IS_FUZZY_INPUT = ThunderboltApi.method(ThunderboltApi.OVERLOAD, "isFuzzyInput", int.class);
     private static final Method IS_FUZZY_OUTPUT = ThunderboltApi.method(ThunderboltApi.OVERLOAD, "isFuzzyOutput", int.class);
@@ -23,19 +26,25 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
         return ThunderboltApi.isInstance(ThunderboltApi.OVERLOAD, pattern);
     }
 
-    @Override
     public PatternSemantics analyze(IPatternDetails pattern) {
-        Object definition = null;
+        return PatternSemanticAdapters.toInternal(analyze(pattern,
+            PatternSemanticAdapters.toPublic(ae2Adapter.analyze(pattern))));
+    }
+
+    @Override
+    public ECOPatternSemantics analyze(IPatternDetails pattern, ECOPatternSemantics base) {
+        AEItemKey definition = null;
         try {
             definition = pattern.getDefinition();
             if (!supports(pattern)) {
-                return PatternSemantics.unsupported(pattern, definition, "THUNDER_UNSUPPORTED_SEMANTICS");
+                return ECOPatternSemantics.unsupported(pattern, definition, "THUNDER_UNSUPPORTED_SEMANTICS");
             }
 
             IPatternDetails sourcePattern = unwrap(pattern);
-            PatternSemantics ae2 = ae2Adapter.analyze(sourcePattern);
+            ECOPatternSemantics ae2 = sourcePattern == pattern ? base
+                : PatternSemanticAdapters.toPublic(ae2Adapter.analyze(sourcePattern));
             if (!ae2.supported()) {
-                return PatternSemantics.unsupported(pattern, definition,
+                return ECOPatternSemantics.unsupported(pattern, definition,
                     ae2.unsupportedReason() == null ? "THUNDER_INVALID_SOURCE_PATTERN" : ae2.unsupportedReason());
             }
 
@@ -52,14 +61,14 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
             // Static planning commits ID_ONLY slots to the concrete templates advertised by IPatternDetails.
             // AE2LT remains free to substitute component variants at execution time. Such substitutions are
             // deliberately excluded from cycle-safety proofs because the concrete returned/output key may differ.
-            PatternSemantics.MatchingMode matching = usesIdOnlyMatching
-                ? PatternSemantics.MatchingMode.SUBSTITUTION : ae2.matchingMode();
-            return new PatternSemantics(pattern, definition, ae2.consumedInputs(), ae2.producedOutputs(),
+            ECOPatternSemantics.MatchingMode matching = usesIdOnlyMatching
+                ? ECOPatternSemantics.MatchingMode.SUBSTITUTION : ae2.matchingMode();
+            return new ECOPatternSemantics(pattern, definition, ae2.consumedInputs(), ae2.producedOutputs(),
                 ae2.returnedOutputs(), ae2.feedbackEdges(), matching,
-                PatternSemantics.ExecutionRestriction.NONE, true,
+                ECOPatternSemantics.ExecutionRestriction.NONE, true,
                 ae2.cycleSafe() && !usesIdOnlyMatching, null);
         } catch (RuntimeException rejected) {
-            return PatternSemantics.unsupported(pattern, definition,
+            return ECOPatternSemantics.unsupported(pattern, definition,
                 "MALFORMED_THUNDER_PATTERN:" + rejected.getClass().getSimpleName());
         }
     }

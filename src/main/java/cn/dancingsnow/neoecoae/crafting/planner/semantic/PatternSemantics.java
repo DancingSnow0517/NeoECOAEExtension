@@ -30,10 +30,10 @@ public record PatternSemantics(
 ) {
     public PatternSemantics {
         Objects.requireNonNull(physicalPattern, "physicalPattern");
-
-
-
-
+        consumedInputs = List.copyOf(consumedInputs);
+        producedOutputs = List.copyOf(producedOutputs);
+        returnedOutputs = List.copyOf(returnedOutputs);
+        feedbackEdges = List.copyOf(feedbackEdges);
         Objects.requireNonNull(matchingMode, "matchingMode");
         Objects.requireNonNull(executionRestriction, "executionRestriction");
     }

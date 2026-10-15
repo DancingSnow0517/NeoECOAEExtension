@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.compat.useless.UselessPatternSemanticAdapter;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
@@ -169,8 +168,7 @@ public final class ECOPlanMaterialValidator {
         for (var entry : new ArrayList<>(supply.entrySet())) {
             if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
-            if (demand != null && !UselessPatternSemanticAdapter.acceptsComponentVariant(
-                    demand.pattern(), demand.input(), entry.getKey())) continue;
+            if (demand != null && demand.input() != null && !demand.input().isValid(entry.getKey(), null)) continue;
             PlannerAmount taken = remaining.min(entry.getValue());
             remove(supply, entry.getKey(), taken);
             consumed = consumed.add(taken);

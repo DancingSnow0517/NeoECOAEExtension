@@ -69,6 +69,7 @@ class CycleRouteCompletenessReviewTest {
         // Freeze compilation and the clock so the test cuts the shared allowance at the route boundary,
         // not at a machine-dependent elapsed time or during unrelated recipe discovery.
         var fields = Map.<String, Object>of("compiled", network, "condensation", graph, "activeSelection", initial,
+            "compiledContractGeneration", cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(),
             "planningBudget", new cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget(
                 ECOCancellation.NONE, work.get() + extraWork, Long.MAX_VALUE, () -> 0L));
         for (var entry : fields.entrySet()) {

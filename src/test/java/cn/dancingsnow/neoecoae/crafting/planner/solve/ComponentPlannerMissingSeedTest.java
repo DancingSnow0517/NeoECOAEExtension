@@ -438,6 +438,15 @@ class ComponentPlannerMissingSeedTest {
         IPatternDetails details = mock(IPatternDetails.class);
         var outputs = List.of(new GenericStack(outputKey, outputAmount));
         when(details.getOutputs()).thenReturn(outputs);
+        when(details.getPrimaryOutput()).thenReturn(outputs.getFirst());
+        var rawInputs = java.util.Arrays.stream(inputs).map(stack -> {
+            var input = mock(IPatternDetails.IInput.class);
+            when(input.getPossibleInputs()).thenReturn(new GenericStack[] {stack});
+            when(input.getMultiplier()).thenReturn(1L);
+            when(input.isValid(any(), any())).thenAnswer(call -> stack.what().equals(call.getArgument(0)));
+            return input;
+        }).toArray(IPatternDetails.IInput[]::new);
+        when(details.getInputs()).thenReturn(rawInputs);
         var semantics = new PatternSemantics(details, null, List.of(), outputs, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         return new CompiledPattern(id, details, outputKey, PlannerAmount.of(outputAmount),

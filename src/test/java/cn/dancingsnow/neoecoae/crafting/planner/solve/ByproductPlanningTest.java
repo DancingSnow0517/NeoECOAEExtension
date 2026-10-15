@@ -116,6 +116,9 @@ class ByproductPlanningTest {
         var upstream = pattern(List.of(stack(ore, 1)), stack(ingot, 1),
             stack(namedSlag, 2), stack(slag, 1), stack(namedSlag, 1));
         var downstream = pattern(List.of(stack(slag, 1)), stack(brick, 1));
+        // Component-insensitive planning still requires the physical recipe to accept the concrete key.
+        when(downstream.getInputs()[0].isValid(any(), isNull())).thenAnswer(invocation ->
+            invocation.getArgument(0) instanceof AEItemKey item && item.getItem() == Items.GRAVEL);
         var service = indexedService(true, upstream, downstream);
         var stock = new KeyCounter();
         stock.add(ore, 2);
@@ -124,6 +127,21 @@ class ByproductPlanningTest {
             .plan(7, false, ECOCancellation.NONE);
         assertSuccessful(result, Map.of(upstream, 2L, downstream, 7L), 2);
         assertEquals(namedSlag, upstream.getOutputs().get(1).what());
+    }
+
+    @Test
+    void componentInsensitivePlanningCannotOverrideThePhysicalInputPredicate() throws Exception {
+        ItemStack namedGravel = new ItemStack(Items.GRAVEL);
+        namedGravel.set(DataComponents.CUSTOM_NAME, Component.literal("rejected by exact recipe"));
+        AEKey namedSlag = AEItemKey.of(namedGravel);
+        var upstream = pattern(List.of(stack(ore, 1)), stack(ingot, 1), stack(namedSlag, 4));
+        var downstream = pattern(List.of(stack(slag, 1)), stack(brick, 1));
+        var stock = new KeyCounter();
+        stock.add(ore, 1);
+        var result = new ECOCraftingPlannerService().createSession(indexedService(true, upstream, downstream),
+                brick, stock, false, false, Set.of(BuiltInRegistries.ITEM.getKey(Items.GRAVEL)))
+            .plan(4, false, ECOCancellation.NONE);
+        assertNotEquals(PlanningStatus.SUCCESS, result.status());
     }
 
     @Test

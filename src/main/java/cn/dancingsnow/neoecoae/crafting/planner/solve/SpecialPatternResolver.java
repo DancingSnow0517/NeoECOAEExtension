@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.compat.useless.UselessPatternSemanticAdapter;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
@@ -288,7 +287,7 @@ public final class SpecialPatternResolver {
         PlannerAmount available = PlannerAmount.ZERO;
         for (var entry : state.stored.asMap().entrySet()) {
             if (entry.getKey() instanceof AEItemKey candidate && candidate.getItem() == wanted.getItem()) {
-                if (!UselessPatternSemanticAdapter.acceptsComponentVariant(consumer, input, entry.getKey())) continue;
+                if (input != null && !input.isValid(entry.getKey(), null)) continue;
                 if (state.stored.isUnbounded(entry.getKey())) return requested;
                 available = available.add(entry.getValue());
             }
@@ -309,7 +308,7 @@ public final class SpecialPatternResolver {
         for (AEKey storedKey : state.stored.keysSnapshot()) {
             if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
-            if (!UselessPatternSemanticAdapter.acceptsComponentVariant(demand.consumer(), input, storedKey)) continue;
+            if (input != null && !input.isValid(storedKey, null)) continue;
             PlannerAmount take = state.stored.available(storedKey, remaining);
             if (take.signum() <= 0) continue;
             consumeExact(demand, storedKey, take);

@@ -358,7 +358,15 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
     }
 
     private static PatternSemantics semantic(IPatternDetails pattern) {
-        return ECOPhaseScheduler.semantic(pattern);
+        PatternSemantics semantics = ECOPhaseScheduler.semantic(pattern);
+        if (!semantics.supported()
+                || semantics.executionRestriction() != PatternSemantics.ExecutionRestriction.NONE
+                || semantics.matchingMode() == PatternSemantics.MatchingMode.FUZZY
+                || semantics.matchingMode() == PatternSemantics.MatchingMode.UNKNOWN) {
+            throw new IllegalStateException("Unsupported execution pattern semantics: "
+                + semantics.unsupportedReason() + " restriction=" + semantics.executionRestriction());
+        }
+        return semantics;
     }
 
     /** True recipe outputs only. Input remainders are deliberately not phase producers. */

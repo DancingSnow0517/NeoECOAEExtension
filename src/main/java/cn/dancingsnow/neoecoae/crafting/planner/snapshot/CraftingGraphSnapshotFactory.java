@@ -327,14 +327,11 @@ public final class CraftingGraphSnapshotFactory {
     /** Use the committed exact firing vector; an unrepresentable plan has an empty AE2 compatibility shell. */
     private static void collectTaskMaterialFlow(ECOPlanningResult result,
             Map<AEKey, MutableMaterial> materials) {
-        var adapters = PatternSemanticAdapters.defaults();
         for (var firing : result.exactPatternTimes().entrySet()) {
             if (firing.getValue().signum() <= 0) continue;
-            var adapter = PatternSemanticAdapters.find(adapters, firing.getKey());
-            if (adapter == null) continue;
             PatternSemantics semantics;
             try {
-                semantics = adapter.analyze(firing.getKey());
+                semantics = PatternSemanticAdapters.analyze(firing.getKey());
             } catch (RuntimeException | LinkageError ignored) {
                 continue;
             }

@@ -7,6 +7,8 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.compat.ECOPatternIntegrations;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin;
@@ -23,7 +25,10 @@ import static org.mockito.Mockito.*;
 
 /** Uses interfaces from the actual selected dependency jars, not local API stubs. */
 class ThunderboltRuntimeContractTest {
-    @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    @BeforeAll static void bootstrap() {
+        InventoryTestBootstrap.initialize();
+        ECOPatternIntegrations.initialize();
+    }
 
     @Test void selectedRuntimeMatchesRequestedLayout() throws Exception {
         String expected = System.getProperty("neoeco.test.thunderboltLayout");
@@ -36,13 +41,17 @@ class ThunderboltRuntimeContractTest {
         String api = ThunderboltApi.class.getName();
         String adapter = ThunderPatternSemanticAdapter.class.getName();
         String registry = PatternSemanticAdapters.class.getName();
+        String publicRegistry = "cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry";
         String dispatcher = "cn.dancingsnow.neoecoae.crafting.execution.ECOProcessingPatternDispatcher$Contract";
-        var isolated = Set.of(api, adapter, registry, dispatcher);
+        // Keep each isolated class and its nestmates in one loader, with a fresh registration table.
+        var isolated = Set.of(api, adapter, registry, publicRegistry, dispatcher);
         var parent = getClass().getClassLoader();
         var loader = new ClassLoader(parent) {
             @Override protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
                 if (name.startsWith("com.moakiee.thunderbolt.")) throw new ClassNotFoundException(name);
-                if (!isolated.contains(name)) return super.loadClass(name, resolve);
+                if (isolated.stream().noneMatch(owner -> name.equals(owner) || name.startsWith(owner + "$"))) {
+                    return super.loadClass(name, resolve);
+                }
                 Class<?> type = findLoadedClass(name);
                 if (type == null) {
                     try (var stream = parent.getResourceAsStream(name.replace('.', '/') + ".class")) {
@@ -58,6 +67,12 @@ class ThunderboltRuntimeContractTest {
         };
         var defaults = (List<?>) loader.loadClass(registry).getMethod("defaults").invoke(null);
         assertTrue(defaults.stream().noneMatch(value -> value.getClass().getName().equals(adapter)));
+        var ordinary = mock(IPatternDetails.class);
+        when(ordinary.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
+        when(ordinary.getOutputs()).thenReturn(List.of(new GenericStack(AEItemKey.of(Items.STONE), 1)));
+        var semantics = (PatternSemantics) loader.loadClass(registry)
+            .getMethod("analyze", IPatternDetails.class).invoke(null, ordinary);
+        assertTrue(semantics.supported(), semantics.unsupportedReason());
         var instance = loader.loadClass(adapter).getConstructor().newInstance();
         assertEquals(false, instance.getClass().getMethod("supports", IPatternDetails.class)
                 .invoke(instance, mock(IPatternDetails.class)));
@@ -85,8 +100,8 @@ class ThunderboltRuntimeContractTest {
         assertTrue(adapter.supports(pattern));
         assertFalse(adapter.ignoresComponents(pattern, 0));
         assertTrue(adapter.ignoresComponents(pattern, 1));
-        assertInstanceOf(ThunderPatternSemanticAdapter.class,
-            PatternSemanticAdapters.find(PatternSemanticAdapters.defaults(), pattern));
+        assertEquals("neoecoae:thunderbolt_semantics",
+            PatternSemanticAdapters.find(PatternSemanticAdapters.defaults(), pattern).name());
     }
 
     @Test void actualWrapperPreservesOutputsAndFuzzyMatching() throws Exception {
@@ -109,6 +124,7 @@ class ThunderboltRuntimeContractTest {
         assertEquals(List.of(output), semantics.producedOutputs());
         assertEquals(PatternSemantics.MatchingMode.SUBSTITUTION, semantics.matchingMode());
         assertFalse(semantics.cycleSafe());
+        assertSame(source, ECOProviderPatternIntrospection.unwrap(pattern));
     }
 
     @Test void cyclicWrapperIsRejected() throws Exception {

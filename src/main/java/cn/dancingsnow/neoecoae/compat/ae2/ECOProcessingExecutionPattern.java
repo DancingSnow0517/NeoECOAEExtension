@@ -2,12 +2,13 @@ package cn.dancingsnow.neoecoae.compat.ae2;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.*;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternWrappers;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import java.util.List;
 import net.minecraft.world.level.Level;
 
 /** An execution-only view. The multiplier is chosen by ECO, never by provider settings. */
-public final class ECOProcessingExecutionPattern implements IPatternDetails {
+public final class ECOProcessingExecutionPattern implements IPatternDetails, ECOPatternWrappers.Wrapper {
     private final IPatternDetails original;
     private final long copies;
 
@@ -18,6 +19,7 @@ public final class ECOProcessingExecutionPattern implements IPatternDetails {
     }
 
     public IPatternDetails providerLookupPattern() { return original; }
+    @Override public IPatternDetails ecoProviderPattern() { return original; }
     @Override public AEItemKey getDefinition() { return original.getDefinition(); }
     @Override public IInput[] getInputs() {
         var source = original.getInputs();

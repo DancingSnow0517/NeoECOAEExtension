@@ -11,6 +11,8 @@ public final class ThunderboltApi {
     public static final Class<?> WRAPPER = findType(
             "com.moakiee.thunderbolt.core.crafting.pattern.IWrappedPatternDetails",
             "com.moakiee.thunderbolt.ae2.overload.pattern.WrappedPatternDetails");
+    public static final Class<?> PROVIDER_LOOKUP = findType(
+            "com.moakiee.thunderbolt.core.crafting.pattern.IProviderLookupPattern");
     public static final Class<?> BATCH_PROVIDER = findType(
             "com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider",
             "com.moakiee.thunderbolt.ae2.api.crafting.IBatchCraftingProvider");
