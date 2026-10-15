@@ -121,7 +121,8 @@ dependencies {
     devMods("curse.maven:applied-soul-1337114:8711537") { transitive = false }
     devMods("curse.maven:soulplied-energistics-1143614:8333758") { transitive = false }
     devMods("curse.maven:experiencelib-1156551:7705470") { transitive = false }
-    devMods("curse.maven:industrial-foregoing-266515:6473752") { transitive = false }
+    // Useless Mod's laser drill adapters require the generic DrillRecipe API from 3.6.36.
+    devMods("curse.maven:industrial-foregoing-266515:7073719") { transitive = false }
     devMods("curse.maven:industrial-foregoing-souls-904394:6235883") { transitive = false }
     devMods("curse.maven:titanium-287342:7951516") { transitive = false }
     devMods("curse.maven:patchouli-306770:7730942") { transitive = false }
