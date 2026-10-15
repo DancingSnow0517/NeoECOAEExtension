@@ -519,7 +519,7 @@
   "gui.neoecoae.large_integrated_working_station.cooling_button": "AC",
   "gui.neoecoae.large_integrated_working_station.disabled": "Off",
   "gui.neoecoae.large_integrated_working_station.enabled": "On",
-  "gui.neoecoae.large_integrated_working_station.energy": "Energy: %s / %s",
+  "gui.neoecoae.large_integrated_working_station.energy": "AE Energy: %s / %s AE",
   "gui.neoecoae.large_integrated_working_station.input_fluid": "Input Fluid",
   "gui.neoecoae.large_integrated_working_station.lightning_amount": "Lightning from ME: %s",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "ME: %s × %s",

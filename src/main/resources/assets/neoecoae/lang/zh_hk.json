@@ -552,7 +552,7 @@
   "block.neoecoae.large_integrated_working_station_input_hatch": "大型整合工作站冷卻液輸入倉",
   "block.neoecoae.large_integrated_working_station_output_hatch": "大型整合工作站冷卻液輸出倉",
   "block.neoecoae.large_integrated_working_station_interface": "大型整合工作站通訊方塊",
-  "gui.neoecoae.large_integrated_working_station.energy": "能量：%s / %s",
+  "gui.neoecoae.large_integrated_working_station.energy": "AE能量：%s / %s AE",
   "gui.neoecoae.large_integrated_working_station.no_task": "目前任務：無",
   "gui.neoecoae.large_integrated_working_station.task": "目前任務：%s",
   "gui.neoecoae.large_integrated_working_station.recipe_empty": "合成任務：等待輸入",

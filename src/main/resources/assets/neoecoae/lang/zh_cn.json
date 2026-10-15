@@ -940,7 +940,7 @@
   "block.neoecoae.large_integrated_working_station_input_hatch": "大型集成工作站冷却液输入仓",
   "block.neoecoae.large_integrated_working_station_output_hatch": "大型集成工作站冷却液输出仓",
   "block.neoecoae.large_integrated_working_station_interface": "大型集成工作站通讯方块",
-  "gui.neoecoae.large_integrated_working_station.energy": "能量：%s / %s",
+  "gui.neoecoae.large_integrated_working_station.energy": "AE能量：%s / %s AE",
   "gui.neoecoae.large_integrated_working_station.no_task": "任务：空闲",
   "gui.neoecoae.large_integrated_working_station.task": "任务：%s",
   "gui.neoecoae.large_integrated_working_station.recipe_empty": "等待输入",

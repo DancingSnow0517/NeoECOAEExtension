@@ -293,7 +293,7 @@
   "gui.neoecoae.integrated_working_station.allow_outputs.disabled": "已停用",
   "gui.neoecoae.integrated_working_station.allow_outputs.enabled": "已啟用",
   "gui.neoecoae.integrated_working_station.energy": "所需能量：%dk FE",
-  "gui.neoecoae.large_integrated_working_station.energy": "能量：%s / %s",
+  "gui.neoecoae.large_integrated_working_station.energy": "AE能量：%s / %s AE",
   "gui.neoecoae.large_integrated_working_station.input_fluid": "輸入流體",
   "gui.neoecoae.large_integrated_working_station.no_task": "目前任務：無",
   "gui.neoecoae.large_integrated_working_station.output_fluid": "輸出流體",

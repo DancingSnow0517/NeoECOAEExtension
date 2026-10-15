@@ -22,6 +22,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.me.cluster.IAEMultiBlock;
+import appeng.util.ReadableNumberConverter;
 import appeng.util.inv.AppEngInternalInventory;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
@@ -578,7 +579,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public Component getEnergyText() {
         return Component.translatable("gui.neoecoae.large_integrated_working_station.energy",
-            Math.round(getAECurrentPower()), Math.round(getAEMaxPower()));
+            ReadableNumberConverter.format(getAECurrentPower(), 5),
+            ReadableNumberConverter.format(getAEMaxPower(), 5));
     }
 
     public Component getTaskText() {

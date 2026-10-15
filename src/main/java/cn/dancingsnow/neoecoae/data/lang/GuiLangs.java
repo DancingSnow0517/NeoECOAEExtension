@@ -30,7 +30,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.disabled", "Disabled");
         provider.add("gui.neoecoae.large_integrated_working_station.input_fluid", "Input Fluid");
         provider.add("gui.neoecoae.large_integrated_working_station.output_fluid", "Output Fluid");
-        provider.add("gui.neoecoae.large_integrated_working_station.energy", "Energy: %s / %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.energy", "AE Energy: %s / %s AE");
         provider.add("gui.neoecoae.large_integrated_working_station.no_task", "Task: Idle");
         provider.add("gui.neoecoae.large_integrated_working_station.task", "Task: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_empty", "Waiting for input");

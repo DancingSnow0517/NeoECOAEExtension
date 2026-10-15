@@ -552,7 +552,7 @@
   "block.neoecoae.large_integrated_working_station_input_hatch": "大型綜合工坊涼液入樞",
   "block.neoecoae.large_integrated_working_station_output_hatch": "大型綜合工坊涼液出樞",
   "block.neoecoae.large_integrated_working_station_interface": "大型綜合工坊通訊樞",
-  "gui.neoecoae.large_integrated_working_station.energy": "能量：%s / %s",
+  "gui.neoecoae.large_integrated_working_station.energy": "AE能量：%s / %s AE",
   "gui.neoecoae.large_integrated_working_station.no_task": "今冶務：無",
   "gui.neoecoae.large_integrated_working_station.task": "今冶務：%s",
   "gui.neoecoae.large_integrated_working_station.recipe_empty": "冶務：候輸入",
