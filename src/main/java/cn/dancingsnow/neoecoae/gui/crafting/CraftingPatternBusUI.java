@@ -16,6 +16,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventListener;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -25,6 +28,8 @@ import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
 /** Pattern-bus layout and page buttons over a machine-owned inventory view. */
@@ -49,23 +54,27 @@ public final class CraftingPatternBusUI {
         ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_pattern_bus");
 
     public static ModularUI create(Config config, Player player) {
-        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));
+        ShiftQuickMove quickMove = new ShiftQuickMove(player);
+        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, quickMove));
+        quickMove.attachRoot(root);
         return ECOModularUI.create(root, player);
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
+        private final ShiftQuickMove quickMove;
 
-        private JsonContext(Config config) {
+        private JsonContext(Config config, ShiftQuickMove quickMove) {
             this.config = config;
+            this.quickMove = quickMove;
         }
 
         @Override
         public UIElement createCustom(JsonObject node) {
             return switch (string(node, "custom", "")) {
                 case "header" -> headerRow(config);
-                case "pattern_inventory" -> patternInventory(config);
-                case "player_inventory" -> new InventorySlots().layout(layout -> layout.marginTop(5));
+                case "pattern_inventory" -> patternInventory(config, quickMove);
+                case "player_inventory" -> playerInventory(quickMove);
                 default -> throw new IllegalArgumentException("Unknown crafting pattern bus custom element: "
                     + string(node, "custom", ""));
             };
@@ -85,7 +94,7 @@ public final class CraftingPatternBusUI {
         }
     }
 
-    private static UIElement patternInventory(Config config) {
+    private static UIElement patternInventory(Config config, ShiftQuickMove quickMove) {
         UIElement patternInv = new UIElement().addClass("panel_border");
         for (int row = 0; row < COL_SIZE; row++) {
             UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
@@ -94,11 +103,94 @@ public final class CraftingPatternBusUI {
                 UIElement slot = new PatternItemSlot(new ItemHandlerSlot(config.inventory(), slotIndex))
                     .slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_BLANK_PATTERN)))
                     .addClass("eco-pattern-slot");
+                quickMove.attach(slot);
                 rowInv.addChild(slot);
             }
             patternInv.addChild(rowInv);
         }
         return patternInv;
+    }
+
+    private static UIElement playerInventory(ShiftQuickMove quickMove) {
+        InventorySlots inventory = new InventorySlots();
+        inventory.layout(layout -> layout.marginTop(5));
+        inventory.apply(slot -> quickMove.attach(slot));
+        return inventory;
+    }
+
+    /**
+     * LDLib2 renders these slots outside vanilla's screen drag path. Keep the same
+     * Shift-drag gesture as Mouse Tweaks by issuing one server-validated quick move
+     * for every distinct slot entered while the button is held.
+     */
+    private static final class ShiftQuickMove {
+        private final Player player;
+        private final java.util.Set<Integer> visited = new java.util.HashSet<>();
+        private boolean dragging;
+
+        private ShiftQuickMove(Player player) {
+            this.player = player;
+        }
+
+        private void attachRoot(UIElement root) {
+            root.addEventListener(UIEvents.MOUSE_UP, event -> {
+                if (event.button == 0) {
+                    dragging = false;
+                    visited.clear();
+                }
+            }, true);
+            root.addServerEventListener(UIEvents.MOUSE_UP, event -> {
+                if (event.button == 0) reset();
+            }, true);
+            root.addEventListener(UIEvents.TICK, event -> {
+                if (dragging && !root.isMouseDown(0)) {
+                    dragging = false;
+                    visited.clear();
+                }
+            });
+        }
+
+        private void attach(UIElement element) {
+            if (!(element instanceof com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot itemSlot)) return;
+            UIEventListener listener = event -> {
+                if (event.button != 0 || !event.isShiftDown()) return;
+                reset();
+                dragging = true;
+                quickMove(itemSlot.getSlot());
+                var payload = new net.minecraft.nbt.CompoundTag();
+                payload.putBoolean("start", true);
+                itemSlot.sendMessage("neoecoae:shift_quick_move", payload);
+                event.hasHandler = true;
+                event.stopImmediatePropagation();
+            };
+            UIEventListener enter = event -> {
+                if (dragging && event.isShiftDown() && itemSlot.isMouseDown(0)) {
+                    quickMove(itemSlot.getSlot());
+                    itemSlot.sendMessage("neoecoae:shift_quick_move");
+                    event.hasHandler = true;
+                    event.stopImmediatePropagation();
+                }
+            };
+            element.addEventListener(UIEvents.MOUSE_DOWN, listener);
+            element.addEventListener(UIEvents.MOUSE_ENTER, enter);
+            element.onMessage("neoecoae:shift_quick_move", ignored -> {
+                if (ignored.getBoolean("start")) reset();
+                dragging = true;
+                quickMove(itemSlot.getSlot());
+            });
+        }
+
+        private void reset() {
+            dragging = false;
+            visited.clear();
+        }
+
+        private void quickMove(Slot slot) {
+            if (slot == null || !visited.add(slot.index) || player.level().isClientSide) return;
+            if (player.containerMenu != null) {
+                player.containerMenu.clicked(slot.index, 0, ClickType.QUICK_MOVE, player);
+            }
+        }
     }
 
     private static UIElement headerRow(Config config) {
