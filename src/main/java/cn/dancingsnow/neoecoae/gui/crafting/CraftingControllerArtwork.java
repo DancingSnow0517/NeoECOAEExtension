@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_WIDTH;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.Config;
@@ -51,13 +53,15 @@ final class CraftingControllerArtwork extends UIElement {
     private static final int PROGRESS_BAR_HEIGHT = 7;
     private static final String[] NUMBER_UNITS = {"", "K", "M", "G", "T", "P", "E"};
     private final Config config;
+    private final Supplier<IECOTier> panelTier;
     private final ItemStack hostItem;
     private final CraftingOutputSlot[] workerSlots = new CraftingOutputSlot[CraftingControllerPanelState.SLOT_COUNT];
     private final CraftingControllerViewState view = new CraftingControllerViewState();
     private final CraftingControllerTooltips tooltips = new CraftingControllerTooltips(view);
 
-    CraftingControllerArtwork(Config config) {
+    CraftingControllerArtwork(Config config, Supplier<IECOTier> panelTier) {
         this.config = config;
+        this.panelTier = panelTier;
         hostItem = config.hostItem().get().copyWithCount(1);
         for (int cell = 0; cell < workerSlots.length; cell++) {
             workerSlots[cell] = new CraftingOutputSlot();
@@ -204,6 +208,8 @@ final class CraftingControllerArtwork extends UIElement {
     }
 
     private void drawTier(GUIContext context, int tier) {
+        if (HostPanelTier.drawName(context, panelTier.get(), getPositionX() + 23,
+            getPositionY() + 5, 13, 18, 0xFF3F3D52)) return;
         int sourceX = switch (tier) { case 1 -> 0; case 2 -> 13; case 3 -> 26; default -> -1; };
         if (sourceX >= 0) sprite(context, sourceX, 0, 13, 18, 23, 5, 13, 18);
     }
@@ -230,11 +236,15 @@ final class CraftingControllerArtwork extends UIElement {
     /** Draw the host-tier markers in the two dark bands of the left status lamp. */
     private void drawStatusLamp(GUIContext context) {
         int tier = view.state.hostTier();
-        if (tier < 1 || tier > STATUS_CORNER_X.length) return;
+        drawHostMarker(context, tier, false, 31);
+        drawHostMarker(context, tier, true, 54);
+    }
 
-        int sourceX = STATUS_CORNER_X[tier - 1];
-        sprite(context, sourceX, 19, 10, 7, 12, 31, 10, 7);
-        sprite(context, sourceX, 44, 10, 7, 12, 54, 10, 7);
+    private void drawHostMarker(GUIContext context, int tier, boolean bottom, int y) {
+        if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom,
+            getPositionX() + 12, getPositionY() + y, 10, 7) && tier >= 1 && tier <= STATUS_CORNER_X.length) {
+            sprite(context, STATUS_CORNER_X[tier - 1], bottom ? 44 : 19, 10, 7, 12, y, 10, 7);
+        }
     }
 
     private void drawCoreCells(GUIContext context) {

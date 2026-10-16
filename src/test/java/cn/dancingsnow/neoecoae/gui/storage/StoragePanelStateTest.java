@@ -23,6 +23,22 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StoragePanelStateTest {
+    @Test
+    void addonTierNameSurvivesPagingAndTransportWithoutBeingInferredFromItsNumber() {
+        var addon = org.mockito.Mockito.mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
+        Component name = Component.translatable("prototype.tier.l1").withColor(0x12AB34);
+        org.mockito.Mockito.when(addon.getPanelTierName()).thenReturn(name);
+        CellEntry entry = new CellEntry(0, 0, CellEntry.KIND_ITEM, 0, 10, 0, 100,
+            false, CellState.EMPTY, true).withPanelTier(addon)
+            .atDrive(new BlockPos(1, 2, 3), new ItemStack(Items.DIAMOND), null);
+        StoragePanelState received = StoragePanelState.fromTag(
+            StoragePanelState.capture(config(List.of(entry), false), 0, 33).toTag());
+        assertTrue(received.cells().getFirst().installed());
+        assertEquals(name, StorageCellGrid.tierName(received.cells().getFirst()));
+        assertEquals(0, received.cells().getFirst().tier());
+        assertEquals(Component.literal("L4"), StorageCellGrid.tierName(cell(0, 100)));
+    }
+
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @Test

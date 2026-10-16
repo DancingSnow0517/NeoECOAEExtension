@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
@@ -50,7 +51,11 @@ public final class CraftingHostPanelUI {
     ) {}
 
     public static UIElement create(Config config) {
-        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));
+        return create(config, () -> null);
+    }
+
+    public static UIElement create(Config config, Supplier<IECOTier> panelTier) {
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier));
     }
 
     /**
@@ -76,16 +81,18 @@ public final class CraftingHostPanelUI {
     /** Resource context for the static controller tree.  Dynamic artwork and behavior remain Java. */
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
+        private final Supplier<IECOTier> panelTier;
 
-        private JsonContext(Config config) {
+        private JsonContext(Config config, Supplier<IECOTier> panelTier) {
             this.config = config;
+            this.panelTier = panelTier;
         }
 
         @Override
         public UIElement createCustom(JsonObject definition) {
             String custom = string(definition, "custom", string(definition, "id", ""));
             return switch (custom) {
-                case "crafting_artwork" -> new CraftingControllerArtwork(config);
+                case "crafting_artwork" -> new CraftingControllerArtwork(config, panelTier);
                 case "mode_button" -> modeButton(definition);
                 case "player_inventory" -> playerInventory(false);
                 default -> throw new IllegalArgumentException("Unknown crafting UI custom element: " + custom);
@@ -143,7 +150,12 @@ public final class CraftingHostPanelUI {
 
     public static UIElement create(Config config, UIElement guide, UIElement buildButton,
                                    UIElement buildWindow, Supplier<Component> maintenanceStatus) {
-        UIElement root = create(config);
+        return create(config, guide, buildButton, buildWindow, maintenanceStatus, () -> null);
+    }
+
+    public static UIElement create(Config config, UIElement guide, UIElement buildButton,
+        UIElement buildWindow, Supplier<Component> maintenanceStatus, Supplier<IECOTier> panelTier) {
+        UIElement root = create(config, panelTier);
         List<UIElement> buttons = new ArrayList<>();
         buttons.add(guide);
         buttons.add(buildButton);

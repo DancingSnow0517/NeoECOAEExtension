@@ -203,7 +203,8 @@ final class ECOStorageHostStatistics {
                     supported && view.member(),
                     supported ? view.inventory().getStatus() : CellState.ABSENT,
                     supported && drive.isOnline()
-            ).atDrive(drive.getBlockPos(), stack, drive.getCellExtractionBlockReasonText(), drive.getCellInteractionId()));
+            ).withPanelTier(view.inventory().getTier())
+                .atDrive(drive.getBlockPos(), stack, drive.getCellExtractionBlockReasonText(), drive.getCellInteractionId()));
             if (view.infiniteResource()) continue;
             if (view.member()) {
                 continue;

@@ -142,6 +142,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         for (CellEntry cell : cells) {
             CompoundTag entry = new CompoundTag();
             entry.putInt("id", cell.typeId()); entry.putInt("tier", cell.tier()); entry.putInt("kind", cell.kind());
+            if (cell.panelTierName() != null) putComponent(entry, "tierName", cell.panelTierName());
             entry.putLong("ut", cell.usedTypes()); entry.putLong("tt", cell.totalTypes());
             entry.putLong("ub", cell.usedBytes()); entry.putLong("tb", cell.totalBytes());
             entry.putBoolean("infinite", cell.infinite());
@@ -180,7 +181,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
                 cell.contains("position") ? BlockPos.of(cell.getLong("position")) : null,
                 ItemStack.parseOptional(registries, cell.getCompound("stack")),
                 cell.contains("locked") ? component(cell, "locked") : null,
-                cell.hasUUID("interactionId") ? cell.getUUID("interactionId") : null));
+                cell.hasUUID("interactionId") ? cell.getUUID("interactionId") : null,
+                cell.contains("tierName") ? component(cell, "tierName") : null));
         }
         List<TypeLine> types = new ArrayList<>();
         for (Tag valueType : tag.getList("types", Tag.TAG_COMPOUND)) {

@@ -1,9 +1,25 @@
 package cn.dancingsnow.neoecoae.api;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 public interface IECOTier {
     int getTier();
+
+    /** Display name used by host panels and storage-cell tooltips. */
+    default Component getPanelTierName() {
+        return Component.literal("L" + getTier());
+    }
+
+    /**
+     * Optional 13x16 texture: upper marker in the first 13x8 row, lower marker in the second.
+     * Panels scale each row to their marker area. Null retains the built-in atlas markers.
+     */
+    @Nullable
+    default ResourceLocation getHostMarkerTexture() {
+        return null;
+    }
     /**
      * 合成系统并行核心并行数量
      *

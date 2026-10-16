@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.WIDTH;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
@@ -55,6 +57,7 @@ final class ComputationControllerArtwork extends UIElement {
     private final ComputationControllerUI.Config config;
     private final Supplier<ComputationControllerPanelState> panelState;
     private final ItemStack hostItem;
+    private final Supplier<IECOTier> panelTier;
     private ComputationControllerPanelState state;
     private long usedBytes, totalBytes, availableBytes;
     private int usedThreads, totalThreads, parallelCount, fullParallelCount, networkMultiplier, networkFrequency;
@@ -63,8 +66,9 @@ final class ComputationControllerArtwork extends UIElement {
     private boolean substitutions, cyclePlanning, fastPlanner;
 
     ComputationControllerArtwork(ComputationControllerUI.Config config,
-                                 Supplier<ComputationControllerPanelState> panelState) {
+                                 Supplier<ComputationControllerPanelState> panelState, Supplier<IECOTier> panelTier) {
         this.config = config;
+        this.panelTier = panelTier;
         this.panelState = panelState;
         hostItem = config.hostItem().get().copyWithCount(1);
         CompoundTag initial = snapshot();
@@ -213,11 +217,12 @@ final class ComputationControllerArtwork extends UIElement {
         drawLabels(context);
         if (state.formed()) {
             int tier = state.hostTier();
-            if (tier >= 1 && tier <= 3) {
+            if (!HostPanelTier.drawName(context, panelTier.get(), getPositionX() + 23,
+                getPositionY() + 5, 13, 18, TEXT_COLOR) && tier >= 1 && tier <= 3) {
                 sprite(context, ComputationControllerTextures.tier(tier), 23, 5, 13, 18);
-                sprite(context, ComputationControllerTextures.hostMarker(tier, false), 10, 40, 14, 8);
-                sprite(context, ComputationControllerTextures.hostMarker(tier, true), 10, 64, 14, 8);
             }
+            drawHostMarker(context, false, 40);
+            drawHostMarker(context, true, 64);
         }
         if (!hostItem.isEmpty()) {
             context.graphics.renderItem(hostItem, Math.round(getPositionX()) + 9, Math.round(getPositionY()) + 48);
@@ -227,6 +232,13 @@ final class ComputationControllerArtwork extends UIElement {
         drawStatPanels(context);
         drawStatusIcons(context);
         drawPanelInfo(context);
+    }
+
+    private void drawHostMarker(GUIContext context, boolean bottom, int y) {
+        if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom,
+            getPositionX() + 10, getPositionY() + y, 14, 8) && state.hostTier() >= 1 && state.hostTier() <= 3) {
+            sprite(context, ComputationControllerTextures.hostMarker(state.hostTier(), bottom), 10, y, 14, 8);
+        }
     }
 
     private void drawLabels(GUIContext context) {

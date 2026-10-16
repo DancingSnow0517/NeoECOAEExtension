@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
@@ -113,8 +114,16 @@ public final class StorageHostUI {
     public record CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
         long usedBytes, long totalBytes, boolean infinite, CellState state, boolean online,
         @Nullable BlockPos position, ItemStack stack, @Nullable Component extractionBlockReason,
-        @Nullable UUID interactionId) {
+        @Nullable UUID interactionId, @Nullable Component panelTierName) {
         public static final CellEntry EMPTY = new CellEntry(-1, 0, 0, 0, 0, 0, 0, false, CellState.ABSENT, false);
+
+        public CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
+            long usedBytes, long totalBytes, boolean infinite, CellState state, boolean online,
+            @Nullable BlockPos position, ItemStack stack, @Nullable Component extractionBlockReason,
+            @Nullable UUID interactionId) {
+            this(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite, state, online,
+                position, stack, extractionBlockReason, interactionId, null);
+        }
 
         public CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
             long usedBytes, long totalBytes, boolean infinite, CellState state, boolean online) {
@@ -128,7 +137,12 @@ public final class StorageHostUI {
 
         public CellEntry atDrive(BlockPos position, ItemStack stack, @Nullable Component reason, @Nullable UUID interactionId) {
             return new CellEntry(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite,
-                state, online, position, stack.copy(), reason, interactionId);
+                state, online, position, stack.copy(), reason, interactionId, panelTierName);
+        }
+
+        public CellEntry withPanelTier(IECOTier tier) {
+            return new CellEntry(typeId, this.tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite,
+                state, online, position, stack, extractionBlockReason, interactionId, tier.getPanelTierName());
         }
 
         public CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
@@ -149,16 +163,24 @@ public final class StorageHostUI {
     }
 
     public static UIElement create(Config config) {
-        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));
+        return create(config, () -> null);
+    }
+
+    public static UIElement create(Config config, Supplier<IECOTier> panelTier) {
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier));
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
+        private final Supplier<IECOTier> panelTier;
         private StoragePanelSync sync;
         private StorageHostCharts charts;
         private int columns;
 
-        private JsonContext(Config config) { this.config = config; }
+        private JsonContext(Config config, Supplier<IECOTier> panelTier) {
+            this.config = config;
+            this.panelTier = panelTier;
+        }
 
         @Override
         public UIElement createCustom(JsonObject definition) {
@@ -169,7 +191,7 @@ public final class StorageHostUI {
                     columns = definition.get("cell_columns").getAsInt();
                     if (columns < 1 || columns > 32) throw new IllegalArgumentException("Invalid storage cell columns");
                     sync = new StoragePanelSync(root, () -> config, columns * 3);
-                    charts = new StorageHostCharts(sync, columns * 3, config.hostItem().get());
+                    charts = new StorageHostCharts(sync, columns * 3, config.hostItem().get(), panelTier);
                     yield root;
                 }
                 case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config);

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
@@ -79,6 +80,11 @@ public final class ComputationControllerUI {
     public static UIElement create(Config config,
                                    Supplier<ComputationControllerPanelState> panelState,
                                    UIElement guideButton, UIElement buildButton, UIElement buildWindow) {
+        return create(config, panelState, guideButton, buildButton, buildWindow, () -> null);
+    }
+
+    public static UIElement create(Config config, Supplier<ComputationControllerPanelState> panelState,
+        UIElement guideButton, UIElement buildButton, UIElement buildWindow, Supplier<IECOTier> panelTier) {
         Button cpuMode = ComputationControllerInteractions.createCpuSelectionButton(config);
         cpuMode.setId("computation-cpu-mode");
         Button frequency = ComputationControllerInteractions.createNetworkFrequencyButton(config);
@@ -127,7 +133,7 @@ public final class ComputationControllerUI {
             @Override
             public UIElement createCustom(JsonObject node) {
                 return switch (node.has("name") ? node.get("name").getAsString() : "") {
-                    case "computation_artwork" -> new ComputationControllerArtwork(config, panelState);
+                    case "computation_artwork" -> new ComputationControllerArtwork(config, panelState, panelTier);
                     case "computation_drive_grid" -> new ComputationDriveGrid(config);
                     case "computation_cpu_selector" -> selector;
                     case "computation_status" -> status;

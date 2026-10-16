@@ -126,7 +126,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             this::getComputationControllerPanelState,
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
             MultiblockBuilderUI.createInlineOpenButton(buildWindow),
-            buildWindow);
+            buildWindow, this::getTier);
         return ECOModularUI.create(root, holder.player);
     }
 

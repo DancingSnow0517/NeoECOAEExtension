@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
@@ -144,7 +146,7 @@ final class StorageCellGrid extends UIElement {
                 case StorageHostUI.CellEntry.KIND_FLUID -> "gui.neoecoae.storage.legacy.cell_info.fluid";
                 default -> "gui.neoecoae.storage.legacy.cell_info.other";
             });
-            lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_info", name, tierName(cell.tier())));
+            lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_info", name, tierName(cell)));
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_types",
                 HostText.usedPart(HostText.ae2Amount(cell.usedTypes()), cell.usedTypes(), cell.totalTypes()),
                 HostText.totalPart(capacity(cell.totalTypes()))));
@@ -176,7 +178,9 @@ final class StorageCellGrid extends UIElement {
 
     private static String fullCapacity(long value) { return value < 0 ? "\u221E" : HostText.fullBytes(value); }
 
-    private static String tierName(int tier) {
-        return switch (tier) { case 1 -> "L4"; case 2 -> "L6"; case 3 -> "L9"; default -> "L0"; };
+    static Component tierName(StorageHostUI.CellEntry cell) {
+        if (cell.panelTierName() != null) return cell.panelTierName();
+        return HostPanelTier.name(cell.stack().getItem() instanceof IBasicECOCellItem item ? item.getTier() : null,
+            cell.tier());
     }
 }

@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -33,9 +35,11 @@ final class StorageHostCharts {
     private final int pageSize;
     private final TypePanel typePanel;
     private final ItemStack hostItem;
+    private final Supplier<IECOTier> panelTier;
 
-    StorageHostCharts(StoragePanelSync sync, int pageSize, ItemStack hostItem) {
+    StorageHostCharts(StoragePanelSync sync, int pageSize, ItemStack hostItem, Supplier<IECOTier> panelTier) {
         this.sync = sync;
+        this.panelTier = panelTier;
         this.pageSize = pageSize;
         this.typePanel = new TypePanel();
         this.hostItem = hostItem.copyWithCount(1);
@@ -48,7 +52,10 @@ final class StorageHostCharts {
                 definition.has("text_align") && definition.get("text_align").getAsString().equals("right"));
             case "storage_tier" -> new PanelElement() {
                 @Override public void drawBackgroundAdditional(GUIContext context) {
-                    if (state().tier() > 0) texture(context, StoragePanelTextures.tier(state().tier()));
+                    if (!HostPanelTier.drawName(context, panelTier.get(), getPositionX(), getPositionY(),
+                        getSizeWidth(), getSizeHeight(), TEXT) && state().tier() > 0) {
+                        texture(context, StoragePanelTextures.tier(state().tier()));
+                    }
                 }
             };
             case "storage_host_icon" -> new HostIcon();
@@ -225,16 +232,21 @@ final class StorageHostCharts {
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
             texture(context, StoragePanelTextures.HOST_ICON_BACKGROUND);
-            if (state().formed() && state().tier() >= 1 && state().tier() <= 3) {
+            if (state().formed()) {
                 float x = getPositionX() + Math.round((getSizeWidth() - 13) / 2);
-                context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), false),
-                    x, getPositionY() + 1, 13, 8);
-                context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), true),
-                    x, getPositionY() + getSizeHeight() - 9, 13, 8);
+                drawMarker(context, false, x, getPositionY() + 1);
+                drawMarker(context, true, x, getPositionY() + getSizeHeight() - 9);
             }
             if (!hostItem.isEmpty()) context.graphics.renderItem(hostItem,
                 Math.round(getPositionX() + (getSizeWidth() - 16) / 2),
                 Math.round(getPositionY() + (getSizeHeight() - 16) / 2));
+        }
+    }
+
+    private void drawMarker(GUIContext context, boolean bottom, float x, float y) {
+        if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom, x, y, 13, 8)
+            && state().tier() >= 1 && state().tier() <= 3) {
+            context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), bottom), x, y, 13, 8);
         }
     }
 
