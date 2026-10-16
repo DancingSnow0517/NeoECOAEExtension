@@ -4,7 +4,7 @@
 
 > 基线：`4908324b`，`src/main/java` 103,965 行。本次正确性修复代码 HEAD `46ebae48`（第二、三批收尾起点 `d2e42073`）；`src/main/java` 102,706 行（净减 1,259 行，包含收尾前已加入的大型工作站功能）。
 > 路径默认相对 `src/main/java/cn/dancingsnow/neoecoae/`。
-> 最新完整验证见 10.9（1278 项，1274 通过、4 跳过）；`check`、JAR 打包及 AppBot 可选集成编译通过。
+> 最新完整验证见 10.12（1432 项，1428 通过、4 跳过）；启用 AppBot 的 clean 构建、独立 core/平台测试与 JAR/源码包通过，datagen 对照 714 个文件零差异。
 > 第 4 批的设计说明已并入本文件 §14（原 `ARCHITECTURE_T4_DESIGNS_ZH_CN.md` 已删除，可从 `69a20949` 恢复）。
 
 ---
@@ -19,12 +19,12 @@
 | 第 2 批 横切能力收口 | ✅ 已收尾并通过完整回归（见 10.6）；存储编码迁移归 T4-8 | 分批本地提交 + `aef79f56` | — |
 | 第 3 批 合并平行类 | ✅ 已收尾并通过完整回归（见 10.6） | 第 1～3 波提交 + `1fa605ba` / `85a6d77b` | — |
 | 第 4 批第一组（T4-9～T4-12） | ✅ | `7a99dff1`～`c8ccd192`（6 个代码提交），记录于 `1ecf242f` | 101,226 |
-| 第 4 批其余（T4-1～T4-8、T4-13～T4-19） | T4-3～T4-8 设计完成，待确认；其余未开始 | — | — |
+| 第 4 批其余（T4-1～T4-8、T4-13～T4-19） | ✅ 按兼容边界完成本轮实现；逐项范围与验证见 10.12 | 10 批代码提交与 1 批文档提交，见 10.12；未推送 | — |
 
 **下一步**：
-1. 第 4 批 T4-3～T4-8 的设计已在 §14，等待用户确认。T4-1、T4-2、T4-13～T4-19 还需写设计说明。每项确认后再动手（见 6、4.5）。
-2. 等待 7 节的待决项。其中 D6 阻塞 T4-19，D7 阻塞 UI 相关工作。
-3. 另开小修：`en_ud.json` 等生成文件整体刷新（见 7）。
+1. 第 4 批实现与兼容取舍已记录在 10.12；§14 保留历史设计快照，与实现有差异时以 10.12 为准。
+2. 后续进入目标版本移植和运行验证，在目标工程确认 AE2 API、旧版 UI 与 Java 工具链。D7/D8 属于目标版本选择，不阻塞当前 core 抽取。
+3. `en_ud.json` 等生成文件整体刷新仍应单独处理（见 §7）；客户端、真实存档和 datagen 验证状态见 10.12。
 
 ---
 
@@ -154,13 +154,13 @@
 
 | ID | 状态 | 内容 |
 |---|---|---|
-| T4-13 | 未开始 | 规划器泛型化（`<K>` + `KeyOps<K>` + `PatternView<K>`），收紧 `planner/compile` 边界，并把 `planner` 下的纯逻辑迁到 `core` |
-| T4-14 | 未开始 | 执行层拆分：调度、限额、停滞诊断、批量规划放 `core`；CPU、提供者推送放 L1 |
-| T4-15 | 未开始 | 存储引擎泛型化：无限存储引擎、字节计算、迁移模拟放 `core`；存储盘与 AE2 存储的适配放 L1 |
-| T4-16 | 未开始 | 持久化与网络抽象落地：`DataWriter`/`DataReader`/`PacketBuf` 的接口放 `core`，1.21.1 实现放 L2 |
-| T4-17 | 未开始 | UI 视图模型抽离：`StoragePanelState`、`CraftingControllerPanelState`、`HostText` 的内容部分等移入 `core`，不能引用 LDLib |
-| T4-18 | 未开始 | 语言 key 表与配置项表移入 `core`；1.21.1 的生成器读这些表 |
-| T4-19 | 未开始，阻塞于 D6 | 拆成 Gradle 多项目（`:core` 加各版本工程）。拆分前先保证 `core` 包的禁用 import 测试长期为绿 |
+| T4-13 | 通用算法抽取完成，平台边界保留 | 泛型规划视图、图/库存/需求传播/路线与循环数学迁入 core；AE 语义与协调适配保留，见 10.12 |
+| T4-14 | 代码完成，见 10.12 | 调度数学、限额、停滞时钟和阶段屏障放 core；CPU、提供者推送放平台层 |
+| T4-15 | 代码完成，见 10.12 | 泛型无限存储引擎、精确总量与字节/迁移计算放 core；SavedData 与盘内容适配保留 |
+| T4-16 | 代码完成，见 10.12 | core 的 DataReader/DataWriter/PacketBuf 与共享 codec；NBT/MC 网络适配保留旧格式 |
+| T4-17 | 代码完成，见 10.12 | core 承载控制器状态、存储视图和 HostText 数值数据，不依赖 LDLib |
+| T4-18 | 代码完成，见 10.12 | 配置定义和三份语言生成表放 core；1.21.1 builder/generator 遍历绑定 |
+| T4-19 | 代码完成，见 10.12 | 真实 core/mc1211 多项目、独立 core 产物及根任务兼容；其他版本项目随实际移植建立 |
 
 ---
 
@@ -227,25 +227,25 @@ T1-1～T1-10 全部完成，共删除 22 个 Java 类、33 个未引用的模型
 
 ---
 
-## 6. 第 4 批待办
+## 6. 第 4 批任务状态
 
-第 4 批每项都需要先写设计说明，经用户确认后再动手。
+原计划逐项确认；用户于 2026-10-16 明确授权一次完成第 4 阶段。当前实现与兼容调整统一见 10.12，历史设计保留在 §14。
 
 | ID | 状态 | 内容 |
 |---|---|---|
-| T4-1 | 未开始 | 精确数量类型以 `PlannerAmount` 为准（并入"无限"标记），逐步替换其余 5 种 |
-| T4-2 | 未开始 | 图模型：`CraftingGraphSnapshot` 作为网络 DTO，`CraftingDependencyGraph` 作为规划图，客户端和 trace 从这两者派生 |
-| T4-3 | 设计完成（§14） | 执行模式枚举、求解状态枚举各合一；规划结果统一由 `ECOExecutionContract` 承载 |
-| T4-4 | 设计完成（§14） | 模式身份统一；工作 DTO 合并为 `CraftWork`；推送守卫只保留一份，删除废弃的 `pushBatch`；轮询游标复用 `ECOProviderCursor` |
-| T4-5 | 设计完成（§14，与 T4-4 同组） | 并行提供者去掉多余包装层；批量规划器改为无状态单例 |
-| T4-6 | 设计完成（§14） | 两个 C2S 包合并（模式枚举 + 共享校验）；新增 `ECOPayload` 基础设施；增量同步通道 `DeltaSyncChannel` |
-| T4-7 | 设计完成（§14，与 T4-6 同组） | `CraftConfirmMenuMixin` 的循环物品投影、`CraftingServiceMixin` 的集群遍历移出 mixin；规划会话复用 `ECOCancellation` |
-| T4-8 | 设计完成（§14） | 存储：`StorageInterfaceFilter` → `ConfigInventory` + `IPartitionList`（兼容旧 NBT）；字节计算抽进 `StorageByteAccounting`；批量盘不再承担父类的初始化开销；IO 端口传输骨架复用；存储 BE 的透传方法收敛。**另含** T2-4 留下的 `ECOMegaLongBulkStorageCell.writeKey/readKey`、`StorageInterfaceFilter.encode/decode` 改用 `AEKey.toTagGeneric/fromTagGeneric`，读取时回退旧格式 |
+| T4-1 | 代码完成 | PlannerAmount 统一有限值/无穷，旧公开类型与存档兼容，见 10.12 |
+| T4-2 | 代码完成 | 泛型规划图与布局视图，快照保持网络 DTO，见 10.12 |
+| T4-3 | 代码完成 | 单一模式分类、惰性合同缓存和注册表合同收口；旧公开入口兼容，见 10.12 |
+| T4-4 | 代码完成，按语义调整 | 代际字段、工具池 DTO 和工作容量验证去重；公开 work、不同身份相等域和阶段守卫有意保留 |
+| T4-5 | 代码完成 | 无状态规划器复用；并行提供者实际逻辑收敛，旧入口兼容 |
+| T4-6 | 代码完成 | 共享下单校验、ECOPayload 与 DeltaSyncChannel；旧包与基线失败语义兼容 |
+| T4-7 | 代码完成 | 投影/CPU 查找移出 mixin，规划会话与取消入口复用 |
+| T4-8 | 代码完成，按兼容调整 | ConfigInventory/IPartitionList、批量盘初始化、IO 入口及 BE 透传收敛；保留旧 NBT，显式 key-type codec，见 10.12 |
 | T4-9 | ✅ | `integration/`、`compat/` 边界重划；`mods.toml` 补全可选依赖（见 10.4） |
 | T4-10 | ✅ | 语言文案：死 key 清理、拼写改名、配置文案三处统一（见 10.4） |
 | T4-11 | ✅ | AE2 fork 类评估：两个都保留；`ExecutingCraftingJob` 的损坏恢复小修已完成（见 10.4） |
 | T4-12 | ✅ | `util.ICellHost` 别名删除，改用 API 版本 |
-| T4-13～T4-19 | 未开始 | 见 4.5 |
+| T4-13～T4-19 | 本轮实现完成，平台边界保留 | 见 4.5、10.12；其他版本实际移植不计为本轮已验证 |
 
 ---
 
@@ -258,9 +258,9 @@ T1-1～T1-10 全部完成，共删除 22 个 Java 类、33 个未引用的模型
 | D1 | `ECOComputationCoolingControllerRenderer` 注册还是删除？ | ✅ 删除 |
 | D2 | 溢出安全加法遇到负输入的统一语义 | ✅ 采用 `NEMath` 的"先截为 0"；语义不同的调用点保留私有实现并加注释 |
 | D3 | 拼写错误的语言 key 改名是否保留别名 | ✅ 直接改名，不保留别名，CHANGELOG 说明（见 10.4） |
-| D4 | 第 4 批各项是否执行 | ✅ 逐项出设计说明后由用户确认 |
+| D4 | 第 4 批各项是否执行 | ✅ 用户于 2026-10-16 授权一次完成第 4 阶段，见 10.12 |
 | D5 | 1.7.10 的 Java 工具链 | ✅ 采用 jvmDowngrader（语法和标准库一起降级）。**GTNH 构建脚本的可行性验证结论未记录，需补** |
-| D6 | 多版本工程组织：① 每版本一分支；② 单仓多项目；③ Stonecutter 类预处理器 | ⏳ 默认 ②（`:core` + `:mc1710` / `:mc1201` / `:mc1211` / `:mc2612`），**待确认，阻塞 T4-19** |
+| D6 | 多版本工程组织：① 每版本一分支；② 单仓多项目；③ Stonecutter 类预处理器 | ✅ 在整体实施授权内采用 ②，已建立 `:core` + `:mc1211`；其他版本随实际移植建立，无空壳项目 |
 | D7 | 1.20.1 的 UI 方案：LDLib 1.x 还是 AE2 `AEBaseScreen` + 自写 JSON 布局渲染器 | ⏳ 默认先评估 LDLib 1.x 与当前 JSON 布局的契合度，再决定 |
 | D8 | 1.7.10 的功能范围 | ⏳ 默认只移植核心机器、规划器和存储；集成按 GTNH 整合包实际存在的模组另行规划 |
 | D9 | `eco.lss` 中 `BUTTON_HOVER` 等悬停引用 | ✅ 指向 `BUTTON_HIGHLIGHTED`，字段和 PNG 已核对 |
@@ -568,9 +568,94 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 - 补充验证：启用 `-PenableAppBotIntegration=true` 后，`check jar compileJava` 通过，完整测试仍为 1278 项、1274 通过、4 跳过、0 失败。
 - 构建环境：Curse Maven 下载 Useless Mod 2.4.6 超时后，从同一原始地址下载 JAR（SHA256 `b86a12e8bd6417fd3c89f7c723ca195d68d1f9f9f099480850ffd3c93e5897bc`），用仓库外临时 init script 直接提供该文件，项目依赖声明未为验证而修改。未进行游戏客户端、真实存档或 datagen 验证。
 
+### 10.10 第 4 批首轮推进：T4-3～T4-5 部分实施（2026-10-16）
+
+- 基于 `cfb40d0e`，用户授权多 agent 继续推进。两条实施路线分开修改文件，随后交叉审查，由主代理串行运行 Gradle；本轮改动尚未提交。
+- **T4-3 S1**：移除注册表中仓内零调用的 `activeSubmissionMetadata` / `SubmissionMetadata`、`recoverSchedule` / `RecoveredSchedule`，删除合同的 `phased()` 与 `ExecutingCraftingJob` 的死 import，清理失效 Javadoc。交叉审查发现 `docs/API.md` 与 `docs/API_ZH_CN.md` 的示例使用 `executable()`，因此有意保留该方法，修正原设计直接删除的建议。其余删除项仍是 public 符号，未知第三方若调用会产生源码/二进制兼容影响；仓内零调用不等同于对外兼容保证。
+- **T4-3 S0**：新增 `ECOPlanningResultExecutionContractTest`，共 5 个实际路径用例。非 SUCCESS 的 ORDERED / DYNAMIC 结果跳过阶段构建、返回 NATIVE 合同但仍预期循环；SUCCESS 的相同循环缺执行顺序时通过实际调度构建器失败，转为 BLOCKED；未解循环直接保持 BLOCKED。未修改这些回退与拒绝行为。
+- **设计更正**：§14 原先声称非 SUCCESS 含环结果不可能返回 NATIVE，复核后不成立，已更正。继续 S2～S4 前需沿实际提交路径检查状态过滤和外部 CPU 准入；不能将 NATIVE 合同等同于规划成功。本轮不据此修改回退策略。
+- **T4-4 局部整理**：`ECOCraftingThread` 的虚拟工作与批量工作共用 `canRetainWork`，保留 output / input / remainder 的容量校验顺序和参数。三个 record getter 提前求值无副作用；冷却扣费、准入与启动时序不变。未移除 worker / thread 的准入守卫。
+- **T4-5 局部整理**：`ECOExactBatchPlanner` 与 `ECOStatefulBatchPlanner` 各复用一个 `static final ECOBatchPlanner`，替代四处每次调用时分配；该规划器没有实例状态，方法只使用参数与局部变量。
+- **验证**：`check jar --offline --no-configuration-cache --console=plain`（使用 10.9 的仓库外临时依赖 init script）通过。XML 统计共 1283 项、1279 通过、4 跳过、0 失败/错误；跳过项同 10.9。`git diff --check` 通过。首轮按类筛选运行时，`ECOBatchExecutorTest` 出现 Mockito / 类初始化失败；完整套件通过，单独运行的初始化依赖仍未修复，不将定向运行表述为通过。未进行客户端、真实存档或 datagen 验证。
+- **尚未实施**：T4-3 S2～S4 模式合并与合同字段收口；T4-4 身份/DTO/派发守卫/游标改造；T4-5 并行适配层收敛；T4-6～T4-8。§14 中相应“现状”与行数是设计时快照，以本节增量为准，不能将整项任务标为完成。
+
+### 10.11 第 4 批第二轮：模式与合同缓存、提交边界及内部去重（2026-10-16）
+
+- 延续 10.10 的未提交改动，三条 agent 路线分别负责模式/合同、批量内部去重、提交链审查与修复，再交叉审查。已 `fetch origin`，`origin/main` 仍全部包含于当前分支，未另行合并或推送；本轮尚未提交。
+- **T4-3 S2，按兼容目标调整**：实际分类统一为 `ExecutionMode`，共享原精确加法、相关身份溢出与循环求解校验；组件判断迁入 `CycleExecutionDisposition`。仓内调用改为 `executionMode()` / `requiresCycleExecution()`。旧 `ECOExecutionRequirement` 及 `executionRequirement()` 仅保留 deprecated 兼容入口，分类委托至唯一实现，没有第二份算法。`Schedule.Type`、组件 disposition 与持久化枚举名称不合并、不改名。
+- **T4-3 S3，按延迟计算目标调整**：正常执行解析只发布一个 `volatile ECOExecutionContract`，在同一把锁内首次构建，后续访问复用合同和签名。保留 final `planningId` 与初始诊断分类，避免只读 ID / 模式时计算签名；分类模式与非成功诊断合同的 NATIVE 模式仍有意区分。无法取得有效签名时另存 `resolutionError`，保持旧 `EXECUTION_PLAN_BUILD_FAILED` / BLOCKED 诊断及一次解析语义，不制造缺签名合同。BLOCKED、非 SUCCESS、空组件或无 plan 的纯诊断读取仍不计算签名。
+- **模糊匹配快照**：setter 复制传入集合，同锁替换已缓存合同的不可变快照，复用签名与执行计划；外部集合后续修改不影响合同，首次读取合同后再更新配置也不会丢失。
+- **提交边界修复**：正常 planner service 将非 SUCCESS 结果桥为 simulation，service 层已有拒绝，因此此前模型边界不能直接等同于 UI 可复现故障。但严格匹配的失败循环仍可登记防御元数据，且 CPU 直接入口绕过 service；原 lifecycle 不检查 BLOCKED。现在 `resolveContract` 仅在严格匹配后，把非 SUCCESS 且需要循环执行的诊断投影为 `BLOCKED / PLANNING_NOT_SUCCESS:<status>` 提交合同；原 BLOCKED 及错误保持不变。CPU 入口在抽取材料、启用精确库存与建立任务前拒绝 simulation 或 BLOCKED。纯 DAG 缺料强制开工仍保留，精确订单独立执行计划入口保留。
+- **T4-4 内部去重**：`ECOFastPathKey` 不再重复持有 `reloadGeneration`，经 `patternKey` 读取，访问器与缓存相等域保持；工具池直接返回现有 `BatchContract`，移除 package-private `ToolPoolBatch` 及一对一转换，不更改公开提供者接口。
+- **新增回归**：合同首次签名计算/缓存、并发发布、fuzzy 快照更新、签名缺失/null/异常及恢复、相关模式身份数量溢出；全部 10 个失败状态 × ORDERED / DYNAMIC 的真实登记与外部两个 CPU hook 拒绝；直接 CPU 拒绝无物料副作用、simulation 拒绝、纯 DAG 强制开工准入；缓存代次隔离、混合耐久工具消耗/返还/容量与预览库存不变。
+- **验证**：`check jar -PenableAppBotIntegration=true --offline --no-configuration-cache --console=plain` 使用 10.9 的仓库外 init script，通过完整测试与打包。共 1318 项、1314 通过、4 跳过、0 失败/错误，较 10.10 新增 35 个测试实例；跳过项仍为性能基准及三个 AE2LT API 条件用例。`git diff --check` 通过，产物 `build/libs/neoecoae-21.2.6.jar`（5,713,753 字节）。未进行游戏客户端、真实存档或 datagen 验证。
+- **剩余边界**：普通 `ECOForcedCraftingPlan` 会把 missing 移入 emitted，改变 `PlanIdentity` 的完整身份；本轮未为这种循环缺料包装建立新的元数据重绑机制，不能声称所有强制循环下单已验证。公开 `ECOParallelProviderAdapter` 与注册表保留，避免为内联再添加兼容包装。T4-3 S4、`CraftWork`、跨层派发守卫、游标及 T4-6～T4-8 尚未实施。
+
+
+### 10.12 第 4 批整体实施与收尾（2026-10-16）
+
+**授权与保护**：用户在 10.11 后明确要求一次完成第 4 阶段，并允许多个 agent，覆盖旧计划中的逐项等待确认。开工前已将当前 `src`、`docs`、构建文件及 diff 快照保存到仓库外 `Temp/neoecoae-phase4-snapshots/20261016-193810-before-phase4.zip`。本节记录本轮实现与后续分批本地提交；其他 Minecraft 版本的实际移植另行进行。
+
+**逐项实现与有意保留的边界**：
+
+| 任务 | 实现与兼容取舍 |
+|---|---|
+| T4-1 精确数量 | `PlannerAmount` 统一有限值与显式正无穷，拒绝把无穷缩窄为有限数；`ExactAmount`、`HugeAmount` 保留公开接口和存档结构，算术委托同一实现。`ExactCycleAmount` 继续使用无损 `BigInteger`，不为统一名称引入额外转换。 |
+| T4-2 图模型 | 泛型 `DependencyGraph<K,N,E>` 承载闭包与 SCC；AE `CraftingDependencyGraph` 保留适配。快照保持原 DTO/协议，通过 `LayoutGraph` / `CycleTopology` 提供投影视图；布局、空间索引、compact-tree 与循环簇投影迁入 `core.graph.presentation`，旧公开入口委托。 |
+| T4-3 执行合同 | 延续 10.11 的单合同缓存；注册表 `Entry` / `SubmissionAlias` 持有合同，恢复接口由合同派生。恢复 `activeSubmissionMetadata` / `SubmissionMetadata` / `recoverSchedule` / `RecoveredSchedule` 为 deprecated 兼容入口，避免仓内零调用清理破坏外部调用。 |
+| T4-4 身份与工作 | 代际信息从 `patternKey` 读取，工具池复用公开 `BatchContract`；批量/虚拟工作共用 `CraftWorkValidation`。保留两个公开 work record 以及 worker/thread 的不同阶段守卫；真实 tracker 作用域、提供者能力与 bus 空间检查继续在平台层执行。 |
+| T4-5 批量与提供者 | 无状态 planner 实例复用；并行提供者的实际逻辑收敛到 `ECOFastPathFacade`，旧公开 `ECOParallelProviderAdapter` 为 deprecated 兼容入口。 |
+| T4-6 网络 | `CraftSubmitC2SPacket` 统一 STANDARD/BIG_ORDER 的 menu/container/stillValid 校验；旧包 ID 与 VarInt+boolean 编码保留。`ECOPayload` 统一调度入口。`DeltaSyncChannel` 提供准备/提交基线，成功排队后才提交同步状态；`MapDelta` 保持兼容。 |
+| T4-7 mixin 与会话 | 循环材料投影迁入 `ECOCycleItemProjection`，CPU 查找迁入 `ECOCraftingServiceClusters`；mixin 保留挂钩。`ECOPlanningSessions.open` 统一库存捕获与 session 创建，服务、巨量订单和 calculation mixin 共用；取消语义统一到 `ECOCancellation.INTERRUPTIBLE`。 |
+| T4-8 存储适配 | Filter 使用 `ConfigInventory`/`IPartitionList`，保留旧 `CompoundTag` 编码；键通过 `AEKeyType.CODEC` + `loadKeyFromTag` 解析，避免缺失注册占位与测试 bootstrap。批量盘保留 v1 `item/components`、损坏/cutoff/unresolved 信息，并通过 protected 开关跳过不需要的普通盘初始化。IO 用 OperationMode 入口，保留旧三个 boolean 重载、5 次/tick 及供能/恢复语义。删除 BE 死透传。 |
+| T4-9～T4-12 | 延续已完成的包边界、语言、fork 评估与别名清理（10.4）。 |
+| T4-13 规划器 | `PatternView<K>` / `KeyOps<K>` 无逐 key 包装；core 承载图闭包/SCC、可达性、精确计数/库存、无环需求传播与排序、候选回退、特殊需求递归/工具数学、joint-route 数学、联合产物需求前瞻队列、启动供给层级与低层级路线回溯、simplex/整数分支、单模式增长及 indexed-cycle 搜索。AE 配方匹配、ItemStack、来源跟踪和协调策略留在适配层。未把全部 `planner` 类宣称为平台无关；`:core` 是可独立编译与测试的可复用算法集。 |
+| T4-14 执行层 | 限额、dispatch budget、批量调度数学、ordered witness step、阶段屏障与 stall 时钟迁入 `core.execution`，生产路径委托；AE CPU/provider/NBT 留在平台层。 |
+| T4-15 存储引擎 | `ExactStorageEngine<K>`、精确总量/算术/迁移计算迁入 `core.storage`，保留 long 快路与大整数语义。旧 `StorageByteAccounting` 保留三个 deprecated 入口。SavedData、盘内容和 MC 生命周期继续适配，未替换其他分支的 File/WAL 持久化。 |
+| T4-16 持久化与传输 | `DataReader<K>` / `DataWriter<K>` / `PacketBuf<K>` 位于 core，金额映射与完整执行计划 codec 共用；NBT adapter 负责 AE pattern/key/GenericStack。图内层字段经 PacketBuf，MC 外层压缩/registry 保留。旧 NBT schema、重复次数默认值、UTF 字段和 enum ordinal 编码保持并有回归测试。 |
+| T4-17 UI 状态 | crafting/computation packed-slot 状态、storage 视图/分页/大整数容量、HostText 数值内容迁入 `core.ui`；GUI adapter 保留 Component/Fluid/ItemStack/NBT/LDLib 行为，界面框架选择不影响这部分抽取。 |
+| T4-18 声明表 | 15 个配置项的键、默认值、范围、注释及 5 个 section 位于 `ConfigDefinitions`；NeoForge builder 遍历绑定。三份语言生成主体迁入 core 表，旧 generator 委托；生成的语言 JSON 未改写。 |
+| T4-19 多项目 | 建立真实 `:core` Java library 与 `:mc1211` NeoForge 子项目。根任务保留原 build/check/jar/runClient/runData 入口及 src/build/run 路径。模组 JAR 内嵌 core，发布元数据不再额外依赖重复 core JAR；平台 artifactId 保持 `neoecoae`。core 独立产出 JAR/sources/POM，运行依赖仅 fastutil。CI 路径覆盖两个子项目；未创建空壳其他版本项目，jvmDowngrader/GTNH 验证留给实际移植。 |
+
+**正确性与兼容回归**：
+
+- 提交入口在提取材料之前拒绝 simulation/BLOCKED。普通 forced 包装通过 final wrapper 的 `metadataSource` 继承来源；不放宽任意 foreign plan 的身份校验。
+- 合同签名冻结四张材料/任务表；缓存后任务向量改变时返回 `PLAN_IDENTITY_CHANGED`，拒绝把旧调度套用到新 DAG。
+- 修复 dispatch 在 `accepted=Long.MAX_VALUE` 时的计数溢出，以及无限存储总量减法失败后破坏内部状态的问题。
+- 保留 NBT schema、批量盘 v0/v1、损坏/cutoff/unresolved、`ae2:i`/`ae2:f` 旧键类型、UTF/枚举顺序与网络版本前缀 `3/`。
+
+**最终验证**：启用 AppBot，以 `clean build sourcesJar` 加两个子项目的 POM/Gradle metadata 生成任务执行；使用 `--offline --no-build-cache --configuration-cache --console=plain` 及仓库外 `phase4-cached-useless.init.gradle`，避免本地 Curse Maven 缓存缺包。该脚本仅对声明 Useless 依赖的项目替换本机已缓存的同版本 JAR，未修改仓库依赖版本。最终 `BUILD SUCCESSFUL in 1m 11s`，27 个任务中 26 个执行，配置缓存写入成功。
+
+- 测试 XML：`core/build/test-results/test` 104 项全通过；`build/test-results/test` 1328 项、1324 通过、4 跳过。合计 **1432 项、1428 通过、4 跳过、0 失败/错误**。跳过项仍为性能基准和三个 AE2LT API 条件用例。
+- 模组 `build/libs/neoecoae-21.2.6.jar` 为 5,879,559 字节，SHA-256 `ac91e201254f6682ba65c5fb4d576c20200436e00d805ba4af47b502c797a877`；元数据、mixin、KubeJS 插件声明、语言、指南与内嵌依赖均存在。
+- 独立 `core/build/libs/neoecoae-core-21.2.6.jar` 为 277,898 字节，SHA-256 `a3c3b48c829442b6f9d7d333476a40f923444ba66b98f287f18d13f2e99c55fd`。146 个 core class 与模组内对应条目逐字节相同；所有 JAR 无重复 ZIP 条目。core 字节码不含 MC/NeoForge/AE2/LDLib/Mojang 引用，运行时发布依赖只有 fastutil。
+- 模组与独立 core 源码包各含全部 78 个 core 源文件；POM 与 Gradle metadata 均无重复 core JAR 依赖。`git diff --check` 和冲突标记扫描通过。此后按用户要求分批本地提交，未推送。
+
+**分批本地提交（2026-10-16）**：从 `cfb40d0e` 起按功能拆分，标题与说明均为中文，相关回归测试跟随对应实现。每批检查明确暂存路径与 `git diff --cached --check`；图端口分配器按移动前后路径一起核对。提交时仅清理 `ECOCraftingServiceClusters` 一处空行的行尾空格，其他源码及构建文件与提交前快照字节一致。未重新运行整套测试，沿用上面的完整验证结果。
+
+| 顺序 | 提交 | 内容 |
+|---|---|---|
+| 1 | `8fd6b5e8` | 统一精确数量算术并保留旧类型兼容 |
+| 2 | `810b05b7` | 抽取持久化与精确数量传输编解码 |
+| 3 | `d85178c1` | 抽取规划器通用算法并复用规划会话 |
+| 4 | `8e9c680b` | 收敛执行合同并抽取调度决策 |
+| 5 | `aeb426ca` | 迁移图布局与客户端投影到通用核心 |
+| 6 | `ac57dca8` | 统一合成下单校验并修复增量同步基线 |
+| 7 | `0d04927f` | 抽取精确存储引擎并整理存储适配 |
+| 8 | `6af46ce9` | 抽取控制器与存储面板状态模型 |
+| 9 | `1bb6649e` | 集中配置定义与语言生成数据表 |
+| 10 | `99069e73` | 拆分核心库与1.21.1平台构建工程 |
+| 11 | 本节所在文档提交 | 更新第4阶段实施与验证记录 |
+
+**datagen 对照**：当前实现与合并 main 后的 HEAD `cfb40d0e` 分别在仓库外生成，使用相同的 `run/mods` 环境与 AppBot 编译开关。两次 Gradle 均报告 `BUILD SUCCESSFUL`；去除 `.cache` 后各 714 个输出文件，文件名与内容逐字节完全相同。输出保留在 `%TEMP%/neoecoae-phase4-datagen/{20261016,head}`，没有覆盖仓库生成资源。与旧的已提交资源之间存在历史差异，因此未整体刷新生成文件。环境中的 AppliedSoul JEI 插件缺少 `IngredientConverter` 警告两次均存在，不是本次重构引入。
+
+**构建入口**：根目录 `test --tests '*NEConfigCommentLangTest'` 保持平台筛选，并独立验证完整 core；筛选不存在的测试仍失败。单独筛选 core 使用 `:core:test --tests ...`。根目录 `runClient --args=... --dry-run` 配置通过；开发启动把平台与 core 输出归入同一个 mod。平台与 core 的 POM/Gradle metadata 分别使用 `neoecoae` / `neoecoae-core`，平台不附加重复的 core 依赖。
+
+**边界**：当前完成的是本分支第 4 批的代码整理、可复用 core 与 1.21.1 适配。其他 MC 版本、AE2 分支 API、旧版本 UI 框架与 Java 降级仍需在目标工程验证。尚未进行游戏客户端与真实存档验证；datagen、编译和 JVM 测试不能替代这些验证。
+
 ---
 
-## 11. 与原审计报告的对齐（2026-10-14 复核）
+## 11. 与原审计报告的对齐（2026-10-16 更新）
 
 复核方法：对审计中每条可以 grep 的结论重新搜索源码。无法通过搜索判断的（如通读大文件）标为"未做"。
 
@@ -589,9 +674,9 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 | 一.1 数字格式化入口多 | ✅ | `formatExact` 仅按空值与显示模式选择 `AEKey.formatAmount` / `BigNumberFormatter` / `HostText`，没有独立数值格式化算法 |
 | 一.2 clampToLong | ✅ | `bounded` 的非负数计算共用 `NEMath.clampToLong`，保留负数、负溢出与 null 的公开行为 |
 | 一.3 BigInteger 网络编解码 | ✅ | 见 5.3 T2-3；图 DTO 字符串协议有意保留 |
-| 一.4 AEKey 与 `Map<AEKey,BigInteger>` 的 NBT | 部分 | `ECOExactInventory` 未改；`StorageInterfaceFilter` 与批量盘键编解码归入 T4-8 |
-| 一.5 精确数量类型 | 未开始 | T4-1 |
-| 一.6 图模型 | 未开始 | 图模型统一是 T4-2；Kahn 见 5.3 T2-6 |
+| 一.4 AEKey 与 `Map<AEKey,BigInteger>` 的 NBT | ✅（本批范围） | 共享 AmountMapCodec/NBT adapter，Filter 与批量盘兼容旧键格式，见 10.12；特殊槽位编码按语义保留 |
+| 一.5 精确数量类型 | ✅（兼容收敛） | PlannerAmount 统一算术；公开类型与存档兼容入口保留，见 10.12 |
+| 一.6 图模型 | ✅（按投影语义） | 泛型规划图、网络 DTO 与客户端投影视图，布局算法迁入 core，见 10.12 |
 | 一.7 线程作用域栈 | ✅ | 专用生命周期有意保留，见 5.3 T2-9 |
 | 一.7 `setChanged(); markForUpdate();` | ✅（等价调用对） | NEBlockEntity 的等价调用对已收口；大型工作站走 AE2 基类，不能复用该方法；独立同步或带分支的路径保留 |
 | 一.7 yRot、`executeIfPossible`、压缩链判等 | ✅ | `BlockStateUtil` 中只剩 1 处 `toYRot() + 180` |
@@ -608,17 +693,17 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 | 二 注册链（NEItems / NEBlocks / NEBlockEntities） | ✅ | T3-11；过度抽象的部分已回滚（10.5） |
 | 二 GUI 小件 | ✅（本批范围） | JSON 内联、颜色差异已确认；四个槽位子类的绘制、同步与交互职责不同，有意保留；面板状态编码归 T4-17；不存在的类已排除 |
 | 三 `ECOStorageCell` 对 `BasicCellInventory` | 部分 | 已用 `ConfigInventory` 与 `IPartitionList`；剩余偏离是有意的（315 类型、封存、迁移、批量语义），见设计说明 T4-8 |
-| 三 批量盘的父类初始化开销 | 未做 | T4-8 |
+| 三 批量盘的父类初始化开销 | ✅ | protected 初始化开关跳过配置/升级/NBT 普通盘路径，保留公开继承与工厂，见 10.12 |
 | 三 存储盘 tooltip 与拆解 | 部分 | `CellTooltips`、`CellDisassembly` 已抽出，tooltip 只构建一次；未改用 AE2 `BasicCellHandler` 本身 |
-| 三 `StorageInterfaceFilter` 对 `ConfigInventory` | 未做 | T4-8 |
-| 三 `ECOIOPortTransfer` 对 `transferContents` | 未做 | T4-8 |
+| 三 `StorageInterfaceFilter` 对 `ConfigInventory` | ✅ | ConfigInventory/IPartitionList 适配与旧 NBT 兼容，见 10.12 |
+| 三 `ECOIOPortTransfer` 对 `transferContents` | ✅（按精确数量语义） | 统一 OperationMode 入口；供能、精确数量、回退及旧重载保留，见 10.12 |
 | 三 `ECOCraftingCpuView.addAllSaturating` | 保留 | 与审计结论不同：AE2 `KeyCounter.addAll` 会溢出，保留（见 5.3 T2-11） |
 | 三 `NEBlockEntityTicker` | 不删除 | 被 `NEBlockEntityBuilder.serverTicker` 使用，见 §12 |
 | 三 `ECOAe2LtDirectDispatch` 反射 `getSendList` | 有意保留 | 可选适配器用反射预解析完整传输契约；直接依赖任一 mixin accessor 会改变未注入环境与测试的兼容条件 |
 | 三 `clamp(float…)` 自写版本 | ✅ | 两处调用改用 `Math.clamp`；上下界为 0.15 / 2.5 与 0.15 / 1.5 |
 | 三 `MultiBlockInfoWrapper` 手工 ModularUI | ✅ | 改用 `ECOModularUI.create(root)` |
 | 三 fork 类对照 AE2 19.2.18 | ✅ | T4-11：两个都保留 |
-| 四 执行模式、规划结果、模式身份、DTO、推送守卫、并行提供者、存储透传、规划会话样板、两个 C2S 包、mixin 业务逻辑 | 未开始 | T4-3 至 T4-8 |
+| 四 执行模式、规划结果、模式身份、DTO、推送守卫、并行提供者、存储透传、规划会话样板、两个 C2S 包、mixin 业务逻辑 | ✅（按兼容边界） | 实际逻辑已收敛；公开 DTO/旧入口、不同身份相等域及各阶段守卫有意保留，见 10.12 |
 | 四 `ICellHost` 别名 | ✅ | T4-12 |
 | 五 死代码（类、方法、字段、33 个模型 JSON、语言 key） | 基本完成 | 残留见下 |
 | 五 残留的空目录 | 未做 | `api/me/worker`、`blocks/entity/storage/handler`、`crafting/graph/client`、`terminal/bigamount` |
@@ -681,6 +766,8 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 
 ### T4-3 执行模式与规划结果载体
 
+> 实施增量见 10.10、10.11：S0 / S1 已推进，S2 / S3 按兼容与延迟计算要求调整实施；旧枚举保留 deprecated 入口，`executable()` 保留，S4 尚未实施。下列形状与估算属于设计快照，以增量记录为准。
+
 #### 1. 现状
 
 **执行模式（4 类，语义并不同轴）**
@@ -695,7 +782,7 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 
 **规划结果载体**
 - `ECOPlanningResult`（class，203 行）：独立持有 `planningId`、`executionRequirement`、`executionPlan`、`executionPlanError` 四个字段（`:32–35`）。`executionContract()`（`:191–202`）每次拼装合同。
-- `ECOExecutionContract`（record，37 行）：`planningId`、`planSignature`、`mode`、`executionPlan`、`error`。main 中没有任何 `error` 读取，只有构造；`executable()`、`phased()` 无调用方。`mode` 与 `executionPlan.mode()` 重复，没有一致性校验。
+- `ECOExecutionContract`（设计时 record，37 行）：`planningId`、`planSignature`、`mode`、`executionPlan`、`error`。设计时 main 中没有任何 `error` 读取，只有构造；`executable()`、`phased()` 无仓内 Java 调用方，但双语 API 文档使用 `executable()`，本轮保留它。`mode` 与 `executionPlan.mode()` 重复，没有一致性校验。
 - 注册表（`api/me/planning/ECOPlanningResultRegistry.java`）：
   - `SubmissionMetadata`（`:433`）、`activeSubmissionMetadata`（`:192`）、`RecoveredSchedule`（`:479`）、`recoverSchedule`（`:249`）：全仓零外部调用，是死代码。
   - `RecoveredExecutionMetadata`（`:472`）：只被 `resolveExecutionPlan` 使用。
@@ -703,23 +790,22 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 - 字段名漂移：同一语义在三处叫 `error` / `executionPlanError` / `rejectionReason`。`rejectionReason` 是注册校验原因（如 SCHEDULE_EMPTY），不是计划错误，不能直接合并。
 - `ExecutingCraftingJob.java:54` 只 import 了 `ExecutionMode`，未使用。
 
-**关于一处"不一致"的复核（设计代理报告，已由总策划核实）**：代理报告"非 SUCCESS 且含环时，requirement 为 ORDERED/DYNAMIC，但 `executionContract()` 返回 NATIVE"。核实 `resolveExecutionPlan`（`ECOPlanningResult.java:71–106`）后，这条路径**未复现**：
-- ORDERED / DYNAMIC 下，若构建失败或阶段为空，都会设置 `error` 并把 requirement 置为 BLOCKED，合同随之返回 BLOCKED；
-- `executionContract()` 只在 `executionPlan == null` 时返回 NATIVE，而这种情况只会出现在 requirement 为 NONE 时；
-- 因此 `ECOExternalCpuSupport:26`（只看 `contract.mode() == NATIVE`）在这条路径上不会误放行。
-- 仍需一条定向测试来锁定这个行为，再考虑合并。
+**2026-10-16 更正：非 SUCCESS 含环结果确实可能返回 NATIVE 诊断合同。** 旧构造器对 `status != SUCCESS` 直接设置 `executionPlanResolved = true`；10.11 的缓存实现通过 `needsExecutionPlan()` 保留这一诊断行为。因此分类为 ORDERED / DYNAMIC 的非成功结果跳过构建、没有 executionPlan，`executionContract()` 会返回 NATIVE；不能据此认定没有循环执行需求。
+- SUCCESS 结果实际进入构建时，ORDERED / DYNAMIC 构建失败或阶段为空才会转为 BLOCKED；分类已经是 BLOCKED 的非成功结果也维持 BLOCKED。
+- `ECOBigOrderController` 仅在 SUCCESS 后启动子任务，注册表的提交别名也要求 SUCCESS。10.11 已在 `resolveContract` 的提交投影拒绝非成功循环，在 CPU 直接入口拒绝 simulation / BLOCKED，外部 CPU hook 也有真实登记路径回归；不能把原始诊断合同模式当作提交许可。
+- S0 锁定分类、延迟构建与失败行为；10.11 的边界修复不改变普通纯 DAG 的缺料强制开工。普通循环强制包装改变完整计划身份后的元数据传递仍需复核。
 
 #### 2. 目标形态
 
 - **保留**：`ExecutionMode`（唯一计划级模式，常量名不变）；`ECOExecutionSchedule.Type`（阶段级）；`CycleExecutionDisposition`（组件级，不并入 ExecutionMode）；`ECOExecutionContract`（唯一的规划结果交接载体）。
-- **删除**：`ECOExecutionRequirement`。`classify` 改为 `ECOPlanningResult` 内的私有静态方法并返回 ExecutionMode；三个组件判断方法迁为 `CycleExecutionDisposition` 的方法。另删注册表的 `SubmissionMetadata`、`RecoveredSchedule`、`activeSubmissionMetadata`、`recoverSchedule`，以及合同的 `executable()`、`phased()`。
-- **改形**：`ECOPlanningResult` 只持有一个惰性字段 `ECOExecutionContract`，替代四个字段；`executionPlanError()` 与 `planningId()` 委托给它。注册表的 `RecoveredExecutionMetadata`、`SubmissionAlias`、`Entry` 把 `planningId` 与 `executionPlan` 收敛为合同引用，保留 `rejectionReason`。
+- **删除与兼容**：移除 `ECOExecutionRequirement` 中独立的分类算法，统一由 `ECOPlanningResult.classifyExecutionMode` 返回 ExecutionMode，旧枚举仅保留 deprecated 委托入口。组件判断迁为 `CycleExecutionDisposition` 的方法。另删注册表的 `SubmissionMetadata`、`RecoveredSchedule`、`activeSubmissionMetadata`、`recoverSchedule`，以及合同的 `phased()`；保留公开 API 文档使用的 `executable()`。
+- **改形**：`ECOPlanningResult` 正常解析只缓存一个惰性 `ECOExecutionContract`；`planningId` 与诊断初始分类单独保留，避免只读诊断触发签名计算；签名不可用异常以 `resolutionError` 承载（10.11）。注册表的 `RecoveredExecutionMetadata`、`SubmissionAlias`、`Entry` 内部收敛留给 S4，保留 `rejectionReason`。
 
 #### 3. 迁移步骤（每步可独立编译、测试）
 
-- **S1 删死代码**：`ECOPlanningResultRegistry.java` 的 4 处；`ECOExecutionContract.java` 的两个方法；`ExecutingCraftingJob.java` 的死 import。测试：`ECOPlanningResultRegistryTest`、`ECOExternalCpuSupportTest`。
-- **S2 合并 ECOExecutionRequirement**：删 `ECOExecutionRequirement.java`；改 `ECOPlanningResult.java`（classify、构造函数、resolveExecutionPlan）、`ECOExecutionSchedule.java`（3 处）、`ECOPlanningResultRegistry.java`（3 处）、`CycleExecutionDisposition.java`（加方法）。测试：`ECOPlanningResultRegistryTest`、`FeedbackRouteRegressionTest`、`UselessSmartDoublingPlansMixinTest`。
-- **S3 ECOPlanningResult 收敛为合同字段**：`executionContract()` 改为读缓存，`executionPlanError()` 与 `planningId()` 委托。`ECOExactCraftingPlan.java:65`、`ECOCraftingPlannerService.java` 的调用点不变。
+- **S1 删死代码（10.10 已实施）**：`ECOPlanningResultRegistry.java` 的 4 处；`ECOExecutionContract.java` 的 `phased()`；`ExecutingCraftingJob.java` 的死 import。保留 `executable()`。测试：`ECOPlanningResultRegistryTest`、`ECOExternalCpuSupportTest`。
+- **S2 统一分类（10.11 已按兼容目标实施）**：旧枚举保留 deprecated shim，仓内调用迁移到 ExecutionMode / requiresCycleExecution；分类算法只有一份。测试：`ECOPlanningResultRegistryTest`、`FeedbackRouteRegressionTest`、`UselessSmartDoublingPlansMixinTest`。
+- **S3 ECOPlanningResult 合同缓存（10.11 已按延迟计算要求实施）**：`executionContract()` 改为读缓存，错误读取保持原先的延迟构建与诊断行为；`planningId()` 不强制生成合同。`ECOExactCraftingPlan`、`ECOCraftingPlannerService` 的调用点不变。
 - **S4 注册表内部收敛**：`SubmissionAlias`、`Entry`、`RecoveredExecutionMetadata` 改存合同，删重复的 `planningId`。`CraftConfirmMenuMixin.java:832` 不变。
 
 #### 4. 行为与兼容
@@ -893,8 +979,8 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 - 读取时逐个处理 "0"–"26"，跳过非 compound 和越界键。每项用 `AEKey.fromTagGeneric`，未知类型返回 MISSING_CONTENT 占位而非 null。旧数据没有 `amount` 字段，不能走 `GenericStack.CODEC` 或 `readFromTag`，否则解析失败。
 - 读档样例：
   ```
-  {"0": {"#t":"ae2:item","id":"minecraft:stone"},
-   "13": {"#t":"ae2:fluid","id":"minecraft:water"},
+  {"0": {"#t":"ae2:i","id":"minecraft:stone"},
+   "13": {"#t":"ae2:f","id":"minecraft:water"},
    "26": {"#t":"<未安装附属的类型>","id":"<key>"},
    "5": {}}
   ```
