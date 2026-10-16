@@ -386,7 +386,7 @@ final class CraftingControllerArtwork extends UIElement {
 
     private void drawGaugeTick(GUIContext context, int x, int y, int width) {
         // Tick marks remain part of the controller artwork, above the rendered fluid.
-        context.drawTexture(SpriteTexture.of(NETextures.Crafting.CONTROLLER_ATLAS).setSprite(x, y, width, 1),
+        context.drawTexture(NETextures.panelSprite(NETextures.Crafting.CONTROLLER_ATLAS).setSprite(x, y, width, 1),
             getPositionX() + x, getPositionY() + y, width, 1);
     }
 

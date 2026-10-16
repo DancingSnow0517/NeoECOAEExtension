@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.json;
 
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -290,7 +291,7 @@ public final class NeoUiJsonLoader {
             throw error(source, "texture location is empty", null);
         }
         ResourceLocation textureLocation = parseLocation(textureName, source.getNamespace(), source);
-        SpriteTexture sprite = SpriteTexture.of(textureLocation);
+        SpriteTexture sprite = NETextures.panelSprite(textureLocation);
         JsonElement spriteElement = textureObject == null ? node.get("sprite") : textureObject.get("sprite");
         int[] rectangle = spriteRectangle(spriteElement, source);
         if (rectangle != null) {

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.VanillaSpriteTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -42,7 +43,7 @@ final class StoragePanelTextures {
     }
 
     static SpriteTexture sprite(int x, int y, int width, int height) {
-        return SpriteTexture.of(ATLAS).setSprite(x, y, width, height);
+        return NETextures.panelSprite(ATLAS).setSprite(x, y, width, height);
     }
 
     static SpriteTexture tier(int tier) {
