@@ -40,8 +40,6 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.Future;
 import net.minecraft.server.level.ServerPlayer;
@@ -551,73 +549,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             }
             CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
             neoecoae$craftingGraph = snapshot;
-            LinkedHashMap<AEKey, ECOCycleItemList.Entry> cycleItems = new LinkedHashMap<>();
-            for (var cycle : snapshot.cycleGroups()) {
-                java.util.Map<AEKey, Long> seedParallelism = planningResult.components().stream()
-                    .filter(component -> component.componentId() == cycle.componentId() && component.cycleResult() != null
-                        && component.status() == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.PLANNED)
-                    .findFirst().map(component -> component.cycleResult().seedParallelism(component.cycleResult().requiredSeed()))
-                    .orElse(java.util.Map.of());
-                LinkedHashSet<AEKey> keys = new LinkedHashSet<>();
-                cycle.exactSingleNetOutputs().forEach(value -> keys.add(value.key()));
-                cycle.exactTotalNetOutputs().forEach(value -> keys.add(value.key()));
-                cycle.availableAmounts().forEach(value -> keys.add(value.key()));
-                cycle.externalInputs().forEach(value -> keys.add(value.key()));
-                cycle.requiredOutputs().forEach(value -> keys.add(value.key()));
-                for (int memberId : cycle.memberNodeIds()) {
-                    snapshot.nodes().stream().filter(node -> node.nodeId() == memberId).findFirst().ifPresent(node ->
-                        keys.add(node.key()));
-                }
-                snapshot.patterns().stream().filter(pattern -> pattern.componentId() == cycle.componentId()
-                        && pattern.firingCount() > 0L)
-                    .flatMap(pattern -> java.util.stream.Stream.concat(pattern.inputs().stream(),
-                        pattern.outputs().stream()))
-                    .map(CraftingGraphSnapshot.Relationship::materialNodeId)
-                    .forEach(materialId -> snapshot.nodes().stream()
-                        .filter(node -> node.nodeId() == materialId).findFirst().ifPresent(node -> keys.add(node.key())));
-                // A legacy/partially populated diagnostic may not have net-output entries yet. The member list
-                // still needs a selectable row so every unresolved SCC remains openable from the report.
-                planningResult.components().stream()
-                    .filter(component -> component.componentId() == cycle.componentId())
-                    .forEach(component -> keys.addAll(component.externalMissingItems().keySet()));
-                for (AEKey key : keys) {
-                    // MaterialNode is built from the final executable plan. PatternNode firing counts are only
-                    // structural cycle metadata and can legitimately be zero for a populated plan.
-                    CraftingGraphSnapshot.MaterialNode material = neoecoae$materialFor(snapshot, key);
-                    var entry = new ECOCycleItemList.Entry(key,
-                        material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
-                        material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
-                        neoecoae$exactAmountFor(cycle.exactSingleNetOutputs(), key),
-                        neoecoae$exactAmountFor(cycle.exactTotalNetOutputs(), key),
-                        material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
-                        cycle.executionCountKnowledge(),
-                        cycle.solveStatus(), cycle.componentId(), seedParallelism.getOrDefault(key, -1L));
-                    // An unresolved structural cycle has no authoritative total. Do not project
-                    // the ordinary plan's consumed/produced fields into the cycle list: doing so
-                    // makes an unused cycle look as if it consumed a real amount and falls back
-                    // to the misleading "quantity unknown" row. Keep concrete startup shortages,
-                    // which remain actionable even when the cycle itself was not solved.
-                    if (entry.totalNetOutputKnown() || entry.exactMissing().signum() > 0) {
-                        cycleItems.putIfAbsent(key, entry);
-                    }
-                }
-                // A cycle can be unresolved before it produces any output. Keep its required startup seeds in
-                // the left-hand list so the report remains actionable instead of showing an empty plan.
-                for (var seed : cycle.requiredSeed()) {
-                    CraftingGraphSnapshot.MaterialNode material = neoecoae$materialFor(snapshot, seed.key());
-                    var entry = new ECOCycleItemList.Entry(seed.key(),
-                        material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
-                        material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
-                        java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
-                        material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
-                        cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId(),
-                        seedParallelism.getOrDefault(seed.key(), -1L));
-                    if (entry.totalNetOutputKnown() || entry.exactMissing().signum() > 0) {
-                        cycleItems.putIfAbsent(seed.key(), entry);
-                    }
-                }
-            }
-            neoecoae$cycleItems = new ECOCycleItemList(new java.util.ArrayList<>(cycleItems.values()));
+            neoecoae$cycleItems = cn.dancingsnow.neoecoae.crafting.display.ECOCycleItemProjection.project(
+                planningResult, snapshot);
         }
     }
 
@@ -821,7 +754,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                     submittedPlan.simulation(), submittedPlan.bytes(), submittedPlan.finalOutput(),
                     attached == null ? "none"
                             : attached.planningId() + "/" + attached.status() + "/"
-                            + attached.executionRequirement(),
+                            + attached.executionMode(),
                     target == null ? "<automatic>"
                             : target.getClass().getName() + "@"
                             + Integer.toHexString(System.identityHashCode(target)));
@@ -876,18 +809,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             String.valueOf(menu.submitError));
     }
 
-    @Unique
-    private static java.math.BigInteger neoecoae$exactAmountFor(
-            List<cn.dancingsnow.neoecoae.crafting.planner.snapshot.ExactKeyAmount> values, AEKey key) {
-        return values.stream().filter(value -> value.key().equals(key)).map(value -> value.amount().value())
-            .findFirst().orElse(java.math.BigInteger.ZERO);
-    }
-
-    @Unique
-    private static @Nullable CraftingGraphSnapshot.MaterialNode neoecoae$materialFor(
-            CraftingGraphSnapshot snapshot, AEKey key) {
-        return snapshot.nodes().stream().filter(node -> node.key().equals(key)).findFirst().orElse(null);
-    }
 
     @Override
     public boolean neoecoae$isEcoPlannerAvailable() {

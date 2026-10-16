@@ -13,7 +13,8 @@ import net.minecraft.server.level.ServerPlayer;
 
 /** Per-menu exact-amount synchronization, sharing the terminal's normal inventory listing. */
 public final class TerminalExactAmountSync {
-    private Map<AEKey, ExactAmount> previous;
+    private final cn.dancingsnow.neoecoae.core.network.DeltaSyncChannel<AEKey, ExactAmount> channel =
+        new cn.dancingsnow.neoecoae.core.network.DeltaSyncChannel<>();
     private long nextTick;
 
     public KeyCounter collect(MEStorageMenu menu, Supplier<KeyCounter> listing) {
@@ -31,14 +32,15 @@ public final class TerminalExactAmountSync {
         try {
             KeyCounter result = listing.get();
             Map<AEKey, ExactAmount> current = ExactAmountCollector.finish();
-            boolean full = previous == null;
-            var delta = MapDelta.between(full ? Map.of() : previous, current);
+            var update = channel.prepare(current, false);
+            boolean full = update.full();
+            var delta = MapDelta.from(update.delta());
             if (full || !delta.isEmpty()) {
                 MenuDataTransport.send(player, MenuDataTransport.Channel.TERMINAL, buf -> {
                     buf.writeBoolean(full);
                     ExactMapSync.write(buf, delta);
                 });
-                previous = current;
+                channel.commit(update);
             }
             return result;
         } catch (RuntimeException | Error failure) {

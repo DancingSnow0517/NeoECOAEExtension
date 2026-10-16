@@ -13,6 +13,20 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ExactMapSyncTest {
+    @Test void signedAndUnsignedIntegerEncodingRetainsTheLengthPrefixedTwosComplementBytes() {
+        var buf = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            ExactMapSync.writeInteger(buf, BigInteger.valueOf(128));
+            assertEquals(2, buf.readVarInt());
+            assertEquals(0, buf.readUnsignedByte());
+            assertEquals(128, buf.readUnsignedByte());
+            ExactMapSync.writeSignedInteger(buf, BigInteger.valueOf(-129));
+            assertEquals(2, buf.readVarInt());
+            assertEquals(255, buf.readUnsignedByte());
+            assertEquals(127, buf.readUnsignedByte());
+            assertFalse(buf.isReadable());
+        } finally { buf.release(); }
+    }
     @Test void incrementalChangesAndRemovalsMatchCompleteSnapshots() {
         var first = Map.of("a", 10, "b", 20);
         var second = Map.of("a", 11, "c", 30);

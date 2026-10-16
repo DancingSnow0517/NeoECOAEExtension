@@ -2,66 +2,41 @@ package cn.dancingsnow.neoecoae.network;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.core.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.core.network.ExactAmountPacketCodec;
+import cn.dancingsnow.neoecoae.platform.network.MinecraftPacketBuf;
 import java.math.BigInteger;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Shared binary exact-amount delta codec. The enclosing stream provides atomic delivery. */
 public final class ExactMapSync {
-    private static final int MAX_ENTRIES = 100_000;
-    private static final int MAX_INTEGER_BYTES = 4096;
     private ExactMapSync() {}
 
     public static void write(RegistryFriendlyByteBuf buf, MapDelta<AEKey, ExactAmount> delta) {
-        if (delta.updates().size() > MAX_ENTRIES || delta.removed().size() > MAX_ENTRIES)
-            throw new IllegalArgumentException("Too many exact amount entries");
-        buf.writeVarInt(delta.updates().size());
-        delta.updates().forEach((key, value) -> {
-            AEKey.writeKey(buf, key);
-            buf.writeBoolean(value.infinite());
-            if (!value.infinite()) writeInteger(buf, value.value());
-        });
-        buf.writeVarInt(delta.removed().size());
-        delta.removed().forEach(key -> AEKey.writeKey(buf, key));
+        ExactAmountPacketCodec.write(new MinecraftPacketBuf(buf), delta.updates(), delta.removed());
     }
 
     public static MapDelta<AEKey, ExactAmount> read(RegistryFriendlyByteBuf buf) {
-        Map<AEKey, ExactAmount> updates = new HashMap<>();
-        int size = readCount(buf);
-        for (int i = 0; i < size; i++) {
-            AEKey key = AEKey.readKey(buf);
-            updates.put(key, buf.readBoolean() ? ExactAmount.unbounded() : ExactAmount.finite(readInteger(buf)));
-        }
-        var removed = new HashSet<AEKey>();
-        size = readCount(buf);
-        for (int i = 0; i < size; i++) removed.add(AEKey.readKey(buf));
-        return new MapDelta<>(updates, removed);
+        var delta = ExactAmountPacketCodec.read(new MinecraftPacketBuf(buf));
+        return new MapDelta<>(delta.updates(), delta.removed());
     }
 
     public static void writeInteger(net.minecraft.network.FriendlyByteBuf buf, BigInteger value) {
-        if (value.signum() < 0) throw new IllegalArgumentException("Negative amount");
-        writeSignedInteger(buf, value);
+        ExactAmountPacketCodec.writeInteger(new MinecraftPacketBuf(buf), value);
     }
 
     public static BigInteger readInteger(net.minecraft.network.FriendlyByteBuf buf) {
-        BigInteger value = readSignedInteger(buf);
-        if (value.signum() < 0) throw new IllegalArgumentException("Negative amount");
-        return value;
+        return ExactAmountPacketCodec.readInteger(new MinecraftPacketBuf(buf));
     }
 
     /** Length-prefixed two's-complement bytes with no sign check; for values that may legitimately be negative. */
     public static void writeSignedInteger(net.minecraft.network.FriendlyByteBuf buf, BigInteger value) {
-        byte[] bytes = value.toByteArray();
-        if (bytes.length > MAX_INTEGER_BYTES) throw new IllegalArgumentException("Integer is too large");
-        buf.writeByteArray(bytes);
+        ExactAmountPacketCodec.writeSignedInteger(new MinecraftPacketBuf(buf), value);
     }
 
     public static BigInteger readSignedInteger(net.minecraft.network.FriendlyByteBuf buf) {
-        byte[] bytes = buf.readByteArray(MAX_INTEGER_BYTES);
-        if (bytes.length == 0) throw new IllegalArgumentException("Empty amount");
-        return new BigInteger(bytes);
+        return ExactAmountPacketCodec.readSignedInteger(new MinecraftPacketBuf(buf));
     }
 
     public static Map<AEKey, ExactAmount> finite(Map<AEKey, BigInteger> amounts) {
@@ -79,9 +54,4 @@ public final class ExactMapSync {
         return result;
     }
 
-    private static int readCount(RegistryFriendlyByteBuf buf) {
-        int size = buf.readVarInt();
-        if (size < 0 || size > MAX_ENTRIES) throw new IllegalArgumentException("Invalid exact amount count");
-        return size;
-    }
 }

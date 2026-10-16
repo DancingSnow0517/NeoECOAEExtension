@@ -13,6 +13,8 @@ public final class ECONetwork {
         String modVersion = ModList.get().getModContainerById(NeoECOAE.MOD_ID)
             .orElseThrow().getModInfo().getVersion().toString();
         var registrar = event.registrar(protocolVersion(modVersion));
+        registrar.playToServer(CraftSubmitC2SPacket.TYPE,
+            CraftSubmitC2SPacket.STREAM_CODEC, CraftSubmitC2SPacket::handle);
         registrar.playToClient(ECOMenuChunkS2CPacket.TYPE,
             ECOMenuChunkS2CPacket.STREAM_CODEC, ECOMenuChunkS2CPacket::handle);
         registrar.playToServer(ECOBigOrderStartC2SPacket.TYPE,
