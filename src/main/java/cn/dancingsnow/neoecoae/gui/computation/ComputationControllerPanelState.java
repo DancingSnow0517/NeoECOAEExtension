@@ -10,14 +10,9 @@ import java.util.List;
  * <p>Slot data is stored per <em>cell</em> (screen position, left to right), so mirroring is resolved on the
  * server and the client never needs to know about it.
  */
-public record ComputationControllerPanelState(
-    boolean formed,
-    int hostTier,
-    int cells,
-    int upperCores,
-    int coreTiers,
-    int lowerCores
-) {
+public final class ComputationControllerPanelState {
+    private final cn.dancingsnow.neoecoae.core.ui.ComputationControllerPanelState model;
+
     public static final int SLOT_COUNT = 11;
     public static final ComputationControllerPanelState UNFORMED =
         new ComputationControllerPanelState(false, 0, 0, 0, 0, 0);
@@ -30,24 +25,24 @@ public record ComputationControllerPanelState(
     private static final String CORE = "core";
     private static final String LOWER = "low";
 
-    public ComputationControllerPanelState {
-        hostTier = Math.clamp(hostTier, 0, 3);
+    public ComputationControllerPanelState(boolean formed, int hostTier, int cells, int upperCores, int coreTiers, int lowerCores) {
+        this.model = new cn.dancingsnow.neoecoae.core.ui.ComputationControllerPanelState(formed, hostTier, cells, upperCores, coreTiers, lowerCores);
     }
 
     public boolean hasCell(int cell) {
-        return cell >= 0 && cell < SLOT_COUNT && (cells >> cell & 1) != 0;
+        return model.hasCell(cell);
     }
 
     public int upperTier(int cell) {
-        return tierAt(upperCores, cell);
+        return model.upperTier(cell);
     }
 
     public int coreTier(int cell) {
-        return tierAt(coreTiers, cell);
+        return model.coreTier(cell);
     }
 
     public int lowerTier(int cell) {
-        return tierAt(lowerCores, cell);
+        return model.lowerTier(cell);
     }
 
     /** Index {@code 0} is the threading core next to the controller. Slots past {@link #SLOT_COUNT} are not drawn. */
@@ -58,33 +53,22 @@ public record ComputationControllerPanelState(
         List<Integer> lowerNearestFirst,
         boolean mirrored
     ) {
-        int upper = 0;
-        int core = 0;
-        int lower = 0;
-        int cells = 0;
-        int visible = Math.min(coreNearestFirst.size(), SLOT_COUNT);
-        for (int slot = 0; slot < visible; slot++) {
-            int cell = cellOf(slot, mirrored);
-            cells |= 1 << cell;
-            upper |= tierBits(upperNearestFirst, slot) << cell * 2;
-            core |= tierBits(coreNearestFirst, slot) << cell * 2;
-            lower |= tierBits(lowerNearestFirst, slot) << cell * 2;
-        }
-        return new ComputationControllerPanelState(true, hostTier, cells, upper, core, lower);
+        return fromCore(cn.dancingsnow.neoecoae.core.ui.ComputationControllerPanelState.of(hostTier,
+            upperNearestFirst, coreNearestFirst, lowerNearestFirst, mirrored));
     }
 
     public static int cellOf(int slot, boolean mirrored) {
-        return mirrored ? SLOT_COUNT - 1 - slot : slot;
+        return cn.dancingsnow.neoecoae.core.ui.ComputationControllerPanelState.cellOf(slot, mirrored);
     }
 
     public CompoundTag toTag() {
         CompoundTag tag = new CompoundTag();
-        tag.putBoolean(FORMED, formed);
-        tag.putInt(HOST_TIER, hostTier);
-        tag.putInt(CELLS, cells);
-        tag.putInt(UPPER, upperCores);
-        tag.putInt(CORE, coreTiers);
-        tag.putInt(LOWER, lowerCores);
+        tag.putBoolean(FORMED, formed());
+        tag.putInt(HOST_TIER, hostTier());
+        tag.putInt(CELLS, cells());
+        tag.putInt(UPPER, upperCores());
+        tag.putInt(CORE, coreTiers());
+        tag.putInt(LOWER, lowerCores());
         return tag;
     }
 
@@ -102,11 +86,20 @@ public record ComputationControllerPanelState(
         );
     }
 
-    private static int tierAt(int packed, int cell) {
-        return cell < 0 || cell >= SLOT_COUNT ? 0 : packed >> cell * 2 & TIER_MASK;
+    private static ComputationControllerPanelState fromCore(cn.dancingsnow.neoecoae.core.ui.ComputationControllerPanelState value) {
+        return new ComputationControllerPanelState(value.formed(), value.hostTier(), value.cells(), value.upperCores(), value.coreTiers(), value.lowerCores());
     }
 
-    private static int tierBits(List<Integer> tiers, int slot) {
-        return slot < tiers.size() ? Math.clamp(tiers.get(slot), 0, 3) : 0;
+    public boolean formed() { return model.formed(); }
+    public int hostTier() { return model.hostTier(); }
+    public int cells() { return model.cells(); }
+    public int upperCores() { return model.upperCores(); }
+    public int coreTiers() { return model.coreTiers(); }
+    public int lowerCores() { return model.lowerCores(); }
+
+    @Override public boolean equals(Object other) {
+        return other instanceof ComputationControllerPanelState state && model.equals(state.model);
     }
+    @Override public int hashCode() { return model.hashCode(); }
+    @Override public String toString() { return model.toString(); }
 }

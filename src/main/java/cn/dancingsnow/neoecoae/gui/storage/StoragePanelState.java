@@ -4,9 +4,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.CellEntry;
 import appeng.api.storage.cells.CellState;
 import com.mojang.serialization.DataResult;
-import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.nbt.CompoundTag;
@@ -22,10 +20,34 @@ import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.world.item.ItemStack;
 
 /** A server-authored display snapshot. Only the current cell page is sent to the client. */
-record StoragePanelState(Component title, int tier, boolean formed, boolean infinite, boolean migrating,
+final class StoragePanelState {
+    private final cn.dancingsnow.neoecoae.core.ui.StoragePanelState<Component, CellEntry, TypeLine> model;
+    StoragePanelState(Component title, int tier, boolean formed, boolean infinite, boolean migrating,
     long energy, long maxEnergy, long drain, String usedBytes, double usage, int cellCount, int cellOffset,
     List<CellEntry> cells, List<TypeLine> types, String domainId, int missingMembers, boolean componentPresent,
     BigInteger totalBytes) {
+        this.model = new cn.dancingsnow.neoecoae.core.ui.StoragePanelState<>(title, tier, formed, infinite, migrating, energy, maxEnergy, drain, usedBytes, usage, cellCount, cellOffset, cells, types, domainId, missingMembers, componentPresent, totalBytes);
+    }
+
+    Component title() { return model.title(); }
+    int tier() { return model.tier(); }
+    boolean formed() { return model.formed(); }
+    boolean infinite() { return model.infinite(); }
+    boolean migrating() { return model.migrating(); }
+    long energy() { return model.energy(); }
+    long maxEnergy() { return model.maxEnergy(); }
+    long drain() { return model.drain(); }
+    String usedBytes() { return model.usedBytes(); }
+    double usage() { return model.usage(); }
+    int cellCount() { return model.cellCount(); }
+    int cellOffset() { return model.cellOffset(); }
+    List<CellEntry> cells() { return model.cells(); }
+    List<TypeLine> types() { return model.types(); }
+    String domainId() { return model.domainId(); }
+    int missingMembers() { return model.missingMembers(); }
+    boolean componentPresent() { return model.componentPresent(); }
+    BigInteger totalBytes() { return model.totalBytes(); }
+
 
     StoragePanelState(Component title, int tier, boolean formed, boolean infinite, boolean migrating,
         long energy, long maxEnergy, long drain, String usedBytes, double usage, int cellCount, int cellOffset,
@@ -38,7 +60,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         0, 0, 0, "0", 0, 0, 0, List.of(), List.of(), "", 0, false);
 
     record TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
-        long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes) {
+        long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes)
+            implements cn.dancingsnow.neoecoae.core.ui.StorageTypeView {
         TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
             long usedBytes, long totalBytes, String bytesText) {
             this(id, name, color, usedTypes, totalTypes, usedBytes, totalBytes, bytesText,
@@ -77,57 +100,47 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     }
 
     static int pageOffset(int requested, int total, int pageSize) {
-        if (total <= 0 || pageSize <= 0) return 0;
-        int last = (total - 1) / pageSize * pageSize;
-        return Math.clamp(requested, 0, last) / pageSize * pageSize;
+        return cn.dancingsnow.neoecoae.core.ui.StoragePanelState.pageOffset(requested, total, pageSize);
     }
 
-    /** Each page contains whole columns of all three rows; short structures leave gaps in every row. */
     static List<CellEntry> cellPage(List<CellEntry> all, int offset, int pageSize) {
-        if (all.isEmpty()) return List.of();
-        int columns = (all.size() + 2) / 3;
-        int pageColumns = pageSize / 3;
-        int firstColumn = offset / 3;
-        List<CellEntry> result = new ArrayList<>(pageSize);
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < pageColumns; column++) {
-                int source = row * columns + firstColumn + column;
-                result.add(firstColumn + column < columns && source < all.size() ? all.get(source) : CellEntry.EMPTY);
-            }
-        }
-        return List.copyOf(result);
+        return cn.dancingsnow.neoecoae.core.ui.StoragePanelState.cellPage(all, offset, pageSize, CellEntry.EMPTY);
     }
 
     static double usage(List<CellEntry> cells) {
-        BigInteger used = BigInteger.ZERO, total = BigInteger.ZERO;
-        for (CellEntry cell : cells) {
-            if (cell.infinite() || cell.totalBytes() < 0) return 1;
-            // Special cells report Long.MAX_VALUE instead of a comparable finite byte capacity.
-            if (cell.totalBytes() == Long.MAX_VALUE) continue;
-            used = used.add(BigInteger.valueOf(Math.max(0, cell.usedBytes())));
-            total = total.add(BigInteger.valueOf(Math.max(0, cell.totalBytes())));
-        }
-        if (total.signum() == 0) return 0;
-        return Math.clamp(new BigDecimal(used).divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue(), 0, 1);
+        return cn.dancingsnow.neoecoae.core.ui.StoragePanelState.usage(cells);
     }
 
     private static BigInteger totalCapacity(List<CellEntry> cells) {
-        return cells.stream().filter(cell -> cell.totalBytes() != Long.MAX_VALUE)
-            .map(cell -> BigInteger.valueOf(Math.max(0, cell.totalBytes())))
-            .reduce(BigInteger.ZERO, BigInteger::add);
+        return cn.dancingsnow.neoecoae.core.ui.StoragePanelState.totalCapacity(cells);
     }
 
-    TypeLine type(int id) {
-        return types.stream().filter(type -> type.id() == id).findFirst().orElse(null);
-    }
-
-    boolean unbounded() { return infinite || migrating; }
+    TypeLine type(int id) { return model.type(id); }
+    boolean unbounded() { return model.unbounded(); }
 
     CompoundTag toTag() {
         return toTag(RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
     }
 
     CompoundTag toTag(HolderLookup.Provider registries) {
+        Component title = title();
+        int tier = tier();
+        boolean formed = formed();
+        boolean infinite = infinite();
+        boolean migrating = migrating();
+        long energy = energy();
+        long maxEnergy = maxEnergy();
+        long drain = drain();
+        String usedBytes = usedBytes();
+        double usage = usage();
+        int cellCount = cellCount();
+        int cellOffset = cellOffset();
+        List<CellEntry> cells = cells();
+        List<TypeLine> types = types();
+        String domainId = domainId();
+        int missingMembers = missingMembers();
+        boolean componentPresent = componentPresent();
+        BigInteger totalBytes = totalBytes();
         CompoundTag tag = new CompoundTag();
         putComponent(tag, "title", title);
         tag.putInt("tier", tier); tag.putBoolean("formed", formed);
@@ -211,4 +224,9 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         return value == null ? Component.empty()
             : ComponentSerialization.CODEC.parse(NbtOps.INSTANCE, value).result().orElse(Component.empty());
     }
+    @Override public boolean equals(Object other) {
+        return other instanceof StoragePanelState state && model.equals(state.model);
+    }
+    @Override public int hashCode() { return model.hashCode(); }
+    @Override public String toString() { return model.toString(); }
 }

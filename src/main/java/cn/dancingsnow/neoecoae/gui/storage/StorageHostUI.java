@@ -114,7 +114,8 @@ public final class StorageHostUI {
     public record CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
         long usedBytes, long totalBytes, boolean infinite, CellState state, boolean online,
         @Nullable BlockPos position, ItemStack stack, @Nullable Component extractionBlockReason,
-        @Nullable UUID interactionId, @Nullable Component panelTierName) {
+        @Nullable UUID interactionId, @Nullable Component panelTierName)
+            implements cn.dancingsnow.neoecoae.core.ui.StorageCellView {
         public static final CellEntry EMPTY = new CellEntry(-1, 0, 0, 0, 0, 0, 0, false, CellState.ABSENT, false);
 
         public CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,

@@ -11,17 +11,9 @@ import java.util.List;
  * <p>Slot data is stored per <em>cell</em> (screen position, left to right), so mirroring is resolved on the
  * server and the client never needs to know about it. Parallel-core tiers are 0 (none) or 1..3 (L4/L6/L9).
  */
-public record CraftingControllerPanelState(
-    boolean formed,
-    int hostTier,
-    int fxCells,
-    int upperCores,
-    int lowerCores,
-    boolean coolantOverlay,
-    boolean switchOverlay,
-    int queuePermille,
-    int energyPermille
-) {
+public final class CraftingControllerPanelState {
+    private final cn.dancingsnow.neoecoae.core.ui.CraftingControllerPanelState model;
+
     public static final int SLOT_COUNT = 11;
     public static final int FULL = 1000;
     public static final CraftingControllerPanelState UNFORMED =
@@ -38,26 +30,24 @@ public record CraftingControllerPanelState(
     private static final String QUEUE = "queue";
     private static final String ENERGY = "energy";
 
-    public CraftingControllerPanelState {
-        hostTier = Math.clamp(hostTier, 0, 3);
-        queuePermille = Math.clamp(queuePermille, 0, FULL);
-        energyPermille = Math.clamp(energyPermille, 0, FULL);
+    public CraftingControllerPanelState(boolean formed, int hostTier, int fxCells, int upperCores, int lowerCores, boolean coolantOverlay, boolean switchOverlay, int queuePermille, int energyPermille) {
+        this.model = new cn.dancingsnow.neoecoae.core.ui.CraftingControllerPanelState(formed, hostTier, fxCells, upperCores, lowerCores, coolantOverlay, switchOverlay, queuePermille, energyPermille);
     }
 
     public boolean hasFx(int cell) {
-        return cell >= 0 && cell < SLOT_COUNT && (fxCells >> cell & 1) != 0;
+        return model.hasFx(cell);
     }
 
     public int fxCount() {
-        return Integer.bitCount(fxCells);
+        return model.fxCount();
     }
 
     public int upperTier(int cell) {
-        return tierAt(upperCores, cell);
+        return model.upperTier(cell);
     }
 
     public int lowerTier(int cell) {
-        return tierAt(lowerCores, cell);
+        return model.lowerTier(cell);
     }
 
     /** Index {@code 0} is the FX worker next to the controller. Slots past {@link #SLOT_COUNT} are not drawn. */
@@ -72,49 +62,35 @@ public record CraftingControllerPanelState(
         int queuePermille,
         int energyPermille
     ) {
-        int upper = 0;
-        int lower = 0;
-        int cells = 0;
-        int visible = Math.min(fxCount, SLOT_COUNT);
-        for (int slot = 0; slot < visible; slot++) {
-            int cell = cellOf(slot, mirrored);
-            cells |= 1 << cell;
-            upper |= tierBits(upperNearestFirst, slot) << cell * 2;
-            lower |= tierBits(lowerNearestFirst, slot) << cell * 2;
-        }
-        return new CraftingControllerPanelState(
-            true, hostTier, cells, upper, lower, coolantOverlay, switchOverlay, queuePermille, energyPermille);
+        return fromCore(cn.dancingsnow.neoecoae.core.ui.CraftingControllerPanelState.of(hostTier,
+            upperNearestFirst, lowerNearestFirst, fxCount, mirrored, coolantOverlay, switchOverlay,
+            queuePermille, energyPermille));
     }
 
     public static boolean coolantVisible(boolean activeCooling, FluidStack fluid, int amount) {
-        return activeCooling && fluid != null && !fluid.isEmpty() && amount > 0;
+        return cn.dancingsnow.neoecoae.core.ui.CraftingControllerPanelState.coolantVisible(activeCooling,
+            fluid != null && !fluid.isEmpty(), amount);
     }
 
     public static int cellOf(int slot, boolean mirrored) {
-        return mirrored ? SLOT_COUNT - 1 - slot : slot;
+        return cn.dancingsnow.neoecoae.core.ui.CraftingControllerPanelState.cellOf(slot, mirrored);
     }
 
     public static int permille(long numerator, long denominator) {
-        if (denominator <= 0L || numerator <= 0L) {
-            return 0;
-        }
-        if (numerator >= denominator) {
-            return FULL;
-        }
-        return (int) Math.round(numerator * (double) FULL / denominator);
+        return cn.dancingsnow.neoecoae.core.ui.CraftingControllerPanelState.permille(numerator, denominator);
     }
 
     public CompoundTag toTag() {
         CompoundTag tag = new CompoundTag();
-        tag.putBoolean(FORMED, formed);
-        tag.putInt(HOST_TIER, hostTier);
-        tag.putInt(FX_CELLS, fxCells);
-        tag.putInt(UPPER, upperCores);
-        tag.putInt(LOWER, lowerCores);
-        tag.putBoolean(COOLANT, coolantOverlay);
-        tag.putBoolean(SWITCH, switchOverlay);
-        tag.putInt(QUEUE, queuePermille);
-        tag.putInt(ENERGY, energyPermille);
+        tag.putBoolean(FORMED, formed());
+        tag.putInt(HOST_TIER, hostTier());
+        tag.putInt(FX_CELLS, fxCells());
+        tag.putInt(UPPER, upperCores());
+        tag.putInt(LOWER, lowerCores());
+        tag.putBoolean(COOLANT, coolantOverlay());
+        tag.putBoolean(SWITCH, switchOverlay());
+        tag.putInt(QUEUE, queuePermille());
+        tag.putInt(ENERGY, energyPermille());
         return tag;
     }
 
@@ -135,11 +111,23 @@ public record CraftingControllerPanelState(
         );
     }
 
-    private static int tierAt(int packed, int cell) {
-        return cell < 0 || cell >= SLOT_COUNT ? 0 : packed >> cell * 2 & TIER_MASK;
+    private static CraftingControllerPanelState fromCore(cn.dancingsnow.neoecoae.core.ui.CraftingControllerPanelState value) {
+        return new CraftingControllerPanelState(value.formed(), value.hostTier(), value.fxCells(), value.upperCores(), value.lowerCores(), value.coolantOverlay(), value.switchOverlay(), value.queuePermille(), value.energyPermille());
     }
 
-    private static int tierBits(List<Integer> tiers, int slot) {
-        return slot < tiers.size() ? Math.clamp(tiers.get(slot), 0, 3) : 0;
+    public boolean formed() { return model.formed(); }
+    public int hostTier() { return model.hostTier(); }
+    public int fxCells() { return model.fxCells(); }
+    public int upperCores() { return model.upperCores(); }
+    public int lowerCores() { return model.lowerCores(); }
+    public boolean coolantOverlay() { return model.coolantOverlay(); }
+    public boolean switchOverlay() { return model.switchOverlay(); }
+    public int queuePermille() { return model.queuePermille(); }
+    public int energyPermille() { return model.energyPermille(); }
+
+    @Override public boolean equals(Object other) {
+        return other instanceof CraftingControllerPanelState state && model.equals(state.model);
     }
+    @Override public int hashCode() { return model.hashCode(); }
+    @Override public String toString() { return model.toString(); }
 }
