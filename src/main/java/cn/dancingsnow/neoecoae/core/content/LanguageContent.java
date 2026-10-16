@@ -105,17 +105,6 @@ public final class LanguageContent {
         provider.accept("cell_type.neoecoae.quantum_omni", "Quantum Omni");
         provider.accept("cell_type.neoecoae.spent_nuclear_waste", "Spent Nuclear Waste");
         provider.accept("block.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
-        provider.accept("item.neoecoae.eco_mana_cell_housing", "ECO Mana Storage Matrix Housing");
-        provider.accept("item.neoecoae.eco_mana_storage_cell_16m", "ECO - LE4 Mana Storage Matrix");
-        provider.accept("item.neoecoae.eco_mana_storage_cell_64m", "ECO - LE6 Mana Storage Matrix");
-        provider.accept("item.neoecoae.eco_mana_storage_cell_256m", "ECO - LE9 Mana Storage Matrix");
-        provider.accept("item.neoecoae.eco_data_cell_housing", "ECO Storage Matrix Housing (Data)");
-        provider.accept("item.neoecoae.eco_data_storage_cell_16m", "ECO - LE4 Storage Matrix (Data)");
-        provider.accept("item.neoecoae.eco_data_storage_cell_64m", "ECO - LE6 Storage Matrix (Data)");
-        provider.accept("item.neoecoae.eco_data_storage_cell_256m", "ECO - LE9 Storage Matrix (Data)");
-        provider.accept("cell_type.neoecoae.mega_mana", "MEGA Mana");
-        provider.accept("item.neoecoae.mega_mana_cell_housing", "ECO MEGA Storage Matrix Housing (Mana)");
-        provider.accept("item.neoecoae.eco_mega_mana_cell_4g", "ECO - LE9 Storage Matrix (Mega Mana)");
 
         provider.accept("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.accept("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");
