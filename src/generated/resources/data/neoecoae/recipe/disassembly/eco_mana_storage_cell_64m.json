@@ -1,0 +1,20 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "appbot"
+    }
+  ],
+  "type": "ae2:storage_cell_disassembly",
+  "cell": "neoecoae:eco_mana_storage_cell_64m",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "id": "neoecoae:eco_mana_cell_housing"
+    },
+    {
+      "count": 1,
+      "id": "neoecoae:eco_cell_component_64m"
+    }
+  ]
+}

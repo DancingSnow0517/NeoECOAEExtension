@@ -1,0 +1,24 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "data_energistics"
+    }
+  ],
+  "type": "neoecoae:integrated_working_station",
+  "energy": 12000,
+  "inputItems": [
+    {
+      "count": 10,
+      "item": "neoecoae:eco_cell_component_64m"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:eco_data_cell_housing"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:eco_data_storage_cell_64m"
+  }
+}
