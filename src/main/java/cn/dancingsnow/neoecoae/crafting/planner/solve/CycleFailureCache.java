@@ -23,18 +23,26 @@ import java.util.stream.Collectors;
 final class CycleFailureCache {
     private final CycleSolver solver;
     private final Map<Fingerprint, CycleSolveResult> failures = new HashMap<>();
+    private int reusedFailures;
+    private int solverCalls;
 
     CycleFailureCache(CycleSolver solver) { this.solver = solver; }
+
+    int solverCalls() { return solverCalls; }
+
+    int reusedFailures() { return reusedFailures; }
 
     CycleSolveResult solve(CycleSolveRequest request, ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
         Fingerprint key = Fingerprint.of(request);
         CycleSolveResult previous = failures.get(key);
         if (previous != null) {
+            reusedFailures++;
             return previous.withAdditionalDiagnostics(List.of(new CycleSolveDiagnostic(
                 CycleSolveDiagnostic.Code.PROVEN_FAILURE_REUSED,
                 "Reused current-stock impossibility proof for identical structure, targets, stock and boundary")));
         }
+        solverCalls++;
         CycleSolveResult result = solver.solve(request, cancellation);
         // This status is a proof under the CycleSolver contract. UNKNOWN_BUDGET and capability
         // failures never become nogoods, and a cached seed proposal never bypasses recovery.
