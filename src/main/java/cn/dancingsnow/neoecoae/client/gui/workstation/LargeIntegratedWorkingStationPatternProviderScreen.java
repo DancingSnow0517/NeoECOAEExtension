@@ -37,21 +37,22 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && hasShiftDown()) {
-            Slot slot = slotAt(mouseX, mouseY);
-            if (slot != null) {
-                shiftDragging = true;
-                quickMove(slot);
-                return true;
-            }
-        }
+        // The press itself stays a vanilla Shift-click; only the slots crossed afterwards are ours.
+        shiftDraggedSlots.clear();
+        Slot slot = button == 0 && hasShiftDown() && menu.getCarried().isEmpty() ? slotAt(mouseX, mouseY) : null;
+        shiftDragging = slot != null;
+        if (slot != null) shiftDraggedSlots.add(slot.index);
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (button == 0 && shiftDragging && hasShiftDown()) {
-            quickMove(slotAt(mouseX, mouseY));
+            // One drag event per frame: a fast swipe jumps over whole slots, so walk the segment.
+            int steps = Math.max(1, (int) Math.ceil(Math.max(Math.abs(dragX), Math.abs(dragY)) / 4));
+            for (int i = steps - 1; i >= 0; i--) {
+                quickMove(slotAt(mouseX - dragX * i / steps, mouseY - dragY * i / steps));
+            }
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -59,18 +60,14 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            shiftDragging = false;
-            shiftDraggedSlots.clear();
-        }
+        if (button == 0) shiftDragging = false;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
+    /** Vanilla's private findSlot: screen coordinates, active slots only. */
     private Slot slotAt(double mouseX, double mouseY) {
-        double localX = mouseX - leftPos;
-        double localY = mouseY - topPos;
         for (Slot slot : menu.slots) {
-            if (isHovering(slot, localX, localY)) return slot;
+            if (isHovering(slot, mouseX, mouseY) && slot.isActive()) return slot;
         }
         return null;
     }

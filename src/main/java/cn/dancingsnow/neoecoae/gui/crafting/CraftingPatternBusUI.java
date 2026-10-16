@@ -16,12 +16,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventListener;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
@@ -29,7 +30,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickType;
-import net.minecraft.world.inventory.Slot;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
 /** Pattern-bus layout and page buttons over a machine-owned inventory view. */
@@ -100,8 +100,8 @@ public final class CraftingPatternBusUI {
             UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
-                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(config.inventory(), slotIndex))
-                    .slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_BLANK_PATTERN)))
+                ItemSlot slot = new PatternItemSlot(new ItemHandlerSlot(config.inventory(), slotIndex));
+                slot.slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_BLANK_PATTERN)))
                     .addClass("eco-pattern-slot");
                 quickMove.attach(slot);
                 rowInv.addChild(slot);
@@ -114,82 +114,67 @@ public final class CraftingPatternBusUI {
     private static UIElement playerInventory(ShiftQuickMove quickMove) {
         InventorySlots inventory = new InventorySlots();
         inventory.layout(layout -> layout.marginTop(5));
-        inventory.apply(slot -> quickMove.attach(slot));
+        inventory.apply(quickMove::attach);
         return inventory;
     }
 
     /**
-     * LDLib2 renders these slots outside vanilla's screen drag path. Keep the same
-     * Shift-drag gesture as Mouse Tweaks by issuing one server-validated quick move
-     * for every distinct slot entered while the button is held.
+     * Mouse Tweaks-style Shift-drag: the press is a normal vanilla Shift-click, and every other slot the cursor
+     * crosses while the button is held gets one server-side quick move. LDLib2 only refreshes its hover once per
+     * frame, so the cursor path is hit-tested directly instead of waiting for enter events.
      */
     private static final class ShiftQuickMove {
+        private static final String MESSAGE = "neoecoae:shift_quick_move";
+
         private final Player player;
-        private final java.util.Set<Integer> visited = new java.util.HashSet<>();
+        private final Set<ItemSlot> slots = new HashSet<>();
+        private final Set<ItemSlot> visited = new HashSet<>();
         private boolean dragging;
+        private float lastX;
+        private float lastY;
 
         private ShiftQuickMove(Player player) {
             this.player = player;
         }
 
         private void attachRoot(UIElement root) {
-            root.addEventListener(UIEvents.MOUSE_UP, event -> {
-                if (event.button == 0) {
+            root.addEventListener(UIEvents.MOUSE_MOVE, event -> {
+                if (!dragging) return;
+                if (!event.isShiftDown() || !root.isMouseDown(0)) {
                     dragging = false;
-                    visited.clear();
+                    return;
                 }
+                float dx = event.x - lastX;
+                float dy = event.y - lastY;
+                int steps = Math.max(1, (int) Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 4));
+                for (int i = 1; i <= steps; i++) {
+                    visit(root.getModularUI().hitTestAtScreen(lastX + dx * i / steps, lastY + dy * i / steps));
+                }
+                lastX = event.x;
+                lastY = event.y;
             }, true);
-            root.addServerEventListener(UIEvents.MOUSE_UP, event -> {
-                if (event.button == 0) reset();
-            }, true);
-            root.addEventListener(UIEvents.TICK, event -> {
-                if (dragging && !root.isMouseDown(0)) {
-                    dragging = false;
-                    visited.clear();
+        }
+
+        private void attach(ItemSlot slot) {
+            slots.add(slot);
+            slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+                visited.clear();
+                dragging = event.button == 0 && event.isShiftDown() && player.containerMenu.getCarried().isEmpty();
+                if (!dragging) return;
+                visited.add(slot);
+                lastX = event.x;
+                lastY = event.y;
+            });
+            slot.onMessage(MESSAGE, ignored -> {
+                if (player.containerMenu.getCarried().isEmpty()) {
+                    player.containerMenu.clicked(slot.getSlot().index, 0, ClickType.QUICK_MOVE, player);
                 }
             });
         }
 
-        private void attach(UIElement element) {
-            if (!(element instanceof com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot itemSlot)) return;
-            UIEventListener listener = event -> {
-                if (event.button != 0 || !event.isShiftDown()) return;
-                reset();
-                dragging = true;
-                quickMove(itemSlot.getSlot());
-                var payload = new net.minecraft.nbt.CompoundTag();
-                payload.putBoolean("start", true);
-                itemSlot.sendMessage("neoecoae:shift_quick_move", payload);
-                event.hasHandler = true;
-                event.stopImmediatePropagation();
-            };
-            UIEventListener enter = event -> {
-                if (dragging && event.isShiftDown() && itemSlot.isMouseDown(0)) {
-                    quickMove(itemSlot.getSlot());
-                    itemSlot.sendMessage("neoecoae:shift_quick_move");
-                    event.hasHandler = true;
-                    event.stopImmediatePropagation();
-                }
-            };
-            element.addEventListener(UIEvents.MOUSE_DOWN, listener);
-            element.addEventListener(UIEvents.MOUSE_ENTER, enter);
-            element.onMessage("neoecoae:shift_quick_move", ignored -> {
-                if (ignored.getBoolean("start")) reset();
-                dragging = true;
-                quickMove(itemSlot.getSlot());
-            });
-        }
-
-        private void reset() {
-            dragging = false;
-            visited.clear();
-        }
-
-        private void quickMove(Slot slot) {
-            if (slot == null || !visited.add(slot.index) || player.level().isClientSide) return;
-            if (player.containerMenu != null) {
-                player.containerMenu.clicked(slot.index, 0, ClickType.QUICK_MOVE, player);
-            }
+        private void visit(UIElement hit) {
+            while (hit != null && !slots.contains(hit)) hit = hit.getParent();
+            if (hit instanceof ItemSlot slot && visited.add(slot)) slot.sendMessage(MESSAGE);
         }
     }
 
