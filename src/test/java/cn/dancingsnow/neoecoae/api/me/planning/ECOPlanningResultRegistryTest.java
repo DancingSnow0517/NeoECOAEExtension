@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.api.me.planning;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -12,10 +13,11 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionRequirement;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,6 +28,42 @@ class ECOPlanningResultRegistryTest {
     @AfterEach
     void clearRegistry() {
         ECOPlanningResultRegistry.clear();
+    }
+
+    @Test
+    void publicContractCannotMutateTheIdentityUsedForMetadataRecovery() {
+        AEKey output = mock(AEKey.class);
+        IPatternDetails pattern = mock(IPatternDetails.class);
+        when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
+        when(pattern.getOutputs()).thenReturn(List.of());
+        CraftingPlan plan = plan(output, pattern);
+        var result = new ECOPlanningResult(PlanningStatus.SUCCESS, plan, new ECOPlanTrace(), List.of(), 0L);
+        ECOPlanningResultRegistry.register(plan, result);
+
+        var contract = ECOPlanningResultRegistry.resolveContract(plan, result);
+        assertThrows(UnsupportedOperationException.class, () -> contract.planSignature().patternTimes().clear());
+        assertThrows(UnsupportedOperationException.class, () -> contract.planSignature().usedItems().put(output, 9L));
+        assertThrows(UnsupportedOperationException.class, () -> contract.planSignature().emittedItems().put(output, 9L));
+        assertThrows(UnsupportedOperationException.class, () -> contract.planSignature().missingItems().put(output, 9L));
+        assertSame(result, ECOPlanningResultRegistry.find(plan));
+        assertEquals(PlanIdentity.of(plan), contract.planSignature());
+    }
+
+    @Test
+    void publicSignatureConstructorSnapshotsMutableInventoryVectors() {
+        AEKey output = mock(AEKey.class);
+        var used = new java.util.HashMap<AEKey, Long>();
+        used.put(output, 3L);
+        var signature = new PlanIdentity.Signature(output, 1L, Map.of(), used, used, used);
+        var indexed = new java.util.HashMap<PlanIdentity.Signature, String>();
+        indexed.put(signature, "metadata");
+
+        used.put(output, 9L);
+
+        assertEquals(3L, signature.usedItems().get(output));
+        assertEquals(3L, signature.emittedItems().get(output));
+        assertEquals(3L, signature.missingItems().get(output));
+        assertEquals("metadata", indexed.get(signature));
     }
 
     @Test
@@ -133,7 +171,7 @@ class ECOPlanningResultRegistryTest {
         ECOPlanningResult result = mock(ECOPlanningResult.class);
         when(result.plan()).thenReturn(plan);
         when(result.status()).thenReturn(status);
-        when(result.executionRequirement()).thenReturn(ECOExecutionRequirement.NONE);
+        when(result.requiresCycleExecution()).thenReturn(false);
         when(result.executionPlan()).thenReturn(executionPlan);
         when(result.planningId()).thenReturn(UUID.randomUUID());
         return result;

@@ -50,10 +50,8 @@ public final class ECOStatefulBatchCalculator {
         if (bounded <= 0L) return null;
         ECODurabilityBatchModel durability = recipe.durabilityModel();
         if (durability != null && durability.supportsToolPool()) {
-            var batch = durability.prepareToolPoolBatch(
+            return durability.prepareToolPoolBatch(
                 inventory, recipe.inputsPerCraft(), recipe.remainingPerCraft(), bounded);
-            return batch == null ? null
-                : new BatchContract(batch.craftCount(), batch.inputs(), batch.remainders());
         }
         long crafts = ECOBatchCraftingHelper.maxBatchSizeFromBatchInputs(
             inventory, bounded, (java.util.function.LongFunction<List<GenericStack>>) recipe::batchInputs);

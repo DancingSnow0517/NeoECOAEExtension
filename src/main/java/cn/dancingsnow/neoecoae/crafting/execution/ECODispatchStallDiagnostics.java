@@ -45,9 +45,8 @@ final class ECODispatchStallDiagnostics {
     }
 
     private UUID jobId;
-    private long lastProgressTick;
-    private long lastReportTick;
-    private boolean reported;
+    private final cn.dancingsnow.neoecoae.core.execution.StallReportClock reportClock =
+        new cn.dancingsnow.neoecoae.core.execution.StallReportClock(INITIAL_REPORT_DELAY, REPORT_INTERVAL);
     private long probes;
     private long rejects;
     private long busy;
@@ -74,20 +73,16 @@ final class ECODispatchStallDiagnostics {
             if (jobId != null) reset();
             return;
         }
-        if (!id.equals(jobId) || tick < lastProgressTick) {
+        if (!id.equals(jobId) || reportClock.timeReversed(tick)) {
             jobId = id;
-            lastProgressTick = tick;
-            lastReportTick = tick;
-            reported = false;
+            reportClock.progress(tick);
             clearObservations();
         }
     }
 
     void reset() {
         jobId = null;
-        lastProgressTick = 0L;
-        lastReportTick = 0L;
-        reported = false;
+        reportClock.progress(0L);
         resolveStatsTick = Long.MIN_VALUE;
         resolveAttempts = 0L;
         resolveFailures = 0L;
@@ -101,9 +96,7 @@ final class ECODispatchStallDiagnostics {
 
     void progress(long tick) {
         if (jobId == null) return;
-        lastProgressTick = tick;
-        lastReportTick = tick;
-        reported = false;
+        reportClock.progress(tick);
         clearObservations();
     }
 
@@ -268,10 +261,8 @@ final class ECODispatchStallDiagnostics {
         }
         if (jobId == null || job == null || !jobId.equals(job.link.getCraftingID())) return;
         if (!job.waitingFor.list.isEmpty()) cause(Cause.WAITING_FOR_OUTPUT);
-        long stalledTicks = Math.max(0L, tick - lastProgressTick);
-        if (stalledTicks < INITIAL_REPORT_DELAY || (reported && tick - lastReportTick < REPORT_INTERVAL)) return;
-        lastReportTick = tick;
-        reported = true;
+        long stalledTicks = reportClock.stalledTicks(tick);
+        if (!reportClock.shouldReport(tick)) return;
 
         long pendingTasks = 0L;
         for (var task : job.tasks.values()) {

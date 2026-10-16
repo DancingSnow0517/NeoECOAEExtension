@@ -22,6 +22,9 @@ public final class ECOForcedCraftingPlan implements ICraftingPlan {
         }
     }
 
+    /** Trusted provenance for ECO's own final wrapper. Does not relax structural matching for foreign plans. */
+    public ICraftingPlan metadataSource() { return delegate; }
+
     @Override public GenericStack finalOutput() { return delegate.finalOutput(); }
     @Override public long bytes() { return delegate.bytes(); }
     @Override public boolean simulation() { return false; }

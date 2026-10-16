@@ -411,9 +411,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             verified.remainingTotal(),
             verified.craftingJobId()
         );
-        if (!ECOCraftingStackCodec.canRetain(work.outputTotal(), false)
-            || !ECOCraftingStackCodec.canRetain(work.inputTotal(), true)
-            || !ECOCraftingStackCodec.canRetain(work.remainingTotal(), false)) {
+        if (!canRetainWork(work.outputTotal(), work.inputTotal(), work.remainingTotal())) {
             return false;
         }
         startVirtualWork(work);
@@ -422,9 +420,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private boolean acceptBatch(ECOBatchCraftingWork work, ECOCraftingSystemBlockEntity controller) {
-        if (!ECOCraftingStackCodec.canRetain(work.outputTotal(), false)
-            || !ECOCraftingStackCodec.canRetain(work.inputTotal(), true)
-            || !ECOCraftingStackCodec.canRetain(work.remainingTotal(), false)) {
+        if (!canRetainWork(work.outputTotal(), work.inputTotal(), work.remainingTotal())) {
             return false;
         }
         if (!consumeCraftingCoolant(controller, work.batchSize())) {
@@ -433,6 +429,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         startBatchWork(work);
         fastPathReason = "FAST_PATH_HIT";
         return true;
+    }
+
+    private static boolean canRetainWork(
+        List<GenericStack> outputs, List<GenericStack> inputs, List<GenericStack> remainders
+    ) {
+        return ECOCraftingStackCodec.canRetain(outputs, false)
+            && ECOCraftingStackCodec.canRetain(inputs, true)
+            && ECOCraftingStackCodec.canRetain(remainders, false);
     }
 
     private boolean acceptPattern(

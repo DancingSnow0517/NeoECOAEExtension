@@ -85,6 +85,16 @@ class ECORepeatedCircuitRuntimeTest {
             when(definitions.get(i).toTag(registries)).thenReturn(tag);
         }
         var saved = ECOExecutionPlanNbtCodec.encode(fixture.plan, registries);
+        var legacySchema = assertDoesNotThrow(() -> net.minecraft.nbt.TagParser.parseTag("""
+            {mode:"ORDERED_CYCLE",tasks:[
+              {id:0,total:2000000000008L,phase:0,kind:"CYCLE_ORDERED",pattern:{testId:0},inputAllocations:[]},
+              {id:1,total:1000000000000L,phase:0,kind:"CYCLE_ORDERED",pattern:{testId:1},inputAllocations:[]}],
+             phases:[{index:0,component:0,type:"CYCLE",tasks:[I;0,1],dependencies:[I;],
+               steps:[{task:0,count:5L},{task:0,count:2L},
+                 {task:1,count:1L,repeatWidth:2,repetitions:1000000000000L},{task:0,count:3L}],
+               dynamic:[],initialSeed:[]}]}
+            """));
+        assertEquals(legacySchema, saved, "the core codec must retain the exact pre-extraction NBT schema");
         assertEquals(4, saved.getList("phases", 10).getCompound(0).getList("steps", 10).size());
         var cpu = mock(ECOCraftingCPU.class);
         var logic = new ECOCraftingCPULogic(cpu);
@@ -98,6 +108,13 @@ class ECORepeatedCircuitRuntimeTest {
             var restored = ECOExecutionPlanNbtCodec.decode(saved, registries, logic,
                 new GenericStack(mock(AEKey.class), 1));
             assertEquals(fixture.plan.phases().getFirst().steps(), restored.phases().getFirst().steps());
+            var legacy = saved.copy();
+            var oldStep = legacy.getList("phases", 10).getCompound(0).getList("steps", 10).getCompound(2);
+            oldStep.remove("repeatWidth");
+            oldStep.remove("repetitions");
+            var legacyPlan = ECOExecutionPlanNbtCodec.decode(legacy, registries, logic,
+                new GenericStack(mock(AEKey.class), 1));
+            assertEquals(new ECOExecutionPlan.ExecutionStep(1, 1L), legacyPlan.phases().getFirst().steps().get(2));
         }
     }
 

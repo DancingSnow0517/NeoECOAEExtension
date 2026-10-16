@@ -9,6 +9,27 @@ import static org.mockito.Mockito.*;
 
 class ECOCraftingFastPathCacheTest {
     @Test
+    void generationsSeparatePatternScopesAndCachedResults() {
+        Object identity = new Object();
+        var before = ECOFastPathKey.of(identity, new KeyCounter[0], null, 41).orElseThrow();
+        var equalBefore = ECOFastPathKey.of(identity, new KeyCounter[0], null, 41).orElseThrow();
+        var after = ECOFastPathKey.of(identity, new KeyCounter[0], null, 42).orElseThrow();
+        assertEquals(before, equalBefore);
+        assertEquals(before.hashCode(), equalBefore.hashCode());
+        assertTrue(before.hasSamePatternScope(equalBefore));
+        assertNotEquals(before, after);
+        assertFalse(before.hasSamePatternScope(after));
+        assertEquals(41, before.reloadGeneration());
+        assertTrue(before.isForReloadGeneration(41));
+        assertFalse(before.isForReloadGeneration(42));
+
+        var cache = new ECOCraftingFastPathCache(16);
+        cache.putNegative(before, 0, "OLD_GENERATION");
+        assertEquals("OLD_GENERATION", cache.get(equalBefore, 1).rejectReason());
+        assertNull(cache.get(after, 1));
+    }
+
+    @Test
     void equalKeysAndReadsAndReplacementsPreserveLruOrder() {
         var cache = new ECOCraftingFastPathCache(16);
         Object identity = new Object();

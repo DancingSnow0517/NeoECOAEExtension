@@ -88,7 +88,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
     }
 
     @Nullable
-    ToolPoolBatch prepareToolPoolBatch(
+    ECOStatefulBatchCalculator.BatchContract prepareToolPoolBatch(
         ListCraftingInventory inventory,
         List<GenericStack> ordinaryInputs,
         List<GenericStack> ordinaryRemainders,
@@ -152,7 +152,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
             unallocatedUses -= assignedUses;
         }
         if (unallocatedUses != 0L) return null;
-        return new ToolPoolBatch(
+        return new ECOStatefulBatchCalculator.BatchContract(
             crafts,
             ECOFastPathStacks.copyCounter(totalInputs),
             ECOFastPathStacks.copyCounter(totalRemainders)
@@ -190,14 +190,6 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
             result.add(entry.getKey(), Math.multiplyExact(entry.getLongValue(), multiplier));
         }
         return result;
-    }
-
-    record ToolPoolBatch(long craftCount, List<GenericStack> inputs, List<GenericStack> remainders) {
-        ToolPoolBatch {
-            if (craftCount <= 0L) throw new IllegalArgumentException("craftCount must be positive");
-
-
-        }
     }
 
     private record ToolStock(AEItemKey key, ItemStack stack, long count, long craftsPerTool) {}

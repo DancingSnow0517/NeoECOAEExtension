@@ -10,6 +10,8 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.core.math.NEMath;
+import cn.dancingsnow.neoecoae.core.execution.OrderedStepSchedule;
+import cn.dancingsnow.neoecoae.core.execution.PhaseBarriers;
 import it.unimi.dsi.fastutil.ints.Int2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -59,6 +61,8 @@ public final class ECOExecutionRuntime {
     private final int[] stepCursor;
     private final int[] dynamicCursor;
     private final List<long[]> remainingSteps;
+    private final List<OrderedStepSchedule> orderedSchedules;
+    private final PhaseBarriers phaseBarriers;
     private final List<long[]> remainingLaps;
     // Accepted future copies of each repeated step. They become current progress as laps advance.
     private final List<long[]> aheadSteps;
@@ -106,6 +110,14 @@ public final class ECOExecutionRuntime {
         this.stepCursor = new int[plan.phases().size()];
         this.dynamicCursor = new int[plan.phases().size()];
         this.remainingSteps = new ArrayList<>(plan.phases().size());
+        this.orderedSchedules = new ArrayList<>(plan.phases().size());
+        int[][] phaseDependencies = new int[plan.phases().size()][];
+        boolean[] barriered = new boolean[plan.phases().size()];
+        for (var phase : plan.phases()) {
+            phaseDependencies[phase.index()] = phase.dependencies().stream().mapToInt(Integer::intValue).toArray();
+            barriered[phase.index()] = phase.type() != ECOExecutionSchedule.Type.DAG;
+        }
+        this.phaseBarriers = new PhaseBarriers(phaseDependencies, barriered);
         this.remainingLaps = new ArrayList<>(plan.phases().size());
         this.aheadSteps = new ArrayList<>(plan.phases().size());
         this.batchGroupEnds = new ArrayList<>(plan.phases().size());
@@ -137,6 +149,9 @@ public final class ECOExecutionRuntime {
             long[] steps = new long[phase.steps().size()];
             for (int i = 0; i < steps.length; i++) steps[i] = phase.steps().get(i).count();
             remainingSteps.add(steps);
+            int[] widths = new int[steps.length];
+            for (int i = 0; i < widths.length; i++) widths[i] = phase.steps().get(i).repeatWidth();
+            orderedSchedules.add(new OrderedStepSchedule(steps, widths));
             long[] laps = new long[steps.length];
             for (int i = 0; i < laps.length; i++) laps[i] = phase.steps().get(i).repetitions();
             remainingLaps.add(laps);
@@ -699,53 +714,17 @@ public final class ECOExecutionRuntime {
     }
 
     private boolean dependenciesComplete(int phaseIndex) {
-        // DAG producers stream into consumers for both ordinary and exact orders. Physical input extraction
-        // gates dispatch; solved cycles retain their completion barrier so their feedback seed cannot escape.
-        for (int dependency : plan.phases().get(phaseIndex).dependencies()) {
-            if (plan.phases().get(dependency).type() != ECOExecutionSchedule.Type.DAG
-                    && !completedPhases.get(dependency)) return false;
-        }
-        return true;
+        return phaseBarriers.ready(phaseIndex, completedPhases);
     }
 
     private void advanceFinishedSteps(int phaseIndex) {
-        var steps = plan.phases().get(phaseIndex).steps();
-        long[] remaining = remainingSteps.get(phaseIndex);
-        while (stepCursor[phaseIndex] < steps.size() && remaining[stepCursor[phaseIndex]] == 0L) {
-            int end = stepCursor[phaseIndex];
-            var step = steps.get(end);
-            long[] laps = remainingLaps.get(phaseIndex);
-            if (laps[end] > 1L) {
-                int start = end - step.repeatWidth() + 1;
-                long[] ahead = aheadSteps.get(phaseIndex);
-                long skip = laps[end] - 1L;
-                for (int i = start; i <= end; i++) skip = Math.min(skip, ahead[i] / steps.get(i).count());
-                for (int i = start; i <= end; i++) ahead[i] -= skip * steps.get(i).count();
-                laps[end] -= skip;
-                if (laps[end] == 1L) {
-                    stepCursor[phaseIndex]++;
-                    continue;
-                }
-                laps[end]--;
-                for (int i = start; i <= end; i++) {
-                    long consumed = Math.min(ahead[i], steps.get(i).count());
-                    remaining[i] = steps.get(i).count() - consumed;
-                    ahead[i] -= consumed;
-                }
-                stepCursor[phaseIndex] = start;
-            } else {
-                stepCursor[phaseIndex]++;
-            }
-        }
+        stepCursor[phaseIndex] = orderedSchedules.get(phaseIndex).advance(stepCursor[phaseIndex],
+            remainingSteps.get(phaseIndex), remainingLaps.get(phaseIndex), aheadSteps.get(phaseIndex));
     }
 
     private long orderedAllowance(int phaseIndex, int index) {
-        long current = remainingSteps.get(phaseIndex)[index];
-        int end = batchGroupEnds.get(phaseIndex)[index];
-        if (end < 0) return current;
-        long future = Math.multiplyExact(remainingLaps.get(phaseIndex)[end] - 1L,
-            plan.phases().get(phaseIndex).steps().get(index).count());
-        return Math.addExact(current, future - aheadSteps.get(phaseIndex)[index]);
+        return orderedSchedules.get(phaseIndex).allowance(index, batchGroupEnds.get(phaseIndex)[index],
+            remainingSteps.get(phaseIndex), remainingLaps.get(phaseIndex), aheadSteps.get(phaseIndex));
     }
 
     private int[] batchGroupEnds(ECOExecutionPlan.PhaseSpec phase) {

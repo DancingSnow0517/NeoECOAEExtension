@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
 import appeng.api.stacks.GenericStack;
+import appeng.crafting.inv.ListCraftingInventory;
 import java.util.List;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
@@ -72,6 +73,45 @@ class ECOFastPathExpandedSupportTest {
         var remaining = model.batchRemainders(List.of(GenericStack.fromItemStack(worn),
             GenericStack.fromItemStack(catalyst)), 2);
         assertEquals(List.of(GenericStack.fromItemStack(catalyst)), remaining);
+    }
+
+    @Test
+    void pooledToolContractKeepsOnlyThePartlyUsedToolAndDoesNotMutateInventory() {
+        ItemStack resolved = new ItemStack(Items.IRON_PICKAXE);
+        resolved.setDamageValue(resolved.getMaxDamage() - 1);
+        ItemStack spare = resolved.copy();
+        spare.setDamageValue(spare.getMaxDamage() - 4);
+        ItemStack ingredient = new ItemStack(Items.COBBLESTONE);
+        var model = ECODurabilityBatchModel.analyze(
+            List.of(resolved), List.of(ItemStack.EMPTY)).orElseThrow();
+        var inventory = new ListCraftingInventory(ignored -> {});
+        inventory.list.add(GenericStack.fromItemStack(resolved).what(), 1);
+        inventory.list.add(GenericStack.fromItemStack(spare).what(), 1);
+        inventory.list.add(GenericStack.fromItemStack(ingredient).what(), 20);
+
+        ECOStatefulBatchCalculator.BatchContract partial = model.prepareToolPoolBatch(inventory,
+            List.of(GenericStack.fromItemStack(resolved), GenericStack.fromItemStack(ingredient)),
+            List.of(), 3);
+        assertNotNull(partial);
+        assertEquals(3, partial.craftCount());
+        assertEquals(1, amount(partial.inputs(), resolved));
+        assertEquals(1, amount(partial.inputs(), spare));
+        assertEquals(3, amount(partial.inputs(), ingredient));
+        ItemStack remaining = spare.copy();
+        remaining.setDamageValue(spare.getDamageValue() + 2);
+        assertEquals(List.of(GenericStack.fromItemStack(remaining)), partial.remainders());
+
+        // Planning is a preview. A subsequent larger request can still use all five tool uses.
+        var full = model.prepareToolPoolBatch(inventory,
+            List.of(GenericStack.fromItemStack(resolved), GenericStack.fromItemStack(ingredient)),
+            List.of(), 8);
+        assertNotNull(full);
+        assertEquals(5, full.craftCount());
+        assertEquals(5, amount(full.inputs(), ingredient));
+        assertTrue(full.remainders().isEmpty());
+        assertEquals(1, inventory.list.get(GenericStack.fromItemStack(resolved).what()));
+        assertEquals(1, inventory.list.get(GenericStack.fromItemStack(spare).what()));
+        assertEquals(20, inventory.list.get(GenericStack.fromItemStack(ingredient).what()));
     }
 
     @Test

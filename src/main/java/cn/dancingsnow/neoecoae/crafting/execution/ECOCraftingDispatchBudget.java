@@ -1,36 +1,8 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
-/** Mutable per-pass ordinary-path accounting; verified batches deliberately do not consume it. */
-final class ECOCraftingDispatchBudget {
-    private final int ordinaryLimit;
-    private final int probeLimit;
-    private int normalProbes;
-    private int acceptedNormalPushes;
-
+/** AE2 dispatch boundary for the loader-independent per-pass ledger. */
+final class ECOCraftingDispatchBudget extends cn.dancingsnow.neoecoae.core.execution.DispatchBudget {
     ECOCraftingDispatchBudget(int ordinaryLimit, int probeLimit) {
-        this.ordinaryLimit = Math.max(0, ordinaryLimit);
-        this.probeLimit = Math.max(0, probeLimit);
-    }
-
-    boolean canAttemptOrdinary() {
-        return ordinaryLimit > 0
-                && acceptedNormalPushes < ordinaryLimit
-                && normalProbes < probeLimit;
-    }
-
-    void recordNormalProbe() {
-        normalProbes++;
-    }
-
-    void recordAcceptedNormalPush() {
-        acceptedNormalPushes++;
-    }
-
-    int normalProbes() {
-        return normalProbes;
-    }
-
-    int acceptedNormalPushes() {
-        return acceptedNormalPushes;
+        super(ordinaryLimit, probeLimit);
     }
 }

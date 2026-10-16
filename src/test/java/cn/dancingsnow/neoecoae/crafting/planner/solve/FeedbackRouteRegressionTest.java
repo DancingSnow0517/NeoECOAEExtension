@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.crafting.CraftingPlan;
+import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -69,8 +71,11 @@ class FeedbackRouteRegressionTest {
         stock.add(a, 1L);
         var solved = planner().plan(network, graph(network), stock, 2L, true, ECOCancellation.NONE);
         assertEquals(PlanningStatus.SUCCESS, solved.status(), solved.trace().diagnostics().toString());
-        assertEquals(ECOExecutionRequirement.ORDERED,
-            ECOExecutionRequirement.classify(solved.components(), solved.state().patternTimes()));
+        var answer = new ECOPlanningResult(solved.status(),
+            new CraftingPlan(new GenericStack(goal, 2L), 0L, false, false, new KeyCounter(),
+                new KeyCounter(), new KeyCounter(), solved.state().patternTimes()),
+            new ECOPlanTrace(), List.of(), solved.components(), solved.executionComponentOrder(), 0L);
+        assertEquals(ExecutionMode.ORDERED_CYCLE, answer.executionMode());
         Map<AEKey, Long> used = new HashMap<>();
         solved.state().usedItems().forEach(entry -> used.put(entry.getKey(), entry.getLongValue()));
         var signature = new PlanIdentity.Signature(goal, 2L, Map.of(), used, Map.of(), Map.of());

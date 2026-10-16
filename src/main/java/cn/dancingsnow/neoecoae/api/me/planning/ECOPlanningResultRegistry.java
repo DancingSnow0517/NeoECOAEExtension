@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.planning;
 
 import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOForcedCraftingPlan;
 import appeng.api.networking.crafting.ICraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity.Signature;
@@ -11,7 +12,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionContract;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionRequirement;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.time.Duration;
@@ -49,14 +50,46 @@ public final class ECOPlanningResultRegistry {
     public static @Nullable ECOExecutionContract resolveContract(ICraftingPlan plan,
             @Nullable ECOPlanningResult attached) {
         if (plan == null) return null;
-        if (attached != null && attached.plan() != null && PlanIdentity.matches(plan, attached.plan())) {
-            try { return attached.executionContract(); }
-            catch (RuntimeException ignored) { return null; }
+        ICraftingPlan source = metadataSource(plan);
+        ECOPlanningResult result = attached;
+        if (result == null || result.plan() == null || !PlanIdentity.matches(source, result.plan())) {
+            result = findExact(source);
+            if (result == null) result = find(source);
         }
-        ECOPlanningResult registered = find(plan);
-        if (registered == null || registered.plan() == null || !PlanIdentity.matches(plan, registered.plan())) return null;
-        try { return registered.executionContract(); }
-        catch (RuntimeException ignored) { return null; }
+        if (result == null || result.plan() == null || !PlanIdentity.matches(source, result.plan())) return null;
+        try {
+            ECOExecutionContract contract = submissionContract(result);
+            if (!PlanIdentity.matches(contract.planSignature(), source)) {
+                Signature submittedSignature = PlanIdentity.of(plan);
+                return submittedSignature == null ? null : new ECOExecutionContract(contract.planningId(),
+                    submittedSignature, ExecutionMode.BLOCKED, null, "PLAN_IDENTITY_CHANGED",
+                    contract.fuzzyPlanningItemIds());
+            }
+            if (source == plan) return contract;
+            Signature submittedSignature = PlanIdentity.of(plan);
+            if (submittedSignature == null) return null;
+            // Only ECO's final wrapper is allowed to change waiting/missing accounting while retaining provenance.
+            return new ECOExecutionContract(contract.planningId(), submittedSignature, contract.mode(),
+                contract.executionPlan(), contract.error(), contract.fuzzyPlanningItemIds());
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static ICraftingPlan metadataSource(ICraftingPlan plan) {
+        while (plan instanceof ECOForcedCraftingPlan forced) plan = forced.metadataSource();
+        return plan;
+    }
+
+    private static ECOExecutionContract submissionContract(ECOPlanningResult result) {
+        ECOExecutionContract contract = result.executionContract();
+        // Diagnostic results can omit phase construction. That does not make an unfinished cycle native-safe.
+        if (result.status() != PlanningStatus.SUCCESS && result.requiresCycleExecution()
+                && contract.executable()) {
+            return new ECOExecutionContract(contract.planningId(), contract.planSignature(), ExecutionMode.BLOCKED,
+                null, "PLANNING_NOT_SUCCESS:" + result.status(), contract.fuzzyPlanningItemIds());
+        }
+        return contract;
     }
 
     /** Store only metadata whose source result and registered plan have the same complete identity. */
@@ -84,22 +117,23 @@ public final class ECOPlanningResultRegistry {
         RecoveryState recoveryState = validSchedule
             ? RecoveryState.VALID_SCHEDULE
             : RecoveryState.MISSING_OR_INVALID_SCHEDULE;
-        UUID planningId = result.planningId();
+        // Keep pure DAG construction lazy; validated cycle metadata already has an execution contract.
+        ECOExecutionContract contract = inspection.cycleExpected() ? submissionContract(result) : null;
         synchronized (RESULTS) {
             removeExpired(now);
             // A complete plan signature is the execution identity. Keeping multiple planning IDs for the same
             // identity made a second identical calculation poison recovery for both submissions. Replace the
             // value atomically; the submitted pattern objects are rebound below before execution.
             RESULTS.putAndMoveToLast(signature, new Entry(result, signature, plan.patternTimes(),
-                    inspection.executionPlan(), inspection.cycleExpected(), recoveryState,
-                    inspection.reason(), planningId, now));
+                    contract, inspection.cycleExpected(), recoveryState,
+                    inspection.reason(), now));
             trimEntries();
         }
     }
 
     /** True independently of whether schedule construction/propagation succeeded. */
     public static boolean cycleExpected(@Nullable ECOPlanningResult result) {
-        return result != null && result.executionRequirement() != ECOExecutionRequirement.NONE;
+        return result != null && result.requiresCycleExecution();
     }
 
     /**
@@ -108,8 +142,8 @@ public final class ECOPlanningResultRegistry {
      */
     public static boolean cycleSafetyRequired(ICraftingPlan publicPlan, @Nullable ECOPlanningResult result) {
         if (publicPlan == null || result == null || result.plan() == null
-                || !PlanIdentity.matches(publicPlan, result.plan())) return false;
-        return result.executionRequirement() != ECOExecutionRequirement.NONE;
+                || !PlanIdentity.matches(metadataSource(publicPlan), result.plan())) return false;
+        return result.requiresCycleExecution();
     }
 
     public static List<String> describePlanningResult(@Nullable ECOPlanningResult result) {
@@ -117,7 +151,7 @@ public final class ECOPlanningResultRegistry {
     }
 
     public static @Nullable ECOPlanningResult find(ICraftingPlan plan) {
-        Signature signature = PlanIdentity.of(plan);
+        Signature signature = PlanIdentity.of(plan == null ? null : metadataSource(plan));
         if (signature == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
@@ -131,7 +165,7 @@ public final class ECOPlanningResultRegistry {
         if (plan == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            ExactEntry entry = EXACT_RESULTS.get(plan);
+            ExactEntry entry = EXACT_RESULTS.get(metadataSource(plan));
             return entry == null ? null : entry.result();
         }
     }
@@ -144,10 +178,10 @@ public final class ECOPlanningResultRegistry {
     public static boolean isECOOwnedPlan(@Nullable ICraftingPlan plan) {
         if (plan == null) return false;
         ECOPlanningResult exact = findExact(plan);
-        if (exact != null && exact.plan() == plan) return true;
+        if (exact != null && exact.plan() == metadataSource(plan)) return true;
         ECOPlanningResult registered = find(plan);
         return registered != null && registered.plan() != null
-            && PlanIdentity.matches(plan, registered.plan());
+            && PlanIdentity.matches(metadataSource(plan), registered.plan());
     }
 
     /**
@@ -174,7 +208,7 @@ public final class ECOPlanningResultRegistry {
         if (confirmedPlan == null || result == null || result.plan() == null
                 || result.status() != PlanningStatus.SUCCESS || result.plan().simulation()) return null;
         Signature confirmedSignature = PlanIdentity.of(confirmedPlan);
-        if (confirmedSignature == null || !PlanIdentity.matches(confirmedSignature, result.plan())) return null;
+        if (confirmedSignature == null || !PlanIdentity.matches(metadataSource(confirmedPlan), result.plan())) return null;
 
         ECOExecutionPlan executionPlan;
         try {
@@ -184,16 +218,20 @@ public final class ECOPlanningResultRegistry {
         }
         boolean expected = cycleExpected(result);
         if (!expected && executionPlan == null) return null;
-        return new SubmissionAlias(confirmedSignature, result.planningId(), executionPlan,
-            result.plan().patternTimes(), expected, "ECO");
+        ECOExecutionContract contract = resolveContract(confirmedPlan, result);
+        return contract == null ? null : new SubmissionAlias(confirmedSignature, contract,
+            result.plan().patternTimes());
     }
 
-    /** Metadata is visible only if the submitted plan proves the same complete identity as the confirmation plan. */
+    /** @deprecated Prefer {@link #resolveContract(ICraftingPlan, ECOPlanningResult)} at submission. */
+    @Deprecated
     public static @Nullable SubmissionMetadata activeSubmissionMetadata(ICraftingPlan plan) {
         SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
         if (alias == null || !PlanIdentity.matches(alias.confirmedSignature(), plan)) return null;
-        return new SubmissionMetadata(alias.executionPlan(), alias.cycleExpected(), alias.planningId(), true,
-            alias.selectedPlanner());
+        ECOExecutionContract contract = alias.contract();
+        boolean cycleExpected = contract.mode() == ExecutionMode.ORDERED_CYCLE
+            || contract.mode() == ExecutionMode.DYNAMIC_CYCLE || contract.mode() == ExecutionMode.BLOCKED;
+        return new SubmissionMetadata(contract.executionPlan(), cycleExpected, contract.planningId(), true, "ECO");
     }
 
     /**
@@ -205,7 +243,7 @@ public final class ECOPlanningResultRegistry {
         if (plan == null) return null;
         SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
         if (alias != null && PlanIdentity.matches(alias.confirmedSignature(), plan)) {
-            return rebind(alias.executionPlan(), alias.sourceTasks(), plan.patternTimes());
+            return rebind(alias.contract().executionPlan(), alias.sourceTasks(), plan.patternTimes());
         }
         RecoveredExecutionMetadata recovered = recoverExecutionMetadata(plan);
         return recovered == null ? null : recovered.executionPlan();
@@ -214,8 +252,7 @@ public final class ECOPlanningResultRegistry {
     /**
      * Returns whether an optional submission optimizer must leave this exact ECO plan untouched.
      *
-     * <p>This is deliberately stricter than {@link #activeSubmissionMetadata(ICraftingPlan)}'s caller-facing
-     * metadata contract: an optimizer may only be bypassed while the synchronous confirmation alias still proves
+     * <p>An optimizer may only be bypassed while the synchronous confirmation alias still proves
      * the complete submitted task vector. A same-output candidate, a rebuilt plan with different counts, or a
      * submission outside the confirmation scope is never protected.</p>
      */
@@ -226,14 +263,15 @@ public final class ECOPlanningResultRegistry {
 
     /** Recover/rebind only strict metadata; no same-output or production-scaled candidate search remains. */
     public static @Nullable RecoveredExecutionMetadata recoverExecutionMetadata(ICraftingPlan plan) {
-        Signature signature = PlanIdentity.of(plan);
+        if (plan == null) return null;
+        Signature signature = PlanIdentity.of(metadataSource(plan));
         if (signature == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
             Entry entry = RESULTS.getAndMoveToLast(signature);
             if (entry == null) return null;
 
-            ECOExecutionPlan sourcePlan = entry.executionPlan();
+            ECOExecutionPlan sourcePlan = entry.contract() == null ? null : entry.contract().executionPlan();
             if (sourcePlan == null && !entry.cycleExpected()) {
                 try {
                     sourcePlan = entry.result().executionPlan();
@@ -246,16 +284,18 @@ public final class ECOPlanningResultRegistry {
         }
     }
 
-    public static @Nullable RecoveredSchedule recoverSchedule(ICraftingPlan plan) {
-        RecoveredExecutionMetadata metadata = recoverExecutionMetadata(plan);
-        return metadata == null || metadata.executionPlan() == null
-            ? null : new RecoveredSchedule(metadata.executionPlan().schedule(), metadata.matchMode());
-    }
-
     private static RecoveredExecutionMetadata recovered(Entry entry,
             @Nullable ECOExecutionPlan executionPlan, String matchMode) {
         return new RecoveredExecutionMetadata(executionPlan, entry.cycleExpected(), entry.recoveryState(),
-            entry.rejectionReason(), entry.planningId(), matchMode);
+            entry.rejectionReason(), entry.result().planningId(), matchMode);
+    }
+
+    /** @deprecated Use {@link #recoverExecutionMetadata(ICraftingPlan)} to retain rejection diagnostics. */
+    @Deprecated
+    public static @Nullable RecoveredSchedule recoverSchedule(ICraftingPlan plan) {
+        RecoveredExecutionMetadata metadata = recoverExecutionMetadata(plan);
+        return metadata == null || metadata.executionPlan() == null ? null
+            : new RecoveredSchedule(metadata.executionPlan().schedule(), metadata.matchMode());
     }
 
     public static int registeredScheduleCount() {
@@ -291,7 +331,7 @@ public final class ECOPlanningResultRegistry {
             for (Entry entry : RESULTS.values()) {
                 boolean sameOutput = entry.signature().sameFinalOutput(submittedSignature);
                 boolean strict = entry.signature().equals(submittedSignature);
-                candidates.add("candidate=" + index++ + ",planningId=" + entry.planningId()
+                candidates.add("candidate=" + index++ + ",planningId=" + entry.result().planningId()
                     + ",sameFinalOutput=" + sameOutput + ",strictMatch=" + strict
                     + ",registered=" + PlanIdentity.describe(entry.signature())
                     + ",submitted=" + PlanIdentity.describe(submittedSignature));
@@ -430,6 +470,8 @@ public final class ECOPlanningResultRegistry {
         }).toList();
     }
 
+    /** @deprecated Compatibility projection of the scoped execution contract. */
+    @Deprecated
     public record SubmissionMetadata(@Nullable ECOExecutionPlan executionPlan, boolean cycleExpected,
             @Nullable UUID planningId, boolean metadataMatch, String selectedPlanner) {
         public SubmissionMetadata(@Nullable ECOExecutionPlan executionPlan, boolean cycleExpected) {
@@ -440,14 +482,13 @@ public final class ECOPlanningResultRegistry {
         }
     }
 
-    private record SubmissionAlias(Signature confirmedSignature, UUID planningId,
-            @Nullable ECOExecutionPlan executionPlan, Map<IPatternDetails, Long> sourceTasks,
-            boolean cycleExpected, String selectedPlanner) {
+    private record SubmissionAlias(Signature confirmedSignature, ECOExecutionContract contract,
+            Map<IPatternDetails, Long> sourceTasks) {
     }
 
     private record Entry(ECOPlanningResult result, Signature signature, Map<IPatternDetails, Long> tasks,
-            @Nullable ECOExecutionPlan executionPlan, boolean cycleExpected, RecoveryState recoveryState,
-            @Nullable String rejectionReason, UUID planningId, long createdNanos) {
+            @Nullable ECOExecutionContract contract, boolean cycleExpected, RecoveryState recoveryState,
+            @Nullable String rejectionReason, long createdNanos) {
     }
 
     private record ExactEntry(ECOPlanningResult result, long createdNanos) {
@@ -476,6 +517,8 @@ public final class ECOPlanningResultRegistry {
         }
     }
 
+    /** @deprecated Compatibility projection; use {@link RecoveredExecutionMetadata}. */
+    @Deprecated
     public record RecoveredSchedule(ECOExecutionSchedule schedule, String matchMode) {
     }
 }

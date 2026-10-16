@@ -18,7 +18,6 @@ public final class ECOFastPathKey {
     @Nullable
     private final ResourceLocation dimension;
 
-    private final long reloadGeneration;
     private final List<SlotSignature> slots;
     private final int hash;
 
@@ -30,7 +29,6 @@ public final class ECOFastPathKey {
     ) {
         this.patternKey = new ECOFastPathPatternKey(patternIdentity, reloadGeneration);
         this.dimension = dimension;
-        this.reloadGeneration = reloadGeneration;
         this.slots = slots;
         this.hash = Objects.hash(patternKey, dimension, this.slots);
     }
@@ -73,8 +71,7 @@ public final class ECOFastPathKey {
         if (!(obj instanceof ECOFastPathKey other)) {
             return false;
         }
-        return reloadGeneration == other.reloadGeneration
-            && patternKey.equals(other.patternKey)
+        return patternKey.equals(other.patternKey)
             && Objects.equals(dimension, other.dimension)
             && slots.equals(other.slots);
     }
@@ -85,11 +82,11 @@ public final class ECOFastPathKey {
     }
 
     boolean isForReloadGeneration(long candidate) {
-        return reloadGeneration == candidate;
+        return patternKey.reloadGeneration() == candidate;
     }
 
     long reloadGeneration() {
-        return reloadGeneration;
+        return patternKey.reloadGeneration();
     }
 
     /**
@@ -99,7 +96,6 @@ public final class ECOFastPathKey {
      */
     boolean hasSamePatternScope(ECOFastPathKey other) {
         return other != null
-            && reloadGeneration == other.reloadGeneration
             && patternKey.equals(other.patternKey)
             && Objects.equals(dimension, other.dimension);
     }

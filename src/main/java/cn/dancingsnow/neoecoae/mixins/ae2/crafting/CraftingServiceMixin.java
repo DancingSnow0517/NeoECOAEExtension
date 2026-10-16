@@ -5,7 +5,6 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridServiceProvider;
 import appeng.api.networking.crafting.ICraftingCPU;
-import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
@@ -20,6 +19,7 @@ import appeng.crafting.pattern.AECraftingPattern;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOCraftingServiceClusters;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOComputationHostRouting;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
@@ -54,8 +54,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalLong;
@@ -92,11 +90,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Unique
     private static final String NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY =
             "neoecoaeIgnorePatternSubstitutions";
-    @Unique
-    private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
-                    NEComputationCluster::getPooledParallelism)
-            .reversed()
-            .thenComparingLong(NEComputationCluster::getAvailableStorage);
+
 
     @Shadow
     private boolean updateList;
@@ -127,55 +121,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Override
     public String neoecoae$describeCpuSelection(ICraftingPlan plan, IActionSource source) {
-        StringBuilder details = new StringBuilder();
-        ImmutableSet<ICraftingCPU> advertised = getCpus();
-        details.append("advertisedCpus=").append(advertised.size());
-        int index = 0;
-        for (ICraftingCPU cpu : advertised) {
-            long storage = cpu.getAvailableStorage();
-            boolean busy = cpu.isBusy();
-            details.append("\n  cpu[").append(index++).append("] type=")
-                    .append(cpu.getClass().getName())
-                    .append(", name=").append(cpu.getName() == null ? "<unnamed>" : cpu.getName().getString())
-                    .append(", storage=").append(storage)
-                    .append(", required=").append(plan.bytes())
-                    .append(", fits=").append(storage >= plan.bytes())
-                    .append(", busy=").append(busy)
-                    .append(", coprocessors=").append(cpu.getCoProcessors())
-                    .append(", selectionMode=").append(cpu.getSelectionMode())
-                    .append(", nativeMenuSelectable=").append(!busy && storage >= plan.bytes())
-                    .append(", rejection=").append(busy ? "busy" : storage < plan.bytes() ? "too_small"
-                            : cpu.getSelectionMode() == appeng.api.config.CpuSelectionMode.MACHINE_ONLY
-                            ? "player_auto_selection_excluded" : "none");
-        }
-
-        details.append("\nregisteredEcoClusters=").append(neoecoae$computationClusters.size());
-        index = 0;
-        for (NEComputationCluster cluster : neoecoae$computationClusters) {
-            boolean representative = cluster.isNetworkRepresentative();
-            boolean active = cluster.isActive();
-            long storage = cluster.getAvailableStorage();
-            boolean threadAvailable = cluster.getActiveCPUCount() < cluster.getMaxThreads();
-            boolean allowed = cluster.canBeAutoSelectedFor(source);
-            String rejection = !representative ? "not_network_representative"
-                    : !active ? "offline"
-                    : !threadAvailable ? "all_threads_busy"
-                    : storage < plan.bytes() ? "too_small"
-                    : !allowed ? "selection_mode_excluded"
-                    : "none";
-            details.append("\n  ecoCluster[").append(index++).append("] representative=")
-                    .append(representative)
-                    .append(", active=").append(active)
-                    .append(", storage=").append(storage)
-                    .append(", required=").append(plan.bytes())
-                    .append(", activeThreads=").append(cluster.getActiveCPUCount())
-                    .append(", maxThreads=").append(cluster.getMaxThreads())
-                    .append(", parallelism=").append(cluster.getPooledParallelism())
-                    .append(", selectionMode=").append(cluster.getSelectionMode())
-                    .append(", sourceAllowed=").append(allowed)
-                    .append(", rejection=").append(rejection);
-        }
-        return details.toString();
+        return ECOCraftingServiceClusters.describe(getCpus(), neoecoae$computationClusters, plan, source);
     }
 
     @Unique
@@ -441,21 +387,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             at = {@At("TAIL")}
     )
     private void onUpdateCPUClusters(CallbackInfo ci) {
-        this.neoecoae$computationClusters.clear();
-
-        for (ECOComputationSystemBlockEntity blockEntity : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
-            NEComputationCluster cluster = blockEntity.getCluster();
-            if (cluster != null) {
-                this.neoecoae$computationClusters.add(cluster);
-                for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
-                    ICraftingLink maybeLink = cpu.getLogic().getLastLink();
-                    if (maybeLink != null) {
-                        this.addLink((CraftingLink) maybeLink);
-                    }
-                }
-            }
-        }
-
+        ECOCraftingServiceClusters.refresh(grid, neoecoae$computationClusters, this::addLink);
     }
 
     @Inject(
@@ -572,7 +504,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                 ? diagnostics.neoecoae$getPlanningResult() : null;
         String planning = planningResult == null ? "none"
                 : planningResult.planningId() + "/" + planningResult.status()
-                + "/" + planningResult.executionRequirement();
+                + "/" + planningResult.executionMode();
         return plan.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(plan))
                 + "{simulation=" + plan.simulation()
                 + ",bytes=" + plan.bytes()
@@ -694,61 +626,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             IActionSource src,
             MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
-        var validCpusClusters = new ArrayList<NEComputationCluster>(this.neoecoae$computationClusters.size());
-        int offline = 0;
-        int busy = 0;
-        int tooSmall = 0;
-        int excluded = 0;
-
-        for (var cluster : this.neoecoae$computationClusters) {
-            // A network group is a single pooled unit: only its representative member is considered
-            // as a candidate, since submitJob() on any member routes to the same shared network cluster.
-            if (!cluster.isNetworkRepresentative()) {
-                continue;
-            }
-            if (!cluster.isActive()) {
-                offline++;
-                continue;
-            }
-            if (cluster.getActiveCPUCount() >= cluster.getMaxThreads()) {
-                busy++;
-                continue;
-            }
-            if (cluster.getAvailableStorage() < job.bytes()) {
-                tooSmall++;
-                continue;
-            }
-            if (!cluster.canBeAutoSelectedFor(src)) {
-                excluded++;
-                continue;
-            }
-            validCpusClusters.add(cluster);
-        }
-
-        if (validCpusClusters.isEmpty()) {
-            if (offline > 0 || busy > 0 || tooSmall > 0 || excluded > 0) {
-                var previous = unsuitableCpusResult.getValue();
-                unsuitableCpusResult.setValue(previous == null
-                        ? new UnsuitableCpus(offline, busy, tooSmall, excluded)
-                        : new UnsuitableCpus(previous.offline() + offline, previous.busy() + busy,
-                        previous.tooSmall() + tooSmall, previous.excluded() + excluded));
-            }
-            return null;
-        }
-
-        validCpusClusters.sort((a, b) -> {
-            // Prioritize sorting by selected mode
-            var firstPreferred = a.isPreferredFor(src);
-            var secondPreferred = b.isPreferredFor(src);
-            if (firstPreferred != secondPreferred) {
-                // Sort such that preferred comes first, not preferred second
-                return Boolean.compare(secondPreferred, firstPreferred);
-            }
-
-            return NE_FAST_FIRST_COMPARATOR.compare(a, b);
-        });
-
-        return validCpusClusters.getFirst();
+        return ECOCraftingServiceClusters.findSuitable(neoecoae$computationClusters, job, src, unsuitableCpusResult);
     }
 
     @Inject(
@@ -760,17 +638,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir,
             @Local(name = "cpus") ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
-        for (var cluster : this.neoecoae$computationClusters) {
-            List<ECOCraftingCPU> ecoCpus = cluster.getActiveCPUs();
-            for (var cpu : ecoCpus) {
-                cpus.add(cpu);
-            }
-            // Every member of a network group reports the same pooled numbers via its own fake CPU, so
-            // only the representative advertises one to avoid inflating the reported free capacity.
-            if (cluster.isNetworkRepresentative() && cluster.getActiveCPUCount() < cluster.getMaxThreads()) {
-                cpus.add(cluster.getFakeCPU());
-            }
-        }
+        ECOCraftingServiceClusters.addCpus(neoecoae$computationClusters, cpus::add);
     }
 
     @Inject(
@@ -794,21 +662,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
     private void onHasCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
-        for (var cluster : this.neoecoae$computationClusters) {
-            for (var activeCpu : cluster.getActiveCPUs()) {
-                if (activeCpu == cpu) {
-                    cir.setReturnValue(true);
-                    return;
-                }
-            }
-            // getCpus() also advertises the placeholder CPU of a cluster with a free thread, so hasCpu
-            // has to recognise it or that entry can never be selected as a crafting target.
-            if (cluster.isNetworkRepresentative()
-                    && cluster.getActiveCPUCount() < cluster.getMaxThreads()
-                    && cluster.getFakeCPU() == cpu) {
-                cir.setReturnValue(true);
-                return;
-            }
-        }
+        if (ECOCraftingServiceClusters.hasCpu(neoecoae$computationClusters, cpu)) cir.setReturnValue(true);
     }
 }

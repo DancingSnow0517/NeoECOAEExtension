@@ -18,15 +18,8 @@ public record ECOVirtualCraftingWork(
             throw new IllegalArgumentException("virtual craftCount must be positive");
         }
 
-
-
         // Verified state models may return a partially worn tool when the last batch does not exhaust it.
-        if (!ECOFastPathStacks.areValidItemStacks(inputTotal, Long.MAX_VALUE, false,
-                ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT)
-            || !ECOFastPathStacks.areValidItemStacks(outputTotal, Long.MAX_VALUE, true,
-                ECOFastPathStacks.ItemStackValidation.FAST_PATH)
-            || !ECOFastPathStacks.areValidItemStacks(remainingTotal, Long.MAX_VALUE, false,
-                ECOFastPathStacks.ItemStackValidation.FAST_PATH_MUTATION)) {
+        if (!CraftWorkValidation.valid(inputTotal, outputTotal, remainingTotal, Long.MAX_VALUE)) {
             throw new IllegalArgumentException("Virtual batch contains invalid item totals");
         }
     }

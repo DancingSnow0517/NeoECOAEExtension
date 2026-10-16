@@ -36,6 +36,9 @@ final class ECOCraftingJobLifecycleController {
 
     ICraftingSubmitResult submit(IGrid grid, ICraftingPlan plan, IActionSource src,
                                  @Nullable ICraftingRequester requester) {
+        if (plan.simulation()) {
+            return CraftingSubmitResult.INCOMPLETE_PLAN;
+        }
         if (host.getJob() != null) {
             return CraftingSubmitResult.CPU_BUSY;
         }
@@ -56,6 +59,9 @@ final class ECOCraftingJobLifecycleController {
         var attachedPlanningResult = (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
                 ? diagnostics.neoecoae$getPlanningResult() : null;
         var contract = ECOPlanningResultRegistry.resolveContract(plan, attachedPlanningResult);
+        if (contract != null && !contract.executable()) {
+            return CraftingSubmitResult.INCOMPLETE_PLAN;
+        }
         var executionPlan = contract == null ? ECOPlanningResultRegistry.resolveExecutionPlan(plan)
                 : contract.executionPlan();
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact)

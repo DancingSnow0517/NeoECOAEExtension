@@ -11,6 +11,8 @@ import org.jetbrains.annotations.Nullable;
 
 /** Exact-order transaction; provider admission fixes the quantity before any resource is debited. */
 public final class ECOExactBatchPlanner {
+    private static final ECOBatchPlanner PLANNER = new ECOBatchPlanner();
+
     private ECOExactBatchPlanner() {}
 
     public static @Nullable PreparedBatch prepare(ECOFastPathDispatchProvider provider,
@@ -31,14 +33,14 @@ public final class ECOExactBatchPlanner {
                 BigInteger.valueOf(protectedSeeds.getOrDefault(input.getKey(), 0L))).max(BigInteger.ZERO);
             requested = requested.min(available.divide(input.getValue()));
         }
-        requested = new ECOBatchPlanner().planExact(initialRequest, requested, initialRequest, initialRequest);
+        requested = PLANNER.planExact(initialRequest, requested, initialRequest, initialRequest);
         materialAllowance.accept(requested);
         if (requested.signum() <= 0) return null;
         var admission = provider.eco$prepareExactFastPath(context, requested);
         if (admission == null) return null;
         if (admission.craftCount().compareTo(requested) > 0)
             throw new IllegalArgumentException("Provider exceeded exact allowance");
-        var count = new ECOBatchPlanner().planExact(initialRequest, requested, admission.craftCount(), requested);
+        var count = PLANNER.planExact(initialRequest, requested, admission.craftCount(), requested);
         if (!count.equals(admission.craftCount())) throw new IllegalArgumentException("Exact admission exceeds plan");
         return new PreparedBatch(inventory, admission,
             ECOExactInventory.totals(context.inputItems(), admission.craftCount()),

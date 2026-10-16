@@ -9,7 +9,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionRequirement;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import java.io.InputStream;
@@ -84,8 +83,13 @@ class UselessSmartDoublingPlansMixinTest {
         ECOPlanningResult result = mock(ECOPlanningResult.class);
         when(result.plan()).thenReturn(confirmed);
         when(result.status()).thenReturn(PlanningStatus.SUCCESS);
-        when(result.executionRequirement()).thenReturn(ECOExecutionRequirement.ORDERED);
-        when(result.planningId()).thenReturn(UUID.randomUUID());
+        when(result.requiresCycleExecution()).thenReturn(true);
+        var planningId = UUID.randomUUID();
+        when(result.planningId()).thenReturn(planningId);
+        var executionContract = new cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionContract(
+            planningId, cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity.of(confirmed),
+            cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode.BLOCKED, null, "SCHEDULE_UNAVAILABLE");
+        when(result.executionContract()).thenReturn(executionContract);
 
         for (Method hook : hooks()) {
             assertFalse(invoke(hook, confirmed).isCancelled(), "Foreign submissions retain Useless rewriting");

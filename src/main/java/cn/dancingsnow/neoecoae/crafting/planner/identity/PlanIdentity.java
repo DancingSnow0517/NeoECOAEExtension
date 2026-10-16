@@ -165,10 +165,12 @@ public final class PlanIdentity {
             Map<AEKey, Long> usedItems, Map<AEKey, Long> emittedItems, Map<AEKey, Long> missingItems) {
         public Signature {
             Objects.requireNonNull(finalWhat, "finalWhat");
-
-
-
-
+            // Signatures escape through public execution contracts and serve as registry keys.
+            // Snapshot at this boundary so neither callers nor constructor inputs can mutate identity.
+            patternTimes = Map.copyOf(patternTimes);
+            usedItems = Map.copyOf(usedItems);
+            emittedItems = Map.copyOf(emittedItems);
+            missingItems = Map.copyOf(missingItems);
         }
 
         public long executionCount() {

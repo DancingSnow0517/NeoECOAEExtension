@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 /** Prepares a batch for the selected provider; job accounting remains owned by the CPU. */
 public final class ECOStatefulBatchPlanner {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final ECOBatchPlanner PLANNER = new ECOBatchPlanner();
 
     private ECOStatefulBatchPlanner() {}
 
@@ -70,7 +71,7 @@ public final class ECOStatefulBatchPlanner {
                 : statefulCalculator.arithmeticBatchLimit();
             var identity = ECOPatternIdentity.of(pattern, provider);
             var mode = statefulCalculator == null ? ECOBatchMode.LINEAR : ECOBatchMode.STATEFUL_FAST_PATH;
-            var initialPlan = new ECOBatchPlanner().plan(new ECOBatchPlanRequest(identity,
+            var initialPlan = PLANNER.plan(new ECOBatchPlanRequest(identity,
                     maxCrafts, Long.MAX_VALUE, capacity, Long.MAX_VALUE, Long.MAX_VALUE, Long.MAX_VALUE,
                     materialLimit, Long.MAX_VALUE, materialLimit, mode));
             long requested = initialPlan == null ? 0L : initialPlan.craftCount();
@@ -89,7 +90,7 @@ public final class ECOStatefulBatchPlanner {
             }
             long size = ECOBatchCraftingHelper.maxAffordableCrafts(power, requested,
                 amount -> energyService.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
-            var plan = new ECOBatchPlanner().plan(new ECOBatchPlanRequest(identity,
+            var plan = PLANNER.plan(new ECOBatchPlanRequest(identity,
                     maxCrafts, requested, capacity, size, Long.MAX_VALUE, Long.MAX_VALUE,
                     materialLimit, Long.MAX_VALUE, requested, mode));
             if (plan == null) return null;

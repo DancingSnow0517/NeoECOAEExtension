@@ -35,11 +35,11 @@ import org.slf4j.LoggerFactory;
  */
 final class ECOCraftingTaskScheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
-    private static final int MIN_NORMAL_PROBES_PER_TICK = 64;
+    private static final int MIN_NORMAL_PROBES_PER_TICK = cn.dancingsnow.neoecoae.core.execution.DispatchScheduling.MIN_NORMAL_PROBES;
     // A large exact order can contain thousands of task candidates. Walking every
     // candidate in one CPU callback turns a temporary provider stall into a multi-
     // second server tick. The cursor resumes at the next candidate on the next call.
-    private static final int MAX_CANDIDATE_INSPECTIONS_PER_EXECUTE = 64;
+    private static final int MAX_CANDIDATE_INSPECTIONS_PER_EXECUTE = cn.dancingsnow.neoecoae.core.execution.DispatchScheduling.MAX_CANDIDATE_INSPECTIONS;
 
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
     private final ECOCraftingInputTemplateCache inputTemplateCache = new ECOCraftingInputTemplateCache();
@@ -156,8 +156,7 @@ final class ECOCraftingTaskScheduler {
         // A CPU callback may advance several independent ready tasks. Keep the existing
         // operation limit as the task-start budget so verified provider batches cannot
         // turn one callback into an unbounded walk over the whole execution graph.
-        int taskDispatchLimit = Math.max(1, Math.min(MAX_CANDIDATE_INSPECTIONS_PER_EXECUTE,
-                Math.max(0, maxPatterns)));
+        int taskDispatchLimit = cn.dancingsnow.neoecoae.core.execution.DispatchScheduling.taskDispatchLimit(maxPatterns);
         int acceptedDispatches = 0;
         BitSet blockedOrderedPhases = new BitSet();
         while (jobStillActive.getAsBoolean()) {
@@ -380,7 +379,7 @@ final class ECOCraftingTaskScheduler {
     }
 
     private static int addPushed(int current, long accepted) {
-        return (int) Math.min(Integer.MAX_VALUE, (long) current + Math.max(0L, accepted));
+        return cn.dancingsnow.neoecoae.core.execution.DispatchScheduling.addAccepted(current, accepted);
     }
 
     private List<ECOExecutionRuntime.DispatchCandidate> nativeDispatchCandidates(ExecutingCraftingJob current) {

@@ -13,7 +13,7 @@ import cn.dancingsnow.neoecoae.integration.extendedaeplus.dispatch.ECOExtendedAE
 import cn.dancingsnow.neoecoae.integration.useless.dispatch.ECOUselessBatchProviderBridge;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExternalProviderBlocking;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOStatefulBatchPlanner;
-import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOParallelProviderAdapter;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import java.util.List;
@@ -76,9 +76,30 @@ public final class ECOFastPathFacade {
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter remainders, ListCraftingInventory inventory,
             long maxCrafts, double singlePower, IEnergyService energy, Level level, @Nullable UUID jobId) {
         if (provider instanceof ICraftingProvider crafting && ECOExternalProviderBlocking.isEnabled(crafting)) return null;
-        var batch = ECOStatefulBatchPlanner.prepare(new ECOParallelProviderAdapter(provider), pattern,
+        var batch = ECOStatefulBatchPlanner.prepare(adaptParallel(provider), pattern,
             inputs, outputs, remainders, inventory, maxCrafts, singlePower, energy, level, jobId);
         return batch == null ? null : new PreparedBatch(batch, inventory);
+    }
+
+    /** Adapter factory shared with the legacy public wrapper; preparation owns no mutable provider state. */
+    public static ECOFastPathDispatchProvider adaptParallel(ECOParallelCraftingProvider provider) {
+        Objects.requireNonNull(provider, "provider");
+        return context -> prepareParallelProvider(provider, context);
+    }
+
+    private static @Nullable ECOFastPathDispatchProvider.Preparation prepareParallelProvider(
+            ECOParallelCraftingProvider provider, ECOBatchDispatchContext context) {
+        int capacity = provider.eco$getAvailableParallelSlots();
+        if (capacity <= 0) return null;
+        return new ECOFastPathDispatchProvider.Preparation(capacity, null, false, batch -> {
+            KeyCounter[] totals = context.inputCounters();
+            for (var counter : totals) {
+                for (var entry : counter) counter.set(entry.getKey(),
+                    Math.multiplyExact(entry.getLongValue(), batch.craftCount()));
+            }
+            return provider.eco$pushPatternBatch(context.pattern(), totals,
+                batch.craftCount(), context.craftingJobId());
+        });
     }
 
     /** CPU-owned energy ledger; a failed reservation must restore any partial debit before returning null. */

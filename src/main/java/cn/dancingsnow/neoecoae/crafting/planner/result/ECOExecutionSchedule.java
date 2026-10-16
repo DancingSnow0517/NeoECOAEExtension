@@ -73,7 +73,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         PatternIndex cycleOwnedPatterns = new PatternIndex();
         for (ComponentPlanningResult component : components) {
             if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
-            if (!ECOExecutionRequirement.componentIsExecutableCycle(component)) continue;
+            if (!component.cycleDisposition().executable()) continue;
             for (IPatternDetails source : component.executionPatterns()) {
                 IPatternDetails executable = executablePattern(source, executableTaskIndex, plannedTasks != null);
                 addPhysicalPattern(cycleOwnedPatterns, executable);
@@ -87,8 +87,8 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             var c = byId.get(id);
             if (c == null) continue;
             if (c.type() == ComponentPlanningResult.Type.CYCLIC
-                    && !ECOExecutionRequirement.componentIsExecutableCycle(c)) continue;
-            Type type = ECOExecutionRequirement.componentIsDynamic(c) ? Type.DYNAMIC_CYCLE
+                    && !c.cycleDisposition().executable()) continue;
+            Type type = (c.type() == ComponentPlanningResult.Type.CYCLIC && c.cycleDisposition().dynamic()) ? Type.DYNAMIC_CYCLE
                 : c.type() == ComponentPlanningResult.Type.CYCLIC ? Type.CYCLE : Type.DAG;
             Set<IPatternDetails> patterns = new LinkedHashSet<>();
             for (IPatternDetails source : c.executionPatterns()) {

@@ -11,5 +11,13 @@ public enum CycleExecutionDisposition {
     /** The solved component has exact firings, but its patterns are selected from live inventory at runtime. */
     DYNAMIC_EXECUTION,
     /** Positive demand has neither complete stock coverage nor a valid executable cycle solve. */
-    BLOCKED
+    BLOCKED;
+
+    public boolean executable() {
+        return this == ORDERED_EXECUTION || this == DYNAMIC_EXECUTION;
+    }
+
+    public boolean dynamic() {
+        return this == DYNAMIC_EXECUTION;
+    }
 }
