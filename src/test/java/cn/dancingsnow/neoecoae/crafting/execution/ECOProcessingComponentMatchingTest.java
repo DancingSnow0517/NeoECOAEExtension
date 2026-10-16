@@ -37,6 +37,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ECOProcessingComponentMatchingTest {
     private static final Set<ResourceLocation> MARKED = Set.of(ResourceLocation.parse("minecraft:iron_pickaxe"));
@@ -149,6 +151,32 @@ class ECOProcessingComponentMatchingTest {
         assertNotEquals(PlanningStatus.SUCCESS, plan(pattern, stock, Set.of(), 1).status());
         stock.clear(); stock.add(AEItemKey.of(Items.DIAMOND_PICKAXE), 1);
         assertNotEquals(PlanningStatus.SUCCESS, plan(pattern, stock, MARKED, 1).status());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void missingPlanSnapshotIncludesEveryReservedDamagedPickaxe(boolean differentDamage) throws Exception {
+        var expected = pickaxe(0);
+        var pattern = pattern(new GenericStack(expected, 1));
+        var stock = new KeyCounter();
+        for (int i = 0; i < 3; i++) stock.add(pickaxe(differentDamage ? 130 + i : 131), 1);
+        var result = plan(pattern, stock, MARKED, 4);
+        assertEquals(PlanningStatus.MISSING_ITEMS, result.status());
+        assertEquals(1, result.plan().missingItems().get(expected));
+        assertEquals(3, result.exactUsedItems().values().stream()
+            .mapToLong(amount -> amount.longValueExact()).sum());
+
+        var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
+        for (var entry : stock) {
+            var node = snapshot.nodes().stream().filter(material -> material.key().equals(entry.getKey()))
+                .findFirst().orElseThrow(() -> new AssertionError("Reserved damaged pickaxe missing from snapshot"));
+            assertEquals(java.math.BigInteger.valueOf(entry.getLongValue()), node.fromInventoryBigInteger());
+            assertEquals(java.math.BigInteger.ZERO, node.missingBigInteger());
+            assertEquals(java.math.BigInteger.ZERO, node.toCraftBigInteger());
+        }
+        var missing = snapshot.nodes().stream().filter(node -> node.key().equals(expected)).findFirst().orElseThrow();
+        assertEquals(java.math.BigInteger.ONE, missing.missingBigInteger());
+        assertEquals(java.math.BigInteger.ZERO, missing.fromInventoryBigInteger());
     }
 
     @Test void markingDoesNotOverrideCraftingOrCustomRecipePredicates() {

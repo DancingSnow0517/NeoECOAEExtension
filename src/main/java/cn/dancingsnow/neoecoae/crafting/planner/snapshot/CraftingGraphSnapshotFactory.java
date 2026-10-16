@@ -96,6 +96,7 @@ public final class CraftingGraphSnapshotFactory {
         }
 
         collectTaskMaterialFlow(result, materials);
+        collectReservedInventory(result, materials);
 
         Map<AEKey, Integer> nodeIds = new LinkedHashMap<>();
         List<MaterialNode> nodes = new ArrayList<>(materials.size());
@@ -358,6 +359,21 @@ public final class CraftingGraphSnapshotFactory {
         }
     }
 
+    /** Trace demand keys can differ from the component variants actually reserved from storage. */
+    private static void collectReservedInventory(ECOPlanningResult result,
+            Map<AEKey, MutableMaterial> materials) {
+        Map<AEKey, PlannerAmount> reserved = new LinkedHashMap<>();
+        if (result.plan() != null) {
+            for (var entry : result.plan().usedItems()) {
+                reserved.put(entry.getKey(), PlannerAmount.of(entry.getLongValue()));
+            }
+        }
+        result.exactUsedItems().forEach((key, amount) -> reserved.merge(key, amount, PlannerAmount::max));
+        reserved.forEach((key, amount) -> {
+            if (amount.signum() > 0) materials.computeIfAbsent(key, MutableMaterial::new).mergeInventory(amount);
+        });
+    }
+
     private static List<ExactKeyAmount> exactKeyAmounts(
             Map<AEKey, cn.dancingsnow.neoecoae.crafting.planner.result.ExactCycleAmount> values) {
         return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
@@ -391,6 +407,14 @@ public final class CraftingGraphSnapshotFactory {
             toCraft = exactToCraft.fitsLong() ? exactToCraft.longValueExact() : Long.MAX_VALUE;
             missing = exactMissing.fitsLong() ? exactMissing.longValueExact() : Long.MAX_VALUE;
             unsupported |= node.selection() == PlanTraceNode.Selection.UNSUPPORTED;
+        }
+
+        private void mergeInventory(PlannerAmount amount) {
+            // Trace, exact counters and the AE2 plan describe the same reservation, not additive supplies.
+            exactFromInventory = exactFromInventory.max(amount);
+            exactRequested = exactRequested.max(exactFromInventory);
+            fromInventory = exactFromInventory.fitsLong() ? exactFromInventory.longValueExact() : Long.MAX_VALUE;
+            requested = exactRequested.fitsLong() ? exactRequested.longValueExact() : Long.MAX_VALUE;
         }
 
         private MaterialNode freeze(int id) {

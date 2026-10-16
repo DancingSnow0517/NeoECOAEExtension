@@ -35,6 +35,40 @@ class ExactMaterialFlowTest {
         verifyFlow(BigInteger.valueOf(4), false);
     }
 
+    @Test void traceAndPlanReservationsAreNotCountedTwice() {
+        AEKey iron = AEItemKey.of(Items.IRON_INGOT);
+        var used = new KeyCounter(); used.add(iron, 3);
+        var trace = new ECOPlanTrace();
+        trace.addNode(new cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode(
+            cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode.Kind.MATERIAL,
+            iron, null, 3, 3, 0, 0, 0,
+            cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode.Selection.NOT_APPLICABLE, null));
+        var plan = new CraftingPlan(new GenericStack(AEItemKey.of(Items.IRON_BLOCK), 1), 0, false, false,
+            used, new KeyCounter(), new KeyCounter(), Map.of());
+        var result = new ECOPlanningResult(PlanningStatus.SUCCESS, plan, trace, List.of(), 0);
+        result.setExactMaterials(Map.of(iron, PlannerAmount.of(3)), Map.of(), Map.of());
+        var node = CraftingGraphSnapshotFactory.create(result).nodes().stream()
+            .filter(material -> material.key().equals(iron)).findFirst().orElseThrow();
+        assertEquals(BigInteger.valueOf(3), node.fromInventoryBigInteger());
+        assertEquals(BigInteger.valueOf(3), node.requestedBigInteger());
+    }
+
+    @Test void exactReservationsWithoutTraceSurviveAnEmptyCompatibilityShell() {
+        AEKey iron = AEItemKey.of(Items.IRON_INGOT);
+        var amount = BigInteger.TEN.pow(25);
+        var plan = new CraftingPlan(new GenericStack(AEItemKey.of(Items.IRON_BLOCK), 1), 0, true, false,
+            new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of());
+        var result = new ECOPlanningResult(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE,
+            plan, new ECOPlanTrace(), List.of(), 0);
+        result.setExactMaterials(Map.of(iron, PlannerAmount.of(amount)), Map.of(), Map.of());
+        var node = CraftingGraphSnapshotFactory.create(result).nodes().stream()
+            .filter(material -> material.key().equals(iron)).findFirst().orElseThrow();
+        assertEquals(amount, node.fromInventoryBigInteger());
+        assertEquals(amount, node.requestedBigInteger());
+        assertEquals(Long.MAX_VALUE, node.fromInventory());
+        assertEquals(BigInteger.ZERO, node.toCraftBigInteger());
+    }
+
     private static void verifyFlow(BigInteger count, boolean shell) {
         AEKey seed = AEItemKey.of(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE);
         AEKey diamond = AEItemKey.of(Items.DIAMOND);
