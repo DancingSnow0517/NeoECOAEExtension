@@ -3,12 +3,21 @@ package cn.dancingsnow.neoecoae.crafting.planner.result;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 /** Hand-off between planning/confirmation and CPU execution. */
 public record ECOExecutionContract(UUID planningId, PlanIdentity.Signature planSignature,
-        ExecutionMode mode, @Nullable ECOExecutionPlan executionPlan, @Nullable String error) {
+        ExecutionMode mode, @Nullable ECOExecutionPlan executionPlan, @Nullable String error,
+        Set<ResourceLocation> fuzzyPlanningItemIds) {
+    public ECOExecutionContract(UUID planningId, PlanIdentity.Signature planSignature,
+            ExecutionMode mode, @Nullable ECOExecutionPlan executionPlan, @Nullable String error) {
+        this(planningId, planSignature, mode, executionPlan, error, Set.of());
+    }
+
     public ECOExecutionContract {
+        fuzzyPlanningItemIds = Set.copyOf(fuzzyPlanningItemIds);
         Objects.requireNonNull(planningId, "planningId");
         Objects.requireNonNull(planSignature, "planSignature");
         Objects.requireNonNull(mode, "mode");

@@ -23,11 +23,13 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
     private final Map<AEKey, BigInteger> deferredStock;
     private final Map<AEKey, BigInteger> deferredEmitted;
     private final ECOExecutionPlan execution;
+    private final java.util.Set<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds;
 
     public ECOExactCraftingPlan(ECOPlanningResult result, boolean forced) {
         if (!cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(result, forced))
             throw new IllegalArgumentException("Incomplete exact plan");
         storage = result.theoreticalBytes();
+        fuzzyPlanningItemIds = java.util.Set.copyOf(result.fuzzyPlanningItemIds());
         var counts = new LinkedHashMap<IPatternDetails, Long>();
         var exact = new LinkedHashMap<IPatternDetails, BigInteger>();
         result.exactPatternTimes().forEach((pattern, amount) -> {
@@ -73,6 +75,7 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         this.storage = storage;
         this.tasks = Map.of(); this.deferredStock = Map.of(); this.deferredEmitted = Map.of();
         this.execution = null;
+        this.fuzzyPlanningItemIds = java.util.Set.of();
     }
 
     private static KeyCounter split(Map<AEKey, PlannerAmount> amounts, Map<AEKey, BigInteger> deferred) {
@@ -97,6 +100,7 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
     public Map<AEKey, BigInteger> deferredStock() { return deferredStock; }
     public Map<AEKey, BigInteger> deferredEmitted() { return deferredEmitted; }
     public ECOExecutionPlan execution() { return execution; }
+    public java.util.Set<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds() { return fuzzyPlanningItemIds; }
     @Override public GenericStack finalOutput() { return projection.finalOutput(); }
     // Explicit large orders retain their existing exemption from AE2 byte reservations.
     @Override public long bytes() { return 0; }

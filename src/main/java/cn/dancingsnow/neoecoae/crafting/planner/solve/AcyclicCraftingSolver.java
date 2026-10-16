@@ -432,7 +432,8 @@ public final class AcyclicCraftingSolver {
         for (AEKey storedKey : state.stored.keysSnapshot()) {
             if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
-            if (matchingInput != null && !matchingInput.isValid(storedKey, null)) continue;
+            if (!cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
+                    .isValid(consumer, matchingInput, key, storedKey, null)) continue;
             PlannerAmount take = state.stored.available(storedKey, remaining);
             if (take.signum() <= 0) continue;
             state.stored.remove(storedKey, take);

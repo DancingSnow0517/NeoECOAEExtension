@@ -214,6 +214,7 @@ final class ECOCraftingTaskScheduler {
                 Set<AEKey> dependencyKeys = current.executionRuntime == null
                         ? Set.of() : current.executionRuntime.inputKeys(candidate.taskId());
                 boolean preciseFailureEpoch = failedCandidateKey != null && !dependencyKeys.isEmpty()
+                        && current.fuzzyPlanningItemIds.isEmpty()
                         && !ECOCraftingInputPreview.hasReusableTemplates(pattern, remainderCache);
                 if (failedCandidateKey != null) {
                     var previousFailure = missingInputFailures.get(failedCandidateKey);
@@ -257,9 +258,10 @@ final class ECOCraftingTaskScheduler {
                 var protectedStartupSeed = current.executionRuntime == null
                         ? java.util.Map.<AEKey, Long>of()
                         : current.executionRuntime.protectedStartupSeed(candidate);
-                var inputInventory = current.executionRuntime == null
+                var inputInventory = current.executionRuntime == null && current.fuzzyPlanningItemIds.isEmpty()
                         ? new ECOCraftingInputPreview(inventory, inputTemplateCache)
-                        : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed, remainderCache);
+                        : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed, remainderCache,
+                            current.fuzzyPlanningItemIds);
                 stallDiagnostics.resolveAttempt();
                 var inputs = ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(
                         pattern, inputInventory, level, outputs, remainders, remainderCache);
@@ -280,9 +282,10 @@ final class ECOCraftingTaskScheduler {
                         }
                     }
                     if (stallDiagnostics.isActive()) {
-                        var diagnosticInventory = current.executionRuntime == null
+                        var diagnosticInventory = current.executionRuntime == null && current.fuzzyPlanningItemIds.isEmpty()
                                 ? new ECOCraftingInputPreview(inventory)
-                                : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed, remainderCache);
+                                : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed, remainderCache,
+                                    current.fuzzyPlanningItemIds);
                         stallDiagnostics.missingInputs(pattern, diagnosticInventory);
                     }
                     if (candidate.blocksOrderedPhase()) {
@@ -300,7 +303,10 @@ final class ECOCraftingTaskScheduler {
                         allowedCount, candidate.blocksOrderedPhase(), candidate.orderedStepIndex());
                 var request = new ECOCraftingDispatchRequest(
                         current, dispatchCandidate, pattern, inputs, outputs, remainders, allowedCount, inventory, level);
-                var dispatch = providerDispatcher.dispatchCandidate(
+                ECOCraftingProviderDispatcher.Result dispatch;
+                try (var ignored = cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
+                        .openDispatch(current.fuzzyPlanningItemIds)) {
+                    dispatch = providerDispatcher.dispatchCandidate(
                         request,
                         providers,
                         budget,
@@ -309,6 +315,7 @@ final class ECOCraftingTaskScheduler {
                         provider -> providerCursor.advanceAfter(pattern, provider),
                         () -> resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex),
                         normalPush);
+                }
                 if (dispatch.accepted()) {
                     totalPushed = addPushed(totalPushed, dispatch.acceptedCrafts());
                     // Rebuild the candidate list after every accepted task. This commits

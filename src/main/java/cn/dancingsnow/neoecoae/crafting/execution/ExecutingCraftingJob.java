@@ -91,6 +91,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     final Map<AEKey, java.math.BigInteger> deferredEmitted = new LinkedHashMap<>();
     /** Outputs of successful multi-craft dispatches in this job, used by the ECO status page. */
     final Set<AEKey> batchedOutputs = new HashSet<>();
+    Set<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds = Set.of();
     @Nullable
     Integer playerId;
     boolean suspended;
@@ -181,6 +182,12 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
         this.exactOrder = data.getBoolean("exactOrder");
+        var fuzzyItems = new HashSet<net.minecraft.resources.ResourceLocation>();
+        for (var tag : data.getList("fuzzyPlanningItemIds", Tag.TAG_STRING)) {
+            var id = net.minecraft.resources.ResourceLocation.tryParse(tag.getAsString());
+            if (id != null) fuzzyItems.add(id);
+        }
+        this.fuzzyPlanningItemIds = Set.copyOf(fuzzyItems);
         this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
         for (var tag : data.getList(NBT_BATCHED_OUTPUTS, Tag.TAG_COMPOUND)) {
@@ -330,6 +337,10 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
         data.putLong(NBT_REMAINING_AMOUNT, remainingAmount);
         data.putBoolean("exactOrder", exactOrder);
+        var fuzzyItems = new ListTag();
+        fuzzyPlanningItemIds.stream().sorted().forEach(id ->
+            fuzzyItems.add(net.minecraft.nbt.StringTag.valueOf(id.toString())));
+        data.put("fuzzyPlanningItemIds", fuzzyItems);
         writeDeferred(data, "deferredStock", deferredStock, registries);
         writeDeferred(data, "deferredEmitted", deferredEmitted, registries);
         if (this.playerId != null) {

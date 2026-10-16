@@ -23,6 +23,14 @@ public final class ECOExternalCpuSupport {
                 result.exactMissingItems().values()).flatMap(java.util.Collection::stream)
                 .anyMatch(amount -> !amount.fitsLong())) return false;
         var contract = ECOPlanningResultRegistry.resolveContract(plan, null);
-        return contract != null && contract.mode() == ExecutionMode.NATIVE;
+        if (contract == null || contract.mode() != ExecutionMode.NATIVE) return false;
+        // Native CPUs cannot execute the explicit item-ID override captured by an ECO processing plan.
+        return plan.patternTimes().keySet().stream().noneMatch(pattern ->
+            java.util.Arrays.stream(pattern.getInputs()).anyMatch(input -> {
+                var possible = input.getPossibleInputs();
+                return possible != null && possible.length > 0 && possible[0] != null
+                    && cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
+                        .enabled(pattern, possible[0].what(), contract.fuzzyPlanningItemIds());
+            }));
     }
 }

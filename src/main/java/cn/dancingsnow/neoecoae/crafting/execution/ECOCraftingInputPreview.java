@@ -36,6 +36,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     private final Set<AEKey> possibleInputs;
     private final Set<AEKey> reusableTemplates;
     private final Map<AEKey, Long> protectedAmounts;
+    private final Set<AEKey> componentInsensitiveInputs;
     private ECOCraftingInputTemplateCache templateCache;
 
     /** Native AE2 dispatch keeps substitution/fuzzy selection unrestricted while extraction stays virtual. */
@@ -45,6 +46,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         this.possibleInputs = Set.of();
         this.reusableTemplates = Set.of();
         this.protectedAmounts = Map.of();
+        this.componentInsensitiveInputs = Set.of();
     }
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern) {
@@ -82,12 +84,23 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
             Map<AEKey, Long> protectedAmounts, ECOCraftingRemainderCache remainderCache) {
+        this(source, pattern, protectedAmounts, remainderCache, Set.of());
+    }
+
+    ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
+            Map<AEKey, Long> protectedAmounts, ECOCraftingRemainderCache remainderCache,
+            Set<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds) {
         this.source = source;
         PatternMetadata metadata = metadata(pattern, remainderCache);
         this.primaryInputs = metadata.primaryInputs();
         this.possibleInputs = metadata.possibleInputs();
         this.reusableTemplates = metadata.reusableTemplates();
         this.protectedAmounts = protectedAmounts;
+        this.componentInsensitiveInputs = new HashSet<>();
+        for (var key : primaryInputs) {
+            if (cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
+                    .enabled(pattern, key, fuzzyPlanningItemIds)) componentInsensitiveInputs.add(key);
+        }
     }
 
     private static PatternMetadata metadata(IPatternDetails pattern, ECOCraftingRemainderCache remainderCache) {
@@ -161,6 +174,25 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         GenericStack primary = primaryInput(input);
         if (primary == null || multiplier < 0L || primary.amount() <= 0L
                 || reusableTemplates.contains(primary.what())) return -1L;
+        if (componentInsensitiveInputs.contains(primary.what())) {
+            long crafts = 0L;
+            var candidates = new java.util.ArrayList<AEKey>();
+            candidates.add(primary.what());
+            for (var candidate : source.findFuzzyTemplates(primary.what())) {
+                if (!candidate.equals(primary.what())
+                        && cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
+                            .sameItem(primary.what(), candidate)) candidates.add(candidate);
+            }
+            for (var candidate : candidates) {
+                if (crafts == multiplier) break;
+                long take = extractTemplates(new InputTemplate(candidate, primary.amount()), multiplier - crafts);
+                if (take > 0) {
+                    extractedInputs.add(candidate, Math.multiplyExact(take, primary.amount()));
+                    crafts += take;
+                }
+            }
+            return crafts;
+        }
         try {
             if (!input.isValid(primary.what(), level)) return -1L;
         } catch (RuntimeException unavailable) {
