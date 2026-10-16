@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.crafting.graph;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.core.graph.GraphAdjacency;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,14 +14,20 @@ import java.util.Set;
 import org.jetbrains.annotations.Nullable;
 
 /** Client-only presentation model. It never references planner or solver classes. */
-public final class ClientCraftingGraph {
+public final class ClientCraftingGraph implements cn.dancingsnow.neoecoae.core.graph.presentation.LayoutGraph {
     public enum Kind { MATERIAL, PATTERN, CYCLE_GROUP, CYCLE_CLUSTER, FOLDER, REFERENCE }
     public enum View { MAIN, CYCLE_FOCUS, CYCLE_CLUSTER }
 
     public record Node(int id, Kind kind, String label, @Nullable AEKey key,
             @Nullable CraftingGraphSnapshot.MaterialNode material,
             @Nullable CraftingGraphSnapshot.PatternNode pattern,
-            @Nullable CraftingGraphSnapshot.CycleGroup cycle, @Nullable CycleCluster cluster) {
+            @Nullable CraftingGraphSnapshot.CycleGroup cycle, @Nullable CycleCluster cluster) implements cn.dancingsnow.neoecoae.core.graph.presentation.LayoutGraph.Node {
+        @Override public boolean missing() { return material != null && material.status() == CraftingGraphSnapshot.MaterialStatus.MISSING; }
+        @Override public boolean unsupported() { return material != null && material.status() == CraftingGraphSnapshot.MaterialStatus.UNSUPPORTED; }
+        @Override public int componentId() { return pattern == null ? -1 : pattern.componentId(); }
+        @Override public cn.dancingsnow.neoecoae.core.graph.presentation.LayoutGraph.Kind layoutKind() {
+            return cn.dancingsnow.neoecoae.core.graph.presentation.LayoutGraph.Kind.valueOf(kind.name());
+        }
         public Node(int id, Kind kind, String label, @Nullable AEKey key,
                 @Nullable CraftingGraphSnapshot.MaterialNode material,
                 @Nullable CraftingGraphSnapshot.PatternNode pattern,
@@ -32,7 +37,10 @@ public final class ClientCraftingGraph {
     }
 
     public record Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected,
-            int materialNodeId) {
+            int materialNodeId) implements cn.dancingsnow.neoecoae.core.graph.presentation.LayoutGraph.Link {
+        @Override public cn.dancingsnow.neoecoae.core.graph.presentation.LayoutGraph.EdgeKind layoutKind() {
+            return cn.dancingsnow.neoecoae.core.graph.presentation.LayoutGraph.EdgeKind.valueOf(kind.name());
+        }
         public Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected) {
             this(fromId, toId, amount, kind, selected, -1);
         }
@@ -292,19 +300,8 @@ public final class ClientCraftingGraph {
 
     public ClientCraftingGraph limited(int focusId, int depth, Set<Integer> collapsed) {
         if (!nodes.containsKey(focusId) || depth < 0) return this;
-        Set<Integer> visible = new LinkedHashSet<>();
-        Set<Integer> frontier = Set.of(focusId);
-        for (int level = 0; level <= depth && !frontier.isEmpty(); level++) {
-            visible.addAll(frontier);
-            Set<Integer> next = new LinkedHashSet<>();
-            for (int id : frontier) {
-                if (collapsed.contains(id)) continue;
-                next.addAll(upstream(id));
-                next.addAll(downstream(id));
-            }
-            next.removeAll(visible);
-            frontier = next;
-        }
+        Set<Integer> visible = cn.dancingsnow.neoecoae.core.graph.presentation.GraphVisibility.withinDepth(
+            this, focusId, depth, collapsed);
         Map<Integer, Node> subset = new LinkedHashMap<>();
         for (int id : visible) subset.put(id, nodes.get(id));
         List<Link> subsetLinks = links.stream()
@@ -321,34 +318,7 @@ public final class ClientCraftingGraph {
         boolean hasSelectedLinks = links.stream().anyMatch(Link::selected);
         List<Link> activeLinks = links.stream().filter(link -> !hasSelectedLinks || link.selected()).toList();
         GraphAdjacency active = GraphAdjacency.of(activeLinks, Link::fromId, Link::toId);
-        Set<Integer> reachable = new LinkedHashSet<>();
-        var frontier = new ArrayDeque<Integer>();
-        frontier.add(rootId);
-        while (!frontier.isEmpty()) {
-            int id = frontier.removeFirst();
-            if (!reachable.add(id)) continue;
-            for (int child : active.downstream(id)) frontier.addLast(child);
-        }
-
-        Set<Integer> visible = new LinkedHashSet<>();
-        var missingFrontier = new ArrayDeque<Integer>();
-        for (int id : reachable) {
-            Node node = nodes.get(id);
-            if (node != null && node.material() != null
-                    && node.material().status() == CraftingGraphSnapshot.MaterialStatus.MISSING) {
-                visible.add(id);
-                missingFrontier.addLast(id);
-            }
-        }
-        while (!missingFrontier.isEmpty()) {
-            int id = missingFrontier.removeFirst();
-            for (int parent : active.upstream(id)) {
-                if (reachable.contains(parent) && visible.add(parent)) missingFrontier.addLast(parent);
-            }
-        }
-
-        // Preserve a stable anchor when a valid plan contains no missing material.
-        visible.add(rootId);
+        Set<Integer> visible = cn.dancingsnow.neoecoae.core.graph.presentation.GraphVisibility.missingPaths(this, active);
         Map<Integer, Node> subset = new LinkedHashMap<>();
         for (int id : visible) subset.put(id, nodes.get(id));
         List<Link> subsetLinks = activeLinks.stream()
@@ -357,6 +327,7 @@ public final class ClientCraftingGraph {
             subset, subsetLinks, Map.of(), false, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
     }
 
+    @Override public List<CraftingGraphSnapshot.CycleGroup> cycleGroups() { return source.cycleGroups(); }
     public CraftingGraphSnapshot source() { return source; }
     public View view() { return view; }
     public int rootId() { return rootId; }

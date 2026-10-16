@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.graph;
 import java.util.List;
 
 /** Client-only weakly connected group of SCCs; component IDs remain authoritative and distinct. */
-public record CycleCluster(int clusterId, List<Integer> componentIds, List<InterCycleFlow> flows) {
+public record CycleCluster(int clusterId, List<Integer> componentIds, List<InterCycleFlow> flows) implements cn.dancingsnow.neoecoae.core.graph.presentation.CycleTopology.Cluster {
     public CycleCluster {
 
 

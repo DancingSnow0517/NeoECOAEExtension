@@ -14,7 +14,7 @@ public record CompactTreeNode(
         boolean containsMissing,
         boolean containsCycle,
         boolean containsUnsupported
-) {
+) implements cn.dancingsnow.neoecoae.core.graph.presentation.CompactTreeProjection.TreeNode {
     public boolean hasHiddenContent() {
         return folder && hiddenNodeCount > 0;
     }

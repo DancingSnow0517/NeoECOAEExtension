@@ -13,6 +13,49 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GraphStreamTest {
+    @Test void abstractBufferPreservesLegacyUtfMaterialFieldsAndEnumOrdinals() throws Exception {
+        var key = org.mockito.Mockito.mock(appeng.api.stacks.AEKey.class);
+        var material = new CraftingGraphSnapshot.MaterialNode(7, key, 1, 2, 3, 4,
+            CraftingGraphSnapshot.MaterialStatus.CYCLE, "9223372036854775808", "2", "3", "4", "5", "6");
+        var graph = new CraftingGraphSnapshot(7, List.of(material), List.of(), List.of(), List.of(), List.of(),
+            new CraftingGraphSnapshot.Summary("SUCCESS", 1, 0, 0, 0, 123));
+        try (var keys = org.mockito.Mockito.mockStatic(appeng.api.stacks.AEKey.class)) {
+            keys.when(() -> appeng.api.stacks.AEKey.writeKey(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(key))).thenAnswer(call -> {
+                    ((RegistryFriendlyByteBuf) call.getArgument(0)).writeVarInt(42);
+                    return null;
+                });
+            var encoded = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            try {
+                graph.writeToPacket(encoded);
+                int length = encoded.readVarInt();
+                byte[] compressed = encoded.readByteArray();
+                byte[] rawBytes;
+                try (var inflater = new java.util.zip.InflaterInputStream(new java.io.ByteArrayInputStream(compressed))) {
+                    rawBytes = inflater.readAllBytes();
+                }
+                assertEquals(length, rawBytes.length);
+                var raw = new net.minecraft.network.FriendlyByteBuf(Unpooled.wrappedBuffer(rawBytes));
+                try {
+                    assertEquals(7, raw.readVarInt());
+                    assertEquals(1, raw.readVarInt());
+                    assertEquals(7, raw.readVarInt());
+                    assertEquals(42, raw.readVarInt());
+                    for (long value = 1; value <= 4; value++) assertEquals(value, raw.readVarLong());
+                    assertEquals(CraftingGraphSnapshot.MaterialStatus.CYCLE.ordinal(), raw.readVarInt());
+                    for (String text : List.of("9223372036854775808", "2", "3", "4", "5", "6"))
+                        assertEquals(text, raw.readUtf());
+                    for (int n = 0; n < 4; n++) assertEquals(0, raw.readVarInt());
+                    assertEquals("SUCCESS", raw.readUtf());
+                    assertEquals(1, raw.readVarInt());
+                    for (int n = 0; n < 3; n++) assertEquals(0, raw.readVarInt());
+                    assertEquals(123, raw.readVarLong());
+                    assertFalse(raw.isReadable());
+                } finally { raw.release(); }
+            } finally { encoded.release(); }
+        }
+    }
+
     @Test void compressedGraphAndCycleRowsRoundTripAcrossManyChunks() {
         List<CraftingGraphSnapshot.PatternNode> patterns = new ArrayList<>();
         Random random = new Random(43);

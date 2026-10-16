@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.crafting.planner.snapshot;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.core.network.PacketBuf;
+import cn.dancingsnow.neoecoae.platform.network.MinecraftPacketBuf;
 import appeng.menu.guisync.PacketWritable;
 import io.netty.buffer.Unpooled;
 import java.io.ByteArrayInputStream;
@@ -28,7 +30,7 @@ public record CraftingGraphSnapshot(
     List<CycleGroup> cycleGroups,
     List<ResourceLocation> fuzzyPlanningItemIds,
     Summary summary
-) implements PacketWritable {
+) implements PacketWritable, cn.dancingsnow.neoecoae.core.graph.presentation.CycleTopology {
     private static final int MAX_COMPRESSED_BYTES = 16 * 1024 * 1024;
     private static final int MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024;
     public static final CraftingGraphSnapshot EMPTY = new CraftingGraphSnapshot(-1, List.of(), List.of(), List.of(),
@@ -55,7 +57,7 @@ public record CraftingGraphSnapshot(
     public void writeToPacket(RegistryFriendlyByteBuf data) {
         var raw = new RegistryFriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES), data.registryAccess());
         try {
-            writeRaw(raw);
+            writeRaw(new MinecraftPacketBuf(raw));
             int length = raw.readableBytes();
             byte[] compressed = compress(raw);
             if (compressed.length > MAX_COMPRESSED_BYTES) throw new IllegalArgumentException("Graph is too large");
@@ -66,13 +68,13 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private void writeRaw(RegistryFriendlyByteBuf data) {
+    private void writeRaw(PacketBuf<AEKey> data) {
         data.writeVarInt(rootNodeId);
         writeList(data, nodes, MaterialNode::write);
         writeList(data, patterns, PatternNode::write);
         writeList(data, edges, Edge::write);
         writeList(data, cycleGroups, CycleGroup::write);
-        writeList(data, fuzzyPlanningItemIds, (itemId, output) -> output.writeResourceLocation(itemId));
+        writeList(data, fuzzyPlanningItemIds, (itemId, output) -> output.writeUtf(itemId.toString()));
         summary.write(data);
     }
 
@@ -85,9 +87,10 @@ public record CraftingGraphSnapshot(
         byte[] uncompressed = decompress(compressed, expectedSize);
         var raw = new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(uncompressed), data.registryAccess());
         try {
-            Decoded result = new Decoded(raw.readVarInt(), readList(raw, MaterialNode::read),
-                readList(raw, PatternNode::read), readList(raw, Edge::read), readList(raw, CycleGroup::read),
-                readList(raw, RegistryFriendlyByteBuf::readResourceLocation), Summary.read(raw));
+            PacketBuf<AEKey> fields = new MinecraftPacketBuf(raw);
+            Decoded result = new Decoded(fields.readVarInt(), readList(fields, MaterialNode::read),
+                readList(fields, PatternNode::read), readList(fields, Edge::read), readList(fields, CycleGroup::read),
+                readList(fields, input -> ResourceLocation.parse(input.readUtf())), Summary.read(fields));
             if (raw.isReadable()) throw new IllegalArgumentException("Trailing bytes in crafting graph snapshot");
             return result;
         } finally {
@@ -158,15 +161,15 @@ public record CraftingGraphSnapshot(
         public BigInteger missingBigInteger() { return new BigInteger(exactMissing); }
         public BigInteger consumedBigInteger() { return new BigInteger(exactConsumed); }
         public BigInteger producedBigInteger() { return new BigInteger(exactProduced); }
-        private static MaterialNode read(RegistryFriendlyByteBuf data) {
-            return new MaterialNode(data.readVarInt(), AEKey.readKey(data), data.readVarLong(), data.readVarLong(),
+        private static MaterialNode read(PacketBuf<AEKey> data) {
+            return new MaterialNode(data.readVarInt(), data.readKey(), data.readVarLong(), data.readVarLong(),
                 data.readVarLong(), data.readVarLong(), data.readEnum(MaterialStatus.class), data.readUtf(),
                 data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(PacketBuf<AEKey> data) {
             data.writeVarInt(nodeId);
-            AEKey.writeKey(data, key);
+            data.writeKey(key);
             data.writeVarLong(requested);
             data.writeVarLong(fromInventory);
             data.writeVarLong(toCraft);
@@ -181,12 +184,12 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    public record Relationship(int materialNodeId, long amount) {
-        private static Relationship read(RegistryFriendlyByteBuf data) {
+    public record Relationship(int materialNodeId, long amount) implements cn.dancingsnow.neoecoae.core.graph.presentation.CycleTopology.Relationship {
+        private static Relationship read(PacketBuf<AEKey> data) {
             return new Relationship(data.readVarInt(), data.readVarLong());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(PacketBuf<AEKey> data) {
             data.writeVarInt(materialNodeId);
             data.writeVarLong(amount);
         }
@@ -194,19 +197,20 @@ public record CraftingGraphSnapshot(
 
     public record PatternNode(int patternNodeId, String displayIdentity, List<Relationship> inputs,
             List<Relationship> outputs,
-            long firingCount, CandidateStatus status, @Nullable String rejectionReason, int componentId) {
+            long firingCount, CandidateStatus status, @Nullable String rejectionReason, int componentId) implements cn.dancingsnow.neoecoae.core.graph.presentation.CycleTopology.Pattern {
+        @Override public boolean selected() { return status == CandidateStatus.SELECTED; }
         public PatternNode {
 
 
         }
 
-        private static PatternNode read(RegistryFriendlyByteBuf data) {
+        private static PatternNode read(PacketBuf<AEKey> data) {
             return new PatternNode(data.readVarInt(), data.readUtf(), readList(data, Relationship::read),
                 readList(data, Relationship::read), data.readVarLong(), data.readEnum(CandidateStatus.class),
                 readNullableString(data), data.readVarInt());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(PacketBuf<AEKey> data) {
             data.writeVarInt(patternNodeId);
             data.writeUtf(displayIdentity);
             writeList(data, inputs, Relationship::write);
@@ -220,12 +224,12 @@ public record CraftingGraphSnapshot(
 
     /** Edges use globally unique visual IDs: material IDs are non-negative and pattern IDs are encoded by clients. */
     public record Edge(int fromId, int toId, long amount, EdgeKind kind, boolean selected) {
-        private static Edge read(RegistryFriendlyByteBuf data) {
+        private static Edge read(PacketBuf<AEKey> data) {
             return new Edge(data.readVarInt(), data.readVarInt(), data.readVarLong(), data.readEnum(EdgeKind.class),
                 data.readBoolean());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(PacketBuf<AEKey> data) {
             data.writeVarInt(fromId);
             data.writeVarInt(toId);
             data.writeVarLong(amount);
@@ -235,22 +239,22 @@ public record CraftingGraphSnapshot(
     }
 
     public record KeyAmount(AEKey key, long amount) {
-        private static KeyAmount read(RegistryFriendlyByteBuf data) {
-            return new KeyAmount(AEKey.readKey(data), data.readVarLong());
+        private static KeyAmount read(PacketBuf<AEKey> data) {
+            return new KeyAmount(data.readKey(), data.readVarLong());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
-            AEKey.writeKey(data, key);
+        private void write(PacketBuf<AEKey> data) {
+            data.writeKey(key);
             data.writeVarLong(amount);
         }
     }
 
     public record PatternAmount(int patternNodeId, long amount) {
-        private static PatternAmount read(RegistryFriendlyByteBuf data) {
+        private static PatternAmount read(PacketBuf<AEKey> data) {
             return new PatternAmount(data.readVarInt(), data.readVarLong());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(PacketBuf<AEKey> data) {
             data.writeVarInt(patternNodeId);
             data.writeVarLong(amount);
         }
@@ -261,7 +265,7 @@ public record CraftingGraphSnapshot(
             List<PatternAmount> patternTimes, List<Integer> executionWitness, List<KeyAmount> singleNetOutputs,
             List<KeyAmount> totalNetOutputs, List<KeyAmount> availableAmounts,
             List<ExactKeyAmount> exactSingleNetOutputs, List<ExactKeyAmount> exactTotalNetOutputs,
-            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus) {
+            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus) implements cn.dancingsnow.neoecoae.core.graph.presentation.CycleTopology.Cycle {
         /** Compatibility constructor for snapshots written before cycle net-output metadata was added. */
         public CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
                 List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
@@ -297,7 +301,7 @@ public record CraftingGraphSnapshot(
 
         }
 
-        private static CycleGroup read(RegistryFriendlyByteBuf data) {
+        private static CycleGroup read(PacketBuf<AEKey> data) {
             return new CycleGroup(data.readVarInt(), readIntList(data), readList(data, Edge::read), data.readUtf(),
                 readList(data, KeyAmount::read), readList(data, KeyAmount::read), readList(data, KeyAmount::read),
                 readList(data, PatternAmount::read), readIntList(data), readList(data, KeyAmount::read),
@@ -306,7 +310,7 @@ public record CraftingGraphSnapshot(
                 data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class));
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(PacketBuf<AEKey> data) {
             data.writeVarInt(componentId);
             writeIntList(data, memberNodeIds);
             writeList(data, internalEdges, Edge::write);
@@ -333,12 +337,12 @@ public record CraftingGraphSnapshot(
 
     public record Summary(String planningStatus, int materialNodes, int patternNodes, int edges, int cycleGroups,
             long calculationNanos) {
-        private static Summary read(RegistryFriendlyByteBuf data) {
+        private static Summary read(PacketBuf<AEKey> data) {
             return new Summary(data.readUtf(), data.readVarInt(), data.readVarInt(), data.readVarInt(),
                 data.readVarInt(), data.readVarLong());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(PacketBuf<AEKey> data) {
             data.writeUtf(planningStatus);
             data.writeVarInt(materialNodes);
             data.writeVarInt(patternNodes);
@@ -348,10 +352,10 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private interface Reader<T> { T read(RegistryFriendlyByteBuf data); }
-    private interface Writer<T> { void write(T value, RegistryFriendlyByteBuf data); }
+    private interface Reader<T> { T read(PacketBuf<AEKey> data); }
+    private interface Writer<T> { void write(T value, PacketBuf<AEKey> data); }
 
-    private static <T> List<T> readList(RegistryFriendlyByteBuf data, Reader<T> reader) {
+    private static <T> List<T> readList(PacketBuf<AEKey> data, Reader<T> reader) {
         int size = data.readVarInt();
         if (size < 0 || size > 1_000_000) throw new IllegalArgumentException("Invalid graph list size: " + size);
         List<T> result = new ArrayList<>(size);
@@ -359,12 +363,12 @@ public record CraftingGraphSnapshot(
         return result;
     }
 
-    private static <T> void writeList(RegistryFriendlyByteBuf data, List<T> values, Writer<T> writer) {
+    private static <T> void writeList(PacketBuf<AEKey> data, List<T> values, Writer<T> writer) {
         data.writeVarInt(values.size());
         for (T value : values) writer.write(value, data);
     }
 
-    private static List<Integer> readIntList(RegistryFriendlyByteBuf data) {
+    private static List<Integer> readIntList(PacketBuf<AEKey> data) {
         int size = data.readVarInt();
         if (size < 0 || size > 1_000_000) throw new IllegalArgumentException("Invalid graph integer list size");
         List<Integer> result = new ArrayList<>(size);
@@ -372,16 +376,16 @@ public record CraftingGraphSnapshot(
         return result;
     }
 
-    private static void writeIntList(RegistryFriendlyByteBuf data, List<Integer> values) {
+    private static void writeIntList(PacketBuf<AEKey> data, List<Integer> values) {
         data.writeVarInt(values.size());
         for (int value : values) data.writeVarInt(value);
     }
 
-    private static @Nullable String readNullableString(RegistryFriendlyByteBuf data) {
+    private static @Nullable String readNullableString(PacketBuf<AEKey> data) {
         return data.readBoolean() ? data.readUtf() : null;
     }
 
-    private static void writeNullableString(RegistryFriendlyByteBuf data, @Nullable String value) {
+    private static void writeNullableString(PacketBuf<AEKey> data, @Nullable String value) {
         data.writeBoolean(value != null);
         if (value != null) data.writeUtf(value);
     }
