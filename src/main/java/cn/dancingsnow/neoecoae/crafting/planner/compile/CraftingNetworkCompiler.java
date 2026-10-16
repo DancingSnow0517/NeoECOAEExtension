@@ -32,7 +32,9 @@ public final class CraftingNetworkCompiler {
     private final SpecialPatternAnalyzer specialPatternAnalyzer;
 
     public CraftingNetworkCompiler() {
-        this(PatternSemanticAdapters.defaults(), new SpecialPatternAnalyzer());
+        // Resolve a fresh registry snapshot per compilation, even when this compiler is reused.
+        this.semanticAdapters = null;
+        this.specialPatternAnalyzer = new SpecialPatternAnalyzer();
     }
 
     /** Constructor kept injectable so planner tests and integrations can supply an explicit semantic contract. */
@@ -62,6 +64,10 @@ public final class CraftingNetworkCompiler {
 
     public CompiledNetwork compile(ICraftingService service, AEKey goal, boolean cyclePlanningEnabled,
             Set<ResourceLocation> fuzzyPlanningItemIds, ECOCancellation cancellation) throws InterruptedException {
+        if (semanticAdapters == null) {
+            return new CraftingNetworkCompiler(PatternSemanticAdapters.defaults(), specialPatternAnalyzer)
+                .compile(service, goal, cyclePlanningEnabled, fuzzyPlanningItemIds, cancellation);
+        }
         Set<ResourceLocation> ignoredItemIds = fuzzyPlanningItemIds == null ? Set.of()
             : fuzzyPlanningItemIds;
         Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();

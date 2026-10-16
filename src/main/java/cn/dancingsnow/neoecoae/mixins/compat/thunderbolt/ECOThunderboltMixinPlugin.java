@@ -12,7 +12,13 @@ public final class ECOThunderboltMixinPlugin implements IMixinConfigPlugin {
     public String getRefMapperConfig() { return null; }
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         // NeoECO exposes its own FastPath facade. External CPUs opt into that API explicitly;
-        // never make an ECO host implement a foreign provider contract at runtime. Unlisted names fall through to false.
+        // never make an ECO host implement a foreign provider contract at runtime.
+        if (mixinClassName.endsWith(".Ae2LtIOPortBlockEntityMixin")) {
+            return present("com/moakiee/ae2lt/blockentity/OverloadedIOPortBlockEntity.class");
+        }
+        if (mixinClassName.endsWith(".Ae2LtIOPortMenuMixin")) {
+            return present("com/moakiee/ae2lt/menu/OverloadedIOPortMenu.class");
+        }
         if (mixinClassName.endsWith(".Ae2LtTimeWheelCraftingCpuLogicMixin")) {
             return present("com/moakiee/ae2lt/crafting/timewheel/Ae2LtTimeWheelCraftingCpuLogic.class");
         }

@@ -23,6 +23,22 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StoragePanelStateTest {
+    @Test
+    void addonTierNameSurvivesPagingAndTransportWithoutBeingInferredFromItsNumber() {
+        var addon = org.mockito.Mockito.mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
+        Component name = Component.translatable("prototype.tier.l1").withColor(0x12AB34);
+        org.mockito.Mockito.when(addon.getPanelTierName()).thenReturn(name);
+        CellEntry entry = new CellEntry(0, 0, CellEntry.KIND_ITEM, 0, 10, 0, 100,
+            false, CellState.EMPTY, true).withPanelTier(addon)
+            .atDrive(new BlockPos(1, 2, 3), new ItemStack(Items.DIAMOND), null);
+        StoragePanelState received = StoragePanelState.fromTag(
+            StoragePanelState.capture(config(List.of(entry), false), 0, 33).toTag());
+        assertTrue(received.cells().getFirst().installed());
+        assertEquals(name, StorageCellGrid.tierName(received.cells().getFirst()));
+        assertEquals(0, received.cells().getFirst().tier());
+        assertEquals(Component.literal("L4"), StorageCellGrid.tierName(cell(0, 100)));
+    }
+
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @Test
@@ -65,10 +81,12 @@ class StoragePanelStateTest {
         disk.set(DataComponents.CUSTOM_NAME, Component.literal("My disk"));
         BlockPos position = new BlockPos(10, 70, 34);
         Component lock = Component.translatable("tooltip.neoecoae.storage.infinite_migration_locked");
-        CellEntry entry = cell(50, 100).atDrive(position, disk, lock);
+        var interactionId = java.util.UUID.randomUUID();
+        CellEntry entry = cell(50, 100).atDrive(position, disk, lock, interactionId);
         StoragePanelState received = StoragePanelState.fromTag(StoragePanelState.capture(config(List.of(entry), false), 0, 33).toTag());
         CellEntry transported = received.cells().getFirst();
         assertEquals(position, transported.position());
+        assertEquals(interactionId, transported.interactionId());
         assertEquals(lock, transported.extractionBlockReason());
         assertTrue(ItemStack.matches(disk, transported.stack()));
         disk.set(DataComponents.CUSTOM_NAME, Component.literal("Changed after capture"));
@@ -201,10 +219,11 @@ class StoragePanelStateTest {
     @Test
     void resourceChannelsUseTheSuppliedLegendInNormalAndInfiniteModes() {
         String[] normal = {"mekanism", "fluids", "items", "air", "flux", "lightning",
-            "experience", "soul", "source", "mana", "omni", "complex_omni", "quantum_omni", "spent_nuclear_waste"};
+            "experience", "soul", "source", "mana", "omni", "complex_omni", "quantum_omni", "spent_nuclear_waste", "data"};
         String[] infinite = {"appmek:chemical", "ae2:f", "ae2:i", "appliedpneumatics:air_type",
             "appflux:flux", "ae2lt:lightning", "appex:experience", "soulplied_energistics:soul", "arseng:source", "appbot:mana",
-            "ae2omnicells:omni", "ae2omnicells:complex_omni", "ae2omnicells:quantum_omni", "ae2omnicells:spent_nuclear_waste_cell"};
+            "ae2omnicells:omni", "ae2omnicells:complex_omni", "ae2omnicells:quantum_omni", "ae2omnicells:spent_nuclear_waste_cell",
+            "data_energistics:manifest_binary"};
         for (int i = 0; i < normal.length; i++) {
             assertEquals(i, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:" + normal[i])));
             assertEquals(i, StoragePanelTextures.swatchIndex(ResourceLocation.parse(infinite[i])));
@@ -212,9 +231,10 @@ class StoragePanelStateTest {
         assertEquals(2, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:bulk_item")));
         assertEquals(9, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:mega_mana")));
         assertEquals(13, StoragePanelTextures.swatchIndex(ResourceLocation.parse("mekanism:spent_nuclear_waste")));
-        assertEquals(14, StoragePanelTextures.swatchIndex(ResourceLocation.parse("other:mana")));
-        assertEquals(14, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:data")));
-        var unknown = StoragePanelTextures.swatch(14, 0x54E6F2);
+        assertEquals(StoragePanelTextures.FALLBACK_SWATCH,
+            StoragePanelTextures.swatchIndex(ResourceLocation.parse("other:mana")));
+        assertEquals(14, StoragePanelTextures.swatchIndex(ResourceLocation.parse("data_energistics:digitalization")));
+        var unknown = StoragePanelTextures.swatch(StoragePanelTextures.FALLBACK_SWATCH, 0x54E6F2);
         assertEquals(16, unknown.spritePosition.x);
         assertEquals(78, unknown.spritePosition.y);
         assertEquals(0xFF54E6F2, unknown.color);

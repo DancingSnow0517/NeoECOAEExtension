@@ -197,7 +197,8 @@ public final class ECOPlanningResult {
             return new ECOExecutionContract(planningId, signature, ExecutionMode.BLOCKED, null,
                 executionPlanError == null ? "CYCLE_METADATA_MISSING" : executionPlanError);
         }
-        if (executionPlan == null) return ECOExecutionContract.nativeContract(planningId, signature);
-        return new ECOExecutionContract(planningId, signature, executionPlan.mode(), executionPlan, null);
+        return new ECOExecutionContract(planningId, signature,
+            executionPlan == null ? ExecutionMode.NATIVE : executionPlan.mode(), executionPlan, null,
+            fuzzyPlanningItemIds);
     }
 }

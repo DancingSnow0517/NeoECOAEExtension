@@ -87,6 +87,9 @@ final class ECOCraftingJobLifecycleController {
                 CraftingCpuHelper.generateLinkData(craftId, requester == null, false), host.cpu);
         var job = new ExecutingCraftingJob(
                 plan, executionPlan, host::postChange, linkCpu, playerId);
+        if (contract != null) job.fuzzyPlanningItemIds = contract.fuzzyPlanningItemIds();
+        if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact)
+            job.fuzzyPlanningItemIds = exact.fuzzyPlanningItemIds();
         host.setJobFromLifecycle(job);
         if (job.exactOrder && linkCpu.isStandalone())
             linkCpu.setNexus(new appeng.crafting.CraftingLinkNexus(linkCpu.getCraftingID()));

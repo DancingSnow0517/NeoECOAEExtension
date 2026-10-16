@@ -319,12 +319,16 @@ class UselessPatternPlanningTest {
         String api = UselessPatternApi.class.getName();
         String adapterName = UselessPatternSemanticAdapter.class.getName();
         String registry = "cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters";
-        var isolated = Set.of(api, adapterName, registry);
+        String publicRegistry = "cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry";
+        // Keep private nestmates together and avoid adapters registered by the parent test runtime.
+        var isolated = Set.of(api, adapterName, registry, publicRegistry);
         var parent = getClass().getClassLoader();
         var loader = new ClassLoader(parent) {
             @Override protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
                 if (name.startsWith("com.sorrowmist.useless.")) throw new ClassNotFoundException(name);
-                if (!isolated.contains(name) && !name.startsWith(api + "$")) return super.loadClass(name, resolve);
+                if (isolated.stream().noneMatch(owner -> name.equals(owner) || name.startsWith(owner + "$"))) {
+                    return super.loadClass(name, resolve);
+                }
                 Class<?> type = findLoadedClass(name);
                 if (type == null) {
                     try (var stream = parent.getResourceAsStream(name.replace('.', '/') + ".class")) {
@@ -339,6 +343,12 @@ class UselessPatternPlanningTest {
             }
         };
         assertNotNull(loader.loadClass(registry).getMethod("defaults").invoke(null));
+        var ordinary = mock(IPatternDetails.class);
+        when(ordinary.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
+        when(ordinary.getOutputs()).thenReturn(List.of(new GenericStack(AEItemKey.of(Items.STONE), 1)));
+        var semantics = (PatternSemantics) loader.loadClass(registry)
+            .getMethod("analyze", IPatternDetails.class).invoke(null, ordinary);
+        assertTrue(semantics.supported(), semantics.unsupportedReason());
         var instance = loader.loadClass(adapterName).getConstructor().newInstance();
         assertEquals(false, instance.getClass().getMethod("supports", IPatternDetails.class)
             .invoke(instance, mock(IPatternDetails.class)));

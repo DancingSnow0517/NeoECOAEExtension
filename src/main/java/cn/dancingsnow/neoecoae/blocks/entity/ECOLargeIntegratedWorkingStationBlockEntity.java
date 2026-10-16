@@ -12,6 +12,8 @@ import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.orientation.BlockOrientation;
+import appeng.api.util.AECableType;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -19,6 +21,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.me.cluster.IAEMultiBlock;
+import appeng.util.ReadableNumberConverter;
 import appeng.util.inv.AppEngInternalInventory;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
@@ -45,10 +48,12 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -65,6 +70,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
@@ -108,11 +114,56 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         this.calculator = new NEIntegratedWorkingStationControllerCalculator(this);
         getMainNode().setFlags(appeng.api.networking.GridFlags.MULTIBLOCK)
             .addService(IGridMultiblock.class, this::getMultiblockNodes);
+        setInternalMaxPower(MAX_POWER_STORAGE);
+        setPowerSides(getGridConnectableSides(getOrientation()));
+    }
+
+    @Override
+    public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
+        if (!formed) return EnumSet.allOf(Direction.class);
+        // Keep physical links to this structure's members, so the communication interface
+        // can still supply the controller's grid services without exposing any cable ports.
+        EnumSet<Direction> sides = EnumSet.noneOf(Direction.class);
+        if (cluster != null && level != null) {
+            for (Direction side : Direction.values()) {
+                BlockPos adjacent = worldPosition.relative(side);
+                if (level.hasChunkAt(adjacent)
+                    && cluster.containsBlockEntity(level.getBlockEntity(adjacent))) {
+                    sides.add(side);
+                }
+            }
+        }
+        return sides;
+    }
+
+    @Override
+    public AECableType getCableConnectionType(Direction direction) {
+        // Client block state is available before the managed formation field is synchronized.
+        boolean formedState = getBlockState().hasProperty(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED)
+            && getBlockState().getValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED);
+        return formed || formedState ? AECableType.NONE : super.getCableConnectionType(direction);
+    }
+
+    @Override
+    public @Nullable IEnergyStorage getEnergyStorage(@Nullable Direction side) {
+        return formed ? null : super.getEnergyStorage(side);
+    }
+
+    @Override
+    protected double getFunnelPowerDemand(double maxRequired) {
+        return formed ? 0.0D : super.getFunnelPowerDemand(maxRequired);
+    }
+
+    @Override
+    protected double funnelPowerIntoStorage(double power, Actionable mode) {
+        // Also reject adapters cached before formation, while retaining internal batch refunds.
+        return formed ? power : super.funnelPowerIntoStorage(power, mode);
     }
 
     @Override
     public void onReady() {
         super.onReady();
+        setPowerSides(getGridConnectableSides(getOrientation()));
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
@@ -162,6 +213,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             cachedTask = null;
             super.onChangeTank();
             updateState(true);
+            setPowerSides(value ? EnumSet.noneOf(Direction.class) : EnumSet.allOf(Direction.class));
+            onGridConnectableSidesChanged();
+            if (level != null) level.invalidateCapabilities(worldPosition);
             markForUpdate();
         }
     }
@@ -527,7 +581,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public Component getEnergyText() {
         return Component.translatable("gui.neoecoae.large_integrated_working_station.energy",
-            Math.round(getAECurrentPower()), Math.round(getAEMaxPower()));
+            ReadableNumberConverter.format(getAECurrentPower(), 5),
+            ReadableNumberConverter.format(getAEMaxPower(), 5));
     }
 
     public Component getTaskText() {

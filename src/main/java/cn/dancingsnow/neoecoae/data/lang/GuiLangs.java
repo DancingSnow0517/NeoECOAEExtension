@@ -30,7 +30,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.disabled", "Disabled");
         provider.add("gui.neoecoae.large_integrated_working_station.input_fluid", "Input Fluid");
         provider.add("gui.neoecoae.large_integrated_working_station.output_fluid", "Output Fluid");
-        provider.add("gui.neoecoae.large_integrated_working_station.energy", "Energy: %s / %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.energy", "AE Energy: %s / %s AE");
         provider.add("gui.neoecoae.large_integrated_working_station.no_task", "Task: Idle");
         provider.add("gui.neoecoae.large_integrated_working_station.task", "Task: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_empty", "Waiting for input");
@@ -466,6 +466,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_hint", "Cancel the job, leave Infinite Mode, and stop feeding the old coolant.");
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_recovery", "Consume the old buffer with normal crafting, then supply an allowed coolant and restore Infinite Mode.");
         provider.add("gui.neoecoae.crafting_report.cycle_not_detected", "No cycles");
+        provider.add("gui.neoecoae.crafting_report.cycle_not_detected_preview", "No cycles yet");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle found");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycles off");
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");

@@ -96,6 +96,7 @@ public final class CraftingGraphSnapshotFactory {
         }
 
         collectTaskMaterialFlow(result, materials);
+        collectReservedInventory(result, materials);
 
         Map<AEKey, Integer> nodeIds = new LinkedHashMap<>();
         List<MaterialNode> nodes = new ArrayList<>(materials.size());
@@ -327,14 +328,11 @@ public final class CraftingGraphSnapshotFactory {
     /** Use the committed exact firing vector; an unrepresentable plan has an empty AE2 compatibility shell. */
     private static void collectTaskMaterialFlow(ECOPlanningResult result,
             Map<AEKey, MutableMaterial> materials) {
-        var adapters = PatternSemanticAdapters.defaults();
         for (var firing : result.exactPatternTimes().entrySet()) {
             if (firing.getValue().signum() <= 0) continue;
-            var adapter = PatternSemanticAdapters.find(adapters, firing.getKey());
-            if (adapter == null) continue;
             PatternSemantics semantics;
             try {
-                semantics = adapter.analyze(firing.getKey());
+                semantics = PatternSemanticAdapters.analyze(firing.getKey());
             } catch (RuntimeException | LinkageError ignored) {
                 continue;
             }
@@ -359,6 +357,21 @@ public final class CraftingGraphSnapshotFactory {
                 }
             }
         }
+    }
+
+    /** Trace demand keys can differ from the component variants actually reserved from storage. */
+    private static void collectReservedInventory(ECOPlanningResult result,
+            Map<AEKey, MutableMaterial> materials) {
+        Map<AEKey, PlannerAmount> reserved = new LinkedHashMap<>();
+        if (result.plan() != null) {
+            for (var entry : result.plan().usedItems()) {
+                reserved.put(entry.getKey(), PlannerAmount.of(entry.getLongValue()));
+            }
+        }
+        result.exactUsedItems().forEach((key, amount) -> reserved.merge(key, amount, PlannerAmount::max));
+        reserved.forEach((key, amount) -> {
+            if (amount.signum() > 0) materials.computeIfAbsent(key, MutableMaterial::new).mergeInventory(amount);
+        });
     }
 
     private static List<ExactKeyAmount> exactKeyAmounts(
@@ -394,6 +407,14 @@ public final class CraftingGraphSnapshotFactory {
             toCraft = exactToCraft.fitsLong() ? exactToCraft.longValueExact() : Long.MAX_VALUE;
             missing = exactMissing.fitsLong() ? exactMissing.longValueExact() : Long.MAX_VALUE;
             unsupported |= node.selection() == PlanTraceNode.Selection.UNSUPPORTED;
+        }
+
+        private void mergeInventory(PlannerAmount amount) {
+            // Trace, exact counters and the AE2 plan describe the same reservation, not additive supplies.
+            exactFromInventory = exactFromInventory.max(amount);
+            exactRequested = exactRequested.max(exactFromInventory);
+            fromInventory = exactFromInventory.fitsLong() ? exactFromInventory.longValueExact() : Long.MAX_VALUE;
+            requested = exactRequested.fitsLong() ? exactRequested.longValueExact() : Long.MAX_VALUE;
         }
 
         private MaterialNode freeze(int id) {

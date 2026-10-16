@@ -1,8 +1,10 @@
 # 架构冗余审计与整改计划
 
+> 2026-10-16 同步更新：本分支合并 main 至 `2249c671`（21.2.6），同步范围及冲突处理见 10.9。下列基线、包统计和旧批次提交号属于历史快照；部分旧提交号在当前历史中不可解析，不应作为当前 HEAD。
+
 > 基线：`4908324b`，`src/main/java` 103,965 行。本次正确性修复代码 HEAD `46ebae48`（第二、三批收尾起点 `d2e42073`）；`src/main/java` 102,706 行（净减 1,259 行，包含收尾前已加入的大型工作站功能）。
 > 路径默认相对 `src/main/java/cn/dancingsnow/neoecoae/`。
-> 最新完整验证见 10.8（1182 项，1179 通过、3 跳过）；AppBot 可选集成编译结果见 10.7。
+> 最新完整验证见 10.9（1278 项，1274 通过、4 跳过）；`check`、JAR 打包及 AppBot 可选集成编译通过。
 > 第 4 批的设计说明已并入本文件 §14（原 `ARCHITECTURE_T4_DESIGNS_ZH_CN.md` 已删除，可从 `69a20949` 恢复）。
 
 ---
@@ -553,6 +555,18 @@ mixin JSON 的 `package`/`plugin` 都指向 `mixins.compat.*`，不受影响。
 - 合并两份磁盘原生绘制用例：合并后仍检查真实 ItemStack、LocalSlot，以及 TYPES_FULL / FULL / NOT_EMPTY 三种磁盘状态和无额外绘制调用。
 - 三个文件净减 74 行；测试方法 26 → 23，显式断言调用 113 → 65。像素绘制位置、服务端锁、分页、资源同步、存档/守恒、算法和外部模组兼容回归继续保留。本次没有修改生产代码、资源或依赖。
 - 验证：`compileJava compileTestJava test --offline --no-configuration-cache` 通过；1182 项，1179 通过、3 跳过、0 失败。沿用仓库外缓存 Maven init script，未排除任何测试。此次优化主要减少维护成本，没有据此宣称性能提升。
+
+---
+
+### 10.9 同步 main 至 21.2.6（2026-10-16）
+
+- 合并前本分支为 `d20b4cc1`，main 为 `2249c671`，引入 main 的 32 个提交。第 4 批剩余任务没有因此标记完成，后续设计需基于同步后的代码重新核对。
+- 同步内容：样板语义与执行优化公共注册接口、忽略组件的规划与派发一致性、循环种子保留和可达路线搜索、AE2LT IO 端口兼容、Omnicells 乏核废料矩阵、大型工作站连接与供能修复、样板界面 Shift 拖动、JEI 收藏导入，以及主机面板档位和图集资源扩展。
+- 合并涉及 26 个冲突路径。保留本分支 `core`、`crafting/adapter`、`integration/*/dispatch` 的结构，新代码和测试引用适配至现有包；可选样板能力的注册入口放在 `integration/ECOPatternIntegrations`。接受 main 删除旧 EAEP 语义适配器，改走标准样板契约。
+- 保留已完成的配置默认值常量化、固定 64 推送上限、数量表 NBT 公共实现，以及此前的虚拟完成、启动种子和普通物品列表恢复修复。新增配置翻译绑定，注释、语言生成器和现有语言文件按 key 对齐，不恢复已删除的推送上限配置。规划器边界测试同时覆盖旧 compat 和现有 integration 包。
+- 完整验证：`compileJava compileTestJava test --offline --no-configuration-cache` 通过；1278 项，1274 通过、4 跳过、0 失败。跳过项为性能基准及三个受当前 AE2LT API 条件限制的用例；未排除测试。
+- 补充验证：启用 `-PenableAppBotIntegration=true` 后，`check jar compileJava` 通过，完整测试仍为 1278 项、1274 通过、4 跳过、0 失败。
+- 构建环境：Curse Maven 下载 Useless Mod 2.4.6 超时后，从同一原始地址下载 JAR（SHA256 `b86a12e8bd6417fd3c89f7c723ca195d68d1f9f9f099480850ffd3c93e5897bc`），用仓库外临时 init script 直接提供该文件，项目依赖声明未为验证而修改。未进行游戏客户端、真实存档或 datagen 验证。
 
 ---
 

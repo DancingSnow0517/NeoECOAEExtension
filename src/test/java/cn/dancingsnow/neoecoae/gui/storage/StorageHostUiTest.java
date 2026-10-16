@@ -213,7 +213,7 @@ class StorageHostUiTest {
     }
 
     @Test
-    void clickRpcPreservesDiskComponentsAndRequiresTheOriginalOpenMenu() throws Exception {
+    void clickRpcPreservesInstallationIdentityAndRequiresTheOriginalOpenMenu() throws Exception {
         // The unit bootstrap lacks NeoForge's registry-sync flags, installed by the real launcher.
         try (var ldlib = mockStatic(LDLib2.class); var registrySync = mockStatic(RegistryManager.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
@@ -227,10 +227,11 @@ class StorageHostUiTest {
             player.containerMenu = menu;
             when(menu.stillValid(player)).thenReturn(true);
             StorageHostUI.CellExtractor extractor = mock(StorageHostUI.CellExtractor.class);
-            when(extractor.extract(eq(position), any(ItemStack.class), eq(true))).thenReturn(true);
+            var interactionId = java.util.UUID.randomUUID();
+            when(extractor.extract(position, interactionId, true)).thenReturn(true);
             StorageHostUI.CellInserter inserter = mock(StorageHostUI.CellInserter.class);
             when(inserter.insert(eq(position), any(ItemStack.class))).thenReturn(true);
-            var base = StoragePanelStateTest.config(List.of(StoragePanelStateTest.cell(50, 100).atDrive(position, disk, null)), false);
+            var base = StoragePanelStateTest.config(List.of(StoragePanelStateTest.cell(50, 100).atDrive(position, disk, null, interactionId)), false);
             var config = new StorageHostUI.Config(base.title(), base.tier(), base.formed(), base.storedEnergy(),
                 base.maxEnergy(), base.energyConsumePerTick(), base.totalUsedBytesText(), base.cellEntries(),
                 base.storageTypes(), base.infiniteStorage(), base.migratingToInfinite(), base.canExtractInfiniteComponents(),
@@ -246,12 +247,12 @@ class StorageHostUiTest {
             var rpc = ((RPCEmitter) field.get(grid)).event();
             var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries);
             try {
-                rpc.writeParametersToBuffer(buffer, new Object[] {position, disk, true});
+                rpc.writeParametersToBuffer(buffer, new Object[] {position, interactionId, true});
                 Object[] request = rpc.readParametersFromBuffer(buffer);
                 assertEquals(position, request[0]);
-                assertTrue(ItemStack.matches(disk, (ItemStack) request[1]));
+                assertEquals(interactionId, request[1]);
                 assertEquals(true, rpc.executor().apply(request));
-                verify(extractor).extract(eq(position), argThat(stack -> ItemStack.matches(stack, disk)), eq(true));
+                verify(extractor).extract(position, interactionId, true);
                 player.containerMenu = mock(AbstractContainerMenu.class);
                 assertEquals(false, rpc.executor().apply(request));
                 player.containerMenu = menu;

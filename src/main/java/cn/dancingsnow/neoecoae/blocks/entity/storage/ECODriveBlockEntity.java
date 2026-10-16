@@ -52,6 +52,11 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Nullable
     private ItemStack cellStack = null;
 
+    // UI requests identify this installation, independently of mutable or transient item components.
+    // Recreated on load; no persistent disk data or save migration is needed.
+    @Getter
+    private UUID cellInteractionId = UUID.randomUUID();
+
     @Getter
     @DescSynced
     private boolean mounted = false;
@@ -85,6 +90,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (controller != null) controller.rememberInfiniteMembers();
         ECOStorageCells.releaseCellInventory(this.cellStack, this);
         this.cellStack = cellStack;
+        cellInteractionId = UUID.randomUUID();
         invalidateCellInventoryCache();
         if (getLevel() != null && !isServerStopping()) {
             BlockState state = getBlockState();

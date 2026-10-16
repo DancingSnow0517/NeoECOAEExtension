@@ -49,12 +49,11 @@ public class ConfigLangs {
             "neoecoae.configuration.storage.tooltip",
             "ECO storage system options."
         );
-        provider.add("neoecoae.configuration.megaBulkAutoMarkThreshold", "Mega Bulk Auto-Mark Threshold");
+        provider.add("neoecoae.configuration.megaBulkAutoMarkThreshold", "Bulk Storage Auto-Mark Threshold");
         provider.add(
             "neoecoae.configuration.megaBulkAutoMarkThreshold.tooltip",
             "Amount threshold used when an ECO storage host automatically marks compressible items.\n" +
-                "Only amounts strictly greater than this value are marked."
-        );
+                "Only items with amounts strictly greater than this value are marked.");
 
         provider.add("neoecoae.configuration.fastPath", "Fast Path");
         provider.add(
@@ -70,9 +69,8 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.ecoPlanningMaxMillis", "ECO Planning Time Budget (ms)");
         provider.add(
             "neoecoae.configuration.ecoPlanningMaxMillis.tooltip",
-            "Shared cooperative time budget for one ECO planning session, including routes, seeds and CRAFT_LESS probes.\n" +
-                "Exceeding it shows the plan as unknown."
-        );
+            "Shared cooperative time budget in milliseconds for one ECO planning session, including routes, startup seeds and craft-less probes.\n" +
+                "Exceeding the budget leaves the result unresolved.");
         provider.add("neoecoae.configuration.ecoPlanningMaxWork", "ECO Planning Work Budget");
         provider.add(
             "neoecoae.configuration.ecoPlanningMaxWork.tooltip",
@@ -82,16 +80,15 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.ecoPlanningMaxMemoryMiB", "ECO Planning Memory Budget (MiB)");
         provider.add(
             "neoecoae.configuration.ecoPlanningMaxMemoryMiB.tooltip",
-            "Estimated memory budget in MiB for data retained by cycle solving, including cycle matrices and search states.\n" +
-                "Exhaustion shows the plan as unknown."
-        );
+            "Estimated retained memory budget in MiB for cycle matrices and search states.\n" +
+                "Exceeding the budget leaves the result unresolved.");
 
         provider.add("neoecoae.configuration.debug", "Debug");
         provider.add(
             "neoecoae.configuration.debug.tooltip",
             "Troubleshooting options. Keep these disabled during normal play."
         );
-        provider.add("neoecoae.configuration.calculating", "Calculating");
+        provider.add("neoecoae.configuration.calculating", "Calculation and Dispatch Diagnostics");
         provider.add(
             "neoecoae.configuration.calculating.tooltip",
             "ECO crafting calculation and dispatch diagnostics."

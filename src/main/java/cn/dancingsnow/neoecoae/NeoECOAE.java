@@ -91,6 +91,8 @@ public class NeoECOAE {
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();
         integrationManager.loadAllIntegrations();
+        cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternOptimizationIntegration.init();
+        cn.dancingsnow.neoecoae.integration.ECOPatternIntegrations.initialize();
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
         // These values govern server-authoritative gameplay and are also read by client-side
         // previews/tooltips. SERVER configs are synchronized to joining clients by NeoForge.

@@ -86,6 +86,7 @@ public class NELangGenerator {
         provider.add("cell_type.neoecoae.mega_item", "MEGA Item");
         provider.add("cell_type.neoecoae.omni", "Omni");
         provider.add("cell_type.neoecoae.quantum_omni", "Quantum Omni");
+        provider.add("cell_type.neoecoae.spent_nuclear_waste", "Spent Nuclear Waste");
         provider.add("block.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
         provider.add("item.neoecoae.eco_mana_cell_housing", "ECO Mana Storage Matrix Housing");
         provider.add("item.neoecoae.eco_mana_storage_cell_16m", "ECO - LE4 Mana Storage Matrix");

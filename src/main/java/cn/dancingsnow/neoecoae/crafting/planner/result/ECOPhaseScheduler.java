@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.result;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
-import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
@@ -16,6 +16,7 @@ public final class ECOPhaseScheduler {
     private ECOPhaseScheduler() {}
     private static final ConcurrentHashMap<PlanIdentity.PatternIdentity, PatternSemantics> SEMANTIC_CACHE =
         new ConcurrentHashMap<>();
+    private static volatile long semanticGeneration = -1L;
 
     public static boolean metadataAvailable(boolean requiresOrderedCycleExecution,
             ECOExecutionSchedule schedule, boolean witnessMissing) {
@@ -106,24 +107,30 @@ public final class ECOPhaseScheduler {
     }
 
     static PatternSemantics semantic(IPatternDetails pattern) {
+        long generation = AE2PatternIntrospection.reloadGeneration();
+        if (semanticGeneration != generation) {
+            synchronized (SEMANTIC_CACHE) {
+                if (semanticGeneration != generation) {
+                    SEMANTIC_CACHE.clear();
+                    semanticGeneration = generation;
+                }
+            }
+        }
         var identity = PlanIdentity.patternIdentityFor(pattern);
         if (identity != null) {
             var cached = SEMANTIC_CACHE.get(identity);
-            if (cached != null) return cached;
+            if (cached != null && cached.physicalPattern() == pattern) return cached;
         }
-        PatternSemanticAdapter adapter = PatternSemanticAdapters.find(PatternSemanticAdapters.defaults(), pattern);
-        PatternSemantics result;
-        if (adapter == null) result = new cn.dancingsnow.neoecoae.crafting.planner.semantic.AE2PatternSemanticAdapter()
-            .analyze(pattern);
-        else {
-        try {
-            result = adapter.analyze(pattern);
-        } catch (RuntimeException rejected) {
-            result = PatternSemantics.unsupported(pattern, null,
-                "SEMANTIC_ANALYSIS_FAILED:" + rejected.getClass().getSimpleName());
+        PatternSemantics result = PatternSemanticAdapters.analyze(pattern);
+        if (generation != AE2PatternIntrospection.reloadGeneration()) {
+            return PatternSemantics.unsupported(pattern, null, "PATTERN_CONTRACT_CHANGED_DURING_ANALYSIS");
         }
+        synchronized (SEMANTIC_CACHE) {
+            if (identity != null && semanticGeneration == generation) {
+                if (SEMANTIC_CACHE.size() >= 512) SEMANTIC_CACHE.clear();
+                SEMANTIC_CACHE.put(identity, result);
+            }
         }
-        if (identity != null) SEMANTIC_CACHE.putIfAbsent(identity, result);
         return result;
     }
 

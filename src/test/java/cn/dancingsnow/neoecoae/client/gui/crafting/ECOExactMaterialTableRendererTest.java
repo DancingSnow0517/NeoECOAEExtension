@@ -13,6 +13,33 @@ import org.junit.jupiter.api.Test;
 
 class ECOExactMaterialTableRendererTest {
     @Test
+    void reservedComponentVariantIsListedAlongsideTheMissingTemplate() {
+        AEKey template = mock(AEKey.class);
+        AEKey variant = mock(AEKey.class);
+        AEKey output = mock(AEKey.class);
+        when(template.getPrimaryKey()).thenReturn(new Object());
+        when(variant.getPrimaryKey()).thenReturn(new Object());
+        when(output.getPrimaryKey()).thenReturn(new Object());
+        when(variant.formatAmount(anyLong(), any())).thenAnswer(call -> Long.toString(call.getArgument(0)));
+        var used = new appeng.api.stacks.KeyCounter(); used.add(variant, 3);
+        var missing = new appeng.api.stacks.KeyCounter(); missing.add(template, 1);
+        var plan = new appeng.crafting.CraftingPlan(new appeng.api.stacks.GenericStack(output, 4), 0,
+            true, false, used, new appeng.api.stacks.KeyCounter(), missing, java.util.Map.of());
+        var result = new cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult(
+            PlanningStatus.MISSING_ITEMS, plan,
+            new cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace(), List.of(), 0);
+        var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
+        var rows = ECOExactMaterialTableRenderer.sortMaterials(snapshot.nodes());
+        var storedRow = rows.stream().filter(row -> row.key().equals(variant)).findFirst().orElseThrow();
+        assertEquals(java.math.BigInteger.valueOf(3), storedRow.fromInventoryBigInteger());
+        assertEquals(java.math.BigInteger.ONE, rows.getFirst().missingBigInteger());
+        var renderer = mock(ECOExactMaterialTableRenderer.class, CALLS_REAL_METHODS);
+        assertEquals(List.of(appeng.core.localization.GuiText.FromStorage.text("3")),
+            renderer.getEntryDescription(storedRow));
+        verify(variant).formatAmount(3, AmountFormat.SLOT);
+    }
+
+    @Test
     void unverifiedSeedUsesLowerBoundTextInTheMaterialTableAndTooltip() throws Exception {
         AEKey key = mock(AEKey.class);
         when(key.formatAmount(anyLong(), any())).thenAnswer(call -> Long.toString(call.getArgument(0)));

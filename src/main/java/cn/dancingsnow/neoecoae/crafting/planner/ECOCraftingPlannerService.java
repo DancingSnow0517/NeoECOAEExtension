@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternIntrospection;
 
 import java.util.List;
 import java.util.Set;
@@ -62,6 +63,7 @@ public final class ECOCraftingPlannerService {
         private volatile CompiledNetwork compiled;
         private volatile CondensationGraph condensation;
         private volatile ActiveRouteSelector.Selection activeSelection;
+        private volatile long compiledContractGeneration = -1L;
         private final Object initializationLock = new Object();
 
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
@@ -129,6 +131,9 @@ public final class ECOCraftingPlannerService {
                     // Search may have exhausted its allowance while retaining a completed route.
                     // Publishing that report must still honor cancellation, but must not spend search budget.
                     callerCancellation.checkpoint();
+                    if (compiledContractGeneration != AE2PatternIntrospection.reloadGeneration()) {
+                        throw new IllegalStateException("PATTERN_CONTRACT_CHANGED_DURING_PLANNING");
+                    }
                     solved = rejectUnclosedSuccess(solved, amount);
                     ECOPlanningStageLogger.finish("material_closure_validation", validationStarted,
                             solved.status() == PlanningStatus.SUCCESS,
@@ -213,18 +218,26 @@ public final class ECOCraftingPlannerService {
         }
 
         private void ensureCompiled(ECOCancellation cancellation) throws InterruptedException {
-            if (compiled != null && condensation != null) {
+            if (compiled != null && condensation != null
+                    && compiledContractGeneration == AE2PatternIntrospection.reloadGeneration()) {
                 long reused = ECOPlanningStageLogger.start();
                 ECOPlanningStageLogger.finish("structural_initialization", reused, true, "REUSED");
                 return;
             }
             synchronized (initializationLock) {
+                long contractGeneration = AE2PatternIntrospection.reloadGeneration();
+                if (compiledContractGeneration != contractGeneration) {
+                    compiled = null;
+                    condensation = null;
+                    activeSelection = null;
+                }
                 long providerRevision = CompiledStructureCache.revision(craftingService);
-                var cached = CompiledStructureCache.get(craftingService, providerRevision, goal,
+                var cached = CompiledStructureCache.get(craftingService, providerRevision, contractGeneration, goal,
                         cyclePlanningEnabled, fuzzyPlanningItemIds);
                 if (cached != null) {
                     compiled = cached.network();
                     condensation = cached.condensation();
+                    compiledContractGeneration = contractGeneration;
                     ECOPlanningStageLogger.finish("structural_initialization", ECOPlanningStageLogger.start(),
                             true, "CACHED_PROVIDER_REVISION=" + providerRevision);
                     return;
@@ -252,7 +265,13 @@ public final class ECOCraftingPlannerService {
                     condensation = CondensationGraph.build(graph, sccs, cancellation);
                     ECOPlanningStageLogger.finish("condensation_graph", condensationStarted, true, null);
                 }
-                CompiledStructureCache.put(craftingService, providerRevision, goal, cyclePlanningEnabled,
+                if (contractGeneration != AE2PatternIntrospection.reloadGeneration()) {
+                    compiled = null;
+                    condensation = null;
+                    throw new IllegalStateException("PATTERN_CONTRACT_CHANGED_DURING_COMPILATION");
+                }
+                compiledContractGeneration = contractGeneration;
+                CompiledStructureCache.put(craftingService, providerRevision, contractGeneration, goal, cyclePlanningEnabled,
                         fuzzyPlanningItemIds, new CompiledStructureCache.Structure(compiled, condensation));
             }
         }

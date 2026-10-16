@@ -489,6 +489,51 @@ public static void commonSetup(FMLCommonSetupEvent event) {
 
 ## 8. 样板导入与容器所有权
 
+### 标准样板与可选能力
+
+普通样板只需实现 AE2 的 `IPatternDetails`，无需额外注册，也无需继承 ECO 类型。ECO 保留原始样板实例与 AEKey 组件，通过 `IInput` 读取倍率和返还物，通过 `ICraftingProvider` 普通发配。只有首选输入参与递归合成，其余替代物按库存选择；哪些产物可以启动生产由合成服务公布，其余产物仍作为副产物记账。忽略组件的规划选项也不能绕过 `IInput.isValid`。
+
+特殊语义使用 `api.me.pattern`，在通用初始化阶段、任务开始前注册一次：
+
+```java
+import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemantics;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry;
+import net.minecraft.resources.ResourceLocation;
+
+public final class EcoPatternIntegration {
+    public static void register(ECOPatternSemanticAdapter specialSemantics) {
+        ECOPatternSemanticsRegistry.register(
+            ResourceLocation.fromNamespaceAndPath("examplemod", "special_pattern"), 100,
+            specialSemantics);
+    }
+
+    // 为具有额外 CPU 执行限制的样板声明边界，避免静态规划误判为可执行。
+    public static abstract class CpuRestrictedPattern implements ECOPatternSemanticAdapter {
+        @Override public abstract boolean supports(IPatternDetails pattern);
+        @Override public ECOPatternSemantics analyze(IPatternDetails pattern, ECOPatternSemantics base) {
+            return new ECOPatternSemantics(pattern, base.physicalDefinition(), base.consumedInputs(),
+                base.producedOutputs(), base.returnedOutputs(), base.feedbackEdges(), base.matchingMode(),
+                ECOPatternSemantics.ExecutionRestriction.CPU, base.exactStaticAnalysis(), false,
+                base.unsupportedReason());
+        }
+    }
+}
+```
+
+适配器在传入的通用 AE2 解析结果 `base` 上补充特殊语义。无法分析时返回 `ECOPatternSemantics.unsupported(pattern, base.physicalDefinition(), reason)`。不可变描述使用 `BigInteger` 表达归一化输入与反馈数量，产物沿用 AE2 `GenericStack`。返回结果必须保留**同一个物理样板实例**。可选 `ignoresComponents`、`preferredInputKey` 声明特殊匹配，但实际输入仍须被样板接受。回调必须无副作用，可在规划工作线程调用。
+
+注册 ID 必须唯一。优先级高者先匹配，同级按 ID 字典序；只应用首个匹配项，没有匹配项则使用通用 AE2 语义。匹配或分析失败会明确返回不支持，不会静默落入更宽泛的适配器。`unregister(id)` 注销自定义注册。注册变化与配方重载会使编译结构、阶段语义、验证缓存及旧优化凭证失效。请在初始化时注册；计算中修改契约会使该次计算安全失败，需要重新计算。
+
+执行优化单独通过 `ECOExecutionOptimizationRegistry.register(id, priority, adapter)` 授权。`ECOExecutionOptimization.VERIFIED_ASSEMBLER` 仅适用于 ECO 能够验证具体产物与返还物、并具备确定性分子装配行为的样板，不能把普通加工样板变成虚拟合成。未注册的样板保留普通发配。供应器容量、事务接收和虚拟完成仍遵循现有供应器 API。执行注册使用相同的 ID 与优先级规则，回调异常拒绝优化，`unregister` 同时撤销旧凭证。
+
+供应器查询所用的包装样板可直接实现 `ECOPatternWrappers.Wrapper.ecoProviderPattern()`，或者调用 `ECOPatternWrappers.register(id, priority, contractClass, accessor)` 注册已知外部接口。ECO 不再猜测委托方法名。未注册的样板保持原实例；委托循环、空值、访问异常或超过 128 层时拒绝解包，不能据此授权优化发配。
+
+源码：[语义注册表](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOPatternSemanticsRegistry.java)、[执行能力](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOExecutionOptimizationRegistry.java)、[包装器契约](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOPatternWrappers.java)。
+
+### 导入编码样板
+
 ```java
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;

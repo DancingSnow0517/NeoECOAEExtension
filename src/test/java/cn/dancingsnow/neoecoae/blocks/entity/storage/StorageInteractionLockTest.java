@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import appeng.api.networking.IManagedGridNode;
+import appeng.api.storage.IStorageProvider;
 import cn.dancingsnow.neoecoae.api.storage.ICellHost;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.network.chat.Component;
@@ -15,6 +17,41 @@ class StorageInteractionLockTest {
     @BeforeAll
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
+    }
+
+    @Test
+    void onlySuccessfulInstallationsChangeTheInteractionIdentity() {
+        ECODriveBlockEntity drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        doReturn(mock(IManagedGridNode.class)).when(drive).getMainNode();
+        doNothing().when(drive).setChanged();
+        doReturn(true).when(drive).isItemValid(any());
+        ItemStack disk = new ItemStack(Items.DIAMOND);
+        try (var providers = mockStatic(IStorageProvider.class)) {
+            drive.setCellStack(disk);
+            var installed = drive.getCellInteractionId();
+            assertNotNull(installed);
+            disk.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Updated contents"));
+            assertEquals(installed, drive.getCellInteractionId());
+
+            doReturn(false).when(drive).canExtractCell();
+            drive.setCellStack(null);
+            assertSame(disk, drive.getCellStack());
+            assertEquals(installed, drive.getCellInteractionId());
+            doReturn(true).when(drive).canExtractCell();
+
+            doReturn(false).when(drive).isItemValid(any());
+            drive.setCellStack(disk.copy());
+            assertSame(disk, drive.getCellStack());
+            assertEquals(installed, drive.getCellInteractionId());
+            doReturn(true).when(drive).isItemValid(any());
+
+            drive.setCellStack(disk.copy());
+            var replaced = drive.getCellInteractionId();
+            assertNotEquals(installed, replaced);
+            drive.setCellStack(null);
+            assertNull(drive.getCellStack());
+            assertNotEquals(replaced, drive.getCellInteractionId());
+        }
     }
 
     @Test

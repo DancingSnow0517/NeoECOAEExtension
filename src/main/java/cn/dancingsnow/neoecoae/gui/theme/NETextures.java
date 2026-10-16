@@ -11,17 +11,39 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.math.Size;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Map;
 
 
 @SuppressWarnings("unused")
 public class NETextures {
     private static final Logger LOGGER = LoggerFactory.getLogger(NETextures.class);
+    private static final Map<ResourceLocation, String> PANEL_ATLASES = Map.of(
+        NeoECOAE.id("textures/guis/eco_cpu_controller.png"), "Computation-BACKGROUND_ATLAS",
+        NeoECOAE.id("textures/guis/cpu_widget.png"), "Computation-WIDGETS_ATLAS",
+        NeoECOAE.id("textures/guis/storage/storage_controller.png"), "Storage-CONTROLLER_ATLAS",
+        NeoECOAE.id("textures/guis/storage/storage_widget.png"), "Storage-ATLAS",
+        NeoECOAE.id("textures/guis/crafting_controller.png"), "Crafting-CONTROLLER_ATLAS",
+        NeoECOAE.id("textures/guis/crafting_widgets.png"), "Crafting-WIDGETS_ATLAS"
+    );
+    private static ResourceInstance<IGuiTexture> panelResources;
+
+    /** A sprite whose atlas can be replaced through the ui-eco provider without changing its pixel rectangle. */
+    public static SpriteTexture panelSprite(ResourceLocation atlas) {
+        String name = PANEL_ATLASES.get(atlas);
+        return name == null ? SpriteTexture.of(atlas)
+            : new PanelAtlasSprite(new BuiltinPath("ui-eco:" + name), atlas);
+    }
+
+    static IGuiTexture panelAtlas(BuiltinPath path) {
+        return panelResources == null ? null : panelResources.getResource(path);
+    }
     public static IGuiTexture BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/common/background.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(2, 2, 2, 4);
@@ -152,17 +174,19 @@ public class NETextures {
             NeoECOAE.id("textures/guis/crafting_widgets.png");
         public static final int WIDGETS_WIDTH = 288;
         public static final int WIDGETS_HEIGHT = 256;
-        public static IGuiTexture CONTROLLER = SpriteTexture.of(CONTROLLER_ATLAS).setSprite(0, 0, 253, 214);
+        public static IGuiTexture CONTROLLER = panelSprite(CONTROLLER_ATLAS).setSprite(0, 0, 253, 214);
 
         public static SpriteTexture widget(int x, int y, int width, int height) {
-            return SpriteTexture.of(WIDGETS_ATLAS).setSprite(x, y, width, height);
+            return panelSprite(WIDGETS_ATLAS).setSprite(x, y, width, height);
         }
     }
 
     public static void init(ResourceInstance<IGuiTexture> instance) {
         BuiltinResourceProvider<IGuiTexture> provider = new BuiltinResourceProvider<>("ui-eco", instance);
         addTextures(provider, NETextures.class, "");
+        PANEL_ATLASES.forEach((atlas, name) -> provider.addResource(name, SpriteTexture.of(atlas)));
         instance.addBuiltinProvider(provider);
+        panelResources = instance;
     }
 
 

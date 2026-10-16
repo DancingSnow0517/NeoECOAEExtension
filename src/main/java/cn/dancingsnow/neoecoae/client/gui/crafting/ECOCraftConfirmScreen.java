@@ -259,7 +259,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
             drawCyclePlanningStatus(graphics, mode.neoecoae$isCyclePlanningEnabled(),
-                !mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty());
+                !mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty(),
+                mode.neoecoae$getPlanningStatus());
         }
 
         cycleItems.renderTooltip(graphics);
@@ -292,13 +293,16 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             && System.nanoTime() - openedNanos >= LARGE_CYCLE_INDICATOR_DELAY_NANOS;
     }
 
-    private void drawCyclePlanningStatus(GuiGraphics graphics, boolean enabled, boolean cycleDetected) {
+    private void drawCyclePlanningStatus(GuiGraphics graphics, boolean enabled, boolean cycleDetected,
+                                           @Nullable PlanningStatus status) {
         var icon = cycleDetected && enabled
             ? ECOIcon.CYCLE_ENABLED
             : ECOIcon.CYCLE_DISABLED;
         icon.blit(graphics, CYCLE_STATUS_X, CYCLE_STATUS_Y, 0);
         String labelKey = !cycleDetected
-            ? "gui.neoecoae.crafting_report.cycle_not_detected"
+            ? status == PlanningStatus.CYCLE_UNRESOLVED
+                ? "gui.neoecoae.crafting_report.cycle_not_detected_preview"
+                : "gui.neoecoae.crafting_report.cycle_not_detected"
             : enabled
                 ? "gui.neoecoae.crafting_report.cycle_planning_enabled"
                 : "gui.neoecoae.crafting_report.cycle_planning_disabled";

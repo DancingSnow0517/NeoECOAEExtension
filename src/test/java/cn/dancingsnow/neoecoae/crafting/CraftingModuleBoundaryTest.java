@@ -22,6 +22,12 @@ class CraftingModuleBoundaryTest {
     }
 
     @Test
+    void plannerDoesNotEnumerateOptionalPatternImplementations() throws Exception {
+        assertNoReferences(ROOT.resolve("planner"), Pattern.compile(
+            "cn\\.dancingsnow\\.neoecoae\\.(?:compat|integration)\\.(useless|thunderbolt|extendedaeplus)\\."));
+    }
+
+    @Test
     void graphProjectionCannotCallItsRenderer() throws Exception {
         var forbidden = Pattern.compile(
             "(net\\.minecraft\\.client\\.|appeng\\.api\\.client\\.|org\\.lwjgl\\.|"

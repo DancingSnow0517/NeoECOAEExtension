@@ -23,18 +23,26 @@ import java.util.stream.Collectors;
 final class CycleFailureCache {
     private final CycleSolver solver;
     private final Map<Fingerprint, CycleSolveResult> failures = new HashMap<>();
+    private int reusedFailures;
+    private int solverCalls;
 
     CycleFailureCache(CycleSolver solver) { this.solver = solver; }
+
+    int solverCalls() { return solverCalls; }
+
+    int reusedFailures() { return reusedFailures; }
 
     CycleSolveResult solve(CycleSolveRequest request, ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
         Fingerprint key = Fingerprint.of(request);
         CycleSolveResult previous = failures.get(key);
         if (previous != null) {
+            reusedFailures++;
             return previous.withAdditionalDiagnostics(List.of(new CycleSolveDiagnostic(
                 CycleSolveDiagnostic.Code.PROVEN_FAILURE_REUSED,
                 "Reused current-stock impossibility proof for identical structure, targets, stock and boundary")));
         }
+        solverCalls++;
         CycleSolveResult result = solver.solve(request, cancellation);
         // This status is a proof under the CycleSolver contract. UNKNOWN_BUDGET and capability
         // failures never become nogoods, and a cached seed proposal never bypasses recovery.
@@ -45,14 +53,16 @@ final class CycleFailureCache {
     /** Component numbering can change when unrelated routes change; it is not solver state. */
     private record Fingerprint(Set<AEKey> members, List<CompiledPattern> patterns,
             Set<CraftingGraphEdge> internalEdges, Set<CraftingGraphEdge> boundaryEdges,
-            Map<AEKey, PlannerAmount> required, Map<AEKey, Long> stock, CycleSolveLimits limits) {
+            Map<AEKey, PlannerAmount> required, Map<AEKey, Long> stock, CycleSolveLimits limits,
+            Map<AEKey, PlannerAmount> boundaryImportCaps) {
         static Fingerprint of(CycleSolveRequest request) {
             return new Fingerprint(new HashSet<>(request.component().members()),
                 request.component().patterns().stream().sorted(Comparator.comparingInt(CompiledPattern::id)).toList(),
                 new HashSet<>(request.component().internalEdges()),
                 request.externalResourceBoundary().stream().flatMap(edge -> edge.relationships().stream())
                     .collect(Collectors.toSet()),
-                request.plannerRequiredOutputs(), request.availableRelevantStock(), request.options().limits());
+                request.plannerRequiredOutputs(), request.availableRelevantStock(), request.options().limits(),
+                request.boundaryImportCaps());
         }
     }
 }

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.VanillaSpriteTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -24,11 +25,14 @@ final class StoragePanelTextures {
     // Marks an unset resource filter; the glyph sits inside the 16px item area.
     static final SpriteTexture EMPTY_FILTER = sprite(240, 0, 16, 16);
     static final SpriteTexture CELL_COLUMN = sprite(0, 52, 16, 52);
-    static final int FALLBACK_SWATCH = 14;
+    private static final int DATA_SWATCH = 14;
+    private static final int STRESS_SWATCH = 15;
+    static final int FALLBACK_SWATCH = 16;
     static final int[] COLORS = {
         0x17B86D, 0x3894FF, 0xEC8600, 0xCCCCCC, 0xCC493D, 0xFFB2D8,
         0x72B036, 0x3AD8CB, 0xC93BED, 0x06DFFF,
         0x2CCDB1, 0xCC4BBD, 0x6056AF, 0x6F8259,
+        0x15BFAE, 0xEFC700,
         0xCCCCCC
     };
 
@@ -39,7 +43,7 @@ final class StoragePanelTextures {
     }
 
     static SpriteTexture sprite(int x, int y, int width, int height) {
-        return SpriteTexture.of(ATLAS).setSprite(x, y, width, height);
+        return NETextures.panelSprite(ATLAS).setSprite(x, y, width, height);
     }
 
     static SpriteTexture tier(int tier) {
@@ -66,6 +70,8 @@ final class StoragePanelTextures {
     static SpriteTexture swatch(int index, int color) {
         if (index < 0 || index >= FALLBACK_SWATCH) return sprite(16, 78, 8, 8).setBorder(1, 0, 1, 0)
             .setColor(0xFF000000 | color & 0xFFFFFF);
+        if (index == DATA_SWATCH) return sprite(48, 70, 8, 8).setBorder(1, 0, 1, 0);
+        if (index == STRESS_SWATCH) return sprite(96, 62, 8, 8).setBorder(1, 0, 1, 0);
         if (index < 6) {
             return sprite(16 + index * 8, 62, 8, 8).setBorder(1, 0, 1, 0);
         } else if (index < 10) {
@@ -78,6 +84,8 @@ final class StoragePanelTextures {
     /** Resource pictograms follow the same channel order as the color swatches. */
     static SpriteTexture resourceIcon(int index, int color) {
         if (index < 0 || index >= FALLBACK_SWATCH) return swatch(index, color);
+        if (index == DATA_SWATCH) return sprite(48, 94, 8, 8);
+        if (index == STRESS_SWATCH) return sprite(96, 86, 8, 8);
         if (index < 6) {
             return sprite(16 + index * 8, 86, 8, 8);
         } else if (index < 10) {
@@ -105,6 +113,8 @@ final class StoragePanelTextures {
             case "neoecoae:complex_omni", "ae2omnicells:complex_omni", "ae2omnicells:complex_omni_cell" -> 11;
             case "neoecoae:quantum_omni", "ae2omnicells:quantum_omni", "ae2omnicells:quantum_omni_cell" -> 12;
             case "neoecoae:spent_nuclear_waste", "ae2omnicells:spent_nuclear_waste", "ae2omnicells:spent_nuclear_waste_cell", "mekanism:spent_nuclear_waste" -> 13;
+            case "neoecoae:data", "data_energistics:data", "data_energistics:data_flow",
+                "data_energistics:digitalization", "data_energistics:manifest_binary" -> DATA_SWATCH;
             default -> FALLBACK_SWATCH;
         };
     }

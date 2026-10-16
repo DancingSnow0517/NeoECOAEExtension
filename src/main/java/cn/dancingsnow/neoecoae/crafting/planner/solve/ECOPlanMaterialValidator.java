@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.integration.useless.dispatch.UselessPatternSemanticAdapter;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
@@ -26,7 +25,7 @@ public final class ECOPlanMaterialValidator {
     /**
      * Returns the first material deficit, or {@code null} when every primary pattern input can be supplied by the
      * plan's reserved initial items, emitted items, and physical pattern outputs. This check intentionally uses the
-     * raw AE2 pattern contract: it is the contract the CPU will execute after all planner metadata has been discarded.
+     * raw AE2 pattern contract, with the same explicit processing item-ID overrides retained by the CPU job.
      */
     public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
             KeyCounter initialInventory, @Nullable CompiledNetwork network) {
@@ -169,8 +168,8 @@ public final class ECOPlanMaterialValidator {
         for (var entry : new ArrayList<>(supply.entrySet())) {
             if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
-            if (demand != null && !UselessPatternSemanticAdapter.acceptsComponentVariant(
-                    demand.pattern(), demand.input(), entry.getKey())) continue;
+            if (demand != null && !cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
+                    .isValid(demand.pattern(), demand.input(), key, entry.getKey(), null)) continue;
             PlannerAmount taken = remaining.min(entry.getValue());
             remove(supply, entry.getKey(), taken);
             consumed = consumed.add(taken);

@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.integration.OptionalCellUpgrades;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.fml.ModList;
 
 import java.util.List;
 
@@ -25,6 +26,9 @@ public final class AE2OmniCellsIntegration {
             NEOmniItems.ECO_COMPLEX_OMNI_CELL_64M, NEOmniItems.ECO_COMPLEX_OMNI_CELL_256M);
         registerModels("quantum_omni", NEOmniItems.ECO_QUANTUM_OMNI_CELL_16M,
             NEOmniItems.ECO_QUANTUM_OMNI_CELL_64M, NEOmniItems.ECO_QUANTUM_OMNI_CELL_256M);
+        if (ModList.get().isLoaded("appmek")) {
+            NEOmniWasteCells.registerModels(false);
+        }
 
         NeoECOAE.MOD_BUS.addListener(this::commonSetup);
     }
@@ -36,11 +40,17 @@ public final class AE2OmniCellsIntegration {
             NEOmniItems.ECO_COMPLEX_OMNI_CELL_64M, NEOmniItems.ECO_COMPLEX_OMNI_CELL_256M);
         registerResolvedModels("quantum_omni", NEOmniItems.ECO_QUANTUM_OMNI_CELL_16M,
             NEOmniItems.ECO_QUANTUM_OMNI_CELL_64M, NEOmniItems.ECO_QUANTUM_OMNI_CELL_256M);
+        if (ModList.get().isLoaded("appmek")) {
+            NEOmniWasteCells.registerModels(true);
+        }
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOUniversalCellHandler.INSTANCE);
+            if (ModList.get().isLoaded("appmek")) {
+                NEOmniWasteCells.registerUpgrades();
+            }
             String group = GuiText.StorageCells.getTranslationKey();
             OptionalCellUpgrades.addStandard(allCells(), group);
         });

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.api;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 public enum ECOTier implements IECOTier {
@@ -72,6 +73,11 @@ public enum ECOTier implements IECOTier {
         this.storageTotalBytes = storageTotalBytes;
         this.powerStorageSize = powerStorageSize;
         this.cpuOverlayTexture = cpuOverlayTexture;
+    }
+
+    @Override
+    public Component getPanelTierName() {
+        return Component.literal(name());
     }
 
     @Override

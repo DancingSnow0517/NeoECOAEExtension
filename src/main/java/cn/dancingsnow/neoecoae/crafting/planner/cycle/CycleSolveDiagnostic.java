@@ -25,6 +25,8 @@ public record CycleSolveDiagnostic(Code code, String message) {
         SEED_COVERED_BY_STOCK,
         /** The witness needs more start-up material than the stock snapshot holds. */
         SEED_SHORTFALL,
+        /** Boundary imports were bounded by per-key caps; excess seed on those keys is reported as external demand. */
+        BOUNDARY_IMPORT_CAPPED,
         /** A seed ladder point was verified by an explicit search, so the seed figure is sufficient. */
         SEED_LADDER_VERIFIED,
         /** No ladder point verified in budget; the reported seed is a lower bound, not a guarantee. */

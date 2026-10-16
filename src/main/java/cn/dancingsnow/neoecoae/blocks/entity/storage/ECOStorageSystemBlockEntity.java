@@ -308,7 +308,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 (position, expected, shift) -> StorageCellUiExtraction.extract(this, holder.player, position, expected, shift),
                 (position, expected) -> StorageCellUiInsertion.insert(this, holder.player, position, expected),
                 () -> new ItemStack(getBlockState().getBlock())
-        ));
+        ), this::getTier);
         actionUI.addTo(root);
         return ECOModularUI.create(root, holder.player);
     }

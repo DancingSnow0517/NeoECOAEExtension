@@ -48,7 +48,7 @@ class JeiBookmarkAccessTest {
             mocked.when(ModList::get).thenReturn(modList);
             Class<?> access = loader.loadClass(entryPoint);
             assertEquals(false, access.getMethod("isAvailable").invoke(null));
-            assertEquals(List.of(), access.getMethod("itemBookmarks").invoke(null));
+            assertEquals(List.of(), access.getMethod("bookmarkedKeys").invoke(null));
             access.getMethod("addMissingToBookmarks", List.class).invoke(null, List.of());
             assertTrue(forbiddenLoads.isEmpty(), () -> "Loaded optional JEI classes: " + forbiddenLoads);
         }

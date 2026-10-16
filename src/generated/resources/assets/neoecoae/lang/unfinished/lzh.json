@@ -263,7 +263,7 @@
   "gui.neoecoae.integrated_working_station.allow_outputs.disabled": "已禁用",
   "gui.neoecoae.integrated_working_station.allow_outputs.enabled": "已啟用",
   "gui.neoecoae.integrated_working_station.energy": "所需能量：%dk FE",
-  "gui.neoecoae.large_integrated_working_station.energy": "能量：%s / %s",
+  "gui.neoecoae.large_integrated_working_station.energy": "AE能量：%s / %s AE",
   "gui.neoecoae.large_integrated_working_station.input_fluid": "入流質",
   "gui.neoecoae.large_integrated_working_station.no_task": "今冶務：無",
   "gui.neoecoae.large_integrated_working_station.output_fluid": "出流質",
@@ -617,5 +617,10 @@
   "tooltip.neoecoae.storage_drive.1": "可驅藏矩之等，決於藏器主機",
   "tooltip.neoecoae.storage_system": "藏器之分本樞",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "鋁合金升級",
-  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "黑鎢合金升級"
+  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "黑鎢合金升級",
+  "cell_type.neoecoae.spent_nuclear_waste": "乏核廢料",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_16m": "ECO - LE4 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_256m": "ECO - LE9 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "ECO - LE6 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核廢料存儲矩陣外殼"
 }

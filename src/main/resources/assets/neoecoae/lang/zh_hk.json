@@ -513,7 +513,7 @@
   "block.neoecoae.large_integrated_working_station_input_hatch": "大型整合工作站冷卻液輸入倉",
   "block.neoecoae.large_integrated_working_station_output_hatch": "大型整合工作站冷卻液輸出倉",
   "block.neoecoae.large_integrated_working_station_interface": "大型整合工作站通訊方塊",
-  "gui.neoecoae.large_integrated_working_station.energy": "能量：%s / %s",
+  "gui.neoecoae.large_integrated_working_station.energy": "AE能量：%s / %s AE",
   "gui.neoecoae.large_integrated_working_station.no_task": "目前任務：無",
   "gui.neoecoae.large_integrated_working_station.task": "目前任務：%s",
   "gui.neoecoae.large_integrated_working_station.recipe_empty": "合成任務：等待輸入",
@@ -746,5 +746,10 @@
   "gui.neoecoae.crafting_graph.status.unknown_budget": "\u6c42\u89e3\u9810\u7b97\u4e0d\u8db3",
   "gui.neoecoae.crafting_graph.status.too_complex": "\u904e\u65bc\u8907\u96dc",
   "gui.neoecoae.crafting_graph.status.cancelled": "\u5df2\u53d6\u6d88",
-  "neoecoae.unknown_cell_type": "\u672a\u77e5\u5b58\u5132\u5143\u4ef6\u985e\u578b"
+  "neoecoae.unknown_cell_type": "\u672a\u77e5\u5b58\u5132\u5143\u4ef6\u985e\u578b",
+  "cell_type.neoecoae.spent_nuclear_waste": "乏核廢料",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_16m": "ECO - LE4 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_256m": "ECO - LE9 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "ECO - LE6 乏核廢料存儲矩陣",
+  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核廢料存儲矩陣外殼"
 }

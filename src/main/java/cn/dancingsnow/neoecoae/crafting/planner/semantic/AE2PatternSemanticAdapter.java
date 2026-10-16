@@ -35,14 +35,24 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
         AEItemKey definition = null;
         try {
             definition = pattern.getDefinition();
-            List<GenericStack> outputs = pattern.getOutputs() == null ? List.of() : pattern.getOutputs();
+            List<GenericStack> outputs = pattern.getOutputs();
+            if (outputs == null || outputs.isEmpty()) {
+                return PatternSemantics.unsupported(pattern, definition, "NO_OUTPUTS");
+            }
+            for (GenericStack output : outputs) {
+                if (output == null || output.what() == null || output.amount() <= 0L) {
+                    return PatternSemantics.unsupported(pattern, definition, "INVALID_OUTPUT");
+                }
+            }
             List<PatternSemantics.Input> inputs = new ArrayList<>();
             List<GenericStack> returned = new ArrayList<>();
             List<PatternSemantics.FeedbackEdge> feedback = new ArrayList<>();
             PatternSemantics.MatchingMode matching = PatternSemantics.MatchingMode.EXACT;
             boolean hasRemainder = false;
             boolean everyRemainderIsExactReusableStock = true;
-            for (IPatternDetails.IInput input : pattern.getInputs()) {
+            IPatternDetails.IInput[] rawInputs = pattern.getInputs();
+            if (rawInputs == null) return PatternSemantics.unsupported(pattern, definition, "NULL_INPUTS");
+            for (IPatternDetails.IInput input : rawInputs) {
                 if (input == null) return PatternSemantics.unsupported(pattern, definition, "NULL_INPUT");
                 GenericStack[] possible = input.getPossibleInputs();
                 if (possible == null || possible.length == 0 || possible[0] == null

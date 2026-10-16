@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternIntrospection;
 import java.util.List;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -126,7 +127,8 @@ public final class ECOVerifiedFastPathRecipe {
 
     /** True only for the cache instance that performed the value verification and minted this credential. */
     public boolean isIssuedBy(ECOCraftingFastPathCache candidate) {
-        return this.issuer == candidate && candidate.isCredentialEpochCurrent(issuerEpoch);
+        return this.issuer == candidate && candidate.isCredentialEpochCurrent(issuerEpoch)
+            && reloadGeneration == AE2PatternIntrospection.reloadGeneration();
     }
 
     /** True while no recipe/datapack/server reload happened since verification. */

@@ -6,6 +6,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOExecutionOptimizationRegistry;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -231,7 +232,9 @@ public final class ECOExtractedPatternExecution {
         if (key.isEmpty()) return "KEY_BUILD_FAILED";
         if (NEConfig.postCraftingEvent) return "POST_CRAFTING_EVENT_ENABLED";
         if (!AE2PatternIntrospection.isAvailable()) return "AE2_INTROSPECTION_UNAVAILABLE";
-        if (!AE2PatternIntrospection.isKnownSafePatternType(details)) return "UNSAFE_PATTERN_TYPE";
+        if (!ECOExecutionOptimizationRegistry.resolve(details).verifiedAssemblerFastPath()) {
+            return "ASSEMBLER_OPTIMIZATION_NOT_REGISTERED";
+        }
         if (!patternEligibility.supported()) return patternEligibility.rejectReason();
         if (outputs.size() != 1) return "OUTPUT_COUNT_" + outputs.size();
 
@@ -317,6 +320,9 @@ public final class ECOExtractedPatternExecution {
 
     public String fastPathReason() {
         if (NEConfig.postCraftingEvent) return "POST_CRAFTING_EVENT_ENABLED";
+        if (key != null && !key.isForReloadGeneration(AE2PatternIntrospection.reloadGeneration())) {
+            return "EXECUTION_CONTRACT_CHANGED";
+        }
         return fastPathRejectionReason == null ? classification.reason() : fastPathRejectionReason;
     }
 
@@ -326,7 +332,8 @@ public final class ECOExtractedPatternExecution {
     }
 
     public boolean fastPathEligible() {
-        return fastPathRejectionReason == null;
+        return key != null && fastPathRejectionReason == null
+            && key.isForReloadGeneration(AE2PatternIntrospection.reloadGeneration());
     }
 
     /**
@@ -340,6 +347,7 @@ public final class ECOExtractedPatternExecution {
     public boolean canUseFastPath() {
         return key != null
             && fastPathRejectionReason == null
+            && key.isForReloadGeneration(AE2PatternIntrospection.reloadGeneration())
             && !NEConfig.postCraftingEvent;
     }
 

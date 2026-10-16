@@ -37,6 +37,14 @@ public final class ECOPlanningBudget implements ECOCancellation {
         }
     }
 
+    /** Nested allowance for optional searches: never more than half of what remains, so exhausting it leaves this budget usable. */
+    public synchronized ECOPlanningBudget slice(long maxSliceWork, long maxSliceNanos) {
+        long remainingWork = Math.max(0L, maxWork - work);
+        long remainingNanos = Math.max(0L, maxNanos - (clock.getAsLong() - started));
+        return new ECOPlanningBudget(this, Math.max(1L, Math.min(maxSliceWork, remainingWork / 2)),
+            Math.max(1L, Math.min(maxSliceNanos, remainingNanos / 2)), clock);
+    }
+
     /** Distinct from cancellation, internal errors and a proof of missing materials. */
     public static final class Exhausted extends RuntimeException {
         private Exhausted(String message) { super(message, null, false, false); }

@@ -5,8 +5,10 @@ import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.AE2PatternSemanticAdapter;
-import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,7 +21,7 @@ import org.jetbrains.annotations.Nullable;
  * template. Fixed-output recipes without returned inputs can also form a verified cycle using the selected
  * concrete ingredients. Dynamic output components and relaxed reusable returns still need a separate proof.
  */
-public final class UselessPatternSemanticAdapter implements PatternSemanticAdapter {
+public final class UselessPatternSemanticAdapter implements ECOPatternSemanticAdapter {
     private final AE2PatternSemanticAdapter delegate = new AE2PatternSemanticAdapter();
 
     @Override
@@ -27,13 +29,17 @@ public final class UselessPatternSemanticAdapter implements PatternSemanticAdapt
         return UselessPatternApi.dynamicView(pattern) != null;
     }
 
-    @Override
     public PatternSemantics analyze(IPatternDetails pattern) {
+        return PatternSemanticAdapters.toInternal(analyze(pattern,
+            PatternSemanticAdapters.toPublic(delegate.analyze(pattern))));
+    }
+
+    @Override
+    public ECOPatternSemantics analyze(IPatternDetails pattern, ECOPatternSemantics base) {
         UselessDynamicPatternView dynamic = UselessPatternApi.dynamicView(pattern);
         if (dynamic == null) {
-            return PatternSemantics.unsupported(pattern, safeDefinition(pattern), "USELESS_DYNAMIC_CONTRACT_MISSING");
+            return ECOPatternSemantics.unsupported(pattern, safeDefinition(pattern), "USELESS_DYNAMIC_CONTRACT_MISSING");
         }
-        PatternSemantics base = delegate.analyze(pattern);
         if (!base.supported()) return base;
         try {
             boolean dynamicOutputs = dynamic.neoecoae$usesDynamicOutputs();
@@ -46,17 +52,17 @@ public final class UselessPatternSemanticAdapter implements PatternSemanticAdapt
                     break;
                 }
             }
-            return new PatternSemantics(pattern, base.physicalDefinition(), base.consumedInputs(),
+            return new ECOPatternSemantics(pattern, base.physicalDefinition(), base.consumedInputs(),
                 base.producedOutputs(), base.returnedOutputs(), base.feedbackEdges(),
-                relaxedInput || dynamicOutputs ? PatternSemantics.MatchingMode.SUBSTITUTION : base.matchingMode(),
-                PatternSemantics.ExecutionRestriction.NONE, true,
+                relaxedInput || dynamicOutputs ? ECOPatternSemantics.MatchingMode.SUBSTITUTION : base.matchingMode(),
+                ECOPatternSemantics.ExecutionRestriction.NONE, true,
                 // Input alternatives broaden what the machine accepts; they do not change a fixed output.
                 // Commit ordinary consumed inputs to concrete keys, while excluding relaxed returned stock
                 // whose component identity could change during a lap.
                 base.cycleSafe() && !dynamicOutputs
                     && (!relaxedInput || base.returnedOutputs().isEmpty()), null);
         } catch (RuntimeException rejected) {
-            return PatternSemantics.unsupported(pattern, base.physicalDefinition(),
+            return ECOPatternSemantics.unsupported(pattern, base.physicalDefinition(),
                 "USELESS_SEMANTIC_ANALYSIS_FAILED:" + rejected.getClass().getSimpleName());
         }
     }
@@ -66,12 +72,6 @@ public final class UselessPatternSemanticAdapter implements PatternSemanticAdapt
         UselessDynamicPatternView dynamic = UselessPatternApi.dynamicView(pattern);
         return dynamic != null && inputSlot >= 0 && inputSlot < pattern.getInputs().length
             && dynamic.neoecoae$isItemIdInput(inputSlot);
-    }
-
-    /** Extra recipe predicates still apply to an item-ID slot (for example EnderIO soul inputs). */
-    public static boolean acceptsComponentVariant(IPatternDetails pattern, IPatternDetails.IInput input,
-            AEKey candidate) {
-        return UselessPatternApi.dynamicView(pattern) == null || input == null || input.isValid(candidate, null);
     }
 
     @Override
@@ -105,7 +105,7 @@ public final class UselessPatternSemanticAdapter implements PatternSemanticAdapt
     }
 
     @Nullable
-    private static Object safeDefinition(IPatternDetails pattern) {
+    private static AEItemKey safeDefinition(IPatternDetails pattern) {
         try {
             return pattern.getDefinition();
         } catch (RuntimeException ignored) {

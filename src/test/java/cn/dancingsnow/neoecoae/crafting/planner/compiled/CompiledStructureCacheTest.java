@@ -10,6 +10,10 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemantics;
+import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
@@ -18,6 +22,7 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Items;
+import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -48,6 +53,42 @@ class CompiledStructureCacheTest {
         when(service.getCraftingFor(goal)).thenReturn(List.of());
         assertEquals(PlanningStatus.MISSING_ITEMS, planner.createSession(service, goal, stock(5)).plan(1, false, ECOCancellation.NONE).status());
         verify(service, times(2)).getCraftingFor(goal);
+    }
+
+    @Test void recipeReloadInvalidatesCrossSessionAndSessionLocalStructures() throws Exception {
+        var service = service(true);
+        var planner = new ECOCraftingPlannerService();
+        var session = planner.createSession(service, goal, stock(5));
+        assertEquals(PlanningStatus.SUCCESS, session.plan(1, false, ECOCancellation.NONE).status());
+        when(service.getCraftingFor(goal)).thenReturn(List.of());
+        AE2PatternIntrospection.onRecipeReloadOrServerReload();
+        assertEquals(PlanningStatus.MISSING_ITEMS, session.plan(1, false, ECOCancellation.NONE).status());
+        assertEquals(PlanningStatus.MISSING_ITEMS,
+            planner.createSession(service, goal, stock(5)).plan(1, false, ECOCancellation.NONE).status());
+        verify(service, times(2)).getCraftingFor(goal);
+    }
+
+    @Test void existingPlannerObservesRegisteredSpecialSemanticsAndRemoval() throws Exception {
+        var service = service(true);
+        var planner = new ECOCraftingPlannerService();
+        var session = planner.createSession(service, goal, stock(5));
+        assertEquals(PlanningStatus.SUCCESS, session.plan(1, false, ECOCancellation.NONE).status());
+        IPatternDetails physical = service.getCraftingFor(goal).iterator().next();
+        var id = ResourceLocation.fromNamespaceAndPath("eco_cache_test", "special");
+        ECOPatternSemanticsRegistry.register(id, 1000, new ECOPatternSemanticAdapter() {
+            @Override public boolean supports(IPatternDetails pattern) { return pattern == physical; }
+            @Override public ECOPatternSemantics analyze(IPatternDetails pattern, ECOPatternSemantics base) {
+                return ECOPatternSemantics.unsupported(pattern, base.physicalDefinition(), "SPECIAL_TEST_RESTRICTION");
+            }
+        });
+        try {
+            assertNotEquals(PlanningStatus.SUCCESS, session.plan(1, false, ECOCancellation.NONE).status());
+            assertNotEquals(PlanningStatus.SUCCESS,
+                planner.createSession(service, goal, stock(5)).plan(1, false, ECOCancellation.NONE).status());
+        } finally {
+            ECOPatternSemanticsRegistry.unregister(id);
+        }
+        assertEquals(PlanningStatus.SUCCESS, session.plan(1, false, ECOCancellation.NONE).status());
     }
 
     @Test void pendingProviderRebuildCannotReadOrPopulateTheCache() throws Exception {

@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.theme.Palette;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -15,6 +17,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
@@ -30,7 +33,7 @@ final class StorageCellGrid extends UIElement {
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config) {
         this.sync = sync;
         this.columns = columns;
-        extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class, Boolean.class,
+        extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class, Boolean.class,
             (position, expected, shift) -> isOpenMenu(config) && config.cellExtractor().extract(position, expected, shift)));
         insertion = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class,
             (position, expected) -> isOpenMenu(config) && config.cellInserter().insert(position, expected)));
@@ -100,10 +103,10 @@ final class StorageCellGrid extends UIElement {
                 interacting = true;
                 if (!insertion.send((Boolean success) -> interacting = false,
                     cell.position(), carried.copy())) interacting = false;
-            } else if (!cell.stack().isEmpty()) {
+            } else if (!cell.stack().isEmpty() && cell.interactionId() != null) {
                 interacting = true;
                 if (!extraction.send((Boolean success) -> interacting = false,
-                    cell.position(), cell.stack().copy(), UIElement.isShiftDown())) interacting = false;
+                    cell.position(), cell.interactionId(), UIElement.isShiftDown())) interacting = false;
             }
         }
 
@@ -144,7 +147,7 @@ final class StorageCellGrid extends UIElement {
                 case StorageHostUI.CellEntry.KIND_FLUID -> "gui.neoecoae.storage.legacy.cell_info.fluid";
                 default -> "gui.neoecoae.storage.legacy.cell_info.other";
             });
-            lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_info", name, tierName(cell.tier())));
+            lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_info", name, tierName(cell)));
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_types",
                 HostText.usedPart(HostText.ae2Amount(cell.usedTypes()), cell.usedTypes(), cell.totalTypes()),
                 HostText.totalPart(capacity(cell.totalTypes()))));
@@ -176,7 +179,9 @@ final class StorageCellGrid extends UIElement {
 
     private static String fullCapacity(long value) { return value < 0 ? "\u221E" : HostText.fullBytes(value); }
 
-    private static String tierName(int tier) {
-        return switch (tier) { case 1 -> "L4"; case 2 -> "L6"; case 3 -> "L9"; default -> "L0"; };
+    static Component tierName(StorageHostUI.CellEntry cell) {
+        if (cell.panelTierName() != null) return cell.panelTierName();
+        return HostPanelTier.name(cell.stack().getItem() instanceof IBasicECOCellItem item ? item.getTier() : null,
+            cell.tier());
     }
 }

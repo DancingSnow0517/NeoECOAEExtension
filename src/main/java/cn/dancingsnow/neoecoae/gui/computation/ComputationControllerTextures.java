@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import net.minecraft.resources.ResourceLocation;
 
@@ -13,11 +14,11 @@ final class ComputationControllerTextures {
     private ComputationControllerTextures() {}
 
     static SpriteTexture background() {
-        return SpriteTexture.of(BACKGROUND_ATLAS).setSprite(0, 0, WIDTH, HEIGHT);
+        return NETextures.panelSprite(BACKGROUND_ATLAS).setSprite(0, 0, WIDTH, HEIGHT);
     }
 
     static SpriteTexture widget(int x, int y, int width, int height) {
-        return SpriteTexture.of(WIDGETS_ATLAS).setSprite(x, y, width, height);
+        return NETextures.panelSprite(WIDGETS_ATLAS).setSprite(x, y, width, height);
     }
 
     static SpriteTexture tier(int tier) {
