@@ -1,0 +1,49 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = rootProject.group
+version = rootProject.version
+base.archivesName = 'neoecoae-core'
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+
+repositories { mavenCentral() }
+dependencies {
+    implementation 'it.unimi.dsi:fastutil:8.5.12'
+    compileOnly 'org.jetbrains:annotations:26.0.2-1'
+    testImplementation 'it.unimi.dsi:fastutil:8.5.12'
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Retain source paths so existing IDE links/backport tooling stay stable during the split.
+sourceSets {
+    main.java {
+        setSrcDirs([rootProject.file('src/main/java')])
+        include 'cn/dancingsnow/neoecoae/core/**'
+    }
+    test.java {
+        setSrcDirs([rootProject.file('src/test/java')])
+        include 'cn/dancingsnow/neoecoae/core/**'
+    }
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    workingDir rootProject.projectDir
+    maxHeapSize = '1G'
+}
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            artifactId = 'neoecoae-core'
+        }
+    }
+    repositories { maven { url rootProject.uri('repo') } }
+}

@@ -11,6 +11,8 @@ on:
       - gradlew
       - gradlew.bat
       - '*.gradle'
+      - core/**
+      - mc1211/**
   pull_request:
     paths:
       - .github/workflows/**
@@ -21,6 +23,8 @@ on:
       - gradlew
       - gradlew.bat
       - '*.gradle'
+      - core/**
+      - mc1211/**
 
 jobs:
   build:
