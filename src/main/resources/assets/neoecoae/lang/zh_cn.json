@@ -862,6 +862,7 @@
   "gui.neoecoae.crafting.submission_log.off": "订单提交日志：已禁用",
   "gui.neoecoae.crafting_report.cycle_unsupported": "检测到当前求解器无法处理的循环配方。",
   "gui.neoecoae.crafting_report.cycle_not_detected": "未检测到循环",
+  "gui.neoecoae.crafting_report.cycle_not_detected_preview": "预览路线无循环",
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "存在循环",
   "gui.neoecoae.crafting_report.cycle_planning_disabled": "未开启循环规划",
   "gui.neoecoae.crafting_report.missing_startup_seed": "缺少启动种子",

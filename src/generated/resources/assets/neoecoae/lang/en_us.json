@@ -403,6 +403,7 @@
   "gui.neoecoae.crafting_report.calculating": "Calculating...",
   "gui.neoecoae.crafting_report.complex_tree_hint": "Check the patterns in this complex crafting tree",
   "gui.neoecoae.crafting_report.cycle_not_detected": "No cycles",
+  "gui.neoecoae.crafting_report.cycle_not_detected_preview": "No cycles yet",
   "gui.neoecoae.crafting_report.cycle_planning_disabled": "Cycles off",
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "Cycle found",
   "gui.neoecoae.crafting_report.cycle_unsupported": "A cyclic recipe cannot be handled by the current solver.",

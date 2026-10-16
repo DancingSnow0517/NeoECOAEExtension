@@ -505,6 +505,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_hint", "Cancel the job, leave Infinite Mode, and stop feeding the old coolant.");
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_recovery", "Consume the old buffer with normal crafting, then supply an allowed coolant and restore Infinite Mode.");
         provider.add("gui.neoecoae.crafting_report.cycle_not_detected", "No cycles");
+        provider.add("gui.neoecoae.crafting_report.cycle_not_detected_preview", "No cycles yet");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle found");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycles off");
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
