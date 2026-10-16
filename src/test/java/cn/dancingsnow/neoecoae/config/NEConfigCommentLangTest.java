@@ -27,6 +27,32 @@ class NEConfigCommentLangTest {
     private static final JsonObject ZH = readLang("src/main/resources/assets/neoecoae/lang/zh_cn.json");
 
     @Test
+    void coreDefinitionsBindTheSamePathsDefaultsAndTranslations() {
+        var definitions = cn.dancingsnow.neoecoae.core.content.ConfigDefinitions.entries();
+        Set<String> paths = new HashSet<>();
+        for (var entry : definitions) {
+            assertTrue(paths.add(entry.path()), "duplicate config path " + entry.path());
+            ModConfigSpec.ValueSpec spec = NEConfig.SPEC.getSpec().get(entry.path());
+            assertEquals(entry.defaultValue(), spec.getDefault(), entry.path());
+            assertEquals(entry.translation(), spec.getTranslationKey(), entry.path());
+            assertTrue(spec.test(entry.defaultValue()), entry.path());
+            if (entry.kind() == cn.dancingsnow.neoecoae.core.content.ConfigDefinitions.Kind.INT) {
+                assertTrue(spec.test((int) entry.minimum()), entry.path());
+                assertTrue(spec.test((int) entry.maximum()), entry.path());
+            } else if (entry.kind() == cn.dancingsnow.neoecoae.core.content.ConfigDefinitions.Kind.LONG) {
+                assertTrue(spec.test(entry.minimum()), entry.path());
+                assertTrue(spec.test(entry.maximum()), entry.path());
+            }
+        }
+        var configLanguage = new java.util.LinkedHashMap<String, String>();
+        cn.dancingsnow.neoecoae.core.content.ConfigLanguageContent.accept(configLanguage::put);
+        configLanguage.forEach((key, text) -> {
+            assertTrue(EN.has(key), key);
+            assertEquals(EN.get(key).getAsString(), text, key);
+        });
+    }
+
+    @Test
     void commentsMatchLangTooltipsAndCoverEveryTooltipKey() {
         Set<String> checked = new HashSet<>();
         walk(NEConfig.SPEC.getSpec(), List.of(), checked);

@@ -27,8 +27,9 @@ import org.jetbrains.annotations.Nullable;
  * network group whose membership changes clears its shared cache.
  */
 public final class ECOCraftingFastPathCache {
-    public static final int MIN_CACHE_SIZE = 16;
-    public static final int MAX_CACHE_SIZE = 16_384;
+    /** Compatibility aliases; canonical bounds live in the loader-independent config contract. */
+    public static final int MIN_CACHE_SIZE = cn.dancingsnow.neoecoae.core.content.ConfigDefinitions.FAST_PATH_CACHE_MIN;
+    public static final int MAX_CACHE_SIZE = cn.dancingsnow.neoecoae.core.content.ConfigDefinitions.FAST_PATH_CACHE_MAX;
 
     private static final long NEGATIVE_CACHE_TTL_TICKS = 1_200L;
     private static final Set<ECOCraftingFastPathCache> ACTIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
