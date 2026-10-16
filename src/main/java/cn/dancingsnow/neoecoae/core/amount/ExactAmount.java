@@ -9,11 +9,19 @@ public record ExactAmount(BigInteger value, boolean infinite) {
     public static ExactAmount finite(BigInteger value) { return new ExactAmount(value, false); }
     public static ExactAmount unbounded() { return new ExactAmount(BigInteger.ZERO, true); }
 
+    /** Compatibility DTO for persisted/network fields; arithmetic is owned by PlannerAmount. */
+    public PlannerAmount plannerAmount() { return infinite ? PlannerAmount.unbounded() : PlannerAmount.of(value); }
+
+    public static ExactAmount of(PlannerAmount amount) {
+        return amount.infinite() ? unbounded() : finite(amount.toBigInteger());
+    }
+
     public ExactAmount add(long amount) {
-        return infinite ? this : finite(value.add(BigInteger.valueOf(amount)));
+        // An unbounded snapshot ignores finite deltas, including negative adjustment deltas.
+        return infinite ? this : of(plannerAmount().add(amount));
     }
 
     public ExactAmount add(ExactAmount other) {
-        return infinite || other.infinite ? unbounded() : finite(value.add(other.value));
+        return of(plannerAmount().add(other.plannerAmount()));
     }
 }

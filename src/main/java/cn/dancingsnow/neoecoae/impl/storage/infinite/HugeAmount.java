@@ -1,162 +1,60 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import java.math.BigInteger;
 import java.util.Objects;
 import net.minecraft.nbt.CompoundTag;
 
+/** Persisted non-negative, finite storage view of the canonical exact quantity. */
 public final class HugeAmount implements Comparable<HugeAmount> {
-    public static final HugeAmount ZERO = new HugeAmount(0L, null);
+    public static final HugeAmount ZERO = new HugeAmount(PlannerAmount.ZERO);
+    private final PlannerAmount value;
 
-    private final long longValue;
-    private final BigInteger bigValue;
+    private HugeAmount(PlannerAmount value) { this.value = value; }
 
-    private HugeAmount(long longValue, BigInteger bigValue) {
-        this.longValue = longValue;
-        this.bigValue = bigValue;
+    private static HugeAmount wrap(PlannerAmount value) {
+        if (value.infinite() || value.signum() < 0) throw new IllegalArgumentException("Amount must be finite and non-negative");
+        return value.isZero() ? ZERO : new HugeAmount(value);
     }
 
-    public static HugeAmount of(long value) {
-        if (value < 0L) {
-            throw new IllegalArgumentException("Amount must not be negative");
-        }
-        return value == 0L ? ZERO : new HugeAmount(value, null);
-    }
-
-    public static HugeAmount of(BigInteger value) {
-        Objects.requireNonNull(value, "value");
-        if (value.signum() < 0) {
-            throw new IllegalArgumentException("Amount must not be negative");
-        }
-        if (value.signum() == 0) {
-            return ZERO;
-        }
-        if (value.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0) {
-            return of(value.longValue());
-        }
-        return new HugeAmount(0L, value);
-    }
+    public static HugeAmount of(long value) { return wrap(PlannerAmount.of(value)); }
+    public static HugeAmount of(BigInteger value) { return wrap(PlannerAmount.of(Objects.requireNonNull(value, "value"))); }
 
     public static HugeAmount read(CompoundTag tag) {
-        if (tag == null || tag.isEmpty()) {
-            return ZERO;
-        }
-        if (tag.contains("big")) {
-            return of(new BigInteger(tag.getString("big")));
-        }
-        return of(tag.getLong("long"));
+        if (tag == null || tag.isEmpty()) return ZERO;
+        return tag.contains("big") ? of(new BigInteger(tag.getString("big"))) : of(tag.getLong("long"));
     }
 
     public CompoundTag write() {
         CompoundTag tag = new CompoundTag();
-        if (isBig()) {
-            tag.putString("big", bigValue.toString());
-        } else {
-            tag.putLong("long", longValue);
-        }
+        if (isBig()) tag.putString("big", value.toString());
+        else tag.putLong("long", value.longValueExact());
         return tag;
     }
 
     public HugeAmount add(HugeAmount other) {
-        if (other == null || other.isZero()) {
-            return this;
-        }
-        if (isZero()) {
-            return other;
-        }
-        if (!isBig() && !other.isBig() && Long.MAX_VALUE - longValue >= other.longValue) {
-            return of(longValue + other.longValue);
-        }
-        return of(toBigInteger().add(other.toBigInteger()));
+        if (other == null || other.isZero()) return this;
+        if (isZero()) return other;
+        return wrap(value.add(other.value));
     }
-
     public HugeAmount add(long other) {
-        if (other < 0L) {
-            throw new IllegalArgumentException("Amount must not be negative");
-        }
-        if (other == 0L) {
-            return this;
-        }
-        if (!isBig() && Long.MAX_VALUE - longValue >= other) {
-            return of(longValue + other);
-        }
-        return of(toBigInteger().add(BigInteger.valueOf(other)));
+        if (other < 0) throw new IllegalArgumentException("Amount must not be negative");
+        return other == 0 ? this : wrap(value.add(other));
     }
-
     public HugeAmount subtract(HugeAmount other) {
-        if (other == null || other.isZero()) {
-            return this;
-        }
-        if (compareTo(other) < 0) {
-            throw new IllegalArgumentException("Amount subtraction would become negative");
-        }
-        if (!isBig() && !other.isBig()) {
-            return of(longValue - other.longValue);
-        }
-        return of(toBigInteger().subtract(other.toBigInteger()));
+        return other == null || other.isZero() ? this : wrap(value.subtract(other.value));
     }
-
     public HugeAmount subtract(long other) {
-        if (other < 0L) {
-            throw new IllegalArgumentException("Amount must not be negative");
-        }
-        if (other == 0L) {
-            return this;
-        }
-        if (!isBig()) {
-            if (longValue < other) {
-                throw new IllegalArgumentException("Amount subtraction would become negative");
-            }
-            return of(longValue - other);
-        }
-        return of(bigValue.subtract(BigInteger.valueOf(other)));
+        if (other < 0) throw new IllegalArgumentException("Amount must not be negative");
+        return other == 0 ? this : wrap(value.subtract(other));
     }
-
-    public HugeAmount min(HugeAmount other) {
-        return other == null || compareTo(other) <= 0 ? this : other;
-    }
-
-    public boolean isZero() {
-        return !isBig() && longValue == 0L;
-    }
-
-    public boolean isBig() {
-        return bigValue != null;
-    }
-
-    public long toLongSaturated() {
-        return isBig() ? Long.MAX_VALUE : longValue;
-    }
-
-    public BigInteger toBigInteger() {
-        return isBig() ? bigValue : BigInteger.valueOf(longValue);
-    }
-
-    @Override
-    public int compareTo(HugeAmount other) {
-        if (other == null) {
-            return 1;
-        }
-        if (!isBig() && !other.isBig()) {
-            return Long.compare(longValue, other.longValue);
-        }
-        if (isBig() != other.isBig()) {
-            return isBig() ? 1 : -1;
-        }
-        return bigValue.compareTo(other.bigValue);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        return obj instanceof HugeAmount other && compareTo(other) == 0;
-    }
-
-    @Override
-    public int hashCode() {
-        return toBigInteger().hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return isBig() ? bigValue.toString() : Long.toString(longValue);
-    }
+    public HugeAmount min(HugeAmount other) { return other == null || compareTo(other) <= 0 ? this : other; }
+    public boolean isZero() { return value.isZero(); }
+    public boolean isBig() { return !value.fitsLong(); }
+    public long toLongSaturated() { return isBig() ? Long.MAX_VALUE : value.longValueExact(); }
+    public BigInteger toBigInteger() { return value.toBigInteger(); }
+    @Override public int compareTo(HugeAmount other) { return other == null ? 1 : value.compareTo(other.value); }
+    @Override public boolean equals(Object obj) { return obj instanceof HugeAmount other && value.equals(other.value); }
+    @Override public int hashCode() { return value.hashCode(); }
+    @Override public String toString() { return value.toString(); }
 }
