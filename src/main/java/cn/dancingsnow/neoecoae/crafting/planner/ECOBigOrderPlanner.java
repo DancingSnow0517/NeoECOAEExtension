@@ -12,13 +12,9 @@ public final class ECOBigOrderPlanner {
     private ECOBigOrderPlanner() {}
 
     public static Future<Answer> begin(IGrid grid, AEKey goal, long maximum, long bytes, ECOPlannerOptions options) {
-        var inventory = ECOPlannerInventory.capture(grid);
-        var session = new ECOCraftingPlannerService().createSession(grid.getCraftingService(), goal, inventory,
-                options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds());
+        var session = ECOPlanningSessions.open(grid, goal, options);
         return ECOPlanningExecutor.submit(() -> search(maximum, bytes,
-                amount -> session.plan(amount, false, () -> {
-                    if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
-                })));
+                amount -> session.plan(amount, false, ECOCancellation.INTERRUPTIBLE)));
     }
 
     @FunctionalInterface
@@ -31,7 +27,7 @@ public final class ECOBigOrderPlanner {
         boolean capacity = false;
         ECOPlanningResult last;
         while (true) {
-            if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+            ECOCancellation.INTERRUPTIBLE.checkpoint();
             last = probe.plan(candidate);
             if (last.status() == PlanningStatus.SUCCESS && last.plan() != null && !last.plan().simulation()
                     && last.executionPlanError() == null) {

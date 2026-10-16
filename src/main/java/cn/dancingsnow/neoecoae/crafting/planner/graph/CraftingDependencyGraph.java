@@ -1,35 +1,13 @@
 package cn.dancingsnow.neoecoae.crafting.planner.graph;
 
 import appeng.api.stacks.AEKey;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import cn.dancingsnow.neoecoae.core.planner.graph.DependencyGraph;
 import java.util.List;
 import java.util.Map;
 
-/** Amount-free graph compiled only from the current goal's reachable closure. */
-public final class CraftingDependencyGraph {
-    private final AEKey goal;
-    private final Map<AEKey, CraftingGraphNode> nodes;
-    private final List<CraftingGraphEdge> edges;
-    private final Map<AEKey, List<CraftingGraphEdge>> outgoing;
-
-    public CraftingDependencyGraph(AEKey goal, Map<AEKey, CraftingGraphNode> nodes,
-            List<CraftingGraphEdge> edges) {
-        this.goal = goal;
-        this.nodes = nodes;
-        this.edges = edges;
-        Map<AEKey, List<CraftingGraphEdge>> byProducer = new LinkedHashMap<>();
-        for (AEKey key : nodes.keySet()) byProducer.put(key, new ArrayList<>());
-        for (CraftingGraphEdge edge : edges) {
-            byProducer.computeIfAbsent(edge.producer(), ignored -> new ArrayList<>()).add(edge);
-        }
-        Map<AEKey, List<CraftingGraphEdge>> frozen = new LinkedHashMap<>();
-        byProducer.forEach((key, value) -> frozen.put(key, value));
-        this.outgoing = frozen;
+/** AE compiler adapter for the version-independent structural planning graph. */
+public final class CraftingDependencyGraph extends DependencyGraph<AEKey, CraftingGraphNode, CraftingGraphEdge> {
+    public CraftingDependencyGraph(AEKey goal, Map<AEKey, CraftingGraphNode> nodes, List<CraftingGraphEdge> edges) {
+        super(goal, nodes, edges);
     }
-
-    public AEKey goal() { return goal; }
-    public Map<AEKey, CraftingGraphNode> nodes() { return nodes; }
-    public List<CraftingGraphEdge> edges() { return edges; }
-    public List<CraftingGraphEdge> outgoing(AEKey key) { return outgoing.getOrDefault(key, List.of()); }
 }

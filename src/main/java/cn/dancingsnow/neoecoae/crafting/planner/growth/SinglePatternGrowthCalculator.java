@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveRequest;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphEdge;
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.planner.growth.SinglePatternGrowthMath;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -184,19 +185,15 @@ public final class SinglePatternGrowthCalculator {
                 "produce(K) = " + produce + " is below consume(K) = " + consume);
         }
 
-        PlannerAmount firings = PlannerAmount.ZERO;
-        for (Map.Entry<AEKey, PlannerAmount> entry : required.entrySet()) {
-            PlannerAmount want = entry.getValue() == null ? PlannerAmount.ZERO : entry.getValue();
-            if (want.signum() <= 0) continue;
-            PlannerAmount have = PlannerAmount.of(Math.max(0L, stock.getOrDefault(entry.getKey(), 0L)));
-            PlannerAmount outstanding = want.subtract(have);
-            if (outstanding.signum() <= 0) continue;
-            PlannerAmount perFiring = PlannerAmount.of(profile.netDeltaPerFiring(entry.getKey()));
-            if (perFiring.signum() <= 0) {
-                return declined(SinglePatternGrowthResult.Reason.REQUIRED_OUTPUT_NOT_PRODUCED,
-                    "Required output " + entry.getKey() + " has no positive net production in this pattern");
-            }
-            firings = firings.max(outstanding.ceilDiv(perFiring));
+        Map<AEKey, PlannerAmount> stockExact = new LinkedHashMap<>();
+        stock.forEach((key, amount) -> stockExact.put(key, PlannerAmount.of(Math.max(0L, amount))));
+        Map<AEKey, PlannerAmount> netExact = new LinkedHashMap<>();
+        for (AEKey key : profile.touchedKeys()) netExact.put(key, PlannerAmount.of(profile.netDeltaPerFiring(key)));
+        PlannerAmount firings;
+        try {
+            firings = SinglePatternGrowthMath.requiredFirings(required, stockExact, netExact);
+        } catch (IllegalArgumentException declined) {
+            return declined(SinglePatternGrowthResult.Reason.REQUIRED_OUTPUT_NOT_PRODUCED, declined.getMessage());
         }
         if (firings.signum() <= 0) {
             return declined(SinglePatternGrowthResult.Reason.NO_OUTSTANDING_DEMAND,
@@ -208,14 +205,12 @@ public final class SinglePatternGrowthCalculator {
         PlannerAmount available = PlannerAmount.of(Math.max(0L, stock.getOrDefault(feedback, 0L)));
         PlannerAmount shortfall = consume.subtract(available).max(PlannerAmount.ZERO);
 
-        Map<AEKey, PlannerAmount> exactExternalDemand = new LinkedHashMap<>();
-        for (AEKey key : profile.consumption().keySet()) {
-            if (feedback.equals(key)) continue;
-            PlannerAmount netPerFiring = PlannerAmount.of(profile.consumptionOf(key))
-                .subtract(profile.remainderOf(key));
-            if (netPerFiring.signum() <= 0) continue;
-            exactExternalDemand.put(key, netPerFiring.multiply(firings));
-        }
+        Map<AEKey, PlannerAmount> consumptionExact = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> remainderExact = new LinkedHashMap<>();
+        profile.consumption().forEach((key, amount) -> consumptionExact.put(key, PlannerAmount.of(amount)));
+        profile.remainder().forEach((key, amount) -> remainderExact.put(key, PlannerAmount.of(amount)));
+        Map<AEKey, PlannerAmount> exactExternalDemand = SinglePatternGrowthMath.externalDemand(
+            consumptionExact, remainderExact, feedback, firings);
 
         Map<AEKey, PlannerAmount> exactProducedOutputs = new LinkedHashMap<>();
         Map<AEKey, PlannerAmount> exactNetDelta = new LinkedHashMap<>();

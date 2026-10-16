@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
+import cn.dancingsnow.neoecoae.core.planner.acyclic.StockConsumption;
+import cn.dancingsnow.neoecoae.core.planner.acyclic.SpecialDemandResolver;
+import cn.dancingsnow.neoecoae.core.planner.acyclic.WorkingStockAmounts;
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
-
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -13,7 +15,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialSource;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,7 +27,7 @@ public final class SpecialPatternResolver {
     private final Map<AEKey, Integer> choices;
     private final ECOCancellation cancellation;
     private final boolean ignorePatternSubstitutions;
-    private final Map<AEKey, PlannerAmount> resolving = new java.util.LinkedHashMap<>();
+    private final SpecialDemandResolver<AEKey, CompiledPattern, MaterialDemand> procurement;
     private final Map<AEKey, PlannerAmount> reusableStock = new java.util.LinkedHashMap<>();
     private CompiledPattern specialOwner;
     private int specialSlot = -1;
@@ -38,11 +39,44 @@ public final class SpecialPatternResolver {
         this.choices = choices;
         this.cancellation = cancellation;
         this.ignorePatternSubstitutions = ignorePatternSubstitutions;
+        this.procurement = new SpecialDemandResolver<>(state,
+            new SpecialDemandResolver.Domain<AEKey, CompiledPattern, MaterialDemand>() {
+                @Override public MaterialDemand register(CompiledPattern owner, AEKey key, PlannerAmount amount) {
+                    return inputDemand(owner, key, amount);
+                }
+                @Override public void inputProducer(AEKey key, CompiledPattern owner) { state.demandProducers.put(key, owner.details()); }
+                @Override public PlannerAmount stock(CompiledPattern owner, MaterialDemand demand, AEKey key,
+                        PlannerAmount amount, boolean ignoresComponents) {
+                    return consumeStored(key, amount, ignoresComponents, demand, owner.inputs().get(demand.inputSlot()).source());
+                }
+                @Override public void consumeCrafted(MaterialDemand demand, AEKey key, PlannerAmount amount) {
+                    state.consumeCrafted(demand, key, amount);
+                }
+                @Override public CompiledPattern selected(AEKey key) { return selectedPattern(key); }
+                @Override public boolean hasProducer(AEKey key) { return !network.producersOf(key).isEmpty(); }
+                @Override public boolean emittable(AEKey key) { return network.emittable().contains(key); }
+                @Override public boolean cycleSafe(CompiledPattern pattern) { return pattern.semantics().cycleSafeForStaticPlanning(); }
+                @Override public void emitted(MaterialDemand demand, AEKey key, PlannerAmount amount) {
+                    state.provenance.allocate(demand, key, MaterialSource.Emitted.INSTANCE, amount);
+                }
+                @Override public void supplied(MaterialDemand demand, AEKey key, CompiledPattern producer, PlannerAmount amount) {
+                    state.provenance.allocate(demand, key, new MaterialSource.PatternOutput(producer.details(), true), amount);
+                }
+                @Override public PlannerAmount outputPerPattern(CompiledPattern pattern) { return pattern.outputPerPattern(); }
+                @Override public int outputCount(CompiledPattern pattern) { return pattern.outputs().size(); }
+                @Override public AEKey outputKey(CompiledPattern pattern, int i) { return pattern.outputs().get(i).what(); }
+                @Override public long outputAmount(CompiledPattern pattern, int i) { return pattern.outputs().get(i).amount(); }
+                @Override public void special(CompiledPattern pattern, PlannerAmount times) throws InterruptedException {
+                    SpecialPatternResolver.this.resolve(pattern, times);
+                }
+                @Override public boolean excludedInput(CompiledPattern pattern, int slot) {
+                    return pattern.specialAnalysis().excludesFromCycleGraph(pattern.inputs().get(slot));
+                }
+            });
     }
 
     public static PlannerAmount requiredTools(PlannerAmount uses, int capacityPerTool) {
-        if (capacityPerTool <= 0) throw new IllegalArgumentException("capacityPerTool must be positive");
-        return uses.ceilDiv(PlannerAmount.of(capacityPerTool));
+        return WorkingStockAmounts.requiredTools(uses, capacityPerTool);
     }
 
     void resolve(CompiledPattern pattern, PlannerAmount times) throws InterruptedException {
@@ -190,74 +224,13 @@ public final class SpecialPatternResolver {
 
     /** The final use that reaches maxDamage is still a successful craft; the tool disappears afterwards. */
     static int durabilityUsesBeforeBreak(int damage, int damagePerUse, int maxDamage) {
-        if (damage < 0 || damagePerUse <= 0 || maxDamage <= damage) return 0;
-        long remaining = (long) maxDamage - damage;
-        return Math.toIntExact((remaining + damagePerUse - 1L) / damagePerUse);
+        return WorkingStockAmounts.durabilityUsesBeforeBreak(damage, damagePerUse, maxDamage);
     }
 
     private void resolveSpecialKey(CompiledPattern owner, AEKey key, PlannerAmount requested,
             boolean ignoreComponents)
             throws InterruptedException {
-        if (requested.signum() <= 0) return;
-        state.demand.merge(key, requested, PlannerAmount::add);
-        state.demandProducers.put(key, owner.details());
-        state.parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).add(owner.producedKey());
-
-        MaterialDemand demand = inputDemand(owner, key, requested);
-        IPatternDetails.IInput matchingInput = owner.inputs().get(demand.inputSlot()).source();
-        PlannerAmount stored = consumeStored(key, requested, ignoreComponents, demand, matchingInput);
-        requested = requested.subtract(stored);
-        PlannerAmount crafted = requested.min(state.craftedAmount(key));
-        if (crafted.signum() > 0) {
-            state.consumeCrafted(demand, key, crafted);
-            requested = requested.subtract(crafted);
-        }
-        if (requested.isZero()) return;
-        if (network.emittable().contains(key)) {
-            state.emitted.add(key, requested);
-            state.provenance.allocate(demand, key, MaterialSource.Emitted.INSTANCE, requested);
-            return;
-        }
-        PlannerAmount pending = resolving.get(key);
-        if (pending != null) {
-            // A non-growing conversion loop (for example block <-> dust while making a tool)
-            // cannot supply its own outstanding ingredient. The fully expanded batch needs this
-            // concrete quantity from outside. Keep it as a simulated material deficit, rather than
-            // misclassifying supported recipes as an unsupported pattern contract.
-            if (requested.compareTo(pending) >= 0 && resolving.keySet().stream().allMatch(member -> {
-                CompiledPattern pattern = selectedPattern(member);
-                return pattern != null && pattern.semantics().cycleSafeForStaticPlanning();
-            })) state.missing.add(key, requested);
-            else state.unsupported.add(key);
-            return;
-        }
-        resolving.put(key, requested);
-        try {
-            CompiledPattern producer = selectedPattern(key);
-            if (producer == null) {
-                if (network.producersOf(key).isEmpty()) state.missing.add(key, requested);
-                else state.unsupported.add(key);
-                return;
-            }
-            state.selected.put(key, producer);
-            state.provenance.allocate(demand, key, new MaterialSource.PatternOutput(producer.details(), true), requested);
-            PlannerAmount times = requested.ceilDiv(producer.outputPerPattern());
-            state.patternTimes.merge(producer.details(), times, PlannerAmount::add);
-            state.bytes = state.bytes.add(times);
-            for (var output : producer.outputs()) {
-                PlannerAmount produced = PlannerAmount.of(output.amount()).multiply(times);
-                if (output.what().equals(key)) produced = produced.subtract(requested);
-                if (produced.signum() > 0) state.creditCrafted(output.what(), producer.details(), produced);
-            }
-            resolve(producer, times);
-            for (CompiledInput input : producer.inputs()) {
-                if (producer.specialAnalysis().excludesFromCycleGraph(input)) continue;
-                resolveSpecialKey(producer, input.key(), input.amountPerPattern().multiply(times),
-                    input.ignoresComponents());
-            }
-        } finally {
-            resolving.remove(key);
-        }
+        procurement.resolve(owner, key, requested, ignoreComponents);
     }
 
     private MaterialDemand inputDemand(CompiledPattern owner, AEKey key, PlannerAmount amount) {
@@ -298,31 +271,12 @@ public final class SpecialPatternResolver {
 
     private PlannerAmount consumeStored(AEKey key, PlannerAmount requested, boolean ignoreComponents,
             MaterialDemand demand, IPatternDetails.IInput input) {
-        if (requested.signum() <= 0) return PlannerAmount.ZERO;
-        if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
-            PlannerAmount exact = state.stored.available(key, requested);
-            if (exact.signum() > 0) consumeExact(demand, key, exact);
-            return exact;
-        }
-        PlannerAmount remaining = requested;
-        PlannerAmount consumed = PlannerAmount.ZERO;
-        for (AEKey storedKey : state.stored.keysSnapshot()) {
-            if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
-                    || candidate.getItem() != wanted.getItem()) continue;
-            if (!cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
-                    .isValid(demand.consumer(), input, key, storedKey, null)) continue;
-            PlannerAmount take = state.stored.available(storedKey, remaining);
-            if (take.signum() <= 0) continue;
-            consumeExact(demand, storedKey, take);
-            consumed = consumed.add(take);
-            remaining = remaining.subtract(take);
-        }
-        return consumed;
-    }
-
-    private void consumeExact(MaterialDemand demand, AEKey key, PlannerAmount amount) {
-        state.stored.remove(key, amount);
-        state.used.add(key, amount);
-        state.provenance.allocate(demand, key, MaterialSource.Stock.INSTANCE, amount);
+        return StockConsumption.consume(state.stored, state.used,
+            key, requested, ignoreComponents && key instanceof AEItemKey,
+            storedKey -> storedKey instanceof AEItemKey candidate && key instanceof AEItemKey wanted
+                && candidate.getItem() == wanted.getItem()
+                && cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
+                    .isValid(demand.consumer(), input, key, storedKey, null),
+            (storedKey, amount) -> state.provenance.allocate(demand, storedKey, MaterialSource.Stock.INSTANCE, amount));
     }
 }

@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.crafting.planner.solve;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.core.planner.JointRouteMath;
+import cn.dancingsnow.neoecoae.core.planner.StartupRouteSearch;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
@@ -81,18 +83,8 @@ public final class JointRouteOptimizer {
 
     private ComponentPlanner.Outcome propose(CompiledNetwork network, PlannerInventorySnapshot inventory,
             long amount, boolean firstFeasible, boolean allowOrdered, ECOCancellation cancellation) throws InterruptedException {
-        Set<AEKey> demanded = new LinkedHashSet<>();
-        var pending = new java.util.ArrayDeque<AEKey>(); pending.add(network.goal());
-        Set<IPatternDetails> demandedPatterns = Collections.newSetFromMap(new IdentityHashMap<>());
-        while (!pending.isEmpty()) {
-            cancellation.checkpoint();
-            AEKey key = pending.removeFirst();
-            if (!demanded.add(key)) continue;
-            for (CompiledPattern pattern : network.producersOf(key)) {
-                if (safe(pattern, allowOrdered) && demandedPatterns.add(pattern.details()))
-                    pattern.inputs().forEach(input -> pending.addLast(input.key()));
-            }
-        }
+        Set<Object> demandedPatterns = JointRouteMath.demandedPatterns(network.goal(), network::producersOf,
+            pattern -> safe(pattern, allowOrdered), cancellation);
         List<CompiledPattern> candidates = new ArrayList<>();
         Set<IPatternDetails> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         boolean competition = false;
@@ -112,19 +104,7 @@ public final class JointRouteOptimizer {
         Set<AEKey> available = new LinkedHashSet<>(network.emittable());
         available.remove(network.goal());
         for (var entry : inventory.toKeyCounter()) if (!entry.getKey().equals(network.goal())) available.add(entry.getKey());
-        Set<CompiledPattern> reachable = new LinkedHashSet<>();
-        boolean changed;
-        do {
-            changed = false;
-            for (CompiledPattern pattern : candidates) {
-                cancellation.checkpoint();
-                if (reachable.contains(pattern) || pattern.inputs().stream().anyMatch(input -> !available.contains(input.key())))
-                    continue;
-                reachable.add(pattern);
-                pattern.outputs().forEach(output -> available.add(output.what()));
-                changed = true;
-            }
-        } while (changed);
+        Set<CompiledPattern> reachable = JointRouteMath.presenceClosure(candidates, available, cancellation);
         candidates.removeIf(pattern -> !reachable.contains(pattern));
         if (!available.contains(network.goal())) return null;
         // Dominance preserves all exact products and never increases consumption, at the same firing cost.
@@ -144,17 +124,7 @@ public final class JointRouteOptimizer {
             pattern.inputs().forEach(input -> keys.computeIfAbsent(input.key(), ignored -> keys.size()));
             pattern.outputs().forEach(output -> keys.computeIfAbsent(output.what(), ignored -> keys.size()));
         }
-        List<Map<Integer, BigInteger>> net = new ArrayList<>();
-        for (CompiledPattern pattern : patterns) {
-            cancellation.checkpoint();
-            Map<Integer, BigInteger> column = new LinkedHashMap<>();
-            for (var input : inputs(pattern).entrySet())
-                column.merge(keys.get(input.getKey()), input.getValue().toBigInteger(), BigInteger::add);
-            for (var output : outputs(pattern).entrySet())
-                column.merge(keys.get(output.getKey()), output.getValue().toBigInteger().negate(), BigInteger::add);
-            column.values().removeIf(value -> value.signum() == 0);
-            net.add(column);
-        }
+        List<Map<Integer, BigInteger>> net = JointRouteMath.netConsumptionMatrix(patterns, keys, cancellation);
         SolveState stock = new SolveState(inventory);
         boolean[] imports = new boolean[keys.size()];
         PlannerAmount[] initial = new PlannerAmount[keys.size()];
@@ -233,36 +203,12 @@ public final class JointRouteOptimizer {
     /** A candidate-only startup DAG: earliest supply cannot depend on the same loop's later returns. */
     private static CompiledNetwork bootstrapNetwork(CompiledNetwork network, PlannerInventorySnapshot inventory,
             Set<AEKey> goals, ECOCancellation cancellation) throws InterruptedException {
-        Map<AEKey, Integer> ranks = new LinkedHashMap<>();
-        network.emittable().forEach(key -> ranks.put(key, 0));
-        for (var entry : inventory.toKeyCounter()) if (entry.getLongValue() > 0) ranks.put(entry.getKey(), 0);
-        boolean changed;
-        do {
-            changed = false;
-            for (var views : network.producers().values()) for (var pattern : views) {
-                cancellation.checkpoint();
-                if (!safe(pattern, true) || inputs(pattern).keySet().stream().anyMatch(key -> !ranks.containsKey(key))) continue;
-                int rank = inputs(pattern).keySet().stream().mapToInt(ranks::get).max().orElse(0) + 1;
-                for (var output : pattern.outputs()) {
-                    if (!ranks.containsKey(output.what()) || ranks.get(output.what()) > rank) {
-                        ranks.put(output.what(), rank); changed = true;
-                    }
-                }
-            }
-        } while (changed);
-        Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();
-        var pending = new java.util.ArrayDeque<>(goals);
-        Set<AEKey> visited = new LinkedHashSet<>();
-        while (!pending.isEmpty()) {
-            cancellation.checkpoint();
-            AEKey key = pending.removeFirst();
-            if (!visited.add(key)) continue;
-            List<CompiledPattern> views = network.producersOf(key).stream().filter(pattern -> safe(pattern, true)
-                && inputs(pattern).keySet().stream().allMatch(input -> ranks.containsKey(input)
-                    && ranks.get(input) < ranks.getOrDefault(key, 0))).toList();
-            producers.put(key, views);
-            for (var pattern : views) pending.addAll(inputs(pattern).keySet());
-        }
+        Set<AEKey> initialKeys = new LinkedHashSet<>(network.emittable());
+        for (var entry : inventory.toKeyCounter()) if (entry.getLongValue() > 0) initialKeys.add(entry.getKey());
+        Map<AEKey, Integer> ranks = StartupRouteSearch.ranks(network.producers().values(), initialKeys,
+            pattern -> safe(pattern, true), cancellation);
+        Map<AEKey, List<CompiledPattern>> producers = StartupRouteSearch.earlierRoutes(goals,
+            network::producersOf, ranks, pattern -> safe(pattern, true), cancellation);
         // Restrict physical candidates without discarding their real advertised output views.
         // The ordered verifier must see the same AE activation contract as the original graph.
         Set<IPatternDetails> retained = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -478,26 +424,19 @@ public final class JointRouteOptimizer {
     }
 
     private static Map<AEKey, PlannerAmount> inputs(CompiledPattern pattern) {
-        Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
-        pattern.inputs().forEach(input -> result.merge(input.key(), input.amountPerPattern(), PlannerAmount::add));
-        return result;
+        return JointRouteMath.inputs(pattern);
     }
 
     private static Map<AEKey, PlannerAmount> outputs(CompiledPattern pattern) {
-        Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
-        pattern.outputs().forEach(output -> result.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add));
-        return result;
+        return JointRouteMath.outputs(pattern);
     }
 
     private static boolean dominates(CompiledNetwork network, CompiledPattern left, CompiledPattern right) {
-        Map<AEKey, PlannerAmount> li = inputs(left), ri = inputs(right), lo = outputs(left), ro = outputs(right);
-        // More output is not automatically better under AE's advertised activation contract:
-        // fewer primary firings may then provide too little of an unadvertised coproduct.
-        return lo.equals(ro)
-                && network.producers().values().stream().allMatch(views ->
-                    views.stream().noneMatch(view -> view.details() == right.details())
-                    || views.stream().anyMatch(view -> view.details() == left.details()))
-                && li.entrySet().stream().allMatch(e -> e.getValue().compareTo(ri.getOrDefault(e.getKey(), PlannerAmount.ZERO)) <= 0);
+        // Producer advertisement is an AE activation policy; exact output/consumption algebra lives in core.
+        return JointRouteMath.dominates(left, right)
+            && network.producers().values().stream().allMatch(views ->
+                views.stream().noneMatch(view -> view.details() == right.details())
+                || views.stream().anyMatch(view -> view.details() == left.details()));
     }
 
     private static SolveState replay(CompiledNetwork network, PlannerInventorySnapshot inventory, long amount,
@@ -568,6 +507,6 @@ public final class JointRouteOptimizer {
     }
 
     private static PlannerAmount cost(SolveState state) {
-        return state.plannerPatternTimes().values().stream().reduce(PlannerAmount.ZERO, PlannerAmount::add);
+        return JointRouteMath.firingCost(state.plannerPatternTimes().values());
     }
 }

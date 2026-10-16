@@ -1,20 +1,16 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
+import cn.dancingsnow.neoecoae.core.planner.acyclic.InventorySnapshot;
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
-
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 
 /** Immutable exact stock shared by calculation probes and candidate retries. */
 public final class PlannerInventorySnapshot {
-    private final AEKey[] keys;
-    private final PlannerAmount[] amounts;
-    private final java.util.Set<AEKey> unboundedKeys;
+    private final InventorySnapshot<AEKey> snapshot;
 
-    private PlannerInventorySnapshot(AEKey[] keys, PlannerAmount[] amounts, java.util.Set<AEKey> unboundedKeys) {
-        this.keys = keys;
-        this.amounts = amounts;
-        this.unboundedKeys = unboundedKeys;
+    private PlannerInventorySnapshot(InventorySnapshot<AEKey> snapshot) {
+        this.snapshot = snapshot;
     }
 
     public static PlannerInventorySnapshot of(KeyCounter inventory) {
@@ -22,30 +18,26 @@ public final class PlannerInventorySnapshot {
     }
 
     public static PlannerInventorySnapshot of(KeyCounter inventory, java.util.Set<AEKey> unboundedKeys) {
-        java.util.List<AEKey> keys = new java.util.ArrayList<>();
-        java.util.List<PlannerAmount> amounts = new java.util.ArrayList<>();
+        var amounts = new java.util.LinkedHashMap<AEKey, PlannerAmount>();
         for (var entry : inventory) {
-            if (entry.getLongValue() <= 0) continue;
-            keys.add(entry.getKey());
-            amounts.add(PlannerAmount.of(entry.getLongValue()));
+            if (entry.getLongValue() > 0) amounts.put(entry.getKey(), PlannerAmount.of(entry.getLongValue()));
         }
-        return new PlannerInventorySnapshot(keys.toArray(AEKey[]::new), amounts.toArray(PlannerAmount[]::new), unboundedKeys);
+        return new PlannerInventorySnapshot(new InventorySnapshot<>(amounts, unboundedKeys));
     }
 
     void initialize(PlannerCounter target) {
-        for (int i = 0; i < keys.length; i++) target.set(keys[i], amounts[i]);
-        unboundedKeys.forEach(target::setUnbounded);
+        snapshot.initialize(target);
     }
 
     public boolean isUnbounded(AEKey key) {
-        return unboundedKeys.contains(key);
+        return snapshot.isUnbounded(key);
     }
 
     /** Independent AE2 counter for APIs that still require long-valued stock. */
     public KeyCounter toKeyCounter() {
         KeyCounter result = new KeyCounter();
-        for (int i = 0; i < keys.length; i++) result.set(keys[i], amounts[i].longValueExact());
-        unboundedKeys.forEach(key -> result.set(key, Long.MAX_VALUE));
+        snapshot.visitFinite((key, amount) -> result.set(key, amount.longValueExact()));
+        snapshot.visitUnbounded(key -> result.set(key, Long.MAX_VALUE));
         return result;
     }
 }

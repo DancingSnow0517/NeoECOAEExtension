@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
+import cn.dancingsnow.neoecoae.core.planner.acyclic.AcyclicPass;
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
-
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveResult;
 
-public final class SolveState {
+public final class SolveState implements AcyclicPass.State<AEKey, CompiledPattern> {
     final PlannerCounter stored = new PlannerCounter();
     private final PlannerCounter crafted = new PlannerCounter();
     final MaterialProvenance provenance = new MaterialProvenance();
@@ -77,14 +77,28 @@ public final class SolveState {
     public PlannerAmount plannerBytes() { return bytes; }
     public ExecutionProvenance executionProvenance() { return provenance.freeze(); }
 
-    PlannerAmount craftedAmount(AEKey key) { return crafted.get(key); }
+    @Override public cn.dancingsnow.neoecoae.core.planner.PlannerCounter<AEKey> stored() { return stored; }
+    @Override public cn.dancingsnow.neoecoae.core.planner.PlannerCounter<AEKey> emitted() { return emitted; }
+    @Override public cn.dancingsnow.neoecoae.core.planner.PlannerCounter<AEKey> missing() { return missing; }
+    @Override public Map<AEKey, PlannerAmount> demand() { return demand; }
+    @Override public Map<AEKey, CompiledPattern> selected() { return selected; }
+    @Override public Map<AEKey, Set<AEKey>> parents() { return parents; }
+    @Override public Set<AEKey> unsupported() { return unsupported; }
+    @Override public void addBytes(PlannerAmount amount) { bytes = bytes.add(amount); }
+    @Override public void recordPattern(CompiledPattern pattern, PlannerAmount times) {
+        patternTimes.merge(pattern.details(), times, PlannerAmount::add);
+    }
+    @Override public void creditCrafted(AEKey key, CompiledPattern pattern, PlannerAmount amount) {
+        creditCrafted(key, pattern.details(), amount);
+    }
+    @Override public PlannerAmount craftedAmount(AEKey key) { return crafted.get(key); }
 
     void creditCrafted(AEKey key, IPatternDetails pattern, PlannerAmount amount) {
         crafted.add(key, amount);
         provenance.credit(key, pattern, amount);
     }
 
-    void consumeCrafted(AEKey key, PlannerAmount amount) {
+    @Override public void consumeCrafted(AEKey key, PlannerAmount amount) {
         provenance.consumePendingCredit(key, amount);
         crafted.remove(key, amount);
     }

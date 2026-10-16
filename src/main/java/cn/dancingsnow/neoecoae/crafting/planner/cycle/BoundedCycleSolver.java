@@ -12,11 +12,9 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.component.ComponentDependency;
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
-import it.unimi.dsi.fastutil.ints.IntHeapPriorityQueue;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -606,103 +604,29 @@ public final class BoundedCycleSolver implements CycleSolver {
      * without weakening the non-negative-material invariant. The depth limit is therefore a limit on search macro
      * steps, while the exact execution counts remain in the result's pattern map.
      */
-    private Search search(Model model, PlannerAmount[] start, int stateBudget, int maxFirings, ECOCancellation cancellation,
-            CycleMemoryBudget memory) throws InterruptedException {
+    private Search search(Model model, PlannerAmount[] start, int stateBudget, int maxFirings,
+            ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
         Search outcome = new Search();
-        int n = model.keyCount();
-        int transitionCount = model.transitionCount();
-        List<Node> nodes = new ArrayList<>();
-        Set<Marking> seen = new ObjectOpenHashSet<>();
-        var queue = new IntHeapPriorityQueue((left, right) -> {
-            int progress = compareProgress(nodes.get(left), nodes.get(right));
-            return progress != 0 ? progress : Integer.compare(left, right);
-        });
-
-        PlannerAmount[] root = Arrays.copyOf(start, n);
-        memory.retain(CycleMemoryBudget.markingBytes(root));
-        nodes.add(new Node(root, -1, null, 0, deficitScore(model, root)));
-        seen.add(new Marking(model, root));
-        if (satisfied(root, model.required)) {
-            outcome.kind = Search.Kind.REACHED;
-            outcome.witness = List.of();
-            outcome.statesVisited = 1;
-            return outcome;
-        }
-
-        queue.enqueue(0);
-
-        while (!queue.isEmpty()) {
-            cancellation.checkpoint();
-            int index = queue.dequeueInt();
-            Node node = nodes.get(index);
-            if (maxFirings > 0 && node.depth >= maxFirings) {
-                outcome.firingDepthTruncated = true;
-                continue;
-            }
-            outcome.statesExpanded++;
-            // Accelerate the selected path without discarding other reachable markings.
-            memory.check(64L * (node.depth + 1L));
-            List<BatchFiring> path = witnessOf(nodes, index);
-            PlannerAmount[] accelerated = accelerateRecipeCircuit(model, node.marking, path, cancellation);
-            if (!Arrays.equals(accelerated, node.marking)) {
-                if (satisfied(accelerated, model.required)) {
-                    outcome.kind = Search.Kind.REACHED;
-                    outcome.witness = path;
-                    outcome.statesVisited = seen.size();
-                    return outcome;
+        var indexed = new cn.dancingsnow.neoecoae.core.planner.IndexedCycleSearch.Data(
+            model.cons, model.suppliable, model.consumedKeys, model.producesRequired, model.required);
+        cn.dancingsnow.neoecoae.core.planner.IndexedCycleSearch.search(indexed, start, stateBudget, maxFirings,
+            cancellation, new cn.dancingsnow.neoecoae.core.planner.IndexedCycleSearch.Memory() {
+                public void retain(long bytes) { memory.retain(bytes); }
+                public void check(long bytes) { memory.check(bytes); }
+                public long markingBytes(PlannerAmount[] marking) { return CycleMemoryBudget.markingBytes(marking); }
+            }, new cn.dancingsnow.neoecoae.core.planner.IndexedCycleSearch.Callbacks<BatchFiring>() {
+                public long[] batches(PlannerAmount[] marking, int transition) {
+                    return candidateBatchCounts(model, marking, transition);
                 }
-                Marking acceleratedKey = new Marking(model, accelerated);
-                if (!seen.contains(acceleratedKey)) {
-                    if (stateBudget > 0 && seen.size() >= stateBudget) {
-                        outcome.stateBudgetExhausted = true;
-                        break;
-                    }
-                    memory.retain(CycleMemoryBudget.markingBytes(accelerated) + 64L * path.size());
-                    Node jump = new Node(accelerated, -1, null, node.depth + 1, deficitScore(model, accelerated));
-                    jump.compactWitness = path;
-                    seen.add(acceleratedKey);
-                    nodes.add(jump);
-                    queue.enqueue(nodes.size() - 1);
+                public PlannerAmount[] fire(PlannerAmount[] marking, int transition, long batch) {
+                    return fireBatch(model, marking, transition, batch);
                 }
-            }
-            for (int t = 0; t < transitionCount; t++) {
-                cancellation.checkpoint();
-                long[] batches = candidateBatchCounts(model, node.marking, t);
-                if (batches.length == 0) {
-                    outcome.considerUnblock(model, node.marking, t);
-                    continue;
+                public PlannerAmount[] accelerate(PlannerAmount[] marking, List<BatchFiring> witness)
+                        throws InterruptedException {
+                    return accelerateRecipeCircuit(model, marking, witness, cancellation);
                 }
-                for (long batch : batches) {
-                    cancellation.checkpoint();
-                    PlannerAmount[] next = fireBatch(model, node.marking, t, batch);
-                    Marking key = new Marking(model, next);
-                    if (seen.contains(key)) continue;
-                    if (stateBudget > 0 && seen.size() >= stateBudget) {
-                        outcome.stateBudgetExhausted = true;
-                        break;
-                    }
-                    memory.retain(CycleMemoryBudget.markingBytes(next));
-                    seen.add(key);
-                    int child = nodes.size();
-                    nodes.add(new Node(next, index, new BatchFiring(t, batch), node.depth + 1,
-                        deficitScore(model, next)));
-                    if (satisfied(next, model.required)) {
-                        outcome.kind = Search.Kind.REACHED;
-                        outcome.witness = witnessOf(nodes, child);
-                        outcome.statesVisited = seen.size();
-                        return outcome;
-                    }
-                    queue.enqueue(child);
-                }
-                if (outcome.stateBudgetExhausted) break;
-            }
-            if (outcome.stateBudgetExhausted) break;
-        }
-
-        outcome.statesVisited = seen.size();
-        if (outcome.stateBudgetExhausted) outcome.kind = Search.Kind.STATE_BUDGET;
-        else if (outcome.firingDepthTruncated) outcome.kind = Search.Kind.DEPTH_TRUNCATED;
-        else outcome.kind = Search.Kind.EXHAUSTED;
+                public BatchFiring firing(int transition, long batch) { return new BatchFiring(transition, batch); }
+            }, outcome);
         return outcome;
     }
 
@@ -757,41 +681,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         candidates.add(candidate.longValueExact());
     }
 
-    private static int compareProgress(Node left, Node right) {
-        int deficit = left.deficit.compareTo(right.deficit);
-        if (deficit != 0) return deficit;
-        return Integer.compare(left.depth, right.depth);
-    }
-
-    private static PlannerAmount deficitScore(Model model, PlannerAmount[] marking) {
-        PlannerAmount result = PlannerAmount.ZERO;
-        for (int i = 0; i < model.keyCount(); i++) {
-            if (model.required[i].compareTo(marking[i]) > 0) {
-                result = result.add(normalizedDeficit(model.required[i].subtract(marking[i]), model.required[i]));
-            }
-        }
-        return result;
-    }
-
-    /** Dimensionless fixed-point ratios; rounding only affects queue order, never proofs. */
     private static PlannerAmount normalizedDeficit(PlannerAmount missing, PlannerAmount required) {
-        return missing.multiply(1_000_000L).ceilDiv(required.max(PlannerAmount.ONE));
-    }
-
-    private static List<BatchFiring> witnessOf(List<Node> nodes, int leaf) {
-        ArrayDeque<BatchFiring> reversed = new ArrayDeque<>();
-        int cursor = leaf;
-        while (cursor > 0) {
-            Node node = nodes.get(cursor);
-            if (node.compactWitness != null) {
-                List<BatchFiring> result = new ArrayList<>(node.compactWitness);
-                result.addAll(reversed);
-                return result;
-            }
-            reversed.addFirst(node.firing);
-            cursor = node.parent;
-        }
-        return new ArrayList<>(reversed);
+        return cn.dancingsnow.neoecoae.core.planner.IndexedCycleSearch.normalizedDeficit(missing, required);
     }
 
     private static PlannerAmount[] fireBatch(Model model, PlannerAmount[] marking, int transition, long batch) {
@@ -1417,23 +1308,6 @@ public final class BoundedCycleSolver implements CycleSolver {
         Map<AEKey, PlannerAmount> produced
     ) {}
 
-    private static final class Node {
-        private final PlannerAmount[] marking;
-        private final int parent;
-        private final BatchFiring firing;
-        private final int depth;
-        private final PlannerAmount deficit;
-        private List<BatchFiring> compactWitness;
-
-        private Node(PlannerAmount[] marking, int parent, BatchFiring firing, int depth, PlannerAmount deficit) {
-            this.marking = marking;
-            this.parent = parent;
-            this.firing = firing;
-            this.depth = depth;
-            this.deficit = deficit;
-        }
-    }
-
     private record OutputTarget(int key, PlannerAmount delta) {}
     private record UnlockTarget(int key, PlannerAmount threshold, PlannerAmount delta) {}
     private record TransitionMetadata(int[] consumedInternalKeys, int[] changedKeys,
@@ -1458,74 +1332,5 @@ public final class BoundedCycleSolver implements CycleSolver {
         }
     }
 
-    private static final class Marking {
-        private final PlannerAmount[] cells;
-        private final int hash;
-
-        private Marking(Model model, PlannerAmount[] cells) {
-            this.cells = cells.clone();
-            for (int i = 0; i < cells.length; i++) {
-                if (!model.consumedKeys[i]) this.cells[i] = cells[i].min(model.required[i]);
-            }
-            this.hash = Arrays.hashCode(this.cells);
-        }
-
-        @Override public boolean equals(Object other) {
-            return other instanceof Marking marking && Arrays.equals(cells, marking.cells);
-        }
-
-        @Override public int hashCode() { return hash; }
-    }
-
-    private static final class Search {
-        private enum Kind { REACHED, EXHAUSTED, STATE_BUDGET, DEPTH_TRUNCATED }
-
-        private Kind kind = Kind.EXHAUSTED;
-        private List<BatchFiring> witness = List.of();
-        private long statesVisited;
-        private long statesExpanded;
-        private long greedyCandidates;
-        private long lookaheadNodes;
-        private long heuristicMacroSteps;
-        private boolean heuristicBudgetExhausted;
-        private boolean stateBudgetExhausted;
-        private boolean firingDepthTruncated;
-        private PlannerAmount[] unblockDeficit;
-        private int unblockRank = Integer.MAX_VALUE;
-        private PlannerAmount unblockTotal = null;
-        private int unblockTransition = Integer.MAX_VALUE;
-
-        /**
-         * Records the cheapest way to unblock a disabled transition, preferring one that actually produces a
-         * required output. That candidate is a lower-bound proposal when no full-order static certificate is available.
-         */
-        private void considerUnblock(Model model, PlannerAmount[] marking, int transition) {
-            int rank = model.producesRequired[transition] ? 0 : 1;
-
-            long[] cons = model.cons[transition];
-            PlannerAmount total = PlannerAmount.ZERO;
-            for (int i = 0; i < cons.length; i++) {
-                PlannerAmount required = PlannerAmount.of(cons[i]);
-                if (cons[i] > 0 && !model.suppliable[i] && marking[i].compareTo(required) < 0) {
-                    total = total.add(normalizedDeficit(required.subtract(marking[i]), required));
-                }
-            }
-            if (total.signum() <= 0) return;
-            PlannerAmount[] deficit = new PlannerAmount[cons.length];
-            for (int i = 0; i < cons.length; i++) {
-                PlannerAmount required = PlannerAmount.of(cons[i]);
-                deficit[i] = cons[i] > 0 && !model.suppliable[i] && marking[i].compareTo(required) < 0
-                    ? required.subtract(marking[i]) : PlannerAmount.ZERO;
-            }
-            if (rank > unblockRank) return;
-            if (rank == unblockRank) {
-                if (total.compareTo(unblockTotal) > 0) return;
-                if (total.equals(unblockTotal) && transition >= unblockTransition) return;
-            }
-            unblockRank = rank;
-            unblockTotal = total;
-            unblockTransition = transition;
-            unblockDeficit = deficit;
-        }
-    }
+    private static final class Search extends cn.dancingsnow.neoecoae.core.planner.IndexedCycleSearch.Result<BatchFiring> {}
 }

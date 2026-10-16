@@ -33,7 +33,7 @@ public record CompiledPattern(
     boolean netGrowthValidated,
     PatternSemantics semantics,
     SpecialPatternAnalysis specialAnalysis
-) {
+) implements cn.dancingsnow.neoecoae.core.planner.PatternView<AEKey> {
     public CompiledPattern {
 
 
@@ -74,4 +74,25 @@ public record CompiledPattern(
         result.addAll(semantics.returnedOutputs());
         return result;
     }
+    @Override public Object identity() { return details; }
+    @Override public int inputCount() { return inputs.size(); }
+    @Override public AEKey inputKey(int index) { return inputs.get(index).key(); }
+    @Override public PlannerAmount inputAmount(int index) { return inputs.get(index).amountPerPattern(); }
+    @Override public boolean inputFastSupported(int index) { return inputs.get(index).fastSupported(); }
+    @Override public boolean inputIgnoresComponents(int index) { return inputs.get(index).ignoresComponents(); }
+    @Override public int outputCount() { return outputs.size(); }
+    @Override public AEKey outputKey(int index) { return outputs.get(index).what(); }
+    @Override public long outputAmount(int index) { return outputs.get(index).amount(); }
+    @Override public int grossOutputCount() { return outputs.size() + semantics.returnedOutputs().size(); }
+    @Override public AEKey grossOutputKey(int index) {
+        return index < outputs.size() ? outputs.get(index).what()
+            : semantics.returnedOutputs().get(index - outputs.size()).what();
+    }
+    @Override public long grossOutputAmount(int index) {
+        return index < outputs.size() ? outputs.get(index).amount()
+            : semantics.returnedOutputs().get(index - outputs.size()).amount();
+    }
+    @Override public boolean completeForStaticPlanning() { return semantics.completeForStaticPlanning(); }
+    @Override public boolean special() { return specialAnalysis.special(); }
+
 }

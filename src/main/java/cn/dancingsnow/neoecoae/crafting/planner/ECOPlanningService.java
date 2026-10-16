@@ -19,26 +19,23 @@ import net.minecraft.world.level.Level;
  * {@code ICraftingService.beginCraftingCalculation}, keeping this request outside other planner wrappers.
  */
 public final class ECOPlanningService {
-    private static final ECOCraftingPlannerService PLANNER = new ECOCraftingPlannerService();
 
     private ECOPlanningService() {
     }
 
     public static Future<ICraftingPlan> begin(Level level, IGrid grid, IActionSource source, AEKey goal,
                                               long amount, CalculationStrategy strategy, ECOPlannerOptions options) {
-        var inventory = ECOPlannerInventory.capture(grid);
-        ECOCraftingPlannerService.Session session = PLANNER.createSession(grid.getCraftingService(), goal, inventory,
-                options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds());
+        ECOCraftingPlannerService.Session session = ECOPlanningSessions.open(grid, goal, options);
         return ECOPlanningExecutor.submit(() -> plan(session, goal, amount, strategy));
     }
 
     static ICraftingPlan plan(ECOCraftingPlannerService.Session session, AEKey goal, long requestedAmount,
                                       CalculationStrategy strategy) throws InterruptedException {
         if (requestedAmount <= 0L) {
-            return session.plan(requestedAmount, true, ECOPlanningService::checkpoint).plan();
+            return session.plan(requestedAmount, true, ECOCancellation.INTERRUPTIBLE).plan();
         }
 
-        ECOPlanningResult exact = session.plan(requestedAmount, false, ECOPlanningService::checkpoint);
+        ECOPlanningResult exact = session.plan(requestedAmount, false, ECOCancellation.INTERRUPTIBLE);
         if (isExecutableSuccess(exact)) {
             return exact.plan();
         }
@@ -52,7 +49,7 @@ public final class ECOPlanningService {
                 if (candidate >= requestedAmount) {
                     continue;
                 }
-                ECOPlanningResult probe = session.plan(candidate, false, ECOPlanningService::checkpoint);
+                ECOPlanningResult probe = session.plan(candidate, false, ECOCancellation.INTERRUPTIBLE);
                 if (isExecutableSuccess(probe)) {
                     bestAmount = candidate;
                     bestPlan = probe.plan();
@@ -69,7 +66,7 @@ public final class ECOPlanningService {
             return exact.plan();
         }
 
-        ECOPlanningResult report = session.plan(requestedAmount, true, ECOPlanningService::checkpoint);
+        ECOPlanningResult report = session.plan(requestedAmount, true, ECOCancellation.INTERRUPTIBLE);
         return report.plan();
     }
 
@@ -78,8 +75,6 @@ public final class ECOPlanningService {
     }
 
     private static void checkpoint() throws InterruptedException {
-        if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedException("ECO planning request cancelled");
-        }
+        ECOCancellation.INTERRUPTIBLE.checkpoint();
     }
 }

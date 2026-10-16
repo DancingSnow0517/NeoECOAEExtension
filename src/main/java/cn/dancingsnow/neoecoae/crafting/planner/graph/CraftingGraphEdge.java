@@ -10,5 +10,5 @@ public record CraftingGraphEdge(
     AEKey requiredInput,
     CompiledPattern pattern,
     CompiledInput input
-) {
+) implements cn.dancingsnow.neoecoae.core.planner.graph.DependencyGraph.Edge<AEKey> {
 }

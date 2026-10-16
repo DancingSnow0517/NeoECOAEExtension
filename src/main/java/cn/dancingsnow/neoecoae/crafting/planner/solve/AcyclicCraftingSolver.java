@@ -1,8 +1,9 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
+import cn.dancingsnow.neoecoae.core.planner.acyclic.SelectedRoute;
+import cn.dancingsnow.neoecoae.core.planner.acyclic.StockConsumption;
+import cn.dancingsnow.neoecoae.core.planner.acyclic.AcyclicPass;
 import cn.dancingsnow.neoecoae.core.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.core.graph.TopoSort;
-
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.stacks.AEItemKey;
@@ -19,7 +20,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceEdge;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
-import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -220,34 +220,9 @@ public final class AcyclicCraftingSolver {
         Set<AEKey> allowed = network.keys();
         if (!allowed.contains(network.goal())) return List.of();
 
-        Map<AEKey, Set<AEKey>> outgoing = new LinkedHashMap<>();
-        ArrayDeque<AEKey> discover = new ArrayDeque<>();
-        Set<AEKey> reachable = new LinkedHashSet<>();
-        for (AEKey goal : goals) {
-            discover.add(goal);
-            reachable.add(goal);
-        }
-
-        while (!discover.isEmpty()) {
-            cancellation.checkpoint();
-            AEKey key = discover.removeFirst();
-            if (stockLeaves.contains(key)) continue;
-            CompiledPattern selected = selectedPattern(network, key, choices);
-            if (selected == null || deferredPatterns.contains(selected.details())) continue;
-            Set<AEKey> dependencies = outgoing.computeIfAbsent(key, ignored -> new LinkedHashSet<>());
-            for (CompiledInput input : selected.inputs()) {
-                if (selected.specialAnalysis().excludesFromCycleGraph(input)) continue;
-                AEKey dependency = input.key();
-                if (!allowed.contains(dependency) || !dependencies.add(dependency)) continue;
-                if (reachable.add(dependency)) {
-                    discover.addLast(dependency);
-                }
-            }
-        }
-
-        var sorted = TopoSort.kahnFifo(reachable,
-            key -> outgoing.getOrDefault(key, Set.of()), cancellation::checkpoint);
-        return sorted.acyclic() ? sorted.order() : null;
+        return SelectedRoute.order(allowed, goals, stockLeaves,
+            key -> selectedPattern(network, key, choices), pattern -> deferredPatterns.contains(pattern.details()),
+            (pattern, slot) -> pattern.specialAnalysis().excludesFromCycleGraph(pattern.inputs().get(slot)), cancellation);
     }
 
     private static CompiledPattern selectedPattern(CompiledNetwork network, AEKey key,
@@ -267,173 +242,95 @@ public final class AcyclicCraftingSolver {
             ECOCancellation cancellation)
             throws InterruptedException {
         SolveState state = new SolveState(workspace.inventory());
-        if (additionalGoal) state.stored.set(network.goal(), PlannerAmount.ZERO);
-        goals.forEach((key, amount) -> {
-            state.demand.put(key, amount);
-            state.provenance.register(MaterialDemand.goal(key, amount));
-        });
-        state.bytes = PlannerAmount.of(route.keys().size()).multiply(8L);
         SpecialPatternResolver specialResolver = new SpecialPatternResolver(
             network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
-        Map<AEKey, CompiledPattern> selected = new LinkedHashMap<>();
-        for (AEKey key : route.keys()) {
-            CompiledPattern pattern = selectedPattern(network, key, workspace.candidateChoice());
-            if (pattern != null) selected.put(key, pattern);
-        }
-        // Preserve AE2's primary-output activation and full-output credit contracts. Unlike the
-        // original input-order traversal, postpone a joint-output demand while another requested
-        // primary branch can supply it. No additional producer views or speculative firings exist.
-        JointOutputDemandQueue pending = new JointOutputDemandQueue(route.keys(), selected,
-            deferredPatterns, stockLeaves);
-        Set<AEKey> unsettled = new LinkedHashSet<>();
-        goals.keySet().forEach(pending::add);
-        while (!pending.isEmpty()) {
-            cancellation.checkpoint();
-            AEKey key = pending.poll(cancellation);
-            PlannerAmount requested = state.provenance.pendingAmount(key);
-            if (requested.signum() <= 0) continue;
-            state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
-            boolean ignoreComponents = false;
-            IPatternDetails.IInput matchingInput = null;
-            IPatternDetails demandProducer = state.demandProducers.get(key);
-            if (demandProducer != null) {
-                for (CompiledPattern candidate : network.producersOf(demandProducer.getOutputs().isEmpty()
-                        ? key : demandProducer.getOutputs().getFirst().what())) {
-                    if (candidate.details() != demandProducer) continue;
-                    for (CompiledInput input : candidate.inputs()) {
-                        if (input.key().equals(key) && input.ignoresComponents()) {
-                            ignoreComponents = true;
-                            matchingInput = input.source();
+        AcyclicPass.run(state,
+            new AcyclicPass.Domain<AEKey, CompiledPattern>() {
+                @Override public AEKey goal() { return network.goal(); }
+                @Override public CompiledPattern selected(AEKey key) {
+                    return selectedPattern(network, key, workspace.candidateChoice());
+                }
+                @Override public boolean hasProducer(AEKey key) { return !network.producersOf(key).isEmpty(); }
+                @Override public boolean emittable(AEKey key) { return network.emittable().contains(key); }
+                @Override public boolean deferred(CompiledPattern pattern) { return deferredPatterns.contains(pattern.details()); }
+                @Override public long amountPerByte(AEKey key) { return key.getAmountPerByte(); }
+                @Override public PlannerAmount outputPerPattern(CompiledPattern pattern) { return pattern.outputPerPattern(); }
+                @Override public int outputCount(CompiledPattern pattern) { return pattern.outputs().size(); }
+                @Override public AEKey outputKey(CompiledPattern pattern, int i) { return pattern.outputs().get(i).what(); }
+                @Override public long outputAmount(CompiledPattern pattern, int i) { return pattern.outputs().get(i).amount(); }
+                @Override public boolean excludedInput(CompiledPattern pattern, int slot) {
+                    return pattern.specialAnalysis().excludesFromCycleGraph(pattern.inputs().get(slot));
+                }
+                @Override public boolean reusableInput(CompiledPattern pattern, int slot) { return pattern.inputs().get(slot).reusable(); }
+                @Override public AcyclicPass.Queue<AEKey> queue(
+                        List<AEKey> order, Map<AEKey, CompiledPattern> selected, Set<AEKey> leaves) {
+                    var queue = new JointOutputDemandQueue(order, selected, deferredPatterns, leaves);
+                    return new AcyclicPass.Queue<>() {
+                        @Override public void add(AEKey key) { queue.add(key); }
+                        @Override public boolean isEmpty() { return queue.isEmpty(); }
+                        @Override public AEKey poll() throws InterruptedException { return queue.poll(cancellation); }
+                    };
+                }
+                @Override public void registerGoal(AEKey key, PlannerAmount amount) {
+                    state.provenance.register(MaterialDemand.goal(key, amount));
+                }
+                @Override public PlannerAmount pending(AEKey key) { return state.provenance.pendingAmount(key); }
+                @Override public PlannerAmount consumeRequestedStock(AEKey key, PlannerAmount requested) {
+                    boolean ignoreComponents = false;
+                    IPatternDetails.IInput matchingInput = null;
+                    IPatternDetails consumer = state.demandProducers.get(key);
+                    if (consumer != null) {
+                        for (CompiledPattern candidate : network.producersOf(consumer.getOutputs().isEmpty()
+                                ? key : consumer.getOutputs().getFirst().what())) {
+                            if (candidate.details() != consumer) continue;
+                            for (CompiledInput input : candidate.inputs()) {
+                                if (input.key().equals(key) && input.ignoresComponents()) {
+                                    ignoreComponents = true;
+                                    matchingInput = input.source();
+                                    break;
+                                }
+                            }
                             break;
                         }
                     }
-                    break;
+                    return consumeStoredForInput(state, key, requested, ignoreComponents, null, consumer, matchingInput);
                 }
-            }
-            PlannerAmount stored = consumeStoredForInput(state, key, requested, ignoreComponents,
-                null, demandProducer, matchingInput);
-            if (stored.signum() > 0) {
-                requested = requested.subtract(stored);
-            }
-            PlannerAmount crafted = requested.min(state.craftedAmount(key));
-            if (crafted.signum() > 0) {
-                state.consumeCrafted(key, crafted);
-                requested = requested.subtract(crafted);
-            }
-            if (requested.isZero()) continue;
-            if (network.emittable().contains(key)) {
-                addCounter(state.emitted, key, requested);
-                state.provenance.allocatePending(key, key, MaterialSource.Emitted.INSTANCE, requested);
-                continue;
-            }
-            List<CompiledPattern> fast = network.fastProducersOf(key);
-            if (stockLeaves.contains(key)) {
-                // Reopen this dependency in a fresh pass instead of producing along an omitted edge.
-                unsettled.add(key);
-                continue;
-            }
-            if (fast.isEmpty()) {
-                unsettled.add(key);
-                continue;
-            }
-            int choice = workspace.candidateChoice().getOrDefault(key, 0);
-            if (choice >= fast.size()) choice = fast.size() - 1;
-            CompiledPattern pattern = fast.get(choice);
-            state.selected.put(key, pattern);
-            if (deferredPatterns.contains(pattern.details())) {
-                state.deferredSuppliers.put(key, pattern.details());
-                // The untouched demand becomes a required output of the owning cycle component.
-                state.provenance.allocatePending(key, key,
-                    new MaterialSource.PatternOutput(pattern.details(), true), requested);
-                continue;
-            }
-            state.provenance.allocatePending(key, key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
-            PlannerAmount times = requested.ceilDiv(pattern.outputPerPattern());
-            PlannerAmount oldTimes = state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO);
-            state.patternTimes.put(pattern.details(), oldTimes.add(times));
-            state.bytes = state.bytes.add(times);
-            Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
-            for (var output : pattern.outputs()) {
-                PlannerAmount total = PlannerAmount.of(output.amount()).multiply(times);
-                produced.put(output.what(), produced.getOrDefault(output.what(), PlannerAmount.ZERO).add(total));
-            }
-            for (var output : produced.entrySet()) {
-                PlannerAmount available = output.getValue();
-                if (output.getKey().equals(key)) available = available.subtract(requested);
-                if (available.signum() > 0) state.creditCrafted(output.getKey(), pattern.details(), available);
-            }
-            specialResolver.resolve(pattern, times);
-            for (int slot = 0; slot < pattern.inputs().size(); slot++) {
-                CompiledInput input = pattern.inputs().get(slot);
-                if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
-                // Legacy semantic adapters may still express reusable stock without the special analyzer.
-                PlannerAmount required = input.reusable()
-                    ? input.amountPerPattern()
-                    : input.amountPerPattern().multiply(times);
-                MaterialDemand inputDemand = MaterialDemand.input(pattern.details(), slot, input.key(), required);
-                state.provenance.register(inputDemand);
-                if (input.ignoresComponents() && input.key() instanceof AEItemKey) {
-                    PlannerAmount available = consumeStoredForInput(state, input.key(), required, true,
-                        inputDemand, pattern.details(), input.source());
-                    required = required.subtract(available);
+                @Override public void emitted(AEKey key, PlannerAmount amount) {
+                    state.provenance.allocatePending(key, key, MaterialSource.Emitted.INSTANCE, amount);
                 }
-                PlannerAmount old = state.demand.getOrDefault(input.key(), PlannerAmount.ZERO);
-                state.demand.put(input.key(), old.add(required));
-                state.demandProducers.put(input.key(), pattern.details());
-                state.parents.computeIfAbsent(input.key(), ignored -> new java.util.LinkedHashSet<>()).add(key);
-                pending.add(input.key());
-            }
-        }
-        // A leaf encountered before its source is not a material deficit yet. Allocate its credit
-        // through the existing demand ledger so scheduling sees the exact physical supplier.
-        for (AEKey key : unsettled) {
-            cancellation.checkpoint();
-            PlannerAmount requested = state.provenance.pendingAmount(key);
-            PlannerAmount credited = requested.min(state.craftedAmount(key));
-            if (credited.signum() > 0) state.consumeCrafted(key, credited);
-            requested = requested.subtract(credited);
-            if (requested.isZero()) continue;
-            if (stockLeaves.contains(key) || !network.producersOf(key).isEmpty()) state.unsupported.add(key);
-            else addCounter(state.missing, key, requested);
-        }
+                @Override public void supplied(AEKey key, CompiledPattern pattern, PlannerAmount amount, boolean deferred) {
+                    if (deferred) state.deferredSuppliers.put(key, pattern.details());
+                    state.provenance.allocatePending(key, key, new MaterialSource.PatternOutput(pattern.details(), true), amount);
+                }
+                @Override public void resolveSpecial(CompiledPattern pattern, PlannerAmount times) throws InterruptedException {
+                    specialResolver.resolve(pattern, times);
+                }
+                @Override public PlannerAmount registerInput(CompiledPattern pattern, int slot, PlannerAmount required) {
+                    CompiledInput input = pattern.inputs().get(slot);
+                    MaterialDemand demand = MaterialDemand.input(pattern.details(), slot, input.key(), required);
+                    state.provenance.register(demand);
+                    return input.ignoresComponents() && input.key() instanceof AEItemKey
+                        ? consumeStoredForInput(state, input.key(), required, true, demand, pattern.details(), input.source())
+                        : PlannerAmount.ZERO;
+                }
+                @Override public void inputProducer(AEKey key, CompiledPattern pattern) { state.demandProducers.put(key, pattern.details()); }
+            }, route.keys(), goals, additionalGoal, stockLeaves, cancellation);
         return state;
     }
 
     private static PlannerAmount consumeStoredForInput(SolveState state, AEKey key, PlannerAmount requested,
             boolean ignoreComponents, MaterialDemand demand, IPatternDetails consumer,
             IPatternDetails.IInput matchingInput) {
-        if (requested.signum() <= 0) return PlannerAmount.ZERO;
-        if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
-            PlannerAmount exact = state.stored.available(key, requested);
-            if (exact.signum() > 0) {
-                state.stored.remove(key, exact);
-                addCounter(state.used, key, exact);
-                if (demand == null) state.provenance.allocatePending(key, key, MaterialSource.Stock.INSTANCE, exact);
-                else state.provenance.allocate(demand, key, MaterialSource.Stock.INSTANCE, exact);
-            }
-            return exact;
-        }
-        PlannerAmount remaining = requested;
-        PlannerAmount consumed = PlannerAmount.ZERO;
-        for (AEKey storedKey : state.stored.keysSnapshot()) {
-            if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
-                    || candidate.getItem() != wanted.getItem()) continue;
-            if (!cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
-                    .isValid(consumer, matchingInput, key, storedKey, null)) continue;
-            PlannerAmount take = state.stored.available(storedKey, remaining);
-            if (take.signum() <= 0) continue;
-            state.stored.remove(storedKey, take);
-            addCounter(state.used, storedKey, take);
-            if (demand == null) state.provenance.allocatePending(key, storedKey, MaterialSource.Stock.INSTANCE, take);
-            else state.provenance.allocate(demand, storedKey, MaterialSource.Stock.INSTANCE, take);
-            consumed = consumed.add(take);
-            remaining = remaining.subtract(take);
-        }
-        return consumed;
-    }
-
-    private static void addCounter(PlannerCounter counter, AEKey key, PlannerAmount amount) {
-        counter.add(key, amount);
+        return StockConsumption.consume(state.stored, state.used,
+            key, requested, ignoreComponents && key instanceof AEItemKey,
+            storedKey -> storedKey instanceof AEItemKey candidate && key instanceof AEItemKey wanted
+                && candidate.getItem() == wanted.getItem()
+                && cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
+                    .isValid(consumer, matchingInput, key, storedKey, null),
+            (storedKey, amount) -> {
+                if (demand == null) state.provenance.allocatePending(key, storedKey, MaterialSource.Stock.INSTANCE, amount);
+                else state.provenance.allocate(demand, storedKey, MaterialSource.Stock.INSTANCE, amount);
+            });
     }
 
     private static void addTrace(CompiledNetwork network, SolveState state, long goalAmount, ECOPlanTrace trace) {
