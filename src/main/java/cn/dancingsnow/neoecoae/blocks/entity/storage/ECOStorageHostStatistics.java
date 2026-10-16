@@ -9,7 +9,7 @@ import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOInfiniteResourceCell;
-import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
+import cn.dancingsnow.neoecoae.core.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.core.math.NEMath;
 import appeng.api.stacks.AEKeyType;
@@ -137,7 +137,7 @@ final class ECOStorageHostStatistics {
 
     private StorageUiSnapshot getStorageUiSnapshot() {
         long gameTime = host.getLevel() == null ? Long.MIN_VALUE : host.getLevel().getGameTime();
-        ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
+        ECOInfiniteStorageEngine engine = host.infiniteController().getEngine();
         long revision = engine == null ? 0L : engine.revision();
         if (storageUiSnapshotGameTime == Long.MIN_VALUE || gameTime - storageUiSnapshotGameTime >= 20L
             || (revision != storageUiRevision && gameTime - storageUiSnapshotGameTime >= 5L)) {
@@ -299,7 +299,7 @@ final class ECOStorageHostStatistics {
     }
 
     private void addInfiniteStorageTypes(Map<Integer, StorageTypeTotals> storageTypes) {
-        ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
+        ECOInfiniteStorageEngine engine = host.infiniteController().getEngine();
         if (engine == null) {
             return;
         }

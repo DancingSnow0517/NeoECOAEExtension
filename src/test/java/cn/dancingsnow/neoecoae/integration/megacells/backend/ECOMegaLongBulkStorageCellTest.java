@@ -416,6 +416,66 @@ class ECOMegaLongBulkStorageCellTest {
     }
 
     @Test
+    void versionOnePayloadKeepsComponentsCutoffAndUnresolvedEnvelope() throws Exception {
+        var named = new ItemStack(Items.STICK);
+        named.set(DataComponents.CUSTOM_NAME, Component.literal("Saved marker"));
+        var key = AEItemKey.of(named);
+        var components = net.minecraft.core.component.DataComponentPatch.CODEC
+            .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, named.getComponentsPatch()).getOrThrow();
+        var denomination = new net.minecraft.nbt.CompoundTag();
+        denomination.putString("item", "minecraft:stick");
+        denomination.put("components", components);
+        denomination.putLong("factor", 1L);
+        var definition = new net.minecraft.nbt.ListTag();
+        definition.add(denomination);
+        var entry = denomination.copy();
+        entry.remove("factor");
+        entry.putLong("units", 91L);
+        entry.put("definition", definition);
+        var entries = new net.minecraft.nbt.ListTag();
+        entries.add(entry);
+        var cutoff = denomination.copy();
+        cutoff.remove("factor");
+        cutoff.put("display", cutoff.copy());
+        var cutoffs = new net.minecraft.nbt.ListTag();
+        cutoffs.add(cutoff);
+        var missing = new net.minecraft.nbt.CompoundTag();
+        missing.putString("item", "missing:unknown");
+        missing.putLong("units", 500L);
+        var unresolvedEnvelope = new net.minecraft.nbt.CompoundTag();
+        unresolvedEnvelope.putInt("version", 1);
+        unresolvedEnvelope.put("entry", missing);
+        var unresolved = new net.minecraft.nbt.ListTag();
+        unresolved.add(unresolvedEnvelope);
+        var data = new net.minecraft.nbt.CompoundTag();
+        data.putInt("version", 1);
+        data.put("entries", entries);
+        data.put("cutoffs", cutoffs);
+        data.put("unresolved", unresolved);
+        var custom = new net.minecraft.nbt.CompoundTag();
+        custom.put("neoecoae_mega_long_bulk", data);
+        var saved = new ItemStack(Items.PAPER);
+        saved.set(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(custom));
+        var constructor = CompressionChain.class.getDeclaredConstructor(List.class);
+        constructor.setAccessible(true);
+        var empty = constructor.newInstance(List.of());
+        try (var compression = mockStatic(CompressionService.class)) {
+            compression.when(() -> CompressionService.getChain(any(AEItemKey.class))).thenReturn(empty);
+            var restored = restore(saved, key);
+            assertEquals(91L, restored.getAvailableStacks().get(key));
+            assertEquals(0L, restored.getAvailableStacks().get(AEItemKey.of(Items.STICK)));
+            assertEquals(1, restored.getUnresolvedEntryCount());
+            restored.persist();
+            var persisted = savedStack(restored).get(DataComponents.CUSTOM_DATA).copyTag()
+                .getCompound("neoecoae_mega_long_bulk");
+            assertEquals(1, persisted.getInt("version"));
+            assertEquals(cutoffs, persisted.getList("cutoffs", net.minecraft.nbt.Tag.TAG_COMPOUND));
+            assertEquals(unresolved, persisted.getList("unresolved", net.minecraft.nbt.Tag.TAG_COMPOUND));
+            assertEquals(91L, restore(savedStack(restored), key).getAvailableStacks().get(key));
+        }
+    }
+
+    @Test
     void oversizedDenominationsAreRejectedRatherThanClamped() throws Exception {
         var variants = List.of(Items.STONE, Items.DIRT, Items.COBBLESTONE, Items.SAND,
             Items.GLASS, Items.GRAVEL, Items.OBSIDIAN, Items.NETHERRACK, Items.END_STONE,

@@ -105,8 +105,10 @@ class InfiniteMemberInteractionTest {
         when(host.getTier()).thenReturn(tier);
         var engine = mock(cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine.class);
         var domain = mock(appeng.api.storage.MEStorage.class);
-        when(host.getInfiniteEngine()).thenReturn(engine);
-        when(host.createInfiniteStorageView(engine)).thenReturn(domain);
+        var controller = mock(ECOInfiniteStorageModeController.class);
+        when(host.infiniteController()).thenReturn(controller);
+        when(controller.getEngine()).thenReturn(engine);
+        when(controller.createStorageView(engine)).thenReturn(domain);
         var cluster = mock(NEStorageCluster.class);
         var drive = mock(ECODriveBlockEntity.class);
         var cell = mock(IECOStorageCell.class);

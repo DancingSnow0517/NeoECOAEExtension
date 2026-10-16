@@ -12,6 +12,7 @@ import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOBulkDisplayCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.core.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.impl.storage.bulk.BulkUnits;
 import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
@@ -20,13 +21,10 @@ import gripe._90.megacells.definition.MEGAItems;
 import gripe._90.megacells.misc.CompressionChain;
 import gripe._90.megacells.misc.CompressionService;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.component.DataComponentPatch;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import org.jetbrains.annotations.Nullable;
@@ -115,7 +113,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
     }
 
     public ECOMegaLongBulkStorageCell(ItemStack stack, @Nullable ISaveProvider container) {
-        super(stack, container);
+        super(stack, container, false);
         this.stack = stack;
         this.container = container;
         loadStoredUnits();
@@ -174,15 +172,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
 
     @Override
     public long getUsedBytes() {
-        long typeBytes = NEMath.saturatingMultiply(getStoredItemTypes(), getBytesPerType());
-        long amountBytes = ceilDivide(getStoredItemCount(), Math.max(1L, getKeyType().getAmountPerByte()));
-        return NEMath.saturatingAdd(typeBytes, amountBytes);
-    }
-
-    /** A partly filled byte counts as used, matching {@link ECOStorageCell#getUsedBytes()}. */
-    private static long ceilDivide(long amount, long divisor) {
-        long quotient = amount / divisor;
-        return amount % divisor == 0L ? quotient : quotient + 1L;
+        return StorageByteAccounting.usedBytes(getStoredItemTypes(), getStoredItemCount(),
+            getKeyType().getAmountPerByte(), getBytesPerType());
     }
 
     @Override
@@ -520,31 +511,25 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
         if (!entries.isEmpty()) persisted = false;
     }
 
+    /** Keep v1's field names, delegating item/component validation to AE2's item codec. */
     private static CompoundTag writeKey(AEItemKey key) {
-        CompoundTag tag = new CompoundTag();
-        tag.putString(ITEM_TAG, key.getId().toString());
-        tag.put(COMPONENTS_TAG, writeComponents(key));
+        CompoundTag tag = (CompoundTag) AEItemKey.CODEC.encodeStart(NbtOps.INSTANCE, key)
+            .result().orElseThrow(() -> new IllegalStateException("Cannot encode bulk item"));
+        tag.putString(ITEM_TAG, tag.getString("id"));
+        tag.remove("id");
+        if (!tag.contains(COMPONENTS_TAG, Tag.TAG_COMPOUND)) tag.put(COMPONENTS_TAG, new CompoundTag());
         return tag;
     }
 
     @Nullable
     private static AEItemKey readKey(CompoundTag entry) {
-        ResourceLocation id = ResourceLocation.tryParse(entry.getString(ITEM_TAG));
-        if (id == null) {
-            return null;
-        }
-        var item = BuiltInRegistries.ITEM.getHolder(id).orElse(null);
-        if (item == null) {
-            return null;
-        }
-        var patch = DataComponentPatch.CODEC.parse(NbtOps.INSTANCE, entry.getCompound(COMPONENTS_TAG))
-            .result().orElse(null);
-        return patch == null ? null : AEItemKey.of(new ItemStack(item, 1, patch));
+        CompoundTag key = entry.copy();
+        key.putString("id", entry.getString(ITEM_TAG));
+        return AEItemKey.CODEC.parse(NbtOps.INSTANCE, key).result().orElse(null);
     }
 
     private static CompoundTag writeComponents(AEItemKey key) {
-        return (CompoundTag) DataComponentPatch.CODEC.encodeStart(
-            NbtOps.INSTANCE, key.getReadOnlyStack().getComponentsPatch()).result().orElseThrow(() -> new IllegalStateException("Cannot encode bulk item components"));
+        return writeKey(key).getCompound(COMPONENTS_TAG);
     }
 
     @Nullable

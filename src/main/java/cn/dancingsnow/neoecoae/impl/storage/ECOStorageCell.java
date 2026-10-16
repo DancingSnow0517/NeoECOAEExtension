@@ -24,6 +24,7 @@ import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.core.math.NEMath;
+import cn.dancingsnow.neoecoae.core.storage.StorageByteAccounting;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -68,19 +69,30 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     private final IECOTier tier;
 
     public ECOStorageCell(ItemStack cellStack, @Nullable ISaveProvider container) {
+        this(cellStack, container, true);
+    }
+
+    /** Specialized inventories keep the public cell API while skipping ordinary inventory/config decoding. */
+    protected ECOStorageCell(ItemStack cellStack, @Nullable ISaveProvider container, boolean initializeOrdinaryStorage) {
         this.container = container;
         this.cellStack = cellStack;
 
         if (cellStack.getItem() instanceof IBasicECOCellItem c) {
             keyType = c.getKeyType();
             maxItemTypes = c.getTotalTypes();
+            this.cellType = c;
+            this.tier = c.getTier();
+            if (!initializeOrdinaryStorage) {
+                partitionListMode = IncludeExclude.WHITELIST;
+                partitionList = IPartitionList.builder().build();
+                hasVoidUpgrade = false;
+                return;
+            }
             var storedStacks = getStoredStacks();
             this.storedItems = (int) storedStacks.stream().filter(stack -> stack.amount() > 0L).count();
             this.storedItemCount = storedStacks.stream().filter(stack -> stack.amount() > 0L)
                 .mapToLong(GenericStack::amount).reduce(0L, NEMath::saturatingAdd);
             this.storedAmounts = null;
-            this.cellType = c;
-            this.tier = c.getTier();
 
             // 根据已安装的升级和配置的过滤器更新分区列表和模式。
             var builder = IPartitionList.builder();
@@ -120,9 +132,8 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     public long getRemainingItemCount() {
-        return NEMath.saturatingAdd(
-            NEMath.saturatingMultiply(getFreeBytes(), Math.max(1L, keyType.getAmountPerByte())),
-            getUnusedItemCount());
+        return StorageByteAccounting.remainingCellAmount(getTotalBytes(), getUsedBytes(),
+            getStoredItemCount(), keyType.getAmountPerByte());
     }
 
     public long getFreeBytes() {
@@ -145,11 +156,8 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     public long getUsedBytes() {
-        long storedAmount = Math.max(0L, getStoredItemCount());
-        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
-        long bytesForItems = ceilDivide(storedAmount, amountPerByte);
-        return NEMath.saturatingAdd(
-            NEMath.saturatingMultiply(getStoredItemTypes(), getBytesPerType()), bytesForItems);
+        return StorageByteAccounting.usedBytes(getStoredItemTypes(), getStoredItemCount(),
+            keyType.getAmountPerByte(), getBytesPerType());
     }
 
     public long getTotalBytes() {
@@ -359,33 +367,8 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
         // Avoid probing nested-cell handlers again during migration preflight.
         if (currentAmount <= 0L && !canStoreKeyInsideStorageCell(what)) return 0L;
 
-        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
-        long unusedItemCount = storedItemCount % amountPerByte == 0L
-            ? 0L
-            : amountPerByte - storedItemCount % amountPerByte;
-        long bytesForItems = ceilDivide(storedItemCount, amountPerByte);
-        long typeBytes = NEMath.saturatingMultiply(storedTypes, getBytesPerType());
-        long usedBytes = NEMath.saturatingAdd(typeBytes, bytesForItems);
-        long freeBytes = Math.max(0L, getTotalBytes() - usedBytes);
-        long remainingItemCount = NEMath.saturatingAdd(
-            NEMath.saturatingMultiply(freeBytes, amountPerByte), unusedItemCount);
-        long remainingTypes = Math.min(
-            Math.max(0L, getTotalItemTypes() - Math.min(getTotalItemTypes(), storedTypes)),
-            getBytesPerType() <= 0 ? 0L : freeBytes / getBytesPerType());
-
-        if (currentAmount <= 0L) {
-            boolean canHoldNewType = (freeBytes > getBytesPerType()
-                || freeBytes == getBytesPerType() && unusedItemCount > 0L)
-                && remainingTypes > 0L;
-            if (!canHoldNewType) {
-                return 0L;
-            }
-            remainingItemCount = Math.max(
-                0L,
-                remainingItemCount - NEMath.saturatingMultiply(getBytesPerType(), amountPerByte));
-        }
-
-        return Math.min(amount, remainingItemCount);
+        return Math.min(amount, StorageByteAccounting.migrationCapacity(getTotalBytes(), getTotalItemTypes(),
+            getBytesPerType(), keyType.getAmountPerByte(), currentAmount, storedTypes, storedItemCount));
     }
 
     @Override
@@ -398,11 +381,6 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     ) {
         return simulateInsertForMigration(
             what, amount, simulatedContents.get(what), simulatedTypes, simulatedAmount);
-    }
-
-    private static long ceilDivide(long amount, long divisor) {
-        long quotient = amount / divisor;
-        return amount % divisor == 0L ? quotient : quotient + 1L;
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {

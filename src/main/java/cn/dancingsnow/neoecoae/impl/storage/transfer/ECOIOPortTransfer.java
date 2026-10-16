@@ -20,17 +20,30 @@ public final class ECOIOPortTransfer {
     private final Set<AEKey> queued = new HashSet<>();
     private MEStorage previousSource;
 
-    public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost, IActionSource source) {
-        return transfer(grid, hostStorage, fillHost, false, source);
+    public enum OperationMode { FILL_HOST, EMPTY_HOST }
+
+    /** @deprecated Use the explicit operation-mode overload. */
+    @Deprecated
+    public long transfer(IGrid grid, MEStorage host, boolean fillHost, IActionSource source) {
+        return transfer(grid, host, fillHost, false, source);
+    }
+    /** @deprecated Use the explicit operation-mode overload. */
+    @Deprecated
+    public long transfer(IGrid grid, MEStorage host, boolean fillHost, boolean ignoreCreative, IActionSource source) {
+        return transfer(grid, host, fillHost, ignoreCreative, source, key -> true);
+    }
+    /** @deprecated Use the explicit operation-mode overload. */
+    @Deprecated
+    public long transfer(IGrid grid, MEStorage host, boolean fillHost, boolean ignoreCreative,
+            IActionSource source, Predicate<AEKey> filter) {
+        return transfer(grid, host, fillHost ? OperationMode.FILL_HOST : OperationMode.EMPTY_HOST,
+            ignoreCreative, source, filter);
     }
 
-    public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
-                         boolean ignoreCreativeInput, IActionSource source) {
-        return transfer(grid, hostStorage, fillHost, ignoreCreativeInput, source, key -> true);
-    }
 
-    public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
+    public long transfer(IGrid grid, MEStorage hostStorage, OperationMode operation,
                          boolean ignoreCreativeInput, IActionSource source, Predicate<AEKey> filter) {
+        boolean fillHost = operation == OperationMode.FILL_HOST;
         MEStorage networkStorage = grid.getStorageService().getInventory();
         MEStorage from;
         MEStorage destination;

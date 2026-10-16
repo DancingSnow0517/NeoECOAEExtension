@@ -232,7 +232,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public void tick(Level level, BlockPos pos, BlockState state) {
         long startNanos = System.nanoTime();
         try (var cellBatch = cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch.open()) {
-            if (!stageRunner.run("migration", this::updateInfiniteStorageMode)) return;
+            if (!stageRunner.run("migration", infiniteModeController::update)) return;
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
                 if (!stageRunner.run("transfer", () -> {
@@ -321,45 +321,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return StorageDriveLayout.ordered(cluster.getDrives(), getBlockPos(), expansion, top);
     }
 
-    public boolean hasEcoMegaUpgradeCard() {
-        return megaController.hasEcoMegaUpgradeCard();
-    }
-
-    public boolean hasEcoMegaBulkCell() {
-        return megaController.hasEcoMegaBulkCell();
-    }
-
-    public int getEcoMegaBulkCellCount() {
-        return megaController.getEcoMegaBulkCellCount();
-    }
-
-    public int getSelectedEcoMegaBulkCell() {
-        return megaController.getSelectedEcoMegaBulkCell();
-    }
-
-    public int getEcoMegaPageCount() {
-        return megaController.getEcoMegaPageCount();
-    }
-
-    public boolean isEcoMegaFilterSlotAvailable(int visualSlot) {
-        return megaController.isEcoMegaFilterSlotAvailable(visualSlot);
-    }
-
-    public int getSelectedEcoMegaPage() {
-        return megaController.getSelectedEcoMegaPage();
-    }
-
-    public void changeSelectedEcoMegaBulkCell(int delta) {
-        megaController.changeSelectedEcoMegaBulkCell(delta);
-    }
-
-    public void changeSelectedEcoMegaPage(int delta) {
-        megaController.changeSelectedEcoMegaPage(delta);
-    }
-
     public void setEcoMegaFilterFromClient(int visualSlot, ItemStack stack) {
-        int driveIndex = getSelectedEcoMegaBulkCell();
-        int page = getSelectedEcoMegaPage();
+        int driveIndex = megaController.getSelectedEcoMegaBulkCell();
+        int page = megaController.getSelectedEcoMegaPage();
         if (level != null && level.isClientSide) {
             rpcToServer("setEcoMegaFilter", driveIndex, page, visualSlot, stack);
             return;
@@ -394,7 +358,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public void cycleEcoMegaCutoffFromClient(int visualSlot, int delta) {
         if (level != null && level.isClientSide) {
-            rpcToServer("cycleEcoMegaCutoff", getSelectedEcoMegaBulkCell(), getSelectedEcoMegaPage(), visualSlot, delta);
+            rpcToServer("cycleEcoMegaCutoff", megaController.getSelectedEcoMegaBulkCell(), megaController.getSelectedEcoMegaPage(), visualSlot, delta);
         }
     }
 
@@ -415,7 +379,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         for (var fault : stageRunner.failures()) {
             text.append(fault.component() + " [" + fault.id() + "]\n" + fault.reason() + "\n");
         }
-        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        ECOInfiniteStorageEngine engine = infiniteModeController.getEngine();
         if (engine instanceof cn.dancingsnow.neoecoae.impl.storage.infinite.SavedDataInfiniteStorageEngine saved) {
             text.append(saved.persistenceSummary() + "\n");
             for (String failure : saved.failures()) text.append(failure + "\n");
@@ -438,12 +402,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
-        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        ECOInfiniteStorageEngine engine = infiniteModeController.getEngine();
         if (engine == null || !canUseHostDomainStorage() || isStorageInterfaceTransferMode()) {
             return;
         }
         storageMounts.mount(
-                createInfiniteStorageView(engine),
+                infiniteModeController.createStorageView(engine),
                 StoragePriority.mountPriority(storagePriority, false)
         );
     }
@@ -665,17 +629,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return formed && hostMode.isInfiniteState() && infiniteDomainId != null;
     }
 
-    public boolean canInsertIntoInfiniteDomain() {
-        return infiniteModeController.canInsertIntoDomain();
-    }
-
-    void refreshInfiniteStorageAccess() {
-        infiniteModeController.refreshHostAccess();
-    }
-
-    MEStorage createInfiniteStorageView(ECOInfiniteStorageEngine engine) {
-        return infiniteModeController.createStorageView(engine);
-    }
+    ECOInfiniteStorageModeController infiniteController() { return infiniteModeController; }
 
     public boolean canUseNormalStorage() {
         return formed && !isRemoved() && !isServerStopping() && !hostMode.isInfiniteState();
@@ -708,26 +662,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return cluster == null ? null : cluster.getTheInterface();
     }
 
-    private void updateInfiniteStorageMode() {
-        infiniteModeController.update();
-    }
-
     boolean hasRequiredInfiniteComponents(ItemStack stack) {
         return isInfiniteComponent(stack) && stack.getCount() >= INFINITE_COMPONENT_REQUIRED;
-    }
-
-    void exitInfiniteModeIfSafe() {
-        infiniteModeController.exitIfSafe();
-    }
-
-    UUID migrationTransactionId(
-            UUID domainId,
-            ECODriveBlockEntity drive,
-            AEKey key,
-            long amount,
-            String direction
-    ) {
-        return infiniteModeController.migrationTransactionId(domainId, drive, key, amount, direction);
     }
 
     @Override
@@ -744,11 +680,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Override
     protected void onUnloadOrRemove() {
         infiniteModeController.release();
-    }
-
-    @Nullable
-    ECOInfiniteStorageEngine getInfiniteEngine() {
-        return infiniteModeController.getEngine();
     }
 
     static boolean isInfiniteComponent(ItemStack stack) {

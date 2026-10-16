@@ -69,7 +69,7 @@ final class ECOStorageInfiniteRestore {
         if (host.getMissingInfiniteMembers() > 0)
             return RestorePlan.blocked("missing infinite member matrices; insert them again");
         if (activeRestorePlan != null) return activeRestorePlan;
-        ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
+        ECOInfiniteStorageEngine engine = host.infiniteController().getEngine();
         if (engine == null) {
             return RestorePlan.blocked("missing infinite storage engine");
         }
@@ -119,7 +119,7 @@ final class ECOStorageInfiniteRestore {
             }
             long remaining = amount.toLongSaturated();
             for (RestoreTarget target : targets) {
-                UUID transactionId = host.migrationTransactionId(host.infiniteDomainId(), target.drive(), key,
+                UUID transactionId = host.infiniteController().migrationTransactionId(host.infiniteDomainId(), target.drive(), key,
                         amount.toLongSaturated(), "from-domain");
                 long alreadyRestored = Math.min(remaining, target.drive().getRestoreReceipt(transactionId));
                 remaining -= alreadyRestored;
@@ -189,9 +189,9 @@ final class ECOStorageInfiniteRestore {
         if (!(host.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
-        ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
+        ECOInfiniteStorageEngine engine = host.infiniteController().getEngine();
         if (engine == null || engine.isEmpty()) {
-            host.exitInfiniteModeIfSafe();
+            host.infiniteController().exitIfSafe();
             return;
         }
         if (host.infiniteDomainId() == null) {
@@ -207,7 +207,7 @@ final class ECOStorageInfiniteRestore {
                     || !target.identity.equals(ECOInfiniteStorageMember.identity(drive.getCellStack()))
                     || !targetIds.add(target.identity)) {
                 activeRestorePlan = null;
-                host.refreshInfiniteStorageAccess();
+                host.infiniteController().refreshHostAccess();
                 restoreQueue.clear();
                 host.storageFaults().report("restore", "Restore target changed; waiting for original sealed matrices", host.getLevel().getGameTime());
                 return;
@@ -232,7 +232,7 @@ final class ECOStorageInfiniteRestore {
                     var cell = (IECOStorageMigrationCell) target.drive().getCellInventory();
                     long before = cell.getMigrationAmount(key);
                     long after = target.simulatedContents().get(key);
-                    UUID oldReceipt = host.migrationTransactionId(host.infiniteDomainId(), target.drive(), key,
+                    UUID oldReceipt = host.infiniteController().migrationTransactionId(host.infiniteDomainId(), target.drive(), key,
                             entry.getLongValue(), "from-domain");
                     long transferred = Math.addExact(target.drive().getRestoreReceipt(oldReceipt), after - before);
                     amounts.put(target.identity, new ECOInfiniteStorageEngine.RestoreTargetAmounts(before, after, transferred));
@@ -245,7 +245,7 @@ final class ECOStorageInfiniteRestore {
             restoreQueue.clear();
             for (var entry : pending) restoreQueue.addLast(entry.getKey());
             activeRestorePlan = plan;
-            host.refreshInfiniteStorageAccess();
+            host.infiniteController().refreshHostAccess();
             IStorageProvider.requestUpdate(host.getMainNode());
         }
         while (!restoreQueue.isEmpty() && engine.getRestoreAmount(restoreQueue.peekFirst()).isZero())
@@ -264,7 +264,7 @@ final class ECOStorageInfiniteRestore {
                     host.storageFaults().report("restore", "Waiting for compatible target capacity", host.getLevel().getGameTime());
                     return;
                 }
-                UUID receipt = host.migrationTransactionId(host.infiniteDomainId(), target.drive(), key,
+                UUID receipt = host.infiniteController().migrationTransactionId(host.infiniteDomainId(), target.drive(), key,
                         engine.getRestoreAmount(key).toLongSaturated(), "from-domain");
                 target.drive().putRestoreReceipt(receipt, goal.transferred());
                 changedCells.add(cell);
@@ -285,8 +285,8 @@ final class ECOStorageInfiniteRestore {
         }
         if (restoreQueue.isEmpty()) {
             activeRestorePlan = null;
-            host.refreshInfiniteStorageAccess();
-            host.exitInfiniteModeIfSafe();
+            host.infiniteController().refreshHostAccess();
+            host.infiniteController().exitIfSafe();
         }
     }
 

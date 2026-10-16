@@ -52,10 +52,11 @@ final class ECOStorageInterfaceTransfer {
         long moved = ioPortTransfer.transfer(
             grid,
             hostStorage,
-            storageInterface.isStorageInputMode(),
+            storageInterface.isStorageInputMode() ? ECOIOPortTransfer.OperationMode.FILL_HOST
+                : ECOIOPortTransfer.OperationMode.EMPTY_HOST,
             storageInterface.isIgnoringCreativeStorageInput(),
             IActionSource.ofMachine(storageInterface),
-            storageInterface::acceptsStorageResource
+            storageInterface.storageResourcePredicate()
         );
         if (moved > 0L) {
             host.persistAndSync();
@@ -71,10 +72,10 @@ final class ECOStorageInterfaceTransfer {
         }
         List<MEStorage> cells = new ArrayList<>();
         if (host.canUseHostDomainStorage()) {
-            ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
+            ECOInfiniteStorageEngine engine = host.infiniteController().getEngine();
             if (engine != cachedStorageEngine) {
                 cachedStorageEngine = engine;
-                cachedInfiniteStorage = engine == null ? null : host.createInfiniteStorageView(engine);
+                cachedInfiniteStorage = engine == null ? null : host.infiniteController().createStorageView(engine);
             }
             if (cachedInfiniteStorage != null) cells.add(cachedInfiniteStorage);
         }

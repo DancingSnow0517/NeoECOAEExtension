@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import appeng.api.config.Actionable;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOIOPortTransfer.OperationMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
@@ -39,7 +40,7 @@ class ECOIOPortTransferTest {
             var destination = new MultiStorage(List.of(), 0);
             var network = input ? from : destination;
             var host = input ? destination : from;
-            assertEquals(10, new ECOIOPortTransfer().transfer(inputGrid(network), host, input,
+            assertEquals(10, new ECOIOPortTransfer().transfer(inputGrid(network), host, input ? OperationMode.FILL_HOST : OperationMode.EMPTY_HOST,
                 false, IActionSource.empty(), allowed::equals));
             assertEquals(0, from.amounts.get(allowed));
             assertEquals(10, from.amounts.get(denied));
@@ -56,14 +57,14 @@ class ECOIOPortTransferTest {
         var network = new MultiStorage(List.of(), 0);
         var grid = inputGrid(network);
         var transfer = new ECOIOPortTransfer();
-        assertEquals(50, transfer.transfer(grid, from, false, false, IActionSource.empty(), key -> true));
+        assertEquals(50, transfer.transfer(grid, from, OperationMode.EMPTY_HOST, false, IActionSource.empty(), candidate -> true));
         AEKey pending = from.amounts.entrySet().stream().filter(entry -> entry.getValue() > 0)
             .findFirst().orElseThrow().getKey();
         AEKey allowed = keys.stream().filter(key -> !key.equals(pending)).findFirst().orElseThrow();
-        assertEquals(0, transfer.transfer(grid, from, false, false, IActionSource.empty(), allowed::equals));
+        assertEquals(0, transfer.transfer(grid, from, OperationMode.EMPTY_HOST, false, IActionSource.empty(), allowed::equals));
         assertEquals(10, from.amounts.get(pending));
         assertEquals(5, from.modulatedExtracts);
-        assertEquals(10, transfer.transfer(grid, from, false, false, IActionSource.empty(), key -> true));
+        assertEquals(10, transfer.transfer(grid, from, OperationMode.EMPTY_HOST, false, IActionSource.empty(), candidate -> true));
     }
 
     @Test
@@ -81,7 +82,7 @@ class ECOIOPortTransferTest {
         when(grid.getStorageService()).thenReturn(storageService);
         when(grid.getEnergyService()).thenReturn(energyService);
 
-        long moved = new ECOIOPortTransfer().transfer(grid, host, false, mock(IActionSource.class));
+        long moved = new ECOIOPortTransfer().transfer(grid, host, OperationMode.EMPTY_HOST, false, mock(IActionSource.class), candidate -> true);
 
         assertEquals(300_000_000L, moved);
         assertEquals(0L, host.amount);
@@ -112,11 +113,11 @@ class ECOIOPortTransferTest {
         when(grid.getEnergyService()).thenReturn(energyService);
 
         var transfer = new ECOIOPortTransfer();
-        assertEquals(50L, transfer.transfer(grid, host, false, mock(IActionSource.class)));
+        assertEquals(50L, transfer.transfer(grid, host, OperationMode.EMPTY_HOST, false, mock(IActionSource.class), candidate -> true));
         assertEquals(5, host.modulatedExtracts);
         assertEquals(10L, host.total());
 
-        assertEquals(10L, transfer.transfer(grid, host, false, mock(IActionSource.class)));
+        assertEquals(10L, transfer.transfer(grid, host, OperationMode.EMPTY_HOST, false, mock(IActionSource.class), candidate -> true));
         assertEquals(6, host.modulatedExtracts);
         assertEquals(0L, host.total());
         assertEquals(60L, network.total());
@@ -130,11 +131,11 @@ class ECOIOPortTransferTest {
         var host = new CountingStorage(key, 0L, Long.MAX_VALUE);
         var grid = inputGrid(network);
         var transfer = new ECOIOPortTransfer();
-        assertEquals(0L, transfer.transfer(grid, host, true, true, IActionSource.empty()));
+        assertEquals(0L, transfer.transfer(grid, host, OperationMode.FILL_HOST, true, IActionSource.empty(), candidate -> true));
         assertEquals(0L, host.amount);
         assertEquals(100L, network.amount);
         assertEquals(1, network.modulatedExtracts);
-        assertEquals(100L, transfer.transfer(grid, host, true, false, IActionSource.empty()));
+        assertEquals(100L, transfer.transfer(grid, host, OperationMode.FILL_HOST, false, IActionSource.empty(), candidate -> true));
         assertEquals(100L, host.amount);
         assertEquals(100L, network.amount);
     }
@@ -145,7 +146,7 @@ class ECOIOPortTransferTest {
         var network = new CountingStorage(key, 100L, Long.MAX_VALUE);
         var host = new CountingStorage(key, 0L, 30L);
         var grid = inputGrid(network);
-        assertEquals(30L, new ECOIOPortTransfer().transfer(grid, host, true, true, IActionSource.empty()));
+        assertEquals(30L, new ECOIOPortTransfer().transfer(grid, host, OperationMode.FILL_HOST, true, IActionSource.empty(), candidate -> true));
         assertEquals(30L, host.amount);
         assertEquals(70L, network.amount);
         assertEquals(100L, grid.getStorageService().getCachedInventory().get(key));
@@ -159,9 +160,9 @@ class ECOIOPortTransferTest {
         var host = new CountingStorage(key, 0L, Long.MAX_VALUE);
         var grid = inputGrid(network);
         var transfer = new ECOIOPortTransfer();
-        assertEquals(0L, transfer.transfer(grid, host, true, true, IActionSource.empty()));
+        assertEquals(0L, transfer.transfer(grid, host, OperationMode.FILL_HOST, true, IActionSource.empty(), candidate -> true));
         network.creative = false;
-        assertEquals(100L, transfer.transfer(grid, host, true, true, IActionSource.empty()));
+        assertEquals(100L, transfer.transfer(grid, host, OperationMode.FILL_HOST, true, IActionSource.empty(), candidate -> true));
         assertEquals(0L, network.amount);
         assertEquals(100L, host.amount);
     }
@@ -173,7 +174,7 @@ class ECOIOPortTransferTest {
         var host = new CountingStorage(key, 100L, Long.MAX_VALUE);
         host.creative = true;
         assertEquals(100L, new ECOIOPortTransfer().transfer(
-            inputGrid(network), host, false, true, IActionSource.empty()));
+            inputGrid(network), host, OperationMode.EMPTY_HOST, true, IActionSource.empty(), candidate -> true));
         assertEquals(100L, network.amount);
     }
 
@@ -184,7 +185,7 @@ class ECOIOPortTransferTest {
         var host = new CountingStorage(key, 0L, Long.MAX_VALUE);
         var grid = inputGrid(network);
         when(grid.getEnergyService().extractAEPower(anyDouble(), any(), any())).thenReturn(0D);
-        assertEquals(0L, new ECOIOPortTransfer().transfer(grid, host, true, true, IActionSource.empty()));
+        assertEquals(0L, new ECOIOPortTransfer().transfer(grid, host, OperationMode.FILL_HOST, true, IActionSource.empty(), candidate -> true));
         assertEquals(100L, network.amount);
         assertEquals(0L, host.amount);
     }
@@ -232,7 +233,7 @@ class ECOIOPortTransferTest {
                 return extracted;
             });
             assertEquals(30L, new ECOIOPortTransfer().transfer(
-                inputGrid(network), host, true, true, IActionSource.empty()));
+                inputGrid(network), host, OperationMode.FILL_HOST, true, IActionSource.empty(), candidate -> true));
             assertEquals(30L, host.amount);
             assertEquals(0L, finite.amount);
             assertEquals(Long.MAX_VALUE, creative.amount);
@@ -261,7 +262,7 @@ class ECOIOPortTransferTest {
         }
         var host = new CountingStorage(key, 0L, 100L);
         assertEquals(100L, new ECOIOPortTransfer().transfer(
-            inputGrid(new HugeStorage()), host, true, true, IActionSource.empty()));
+            inputGrid(new HugeStorage()), host, OperationMode.FILL_HOST, true, IActionSource.empty(), candidate -> true));
         assertEquals(100L, host.amount);
     }
 

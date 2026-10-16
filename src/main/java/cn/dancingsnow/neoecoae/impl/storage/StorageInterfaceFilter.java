@@ -2,8 +2,10 @@ package cn.dancingsnow.neoecoae.impl.storage;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
-import java.util.HashSet;
-import java.util.Set;
+import appeng.api.stacks.GenericStack;
+import appeng.api.config.IncludeExclude;
+import appeng.util.ConfigInventory;
+import appeng.util.prioritylist.IPartitionList;
 import java.util.function.Predicate;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -14,7 +16,8 @@ import org.jetbrains.annotations.Nullable;
 /** A persisted exact-key allow list. An empty list accepts everything. */
 public final class StorageInterfaceFilter implements Predicate<AEKey> {
     public static final int SLOTS = 27;
-    private final Set<AEKey> keys = new HashSet<>();
+    private final ConfigInventory inventory = ConfigInventory.configTypes(SLOTS).build();
+    private final IPartitionList partitionList;
     private final boolean configured;
 
     public StorageInterfaceFilter(CompoundTag tag, HolderLookup.Provider registries) {
@@ -24,14 +27,17 @@ public final class StorageInterfaceFilter implements Predicate<AEKey> {
             if (!tag.contains(name, Tag.TAG_COMPOUND)) continue;
             present = true;
             AEKey key = get(tag, slot, registries);
-            if (key != null) keys.add(key);
+            if (key != null) inventory.setStack(slot, new GenericStack(key, 0L));
         }
         // A missing add-on's key must not silently turn an existing filter into "allow all".
         configured = present;
+        var builder = IPartitionList.builder();
+        builder.addAll(inventory.keySet());
+        partitionList = builder.build();
     }
 
     @Override
-    public boolean test(AEKey key) { return !configured || keys.contains(key); }
+    public boolean test(AEKey key) { return !configured || !partitionList.isEmpty() && partitionList.matchesFilter(key, IncludeExclude.WHITELIST); }
 
     public static @Nullable AEKey get(CompoundTag tag, int slot, HolderLookup.Provider registries) {
         if (slot < 0 || slot >= SLOTS || !tag.contains(Integer.toString(slot), Tag.TAG_COMPOUND)) return null;

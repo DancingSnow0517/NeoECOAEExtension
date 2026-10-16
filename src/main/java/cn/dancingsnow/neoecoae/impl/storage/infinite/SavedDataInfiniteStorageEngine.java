@@ -5,7 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
+import cn.dancingsnow.neoecoae.core.storage.StorageByteAccounting;
 
 import java.math.BigInteger;
 import java.util.Collection;

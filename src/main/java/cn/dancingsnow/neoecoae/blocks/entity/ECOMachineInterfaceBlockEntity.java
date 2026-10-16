@@ -186,6 +186,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     public CompoundTag getStorageResourceFilters() { return storageResourceFilters.copy(); }
 
+    private final transient java.util.function.Predicate<AEKey> storageResourcePredicate = this::acceptsStorageResource;
+
+    public java.util.function.Predicate<AEKey> storageResourcePredicate() { return storageResourcePredicate; }
+
     public boolean acceptsStorageResource(AEKey key) {
         if (storageResourceFilter == null || cachedStorageResourceFilters != storageResourceFilters) {
             var registries = level == null ? net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)

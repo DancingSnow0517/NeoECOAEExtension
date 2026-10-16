@@ -168,7 +168,9 @@ class ECOStorageHostStatisticsTest {
         ECOInfiniteStorageEngine engine = mock(ECOInfiniteStorageEngine.class);
         when(engine.getTypeStats()).thenReturn(List.of(
             new ECOInfiniteStorageEngine.TypeStats(AEKeyType.items(), 4, HugeAmount.of(80))));
-        when(fixture.host.getInfiniteEngine()).thenReturn(engine);
+        var controller = mock(ECOInfiniteStorageModeController.class);
+        when(fixture.host.infiniteController()).thenReturn(controller);
+        when(controller.getEngine()).thenReturn(engine);
 
         assertFalse(fixture.line("items").visible().getAsBoolean());
         assertFalse(fixture.line("mega_item").visible().getAsBoolean());
@@ -204,6 +206,7 @@ class ECOStorageHostStatisticsTest {
                 Registry.register(cellTypes, key(path), new ECOCellType(Component.literal(path), 1));
             }
             when(host.getCluster()).thenReturn(cluster);
+            when(host.infiniteController()).thenReturn(mock(ECOInfiniteStorageModeController.class));
             when(host.getTier()).thenReturn(ECOTier.L9);
             Level level = mock(Level.class);
             when(host.getLevel()).thenReturn(level);

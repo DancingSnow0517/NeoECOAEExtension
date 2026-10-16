@@ -74,10 +74,10 @@ class ECOInfiniteStorageAccessTest {
         host.clearInfiniteExitRequest();
         assertEquals(1, storage.extract(key, 1, Actionable.MODULATE, source));
         field(host, "formed", false);
-        host.refreshInfiniteStorageAccess();
+        host.infiniteController().refreshHostAccess();
         assertEquals(0, storage.insert(key, 1, Actionable.MODULATE, source));
         field(host, "formed", true);
-        host.refreshInfiniteStorageAccess();
+        host.infiniteController().refreshHostAccess();
         assertEquals(1, storage.insert(key, 1, Actionable.MODULATE, source));
         host.setStorageHostMode(ECOStorageHostMode.RESTORING_TO_NORMAL);
         host.setStorageHostMode(ECOStorageHostMode.FORMED_INFINITE);
