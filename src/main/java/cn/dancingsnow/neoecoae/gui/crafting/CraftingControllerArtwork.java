@@ -68,6 +68,8 @@ final class CraftingControllerArtwork extends UIElement {
         CraftingControllerSync.attach(this, config, view, this::updateWorkerSlots);
         layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0).width(UI_WIDTH).height(UI_HEIGHT));
 
+        addChild(tooltipRegion(9, 29, 16, 34,
+            () -> hostItem.isEmpty() ? List.of() : DrawerHelper.getItemToolTip(hostItem)));
         addChild(tooltipRegion(64, 79, 51, 45, tooltips::queueTooltip));
         addChild(tooltipRegion(117, 79, 51, 45, tooltips::parallelTooltip));
         addChild(tooltipRegion(176, 78, 8, 46, tooltips::energyTooltip));
