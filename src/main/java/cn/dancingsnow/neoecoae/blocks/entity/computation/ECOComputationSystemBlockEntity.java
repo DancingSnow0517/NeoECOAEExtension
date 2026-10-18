@@ -6,6 +6,9 @@ import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider;
+import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.Part;
+import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerPanelState.Member;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -199,23 +202,28 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             return ComputationControllerPanelState.UNFORMED;
         }
         Direction top = OrientationStrategies.horizontalFacing().getSide(getBlockState(), RelativeSide.TOP);
-        Map<BlockPos, Integer> parallel = new HashMap<>();
+        Map<BlockPos, ECOComputationParallelCoreBlockEntity> parallel = new HashMap<>();
         for (ECOComputationParallelCoreBlockEntity core : cluster.getParallelCores()) {
-            parallel.put(core.getBlockPos(), core.getTier().getTier());
+            parallel.put(core.getBlockPos(), core);
         }
         List<ECOComputationThreadingCoreBlockEntity> cores = cluster.getThreadingCores().stream()
             .sorted(Comparator.comparingDouble(core -> core.getBlockPos().distSqr(getBlockPos())))
             .limit(ComputationControllerPanelState.SLOT_COUNT)
             .toList();
-        List<Integer> upper = new ArrayList<>(cores.size());
-        List<Integer> mid = new ArrayList<>(cores.size());
-        List<Integer> lower = new ArrayList<>(cores.size());
+        List<Member> upper = new ArrayList<>(cores.size());
+        List<Member> mid = new ArrayList<>(cores.size());
+        List<Member> lower = new ArrayList<>(cores.size());
         for (ECOComputationThreadingCoreBlockEntity core : cores) {
-            upper.add(parallel.getOrDefault(core.getBlockPos().relative(top), 0));
-            mid.add(core.getTier().getTier());
-            lower.add(parallel.getOrDefault(core.getBlockPos().relative(top.getOpposite()), 0));
+            var above = parallel.get(core.getBlockPos().relative(top));
+            upper.add(above == null ? Member.ABSENT : new Member(true, above.getTier().getTier(),
+                IHostPanelTextureProvider.texture(above.getBlockState(), Part.COMPUTATION_UPPER)));
+            mid.add(new Member(true, core.getTier().getTier(),
+                IHostPanelTextureProvider.texture(core.getBlockState(), Part.COMPUTATION_CORE)));
+            var below = parallel.get(core.getBlockPos().relative(top.getOpposite()));
+            lower.add(below == null ? Member.ABSENT : new Member(true, below.getTier().getTier(),
+                IHostPanelTextureProvider.texture(below.getBlockState(), Part.COMPUTATION_LOWER)));
         }
-        return ComputationControllerPanelState.of(getTier().getTier(), upper, mid, lower, mirrored);
+        return ComputationControllerPanelState.ofMembers(getTier().getTier(), upper, mid, lower, mirrored);
     }
 
     public List<ComputationDriveEntry> getComputationUiDrives(boolean upper) {

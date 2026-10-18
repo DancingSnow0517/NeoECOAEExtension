@@ -1,7 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import net.minecraft.nbt.CompoundTag;
-
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -16,7 +20,10 @@ public record ComputationControllerPanelState(
     int cells,
     int upperCores,
     int coreTiers,
-    int lowerCores
+    int lowerCores,
+    List<Member> upperMembers,
+    List<Member> coreMembers,
+    List<Member> lowerMembers
 ) {
     public static final int SLOT_COUNT = 11;
     public static final ComputationControllerPanelState UNFORMED =
@@ -30,7 +37,23 @@ public record ComputationControllerPanelState(
     private static final String CORE = "core";
     private static final String LOWER = "low";
 
+    /** Explicit presence allows a real member to have tier zero. Texture locations are server-authored. */
+    public record Member(boolean present, int tier, @Nullable ResourceLocation texture) {
+        public static final Member ABSENT = new Member(false, 0, null);
+    }
+
+    /** Legacy callers use zero as the absence sentinel for the upper/lower rows. */
+    public ComputationControllerPanelState(boolean formed, int hostTier, int cells,
+        int upperCores, int coreTiers, int lowerCores) {
+        this(formed, hostTier, cells, upperCores, coreTiers, lowerCores,
+            legacyMembers(cells, upperCores, false), legacyMembers(cells, coreTiers, true),
+            legacyMembers(cells, lowerCores, false));
+    }
+
     public ComputationControllerPanelState {
+        upperMembers = List.copyOf(upperMembers);
+        coreMembers = List.copyOf(coreMembers);
+        lowerMembers = List.copyOf(lowerMembers);
         hostTier = Math.clamp(hostTier, 0, 3);
     }
 
@@ -73,6 +96,44 @@ public record ComputationControllerPanelState(
         return new ComputationControllerPanelState(true, hostTier, cells, upper, core, lower);
     }
 
+    public Member upperMember(int cell) { return memberAt(upperMembers, cell); }
+    public Member coreMember(int cell) { return memberAt(coreMembers, cell); }
+    public Member lowerMember(int cell) { return memberAt(lowerMembers, cell); }
+
+    /** Unlike of(), absent members are explicit and tier zero remains drawable. */
+    public static ComputationControllerPanelState ofMembers(int hostTier, List<Member> upper,
+        List<Member> core, List<Member> lower, boolean mirrored) {
+        List<Member> up = new ArrayList<>(java.util.Collections.nCopies(SLOT_COUNT, Member.ABSENT));
+        List<Member> mid = new ArrayList<>(up);
+        List<Member> low = new ArrayList<>(up);
+        int cells = 0, upperBits = 0, coreBits = 0, lowerBits = 0;
+        for (int slot = 0; slot < Math.min(core.size(), SLOT_COUNT); slot++) {
+            int cell = cellOf(slot, mirrored);
+            Member center = memberAt(core, slot);
+            if (!center.present()) continue;
+            Member above = memberAt(upper, slot), below = memberAt(lower, slot);
+            cells |= 1 << cell;
+            up.set(cell, above); mid.set(cell, center); low.set(cell, below);
+            upperBits |= Math.clamp(above.tier(), 0, 3) << cell * 2;
+            coreBits |= Math.clamp(center.tier(), 0, 3) << cell * 2;
+            lowerBits |= Math.clamp(below.tier(), 0, 3) << cell * 2;
+        }
+        return new ComputationControllerPanelState(true, hostTier, cells, upperBits, coreBits, lowerBits, up, mid, low);
+    }
+
+    private static Member memberAt(List<Member> members, int cell) {
+        return cell < 0 || cell >= members.size() ? Member.ABSENT : members.get(cell);
+    }
+
+    private static List<Member> legacyMembers(int cells, int packed, boolean middle) {
+        List<Member> members = new ArrayList<>(SLOT_COUNT);
+        for (int cell = 0; cell < SLOT_COUNT; cell++) {
+            int tier = tierAt(packed, cell);
+            members.add(new Member((cells >> cell & 1) != 0 && (middle || tier > 0), tier, null));
+        }
+        return members;
+    }
+
     public static int cellOf(int slot, boolean mirrored) {
         return mirrored ? SLOT_COUNT - 1 - slot : slot;
     }
@@ -85,7 +146,34 @@ public record ComputationControllerPanelState(
         tag.putInt(UPPER, upperCores);
         tag.putInt(CORE, coreTiers);
         tag.putInt(LOWER, lowerCores);
+        putMembers(tag, "upperMembers", upperMembers);
+        putMembers(tag, "coreMembers", coreMembers);
+        putMembers(tag, "lowerMembers", lowerMembers);
         return tag;
+    }
+
+    private static void putMembers(CompoundTag tag, String name, List<Member> members) {
+        ListTag list = new ListTag();
+        for (Member member : members) {
+            CompoundTag entry = new CompoundTag();
+            entry.putBoolean("present", member.present());
+            entry.putInt("tier", member.tier());
+            if (member.texture() != null) entry.putString("texture", member.texture().toString());
+            list.add(entry);
+        }
+        tag.put(name, list);
+    }
+
+    private static List<Member> readMembers(CompoundTag tag, String name, int packed, boolean middle) {
+        if (!tag.contains(name, Tag.TAG_LIST)) return legacyMembers(tag.getInt(CELLS), packed, middle);
+        ListTag list = tag.getList(name, Tag.TAG_COMPOUND);
+        List<Member> members = new ArrayList<>(SLOT_COUNT);
+        for (int cell = 0; cell < Math.min(SLOT_COUNT, list.size()); cell++) {
+            CompoundTag entry = list.getCompound(cell);
+            members.add(new Member(entry.getBoolean("present"), entry.getInt("tier"),
+                entry.getString("texture").isEmpty() ? null : ResourceLocation.tryParse(entry.getString("texture"))));
+        }
+        return members;
     }
 
     public static ComputationControllerPanelState fromTag(CompoundTag tag) {
@@ -98,7 +186,10 @@ public record ComputationControllerPanelState(
             tag.getInt(CELLS),
             tag.getInt(UPPER),
             tag.getInt(CORE),
-            tag.getInt(LOWER)
+            tag.getInt(LOWER),
+            readMembers(tag, "upperMembers", tag.getInt(UPPER), false),
+            readMembers(tag, "coreMembers", tag.getInt(CORE), true),
+            readMembers(tag, "lowerMembers", tag.getInt(LOWER), false)
         );
     }
 

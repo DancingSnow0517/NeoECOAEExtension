@@ -53,3 +53,11 @@ provider.addResource(new BuiltinPath("ui-eco:Storage-ATLAS"),
 使用 LDLib2 的 `TexturesResource`、`BuiltinPath`、`SpriteTexture` 和 Minecraft 的 `ResourceLocation`。替换值应为指向完整图片的 `SpriteTexture`；保持原 atlas 的尺寸与图块布局。绘制时读取替换图片，沿用各图块的裁剪坐标、边框和颜色，已有缓存图块也会使用替换结果。其他贴图仍按原路径加载。
 
 这种替换作用于使用该资源名的所有 ECO 面板。只想修改附属档位的名称和主机标记时，使用前面的 `IECOTier` 方法。
+
+## 按成员提供面板图案
+
+成员方块可实现 `IHostPanelTextureProvider`，在 `getPanelTexture(BlockState, Part)` 中返回可空的纹理文件位置。计算核心使用实际成员的方块状态；存储主机使用 UI 配置的 `hostItem` 方块默认状态，因此存储图案不应依赖朝向或 formed 状态。
+
+`COMPUTATION_UPPER` 为独立 10×5 图，`COMPUTATION_CORE` / `COMPUTATION_LOWER` 为独立 10×6 图，`STORAGE_TIER` 为独立 13×18 图，均从 (0, 0) 裁剪。`STORAGE_MARKER` 为 13×16 图，上下两个 13×8 标记分别从 (0, 0) / (0, 8) 裁剪。面板位置、缩放与原图保持一致。
+
+纹理位置和计算成员存在状态随服务器面板快照发送，不需要注册新的档位 codec。返回 null 时保留已有名称、主机标记接口及内置图集回落；存在且档位索引为 0 的成员回落第一列图案，缺席成员仍不绘制。原 `ComputationControllerPanelState.of(...)` 和六参数构造保留，新增 `ofMembers(...)` 可明确表达“存在、档位为 0”的成员。

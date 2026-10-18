@@ -52,8 +52,11 @@ final class StorageHostCharts {
                 definition.has("text_align") && definition.get("text_align").getAsString().equals("right"));
             case "storage_tier" -> new PanelElement() {
                 @Override public void drawBackgroundAdditional(GUIContext context) {
-                    if (!HostPanelTier.drawName(context, panelTier.get(), getPositionX(), getPositionY(),
-                        getSizeWidth(), getSizeHeight(), TEXT) && state().tier() > 0) {
+                    var custom = sync.textures().tier();
+                    if (custom != null) {
+                        texture(context, StoragePanelTextures.tier(state().tier(), custom));
+                    } else if (!HostPanelTier.drawName(context, panelTier.get(), getPositionX(), getPositionY(),
+                        getSizeWidth(), getSizeHeight(), TEXT) && (state().formed() || state().tier() > 0)) {
                         texture(context, StoragePanelTextures.tier(state().tier()));
                     }
                 }
@@ -244,8 +247,10 @@ final class StorageHostCharts {
     }
 
     private void drawMarker(GUIContext context, boolean bottom, float x, float y) {
-        if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom, x, y, 13, 8)
-            && state().tier() >= 1 && state().tier() <= 3) {
+        var custom = sync.textures().marker();
+        if (custom != null) {
+            context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), bottom, custom), x, y, 13, 8);
+        } else if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom, x, y, 13, 8)) {
             context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), bottom), x, y, 13, 8);
         }
     }

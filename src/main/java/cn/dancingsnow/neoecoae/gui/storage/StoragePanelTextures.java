@@ -50,6 +50,15 @@ final class StoragePanelTextures {
         return sprite((Math.clamp(tier, 1, 3) - 1) * 13, 0, 13, 18);
     }
 
+    static SpriteTexture tier(int tier, ResourceLocation custom) {
+        return custom == null ? tier(tier) : SpriteTexture.of(custom).setSprite(0, 0, 13, 18);
+    }
+
+    static SpriteTexture hostMarker(int tier, boolean bottom, ResourceLocation custom) {
+        return custom == null ? hostMarker(tier, bottom)
+            : SpriteTexture.of(custom).setSprite(0, bottom ? 8 : 0, 13, 8);
+    }
+
     /** Upper row: inactive symbol; lower row: selected symbol. Blue background is hover/press. */
     static SpriteTexture interfaceMode(int mode, boolean selected, boolean hover) {
         return sprite((Math.clamp(mode, 0, 2) + (hover ? 3 : 0)) * 16,

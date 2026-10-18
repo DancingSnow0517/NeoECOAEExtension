@@ -272,11 +272,13 @@ final class ComputationControllerArtwork extends UIElement {
         for (int cell = 0; cell < ComputationControllerPanelState.SLOT_COUNT; cell++) {
             if (!state.hasCell(cell)) continue;
             int x = 49 + 18 * cell;
-            int upper = state.upperTier(cell), core = state.coreTier(cell), lower = state.lowerTier(cell);
+            var upper = state.upperMember(cell);
+            var core = state.coreMember(cell);
+            var lower = state.lowerMember(cell);
             sprite(context, ComputationControllerTextures.columnBackground(), x, 30, 16, 52);
-            if (upper > 0) sprite(context, ComputationControllerTextures.glyphUpper(upper), x + 3, 47, 10, 5);
-            if (core > 0) sprite(context, ComputationControllerTextures.glyphCore(core), x + 3, 53, 10, 6);
-            if (lower > 0) sprite(context, ComputationControllerTextures.glyphLower(lower), x + 3, 60, 10, 6);
+            if (upper.present()) sprite(context, ComputationControllerTextures.member(upper, 0), x + 3, 47, 10, 5);
+            if (core.present()) sprite(context, ComputationControllerTextures.member(core, 1), x + 3, 53, 10, 6);
+            if (lower.present()) sprite(context, ComputationControllerTextures.member(lower, 2), x + 3, 60, 10, 6);
         }
     }
 

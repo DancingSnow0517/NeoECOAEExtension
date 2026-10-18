@@ -5,6 +5,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import java.util.function.Supplier;
 import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.CompoundTag;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
 
 /** One display snapshot and one bounded page request, registered identically on both sides. */
 final class StoragePanelSync {
@@ -12,6 +14,7 @@ final class StoragePanelSync {
     private final int pageSize;
     private final BindableValue<Integer> pageRequest = new BindableValue<>(0);
     private int requestedOffset;
+    private HostPanelTextureState textures = HostPanelTextureState.EMPTY;
     private StoragePanelState state = StoragePanelState.EMPTY;
 
     StoragePanelSync(UIElement parent, Supplier<StorageHostUI.Config> config, int pageSize) {
@@ -20,12 +23,17 @@ final class StoragePanelSync {
         Tag initial = snapshot();
         BindableValue<Tag> synced = new BindableValue<>(initial);
         synced.bind(DataBindingBuilder.tagS2C(this::snapshot).build());
-        synced.registerValueListener(value -> state = StoragePanelState.fromTag(value, config.get().registries()));
+        synced.registerValueListener(value -> {
+            state = StoragePanelState.fromTag(value, config.get().registries());
+            textures = value instanceof CompoundTag tag ? HostPanelTextureState.read(tag) : HostPanelTextureState.EMPTY;
+        });
         synced.setDisplay(false);
         pageRequest.bind(DataBindingBuilder.intValC2S(value -> requestedOffset = Math.max(0, value)).build());
         pageRequest.setDisplay(false);
         parent.addChildren(synced, pageRequest);
     }
+
+    HostPanelTextureState textures() { return textures; }
 
     StoragePanelState state() { return state; }
 
@@ -37,6 +45,9 @@ final class StoragePanelSync {
     private Tag snapshot() {
         state = StoragePanelState.capture(config.get(), requestedOffset, pageSize);
         requestedOffset = state.cellOffset();
-        return state.toTag(config.get().registries());
+        textures = HostPanelTextureState.capture(config.get().hostItem().get());
+        CompoundTag tag = state.toTag(config.get().registries());
+        textures.write(tag);
+        return tag;
     }
 }

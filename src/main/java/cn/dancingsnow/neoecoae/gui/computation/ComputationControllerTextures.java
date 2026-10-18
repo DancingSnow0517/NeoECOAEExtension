@@ -45,6 +45,15 @@ final class ComputationControllerTextures {
         return widget(17 + (Math.clamp(tier, 1, 3) - 1) * 12, 61, 10, 6);
     }
 
+    static SpriteTexture member(ComputationControllerPanelState.Member member, int row) {
+        if (member.texture() != null) return SpriteTexture.of(member.texture()).setSprite(0, 0, 10, row == 0 ? 5 : 6);
+        return switch (row) {
+            case 0 -> glyphUpper(member.tier());
+            case 1 -> glyphCore(member.tier());
+            default -> glyphLower(member.tier());
+        };
+    }
+
     static SpriteTexture statusIcon(int index, boolean pink) {
         if (pink) return widget(Math.clamp(index, 0, 4) * 12, 116, 12, 12);
         return widget(Math.clamp(index, 0, 5) * 12, 104, 12, 12);

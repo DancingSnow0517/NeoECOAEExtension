@@ -32,6 +32,36 @@ class ComputationControllerPanelStateTest {
     }
 
     @Test
+    void tierZeroMembersKeepPresenceTexturesAndMirroredPositionsThroughSync() {
+        var texture = net.minecraft.resources.ResourceLocation.parse("addon:textures/gui/core.png");
+        var zero = new ComputationControllerPanelState.Member(true, 0, texture);
+        var fallback = new ComputationControllerPanelState.Member(true, 0, null);
+        var state = ComputationControllerPanelState.ofMembers(0, List.of(zero), List.of(fallback),
+            List.of(ComputationControllerPanelState.Member.ABSENT), true);
+        var received = ComputationControllerPanelState.fromTag(state.toTag());
+        assertEquals(state, received);
+        assertFalse(received.hasCell(0));
+        assertTrue(received.hasCell(10));
+        assertEquals(zero, received.upperMember(10));
+        assertEquals(fallback, received.coreMember(10));
+        assertFalse(received.lowerMember(10).present());
+        assertFalse(received.coreMember(-1).present());
+        assertFalse(received.coreMember(11).present());
+        assertEquals(0, received.coreTier(10));
+    }
+
+    @Test
+    void oldSnapshotsRetainMissingUpperAndLowerRows() {
+        var state = ComputationControllerPanelState.of(1, List.of(0), List.of(1), List.of(2), false);
+        CompoundTag legacy = state.toTag();
+        legacy.remove("upperMembers"); legacy.remove("coreMembers"); legacy.remove("lowerMembers");
+        assertEquals(state, ComputationControllerPanelState.fromTag(legacy));
+        assertFalse(state.upperMember(0).present());
+        assertTrue(state.coreMember(0).present());
+        assertTrue(state.lowerMember(0).present());
+    }
+
+    @Test
     void clampsAndLimitsSlots() {
         var state = ComputationControllerPanelState.of(5, List.of(9), Collections.nCopies(20, 2), List.of(), false);
         assertEquals(3, state.hostTier());
