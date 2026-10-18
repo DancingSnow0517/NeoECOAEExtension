@@ -194,7 +194,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
                 Block.UPDATE_CLIENTS
             );
         }
-        if (updateExposed) {
+        if (updateExposed && getMainNode().isReady()) {
             onGridConnectableSidesChanged();
         }
     }

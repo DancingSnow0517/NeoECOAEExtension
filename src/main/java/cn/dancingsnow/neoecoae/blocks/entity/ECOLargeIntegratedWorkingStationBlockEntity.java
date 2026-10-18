@@ -218,7 +218,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             super.onChangeTank();
             updateState(true);
             setPowerSides(value ? EnumSet.noneOf(Direction.class) : EnumSet.allOf(Direction.class));
-            onGridConnectableSidesChanged();
+            if (getMainNode().isReady()) {
+                onGridConnectableSidesChanged();
+            }
             if (level != null) level.invalidateCapabilities(worldPosition);
             markForUpdate();
         }

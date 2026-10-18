@@ -107,9 +107,39 @@ class LargeWorkstationConnectionTest {
         assertEquals(AECableType.NONE, host.getCableConnectionType(Direction.NORTH));
     }
 
+    @Test
+    void destroyingClusterAfterControllerNodeUnloadStillClearsFormationAndCapabilities() throws Exception {
+        var host = controller();
+        var level = mock(Level.class);
+        field(host, "level", level);
+        field(host, "worldPosition", BlockPos.ZERO);
+        var cluster = new NEIntegratedWorkingStationCluster(BlockPos.ZERO, new BlockPos(2, 1, 1));
+        cluster.addBlockEntity(host);
+        host.updateCluster(cluster);
+        assertTrue(host.isFormed());
+
+        var node = host.getMainNode();
+        when(node.isReady()).thenReturn(false);
+        doThrow(new IllegalStateException("Node already initialized and destroyed"))
+            .when(node).setExposedOnSides(anySet());
+        clearInvocations(node, level, host);
+
+        assertDoesNotThrow(cluster::destroy);
+
+        assertFalse(host.isRemoved());
+        assertFalse(host.isFormed());
+        assertNull(host.getCluster());
+        assertNotNull(host.getEnergyStorage(Direction.NORTH));
+        verify(node, never()).setExposedOnSides(anySet());
+        verify(host).updateState(true);
+        verify(level).invalidateCapabilities(BlockPos.ZERO);
+        verify(host).markForUpdate();
+    }
+
     private static ECOLargeIntegratedWorkingStationBlockEntity controller() throws Exception {
         var host = mock(ECOLargeIntegratedWorkingStationBlockEntity.class, CALLS_REAL_METHODS);
         doReturn(mock(IManagedGridNode.class)).when(host).getMainNode();
+        when(host.getMainNode().isReady()).thenReturn(true);
         doReturn(mock(BlockState.class)).when(host).getBlockState();
         doReturn(null).when(host).getOrientation();
         doNothing().when(host).markForUpdate();
