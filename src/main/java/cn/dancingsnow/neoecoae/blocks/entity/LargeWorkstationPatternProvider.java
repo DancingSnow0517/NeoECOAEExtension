@@ -298,7 +298,9 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         // The specialized provider bypasses PatternProviderLogic.pushPattern, so explicitly retain AE2's
         // lock-until-pulse/result state transition after the controller accepted the batch.
         ((PatternProviderLogicAccessor) (Object) this).neoecoae$onPushPatternSuccess(pattern);
-        requestProviderUpdate();
+        // Do not refresh the crafting-provider registry from inside pushPattern. AE2 may be iterating the
+        // provider list while dispatching this pattern; refreshing synchronously removes and re-adds this
+        // provider and invalidates that iterator when another provider advertises the same pattern.
     }
 
     private void requestProviderUpdate() {
