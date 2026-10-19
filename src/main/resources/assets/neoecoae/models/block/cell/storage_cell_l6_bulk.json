@@ -3,10 +3,10 @@
 	"credit": "Made with Blockbench",
 	"render_type": "cutout",
 	"textures": {
-		"level": "neoecoae:block/storage/drive/cell_level",
-		"type": "neoecoae:block/storage/drive/cell_type",
-		"particle": "neoecoae:block/storage/drive/complex_omni_cell_housing",
-		"base": "neoecoae:block/storage/drive/complex_omni_cell_housing"
+		"level": "neoecoae:block/storage/drive_cells/cell_level",
+		"type": "neoecoae:block/storage/drive_cells/cell_type",
+		"particle": "neoecoae:block/storage/drive_cells/complex_omni_cell_housing",
+		"base": "neoecoae:block/storage/drive_cells/complex_omni_cell_housing"
 	},
 	"elements": [
 		{

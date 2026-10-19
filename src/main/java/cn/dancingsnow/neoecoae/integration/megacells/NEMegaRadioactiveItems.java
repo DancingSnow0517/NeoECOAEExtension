@@ -24,7 +24,7 @@ final class NEMegaRadioactiveItems {
 
     static final ItemEntry<Item> HOUSING = REGISTRATE.item("eco_radioactive_chemical_cell_housing", Item::new)
         .lang("ECO Storage Matrix Housing (Radioactive Chemical)")
-        .model(ItemModelUtil.compatHousingModel("radioactive_chemical_cell_housing"))
+        .model(ItemModelUtil.compatHousingModel("megacells", "radioactive_chemical_cell_housing"))
         .register();
 
     static final ItemEntry<ECORadioactiveChemicalStorageCellItem> CELL_16M = cell("16m", ECOTier.L4, Rarity.UNCOMMON);
@@ -37,7 +37,7 @@ final class NEMegaRadioactiveItems {
                     properties.stacksTo(1).rarity(rarity), tier, RADIOACTIVE_CHEMICAL))
             .lang("ECO - LE" + switch (tier) { case L4 -> "4"; case L6 -> "6"; case L9 -> "9"; }
                 + " Storage Matrix (Radioactive Chemical)")
-            .model(ItemModelUtil.compatCellModel("radioactive_chemical_cell_housing", size))
+            .model(ItemModelUtil.compatCellModel("megacells", "radioactive_chemical_cell_housing", size))
             .register();
     }
 

@@ -1022,7 +1022,7 @@ public class NEItems {
             .energy(144_000)
             .save(prov))
         .lang("ECO Infinite Base Resource Storage Matrix")
-        .model(ItemModelUtil.infiniteCellModel("eco_infinite_cell_housing"))
+        .model(ItemModelUtil.infiniteCellModel("infinite_resource_cell"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_16M = REGISTRATE

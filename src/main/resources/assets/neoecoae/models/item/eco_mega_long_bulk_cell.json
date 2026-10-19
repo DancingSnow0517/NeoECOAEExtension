@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "neoecoae:item/eco_bulk_item_cell"
+    "layer0": "neoecoae:item/eco_cells/megacells/bulk_item_cell"
   }
 }

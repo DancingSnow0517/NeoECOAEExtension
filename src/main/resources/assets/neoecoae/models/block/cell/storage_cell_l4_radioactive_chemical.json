@@ -1,10 +1,10 @@
 {
 	"render_type": "cutout",
 	"textures": {
-		"level": "neoecoae:block/storage/drive/cell_level",
-		"type": "neoecoae:block/storage/drive/type_neuclear_waste",
-		"particle": "neoecoae:block/storage/drive/radioactive_cell_housing",
-		"base": "neoecoae:block/storage/drive/radioactive_cell_housing"
+		"level": "neoecoae:block/storage/drive_cells/cell_level",
+		"type": "neoecoae:block/storage/drive_cells/cell_type_neuclear_waste",
+		"particle": "neoecoae:block/storage/drive_cells/radioactive_cell_housing",
+		"base": "neoecoae:block/storage/drive_cells/radioactive_cell_housing"
 	},
 	"elements": [
 		{

@@ -1,10 +1,8 @@
 {
-	"format_version": "1.9.2",
-	"credit": "Made with Blockbench",
 	"render_type": "cutout",
 	"textures": {
-		"particle": "neoecoae:block/storage/drive/bulk_housing",
-		"base": "neoecoae:block/storage/drive/bulk_housing"
+		"particle": "neoecoae:block/storage/drive_cells/bulk_housing",
+		"base": "neoecoae:block/storage/drive_cells/bulk_housing"
 	},
 	"elements": [
 		{

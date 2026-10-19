@@ -16,7 +16,7 @@ final class NEAppRepItems {
     static final ItemEntry<Item> MATTER_CELL_HOUSING = REGISTRATE
         .item("eco_matter_cell_housing", Item::new)
         .lang("ECO Storage Matrix Housing (Matter)")
-        .model(ItemModelUtil.compatHousingModel("matter_cell_housing"))
+        .model(ItemModelUtil.compatHousingModel("apprep", "matter_cell_housing"))
         .register();
 
     static final ItemEntry<ECOStorageCellItem> MATTER_CELL_16M = cell("16m", ECOTier.L4, Rarity.UNCOMMON);
@@ -29,7 +29,7 @@ final class NEAppRepItems {
                 ExternalCellKeyTypes.byId("apprep", "m"), NEAppRepCellTypes.MATTER))
             .lang("ECO - LE" + switch (tier) { case L4 -> "4"; case L6 -> "6"; case L9 -> "9"; }
                 + " Storage Matrix (Matter)")
-            .model(ItemModelUtil.compatCellModel("matter_cell_housing", size))
+            .model(ItemModelUtil.compatCellModel("apprep", "matter_cell_housing", size))
             .register();
     }
 

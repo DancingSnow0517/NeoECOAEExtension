@@ -92,7 +92,7 @@ public final class MegaCellsIntegration {
                 NEMegaItems.ECO_MEGA_LONG_BULK_CELL,
                 "block/cell/storage_cell_l9_bulk_item",
                 false);
-        if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", false);
+        if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "fe", false);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", false);
         if (chemicalEnabled) NEMegaRadioactiveItems.registerModels(false);
         registerExternalModels(false);
@@ -105,7 +105,7 @@ public final class MegaCellsIntegration {
                 NEMegaItems.ECO_MEGA_LONG_BULK_CELL,
                 "block/cell/storage_cell_l9_bulk_item",
                 true);
-        if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", true);
+        if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "fe", true);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", true);
         if (chemicalEnabled) NEMegaRadioactiveItems.registerModels(true);
         registerExternalModels(true);
@@ -146,7 +146,9 @@ public final class MegaCellsIntegration {
 
     private void registerExternalModels(boolean resolved) {
         for (MegaExternalCell externalCell : externalCells) {
-            var model = NeoECOAE.id("block/cell/storage_cell_mega_" + externalCell.tier() + "_" + externalCell.family());
+            var model = NeoECOAE.id(externalCell.family().equals("stress")
+                ? "block/cell/storage_cell_" + externalCell.tier() + "_mega_su"
+                : "block/cell/storage_cell_mega_" + externalCell.tier() + "_" + externalCell.family());
             if (resolved) {
                 ECOCellModels.register(externalCell.cell().get(), model);
             } else {

@@ -15,7 +15,7 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 final class NEStressItems {
     static final ItemEntry<Item> HOUSING = REGISTRATE.item("eco_stress_cell_housing", Item::new)
         .lang("ECO Storage Matrix Housing (Stress)")
-        .model(ItemModelUtil.compatHousingModel("stress_cell_housing"))
+        .model(ItemModelUtil.compatHousingModel("applied_create", "andesite_cell_housing"))
         .register();
 
     static final ItemEntry<ECOStorageCellItem> CELL_16M = cell("16m", ECOTier.L4, Rarity.UNCOMMON);
@@ -28,7 +28,7 @@ final class NEStressItems {
                 ExternalCellKeyTypes.byId("appliedcreate", "stress"), NEStressCellTypes.STRESS))
             .lang("ECO - LE" + switch (tier) { case L4 -> "4"; case L6 -> "6"; case L9 -> "9"; }
                 + " Storage Matrix (Stress)")
-            .model(ItemModelUtil.compatCellModel("stress_cell_housing", size))
+            .model(ItemModelUtil.compatCellModel("applied_create", "andesite_cell_housing", size))
             .register();
     }
 

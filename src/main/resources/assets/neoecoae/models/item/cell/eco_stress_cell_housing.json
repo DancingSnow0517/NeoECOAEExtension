@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "neoecoae:item/eco_cell_compat/stress_cell_housing"
+    "layer0": "neoecoae:item/eco_cells/applied_create/andesite_cell_housing"
   }
 }

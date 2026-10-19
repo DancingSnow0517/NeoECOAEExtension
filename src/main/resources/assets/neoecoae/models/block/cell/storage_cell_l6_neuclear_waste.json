@@ -1,12 +1,10 @@
 {
-	"format_version": "1.9.2",
-	"credit": "Made with Blockbench",
 	"render_type": "cutout",
 	"textures": {
-		"level": "neoecoae:block/storage/drive/cell_level",
-		"type": "neoecoae:block/storage/drive/type_neuclear_waste",
-		"particle": "neoecoae:block/storage/drive/neuclear_waste_housing",
-		"base": "neoecoae:block/storage/drive/neuclear_waste_housing"
+		"level": "neoecoae:block/storage/drive_cells/cell_level",
+		"type": "neoecoae:block/storage/drive_cells/cell_type_neuclear_waste",
+		"particle": "neoecoae:block/storage/drive_cells/neuclear_waste_cell_housing",
+		"base": "neoecoae:block/storage/drive_cells/neuclear_waste_cell_housing"
 	},
 	"elements": [
 		{

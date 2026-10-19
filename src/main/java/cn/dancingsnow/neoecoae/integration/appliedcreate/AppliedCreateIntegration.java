@@ -13,7 +13,7 @@ public final class AppliedCreateIntegration {
         var cells = NEStressItems.cells();
         String[] levels = {"l4", "l6", "l9"};
         for (int i = 0; i < cells.size(); i++) {
-            ECOCellModels.register(cells.get(i), NeoECOAE.id("block/cell/storage_cell_" + levels[i] + "_stress"));
+            ECOCellModels.register(cells.get(i), NeoECOAE.id("block/cell/storage_cell_" + levels[i] + "_su"));
         }
         OptionalCellUpgrades.register(NeoECOAE.MOD_BUS, cells);
     }

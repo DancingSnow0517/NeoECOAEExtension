@@ -137,9 +137,9 @@ public class NeoECOAEClient {
     @SubscribeEvent
     public static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
         // Covers every ECO storage matrix icon that carries a status-light layer: the ECO item/fluid/
-        // chemical/FE/mana/source families, and the Omni, MEGA and Lightning matrices built on the
-        // eco_cell_compat housing set. The tint index is ignored by models that have no status-light
-        // layer, so registering an extra item is harmless.
+        // chemical/FE/mana/source families, plus Omni, MEGA and Lightning matrices. Standard cells
+        // use status-light layer 2; the infinite resource cell uses layer 1. Models without a status-light
+        // layer do not use its tint, so registering an extra item is harmless.
         Item[] cells = BuiltInRegistries.ITEM.stream()
             .filter(item -> item instanceof IECOStorageCellItem)
             .toArray(Item[]::new);

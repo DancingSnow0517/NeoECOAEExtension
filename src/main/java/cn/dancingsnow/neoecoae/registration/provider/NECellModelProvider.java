@@ -1,11 +1,9 @@
 package cn.dancingsnow.neoecoae.registration.provider;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.providers.RegistrateProvider;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.data.PackOutput;
-import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.LogicalSide;
 import net.neoforged.neoforge.client.model.generators.BlockModelBuilder;
 import net.neoforged.neoforge.client.model.generators.ModelProvider;
@@ -27,15 +25,6 @@ public class NECellModelProvider extends ModelProvider<BlockModelBuilder> implem
     @Override
     protected void registerModels() {
         parent.genData(NEProviderTypes.CELL_MODEL, this);
-    }
-
-    public void cellModel(String name) {
-        cellModel(name, modLoc("block/cell/led/" + name));
-    }
-
-    public void cellModel(String name, ResourceLocation led) {
-        withExistingParent(name, NeoECOAE.id("block/cell/storage_cell"))
-            .texture("2", led);
     }
 
     @Override
