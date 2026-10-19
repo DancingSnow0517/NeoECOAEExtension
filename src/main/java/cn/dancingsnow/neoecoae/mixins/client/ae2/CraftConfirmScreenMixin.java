@@ -6,6 +6,7 @@ import appeng.client.gui.style.ScreenStyle;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.network.chat.Component;
@@ -21,7 +22,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.neoforged.neoforge.network.PacketDistributor;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 
-/** Formats AE2's native CPU status without changing confirmation-screen planning. */
+/** Formats ECO CPU status in AE2's native confirmation screen. */
 @Mixin(value = CraftConfirmScreen.class, priority = 1100)
 public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmMenu> {
     @Shadow private Button start;
@@ -68,7 +69,8 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
     )
     private MutableComponent neoecoae$formatCpuStatus(
             GuiText text, Object[] args, Operation<MutableComponent> original) {
-        if (text != GuiText.ConfirmCraftCpuStatus || args.length < 2
+        if (!((Object) getMenu() instanceof ECOCraftConfirmMenuMode mode) || !mode.neoecoae$isSelectedCpuEco()
+                || text != GuiText.ConfirmCraftCpuStatus || args.length < 2
                 || !(args[0] instanceof Number storage)
                 || !(args[1] instanceof Number coProcessors)) {
             return original.call(text, args);

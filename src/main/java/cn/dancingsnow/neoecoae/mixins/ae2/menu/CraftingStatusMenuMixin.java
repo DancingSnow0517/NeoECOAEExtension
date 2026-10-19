@@ -4,6 +4,7 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuListEntry;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -36,6 +37,8 @@ public class CraftingStatusMenuMixin extends CraftingCPUMenu {
         )
     )
     private boolean wrapAdd(ArrayList instance, Object e, Operation<Boolean> original, @Local ICraftingCPU cpu, @Local int serial) {
+        ECOCraftingCpuListEntry.of((CraftingStatusMenu.CraftingCpuListEntry) e)
+            .neoecoae$setEcoCpu(cpu instanceof ECOCraftingCPU);
         if (cpu instanceof ECOCraftingCPU ecoCPU) {
             IOverlayTextureHolder.of((CraftingStatusMenu.CraftingCpuListEntry) e).neoecoae$setOverlay(ecoCPU.getTier().getCPUOverlayTexture());
         }

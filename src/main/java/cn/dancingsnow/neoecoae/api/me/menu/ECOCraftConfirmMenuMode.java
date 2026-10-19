@@ -8,6 +8,9 @@ import org.jetbrains.annotations.Nullable;
 
 /** Client-synchronized ECO state for the AE2 crafting confirmation menu. */
 public interface ECOCraftConfirmMenuMode {
+    /** Whether the currently selected CPU belongs to ECO, independent of planner and tier. */
+    default boolean neoecoae$isSelectedCpuEco() { return false; }
+
     /** CPU tier glyph for the ECO crafting report header: 4, 6, 9, or 0 when unavailable. */
     default int neoecoae$getSelectedCpuTier() { return 0; }
 

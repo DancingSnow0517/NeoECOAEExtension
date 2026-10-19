@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuListEntry;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
@@ -13,7 +14,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(CraftingStatusMenu.CraftingCpuListEntry.class)
-public class CraftingCpuListEntryMixin implements IOverlayTextureHolder {
+public class CraftingCpuListEntryMixin implements IOverlayTextureHolder, ECOCraftingCpuListEntry {
+
+    @Unique
+    private boolean neoecoae$ecoCpu;
+
+    @Override
+    public boolean neoecoae$isEcoCpu() {
+        return neoecoae$ecoCpu;
+    }
+
+    @Override
+    public void neoecoae$setEcoCpu(boolean ecoCpu) {
+        neoecoae$ecoCpu = ecoCpu;
+    }
 
     @Unique
     private ResourceLocation neoecoae$overlayTexture = null;
@@ -40,6 +54,7 @@ public class CraftingCpuListEntryMixin implements IOverlayTextureHolder {
         } else {
             IOverlayTextureHolder.of(entry).neoecoae$setOverlay(null);
         }
+        ECOCraftingCpuListEntry.of(entry).neoecoae$setEcoCpu(buf.readBoolean());
     }
 
     @Inject(
@@ -52,5 +67,6 @@ public class CraftingCpuListEntryMixin implements IOverlayTextureHolder {
         } else {
             buf.writeUtf("");
         }
+        buf.writeBoolean(neoecoae$ecoCpu);
     }
 }

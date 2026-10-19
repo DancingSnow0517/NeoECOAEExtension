@@ -7,6 +7,7 @@ import appeng.client.gui.widgets.InfoBar;
 import appeng.core.localization.Tooltips;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuListEntry;
 import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -72,7 +73,9 @@ public class CpuSelectionListMixin {
         @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
     ) {
         // Both AE2 19.2.17 and 19.2.18 use this call after formatting storage differently.
-        original.call(instance, NEByteFormatter.formatCpuStorage(cpu.storage()), color, scale, xPos, yPos);
+        String storage = ECOCraftingCpuListEntry.isEcoCpu(cpu)
+            ? NEByteFormatter.formatCpuStorage(cpu.storage()) : text;
+        original.call(instance, storage, color, scale, xPos, yPos);
     }
 
     @WrapOperation(
@@ -82,7 +85,11 @@ public class CpuSelectionListMixin {
             target = "Lappeng/core/localization/Tooltips;ofBytes(J)Lnet/minecraft/network/chat/MutableComponent;"
         )
     )
-    private MutableComponent wrapStorageTooltip(long storage, Operation<MutableComponent> original) {
+    private MutableComponent wrapStorageTooltip(long storage, Operation<MutableComponent> original,
+            @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu) {
+        if (!ECOCraftingCpuListEntry.isEcoCpu(cpu)) {
+            return original.call(storage);
+        }
         return Component.literal(NEByteFormatter.format(storage)).withStyle(Tooltips.NUMBER_TEXT);
     }
 
@@ -100,7 +107,7 @@ public class CpuSelectionListMixin {
         Operation<Void> original,
         @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
     ) {
-        if (cpu.coProcessors() >= 1000) {
+        if (ECOCraftingCpuListEntry.isEcoCpu(cpu) && cpu.coProcessors() >= 1000) {
             Tooltips.Amount amount = Tooltips.getAmount(cpu.coProcessors());
             int index = amount.digit().indexOf('.');
             String digit = index > 0 ? amount.digit().substring(0, index) : amount.digit();

@@ -105,6 +105,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique @GuiSync(108) private boolean neoecoae$bigOrderCpu;
     @Unique @GuiSync(109) private String neoecoae$planningDiagnostic = "";
     @Unique @GuiSync(111) private int neoecoae$selectedCpuTier;
+    @Unique @GuiSync(112) private boolean neoecoae$selectedCpuEco;
 
     @Unique @GuiSync(110) private long neoecoae$diagnosticsVersion;
     @Unique private long neoecoae$receivedDiagnosticsVersion = -1;
@@ -149,6 +150,13 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Override public boolean neoecoae$bigOrderCpuAvailable() { return neoecoae$bigOrderCpu; }
 
     @Override public int neoecoae$getSelectedCpuTier() { return neoecoae$selectedCpuTier; }
+
+    @Override public boolean neoecoae$isSelectedCpuEco() { return neoecoae$selectedCpuEco; }
+
+    @Inject(method = "onCPUSelectionChanged", at = @At("TAIL"))
+    private void neoecoae$syncSelectedCpuOwnership(CallbackInfo ci) {
+        neoecoae$selectedCpuEco = selectedCpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+    }
 
     @Inject(method = "broadcastChanges", at = @At("HEAD"))
     private void neoecoae$syncBigOrderCpu(CallbackInfo ci) {
