@@ -421,8 +421,6 @@
   "tooltip.neoecoae.storage_dirve.0": "可驅動儲存矩陣",
   "tooltip.neoecoae.storage_dirve.1": "可驅動的儲存矩陣等級由儲存子系統主機決定",
   "tooltip.neoecoae.storage_system": "儲存系統的核心",
-  "tooltip.neoecoae.digital_singularity.power": "按全網碟數決定每碟耗電（AE/t）：1 碟→1,024；2 碟→4,096；3 碟→16,384",
-  "tooltip.neoecoae.digital_singularity.power_warning": "4 碟→65,535；5 碟→262,144；6 碟及以上→每碟 1,048,576（封頂）。空碟也計數。",
   "tooltip.neoecoae.infinite_component.header": "無限儲存：啟用條件",
   "tooltip.neoecoae.infinite_component.components": "組件槽：64 個無限儲存組件（放入儲存主機頁面的槽位中）",
   "tooltip.neoecoae.infinite_component.matrices": "驅動器：任意 12 個 L9 儲存矩陣（同一台儲存主機內）",

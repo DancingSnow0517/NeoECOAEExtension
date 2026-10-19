@@ -686,8 +686,6 @@
   "tooltip.neoecoae.storage_dirve.0": "§7§o可驱动存储矩阵",
   "tooltip.neoecoae.storage_dirve.1": "§7§o可驱动的存储矩阵等级由存储子系统主机决定",
   "tooltip.neoecoae.storage_system": "§7§o存储系统的核心",
-  "tooltip.neoecoae.digital_singularity.power": "按全网盘数决定每盘耗电（AE/t）：1 盘→1,024；2 盘→4,096；3 盘→16,384",
-  "tooltip.neoecoae.digital_singularity.power_warning": "4 盘→65,535；5 盘→262,144；6 盘及以上→每盘 1,048,576（封顶）。空盘也计数。",
   "tooltip.neoecoae.infinite_component.header": "无限存储：启用条件",
   "tooltip.neoecoae.infinite_component.components": "组件槽：64 个无限存储组件（放入存储主机页面的槽位中）",
   "tooltip.neoecoae.infinite_component.matrices": "驱动器：任意 12 个 L9 存储矩阵（同一台存储主机内）",

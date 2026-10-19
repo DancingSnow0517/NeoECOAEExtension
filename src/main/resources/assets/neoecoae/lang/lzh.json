@@ -421,8 +421,6 @@
   "tooltip.neoecoae.storage_dirve.0": "可驅藏矩",
   "tooltip.neoecoae.storage_dirve.1": "可驅藏矩之等，決於藏器主機",
   "tooltip.neoecoae.storage_system": "藏器之分本樞",
-  "tooltip.neoecoae.digital_singularity.power": "全網矩數定每矩耗電（AE/t）：一矩→1,024；二矩→4,096；三矩→16,384",
-  "tooltip.neoecoae.digital_singularity.power_warning": "四矩→65,535；五矩→262,144；六矩以上，每矩皆 1,048,576，至此為限。空矩亦計。",
   "tooltip.neoecoae.infinite_component.header": "無限藏：啟用之法",
   "tooltip.neoecoae.infinite_component.components": "件槽：六十四無限藏件（置於藏器主機頁之槽位）",
   "tooltip.neoecoae.infinite_component.matrices": "驅動器：任意十二 L9 藏矩（同一藏器主機內）",

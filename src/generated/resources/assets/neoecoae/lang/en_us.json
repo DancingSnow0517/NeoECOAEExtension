@@ -1030,8 +1030,6 @@
   "tooltip.neoecoae.storage_dirve.0": "Can drive storage matrix",
   "tooltip.neoecoae.storage_dirve.1": "The drivable storage matrix tier depends on the storage subsystem host controller",
   "tooltip.neoecoae.storage_system": "The core of the storage subsystem",
-  "tooltip.neoecoae.digital_singularity.power": "Per matrix (AE/t), by network count: 1: 1,024; 2: 4,096; 3: 16,384",
-  "tooltip.neoecoae.digital_singularity.power_warning": "4: 65,535; 5: 262,144; 6+: 1,048,576 per matrix (capped). Empty matrices count.",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "Aluminum Alloy Upgrade",
   "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade",
   "cell_type.neoecoae.spent_nuclear_waste": "Spent Nuclear Waste",
