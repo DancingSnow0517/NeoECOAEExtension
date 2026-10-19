@@ -135,6 +135,12 @@ public final class MegaCellsIntegration {
         if (ModList.get().isLoaded("apprep")) {
             addExternalCells("matter", NEMegaExternalItems.registerMatter());
         }
+        if (ModList.get().isLoaded("appliedcreate")) {
+            addExternalCells("stress", NEMegaExternalItems.registerStress());
+        }
+        if (ModList.get().isLoaded("data_energistics")) {
+            addExternalCells("data", NEMegaExternalItems.registerData());
+        }
     }
 
     private void addExternalCells(String family, List<ItemEntry<ECOStorageCellItem>> cells) {

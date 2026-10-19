@@ -4,6 +4,7 @@ import appeng.api.stacks.AEKeyType;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.integration.ExternalCellKeyTypes;
+import cn.dancingsnow.neoecoae.integration.dataenergistics.ECODataStorageCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Item;
@@ -41,6 +42,14 @@ final class NEMegaExternalItems {
 
     static List<ItemEntry<ECOStorageCellItem>> registerMatter() {
         return Matter.CELLS;
+    }
+
+    static List<ItemEntry<ECOStorageCellItem>> registerStress() {
+        return Stress.CELLS;
+    }
+
+    static List<ItemEntry<ECOStorageCellItem>> registerData() {
+        return Data.CELLS;
     }
 
     private static ItemEntry<Item> housing(String family, String displayFamily) {
@@ -115,5 +124,21 @@ final class NEMegaExternalItems {
         private static final ItemEntry<Item> HOUSING = housing("mega_matter", "Mega Matter");
         private static final List<ItemEntry<ECOStorageCellItem>> CELLS = cells("mega_matter", "Mega Matter",
             ExternalCellKeyTypes.byId("apprep", "m"), NEMegaExternalCellTypes.matter());
+    }
+
+    private static final class Stress {
+        private static final ItemEntry<Item> HOUSING = housing("mega_stress", "Mega Stress");
+        private static final List<ItemEntry<ECOStorageCellItem>> CELLS = cells("mega_stress", "Mega Stress",
+            ExternalCellKeyTypes.byId("appliedcreate", "stress"), NEMegaExternalCellTypes.stress());
+    }
+
+    private static final class Data {
+        private static final ItemEntry<Item> HOUSING = housing("mega_data", "Mega Data");
+        private static final List<ItemEntry<ECOStorageCellItem>> CELLS = List.of(
+            NEMegaItems.<ECOStorageCellItem>optionalCell("mega_data", "Mega Data", "4g", ECOTier.L9,
+                MEGA_4G_CAPACITY, Rarity.EPIC,
+                (properties, tier, type, capacity) -> new ECODataStorageCellItem(properties, tier, type,
+                    capacity, MegaCellCapacities.normalBytesPerType(tier),
+                    MegaCellCapacities.normalIdleDrain(capacity)), NEMegaExternalCellTypes.data()));
     }
 }

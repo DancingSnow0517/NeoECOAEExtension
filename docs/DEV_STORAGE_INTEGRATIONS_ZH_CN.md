@@ -18,6 +18,19 @@
 
 ## runClient 依赖
 
+### 桌面 `new` 第二批素材
+
+五张 16×16 PNG 已按原始文件内容导入：普通数据盘、MEGA 数据盘、普通应力盘、MEGA 应力盘和放射性化学品盘。素材文件名 `MEGA放射性物品盘.png` 经用户确认实际表示放射性化学品，替换既有化学品外壳，不新增放射性物品通道。
+
+- Applied Create（应用机动，`appliedcreate`）新增 `eco_stress_cell_housing` 和 `eco_stress_cell_16m/64m/256m`，对应 L4/L6/L9，类型上限为 1，容量和待机耗电沿用普通 ECO 盘。每字节应力量和每次操作量均遵循上游 `appliedcreate:stress` 的配置。
+- Applied Create 与 MEGA Cells 同时加载时，新增 `mega_stress_cell_housing` 和 `eco_mega_stress_cell_4g`，容量 4 GiB，类型上限为 1。
+- Data Energistics 与 MEGA Cells 同时加载时，新增 `mega_data_cell_housing` 和 `eco_mega_data_cell_4g`，容量 4 GiB，类型上限为 4；同时支持 `digitalization` 与 `manifest_binary`，共用同一容量。现有普通数据盘的容量不变，因此当前普通 LE9 数据盘与 MEGA 数据盘均为 4 GiB。
+- 新增合成、空盘拆解、物品分级灯与状态灯模型、驱动器内模型、中英文翻译，以及数据/应力面板图例映射。普通应力盘配方沿用普通可选通道盘的外壳加组件方案，MEGA 配方沿用既有 MEGA 系列。
+
+新增配方位于 `recipe/compat/appliedcreate` 和 `recipe/compat/megacells`，均带相应 Mod 加载条件。联动通过资源类型 ID 延迟解析，不需要强制安装 Applied Create。
+
+开发客户端加入 Applied Create 1.1.7 和 Create 6.0.10；Create JAR 内嵌 Flywheel 1.0.6 与 Ponder 1.0.82，Kotlin for Forge 沿用现有 5.12.0。该批次只准备依赖和编译源码，不运行游戏或测试。
+
 `build.gradle` 为同一个开发客户端配置以下存储联动：
 
 - Applied Mekanistics / Mekanism：化学品。

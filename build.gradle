@@ -145,6 +145,8 @@ dependencies {
     devMods("maven.modrinth:applied-replicatics:nQ4pLTkV") { transitive = false } // 21.1-1.2.1
     devMods("maven.modrinth:replication:XfQXDcjc") { transitive = false } // 1.21.1-1.2.7
     devMods("maven.modrinth:kotlin-for-forge:uhJhCT7X") { transitive = false } // 5.12.0
+    devMods("maven.modrinth:applied-create:2bWngfNH") { transitive = false } // 1.1.7
+    devMods("maven.modrinth:create:UjX6dr61") { transitive = false } // 6.0.10, embeds Flywheel/Ponder
     devMods("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
     // Data Energistics embeds Configuration 3.1.1; do not install a second standalone copy.
     testImplementation(platform('org.junit:junit-bom:5.11.4'))

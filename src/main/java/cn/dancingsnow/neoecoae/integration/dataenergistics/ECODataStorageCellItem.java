@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.resources.ResourceLocation;
@@ -12,6 +13,7 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
+import java.util.function.Supplier;
 
 public final class ECODataStorageCellItem extends ECOStorageCellItem {
     private static final long LE4_CAPACITY = 1L << 28;
@@ -28,15 +30,22 @@ public final class ECODataStorageCellItem extends ECOStorageCellItem {
     }
 
     private ECODataStorageCellItem(Properties properties, IECOTier tier, long totalBytes) {
+        this(properties, tier, NEDataCellTypes.DATA, totalBytes, 1 << (12 + tier.getTier()),
+            (double) tier.getStorageTotalBytes() / (1 << 20));
+    }
+
+    /** Keeps both upstream channels available to the optional MEGA variant. */
+    public ECODataStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> cellType,
+                                  long totalBytes, int bytesPerType, double idleDrain) {
         // Both upstream channels store eight units per byte. Resolve after key registration.
         super(
             properties,
             tier,
             () -> AEKeyTypes.get(DIGITALIZATION),
-            NEDataCellTypes.DATA,
+            cellType,
             totalBytes,
-            1 << (12 + tier.getTier()),
-            (double) tier.getStorageTotalBytes() / (1 << 20)
+            bytesPerType,
+            idleDrain
         );
     }
 

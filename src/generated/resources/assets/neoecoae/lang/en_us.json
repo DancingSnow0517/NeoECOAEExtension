@@ -1046,5 +1046,16 @@
   "item.neoecoae.eco_radioactive_chemical_cell_64m": "ECO - LE6 Storage Matrix (Radioactive Chemical)",
   "item.neoecoae.eco_radioactive_chemical_cell_256m": "ECO - LE9 Storage Matrix (Radioactive Chemical)",
   "item.neoecoae.mega_matter_cell_housing": "ECO MEGA Storage Matrix Housing (Matter)",
-  "item.neoecoae.eco_mega_matter_cell_4g": "ECO - LE9 Storage Matrix (Mega Matter)"
+  "item.neoecoae.eco_mega_matter_cell_4g": "ECO - LE9 Storage Matrix (Mega Matter)",
+  "cell_type.neoecoae.stress": "Stress",
+  "cell_type.neoecoae.mega_stress": "MEGA Stress",
+  "cell_type.neoecoae.mega_data": "MEGA Data",
+  "item.neoecoae.eco_stress_cell_housing": "ECO Storage Matrix Housing (Stress)",
+  "item.neoecoae.eco_stress_cell_16m": "ECO - LE4 Storage Matrix (Stress)",
+  "item.neoecoae.eco_stress_cell_64m": "ECO - LE6 Storage Matrix (Stress)",
+  "item.neoecoae.eco_stress_cell_256m": "ECO - LE9 Storage Matrix (Stress)",
+  "item.neoecoae.mega_stress_cell_housing": "ECO MEGA Storage Matrix Housing (Stress)",
+  "item.neoecoae.eco_mega_stress_cell_4g": "ECO - LE9 Storage Matrix (Mega Stress)",
+  "item.neoecoae.mega_data_cell_housing": "ECO MEGA Storage Matrix Housing (Data)",
+  "item.neoecoae.eco_mega_data_cell_4g": "ECO - LE9 Storage Matrix (Mega Data)"
 }

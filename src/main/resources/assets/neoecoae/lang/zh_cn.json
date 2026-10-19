@@ -1048,5 +1048,16 @@
   "item.neoecoae.eco_radioactive_chemical_cell_64m": "ECO - LE6 存储矩阵（放射性化学品）",
   "item.neoecoae.eco_radioactive_chemical_cell_256m": "ECO - LE9 存储矩阵（放射性化学品）",
   "item.neoecoae.mega_matter_cell_housing": "ECO MEGA 存储矩阵外壳（物质）",
-  "item.neoecoae.eco_mega_matter_cell_4g": "ECO - LE9 存储矩阵（MEGA 物质）"
+  "item.neoecoae.eco_mega_matter_cell_4g": "ECO - LE9 存储矩阵（MEGA 物质）",
+  "cell_type.neoecoae.stress": "应力",
+  "cell_type.neoecoae.mega_stress": "MEGA 应力",
+  "cell_type.neoecoae.mega_data": "MEGA 数据",
+  "item.neoecoae.eco_stress_cell_housing": "ECO 存储矩阵外壳（应力）",
+  "item.neoecoae.eco_stress_cell_16m": "ECO - LE4 存储矩阵（应力）",
+  "item.neoecoae.eco_stress_cell_64m": "ECO - LE6 存储矩阵（应力）",
+  "item.neoecoae.eco_stress_cell_256m": "ECO - LE9 存储矩阵（应力）",
+  "item.neoecoae.mega_stress_cell_housing": "ECO MEGA 存储矩阵外壳（应力）",
+  "item.neoecoae.eco_mega_stress_cell_4g": "ECO - LE9 存储矩阵（MEGA 应力）",
+  "item.neoecoae.mega_data_cell_housing": "ECO MEGA 存储矩阵外壳（数据）",
+  "item.neoecoae.eco_mega_data_cell_4g": "ECO - LE9 存储矩阵（MEGA 数据）"
 }

@@ -37,6 +37,14 @@ final class NEMegaExternalCellTypes {
         return Matter.TYPE;
     }
 
+    static Supplier<ECOCellType> stress() {
+        return Stress.TYPE;
+    }
+
+    static Supplier<ECOCellType> data() {
+        return Data.TYPE;
+    }
+
     private static NECellTypeEntry register(String id, String name, int color) {
         REGISTRATE.addLang("cell_type", NeoECOAE.id(id), name);
         return REGISTRATE.cellType(id)
@@ -69,6 +77,21 @@ final class NEMegaExternalCellTypes {
         private static final NECellTypeEntry TYPE = REGISTRATE.cellType("mega_matter")
             .desc(Component.translatable("cell_type.neoecoae.mega_matter").withColor(0x72E567))
             .typeCount(3)
+            .register();
+    }
+
+    private static final class Stress {
+        private static final NECellTypeEntry TYPE = register("mega_stress", "MEGA Stress", 0xEFC700);
+    }
+
+    private static final class Data {
+        static {
+            REGISTRATE.addLang("cell_type", NeoECOAE.id("mega_data"), "MEGA Data");
+        }
+
+        private static final NECellTypeEntry TYPE = REGISTRATE.cellType("mega_data")
+            .desc(Component.translatable("cell_type.neoecoae.mega_data").withColor(0x15BFAE))
+            .typeCount(4)
             .register();
     }
 }

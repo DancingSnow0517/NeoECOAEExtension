@@ -128,9 +128,10 @@ final class StoragePanelTextures {
             case "neoecoae:complex_omni", "ae2omnicells:complex_omni", "ae2omnicells:complex_omni_cell" -> 11;
             case "neoecoae:quantum_omni", "ae2omnicells:quantum_omni", "ae2omnicells:quantum_omni_cell" -> 12;
             case "neoecoae:spent_nuclear_waste", "ae2omnicells:spent_nuclear_waste", "ae2omnicells:spent_nuclear_waste_cell", "mekanism:spent_nuclear_waste" -> 13;
-            case "neoecoae:data", "data_energistics:data", "data_energistics:data_flow",
+            case "neoecoae:data", "neoecoae:mega_data", "data_energistics:data", "data_energistics:data_flow",
                 "data_energistics:digitalization", "data_energistics:manifest_binary" -> DATA_SWATCH;
             case "neoecoae:radioactive_chemical" -> RADIOACTIVE_SWATCH;
+            case "neoecoae:stress", "neoecoae:mega_stress", "appliedcreate:stress" -> STRESS_SWATCH;
             case "neoecoae:matter", "neoecoae:mega_matter", "apprep:m" -> MATTER_SWATCH;
             default -> FALLBACK_SWATCH;
         };
