@@ -13,7 +13,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** ECO-only transport adapter. Never calls getBatchCapacity, pushBatch or either AE2LT ramp. */
 public final class ECOAe2LtDirectDispatch {
-    private static final String LOGIC = "com.moakiee.ae2lt.logic.OverloadedPatternProviderLogic";
+    private static final String LOGIC = "com.moakiee.ae2lt.logic.provider.OverloadedPatternProviderLogic";
     private static final ClassValue<Optional<Access>> ACCESS = new ClassValue<>() {
         protected Optional<Access> computeValue(Class<?> type) {
             try { return Optional.of(new Access(type)); }
@@ -207,7 +207,7 @@ public final class ECOAe2LtDirectDispatch {
             wake = method(type, "alertGridTick", 0); save = method(type, "saveChanges", 0);
             Class<?> power = Class.forName("com.moakiee.ae2lt.logic.energy.PowerCostUtil", false, type.getClassLoader());
             cost = method(power, "totalCost", 1);
-            Class<?> registry = Class.forName("com.moakiee.ae2lt.logic.EjectModeRegistry", false, type.getClassLoader());
+            Class<?> registry = Class.forName("com.moakiee.ae2lt.logic.provider.EjectModeRegistry", false, type.getClassLoader());
             setBypass = method(registry, "setBypass", 1);
         }
     }
