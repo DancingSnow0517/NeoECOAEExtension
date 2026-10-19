@@ -197,6 +197,10 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.pattern.verified_special_nbt", "Verified: special NBT pattern");
 
         provider.add("tooltip.neoecoae.storage_system", "The core of the storage subsystem");
+        provider.add("tooltip.neoecoae.digital_singularity.power",
+            "Per matrix (AE/t), by network count: 1: 1,024; 2: 4,096; 3: 16,384");
+        provider.add("tooltip.neoecoae.digital_singularity.power_warning",
+            "4: 65,535; 5: 262,144; 6+: 1,048,576 per matrix (capped). Empty matrices count.");
         addLangs(provider, "tooltip.neoecoae.storage_dirve",
             "Can drive storage matrix",
             "The drivable storage matrix tier depends on the storage subsystem host controller"

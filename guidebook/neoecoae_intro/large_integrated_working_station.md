@@ -17,7 +17,7 @@ item_ids:
 
 Each communication block starts with **4 rows / 36 pattern slots**. Insert up to **4 native AE2 capacity cards** in the right-hand upgrade panel. Each card immediately adds one row, up to **8 rows / 72 slots**.
 
-The 4-row viewport scrolls smoothly with the mouse wheel and draggable scrollbar, clipping partial rows at both edges. Empty the last row before removing a capacity card. Existing patterns outside the currently unlocked capacity remain retrievable when loading older saves; reinstall capacity cards to insert patterns into those rows again.
+The viewport shows up to 5 rows and scrolls smoothly with the mouse wheel and draggable scrollbar, clipping partial rows at both edges. Empty the last row before removing a capacity card. Existing patterns outside the currently unlocked capacity remain retrievable when loading older saves; reinstall capacity cards to insert patterns into those rows again.
 
 ## Upgrade cards and recipe compatibility
 
@@ -66,9 +66,9 @@ The server setting `largeWorkstationTemperatureEnabled` defaults to `true`. Set 
 | Sodium (tier 6) | 65,536 | 1× |
 | Cryotheum Solution (tier 9) | 262,144 | 1× |
 
-Coolant mode provides higher parallelism only while **Overclock** and **Active Cooling** are both enabled and the coolant meets the batch requirement. Coolant tier directly determines the limit for new batches; the selected temperature tier and temperature thresholds do not apply. An overclocked batch consumes **100 mB per processing tick that actually advances work**. Idle, unpowered and paused machines consume none. Insufficient coolant, a coolant tier below the accepted batch's requirement or blocked byproducts pause the batch without losing inputs or progress. Higher-tier coolant can keep an existing lower-tier batch running.
+Coolant mode provides higher parallelism only while **Overclock** and **Active Cooling** are both enabled and the coolant meets the batch requirement. Coolant tier directly determines the limit for new batches; temperature thresholds do not apply. An overclocked batch consumes **100 mB per processing tick that actually advances work**. Idle, unpowered and paused machines consume none. Insufficient coolant, a coolant tier below the accepted batch's requirement or blocked byproducts pause the batch without losing inputs or progress. Higher-tier coolant can keep an existing lower-tier batch running.
 
-Disabling temperature stops preheating and thermal updates. The screen indicates coolant mode, and the selected temperature tier no longer affects parallelism. Saved temperature and overheat protection remain stored but do not block processing while disabled. Re-enabling temperature checks them again, so an already overheated machine still requires cryotheum recovery. Switching modes never discards accepted batches.
+Disabling temperature stops preheating and thermal updates. The screen indicates coolant mode. Saved temperature and overheat protection remain stored but do not block processing while disabled. Re-enabling temperature checks them again, so an already overheated machine still requires cryotheum recovery. Switching modes never discards accepted batches.
 
 **The preheating, temperature and overheat rules below apply only while temperature mode is enabled.**
 
@@ -78,15 +78,17 @@ Each task card shows the product name, amount beside its status, and a separate 
 
 The three lower rows show temperature tier and temperature, coolant and actual temperature reduction per second, then overclock status and parallel capacity. These rows display information and provide Tooltips.
 
-The side rail retains the overclock switch and target tier button, which cycles through **2 / 6 / 9**. The screen no longer provides preheat or cooling buttons; enabling overclocking or changing the tier does not automatically start preheating or active cooling.
+The control area retains the overclock switch. Temperature bands are read-only and follow current temperature automatically: **20% / 50% / 80%** unlock bands **4 / 6 / 9**. Enabling overclocking alone generates no heat; recipes must actually advance.
 
-Existing saved preheating and active cooling states still follow their original rules. Preheating uses **1,000 AE/t** at full power and adds **2 percentage points/s**, scaled down when power is insufficient. It stops at the selected temperature threshold and never restarts automatically to counter cooling.
+Independent electric preheating uses **1,000 AE/t** at full power and adds **2 percentage points/s**, scaled by actual payment. Manual preheating stops at the next threshold (20%, 50% or 80%), or when processing advances. It never restarts automatically to counter cooling.
 
-New batches use the highest temperature-ready tier within the selected maximum. The requirement is checked **throughout processing**, not just when a batch is accepted. Low temperature or disabled overclocking pauses the batch while retaining inputs and progress. Processing resumes when the conditions are restored. Changing the selected maximum affects new batches without rewriting accepted batches.
+New batches use the highest temperature-ready tier. Temperature requirements are checked throughout processing. Low temperature or disabled overclocking pauses the batch while retaining inputs and progress. Processing resumes when conditions recover. Temperature changes do not rewrite accepted batch tiers.
 
 ## Heating and coolant selection
 
-Temperature ranges from **0% to 100%**. Full-load overclocked heat generation is `0.2 + 0.8 × (temperature / 100)²` percentage points/s, scaled by actual base-recipe work including multiplied patterns. **Higher temperatures generate heat faster.** Normal and paused batches generate no processing heat.
+Temperature ranges from **0% to 100%**. While overclocking is enabled and recipes actually advance, full-load heat generation is `0.2 + 0.8 × (temperature / 100)²` percentage points/s, scaled by actual base-recipe work including multiplied patterns. Normal batches below the first threshold can also warm up an overclocked machine. **Higher temperatures generate heat faster.** Disabled overclocking, idle, unpowered, paused and output-blocked machines generate no processing heat.
+
+Without overclocked processing or independent electric preheating, temperature naturally falls by **0.1 percentage points/s**, requiring no coolant or power and stopping at 0%. Processing uses net heat generation minus active cooling. Latched overheat still requires cryotheum recovery.
 
 Active cooling works independently of the overclock switch and consumes **100 mB/server tick (2 B/s)**:
 
@@ -114,7 +116,7 @@ Recovery requires **uninterrupted successful Cryotheum Solution consumption**. D
 
 | Symptom | Action |
 | --- | --- |
-| Overclocking is enabled but capacity is still 256 | Check the selected tier and current temperature; enabling overclocking does not heat the machine automatically |
+| Overclocking is enabled but capacity is still 256 | Current temperature is below 20%; advance recipes or use independent preheating to warm up |
 | A batch pauses due to low temperature | Temperature is below the batch requirement; inputs and progress are retained until conditions recover |
 | Stronger coolant lowers temperature | Cooling exceeds actual heating; a weaker coolant may be suitable |
 | Temperature still rises with cooling enabled | Cooling only slows the rise when heating exceeds cooling; hover over cooling information to check its state, amount, recipe and byproduct output capacity |

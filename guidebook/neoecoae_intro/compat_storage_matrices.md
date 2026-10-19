@@ -8,6 +8,26 @@ navigation:
 
 # Compatibility Storage Matrices
 
+## Digital Singularity Matrices: Network Power Tiers
+
+ECO Digital Singularity matrices require **Bigger AE2**. Item, fluid and chemical matrices each store five resource types with unlimited quantities. FE, Experience and Source matrices each store one type.
+
+All usable ECO Digital Singularity matrices in one ME network share a count `N`, which sets the idle drain of **each matrix**. Different resource types, drives and storage controllers share this count, including empty matrices. Ordinary and Quantum matrices do not contribute.
+
+| Digital Singularity Matrices | Idle Drain per Matrix | Combined Idle Drain |
+|-----------------------------|-----------------------|---------------------|
+| 1 | 1,024 AE/t | 1,024 AE/t |
+| 2 | 4,096 AE/t | 8,192 AE/t |
+| 3 | 16,384 AE/t | 49,152 AE/t |
+| 4 | 65,535 AE/t | 262,140 AE/t |
+| 5 | 262,144 AE/t | 1,310,720 AE/t |
+| 6 | 1,048,576 AE/t | 6,291,456 AE/t |
+| 7 | 1,048,576 AE/t | 7,340,032 AE/t |
+
+At six or more matrices, the rate stays capped at **1,048,576 AE/t per matrix**. Total demand then grows linearly with the matrix count. Inserting or removing a matrix updates the rate for every Digital Singularity matrix in the network.
+
+Controller, drive and channel power are additional. Insufficient power takes the ME network offline while preserving stored contents. Losing power does not reset the count; removing matrices reduces demand. Separate ME networks count independently. Each storage controller displays its proportional share of the network surcharge.
+
 Compatibility storage matrices extend the <ItemLink id="neoecoae:eco_drive" /> to key types provided by other mods. A storage subsystem controller can operate matrices of its own tier or any lower tier.
 
 These matrices are registered only when their companion mod is installed. **AE2 Omni Cells** provides the Omni families, **AE2 Lightning Tech** the Lightning family, **AppFlux** the FE family, **Ars Energistique** the Source family, **AppBot** the Mana family, and **AppMek** the Chemical family.
