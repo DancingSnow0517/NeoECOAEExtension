@@ -154,11 +154,11 @@ class StoragePanelStateTest {
                 if (!text.isEmpty()) colors.add(style.getColor().getValue());
                 return java.util.Optional.<Void>empty();
             }, net.minecraft.network.chat.Style.EMPTY);
-            assertEquals(List.of(usedColors[index], 0x3F3D52, HostText.VALUE), colors);
+            assertEquals(List.of(usedColors[index], 0x3F3D52, StoragePanelTextures.VALUE_TEXT), colors);
         }
         Component infinite = StorageHostCharts.capacityValue(barState(true, 1, List.of()));
         assertEquals("150", infinite.getString());
-        assertEquals(HostText.VALUE, infinite.getStyle().getColor().getValue());
+        assertEquals(StoragePanelTextures.VALUE_TEXT, infinite.getStyle().getColor().getValue());
     }
 
     @Test

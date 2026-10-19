@@ -7,6 +7,8 @@ import net.minecraft.resources.ResourceLocation;
 
 /** Pixel rectangles in the storage host artwork. */
 final class StoragePanelTextures {
+    // Deep purple stays legible on both the grey type cards and the light host panel.
+    static final int VALUE_TEXT = 0x32204F;
     private static final ResourceLocation ATLAS = id("storage_widget.png");
     // Let the GUI atlas consume .mcmeta. GeckoLib replaces raw animated textures with a
     // single uploaded frame, so sampling that texture as a 12x120 sheet breaks the UVs.

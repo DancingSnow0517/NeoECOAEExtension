@@ -349,7 +349,9 @@ final class StorageHostCharts {
                 context.drawTexture(StoragePanelTextures.TYPE_PANEL, getPositionX(), y, 68, 29);
                 StoragePanelState.TypeLine type = state().types().get(index);
                 context.drawTexture(StoragePanelTextures.resourceIcon(type.swatch(), type.color()), getPositionX() + 2, y + 2, 6, 6);
-                text(context, type.name(), 10, row * 29 + 2, nameWidth, nameFontScale, TEXT);
+                // Mod-provided name styles can disagree with the resource icon's palette.
+                text(context, Component.literal(type.name().getString()), 10, row * 29 + 2,
+                    nameWidth, nameFontScale, type.color());
                 text(context, usage(HostText.ae2Amount(type.usedTypes()), type.usedTypes(), type.totalTypes(),
                     StorageCellGrid.capacity(type.totalTypes())), 3, row * 29 + 13, 29, valueFontScale, TEXT);
                 text(context, usage(type.bytesText(), type.usedBytes(), type.totalBytes(),
@@ -368,8 +370,9 @@ final class StorageHostCharts {
 
         /** Panel figure: coloured used part over a bounded total, or the plain used figure when unbounded. */
         private Component usage(String used, long usedValue, long totalValue, String total) {
-            if (totalValue < 0 || state().unbounded()) return HostText.totalPart(used);
-            return HostText.usedOfTotal(HostText.usedPart(used, usedValue, totalValue), "/", HostText.totalPart(total));
+            if (totalValue < 0 || state().unbounded()) return HostText.totalPart(used).withColor(StoragePanelTextures.VALUE_TEXT);
+            return HostText.usedOfTotal(HostText.usedPart(used, usedValue, totalValue), "/",
+                HostText.totalPart(total).withColor(StoragePanelTextures.VALUE_TEXT));
         }
 
         List<Component> tooltip(int row) {
@@ -459,10 +462,10 @@ final class StorageHostCharts {
 
     static Component capacityValue(StoragePanelState state) {
         var used = Component.literal(state.usedBytes()).withColor(state.unbounded()
-            ? HostText.VALUE : HostText.gaugeTextColor((float) state.usage()));
+            ? StoragePanelTextures.VALUE_TEXT : HostText.gaugeTextColor((float) state.usage()));
         if (state.unbounded()) return used;
         return used.append(Component.literal(" / ").withColor(TEXT))
-            .append(Component.literal(HostText.ae2Amount(state.totalBytes())).withColor(HostText.VALUE));
+            .append(Component.literal(HostText.ae2Amount(state.totalBytes())).withColor(StoragePanelTextures.VALUE_TEXT));
     }
 
     private static Component fullCapacityValue(StoragePanelState state) {
