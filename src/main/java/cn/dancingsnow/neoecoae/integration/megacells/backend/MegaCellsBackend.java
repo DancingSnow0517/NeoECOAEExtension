@@ -1,5 +1,10 @@
 package cn.dancingsnow.neoecoae.integration.megacells.backend;
 
+import appeng.api.stacks.AEKey;
+import gripe._90.megacells.definition.MEGAConfig;
+import me.ramidzkh.mekae2.ae2.MekanismKey;
+import mekanism.api.chemical.attribute.ChemicalAttributeValidator;
+import mekanism.common.registries.MekanismChemicals;
 import net.neoforged.fml.ModList;
 
 /**
@@ -23,5 +28,14 @@ public final class MegaCellsBackend {
 
     public static boolean isChemicalAvailable() {
         return ModList.get().isLoaded(APPMEK_MOD_ID) && ModList.get().isLoaded(MEKANISM_MOD_ID);
+    }
+
+    /** Matches MEGA Cells' radioactive-cell policy, including its spent-waste setting. */
+    public static boolean acceptsRadioactiveChemical(AEKey what) {
+        if (!(what instanceof MekanismKey key)) return false;
+        if (key.getStack().getChemical() == MekanismChemicals.SPENT_NUCLEAR_WASTE.get()) {
+            return MEGAConfig.CONFIG.isSpentWasteAllowed();
+        }
+        return !ChemicalAttributeValidator.DEFAULT.process(key.getStack());
     }
 }

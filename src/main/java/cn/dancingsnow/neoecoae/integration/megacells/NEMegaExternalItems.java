@@ -39,6 +39,10 @@ final class NEMegaExternalItems {
         return Source.CELLS;
     }
 
+    static List<ItemEntry<ECOStorageCellItem>> registerMatter() {
+        return Matter.CELLS;
+    }
+
     private static ItemEntry<Item> housing(String family, String displayFamily) {
         return NEMegaItems.housing(family, displayFamily);
     }
@@ -105,5 +109,11 @@ final class NEMegaExternalItems {
         private static final ItemEntry<Item> HOUSING = housing("mega_source", "Mega Source");
         private static final List<ItemEntry<ECOStorageCellItem>> CELLS = cells("mega_source", "Mega Source",
             ExternalCellKeyTypes.byId("arseng", "source"), NEMegaExternalCellTypes.source());
+    }
+
+    private static final class Matter {
+        private static final ItemEntry<Item> HOUSING = housing("mega_matter", "Mega Matter");
+        private static final List<ItemEntry<ECOStorageCellItem>> CELLS = cells("mega_matter", "Mega Matter",
+            ExternalCellKeyTypes.byId("apprep", "m"), NEMegaExternalCellTypes.matter());
     }
 }

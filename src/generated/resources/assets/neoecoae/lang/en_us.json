@@ -1033,5 +1033,18 @@
   "item.neoecoae.eco_spent_nuclear_waste_cell_16m": "ECO - LE4 Storage Matrix (Spent Nuclear Waste)",
   "item.neoecoae.eco_spent_nuclear_waste_cell_256m": "ECO - LE9 Storage Matrix (Spent Nuclear Waste)",
   "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "ECO - LE6 Storage Matrix (Spent Nuclear Waste)",
-  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO Spent Nuclear Waste Storage Matrix Housing"
+  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO Spent Nuclear Waste Storage Matrix Housing",
+  "cell_type.neoecoae.matter": "Matter",
+  "cell_type.neoecoae.mega_matter": "MEGA Matter",
+  "cell_type.neoecoae.radioactive_chemical": "Radioactive Chemical",
+  "item.neoecoae.eco_matter_cell_housing": "ECO Storage Matrix Housing (Matter)",
+  "item.neoecoae.eco_matter_cell_16m": "ECO - LE4 Storage Matrix (Matter)",
+  "item.neoecoae.eco_matter_cell_64m": "ECO - LE6 Storage Matrix (Matter)",
+  "item.neoecoae.eco_matter_cell_256m": "ECO - LE9 Storage Matrix (Matter)",
+  "item.neoecoae.eco_radioactive_chemical_cell_housing": "ECO Storage Matrix Housing (Radioactive Chemical)",
+  "item.neoecoae.eco_radioactive_chemical_cell_16m": "ECO - LE4 Storage Matrix (Radioactive Chemical)",
+  "item.neoecoae.eco_radioactive_chemical_cell_64m": "ECO - LE6 Storage Matrix (Radioactive Chemical)",
+  "item.neoecoae.eco_radioactive_chemical_cell_256m": "ECO - LE9 Storage Matrix (Radioactive Chemical)",
+  "item.neoecoae.mega_matter_cell_housing": "ECO MEGA Storage Matrix Housing (Matter)",
+  "item.neoecoae.eco_mega_matter_cell_4g": "ECO - LE9 Storage Matrix (Mega Matter)"
 }

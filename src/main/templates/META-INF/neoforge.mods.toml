@@ -80,6 +80,10 @@ requiredMods=["molecularmanipulator"]
 config="${mod_id}.compat.fluxnetworks.mixins.json"
 requiredMods=["fluxnetworks"]
 
+[[mixins]]
+config="${mod_id}.compat.appbot.mixins.json"
+requiredMods=["appbot", "botania"]
+
 # The [[accessTransformers]] block allows you to declare where your AT file is.
 # If this block is omitted, a fallback attempt will be made to load an AT from META-INF/accesstransformer.cfg
 [[accessTransformers]]
@@ -163,6 +167,13 @@ file="META-INF/accesstransformer.cfg"
     # DecompressionService#getPatternPriority). Older releases, such as
     # 4.2.2, do not expose that method and crash during server ticks.
     versionRange="[4.11.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="apprep"
+    type="optional"
+    versionRange="[21.1-1.2.1,)"
     ordering="AFTER"
     side="BOTH"
 

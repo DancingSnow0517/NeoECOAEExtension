@@ -46,6 +46,7 @@ public final class MegaCellsIntegration {
         if (chemicalEnabled) {
             NEMegaChemicalCellType.register();
             NEMegaChemicalItems.register();
+            NEMegaRadioactiveItems.register();
         }
         registerExternalCells();
 
@@ -84,6 +85,7 @@ public final class MegaCellsIntegration {
         cells.addAll(NEMegaBaseItems.cells());
         if (energyEnabled) cells.addAll(NEMegaEnergyItems.cells());
         if (chemicalEnabled) cells.addAll(NEMegaChemicalItems.cells());
+        if (chemicalEnabled) cells.addAll(NEMegaRadioactiveItems.cells());
         for (MegaExternalCell externalCell : externalCells) cells.add(externalCell.cell());
         return cells;
     }
@@ -97,6 +99,7 @@ public final class MegaCellsIntegration {
                 false);
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", false);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", false);
+        if (chemicalEnabled) NEMegaRadioactiveItems.registerModels(false);
         registerExternalModels(false);
     }
 
@@ -109,6 +112,7 @@ public final class MegaCellsIntegration {
                 true);
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", true);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", true);
+        if (chemicalEnabled) NEMegaRadioactiveItems.registerModels(true);
         registerExternalModels(true);
     }
 
@@ -127,6 +131,9 @@ public final class MegaCellsIntegration {
         }
         if (ModList.get().isLoaded("arseng")) {
             addExternalCells("source", NEMegaExternalItems.registerSource());
+        }
+        if (ModList.get().isLoaded("apprep")) {
+            addExternalCells("matter", NEMegaExternalItems.registerMatter());
         }
     }
 

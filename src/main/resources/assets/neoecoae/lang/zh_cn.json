@@ -1035,5 +1035,18 @@
   "item.neoecoae.eco_spent_nuclear_waste_cell_16m": "ECO - LE4 乏核废料存储矩阵",
   "item.neoecoae.eco_spent_nuclear_waste_cell_256m": "ECO - LE9 乏核废料存储矩阵",
   "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "ECO - LE6 乏核废料存储矩阵",
-  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核废料存储矩阵外壳"
+  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核废料存储矩阵外壳",
+  "cell_type.neoecoae.matter": "物质",
+  "cell_type.neoecoae.mega_matter": "MEGA 物质",
+  "cell_type.neoecoae.radioactive_chemical": "放射性化学品",
+  "item.neoecoae.eco_matter_cell_housing": "ECO 存储矩阵外壳（物质）",
+  "item.neoecoae.eco_matter_cell_16m": "ECO - LE4 存储矩阵（物质）",
+  "item.neoecoae.eco_matter_cell_64m": "ECO - LE6 存储矩阵（物质）",
+  "item.neoecoae.eco_matter_cell_256m": "ECO - LE9 存储矩阵（物质）",
+  "item.neoecoae.eco_radioactive_chemical_cell_housing": "ECO 存储矩阵外壳（放射性化学品）",
+  "item.neoecoae.eco_radioactive_chemical_cell_16m": "ECO - LE4 存储矩阵（放射性化学品）",
+  "item.neoecoae.eco_radioactive_chemical_cell_64m": "ECO - LE6 存储矩阵（放射性化学品）",
+  "item.neoecoae.eco_radioactive_chemical_cell_256m": "ECO - LE9 存储矩阵（放射性化学品）",
+  "item.neoecoae.mega_matter_cell_housing": "ECO MEGA 存储矩阵外壳（物质）",
+  "item.neoecoae.eco_mega_matter_cell_4g": "ECO - LE9 存储矩阵（MEGA 物质）"
 }

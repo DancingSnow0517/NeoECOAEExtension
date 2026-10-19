@@ -13,11 +13,10 @@ tasks.named('wrapper', Wrapper).configure {
 version = mod_version
 group = mod_group_id
 
-// AppBot depends on a matching Botania development build. Keep that integration
-// out of normal builds until compatible releases are available.
+// AppBot's 1.21.1 release uses the matching Botania development build.
 def enableAppBotIntegration = providers.gradleProperty('enableAppBotIntegration')
     .map { it.toBoolean() }
-    .getOrElse(false)
+    .getOrElse(true)
 
 base {
     archivesName = mod_id
@@ -26,6 +25,19 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 repositories {
+    exclusiveContent {
+        forRepository {
+            ivy {
+                name = "Data Energistics releases"
+                url = "https://github.com/ModularMCLib/DataEnergistics/releases/download"
+                patternLayout {
+                    artifact "v[revision]-1.21/data_energistics-1.21.1-[revision].[ext]"
+                }
+                metadataSources { artifact() }
+            }
+        }
+        filter { includeGroup "github.dataenergistics" }
+    }
     flatDir {
         dir("libs")
     }
@@ -128,6 +140,13 @@ dependencies {
     devMods("curse.maven:patchouli-306770:7730942") { transitive = false }
     devMods("curse.maven:jade-324717:8591319") { transitive = false }
     devMods("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}") { transitive = false }
+    devMods("curse.maven:ae2-jei-integration-1074338:7727898") { transitive = false }
+    // All storage-cell integrations share the same development client.
+    devMods("maven.modrinth:applied-replicatics:nQ4pLTkV") { transitive = false } // 21.1-1.2.1
+    devMods("maven.modrinth:replication:XfQXDcjc") { transitive = false } // 1.21.1-1.2.7
+    devMods("maven.modrinth:kotlin-for-forge:uhJhCT7X") { transitive = false } // 5.12.0
+    devMods("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
+    // Data Energistics embeds Configuration 3.1.1; do not install a second standalone copy.
     testImplementation(platform('org.junit:junit-bom:5.11.4'))
     testImplementation('org.junit.jupiter:junit-jupiter')
     testImplementation('org.mockito:mockito-core:5.15.2')
@@ -190,17 +209,20 @@ dependencies {
 
     implementation("curse.maven:omni-cells-1359517:8050965")
 
-    // Optional integration APIs are available for compilation and tests, but not runClient.
+    // Compile and install the same Lightning/Thunderbolt pair in the development client.
     def localAe2LtJar = providers.gradleProperty("ae2lt_local_jar").orNull
     if (localAe2LtJar) {
         compileOnly(files(localAe2LtJar))
         testImplementation(files(localAe2LtJar))
+        devMods(files(localAe2LtJar))
     } else {
-        compileOnly("curse.maven:ae2-lightning-tech-1527395:8823559") { transitive = false }
-        testImplementation("curse.maven:ae2-lightning-tech-1527395:8823559") { transitive = false }
+        compileOnly("maven.modrinth:ae2-lightning-tech:AosdXlfS") { transitive = false } // 2.1.2-beta3
+        testImplementation("maven.modrinth:ae2-lightning-tech:AosdXlfS") { transitive = false }
+        devMods("maven.modrinth:ae2-lightning-tech:AosdXlfS") { transitive = false }
     }
-    compileOnly("curse.maven:thunderbolt-core-1631756:8844639") { transitive = false }
-    testImplementation("curse.maven:thunderbolt-core-1631756:8844639") { transitive = false }
+    compileOnly("maven.modrinth:thunderbolt-core:oyVnlG5A") { transitive = false } // 2.0.3-beta2
+    testImplementation("maven.modrinth:thunderbolt-core:oyVnlG5A") { transitive = false }
+    devMods("maven.modrinth:thunderbolt-core:oyVnlG5A") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }
@@ -222,8 +244,10 @@ dependencies {
 
     if (enableAppBotIntegration) {
         // Compile the Mana cell integration against the same Botania/AppBot pair used by runClient.
-        compileOnly("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
-        compileOnly("curse.maven:applied-botanics-addon-610632:8298277") { transitive = false }
+        compileOnly("vazkii.botania:botania-neoforge-1.21.1:${botania_version}@jar") { transitive = false }
+        compileOnly("maven.modrinth:applied-botanics:leZwUP1X") { transitive = false } // 1.6.0-alpha.3
+        devMods("vazkii.botania:botania-neoforge-1.21.1:${botania_version}@jar") { transitive = false }
+        devMods("maven.modrinth:applied-botanics:leZwUP1X") { transitive = false }
     }
 
     implementation("com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182") {
