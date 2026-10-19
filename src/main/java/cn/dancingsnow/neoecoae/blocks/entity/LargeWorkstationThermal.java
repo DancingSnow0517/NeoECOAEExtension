@@ -9,6 +9,7 @@ public final class LargeWorkstationThermal {
     public static final int COOLANT_PER_TICK = 100;
     public static final double PREHEAT_PER_SECOND = 2;
     public static final double PREHEAT_AE_PER_TICK = 1_000;
+    public static final double IDLE_COOLING_PER_SECOND = 0.1;
 
     private LargeWorkstationThermal() {}
 
@@ -39,6 +40,11 @@ public final class LargeWorkstationThermal {
 
     /** Recovery credits only a successfully consumed cryotheum tick. An interruption resets all credit. */
     public static State tick(State state, double preheatFraction, int coolantTier, boolean consumedCoolant) {
+        return tick(state, 0, preheatFraction, coolantTier, consumedCoolant);
+    }
+
+    /** Settle processing heat and cooling together, so only the net change can trigger overheating. */
+    public static State tick(State state, double processingLoad, double preheatFraction, int coolantTier, boolean consumedCoolant) {
         if (state.overheated) {
             if (!consumedCoolant || coolantTier != 9) return new State(100, true, 0);
             int next = state.recoveryTicks + 1;
@@ -46,7 +52,10 @@ public final class LargeWorkstationThermal {
                 : new State(100.0 * (RECOVERY_TICKS - next) / RECOVERY_TICKS, true, next);
         }
         double heating = Double.isFinite(preheatFraction) ? PREHEAT_PER_SECOND * Math.clamp(preheatFraction, 0, 1) : 0;
+        double load = Double.isFinite(processingLoad) ? Math.max(0, processingLoad) : 0;
+        heating += heatingPerSecond(state.temperature) * load;
         double cooling = consumedCoolant ? coolingPerSecond(coolantTier) : 0;
+        if (load == 0 && heating == 0) cooling += IDLE_COOLING_PER_SECOND;
         return new State(state.temperature + (heating - cooling) / TICKS_PER_SECOND, false, 0);
     }
 

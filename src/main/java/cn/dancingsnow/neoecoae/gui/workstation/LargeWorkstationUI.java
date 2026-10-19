@@ -40,7 +40,7 @@ public final class LargeWorkstationUI {
     public record Config(IFluidHandler fluids, IntFunction<CompoundTag> snapshot,
         Supplier<HolderLookup.Provider> registries, Consumer<UUID> returnTask,
         Runnable toggleOverclocked, Runnable toggleActiveCooling,
-        Runnable cycleOverclockTier, Runnable togglePreheating, IItemHandlerModifiable moduleInventory) {}
+        Runnable togglePreheating, IItemHandlerModifiable moduleInventory) {}
 
     private static final ResourceLocation JSON_LAYOUT =
         ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/large");

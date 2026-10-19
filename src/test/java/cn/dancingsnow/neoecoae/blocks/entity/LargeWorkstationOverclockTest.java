@@ -17,17 +17,17 @@ class LargeWorkstationOverclockTest {
     }
 
     @Test
-    void temperatureContinuouslyControlsCapacityWithinTheSelectedMaximum() {
+    void temperatureAutomaticallyControlsCapacityWithoutASelectedMaximum() {
         assertEquals(256, LargeWorkstationOverclock.NORMAL.maxParallelism());
-        assertEquals(256, LargeWorkstationOverclock.forTemperature(false, 9, 90).maxParallelism());
-        assertEquals(256, LargeWorkstationOverclock.forTemperature(true, 9, 19.999).maxParallelism());
-        assertEquals(16_384, LargeWorkstationOverclock.forTemperature(true, 9, 20).maxParallelism());
-        assertEquals(16_384, LargeWorkstationOverclock.forTemperature(true, 9, 49.999).maxParallelism());
-        assertEquals(65_536, LargeWorkstationOverclock.forTemperature(true, 9, 50).maxParallelism());
-        assertEquals(65_536, LargeWorkstationOverclock.forTemperature(true, 9, 79.999).maxParallelism());
-        assertEquals(262_144, LargeWorkstationOverclock.forTemperature(true, 9, 80).maxParallelism());
-        assertEquals(16_384, LargeWorkstationOverclock.forTemperature(true, 2, 90).maxParallelism());
-        assertEquals(256, LargeWorkstationOverclock.forTemperature(true, 9, 100).maxParallelism());
+        assertEquals(256, LargeWorkstationOverclock.forTemperature(false, 90).maxParallelism());
+        assertEquals(256, LargeWorkstationOverclock.forTemperature(true, 19.999).maxParallelism());
+        assertEquals(16_384, LargeWorkstationOverclock.forTemperature(true, 20).maxParallelism());
+        assertEquals(16_384, LargeWorkstationOverclock.forTemperature(true, 49.999).maxParallelism());
+        assertEquals(65_536, LargeWorkstationOverclock.forTemperature(true, 50).maxParallelism());
+        assertEquals(65_536, LargeWorkstationOverclock.forTemperature(true, 79.999).maxParallelism());
+        assertEquals(262_144, LargeWorkstationOverclock.forTemperature(true, 80).maxParallelism());
+        assertEquals(262_144, LargeWorkstationOverclock.forTemperature(true, 90).maxParallelism());
+        assertEquals(256, LargeWorkstationOverclock.forTemperature(true, 100).maxParallelism());
     }
 
     @Test

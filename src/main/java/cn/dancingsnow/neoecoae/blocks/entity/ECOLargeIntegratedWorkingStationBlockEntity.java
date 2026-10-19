@@ -112,9 +112,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Persisted
     @DescSynced
     private boolean activeCooling;
-    @Persisted
-    @DescSynced
-    private int selectedOverclockTier = 2;
+    private int preheatTargetTier = 2;
+    /** Paid work awaiting the next server thermal tick; never persisted or replayed after loading. */
+    private double pendingThermalLoad;
     @Persisted
     @DescSynced
     private boolean preheating;
@@ -355,7 +355,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return LargeWorkstationOverclock.forCoolant(overclocked, activeCooling,
                 holder == null ? 0 : holder.value().maxOverclock());
         }
-        return LargeWorkstationOverclock.forTemperature(overclocked, selectedOverclockTier, temperature);
+        return LargeWorkstationOverclock.forTemperature(overclocked, temperature);
     }
 
     public boolean isTemperatureEnabled() {
@@ -387,16 +387,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         settingsChanged();
     }
 
-    public void cycleOverclockTier() {
-        if (!isTemperatureEnabled()) return;
-        selectedOverclockTier = switch (selectedOverclockTier) { case 2 -> 6; case 6 -> 9; default -> 2; };
-        settingsChanged();
-    }
-
     public void togglePreheating() {
         if (!isTemperatureEnabled() || overheated) return;
         preheating = !preheating;
         if (preheating) {
+            preheatTargetTier = temperature < 20 ? 2 : temperature < 50 ? 6 : 9;
             overclocked = true;
             activeCooling = false;
         }
@@ -407,7 +402,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public Component getSelectedTierText() {
         if (!isTemperatureEnabled()) return coolantModeText();
-        int displayBand = selectedOverclockTier == 2 ? 4 : selectedOverclockTier;
+        int tier = LargeWorkstationOverclock.forTemperature(true, temperature).coolingTier();
+        int displayBand = tier == 2 ? 4 : tier;
         return Component.translatable("gui.neoecoae.large_integrated_working_station.selected_tier", displayBand);
     }
 
@@ -647,7 +643,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putBoolean("overheated", isTemperatureEnabled() && overheated);
         snapshot.putInt("recoveryTicks", isTemperatureEnabled() ? recoveryTicks : 0);
         snapshot.putBoolean("ignoreUpgradeCards", NEConfig.largeWorkstationIgnoreUpgradeCards);
-        snapshot.putInt("selectedTier", selectedOverclockTier);
+        snapshot.putInt("currentTier", getCurrentBatchProfile().coolingTier());
         snapshot.putInt("coolantTier", getCoolingTierId());
         snapshot.putDouble("temperature", isTemperatureEnabled() ? temperature : 0);
         snapshot.putDouble("coolingPerSecond", isTemperatureEnabled() && activeCooling ? uiCoolingPerSecond : 0);
@@ -811,7 +807,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         temperature = thermal.temperature();
         overheated = thermal.overheated();
         recoveryTicks = thermal.recoveryTicks();
-        if (LargeWorkstationOverclock.forCoolingTier(selectedOverclockTier) == null) selectedOverclockTier = 2;
+        pendingThermalLoad = 0;
+        preheatTargetTier = temperature < 20 ? 2 : temperature < 50 ? 6 : 9;
         if (overheated) preheating = false;
         double restoredRefund = data.getDouble("pendingPowerRefund");
         pendingPowerRefund = Double.isFinite(restoredRefund) && restoredRefund > 0.0D ? restoredRefund : 0.0D;
@@ -1079,13 +1076,16 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
 
         recordUiEnergy(required);
+        preheating = false;
 
         batch.progress += advance;
-        if (thermal && batch.coolingTier > 0) {
+        if (thermal && overclocked) {
+            var profile = batch.coolingTier > 0 ? LargeWorkstationOverclock.forCoolingTier(batch.coolingTier)
+                : LargeWorkstationOverclock.NORMAL;
             double load = (double) batch.craftCount * batch.thermalWorkMultiplier
-                / LargeWorkstationOverclock.forCoolingTier(batch.coolingTier).maxParallelism()
+                / profile.maxParallelism()
                 * advance / MAX_PROCESSING_STEPS;
-            applyThermalState(LargeWorkstationThermal.process(thermalState(), load));
+            pendingThermalLoad += load;
         }
         setProcessingTime(batch.progress);
         setPauseReason(PauseReason.NONE);
@@ -1154,6 +1154,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     /** Runs independently of AE2's adaptive processing scheduler, including paused and idle machines. */
     public void tickThermal(Level tickLevel, BlockPos pos, BlockState state) {
         if (tickLevel.isClientSide) return;
+        double processingLoad = pendingThermalLoad;
+        pendingThermalLoad = 0;
         uiCoolingPerSecond = 0;
         if (!isTemperatureEnabled()) {
             // Freeze saved thermal state while disabled; it applies again when temperature mode is enabled.
@@ -1168,14 +1170,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return;
         }
         if (!formed) {
-            if (overheated && recoveryTicks > 0) {
-                applyThermalState(LargeWorkstationThermal.tick(thermalState(), 0, 0, false));
-            }
+            applyThermalState(LargeWorkstationThermal.tick(thermalState(), 0, 0, false));
             return;
         }
         double preheatFraction = 0;
         if (preheating && !overheated && getMainNode().isActive()) {
-            LargeWorkstationOverclock selected = LargeWorkstationOverclock.forCoolingTier(selectedOverclockTier);
+            LargeWorkstationOverclock selected = LargeWorkstationOverclock.forCoolingTier(preheatTargetTier);
             double target = selected == null ? 20 : selected.minimumTemperature();
             if (temperature >= target) {
                 preheating = false;
@@ -1216,9 +1216,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 : LargeWorkstationThermal.coolingPerSecond(coolingTier);
             uiCoolingPerSecond = Math.min(temperature * LargeWorkstationThermal.TICKS_PER_SECOND, rate);
         }
-        applyThermalState(LargeWorkstationThermal.tick(thermalState(), preheatFraction, coolingTier, consumed));
+        applyThermalState(LargeWorkstationThermal.tick(thermalState(), processingLoad, preheatFraction, coolingTier, consumed));
         if (preheating) {
-            LargeWorkstationOverclock selected = LargeWorkstationOverclock.forCoolingTier(selectedOverclockTier);
+            LargeWorkstationOverclock selected = LargeWorkstationOverclock.forCoolingTier(preheatTargetTier);
             if (selected != null && temperature >= selected.minimumTemperature()) {
                 preheating = false;
                 setChanged();
@@ -1604,7 +1604,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
         return LargeWorkstationUI.create(new LargeWorkstationUI.Config(
             getFluidCombined(), this::getUiSnapshot, () -> level.registryAccess(), this::returnTaskInputs,
-            this::toggleOverclocked, this::toggleActiveCooling, this::cycleOverclockTier,
+            this::toggleOverclocked, this::toggleActiveCooling,
             this::togglePreheating, moduleInventory), holder.player);
     }
 

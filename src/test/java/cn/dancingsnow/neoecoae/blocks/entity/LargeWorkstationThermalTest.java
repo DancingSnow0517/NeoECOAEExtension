@@ -23,13 +23,12 @@ class LargeWorkstationThermalTest {
 
     @Test
     void advancedCoolantReallyLowersLowTemperatureAndRemovesParallelEligibility() {
-        var low = LargeWorkstationThermal.process(at(20), 1);
-        low = LargeWorkstationThermal.tick(low, 0, 9, true);
+        var low = LargeWorkstationThermal.tick(at(20), 1, 0, 9, true);
         assertEquals(20 + (0.232 - 0.6) / 20, low.temperature(), 1e-12);
         assertFalse(LargeWorkstationOverclock.forCoolingTier(2).isTemperatureReady(low.temperature()));
-        var middle = LargeWorkstationThermal.tick(LargeWorkstationThermal.process(at(50), 1), 0, 9, true);
+        var middle = LargeWorkstationThermal.tick(at(50), 1, 0, 9, true);
         assertTrue(middle.temperature() < 50);
-        var high = LargeWorkstationThermal.tick(LargeWorkstationThermal.process(at(80), 1), 0, 9, true);
+        var high = LargeWorkstationThermal.tick(at(80), 1, 0, 9, true);
         assertTrue(high.temperature() > 80);
     }
 
@@ -37,9 +36,35 @@ class LargeWorkstationThermalTest {
     void pausedMachinesStillCoolWithoutAutomaticallyReheating() {
         var state = at(20);
         for (int i = 0; i < 20; i++) state = LargeWorkstationThermal.tick(state, 0, 9, true);
-        assertEquals(19.4, state.temperature(), 1e-10);
+        assertEquals(19.3, state.temperature(), 1e-10);
         assertEquals(at(0), LargeWorkstationThermal.tick(at(0), 0, 9, true));
         assertEquals(20.05, LargeWorkstationThermal.tick(at(20), 0.5, 0, false).temperature(), 1e-12);
+    }
+
+    @Test
+    void idleTemperatureNaturallyFallsWithoutCoolantOrPower() {
+        var state = at(20);
+        for (int i = 0; i < 20; i++) state = LargeWorkstationThermal.tick(state, 0, 0, false);
+        assertEquals(19.9, state.temperature(), 1e-10);
+        assertEquals(at(0), LargeWorkstationThermal.tick(at(0.001), 0, 0, false));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "20,2,0.132", "20,6,-0.068", "20,9,-0.368",
+        "50,2,0.300", "50,6,0.100", "50,9,-0.200",
+        "80,2,0.612", "80,6,0.412", "80,9,0.112"
+    })
+    void fullLoadNetChangeMatchesTheReferenceTable(double temperature, int tier, double net) {
+        assertEquals(temperature + net / 20,
+            LargeWorkstationThermal.tick(at(temperature), 1, 0, tier, true).temperature(), 1e-12);
+    }
+
+    @Test
+    void coolingIsAppliedBeforeCheckingForOverheat() {
+        var state = LargeWorkstationThermal.tick(at(99.99), 0.5, 0, 9, true);
+        assertFalse(state.overheated());
+        assertTrue(state.temperature() < 99.99);
     }
 
     @Test

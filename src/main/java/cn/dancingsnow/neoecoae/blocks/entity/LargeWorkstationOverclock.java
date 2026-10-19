@@ -8,11 +8,11 @@ public record LargeWorkstationOverclock(int coolingTier, int maxParallelism, int
     public static final int BASE_PARALLELISM = 256;
     public static final LargeWorkstationOverclock NORMAL = new LargeWorkstationOverclock(0, BASE_PARALLELISM, 1);
 
-    public static LargeWorkstationOverclock forTemperature(boolean overclocked, int selectedTier, double temperature) {
+    public static LargeWorkstationOverclock forTemperature(boolean overclocked, double temperature) {
         if (!overclocked) return NORMAL;
         for (int tier : DESCENDING_TIERS) {
             LargeWorkstationOverclock profile = forCoolingTier(tier);
-            if (tier <= selectedTier && profile.isTemperatureReady(temperature)) return profile;
+            if (profile.isTemperatureReady(temperature)) return profile;
         }
         return NORMAL;
     }

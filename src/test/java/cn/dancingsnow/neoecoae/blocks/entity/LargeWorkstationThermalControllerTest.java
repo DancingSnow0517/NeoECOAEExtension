@@ -104,7 +104,6 @@ class LargeWorkstationThermalControllerTest {
         field(host, "outputTank", output);
         field(host, "level", level);
         field(host, "formed", true);
-        field(host, "selectedOverclockTier", 9);
         field(host, "overclocked", true);
         field(host, "pendingBatches", new ArrayDeque<>());
         field(host, "coolingOutput", new LargeWorkstationCoolingOutput());
@@ -131,7 +130,7 @@ class LargeWorkstationThermalControllerTest {
         input.setFluid(new FluidStack(Fluids.WATER, 1000));
         assertEquals(16_384, host.getMaxBatchParallelism());
         tick();
-        assertEquals(19.97, host.getTemperature(), 1e-10);
+        assertEquals(19.965, host.getTemperature(), 1e-10);
         assertEquals(256, host.getMaxBatchParallelism());
         assertEquals(900, input.getFluidAmount());
     }
@@ -144,7 +143,7 @@ class LargeWorkstationThermalControllerTest {
         input.setFluid(new FluidStack(Fluids.WATER, 1000));
         output.setFluid(new FluidStack(Fluids.WATER, 100_000));
         tick();
-        assertEquals(50, host.getTemperature());
+        assertEquals(49.995, host.getTemperature(), 1e-10);
         assertEquals(1000, input.getFluidAmount());
     }
 
@@ -186,22 +185,22 @@ class LargeWorkstationThermalControllerTest {
         assertEquals(40_000, input.getFluidAmount());
     }
 
-    @Test
-    void preheatIsPaidSeparatelyStopsAtTheSelectedThresholdAndNeverRestartsAutomatically() throws Exception {
-        field(host, "selectedOverclockTier", 2);
-        field(host, "temperature", 19.95);
+    @ParameterizedTest
+    @CsvSource({"19.95,20", "49.95,50", "79.95,80"})
+    void preheatIsPaidSeparatelyStopsAtTheNextThresholdAndNeverRestartsAutomatically(double start, double target) throws Exception {
+        field(host, "temperature", start);
         field(host, "activeCooling", true);
         doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
         host.togglePreheating();
         assertFalse(host.isActiveCooling());
         tick();
-        assertEquals(20, host.getTemperature(), 1e-10);
+        assertEquals(target, host.getTemperature(), 1e-10);
         assertFalse((boolean) value(host, "preheating"));
         verify(host).extractAEPower(doubleThat(amount -> Math.abs(amount - 500) < 1e-8), eq(Actionable.MODULATE), any());
         field(host, "temperature", 19.0);
         clearInvocations(host);
         tick();
-        assertEquals(19, host.getTemperature());
+        assertEquals(18.995, host.getTemperature(), 1e-10);
         verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
     }
 
@@ -249,6 +248,7 @@ class LargeWorkstationThermalControllerTest {
         assertEquals(200, value(batch, "progress"));
         assertTrue(((KeyCounter) value(batch, "inputTotal")).isEmpty());
         assertEquals(100, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        tick();
         assertTrue(host.getTemperature() > 80);
     }
 
@@ -256,7 +256,6 @@ class LargeWorkstationThermalControllerTest {
     @CsvSource({"0,256", "2,16384", "6,65536", "9,262144"})
     void disabledTemperatureUsesCoolantTierRegardlessOfHeatOrSelectedMaximum(int tier, int expected) throws Exception {
         NEConfig.largeWorkstationTemperatureEnabled = false;
-        field(host, "selectedOverclockTier", 2);
         field(host, "activeCooling", true);
         if (tier == 0) when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of());
         else {
@@ -283,11 +282,9 @@ class LargeWorkstationThermalControllerTest {
         coolant(cryotheum, 9, FluidStack.EMPTY);
         input.setFluid(new FluidStack(cryotheum, 1000));
         host.togglePreheating();
-        host.cycleOverclockTier();
         for (int i = 0; i < 20; i++) tick();
         assertEquals(50, host.getTemperature());
         assertEquals(1000, input.getFluidAmount());
-        assertEquals(9, value(host, "selectedOverclockTier"));
         assertFalse((boolean) value(host, "preheating"));
         verify(host, never()).extractAEPower(anyDouble(), any(), any());
     }
@@ -482,6 +479,56 @@ class LargeWorkstationThermalControllerTest {
         queue.add(batch);
         field(host, "pendingBatches", queue);
         return batch;
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void coldNormalBatchGeneratesHeatOnlyWhileOverclockingAndActuallyAdvancing(boolean enabled) throws Exception {
+        field(host, "temperature", 10.0);
+        field(host, "overclocked", enabled);
+        queuedBatch(0);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        tick();
+        double expected = enabled ? 10 + 0.208 * 100 / 256 / 20 : 9.995;
+        assertEquals(expected, host.getTemperature(), 1e-10);
+        tick();
+        assertEquals(expected - 0.005, host.getTemperature(), 1e-10, "Paid work is never heated twice");
+        host.tickingRequest(mock(IGridNode.class), 1);
+        tick();
+        assertEquals(expected - 0.01, host.getTemperature(), 1e-10, "Completed output waiting for delivery generates no heat");
+    }
+
+    @Test
+    void overclockSwitchAloneAndUnpaidOrColdPausedBatchesCannotGenerateHeat() throws Exception {
+        field(host, "temperature", 10.0);
+        tick();
+        assertEquals(9.995, host.getTemperature(), 1e-10);
+        var batch = queuedBatch(0);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        tick();
+        assertEquals(9.99, host.getTemperature(), 1e-10);
+        assertEquals(0, value(batch, "progress"));
+        field(batch, "coolingTier", 9);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        tick();
+        assertEquals(9.985, host.getTemperature(), 1e-10);
+        assertEquals(0, value(batch, "progress"));
+    }
+
+    @Test
+    void actualProcessingStopsIndependentPreheatInsteadOfMaintainingTemperature() throws Exception {
+        field(host, "temperature", 10.0);
+        host.togglePreheating();
+        queuedBatch(0);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertFalse((boolean) value(host, "preheating"));
+        clearInvocations(host);
+        tick();
+        assertEquals(10 + 0.208 * 100 / 256 / 20, host.getTemperature(), 1e-10);
+        verify(host, never()).extractAEPower(anyDouble(), any(), any());
     }
 
     private void coolant(Fluid fluid, int tier, FluidStack byproduct) {
