@@ -55,8 +55,8 @@ class ComponentExternalDemandCacheTest {
         verify(solver, times(4)).solve(same(network), any(), any(PlannerInventorySnapshot.class), eq(1L),
             anyMap(), anySet(), eq(false), any());
         verify(solver).solveDemands(any(), any(), eq(Map.of(boundary, 1L)), anyMap(), anySet(), eq(false), any());
-        // Two external solves: the seed-retaining candidate demands {boundary=2}; the original demands {boundary=1} once.
-        verify(solver, times(2)).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
+        // The missing original is solved once; optional seed retention cannot run before a whole-order success.
+        verify(solver, times(1)).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
         assertEquals(1L, stock.get(seed));
         assertEquals(1L, stock.get(raw));
         assertEquals(1L, stock.get(fuel));
@@ -69,7 +69,7 @@ class ComponentExternalDemandCacheTest {
         assertTrue(recovered.state().patternTimes().containsKey(growth.details()));
         assertTrue(recovered.state().patternTimes().containsKey(external.details()));
         // Again one extra solve for the seed-retaining candidate ({boundary=2} fails on raw=2) plus the accepted {boundary=1}.
-        verify(solver, times(4)).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
+        verify(solver, times(3)).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
     }
 
     private static AEKey key(String name) {

@@ -85,7 +85,7 @@ class CycleRouteCompletenessReviewTest {
         assertFalse(result.cycles().isEmpty());
         assertFalse(result.components().isEmpty());
         assertTrue(result.trace().diagnostics().stream().anyMatch(d ->
-            d.code() == PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED));
+            d.code() == PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED));
         var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
         assertFalse(snapshot.cycleGroups().isEmpty());
         assertTrue(snapshot.nodes().stream().anyMatch(n -> n.key().equals(missing)

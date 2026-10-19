@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 class AERecipeCircuitTest {
     @BeforeAll static void bootstrap() { cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize(); }
 
-    @Test void reservedCatalystsExposeOneVersusManyConcurrentUses() throws Exception {
+    @Test void returnedCatalystsReserveOnlyTheStartupCopyAndLeaveOtherCopiesForConcurrentJobs() throws Exception {
         AEKey catalyst = AEItemKey.of(Items.DIAMOND), product = AEItemKey.of(Items.EMERALD);
         AEKey fuel = AEFluidKey.of(Fluids.WATER);
         var recipe = recipe(0, Map.of(catalyst, 1L, fuel, 1000L), Map.of(product, 1L), Map.of(catalyst, 1L));
@@ -34,8 +34,8 @@ class AERecipeCircuitTest {
             var result = solve(List.of(catalyst), List.of(recipe), product, 1_000_000,
                 Map.of(catalyst, copies), fuel);
             assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
-            assertEquals(copies, result.requiredSeed().get(catalyst));
-            assertEquals(copies, result.seedParallelism(result.requiredSeed()).get(catalyst));
+            assertEquals(1L, result.requiredSeed().get(catalyst));
+            assertEquals(1L, result.seedParallelism(result.requiredSeed()).get(catalyst));
             assertEquals(1_000_000_000L, result.externalDemand().get(fuel));
             assertTrue(result.executionPlan().size() <= 2);
         }

@@ -13,6 +13,27 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CycleStateEquationTest {
+    @Test void denseFeasibilityModeStopsBeforeOptimalityProofAndLeavesReplayBudget() throws Exception {
+        long[][] consumed = {{0, 1, 0}, {0, 0, 1}}, produced = {{2, 0, 0}, {3, 0, 0}};
+        var stock = amounts(0, 2, 2);
+        var target = amounts(4, 0, 0);
+        var feasibleWork = new AtomicLong();
+        var first = CycleStateEquation.solve(consumed, produced, new boolean[3], stock, target, true,
+                feasibleWork::incrementAndGet, new CycleMemoryBudget());
+        var optimalWork = new AtomicLong();
+        var optimal = CycleStateEquation.solve(consumed, produced, new boolean[3], stock, target,
+                optimalWork::incrementAndGet);
+        assertEquals(CycleStateEquation.Status.FEASIBLE, first.status());
+        assertEquals(CycleStateEquation.Status.OPTIMAL, optimal.status());
+        assertTrue(feasibleWork.get() < optimalWork.get(), "Feasibility must leave the remaining branches unexplored");
+        var shared = new ECOPlanningBudget(ECOCancellation.NONE, feasibleWork.get() * 2 + 4, Long.MAX_VALUE, () -> 0L);
+        var candidate = CycleStateEquation.solve(consumed, produced, new boolean[3], stock, target, true,
+                shared.slice(Long.MAX_VALUE, Long.MAX_VALUE), new CycleMemoryBudget());
+        assertArrayEquals(first.counts(), candidate.counts());
+        shared.checkpoint();
+        assertTrue(candidate.counts()[0].multiply(2).add(candidate.counts()[1].multiply(3)).compareTo(target[0]) >= 0);
+    }
+
     @Test void optimizationBudgetRetainsTheFirstIntegerCandidateButCancellationPropagates() throws Exception {
         var columns = List.of(Map.of(0, BigInteger.valueOf(-2), 1, BigInteger.ONE),
             Map.of(0, BigInteger.valueOf(-3), 2, BigInteger.ONE));

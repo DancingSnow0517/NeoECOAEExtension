@@ -25,6 +25,8 @@ final class CycleMemoryBudget {
 
     void release(long bytes) { retained -= bytes; }
 
+    long retainedBytes() { return retained; }
+
     void check(long temporary) { check(retained, temporary); }
 
     private void check(long existing, long additional) {

@@ -30,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Cyclic SCC solver: exact integer balance, verified compact circuits, then bounded marking search.
+ * Cyclic SCC solver: repeatable growth, feasible integer balance, then bounded marking search.
  *
  * <h2>Model</h2>
  * The SCC is read as a small Petri net. A <em>place</em> is one relevant key (SCC member, pattern input or
@@ -55,6 +55,8 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(BoundedCycleSolver.class);
     /** Keep the legacy per-firing witness only while it remains cheap to materialize. */
     private static final long MAX_EXPANDED_WITNESS = 100_000L;
+    private static final long GROWTH_PROBE_WORK = 100_000L;
+    private static final long GROWTH_PROBE_NANOS = 200_000_000L;
     private final SinglePatternGrowthCalculator growthCalculator = new SinglePatternGrowthCalculator();
 
     public BoundedCycleSolver() {}
@@ -171,9 +173,23 @@ public final class BoundedCycleSolver implements CycleSolver {
         if (growth != null) return growth;
 
         boolean recipeCircuits = supportsRecipeCircuits(model);
-        CycleStateEquation.Result balance = recipeCircuits
-            ? CycleStateEquation.solve(model.cons, model.prod, model.suppliable, model.stock, model.required, cancellation, memory)
-            : new CycleStateEquation.Result(CycleStateEquation.Status.UNKNOWN, null);
+        if (recipeCircuits) {
+            CycleSolveResult repeated = repeatableGrowthWitness(model, cancellation, memory);
+            if (repeated != null) return repeated;
+        }
+        CycleStateEquation.Result balance = new CycleStateEquation.Result(CycleStateEquation.Status.UNKNOWN, null);
+        boolean equationBudgetExhausted = false;
+        if (recipeCircuits) {
+            // A quantity candidate still needs a legal prefix and real boundary supply. Leave resources for those
+            // checks and for reachability when the first candidate cannot start from the captured inventory.
+            try {
+                balance = CycleStateEquation.solve(model.cons, model.prod, model.suppliable, model.stock,
+                    model.required, true, searchSlice(cancellation, Long.MAX_VALUE, Long.MAX_VALUE), memory);
+            } catch (ECOPlanningBudget.Exhausted exhausted) {
+                equationBudgetExhausted = true;
+                cancellation.checkpoint();
+            }
+        }
         if (balance.status() == CycleStateEquation.Status.INFEASIBLE) {
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.STATE_EQUATION_INFEASIBLE,
                 "Exact material balance has no nonnegative integer firing vector at current stock"));
@@ -190,7 +206,16 @@ public final class BoundedCycleSolver implements CycleSolver {
             return CycleSolveResult.failure(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, diagnostics,
                 CycleSolveMetrics.NONE).withStartupCandidates(startupCandidates(model, cancellation, memory));
         }
-        CycleSolveResult equation = balance.counts() == null ? null : solveEquationWitness(model, balance, cancellation, memory);
+        CycleSolveResult equation = null;
+        if (balance.counts() != null) {
+            try {
+                equation = solveEquationWitness(model, balance,
+                    searchSlice(cancellation, Long.MAX_VALUE, Long.MAX_VALUE), memory);
+            } catch (ECOPlanningBudget.Exhausted exhausted) {
+                equationBudgetExhausted = true;
+                cancellation.checkpoint();
+            }
+        }
         if (equation != null && (equation.status() == CycleSolveStatus.SUCCESS
                 || equation.status() == CycleSolveStatus.UNREPRESENTABLE)) return equation;
         if (!recipeCircuits) {
@@ -205,9 +230,9 @@ public final class BoundedCycleSolver implements CycleSolver {
                 .collect(java.util.stream.Collectors.joining("; "));
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.STATIC_CYCLE_CONTRACT_UNAVAILABLE,
                 "Exact circuit algebra is unavailable for: " + contracts + "; using bounded marking search"));
-        } else if (balance.status() == CycleStateEquation.Status.UNKNOWN || balance.status() == CycleStateEquation.Status.FEASIBLE) {
+        } else if (equationBudgetExhausted || balance.status() == CycleStateEquation.Status.UNKNOWN) {
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.STATE_EQUATION_BUDGET,
-                "No static firing vector is available; marking search verifies reachability under the same resource budget"));
+                "No executable full-order certificate was obtained; marking search verifies reachability under the remaining resource budget"));
         }
 
         int budget = limits.maxStates();
@@ -236,11 +261,13 @@ public final class BoundedCycleSolver implements CycleSolver {
         // A seed deficit in one constructed witness is not a reachability proof. Only return that seed
         // proposal after the original-stock search has actually closed; budget cuts above stay unknown.
         if (equation != null && equation.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT) {
-            return equation.withAdditionalDiagnostics(diagnostics).withStartupCandidates(startupCandidates(model, cancellation, memory));
+            return equation.withAdditionalDiagnostics(diagnostics)
+                .withStartupCandidates(startupCandidates(model, first.startupDeficits));
         }
 
         CycleSolveResult materials = fullOrderDeficit(model, cancellation, memory);
-        if (materials != null) return materials.withAdditionalDiagnostics(diagnostics);
+        if (materials != null) return materials.withAdditionalDiagnostics(diagnostics)
+            .withStartupCandidates(startupCandidates(model, first.startupDeficits));
 
         PlannerAmount[] base = first.unblockDeficit;
         if (base == null || isZero(base)) {
@@ -278,7 +305,161 @@ public final class BoundedCycleSolver implements CycleSolver {
         return new CycleSolveResult(unrepresentable ? CycleSolveStatus.UNREPRESENTABLE
                 : CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(),
             seed, shortfall, Map.of(), deliverable(model, model.ownedStock), List.of(),
-            diagnostics, ladderMetrics).withStartupCandidates(startupCandidates(model, cancellation, memory));
+            diagnostics, ladderMetrics).withStartupCandidates(startupCandidates(model, first.startupDeficits));
+    }
+
+    // ---------------------------------------------------------------------------------------------------
+    // Repeatable growth independent of the requested amount
+    // ---------------------------------------------------------------------------------------------------
+
+    /**
+     * Find one net-positive lap, prove its concrete prefix, then solve stock + repetitions * delta >= target.
+     * Only consumed-only fuel may decrease freely in the lap equation; every finite input is bounded again
+     * against the full order. A failed probe is not an infeasibility proof and leaves the ordinary solver intact.
+     */
+    private @Nullable CycleSolveResult repeatableGrowthWitness(Model model, ECOCancellation cancellation,
+            CycleMemoryBudget memory) throws InterruptedException {
+        if (model.transitionCount() < 2) return null;
+        ECOCancellation probe = searchSlice(cancellation, GROWTH_PROBE_WORK, GROWTH_PROBE_NANOS);
+        long retainedBefore = memory.retainedBytes();
+        try {
+            boolean[] imports = model.suppliable.clone();
+            PlannerAmount[] unitTarget = zeroes(model.keyCount());
+            for (int key = 0; key < model.keyCount(); key++) {
+                probe.checkpoint();
+                boolean produced = false;
+                for (int t = 0; t < model.transitionCount(); t++) produced |= model.prod[t][key] > 0;
+                if (!produced && !model.member[key]) imports[key] = true;
+                if (model.required[key].compareTo(model.stock[key]) > 0) {
+                    if (!produced) return null;
+                    imports[key] = false;
+                    unitTarget[key] = PlannerAmount.ONE;
+                }
+            }
+            var unit = CycleStateEquation.solve(model.cons, model.prod, imports, zeroes(model.keyCount()),
+                unitTarget, true, probe, memory);
+            if (unit.counts() == null) return null;
+            List<BatchFiring> witness = equationWitness(model, unit.counts(), probe, memory, false);
+            if (witness == null || witness.isEmpty()
+                    || witness.stream().anyMatch(run -> run.repetitions().compareTo(PlannerAmount.ONE) > 0)) return null;
+            CircuitSummary lap = summarizePlain(model, witness, 0, witness.size());
+            PlannerAmount repetitions = PlannerAmount.ZERO;
+            for (int key = 0; key < model.keyCount(); key++) {
+                probe.checkpoint();
+                PlannerAmount missing = model.required[key].subtract(model.stock[key]);
+                if (missing.signum() <= 0) continue;
+                if (lap.delta[key].signum() <= 0) return null;
+                repetitions = repetitions.max(missing.ceilDiv(lap.delta[key]));
+            }
+            // A single lap has no scaling benefit; ordinary feasibility may consume less stock or fuel.
+            if (repetitions.compareTo(PlannerAmount.ONE) <= 0) return null;
+            // Delivery can finish partway through the last lap. For A + F -> 2B; B -> A, finishing
+            // before the return step can save fuel when keeping A is not part of this request's target.
+            CircuitSummary prefix = emptySummary(model);
+            List<BatchFiring> best = null;
+            PlannerAmount bestCost = null;
+            for (int length = 0; length < witness.size(); length++) {
+                probe.checkpoint();
+                BatchFiring finishingRun = witness.get(length);
+                PlannerAmount partial = partialFinishingCount(model, lap, prefix, finishingRun);
+                for (PlannerAmount finish : partial.isZero() ? List.of(PlannerAmount.ZERO)
+                        : List.of(PlannerAmount.ZERO, partial)) {
+                    CircuitSummary ending = finish.isZero() ? prefix : prefix.then(summarizePlain(model,
+                        List.of(new BatchFiring(finishingRun.transition(), finish)), 0, 1));
+                    PlannerAmount laps = PlannerAmount.ZERO;
+                    boolean possible = true;
+                    for (int key = 0; key < model.keyCount(); key++) {
+                        if (model.suppliable[key] && model.required[key].isZero()) continue;
+                        PlannerAmount missing = model.required[key].subtract(model.stock[key]).subtract(ending.delta[key]);
+                        if (missing.signum() > 0) {
+                            if (lap.delta[key].signum() <= 0) { possible = false; break; }
+                            laps = laps.max(missing.ceilDiv(lap.delta[key]));
+                        }
+                    }
+                    CircuitSummary whole = laps.isZero() ? ending : lap.repeated(laps).then(ending);
+                    for (int key = 0; key < model.keyCount(); key++) {
+                        if (!model.suppliable[key] && model.stock[key].compareTo(whole.required[key]) < 0) possible = false;
+                    }
+                    if (possible && satisfied(applyCircuit(model, model.stock, whole), model.required)) {
+                        PlannerAmount cost = PlannerAmount.ZERO;
+                        for (PlannerAmount count : whole.counts) cost = cost.add(count);
+                        if (bestCost == null || cost.compareTo(bestCost) < 0) {
+                            best = new ArrayList<>();
+                            if (laps.signum() > 0) {
+                                best.addAll(witness);
+                                if (witness.size() == 1) {
+                                    BatchFiring run = witness.getFirst();
+                                    best.set(0, new BatchFiring(run.transition(), run.exactCount().multiply(laps)));
+                                } else if (laps.compareTo(PlannerAmount.ONE) > 0) {
+                                    repeatTail(best, 0, laps.subtract(PlannerAmount.ONE));
+                                }
+                            }
+                            best.addAll(witness.subList(0, length));
+                            if (finish.signum() > 0) best.add(new BatchFiring(finishingRun.transition(), finish));
+                            bestCost = cost;
+                            repetitions = laps;
+                        }
+                    }
+                }
+                prefix = prefix.then(summarizePlain(model, witness, length, length + 1));
+            }
+            if (best == null) return null;
+            // The fixed lap already proves feasibility with a small startup seed. Re-batch from that seed,
+            // not from every copy in ME storage: newly grown stock can increase concurrency within this job.
+            CircuitSummary proven = summarize(model, best);
+            try {
+                List<BatchFiring> batched = equationWitness(model, proven.counts,
+                    searchSlice(probe, 25_000L, 50_000_000L), memory, false, proven.required, true);
+                if (batched != null && dominates(summarize(model, batched).required, proven.required)) best = batched;
+            } catch (ECOPlanningBudget.Exhausted | CycleMemoryBudget.Exhausted exhausted) {
+                // Reordering is optional; the fixed-lap certificate is already complete and must survive.
+            }
+            var diagnostics = new ArrayList<CycleSolveDiagnostic>();
+            diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.REPEATABLE_NET_GROWTH,
+                "Verified a seedable lap of " + witness.size() + " steps; scaled its net output to "
+                    + repetitions + " complete laps and a finishing prefix with exact finite-input bounds"));
+            diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.STATE_EQUATION_WITNESS,
+                "A feasible unit-growth vector and its repeated execution order certify the complete requested amount"));
+            return witnessResult(model, model.stock, best, diagnostics,
+                new CycleSolveMetrics(model.keyCount(), model.transitionCount(), 0, 0,
+                    expandedWitnessLength(best), 0, false, false));
+        } catch (ECOPlanningBudget.Exhausted | CycleMemoryBudget.Exhausted exhausted) {
+            cancellation.checkpoint();
+            return null;
+        } finally {
+            memory.release(memory.retainedBytes() - retainedBefore);
+        }
+    }
+
+    /** A batch within a lap is divisible into firings; completing an odd order need not buy a whole batch. */
+    private static PlannerAmount partialFinishingCount(Model model, CircuitSummary lap, CircuitSummary prefix,
+            BatchFiring run) {
+        if (run.exactCount().compareTo(PlannerAmount.ONE) <= 0) return PlannerAmount.ZERO;
+        int t = run.transition();
+        PlannerAmount laps = PlannerAmount.ZERO;
+        for (int key = 0; key < model.keyCount(); key++) {
+            if (lap.delta[key].signum() <= 0) continue;
+            PlannerAmount delta = PlannerAmount.of(model.prod[t][key] - model.cons[t][key]);
+            PlannerAmount missing = model.required[key].subtract(model.stock[key]).subtract(prefix.delta[key])
+                .subtract(delta.multiply(run.exactCount()));
+            if (missing.signum() > 0) laps = laps.max(missing.ceilDiv(lap.delta[key]));
+        }
+        PlannerAmount count = PlannerAmount.ZERO;
+        for (int key = 0; key < model.keyCount(); key++) {
+            if (model.suppliable[key] && model.required[key].isZero()) continue;
+            PlannerAmount missing = model.required[key].subtract(model.stock[key]).subtract(prefix.delta[key])
+                .subtract(lap.delta[key].multiply(laps));
+            if (missing.signum() <= 0) continue;
+            PlannerAmount delta = PlannerAmount.of(model.prod[t][key] - model.cons[t][key]);
+            if (delta.signum() <= 0) return PlannerAmount.ZERO;
+            count = count.max(missing.ceilDiv(delta));
+        }
+        return count.compareTo(run.exactCount()) < 0 ? count : PlannerAmount.ZERO;
+    }
+
+    private static ECOPlanningBudget searchSlice(ECOCancellation cancellation, long work, long nanos) {
+        return cancellation instanceof ECOPlanningBudget budget ? budget.slice(work, nanos)
+            : new ECOPlanningBudget(cancellation, work, nanos, System::nanoTime);
     }
 
     // ---------------------------------------------------------------------------------------------------
@@ -519,7 +700,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             if (model.required[k].isZero() && !model.importCapped[k]) importable[k] = true;
         }
         var balance = CycleStateEquation.solve(model.cons, model.prod, importable,
-            model.stock, model.required, cancellation, memory);
+            model.stock, model.required, true, cancellation, memory);
         if (balance.counts() == null) return null;
         CycleSolveResult result = solveEquationWitness(model, balance, cancellation, memory, true);
         if (result == null || result.status() != CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
@@ -530,7 +711,13 @@ public final class BoundedCycleSolver implements CycleSolver {
     /** One shared prefix-deficit/repetition construction for growth, rings and split/merge circuits. */
     private static List<BatchFiring> equationWitness(Model model, PlannerAmount[] counts,
             ECOCancellation cancellation, CycleMemoryBudget memory, boolean materialReport) throws InterruptedException {
-        PlannerAmount[] remaining = counts.clone(), marking = model.stock.clone();
+        return equationWitness(model, counts, cancellation, memory, materialReport, model.stock, false);
+    }
+
+    private static List<BatchFiring> equationWitness(Model model, PlannerAmount[] counts,
+            ECOCancellation cancellation, CycleMemoryBudget memory, boolean materialReport,
+            PlannerAmount[] startingStock, boolean growBatches) throws InterruptedException {
+        PlannerAmount[] remaining = counts.clone(), marking = startingStock.clone();
         List<BatchFiring> witness = new ArrayList<>();
         while (true) {
             cancellation.checkpoint();
@@ -538,7 +725,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             int lapStart = witness.size();
             for (int t = 0; t < model.transitionCount(); t++) {
                 cancellation.checkpoint();
-                PlannerAmount safe = maximumSafeBatch(model, marking, t).min(remaining[t]);
+                PlannerAmount safe = witnessBatch(model, marking, remaining, t, cancellation);
                 if (safe.signum() <= 0) continue;
                 marking = fireBatch(model, marking, t, safe);
                 remaining[t] = remaining[t].subtract(safe);
@@ -547,6 +734,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             }
             if (lapStart < witness.size()) {
                 CircuitSummary lap = summarizePlain(model, witness, lapStart, witness.size());
+                if (growBatches && canGrowBatch(model, marking, remaining, lap)) continue;
                 PlannerAmount extra = null;
                 for (int t = 0; t < remaining.length; t++) {
                     if (lap.counts[t].signum() <= 0) continue;
@@ -586,6 +774,48 @@ public final class BoundedCycleSolver implements CycleSolver {
                 marking[k] = marking[k].max(needed);
             }
         }
+    }
+
+    /** Keep a downstream firing enabled when draining the maximal batch would strand its other input. */
+    private static PlannerAmount witnessBatch(Model model, PlannerAmount[] marking, PlannerAmount[] remaining,
+            int transition, ECOCancellation cancellation) throws InterruptedException {
+        PlannerAmount maximum = maximumSafeBatch(model, marking, transition).min(remaining[transition]);
+        if (maximum.compareTo(PlannerAmount.ONE) <= 0) return maximum;
+        PlannerAmount selected = maximum;
+        for (int next = 0; next < remaining.length; next++) {
+            cancellation.checkpoint();
+            if (next == transition || remaining[next].isZero()) continue;
+            PlannerAmount lower = PlannerAmount.ONE, upper = maximum;
+            for (int key : model.metadata[next].consumedInternalKeys) {
+                PlannerAmount need = PlannerAmount.of(model.cons[next][key]).subtract(marking[key]);
+                long delta = model.prod[transition][key] - model.cons[transition][key];
+                if (delta > 0 && need.signum() > 0) lower = lower.max(need.ceilDiv(PlannerAmount.of(delta)));
+                else if (delta < 0) {
+                    if (need.signum() > 0) { upper = PlannerAmount.ZERO; break; }
+                    upper = upper.min(PlannerAmount.ZERO.subtract(need).divide(PlannerAmount.of(-delta)));
+                } else if (delta == 0 && need.signum() > 0) {
+                    upper = PlannerAmount.ZERO;
+                    break;
+                }
+            }
+            // [lower, upper] are precisely the positive batches that leave every finite input of
+            // 'next' available. Keep the largest such batch, preserving concurrency where possible.
+            if (upper.compareTo(lower) >= 0) selected = selected.min(upper);
+        }
+        return selected;
+    }
+
+    /** Let this job's new feedback stock expand the next batch before compressing a fixed-size lap. */
+    private static boolean canGrowBatch(Model model, PlannerAmount[] marking, PlannerAmount[] remaining,
+            CircuitSummary lap) {
+        for (int t = 0; t < remaining.length; t++) {
+            if (lap.counts[t].isZero() || maximumSafeBatch(model, marking, t).min(remaining[t])
+                    .compareTo(lap.counts[t]) <= 0) continue;
+            for (int key : model.metadata[t].consumedInternalKeys) {
+                if (lap.delta[key].signum() > 0 && model.cons[t][key] > model.prod[t][key]) return true;
+            }
+        }
+        return false;
     }
 
     // ---------------------------------------------------------------------------------------------------
@@ -669,7 +899,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 cancellation.checkpoint();
                 long[] batches = candidateBatchCounts(model, node.marking, t);
                 if (batches.length == 0) {
-                    outcome.considerUnblock(model, node.marking, t);
+                    outcome.considerUnblock(model, node.marking, t, cancellation, memory);
                     continue;
                 }
                 for (long batch : batches) {
@@ -876,18 +1106,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         Map<AEKey, PlannerAmount> exactRequiredSeed = new Object2ObjectLinkedOpenHashMap<>(bare.lazySeed);
         Map<AEKey, PlannerAmount> exactExternalDemand = new Object2ObjectLinkedOpenHashMap<>(bare.lazyImport);
         CircuitSummary summary = summarize(model, witness);
-        // Sequential prefix replay needs only one returned catalyst, but a planned batch may use more.
-        // Reserve those already available copies explicitly so the reported and executable concurrency agree.
-        for (BatchFiring firing : witness) {
-            int transition = firing.transition();
-            for (int key : model.metadata[transition].consumedInternalKeys) {
-                long input = model.cons[transition][key];
-                if (!summary.delta[key].isZero() || model.prod[transition][key] < input) continue;
-                PlannerAmount concurrent = firing.exactCount().multiply(input).min(model.stock[key]);
-                if (concurrent.signum() > 0)
-                    exactRequiredSeed.merge(model.keys.get(key), concurrent, PlannerAmount::max);
-            }
-        }
+        // Reserve the verified prefix only. A returned catalyst can be reused between firings; taking extra
+        // copies merely for this job's concurrency would prevent other jobs from using the same ME stock.
 
         // A speculative ladder seed can survive the witness and satisfy the target without ever being
         // consumed (including an empty witness). Replay against real stock as well: lazy consumption seed
@@ -1036,7 +1256,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         return true;
     }
 
-    /** Alternative first firings, compared per concrete item/fluid key rather than mixed-unit totals. */
+    /** Alternative first firings when no reachable-marking search has been performed yet. */
     private static List<Map<AEKey, Long>> startupCandidates(Model model, ECOCancellation cancellation,
             CycleMemoryBudget memory) throws InterruptedException {
         List<PlannerAmount[]> frontier = new ArrayList<>();
@@ -1046,25 +1266,33 @@ public final class BoundedCycleSolver implements CycleSolver {
             for (int i = 0; i < missing.length; i++) {
                 if (!model.suppliable[i]) missing[i] = PlannerAmount.of(model.cons[t][i]).subtract(model.stock[i]).max(PlannerAmount.ZERO);
             }
-            if (isZero(missing)) continue;
-            boolean dominated = false;
-            for (PlannerAmount[] existing : frontier) {
-                cancellation.checkpoint();
-                if (dominates(existing, missing)) { dominated = true; break; }
-            }
-            if (dominated) continue;
-            var iterator = frontier.iterator();
-            while (iterator.hasNext()) {
-                cancellation.checkpoint();
-                PlannerAmount[] existing = iterator.next();
-                if (dominates(missing, existing)) {
-                    iterator.remove();
-                    memory.release(CycleMemoryBudget.markingBytes(existing));
-                }
-            }
-            memory.retain(CycleMemoryBudget.markingBytes(missing));
-            frontier.add(missing);
+            addStartupDeficit(frontier, missing, cancellation, memory);
         }
+        return startupCandidates(model, frontier);
+    }
+
+    /** Keep incomparable concrete supplies; a bucket of acid cannot dominate a returned tool. */
+    private static void addStartupDeficit(List<PlannerAmount[]> frontier, PlannerAmount[] missing,
+            ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
+        if (isZero(missing)) return;
+        for (PlannerAmount[] existing : frontier) {
+            cancellation.checkpoint();
+            if (dominates(existing, missing)) return;
+        }
+        var iterator = frontier.iterator();
+        while (iterator.hasNext()) {
+            cancellation.checkpoint();
+            PlannerAmount[] existing = iterator.next();
+            if (dominates(missing, existing)) {
+                iterator.remove();
+                memory.release(CycleMemoryBudget.markingBytes(existing));
+            }
+        }
+        memory.retain(CycleMemoryBudget.markingBytes(missing));
+        frontier.add(missing);
+    }
+
+    private static List<Map<AEKey, Long>> startupCandidates(Model model, List<PlannerAmount[]> frontier) {
         List<Map<AEKey, Long>> candidates = new ArrayList<>();
         for (PlannerAmount[] missing : frontier) {
             Map<AEKey, Long> candidate = new java.util.LinkedHashMap<>();
@@ -1490,6 +1718,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         private boolean heuristicBudgetExhausted;
         private boolean stateBudgetExhausted;
         private boolean firingDepthTruncated;
+        private final List<PlannerAmount[]> startupDeficits = new ArrayList<>();
         private PlannerAmount[] unblockDeficit;
         private int unblockRank = Integer.MAX_VALUE;
         private PlannerAmount unblockTotal = null;
@@ -1499,7 +1728,8 @@ public final class BoundedCycleSolver implements CycleSolver {
          * Records the cheapest way to unblock a disabled transition, preferring one that actually produces a
          * required output. That candidate is a lower-bound proposal when no full-order static certificate is available.
          */
-        private void considerUnblock(Model model, PlannerAmount[] marking, int transition) {
+        private void considerUnblock(Model model, PlannerAmount[] marking, int transition,
+                ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
             int rank = model.producesRequired[transition] ? 0 : 1;
 
             long[] cons = model.cons[transition];
@@ -1517,6 +1747,10 @@ public final class BoundedCycleSolver implements CycleSolver {
                 deficit[i] = cons[i] > 0 && !model.suppliable[i] && marking[i].compareTo(required) < 0
                     ? required.subtract(marking[i]) : PlannerAmount.ZERO;
             }
+            // The prefix reaching this marking is already executable. Adding this deficit to the
+            // original stock preserves that prefix and unlocks another firing, even if the same
+            // recipe was initially enabled. External supply and the full order are verified later.
+            addStartupDeficit(startupDeficits, deficit, cancellation, memory);
             if (rank > unblockRank) return;
             if (rank == unblockRank) {
                 if (total.compareTo(unblockTotal) > 0) return;

@@ -102,6 +102,18 @@ final class CycleCandidateSearch {
         Set<AEKey> reusable = new LinkedHashSet<>();
         for (AEKey key : consumed) if (produced.contains(key) && !boundary.contains(key)) reusable.add(key);
 
+        // Copies left in ME by the verified original are not this job's retained seed. Keep that credit
+        // separate, otherwise a job borrowing one of 64 catalysts can consume it and call the other 63
+        // its own returned seed. Freeze the original reservation so the retention floor does not chase
+        // changes in the candidate's surplus/reservation accounting on every retry.
+        Map<AEKey, Long> originalReservations = ComponentPlanner.cycleInitialReservations(
+                exactRequiredOutputs, stock, original.result());
+        Map<AEKey, PlannerAmount> unreserved = new LinkedHashMap<>();
+        for (AEKey key : reusable) {
+            long held = stock.getOrDefault(key, 0L);
+            unreserved.put(key, PlannerAmount.of(held - Math.min(held, originalReservations.getOrDefault(key, 0L))));
+        }
+
         Map<AEKey, PlannerAmount> retained = new LinkedHashMap<>();
         Candidate current = original;
         ECOPlanningBudget slice = slice();
@@ -117,10 +129,12 @@ final class CycleCandidateSearch {
                 for (var entry : retained.entrySet()) {
                     PlannerAmount ending = PlannerAmount.of(
                             current.result().deliverableOutputs().getOrDefault(entry.getKey(), 0L));
-                    if (ending.compareTo(demand(entry.getKey()).add(entry.getValue())) < 0) kept = false;
+                    if (ending.compareTo(demand(entry.getKey()).add(entry.getValue())
+                            .add(unreserved.get(entry.getKey()))) < 0) kept = false;
                 }
                 Map<AEKey, PlannerAmount> targets = new LinkedHashMap<>(current.targets());
-                retained.forEach((key, amount) -> targets.merge(key, demand(key).add(amount), PlannerAmount::max));
+                retained.forEach((key, amount) -> targets.merge(key,
+                        demand(key).add(amount).add(unreserved.get(key)), PlannerAmount::max));
                 // The targets carry the retention floor into capped supply alternatives as well.
                 if (kept) return new Retention(new Candidate(current.result(), targets), retained, null);
                 if (round == MAX_RETENTION_ROUNDS) {
@@ -206,7 +220,14 @@ final class CycleCandidateSearch {
                 demands.keySet());
         Map<AEKey, Long> failing = new LinkedHashMap<>();
         failed.result().positiveExternalDemand().forEach((key, amount) -> {
-            if (!delegated.contains(key) && !plannedCycleInputs.containsKey(key)) failing.put(key, amount);
+            if (delegated.contains(key) || plannedCycleInputs.containsKey(key)) return;
+            // Uncapped demand includes all boundary fuel; a capped witness splits it into owned stock and
+            // extra imports. Probe both portions together before subtracting owned stock from the cap.
+            long owned = Math.min(solveStock.getOrDefault(key, 0L),
+                    failed.result().requiredSeed().getOrDefault(key, 0L));
+            PlannerAmount total = PlannerAmount.of(amount).add(owned);
+            if (total.fitsLong()) failing.put(key, total.longValueExact());
+            else complete = false;
         });
         if (failing.isEmpty()) {
             complete = false;
@@ -235,7 +256,7 @@ final class CycleCandidateSearch {
                     break;
                 }
             }
-            knownCaps.merge(key, PlannerAmount.of(hi - 1), PlannerAmount::min);
+            knownCaps.merge(key, importLimit(key, hi - 1), PlannerAmount::min);
             tightened = true;
         }
         if (tightened) {
@@ -249,9 +270,15 @@ final class CycleCandidateSearch {
         var keys = failing.keySet().toArray(new AEKey[0]);
         for (int i = keys.length - 1; i >= 0; i--) {
             Map<AEKey, PlannerAmount> child = new LinkedHashMap<>(branch);
-            child.merge(keys[i], PlannerAmount.of(failing.get(keys[i]) - 1), PlannerAmount::min);
+            child.merge(keys[i], importLimit(keys[i], failing.get(keys[i]) - 1), PlannerAmount::min);
             pending.push(child);
         }
+    }
+
+    /** CycleSolveRequest caps only imports beyond the stock already present in its marking. */
+    private PlannerAmount importLimit(AEKey key, long totalSupply) {
+        return PlannerAmount.of(totalSupply).subtract(PlannerAmount.of(solveStock.getOrDefault(key, 0L)))
+                .max(PlannerAmount.ZERO);
     }
 
     /** The external verdict for these demands alone: no cycle-owned reservations and no delegated suppliers. */

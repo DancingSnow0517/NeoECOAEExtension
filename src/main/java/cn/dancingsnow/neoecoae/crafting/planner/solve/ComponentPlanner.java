@@ -148,16 +148,28 @@ public final class ComponentPlanner {
                          boolean ignorePatternSubstitutions, ECOCancellation cancellation,
                          CycleFailureCache failures, ExternalDemandPlanner externalDemandPlanner,
                          boolean stopAtFirstFailure) throws InterruptedException {
-        Outcome retaining = planRoute(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
-                ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner, true, stopAtFirstFailure);
-        // Seed retention is chosen per component and may spend stock a later component needed;
-        // an order must never fail merely because a seed could not be kept.
-        if (retaining.status() == PlanningStatus.SUCCESS || retaining.trace().diagnostics().stream()
-                .noneMatch(d -> d.code() == PlannerDiagnostic.Code.CYCLE_SEED_RETAINED)) return retaining;
         Outcome plain = planRoute(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
                 ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner, false, stopAtFirstFailure);
+        if (plain.status() != PlanningStatus.SUCCESS || plain.components().stream().noneMatch(component ->
+                component.cycleResult() != null && component.cycleResult().requiredSeed().entrySet().stream()
+                    .anyMatch(seed -> seed.getValue() > 0 && inventory.get(seed.getKey()) > 0))) return plain;
+        // Only improve after the entire original order, including shared upstream supply, has succeeded.
+        // Per-component retention can spend stock needed later. Keep this completed transaction as the fallback
+        // even when the optional re-plan exhausts its allowance before reaching that later component.
+        ECOCancellation optional = cancellation instanceof ECOPlanningBudget budget
+                ? budget.slice(1_000_000L, 3_000_000_000L)
+                : new ECOPlanningBudget(cancellation, 1_000_000L, 3_000_000_000L, System::nanoTime);
+        String reason;
+        try {
+            Outcome retaining = planRoute(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
+                    ignorePatternSubstitutions, optional, failures, externalDemandPlanner, true, stopAtFirstFailure);
+            if (retaining.status() == PlanningStatus.SUCCESS) return retaining;
+            reason = "seed-retaining whole-order plan ended " + retaining.status();
+        } catch (ECOPlanningBudget.Exhausted exhausted) {
+            reason = "seed-retaining budget slice exhausted";
+        }
         plain.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SEED_NOT_RETAINED,
-                "Keeping the reusable cycle seed made the order fail; planned without seed retention"));
+                reason + "; retaining the previously verified complete plan"));
         return plain;
     }
 
@@ -749,10 +761,11 @@ public final class ComponentPlanner {
         } catch (cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget.Exhausted exhausted) {
             // The interrupted alternative is speculative. The completed route still owns a valid
             // material report and cycle diagnostics; never replace those with an empty shell.
-            preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED,
+            preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED,
                 "stage=alternative_routes " + exhausted.getMessage()
                     + "; retaining the completed route's material report"));
-            return new Outcome(PlanningStatus.CYCLE_UNRESOLVED, preferred.state(), preferred.trace(),
+            return new Outcome(preferred.status() == PlanningStatus.SUCCESS ? PlanningStatus.SUCCESS
+                    : PlanningStatus.CYCLE_UNRESOLVED, preferred.state(), preferred.trace(),
                 preferred.cycles(), preferred.components(), preferred.executionComponentOrder());
         }
     }

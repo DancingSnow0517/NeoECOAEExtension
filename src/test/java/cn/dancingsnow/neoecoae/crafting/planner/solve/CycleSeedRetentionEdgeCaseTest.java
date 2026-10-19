@@ -6,6 +6,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
@@ -28,6 +29,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -149,6 +152,61 @@ class CycleSeedRetentionEdgeCaseTest {
         assertTrue(notRetained.isPresent(), describe(outcome));
         assertTrue(notRetained.get().message().contains("budget slice"), notRetained.get().message());
         assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+    }
+
+    @Test
+    void wholeSessionDeadlineDuringRetentionKeepsTheAlreadySuppliedOrder() throws Exception {
+        var clock = new AtomicLong();
+        var calls = new AtomicInteger();
+        var delegate = new BoundedCycleSolver();
+        CycleSolver solver = (request, cancellation) -> {
+            if (calls.incrementAndGet() == 2) clock.set(100L);
+            cancellation.checkpoint();
+            return delegate.solve(request, cancellation);
+        };
+        var network = new CompiledNetwork(b, Map.of(b, List.of(p1), a, List.of(p2), f, List.of()), Set.of(), 2, 3);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+                new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), solver).plan(network, condensation,
+                inventory(a, 1, f, 2), 2, true,
+                new ECOPlanningBudget(ECOCancellation.NONE, 100_000L, 100L, clock::get));
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
+        assertEquals(Map.of(p1.details(), 1L), outcome.state().patternTimes());
+        assertEquals(1L, outcome.state().usedItems().get(a));
+        assertEquals(1L, outcome.state().usedItems().get(f));
+        assertTrue(outcome.state().missingItems().isEmpty());
+        assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_NOT_RETAINED);
+        assertEquals(2, calls.get(), "Do not try to rebuild the fallback after the shared deadline");
+    }
+
+    @Test
+    void userCancellationDuringOptionalRetentionStillPropagates() {
+        var calls = new AtomicInteger();
+        var delegate = new BoundedCycleSolver();
+        CycleSolver solver = (request, cancellation) -> {
+            if (calls.incrementAndGet() == 2) throw new InterruptedException("cancelled by player");
+            return delegate.solve(request, cancellation);
+        };
+        assertThrows(InterruptedException.class, () -> planSeedCycle(solver, inventory(a, 1, f, 2), 2));
+    }
+
+    @Test
+    void returnedCatalystReservesOneAtomicRecipeInputInsteadOfTheWholePool() throws Exception {
+        var outputs = List.of(new GenericStack(t, 1), new GenericStack(k, 3));
+        var details = details(outputs);
+        var make = new CompiledPattern(3, details, t, PlannerAmount.ONE, List.of(input(k, 3), input(f, 1)),
+                outputs, true, null, false, semantics(details, outputs));
+        var network = new CompiledNetwork(t, Map.of(t, List.of(make), k, List.of(make), f, List.of()), Set.of(), 1, 3);
+        var first = plan(network, inventory(k, 96, f, 20), 10);
+        assertEquals(PlanningStatus.SUCCESS, first.status(), describe(first));
+        assertEquals(3L, first.state().usedItems().get(k));
+        var second = plan(network, inventory(k, 93, f, 10), 10);
+        assertEquals(PlanningStatus.SUCCESS, second.status(), describe(second));
+        assertEquals(3L, second.state().usedItems().get(k));
+        var end = replay(cycle(first).cycleResult(), counts(k, 3, f, 10));
+        assertEquals(3L, end.get(k));
+        assertEquals(10L, end.get(t));
     }
 
     @Test

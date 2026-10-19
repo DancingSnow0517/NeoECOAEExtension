@@ -53,9 +53,15 @@ public final class JointRouteOptimizer {
         budgetExhausted = false;
         if (amount <= 0) return preferred;
         boolean completed = preferred != null && preferred.status() == PlanningStatus.SUCCESS;
+        // The optional firing-count objective does not include the component planner's seed floors.
+        // Do not replace a verified seed-retaining order with a cheaper order that consumes that seed.
+        if (completed && preferred.trace().diagnostics().stream()
+                .anyMatch(d -> d.code() == PlannerDiagnostic.Code.CYCLE_SEED_RETAINED)) return preferred;
         // Feasibility recovery gets a useful share; optional improvement remains short and keeps its incumbent.
-        ECOCancellation bounded = new ECOPlanningBudget(cancellation, completed ? 50_000 : 1_000_000,
-            completed ? 100_000_000L : 3_000_000_000L, System::nanoTime);
+        long work = completed ? 50_000 : 1_000_000;
+        long nanos = completed ? 100_000_000L : 3_000_000_000L;
+        ECOCancellation bounded = cancellation instanceof ECOPlanningBudget budget ? budget.slice(work, nanos)
+            : new ECOPlanningBudget(cancellation, work, nanos, System::nanoTime);
         try {
             ComponentPlanner.Outcome proposal = null;
             if (!completed && allowOrdered) {
@@ -142,7 +148,7 @@ public final class JointRouteOptimizer {
         keys.put(network.goal(), 0);
         for (CompiledPattern pattern : patterns) {
             pattern.inputs().forEach(input -> keys.computeIfAbsent(input.key(), ignored -> keys.size()));
-            pattern.outputs().forEach(output -> keys.computeIfAbsent(output.what(), ignored -> keys.size()));
+            pattern.grossOutputs().forEach(output -> keys.computeIfAbsent(output.what(), ignored -> keys.size()));
         }
         List<Map<Integer, BigInteger>> net = new ArrayList<>();
         for (CompiledPattern pattern : patterns) {
@@ -169,9 +175,17 @@ public final class JointRouteOptimizer {
         // Reserve the rest of this phase for concrete replay even if quantity optimization exhausts its slice.
         ECOCancellation quantities = new ECOPlanningBudget(cancellation, firstFeasible ? 700_000 : 30_000,
             firstFeasible ? 2_000_000_000L : 60_000_000L, System::nanoTime);
-        var solution = CycleStateEquation.solveSparseMaterialBalance(net, imports, initial, target, false, quantities);
+        var solution = CycleStateEquation.solveSparseMaterialBalance(net, imports, initial, target, firstFeasible, quantities);
         if (solution.counts() == null) return null;
-        SolveState state = replay(network, inventory, amount, patterns, solution.counts(), cancellation);
+        boolean returnedWorkingStock = false;
+        for (int i = 0; i < patterns.size(); i++) {
+            if (solution.counts()[i].signum() > 0 && !patterns.get(i).semantics().returnedOutputs().isEmpty())
+                returnedWorkingStock = true;
+        }
+        // Aggregate DAG consumption would reserve one tool per firing (and per route). Ordered replay
+        // proves how many physical copies are needed across all firings before reserving working stock.
+        SolveState state = returnedWorkingStock ? null
+            : replay(network, inventory, amount, patterns, solution.counts(), cancellation);
         if (state == null && allowOrdered) {
             Set<Map<Integer, PlannerAmount>> attempted = new LinkedHashSet<>();
             Map<Integer, PlannerAmount> lowerBounds = new LinkedHashMap<>();
@@ -201,7 +215,7 @@ public final class JointRouteOptimizer {
                 repaired.forEach((index, count) -> lowerBounds.merge(index, count, PlannerAmount::max));
                 if (lowerBounds.isEmpty() || !attempted.add(Map.copyOf(lowerBounds))) return null;
                 // This restricted model is a recovery heuristic, not an original-graph infeasibility proof.
-                solution = CycleStateEquation.solveSparseMaterialBalance(net, imports, initial, target, lowerBounds, false, quantities);
+                solution = CycleStateEquation.solveSparseMaterialBalance(net, imports, initial, target, lowerBounds, firstFeasible, quantities);
                 if (solution.counts() == null) return null;
             }
         }
@@ -301,8 +315,9 @@ public final class JointRouteOptimizer {
         }
         // CompiledNetwork contains queried views, so an unused output need not be indexed.
         // Consumed hidden coproduct feedback still needs the existing per-slot component path.
+        // An unchanged input remainder is working stock, not an advertised product that activates firings.
         for (var pattern : selected) {
-            if (outputs(pattern).keySet().stream().anyMatch(key -> demand.getOrDefault(key, PlannerAmount.ZERO).signum() > 0
+            if (pattern.outputs().stream().map(output -> output.what()).anyMatch(key -> demand.getOrDefault(key, PlannerAmount.ZERO).signum() > 0
                     && network.producersOf(key).stream().noneMatch(view -> view.details() == pattern.details()))) return null;
         }
         if (selected.isEmpty() || !orderedActivationsCovered(network, selected, firings, amount, Map.of(), cancellation)) return null;
@@ -441,13 +456,33 @@ public final class JointRouteOptimizer {
 
     private static boolean safe(CompiledPattern pattern, boolean allowOrdered) {
         return pattern.fastSupported() && (pattern.unsupportedReason() == null || pattern.unsupportedReason().isEmpty())
-                && pattern.semantics().completeForStaticPlanning() && !pattern.specialAnalysis().special()
-                && pattern.semantics().returnedOutputs().isEmpty()
+                && pattern.semantics().completeForStaticPlanning()
+                && (allowOrdered ? unchangedReturns(pattern)
+                    : !pattern.specialAnalysis().special() && pattern.semantics().returnedOutputs().isEmpty())
                 && (allowOrdered || pattern.semantics().feedbackEdges().isEmpty())
                 && pattern.inputs().stream().allMatch(input -> input.fastSupported() && !input.ignoresComponents()
-                    && input.remainderKey() == null && input.amountPerPattern().signum() > 0 && input.amountPerPattern().fitsLong())
+                    && (input.remainderKey() == null || allowOrdered && input.reusable())
+                    && input.amountPerPattern().signum() > 0 && input.amountPerPattern().fitsLong())
                 && !pattern.outputs().isEmpty()
                 && pattern.outputs().stream().allMatch(output -> output != null && output.what() != null && output.amount() > 0);
+    }
+
+    /** Only exact, unchanged working tools enter joint replay; durability and container conversions stay separate. */
+    private static boolean unchangedReturns(CompiledPattern pattern) {
+        if (pattern.specialAnalysis().requirements().stream().anyMatch(requirement -> requirement.type()
+                != cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis.Type.REUSABLE)) return false;
+        Map<AEKey, PlannerAmount> expected = new LinkedHashMap<>();
+        for (var input : pattern.inputs()) {
+            if (input.remainderKey() == null) continue;
+            if (!input.reusable()) return false;
+            expected.merge(input.remainderKey(), input.remainderAmountPerPattern(), PlannerAmount::add);
+        }
+        Map<AEKey, PlannerAmount> returned = new LinkedHashMap<>();
+        for (var output : pattern.semantics().returnedOutputs()) {
+            if (output == null || output.what() == null || output.amount() <= 0) return false;
+            returned.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add);
+        }
+        return expected.equals(returned) && (returned.isEmpty() || pattern.semantics().cycleSafeForStaticPlanning());
     }
 
     /** AE2 may credit every output, but only an advertised producer view may activate physical firings. */
@@ -485,7 +520,7 @@ public final class JointRouteOptimizer {
 
     private static Map<AEKey, PlannerAmount> outputs(CompiledPattern pattern) {
         Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
-        pattern.outputs().forEach(output -> result.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add));
+        pattern.grossOutputs().forEach(output -> result.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add));
         return result;
     }
 

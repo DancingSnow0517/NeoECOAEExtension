@@ -162,13 +162,13 @@ public class NEConfig {
         .comment("一次 ECO 规划会话的总耗时预算（毫秒），路线、种子和 CRAFT_LESS 探测共享；超限显示未解。",
             "Shared cooperative time budget for one ECO planning session, including routes, seeds and CRAFT_LESS probes.")
         .translation("neoecoae.configuration.ecoPlanningMaxMillis")
-        .defineInRange("ecoPlanningMaxMillis", 10_000, 1, 600_000);
+        .defineInRange("ecoPlanningMaxMillis", 120_000, 1, 600_000);
 
     private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_WORK = BUILDER
         .comment("一次 ECO 规划会话的检查点总预算；切换路线和种子不会重置预算。",
             "Shared checkpoint work budget; changing routes or startup seeds does not reset it.")
         .translation("neoecoae.configuration.ecoPlanningMaxWork")
-        .defineInRange("ecoPlanningMaxWork", 5_000_000, 1, Integer.MAX_VALUE);
+        .defineInRange("ecoPlanningMaxWork", 50_000_000, 1, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_MEMORY_MIB = BUILDER
         .comment("循环求解保留数据的估算内存预算（MiB），覆盖矩阵和搜索状态；超限显示未解。",
@@ -260,8 +260,8 @@ public class NEConfig {
     public static int craftingPatternBusPages = 1;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
-    public static int ecoPlanningMaxMillis = 10_000;
-    public static int ecoPlanningMaxWork = 5_000_000;
+    public static int ecoPlanningMaxMillis = 120_000;
+    public static int ecoPlanningMaxWork = 50_000_000;
     public static int ecoPlanningMaxMemoryMiB = 64;
     public static boolean ecoPlanningStageDebug = false;
     public static boolean ecoCraftSubmissionDebug = false;

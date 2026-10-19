@@ -48,6 +48,43 @@ class CycleSeedRetentionPlanningTest {
     }
 
     @Test
+    void concurrentOrdersBorrowOneSeedEachAndReturnTheirOwnSeed() throws Exception {
+        var first = planSeedCycle(inventory(a, 64, f, 4000), 1000);
+        assertEquals(PlanningStatus.SUCCESS, first.status(), describe(first));
+        assertEquals(1L, first.state().usedItems().get(a), "Do not reserve the other 63 seeds for parallelism");
+        assertEquals(Map.of(p1.details(), 1000L, p2.details(), 1000L), first.state().patternTimes());
+        assertHasDiagnostic(first, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+
+        // Submit the second order while the first order's one seed and fuel are still held by its CPU.
+        var second = planSeedCycle(inventory(a, 63, f, 3000), 1000);
+        assertEquals(PlanningStatus.SUCCESS, second.status(), describe(second));
+        assertEquals(1L, second.state().usedItems().get(a));
+        assertEquals(Map.of(p1.details(), 1000L, p2.details(), 1000L), second.state().patternTimes());
+
+        // Each CPU must execute from only what it reserved. The other network copies are not seed credit.
+        var end = replay(cycle(first).cycleResult(), counts(a, 1, f, 1000));
+        assertEquals(1L, end.get(a));
+        assertEquals(1000L, end.get(b));
+        assertEquals(0L, end.get(f));
+    }
+
+    @Test
+    void optionalJointOptimizationCannotSpendTheSeedThatWasRetained() throws Exception {
+        var network = new CompiledNetwork(b, Map.of(b, List.of(p1), a, List.of(p2), f, List.of()), Set.of(), 2, 3);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+                new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = inventory(a, 1, f, 2);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var result = planner.planWithCycleFallback(network, condensation,
+                planner.selectRoutes(condensation, true, ECOCancellation.NONE), stock,
+                PlannerInventorySnapshot.of(stock), 2, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, result.status(), describe(result));
+        assertEquals(Map.of(p1.details(), 2L, p2.details(), 2L), result.state().patternTimes());
+        assertHasDiagnostic(result, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+    }
+
+    @Test
     void fallsBackToConsumingTheSeedWhenFuelIsShort() throws Exception {
         var outcome = planSeedCycle(inventory(a, 1, f, 1), 2);
         assertEquals(PlanningStatus.SUCCESS, outcome.status(), outcome.trace().diagnostics().toString());
@@ -92,6 +129,15 @@ class CycleSeedRetentionPlanningTest {
         assertTrue(times.containsKey(branchG.details()), times.toString());
         assertEquals(0L, outcome.state().usedItems().get(zf));
         assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SUPPLY_ALTERNATIVE);
+    }
+
+    @Test
+    void ownedBoundaryFuelCannotBeCountedAgainAsAnImportDuringFallback() throws Exception {
+        var outcome = planBranching(inventory(a, 3, f, 1, zg, 4));
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
+        assertTrue(outcome.state().usedItems().get(f) <= 1L, describe(outcome));
+        assertEquals(0L, outcome.state().usedItems().get(zf));
+        assertTrue(outcome.state().patternTimes().containsKey(branchG.details()), describe(outcome));
     }
 
     @Test

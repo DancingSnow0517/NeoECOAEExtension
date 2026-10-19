@@ -74,6 +74,13 @@ public final class CycleStateEquation {
     static Result solve(long[][] consumed, long[][] produced, boolean[] boundary,
             PlannerAmount[] stock, PlannerAmount[] target, ECOCancellation cancellation, CycleMemoryBudget memory)
             throws InterruptedException {
+        return solve(consumed, produced, boundary, stock, target, false, cancellation, memory);
+    }
+
+    /** Feasibility mode stops at the first integer vector so the caller can spend its allowance on replay. */
+    static Result solve(long[][] consumed, long[][] produced, boolean[] boundary,
+            PlannerAmount[] stock, PlannerAmount[] target, boolean firstFeasible,
+            ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
         List<Map<Integer, BigInteger>> columns = new ArrayList<>();
         for (int p = 0; p < consumed.length; p++) {
             cancellation.checkpoint();
@@ -84,7 +91,7 @@ public final class CycleStateEquation {
             }
             columns.add(column);
         }
-        return solveSparse(columns, boundary, stock, target, Map.of(), false, cancellation, memory);
+        return solveSparse(columns, boundary, stock, target, Map.of(), firstFeasible, cancellation, memory);
     }
 
     private static Result solveSparse(List<Map<Integer, BigInteger>> columns, boolean[] boundary,
