@@ -21,6 +21,13 @@ public final class ECOBigOrderAdmission {
         return status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE
                 || forced && status == PlanningStatus.MISSING_ITEMS;
     }
+
+    /** A forced shortage may wait for a fresh plan without executing the incomplete preview. */
+    public static boolean waitsForMaterials(ECOPlanningResult result, boolean forced) {
+        return forced && result != null && result.plan() != null
+            && result.status() == PlanningStatus.MISSING_ITEMS;
+    }
+
     public static boolean allows(ECOPlanningResult result, boolean forced) {
         if (result == null || result.plan() == null || !allows(result.status(), forced)) return false;
         if (result.components().stream().anyMatch(component ->

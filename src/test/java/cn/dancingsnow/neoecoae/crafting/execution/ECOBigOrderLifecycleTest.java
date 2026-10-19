@@ -31,6 +31,64 @@ import net.minecraft.core.HolderLookup;
 import org.junit.jupiter.api.Test;
 
 class ECOBigOrderLifecycleTest {
+    @Test void forcedMissingCycleWaitsThenExecutesTheWholeOrderOnTheSameLink() {
+        var cpu = mock(ECOCraftingCPU.class);
+        var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);
+        var cluster = mock(NEComputationCluster.class);
+        when(cpu.isActive()).thenReturn(true);
+        when(cpu.getGrid()).thenReturn(grid);
+        when(cpu.getCluster()).thenReturn(cluster);
+        when(cpu.getAvailableStorage()).thenReturn(100L);
+        when(cluster.replaceBigOrderPlan(eq(cpu), any())).thenReturn(true);
+        var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        var missing = new CraftingPlan(new GenericStack(key, 10), 0, true, false,
+            new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of());
+        var component = new cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult(1,
+            cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC,
+            cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.UNRESOLVED,
+            Map.of(), null, null);
+        var result = new ECOPlanningResult(PlanningStatus.MISSING_ITEMS, missing, new ECOPlanTrace(),
+            List.of(), List.of(component), List.of(1), 0);
+        assertFalse(ECOBigOrderAdmission.allows(result, true), "The preview has no executable cycle schedule");
+        assertTrue(ECOBigOrderAdmission.waitsForMaterials(result, true), "Force-start must still admit a waiting order");
+        var options = new ECOPlannerOptions(true, false, Set.of());
+        var request = ECOBigOrderRequest.fromPlanningResult(result, true, options);
+        var logic = new ECOCraftingCPULogic(cpu);
+        try (var keyTypes = mockStatic(appeng.api.stacks.AEKeyTypes.class);
+             var planner = mockStatic(ECOBigOrderPlanner.class);
+             var helpers = mockStatic(CraftingCpuHelper.class, CALLS_REAL_METHODS)) {
+            helpers.when(() -> CraftingCpuHelper.tryExtractInitialItems(any(), any(), any(), any())).thenReturn(null);
+            var complete = new CraftingPlan(new GenericStack(key, 10), 1, false, false,
+                new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of());
+            planner.when(() -> ECOBigOrderPlanner.begin(eq(grid), eq(key), eq(10L), eq(100L), eq(options)))
+                .thenReturn(CompletableFuture.completedFuture(new ECOBigOrderPlanner.Answer(result, false, false)),
+                    CompletableFuture.completedFuture(answer(complete)));
+
+            assertTrue(request.submit(carrier -> logic.trySubmitJob(grid, carrier, IActionSource.empty(), null)).successful());
+            var link = logic.getLastLink();
+            logic.bigOrder.tick();
+            logic.bigOrder.tick();
+            var waiting = logic.getProgressView().bigOrder().orElseThrow();
+            assertEquals(ECOBigOrderState.WAITING_MATERIALS, waiting.state());
+            assertEquals(BigInteger.TEN, waiting.requested());
+            assertEquals(BigInteger.TEN, waiting.remaining());
+            assertFalse(link.isDone());
+            verify(cluster, never()).replaceBigOrderPlan(any(), any());
+
+            for (int tick = 0; tick < 21; tick++) logic.bigOrder.tick();
+            assertEquals(ECOBigOrderState.RUNNING_CHILD,
+                logic.getProgressView().bigOrder().orElseThrow().state());
+            assertSame(link, logic.getLastLink());
+            assertEquals(10, logic.getJob().finalOutput.amount());
+            verify(cluster).replaceBigOrderPlan(cpu, complete);
+            logic.getJob().remainingAmount = 0;
+            logic.finishJob(true);
+            assertTrue(link.isDone());
+            assertFalse(logic.hasJob());
+            assertTrue(missing.simulation(), "Submitting must preserve the confirmation preview");
+        }
+    }
+
     @Test void childrenShareOneLinkAndOnlyTheParentFiresCompletion() {
         var cpu = mock(ECOCraftingCPU.class);
         var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);

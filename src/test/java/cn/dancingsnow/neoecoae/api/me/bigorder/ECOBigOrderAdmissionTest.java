@@ -8,6 +8,20 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ECOBigOrderAdmissionTest {
+    @Test void onlyForcedMissingPlansCanEnterTheMaterialWaitingPath() {
+        assertFalse(ECOBigOrderAdmission.waitsForMaterials(null, true));
+        for (var status : cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.values()) {
+            var result = org.mockito.Mockito.mock(cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult.class);
+            org.mockito.Mockito.when(result.status()).thenReturn(status);
+            org.mockito.Mockito.when(result.plan()).thenReturn(org.mockito.Mockito.mock(appeng.crafting.CraftingPlan.class));
+            assertFalse(ECOBigOrderAdmission.waitsForMaterials(result, false), status.name());
+            assertEquals(status == cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS,
+                ECOBigOrderAdmission.waitsForMaterials(result, true), status.name());
+            org.mockito.Mockito.when(result.plan()).thenReturn(null);
+            assertFalse(ECOBigOrderAdmission.waitsForMaterials(result, true), status.name());
+        }
+    }
+
     @Test void unrepresentableCycleStartsAsParentCarrierInsteadOfAnIncompleteExecutionPlan() {
         var goal = org.mockito.Mockito.mock(appeng.api.stacks.AEKey.class);
         var intermediate = org.mockito.Mockito.mock(appeng.api.stacks.AEKey.class);

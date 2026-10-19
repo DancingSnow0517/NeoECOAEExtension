@@ -217,7 +217,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
             return;
         }
-        if (!cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(exact, forced)) {
+        boolean waitingForMaterials = cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission
+            .waitsForMaterials(exact, forced);
+        if (!waitingForMaterials
+                && !cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(exact, forced)) {
             NEOECOAE_LOGGER.warn(
                 "[big-order-submit] Admission denied: container={}, status={}, forced={}, hasPlan={}, components={}, missingNodes={}",
                 menu.containerId, exact.status(), forced, exact.plan() != null,
@@ -258,18 +261,27 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 }
             }
         }
-        final cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan admission;
+        final ICraftingSubmitResult submitted;
         try {
-            admission = new cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan(exact, forced);
+            NEOECOAE_LOGGER.info("[big-order-submit] Submitting to CPU: container={}, output={}, forced={}, waitingForMaterials={}, cpu={}",
+                menu.containerId, result.finalOutput(), forced, waitingForMaterials, neoecoae$describeCpu(cpu));
+            if (waitingForMaterials) {
+                // A missing cycle has no executable schedule. Publish a persistent parent and let
+                // its planner create complete children after stock (including startup seeds) arrives.
+                var request = cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest
+                    .fromPlanningResult(exact, true, neoecoae$originalOptions);
+                submitted = request.submit(carrier ->
+                    cpu.getCluster().submitJob(grid, carrier, getActionSrc(), null));
+            } else {
+                var admission = new cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan(exact, forced);
+                submitted = cpu.getCluster().submitJob(grid, admission, getActionSrc(), null);
+            }
         } catch (RuntimeException invalid) {
             NEOECOAE_LOGGER.warn("[big-order-submit] Exact order rejected", invalid);
             neoecoae$rejectBigOrder("EXACT_ORDER_INVALID",
                 appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
             return;
         }
-        NEOECOAE_LOGGER.info("[big-order-submit] Submitting to CPU: container={}, output={}, forced={}, cpu={}",
-            menu.containerId, result.finalOutput(), forced, neoecoae$describeCpu(cpu));
-        var submitted = cpu.getCluster().submitJob(grid, admission, getActionSrc(), null);
         menu.setAutoStart(false);
         if (submitted.successful()) {
             NEOECOAE_LOGGER.info("[big-order-submit] Accepted: container={}, output={}", menu.containerId, result.finalOutput());
