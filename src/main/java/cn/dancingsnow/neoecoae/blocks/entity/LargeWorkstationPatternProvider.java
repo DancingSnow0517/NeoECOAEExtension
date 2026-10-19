@@ -6,6 +6,7 @@ import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.upgrades.IUpgradeInventory;
+import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.core.definitions.AEItems;
 import appeng.util.inv.filter.IAEItemFilter;
@@ -40,10 +41,12 @@ import org.jetbrains.annotations.Nullable;
  * workstation pattern is handed to the formed workstation controller instead
  * of being pushed into an adjacent inventory.</p>
  */
-public final class LargeWorkstationPatternProvider extends PatternProviderLogic implements ECOParallelCraftingProvider {
+public final class LargeWorkstationPatternProvider extends PatternProviderLogic
+    implements ECOParallelCraftingProvider, IUpgradeableObject {
     public static final int PATTERN_COLUMNS = 9;
     public static final int BASE_PATTERN_ROWS = 4;
     public static final int MAX_CAPACITY_CARDS = 4;
+    public static final int UPGRADE_SLOTS = MAX_CAPACITY_CARDS + 1;
     public static final int MAX_PATTERN_SLOTS = (BASE_PATTERN_ROWS + MAX_CAPACITY_CARDS) * PATTERN_COLUMNS;
 
     private final ECOLargeIntegratedWorkingStationInterfaceBlockEntity host;
@@ -62,18 +65,19 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     public LargeWorkstationPatternProvider(ECOLargeIntegratedWorkingStationInterfaceBlockEntity host) {
         super(host.getMainNode(), host, MAX_PATTERN_SLOTS);
         this.host = host;
-        capacityUpgrades = UpgradeInventories.forMachine(host.getBlockState().getBlock(), MAX_CAPACITY_CARDS,
+        capacityUpgrades = UpgradeInventories.forMachine(host.getBlockState().getBlock(), UPGRADE_SLOTS,
             this::onCapacityUpgradesChanged);
         if (capacityUpgrades instanceof AppEngInternalInventory inventory) {
             inventory.setFilter(new IAEItemFilter() {
                 @Override
                 public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
-                    return AEItems.CAPACITY_CARD.is(stack);
+                    return capacityUpgrades.getInstalledUpgrades(stack.getItem())
+                        < capacityUpgrades.getMaxInstalled(stack.getItem());
                 }
 
                 @Override
                 public boolean allowExtract(InternalInventory inv, int slot, int amount) {
-                    return canRemoveCapacityCard();
+                    return !AEItems.CAPACITY_CARD.is(inv.getStackInSlot(slot)) || canRemoveCapacityCard();
                 }
             });
         }
@@ -89,6 +93,11 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     }
 
     public IUpgradeInventory getCapacityUpgrades() {
+        return capacityUpgrades;
+    }
+
+    @Override
+    public IUpgradeInventory getUpgrades() {
         return capacityUpgrades;
     }
 

@@ -46,6 +46,7 @@ class LargeWorkstationPatternInventoryTest {
         when(deferred.asItem()).thenReturn(Items.PAPER);
         itemField.set(AEItems.CAPACITY_CARD, deferred);
         Upgrades.add(AEItems.CAPACITY_CARD, Blocks.BARREL, 4);
+        Upgrades.add(Items.REDSTONE, Blocks.BARREL, 1);
     }
 
     @AfterAll
@@ -60,7 +61,7 @@ class LargeWorkstationPatternInventoryTest {
     void eachOfFourNativeCapacityCardsImmediatelyAddsOneRowToTheSameInventoryView() {
         var provider = provider();
         var patterns = provider.getPatternInv();
-        assertEquals(4, provider.getCapacityUpgrades().size());
+        assertEquals(5, provider.getCapacityUpgrades().size());
         assertEquals(36, patterns.size());
         assertEquals(72, provider.getMenuPatternInventory().size());
         for (int cards = 1; cards <= 4; cards++) {
@@ -71,7 +72,7 @@ class LargeWorkstationPatternInventoryTest {
             assertTrue(provider.canInsertPattern((4 + cards) * 9 - 1));
             assertFalse(provider.canInsertPattern((4 + cards) * 9));
         }
-        assertFalse(provider.getCapacityUpgrades().insertItem(0, AEItems.CAPACITY_CARD.stack(), false).isEmpty());
+        assertFalse(provider.getCapacityUpgrades().insertItem(4, AEItems.CAPACITY_CARD.stack(), false).isEmpty());
         assertEquals(8, provider.getUnlockedPatternRows());
     }
 
@@ -80,7 +81,7 @@ class LargeWorkstationPatternInventoryTest {
         var provider = provider();
         var upgrades = provider.getCapacityUpgrades();
         assertFalse(upgrades.insertItem(0, new ItemStack(Items.DIAMOND), false).isEmpty());
-        assertFalse(upgrades.insertItem(0, new ItemStack(Items.REDSTONE), false).isEmpty());
+        assertFalse(upgrades.insertItem(0, new ItemStack(Items.EMERALD), false).isEmpty());
         assertTrue(upgrades.insertItem(0, AEItems.CAPACITY_CARD.stack(), true).isEmpty());
         assertEquals(36, provider.getPatternInv().size());
         assertTrue(upgrades.getStackInSlot(0).isEmpty());
@@ -102,6 +103,34 @@ class LargeWorkstationPatternInventoryTest {
         assertTrue(provider.canRemoveCapacityCard());
         assertTrue(AEItems.CAPACITY_CARD.is(provider.getCapacityUpgrades().extractItem(0, 1, false)));
         assertEquals(36, provider.getPatternInv().size());
+    }
+
+    @Test
+    void fourCapacityCardsAndOneRegisteredAddonCardShareThePersistedInventory() throws Exception {
+        var provider = provider();
+        var upgrades = provider.getUpgrades();
+        assertSame(provider.getCapacityUpgrades(), upgrades);
+        assertTrue(upgrades.insertItem(4, new ItemStack(Items.REDSTONE), false).isEmpty());
+        assertFalse(upgrades.insertItem(0, new ItemStack(Items.REDSTONE), false).isEmpty());
+        for (int slot = 0; slot < 4; slot++) {
+            assertTrue(upgrades.insertItem(slot, AEItems.CAPACITY_CARD.stack(), false).isEmpty());
+        }
+        provider.getMenuPatternInventory().setItemDirect(71, new ItemStack(Items.PAPER));
+        assertFalse(provider.canRemoveCapacityCard());
+
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        CompoundTag saved = new CompoundTag();
+        provider.writeToNBT(saved, registries);
+        var restored = provider();
+        restored.readFromNBT(saved, registries);
+        assertEquals(4, restored.getUpgrades().getInstalledUpgrades(AEItems.CAPACITY_CARD));
+        assertEquals(1, restored.getUpgrades().getInstalledUpgrades(Items.REDSTONE));
+        var menu = menu(restored);
+        assertFalse(menu.getSlots(SlotSemantics.UPGRADE).get(0).mayPickup(mock(Player.class)));
+        assertTrue(menu.getSlots(SlotSemantics.UPGRADE).get(4).mayPickup(mock(Player.class)));
+        assertTrue(restored.getUpgrades().extractItem(0, 1, false).isEmpty());
+        assertTrue(restored.getUpgrades().extractItem(4, 1, false).is(Items.REDSTONE));
+        assertEquals(72, restored.getPatternInv().size());
     }
 
     @Test
@@ -170,7 +199,7 @@ class LargeWorkstationPatternInventoryTest {
             }
         }
         assertEquals(72, first.getSlots(SlotSemantics.ENCODED_PATTERN).size());
-        assertEquals(4, first.getSlots(SlotSemantics.UPGRADE).size());
+        assertEquals(5, first.getSlots(SlotSemantics.UPGRADE).size());
         assertEquals(36, first.getPatternSlotCount());
         withoutCards.getCapacityUpgrades().insertItem(0, AEItems.CAPACITY_CARD.stack(), false);
         assertEquals(45, first.getPatternSlotCount());

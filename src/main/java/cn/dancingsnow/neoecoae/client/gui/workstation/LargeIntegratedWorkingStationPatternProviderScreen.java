@@ -55,7 +55,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
                 () -> Upgrades.getTooltipLinesForMachine(menu.getCapacityUpgrades().getUpgradableItem())));
         } catch (IllegalStateException existingPanel) {
             if (!"Duplicate id: upgrades".equals(existingPanel.getMessage())) throw existingPanel;
-            // AE2 provider addons may already supply this native panel; its slots are the same four capacity slots.
+            // AE2 provider addons may already supply this native panel with the same workstation upgrade slots.
         }
     }
 

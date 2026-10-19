@@ -8,6 +8,7 @@ import appeng.menu.SlotSemantics;
 import appeng.menu.implementations.MenuTypeBuilder;
 import appeng.menu.implementations.PatternProviderMenu;
 import appeng.menu.slot.RestrictedInputSlot;
+import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.AuxiliaryPatternHolder;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider;
@@ -38,8 +39,8 @@ public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternPro
                 super.addSlot(new DiskAwarePatternSlot(provider.getMenuPatternInventory(), slot, provider),
                     SlotSemantics.ENCODED_PATTERN);
             }
-            for (int slot = 0; slot < LargeWorkstationPatternProvider.MAX_CAPACITY_CARDS; slot++) {
-                super.addSlot(new CapacityUpgradeSlot(provider, slot), SlotSemantics.UPGRADE);
+            for (int slot = 0; slot < provider.getUpgrades().size(); slot++) {
+                super.addSlot(new WorkstationUpgradeSlot(provider, slot), SlotSemantics.UPGRADE);
             }
         }
     }
@@ -55,10 +56,9 @@ public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternPro
     /** Build our fixed physical slots after the superclass, so both sides use identical slot indices. */
     @Override
     protected Slot addSlot(Slot slot, SlotSemantic semantic) {
-        // Optional provider addons inject their own upgrade slots into the superclass constructor.
-        // This interface owns four capacity-card slots instead, added after construction above.
-        if (logic instanceof LargeWorkstationPatternProvider
-            && (semantic == SlotSemantics.UPGRADE || semantic == SlotSemantics.ENCODED_PATTERN)) {
+        // Addons can inject upgrades before the superclass assigns logic. This menu always owns
+        // its physical pattern and upgrade slots, which are added explicitly after super returns.
+        if (semantic == SlotSemantics.UPGRADE || semantic == SlotSemantics.ENCODED_PATTERN) {
             // Installed cards and recovered legacy rows are not synchronized while the menu is being constructed.
             // Letting the superclass vary its slot count would shift return-inventory indices between the two sides.
             return slot;
@@ -85,18 +85,19 @@ public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternPro
         }
     }
 
-    private static final class CapacityUpgradeSlot extends RestrictedInputSlot {
+    private static final class WorkstationUpgradeSlot extends RestrictedInputSlot {
         private final LargeWorkstationPatternProvider provider;
 
-        private CapacityUpgradeSlot(LargeWorkstationPatternProvider provider, int slot) {
-            super(PlacableItemType.UPGRADES, provider.getCapacityUpgrades(), slot);
+        private WorkstationUpgradeSlot(LargeWorkstationPatternProvider provider, int slot) {
+            super(PlacableItemType.UPGRADES, provider.getUpgrades(), slot);
             this.provider = provider;
             setNotDraggable();
         }
 
         @Override
         public boolean mayPickup(Player player) {
-            return provider.canRemoveCapacityCard() && super.mayPickup(player);
+            return (!AEItems.CAPACITY_CARD.is(getItem()) || provider.canRemoveCapacityCard())
+                && super.mayPickup(player);
         }
     }
 }
