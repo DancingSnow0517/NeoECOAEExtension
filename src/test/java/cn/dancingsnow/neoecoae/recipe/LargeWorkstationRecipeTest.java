@@ -40,14 +40,15 @@ import static org.mockito.Mockito.*;
 class LargeWorkstationRecipeTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
-    private boolean previousCompatEnabled;
+    private boolean previousIgnoreUpgradeCards;
 
     @BeforeEach void saveConfig() {
-        previousCompatEnabled = NEConfig.largeWorkstationCompatRecipesEnabled;
+        previousIgnoreUpgradeCards = NEConfig.largeWorkstationIgnoreUpgradeCards;
+        NEConfig.largeWorkstationIgnoreUpgradeCards = false;
     }
 
     @AfterEach void restoreConfig() {
-        NEConfig.largeWorkstationCompatRecipesEnabled = previousCompatEnabled;
+        NEConfig.largeWorkstationIgnoreUpgradeCards = previousIgnoreUpgradeCards;
     }
 
     @Test void overlappingTagsCanReassignEarlierAllocations() {
@@ -269,7 +270,7 @@ class LargeWorkstationRecipeTest {
         "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing",
         "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler"
     })
-    void optionalRecipesAreExcludedWithoutReadingTheirSerializers(String typeId) {
+    void malformedSupportedRecipesAreRejectedWithoutRemovingNativeRecipes(String typeId) {
         var type = net.minecraft.world.item.crafting.RecipeType.simple(ResourceLocation.parse(typeId));
         var recipe = mock(net.minecraft.world.item.crafting.Recipe.class);
         doReturn(type).when(recipe).getType();
@@ -279,15 +280,20 @@ class LargeWorkstationRecipeTest {
         var manager = mock(net.minecraft.world.item.crafting.RecipeManager.class);
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         when(manager.getRecipes()).thenReturn(List.of(holder, nativeHolder));
-        var recipes = LargeWorkstationRecipes.getAll(manager, registries);
-        assertEquals(1, recipes.size());
-        assertEquals(nativeRecipe, recipes.getFirst());
-        verify(recipe, never()).getType();
-        verify(recipe, never()).getSerializer();
+        when(recipe.getSerializer()).thenThrow(new IllegalArgumentException("Malformed adapter fixture"));
+        try (var mods = mockStatic(net.neoforged.fml.ModList.class)) {
+            var modList = mock(net.neoforged.fml.ModList.class);
+            when(modList.isLoaded(anyString())).thenReturn(true);
+            mods.when(net.neoforged.fml.ModList::get).thenReturn(modList);
+            var recipes = LargeWorkstationRecipes.getAll(manager, registries);
+            assertEquals(List.of(nativeRecipe), recipes);
+            verify(recipe).getType();
+            verify(recipe).getSerializer();
+        }
     }
 
-    @Test void enablingCompatRecipesAdaptsRealCodecAndSwitchingInvalidatesCache() {
-        assertFalse(NEConfig.largeWorkstationCompatRecipesEnabled);
+    @Test void compatibleRecipesLoadByDefaultAndBypassingCardsOnlyChangesAvailableRecipes() {
+        assertFalse(NEConfig.largeWorkstationIgnoreUpgradeCards);
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         var ops = registries.createSerializationContext(JsonOps.INSTANCE);
         var serializer = new com.moakiee.ae2lt.machine.lightningassembly.recipe.LightningAssemblyRecipe.Serializer();
@@ -303,11 +309,6 @@ class LargeWorkstationRecipeTest {
         when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(optionalId, optional),
             new RecipeHolder<>(nativeRecipe.id(), nativeRecipe.display())));
 
-        var disabled = LargeWorkstationRecipes.getAll(manager, registries);
-        assertEquals(List.of(nativeRecipe), disabled);
-        verify(optional, never()).getSerializer();
-
-        NEConfig.largeWorkstationCompatRecipesEnabled = true;
         var enabled = LargeWorkstationRecipes.getAll(manager, registries);
         assertEquals(1, enabled.size());
         assertFalse(enabled.contains(nativeRecipe));
@@ -318,28 +319,57 @@ class LargeWorkstationRecipeTest {
         assertSame(enabled, LargeWorkstationRecipes.getAll(manager, registries));
         assertEquals(nativeRecipe, LargeWorkstationRecipes.getById(manager, registries, nativeRecipe.id()));
         assertSame(adapted, LargeWorkstationRecipes.getById(manager, registries, optionalId));
+        var regularOnly = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR);
+        assertEquals(List.of(nativeRecipe), regularOnly, "An uninstalled lightning card must not hide the native recipe");
+        var lightning = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.LIGHTNING_TECH);
+        assertEquals(List.of(adapted), lightning);
+        assertSame(lightning, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.LIGHTNING_TECH));
+        assertSame(regularOnly, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR));
+        assertSame(adapted, LargeWorkstationRecipes.getById(manager, registries, optionalId),
+            "Removing a card must not invalidate an already accepted recipe ID");
 
-        NEConfig.largeWorkstationCompatRecipesEnabled = false;
-        var disabledAgain = LargeWorkstationRecipes.getAll(manager, registries);
-        assertEquals(List.of(nativeRecipe), disabledAgain);
-        assertNotSame(enabled, disabledAgain);
-        assertSame(disabledAgain, LargeWorkstationRecipes.getAll(manager, registries));
-        assertNull(LargeWorkstationRecipes.getById(manager, registries, optionalId));
+        NEConfig.largeWorkstationIgnoreUpgradeCards = true;
+        for (var card : LargeWorkstationModule.values()) {
+            assertSame(enabled, LargeWorkstationRecipes.getAvailable(manager, registries, card),
+                "Ignoring cards unlocks all supported recipes for every card and the empty slot");
+        }
+        assertNotSame(regularOnly, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR),
+            "The provider must see a changed recipe list when card requirements are bypassed");
+        assertSame(adapted, LargeWorkstationRecipes.getById(manager, registries, optionalId));
+        NEConfig.largeWorkstationIgnoreUpgradeCards = false;
+        assertSame(regularOnly, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR));
+        assertSame(lightning, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.LIGHTNING_TECH));
+        assertSame(enabled, LargeWorkstationRecipes.getAll(manager, registries), "Recipe viewers keep the full recipe set");
+        verify(optional).getSerializer();
+    }
 
-        NEConfig.largeWorkstationCompatRecipesEnabled = true;
-        var enabledAgain = LargeWorkstationRecipes.getAll(manager, registries);
-        assertEquals(enabled.stream().map(LargeWorkstationRecipe::id).toList(),
-            enabledAgain.stream().map(LargeWorkstationRecipe::id).toList());
-        var adaptedAgain = enabledAgain.stream().filter(recipe -> recipe.id().equals(optionalId)).findFirst().orElseThrow();
-        assertTrue(adaptedAgain.matches(items(Items.IRON_INGOT, 4), items(Items.DIAMOND, 2)));
-        assertEquals(adapted.energy(), adaptedAgain.energy());
-        assertEquals(adapted.extraInputs(), adaptedAgain.extraInputs());
-        verify(optional, times(2)).getSerializer();
+    @Test void extendedAeCardWorksWithoutExtendedAePlusInstalled() {
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        // Preserve the upstream serialized contract without bootstrapping its complete item registry.
+        var recipe = mock(Recipe.class);
+        var serializer = mock(net.minecraft.world.item.crafting.RecipeSerializer.class);
+        var mapCodec = mock(com.mojang.serialization.MapCodec.class);
+        var codec = mock(com.mojang.serialization.Codec.class);
+        when(serializer.codec()).thenReturn(mapCodec);
+        when(mapCodec.codec()).thenReturn(codec);
+        doReturn(com.mojang.serialization.DataResult.success(JsonParser.parseString("""
+            {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":4}],
+             "output":{"id":"minecraft:diamond","count":2}}
+            """))).when(codec).encodeStart(any(), same(recipe));
+        doReturn(RecipeType.simple(ResourceLocation.parse("extendedae:crystal_assembler"))).when(recipe).getType();
+        doReturn(serializer).when(recipe).getSerializer();
+        var manager = mock(RecipeManager.class);
+        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(ResourceLocation.parse("extendedae:test_card"), recipe)));
+        var all = LargeWorkstationRecipes.getAll(manager, registries);
+        assertEquals(1, all.size());
+        assertEquals(2000, all.getFirst().energy());
+        assertTrue(LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR).isEmpty());
+        assertEquals(all, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.EXTENDED_AE));
     }
 
     @ParameterizedTest @ValueSource(booleans = {false, true})
-    void unrelatedRecipesNeverReadTheirSerializers(boolean compatEnabled) {
-        NEConfig.largeWorkstationCompatRecipesEnabled = compatEnabled;
+    void unrelatedRecipesNeverReadTheirSerializers(boolean ignoreUpgradeCards) {
+        NEConfig.largeWorkstationIgnoreUpgradeCards = ignoreUpgradeCards;
         var recipe = mock(Recipe.class);
         doReturn(RecipeType.simple(ResourceLocation.parse("test:unrelated"))).when(recipe).getType();
         var manager = mock(RecipeManager.class);
@@ -350,7 +380,6 @@ class LargeWorkstationRecipeTest {
     }
 
     @Test void discardedOptionalRecipeRemainsAddressableWithOriginalCostsUntilReloadRemovesIt() {
-        NEConfig.largeWorkstationCompatRecipesEnabled = true;
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         var ops = registries.createSerializationContext(JsonOps.INSTANCE);
         var serializer = new com.moakiee.ae2lt.machine.lightningassembly.recipe.LightningAssemblyRecipe.Serializer();
@@ -400,6 +429,7 @@ class LargeWorkstationRecipeTest {
         when(manager.getRecipes()).thenReturn(List.of());
         assertTrue(LargeWorkstationRecipes.getAll(manager, registries).isEmpty());
         assertNull(LargeWorkstationRecipes.getById(manager, registries, recipe.id()));
+        assertTrue(LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR).isEmpty());
     }
 
     private static LargeWorkstationRecipe nativeRecipe(ItemStack output) {

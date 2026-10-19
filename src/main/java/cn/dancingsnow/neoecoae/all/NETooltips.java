@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
@@ -43,6 +44,16 @@ public class NETooltips {
         ItemStack stack = event.getItemStack();
         List<Component> tooltip = event.getToolTip();
         TooltipFlag flags = event.getFlags();
+        if (LargeWorkstationModule.isUpgradeCard(stack)) {
+            LargeWorkstationModule module = LargeWorkstationModule.fromUpgradeCard(stack);
+            tooltip.add(Component.translatable("gui.neoecoae.workstation.module_card_install").withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable(module == LargeWorkstationModule.REGULAR
+                ? "gui.neoecoae.workstation.module_card_blank" : "gui.neoecoae.workstation.module_card_unlock", module.title())
+                .withStyle(ChatFormatting.GRAY));
+            if (module != LargeWorkstationModule.REGULAR) {
+                tooltip.add(Component.translatable("gui.neoecoae.workstation.module_card_config").withStyle(ChatFormatting.DARK_GRAY));
+            }
+        }
         if (STORAGE_SYSTEMS.contains(stack.getItem())) {
             addTooltips(tooltip, flags,
                 Component.translatable("tooltip.neoecoae.storage_system"),

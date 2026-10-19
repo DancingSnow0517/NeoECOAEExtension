@@ -143,7 +143,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
             advertisedKeys = Set.of();
             return List.of();
         }
-        Object recipes = LargeWorkstationRecipes.getAll(host.getLevel());
+        Object recipes = LargeWorkstationRecipes.getAvailable(host.getLevel(), controller.getInstalledModule());
         long diskRevision = host.diskRevision();
         if (!compatiblePatternsDirty && lastController == controller && lastRecipes == recipes
             && lastDiskRevision == diskRevision) {

@@ -2,15 +2,14 @@
   "type": "custom",
   "id": "integrated_workstation_root",
   "custom": "content",
-  "class": "panel_bg",
   "texture": {
     "location": "neoecoae:textures/guis/workstation/integrated_working_station.png",
     "sprite": [0, 0, 176, 190]
   },
   "layout": {
-    "paddingAll": 4,
-    "paddingBottom": 7,
-    "gapAll": 2,
-    "justifyContent": "center"
+    "width": 176,
+    "height": 190,
+    "paddingAll": 0,
+    "gapAll": 0
   }
 }

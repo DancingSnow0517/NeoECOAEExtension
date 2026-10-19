@@ -48,6 +48,38 @@ class LargeWorkstationRecipeDeduplicationTest {
             assertInstanceOf(TranslatableContents.class, typeName.getContents()).getKey());
     }
 
+    @Test void lockedRecipeFamiliesCannotHideUnlockedRecipesDuringDeduplication() {
+        var regular = materialRecipe("test:regular", 100, List.of());
+        var advanced = new LargeWorkstationRecipe(ResourceLocation.parse("advanced_ae:cheaper"), regular.display(),
+            50, List.of(), ResourceLocation.parse("advanced_ae:reaction"));
+        var science = new LargeWorkstationRecipe(ResourceLocation.parse("ae2cs:cheapest"), regular.display(),
+            10, List.of(), ResourceLocation.parse("ae2cs:crystal_aggregator_recipe"));
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        var ops = registries.createSerializationContext(JsonOps.INSTANCE);
+        var recipes = List.of(science, regular, advanced);
+        assertEquals(List.of(regular), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.REGULAR, ops));
+        assertEquals(List.of(advanced), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.ADVANCED_AE, ops));
+        assertEquals(List.of(science), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.CRYSTAL_SCIENCE, ops));
+        assertEquals(List.of(regular), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.EXTENDED_AE, ops));
+    }
+
+    @Test void eachCardUnlocksOnlyItsFamilyAndRetainsRegularAndUncardedAdapters() {
+        var sources = java.util.Map.of(
+            LargeWorkstationModule.ADVANCED_AE, ResourceLocation.parse("advanced_ae:reaction"),
+            LargeWorkstationModule.EXTENDED_AE, ResourceLocation.parse("extendedae_plus:crystal_assembler_plus"),
+            LargeWorkstationModule.CRYSTAL_SCIENCE, ResourceLocation.parse("ae2cs:circuit_etcher_recipe"),
+            LargeWorkstationModule.LIGHTNING_TECH, ResourceLocation.parse("ae2lt:lightning_assembly"));
+        for (var installed : LargeWorkstationModule.values()) {
+            assertTrue(installed.unlocks(LargeWorkstationRecipe.NATIVE_TYPE));
+            assertTrue(installed.unlocks(ResourceLocation.parse("appgen:synthesizing")));
+            for (var entry : sources.entrySet()) assertEquals(installed == entry.getKey(), installed.unlocks(entry.getValue()));
+        }
+        assertTrue(LargeWorkstationModule.EXTENDED_AE.unlocks(ResourceLocation.parse("extendedae:crystal_assembler")));
+        assertEquals(5, java.util.Arrays.stream(LargeWorkstationModule.values()).filter(LargeWorkstationModule::hasUpgradeCard).count());
+        assertFalse(LargeWorkstationModule.isUpgradeCard(new ItemStack(Items.PAPER)));
+        assertEquals(LargeWorkstationModule.REGULAR, LargeWorkstationModule.fromUpgradeCard(ItemStack.EMPTY));
+    }
+
     @Test void inputOrderAlternativeOrderAndSplitStacksDoNotCreateDuplicates() {
         var first = recipe("test:a", List.of(
             input(Ingredient.of(Items.IRON_INGOT, Items.GOLD_INGOT), 4), input(Ingredient.of(Items.STONE), 2)),

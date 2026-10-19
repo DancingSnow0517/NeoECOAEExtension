@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.all;
 
 import appeng.api.ids.AETags;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.datagen.providers.tags.ConventionTags;
@@ -52,6 +53,25 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 public class NEItems {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
+    }
+
+    public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_EMPTY = workstationModule(
+        "empty", "Blank Integrated Working Station Upgrade Card");
+    public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_ADVANCED_AE = workstationModule(
+        "advanced_ae", "AdvancedAE Integrated Working Station Upgrade Card");
+    public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_EXTENDEDAE = workstationModule(
+        "extendedae", "ExtendedAE Integrated Working Station Upgrade Card");
+    public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_AE2CS = workstationModule(
+        "ae2cs", "AE2 Crystal Science Integrated Working Station Upgrade Card");
+    public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_AELT = workstationModule(
+        "aelt", "AE2 Lightning Tech Integrated Working Station Upgrade Card");
+
+    private static ItemEntry<Item> workstationModule(String variant, String name) {
+        return REGISTRATE.item("integrated_working_station_module_" + variant, Upgrades::createUpgradeCardItem)
+            .lang(name)
+            .model((ctx, prov) -> prov.generated(ctx::get,
+                prov.modLoc("item/integrated_working_station_modules/" + variant)))
+            .register();
     }
 
     public static final ItemEntry<AxeItem> ALUMINUM_AXE = REGISTRATE

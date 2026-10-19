@@ -10,6 +10,8 @@ public final class WorkstationTextures {
     public static final ResourceLocation WIDGETS = NeoECOAE.id("textures/guis/workstation/integrated_working_station_widget.png");
     public static final ResourceLocation LARGE = NeoECOAE.id("textures/guis/workstation/large_integrated_working_station.png");
     public static final ResourceLocation SMALL = NeoECOAE.id("textures/guis/workstation/integrated_working_station.png");
+    static final int CIRCUIT_X = 217;
+    static final int CIRCUIT_Y = 37;
 
     private WorkstationTextures() {}
 
@@ -22,8 +24,7 @@ public final class WorkstationTextures {
     }
 
     public static SpriteTexture circuit(LargeWorkstationModule module) {
-        int[] x = {0, 28, 56, 84, 140, 168};
-        return widget(x[module.ordinal()], 34, 28, 28);
+        return widget(module.ordinal() * 28, 34, 28, 28);
     }
 
     public static SpriteTexture toggle(boolean on, boolean hover) {

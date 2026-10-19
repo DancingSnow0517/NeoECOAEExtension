@@ -15,13 +15,16 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.texture.ColorBorderTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -37,6 +40,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.nbt.CompoundTag;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -98,6 +102,182 @@ class WorkstationUIInteractionTest {
                 SpriteTexture background = assertInstanceOf(SpriteTexture.class, rail.getStyle().backgroundTexture());
                 assertEquals(5, background.borderLT.getY());
                 assertEquals(7, background.borderRB.getY());
+            }
+        }
+    }
+
+    @Test
+    void integratedArtworkKeepsNativeSlotsAndTankInteriorsAfterResize() {
+        try (var ldlib = mockStatic(LDLib2.class); var factory = mockStatic(ECOModularUI.class);
+                var tools = mockStatic(NetworkToolItem.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            AtomicReference<UIElement> captured = new AtomicReference<>();
+            Player player = mock(Player.class);
+            when(player.getInventory()).thenReturn(new Inventory(player));
+            factory.when(() -> ECOModularUI.create(any(), eq(player))).thenAnswer(call -> {
+                captured.set(call.getArgument(0));
+                return null;
+            });
+            IntegratedWorkstationUI.create(config(new FluidTank(1_000), new FluidTank(1_000),
+                EnumSet.noneOf(RelativeSide.class), new ArrayList<>()), player);
+            UIElement root = captured.get();
+            ModularUI ui = new ModularUI(UI.of(root));
+            for (int width : List.of(640, 800)) {
+                ui.init(width, 480);
+                assertEquals(176, root.getSizeWidth());
+                assertEquals(190, root.getSizeHeight());
+                List<ItemSlot> slots = collect(root, ItemSlot.class);
+                assertEquals(50, slots.size());
+                for (int row = 0; row < 3; row++) {
+                    for (int column = 0; column < 3; column++) {
+                        ItemSlot slot = slots.get(row * 3 + column);
+                        assertEquals(root.getPositionX() + 36 + column * 18, slot.getContentX());
+                        assertEquals(root.getPositionY() + 24 + row * 18, slot.getContentY());
+                        assertEquals(16, slot.getContentWidth());
+                        assertEquals(16, slot.getContentHeight());
+                        assertSame(IGuiTexture.EMPTY, slot.getStyle().backgroundTexture());
+                    }
+                }
+                var inventory = collect(root, InventorySlots.class).getFirst();
+                assertEquals(root.getPositionX() + 8, inventory.rows[0].slots[0].getContentX());
+                assertEquals(root.getPositionY() + 106, inventory.rows[0].slots[0].getContentY());
+                assertEquals(root.getPositionY() + 164, inventory.hotbar.slots[0].getContentY());
+                assertEquals(16, inventory.hotbar.slots[0].getContentWidth());
+                for (FluidSlot tank : collect(root, FluidSlot.class)) {
+                    assertEquals(root.getPositionY() + 23, tank.getContentY());
+                    assertEquals(16, tank.getContentWidth());
+                    assertEquals(54, tank.getContentHeight());
+                }
+                List<Button> clearButtons = collect(root, Button.class).stream()
+                    .filter(button -> button.getSizeWidth() == 12 && button.getSizeHeight() == 11).toList();
+                assertEquals(2, clearButtons.size());
+                for (Button button : clearButtons) {
+                    assertEquals(root.getPositionY() + 81, button.getPositionY());
+                    SpriteTexture base = assertInstanceOf(SpriteTexture.class, button.getButtonStyle().baseTexture());
+                    SpriteTexture hover = assertInstanceOf(SpriteTexture.class, button.getButtonStyle().hoverTexture());
+                    SpriteTexture pressed = assertInstanceOf(SpriteTexture.class, button.getButtonStyle().pressedTexture());
+                    assertEquals(0, base.spritePosition.getX());
+                    assertEquals(12, hover.spritePosition.getX());
+                    assertEquals(24, pressed.spritePosition.getX());
+                    assertEquals(6, base.spritePosition.getY());
+                    assertEquals(WorkstationTextures.WIDGETS, base.getImageLocation());
+                }
+            }
+        }
+    }
+
+    @Test
+    void largeArtworkKeepsInventoryContentsAndFluidInsideBakedFrames() {
+        try (var ldlib = mockStatic(LDLib2.class); var factory = mockStatic(ECOModularUI.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            AtomicReference<UIElement> captured = new AtomicReference<>();
+            Player player = mock(Player.class);
+            when(player.getInventory()).thenReturn(new Inventory(player));
+            factory.when(() -> ECOModularUI.create(any(), eq(player))).thenAnswer(call -> {
+                captured.set(call.getArgument(0));
+                return null;
+            });
+            IFluidHandler fluids = mock(IFluidHandler.class);
+            when(fluids.getTanks()).thenReturn(2);
+            when(fluids.getFluidInTank(anyInt())).thenReturn(FluidStack.EMPTY);
+            when(fluids.getTankCapacity(anyInt())).thenReturn(1_000);
+            LargeWorkstationUI.create(new LargeWorkstationUI.Config(fluids,
+                offset -> new CompoundTag(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {}, () -> {},
+                new ItemStackHandler(1)), player);
+            UIElement root = captured.get();
+            ModularUI ui = new ModularUI(UI.of(root));
+            for (int width : List.of(640, 800)) {
+                ui.init(width, 480);
+                assertEquals(253, root.getSizeWidth());
+                assertEquals(214, root.getSizeHeight());
+                List<ItemSlot> allSlots = collect(root, ItemSlot.class);
+                assertEquals(37, allSlots.size());
+                List<ItemSlot> slots = allSlots.stream().filter(slot -> !(slot.getSlot() instanceof ItemHandlerSlot)).toList();
+                assertEquals(36, slots.size());
+                for (ItemSlot slot : slots) {
+                    assertEquals(16, slot.getContentWidth());
+                    assertEquals(16, slot.getContentHeight());
+                }
+                assertEquals(root.getPositionX() + 8, slots.getFirst().getContentX());
+                assertEquals(root.getPositionY() + 130, slots.getFirst().getContentY());
+                assertEquals(root.getPositionY() + 188, slots.get(27).getContentY());
+                List<FluidSlot> tanks = collect(root, FluidSlot.class);
+                assertEquals(2, tanks.size());
+                assertEquals(root.getPositionX() + 204, tanks.getFirst().getContentX());
+                assertEquals(root.getPositionX() + 227, tanks.getLast().getContentX());
+                for (FluidSlot tank : tanks) {
+                    assertEquals(root.getPositionY() + 78, tank.getContentY());
+                    assertEquals(18, tank.getContentWidth());
+                    assertEquals(46, tank.getContentHeight());
+                }
+                List<Button> controls = collect(root, Button.class).stream()
+                    .filter(button -> button.getId().startsWith("large-workstation-")
+                        && button.getSizeWidth() == 15).toList();
+                assertEquals(1, controls.size());
+                assertEquals(List.of("large-workstation-overclock"),
+                    controls.stream().map(UIElement::getId).toList());
+                for (int index = 0; index < controls.size(); index++) {
+                    assertEquals(root.getPositionX() + 102 + index * 22, controls.get(index).getPositionX());
+                    assertEquals(root.getPositionY() + 89, controls.get(index).getPositionY());
+                }
+                for (String id : List.of("temperature-info", "cooling-info", "overclock-info")) {
+                    UIElement row = collect(root, UIElement.class).stream()
+                        .filter(element -> ("large-workstation-" + id).equals(element.getId())).findFirst().orElseThrow();
+                    assertFalse(row instanceof Button, "Status rows only display telemetry");
+                    assertNull(row.getBaubleServerEvent(UIEvents.MOUSE_DOWN), "No machine action may be registered on " + id);
+                }
+                UIElement scrollbar = collect(root, UIElement.class).stream()
+                    .filter(element -> "large-workstation-scrollbar".equals(element.getId())).findFirst().orElseThrow();
+                assertEquals(root.getPositionX() + 80, scrollbar.getPositionX());
+                assertEquals(root.getPositionY() + 37, scrollbar.getPositionY());
+                assertEquals(6, scrollbar.getSizeWidth());
+                assertEquals(77, scrollbar.getSizeHeight());
+                for (String id : List.of("overclock", "temperature-setting",
+                    "parallel", "temperature", "energy", "module-logo", "module-info", "task-0", "scrollbar", "status",
+                    "temperature-info", "cooling-info", "overclock-info")) {
+                    UIElement control = collect(root, UIElement.class).stream()
+                        .filter(element -> ("large-workstation-" + id).equals(element.getId())).findFirst().orElseThrow();
+                    var hit = root.hitTest(control.getPositionX() + 2, control.getPositionY() + 2);
+                    assertNotNull(hit, id);
+                    assertSame(control, hit.getA(), "The inventory container must not intercept " + id);
+                    UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                    hover.target = hit.getA();
+                    UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                    assertNotNull(hover.hoverTooltips, id);
+                    assertFalse(hover.hoverTooltips.tooltipTexts().isEmpty(), id);
+                }
+                for (FluidSlot tank : tanks) {
+                    var hit = root.hitTest(tank.getPositionX() + 2, tank.getPositionY() + 2);
+                    assertNotNull(hit);
+                    UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                    hover.target = hit.getA();
+                    UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                    assertNotNull(hover.hoverTooltips, "Empty fluid tanks still explain their role and capacity");
+                    assertTrue(hover.hoverTooltips.tooltipTexts().size() >= 3);
+                    var title = hover.hoverTooltips.tooltipTexts().getFirst();
+                    // The isolated JVM has no NeoForge fluid-type registry; only its descriptive fields are mocked.
+                    try (var fluidInfo = mockStatic(com.lowdragmc.lowdraglib2.utils.FluidHelper.class)) {
+                        fluidInfo.when(() -> com.lowdragmc.lowdraglib2.utils.FluidHelper.getDisplayName(any()))
+                            .thenReturn(net.minecraft.network.chat.Component.literal("Water"));
+                        fluidInfo.when(com.lowdragmc.lowdraglib2.utils.FluidHelper::getUnit).thenReturn("mB");
+                        for (FluidStack contents : List.of(new FluidStack(Fluids.WATER, 500), FluidStack.EMPTY)) {
+                            tank.setFluid(contents);
+                            UIEvent filledHover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                            filledHover.target = tank;
+                            UIEventDispatcher.dispatchEvent(filledHover, false, false, false);
+                            assertEquals(title, filledHover.hoverTooltips.tooltipTexts().getFirst(),
+                                "The tank role must remain visible when fluid replaces the empty placeholder");
+                        }
+                    }
+                }
+                ItemSlot module = allSlots.stream().filter(slot -> slot.getSlot() instanceof ItemHandlerSlot).findFirst().orElseThrow();
+                assertEquals(root.getPositionX() + 227, module.getContentX());
+                assertEquals(root.getPositionY() + 42, module.getContentY());
+                assertEquals(16, module.getContentWidth());
+                assertEquals(16, module.getContentHeight());
+                assertSame(module, root.hitTest(module.getPositionX() + 3, module.getPositionY() + 3).getA());
             }
         }
     }

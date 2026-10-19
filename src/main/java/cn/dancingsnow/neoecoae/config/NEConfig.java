@@ -101,17 +101,19 @@ public class NEConfig {
         .translation("neoecoae.configuration.largeWorkstationTemperatureEnabled")
         .define("largeWorkstationTemperatureEnabled", true);
 
-    private static final ModConfigSpec.BooleanValue LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED = BUILDER
+    private static final ModConfigSpec.BooleanValue LARGE_WORKSTATION_IGNORE_UPGRADE_CARDS = BUILDER
         .comment(
-            "允许大型集成工作站处理受支持模组的联动配方，默认关闭。",
-            "关闭时仅处理本模组的集成工作站配方。",
-            "修改后重新进入世界或重启服务器，以刷新配方浏览器。",
-            "Allow the large integrated workstation to process supported mods' recipes. Disabled by default.",
-            "When disabled, only native integrated workstation recipes are available.",
-            "Reopen the world or restart the server after changing this option to refresh recipe viewers.")
+            "忽略大型集成工作站的升级卡限制，直接解锁所有受支持的兼容配方，默认关闭。",
+            "兼容配方默认加载；关闭此选项时，高级 AE、扩展 AE、水晶科技和闪电科技的配方由对应升级卡解锁。",
+            "空白卡不增加配方类别，常规配方与没有专用升级卡的兼容配方始终可用。",
+            "修改后重新进入世界或重启服务器。",
+            "Ignore large workstation upgrade cards and unlock every supported compatible recipe. Disabled by default.",
+            "Compatible recipes are always loaded; with this option off, install the matching card to unlock its recipe family.",
+            "The blank card adds no recipe family; native recipes and adapters without a dedicated card remain available.",
+            "Reopen the world or restart the server after changing this option.")
         .worldRestart()
-        .translation("neoecoae.configuration.largeWorkstationCompatRecipesEnabled")
-        .define("largeWorkstationCompatRecipesEnabled", false);
+        .translation("neoecoae.configuration.largeWorkstationIgnoreUpgradeCards")
+        .define("largeWorkstationIgnoreUpgradeCards", false);
 
     private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
         .comment(
@@ -255,7 +257,7 @@ public class NEConfig {
     public static int storageSystemMaxLength;
     public static long megaBulkAutoMarkThreshold = 20_000L;
     public static boolean postCraftingEvent;
-    public static boolean largeWorkstationCompatRecipesEnabled = false;
+    public static boolean largeWorkstationIgnoreUpgradeCards = false;
     public static boolean largeWorkstationTemperatureEnabled = true;
     public static int craftingPatternBusPages = 1;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
@@ -284,7 +286,7 @@ public class NEConfig {
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         megaBulkAutoMarkThreshold = MEGA_BULK_AUTO_MARK_THRESHOLD.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
-        largeWorkstationCompatRecipesEnabled = LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED.get();
+        largeWorkstationIgnoreUpgradeCards = LARGE_WORKSTATION_IGNORE_UPGRADE_CARDS.get();
         largeWorkstationTemperatureEnabled = LARGE_WORKSTATION_TEMPERATURE_ENABLED.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);

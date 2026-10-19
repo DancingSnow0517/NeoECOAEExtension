@@ -22,7 +22,6 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.crafting.DataComponentIngredient;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -37,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +44,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 
-/** Lists native workstation recipes and optional adapters enabled by the server config. */
+/** Loads supported recipes by default; installed cards select each workstation's available recipes. */
 public final class LargeWorkstationRecipes {
     private static final Logger LOGGER = LoggerFactory.getLogger(LargeWorkstationRecipes.class);
     private static final Set<String> COMPAT_TYPES = Set.of(
@@ -69,19 +69,17 @@ public final class LargeWorkstationRecipes {
         // RecipeManager replaces its immutable by-name map on both datapack reload and client sync.
         // Its values view is stable between reloads, including for unregistered RecipeType.simple types.
         Collection<RecipeHolder<?>> sources = manager.getRecipes();
-        boolean compatEnabled = NEConfig.largeWorkstationCompatRecipesEnabled;
         var previous = CACHE.get(manager);
-        if (previous != null && previous.sources == sources && previous.compatEnabled == compatEnabled) return previous.recipes;
+        if (previous != null && previous.sources == sources) return previous.recipes;
         List<LargeWorkstationRecipe> recipes = new ArrayList<>();
         DynamicOps<JsonElement> ops = registries.createSerializationContext(JsonOps.INSTANCE);
         for (var holder : sources) {
             try {
                 if (holder.value() instanceof IntegratedWorkingStationRecipe nativeRecipe) {
                     recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
-                } else if (compatEnabled) {
+                } else {
                     String type = typeId(holder.value().getType());
                     if (!COMPAT_TYPES.contains(type)) continue;
-                    if (type.equals("extendedae:crystal_assembler") && !ModList.get().isLoaded("extendedae_plus")) continue;
                     recipes.add(decode(holder.id(), type, encode(holder.value(), ops), ops));
                 }
             } catch (RuntimeException failure) {
@@ -92,8 +90,28 @@ public final class LargeWorkstationRecipes {
         var result = deduplicate(recipes, ops);
         Map<ResourceLocation, LargeWorkstationRecipe> recipesById = new HashMap<>();
         for (var recipe : recipes) recipesById.put(recipe.id(), recipe);
-        CACHE.put(manager, new Cache(sources, compatEnabled, result, Map.copyOf(recipesById)));
+        CACHE.put(manager, new Cache(sources, result, Map.copyOf(recipesById),
+            new EnumMap<>(LargeWorkstationModule.class)));
         return result;
+    }
+
+    public static List<LargeWorkstationRecipe> getAvailable(Level level, LargeWorkstationModule module) {
+        return getAvailable(level.getRecipeManager(), level.registryAccess(), module);
+    }
+
+    static synchronized List<LargeWorkstationRecipe> getAvailable(RecipeManager manager,
+            HolderLookup.Provider registries, LargeWorkstationModule module) {
+        getAll(manager, registries);
+        Cache cache = CACHE.get(manager);
+        if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.recipes;
+        return cache.moduleRecipes.computeIfAbsent(module, installed -> selectForModule(
+            cache.recipesById.values(), installed, registries.createSerializationContext(JsonOps.INSTANCE)));
+    }
+
+    /** Filter before deduplication: a locked cheaper adapter must not hide an unlocked native recipe. */
+    static List<LargeWorkstationRecipe> selectForModule(Collection<LargeWorkstationRecipe> recipes,
+            LargeWorkstationModule module, DynamicOps<JsonElement> ops) {
+        return deduplicate(recipes.stream().filter(recipe -> module.unlocks(recipe.sourceType())).toList(), ops);
     }
 
     /** Keeps original recipes addressable for batches saved before equivalent recipes were merged. */
@@ -169,8 +187,12 @@ public final class LargeWorkstationRecipes {
 
     @Nullable
     public static LargeWorkstationRecipe find(Level level, KeyCounter inputs, KeyCounter outputs) {
+        return find(getAll(level), inputs, outputs);
+    }
+
+    private static LargeWorkstationRecipe find(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
         LargeWorkstationRecipe fallback = null;
-        for (var recipe : getAll(level)) {
+        for (var recipe : recipes) {
             if (!recipe.matches(inputs, outputs)) continue;
             // Distinct ingredient predicates can still overlap for one concrete pattern.
             // Duplicate material contracts have already been resolved by COST_ORDER.
@@ -183,10 +205,20 @@ public final class LargeWorkstationRecipes {
     /** Prefer an exact recipe before interpreting an encoded pattern as multiple recipe operations. */
     @Nullable
     public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs) {
-        var exact = find(level, inputs, outputs);
+        return findScaled(getAll(level), inputs, outputs);
+    }
+
+    @Nullable
+    public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs, LargeWorkstationModule module) {
+        return findScaled(getAvailable(level, module), inputs, outputs);
+    }
+
+    @Nullable
+    private static PatternMatch findScaled(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
+        var exact = find(recipes, inputs, outputs);
         if (exact != null) return new PatternMatch(exact, 1);
         PatternMatch fallback = null;
-        for (var recipe : getAll(level)) {
+        for (var recipe : recipes) {
             long multiplier = recipe.matchingMultiplier(inputs, outputs);
             if (multiplier == 0) continue;
             var match = new PatternMatch(recipe, multiplier);
@@ -301,6 +333,7 @@ public final class LargeWorkstationRecipes {
         }
     }
 
-    private record Cache(Collection<RecipeHolder<?>> sources, boolean compatEnabled, List<LargeWorkstationRecipe> recipes,
-                         Map<ResourceLocation, LargeWorkstationRecipe> recipesById) {}
+    private record Cache(Collection<RecipeHolder<?>> sources, List<LargeWorkstationRecipe> recipes,
+                         Map<ResourceLocation, LargeWorkstationRecipe> recipesById,
+                         Map<LargeWorkstationModule, List<LargeWorkstationRecipe>> moduleRecipes) {}
 }

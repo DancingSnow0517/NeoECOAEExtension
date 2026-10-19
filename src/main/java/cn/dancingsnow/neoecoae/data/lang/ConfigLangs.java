@@ -45,12 +45,13 @@ public class ConfigLangs {
                 "Enable overclock and active cooling: water / sodium / cryotheum provide 16,384 / 65,536 / 262,144 parallel; normal is 256.\n" +
                 "Consumes 100 mB per advancing overclocked processing tick; all tiers use x1 recipe energy.\n" +
                 "Reopen the world or restart the server after changing this option.");
-        provider.add("neoecoae.configuration.largeWorkstationCompatRecipesEnabled", "Enable Large Workstation Recipe Compatibility");
+        provider.add("neoecoae.configuration.largeWorkstationIgnoreUpgradeCards", "Ignore Large Workstation Upgrade Cards");
         provider.add(
-            "neoecoae.configuration.largeWorkstationCompatRecipesEnabled.tooltip",
-            "Allow the large integrated workstation to process supported mods' recipes. Disabled by default.\n" +
-                "When disabled, only native integrated workstation recipes are available.\n" +
-                "Reopen the world or restart the server after changing this option to refresh recipe viewers."
+            "neoecoae.configuration.largeWorkstationIgnoreUpgradeCards.tooltip",
+            "Compatible recipes are loaded by default. Leave this disabled to require the matching upgrade card.\n" +
+                "Enable to unlock all supported compatible recipes without installing a card.\n" +
+                "Native recipes and adapters without a dedicated card remain available. The blank card adds no recipe family.\n" +
+                "Reopen the world or restart the server after changing this option."
         );
         provider.add("neoecoae.configuration.craftingPatternBusPages", "Crafting Pattern Bus Pages");
         provider.add(

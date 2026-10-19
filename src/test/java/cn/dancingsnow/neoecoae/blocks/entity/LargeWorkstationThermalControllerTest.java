@@ -35,6 +35,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -99,6 +100,8 @@ class LargeWorkstationThermalControllerTest {
         field(host, "overclocked", true);
         field(host, "pendingBatches", new ArrayDeque<>());
         field(host, "coolingOutput", new LargeWorkstationCoolingOutput());
+        field(host, "uiEnergyUsage", new LargeWorkstationEnergyUsage());
+        field(host, "moduleInventory", new LargeWorkstationModuleInventory(() -> {}));
     }
 
     @AfterEach
@@ -382,6 +385,73 @@ class LargeWorkstationThermalControllerTest {
         assertEquals(0, value(batch, "progress"));
         assertEquals(400, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
         verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
+    void menuSnapshotReportsServerSelectedModeAndHidesInactiveThermalReadings() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "temperature", 100.0);
+        field(host, "overheated", true);
+        field(host, "preheating", true);
+        var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
+        snapshot.setAccessible(true);
+        var value = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
+        assertFalse(value.getBoolean("temperatureEnabled"));
+        assertFalse(value.getBoolean("preheating"));
+        assertEquals(0, value.getDouble("temperature"));
+        assertEquals(256, value.getLong("parallelCapacity"));
+        assertFalse(value.getString("pause").endsWith("overheated"));
+        assertEquals(100, host.getTemperature(), "Only the display is hidden, persisted state remains intact");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2,0.1", "6,0.3", "9,0.6"})
+    void menuReportsActualCoolingSpeedAndZeroWhenCoolantIsNotConsumed(int tier, double speed) throws Exception {
+        field(host, "temperature", 40.0);
+        field(host, "activeCooling", true);
+        coolant(Fluids.WATER, tier, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        tick();
+        assertEquals(speed, value(host, "uiCoolingPerSecond"));
+        var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
+        snapshot.setAccessible(true);
+        assertEquals(speed, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"));
+        field(host, "activeCooling", false);
+        assertEquals(0, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"));
+        tick();
+        assertEquals(0.0, value(host, "uiCoolingPerSecond"));
+        field(host, "activeCooling", true);
+        input.setFluid(FluidStack.EMPTY);
+        tick();
+        assertEquals(0.0, value(host, "uiCoolingPerSecond"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {100, 16_384, 262_144, 2_147_483_648L, Long.MAX_VALUE})
+    void runningBatchMenuUsesOneItemIconAndPreservesTheExactOutputCount(long amount) throws Exception {
+        var registries = net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        when(level.registryAccess()).thenReturn(registries);
+        Object batch = queuedBatch(0);
+        field(batch, "recipeId", null);
+        field(batch, "progress", 25);
+        var stack = new net.minecraft.world.item.ItemStack(Items.DIAMOND);
+        stack.set(net.minecraft.core.component.DataComponents.MAX_STACK_SIZE, 8);
+        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Batch icon"));
+        KeyCounter outputs = (KeyCounter) value(batch, "outputTotal");
+        outputs.clear();
+        outputs.add(AEItemKey.of(stack), amount);
+        var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
+        snapshot.setAccessible(true);
+        var tag = assertDoesNotThrow(() -> (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0));
+        var row = tag.getList("tasks", net.minecraft.nbt.Tag.TAG_COMPOUND).getCompound(0);
+        assertEquals(amount, row.getLong("amount"));
+        assertEquals(25, row.getInt("progress"));
+        assertTrue(row.getBoolean("returnable"));
+        var icon = net.minecraft.world.item.ItemStack.parseOptional(registries, row.getCompound("item"));
+        assertEquals(1, icon.getCount());
+        assertEquals(8, icon.getMaxStackSize());
+        assertEquals("Batch icon", icon.getHoverName().getString());
+        assertEquals(amount, outputs.get(AEItemKey.of(stack)), "Opening the UI must not alter the owned batch output");
     }
 
     private Object queuedBatch(int tier) throws Exception {

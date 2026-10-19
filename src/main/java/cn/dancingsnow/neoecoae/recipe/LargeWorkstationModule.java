@@ -1,8 +1,10 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.StringRepresentable;
+import net.minecraft.world.item.ItemStack;
 
 /** Recipe provenance shared by the workstation screen and its formed block model. */
 public enum LargeWorkstationModule implements StringRepresentable {
@@ -30,6 +32,38 @@ public enum LargeWorkstationModule implements StringRepresentable {
 
     public Component title() {
         return Component.translatable("gui.neoecoae.workstation.module." + name);
+    }
+
+    public Component shortTitle() {
+        return Component.translatable("gui.neoecoae.workstation.module_short." + name);
+    }
+
+    public ResourceLocation upgradeCardId() {
+        return ResourceLocation.fromNamespaceAndPath("neoecoae", "integrated_working_station_module_"
+            + (this == REGULAR ? "empty" : name));
+    }
+
+    public boolean hasUpgradeCard() { return this != OTHER; }
+
+    public static boolean isUpgradeCard(ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        for (var module : values()) if (module.hasUpgradeCard() && module.upgradeCardId().equals(id)) return true;
+        return false;
+    }
+
+    public static LargeWorkstationModule fromUpgradeCard(ItemStack stack) {
+        if (!stack.isEmpty()) {
+            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            for (var module : values()) if (module.hasUpgradeCard() && module.upgradeCardId().equals(id)) return module;
+        }
+        return REGULAR;
+    }
+
+    public boolean unlocks(ResourceLocation sourceType) {
+        LargeWorkstationModule source = fromSourceType(sourceType);
+        // Adapters without a registered card remain available alongside native recipes.
+        return source == REGULAR || source == OTHER || source == this;
     }
 
     public String modelPath(boolean working) {

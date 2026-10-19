@@ -7,6 +7,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -50,7 +51,7 @@ class LargeWorkstationPatternScalingTest {
         var controller = controller();
         var recipe = recipe();
         try (var recipes = mockStatic(LargeWorkstationRecipes.class, CALLS_REAL_METHODS)) {
-            recipes.when(() -> LargeWorkstationRecipes.getAll(controller.getLevel())).thenReturn(List.of(recipe));
+            recipes.when(() -> LargeWorkstationRecipes.getAvailable(controller.getLevel(), LargeWorkstationModule.REGULAR)).thenReturn(List.of(recipe));
             assertTrue(controller.acceptPattern(pattern(4 * multiplier, 2 * multiplier), null, false));
         }
     }
@@ -78,7 +79,7 @@ class LargeWorkstationPatternScalingTest {
         }
         UUID job = UUID.randomUUID();
         try (var recipes = mockStatic(LargeWorkstationRecipes.class, CALLS_REAL_METHODS)) {
-            recipes.when(() -> LargeWorkstationRecipes.getAll(controller.getLevel())).thenReturn(List.of(recipe));
+            recipes.when(() -> LargeWorkstationRecipes.getAvailable(controller.getLevel(), LargeWorkstationModule.REGULAR)).thenReturn(List.of(recipe));
             assertTrue(controller.acceptPatternBatch(pattern, holders, 3, job));
         }
         for (var holder : holders) assertTrue(holder.isEmpty(), "Accepted inputs belong to the controller");
@@ -100,7 +101,7 @@ class LargeWorkstationPatternScalingTest {
         var recipe = recipe();
         var holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 7)};
         try (var recipes = mockStatic(LargeWorkstationRecipes.class, CALLS_REAL_METHODS)) {
-            recipes.when(() -> LargeWorkstationRecipes.getAll(controller.getLevel())).thenReturn(List.of(recipe));
+            recipes.when(() -> LargeWorkstationRecipes.getAvailable(controller.getLevel(), LargeWorkstationModule.REGULAR)).thenReturn(List.of(recipe));
             assertFalse(controller.acceptPatternBatch(pattern(7, 4), holders, 1, null));
         }
         assertEquals(7L, holders[0].get(AEItemKey.of(Items.IRON_INGOT)));
@@ -113,7 +114,7 @@ class LargeWorkstationPatternScalingTest {
         var recipe = new LargeWorkstationRecipe(base.id(), base.display(), Long.MAX_VALUE, List.of());
         var holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 8)};
         try (var recipes = mockStatic(LargeWorkstationRecipes.class, CALLS_REAL_METHODS)) {
-            recipes.when(() -> LargeWorkstationRecipes.getAll(controller.getLevel())).thenReturn(List.of(recipe));
+            recipes.when(() -> LargeWorkstationRecipes.getAvailable(controller.getLevel(), LargeWorkstationModule.REGULAR)).thenReturn(List.of(recipe));
             assertFalse(controller.acceptPatternBatch(pattern(8, 4), holders, 1, null));
         }
         assertEquals(8L, holders[0].get(AEItemKey.of(Items.IRON_INGOT)));
@@ -128,7 +129,7 @@ class LargeWorkstationPatternScalingTest {
             new ItemStack(Items.DIAMOND, 4), FluidStack.EMPTY, 150), 150, List.of());
         var holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 8)};
         try (var recipes = mockStatic(LargeWorkstationRecipes.class, CALLS_REAL_METHODS)) {
-            recipes.when(() -> LargeWorkstationRecipes.getAll(controller.getLevel())).thenReturn(List.of(base, exact));
+            recipes.when(() -> LargeWorkstationRecipes.getAvailable(controller.getLevel(), LargeWorkstationModule.REGULAR)).thenReturn(List.of(base, exact));
             assertTrue(controller.acceptPatternBatch(pattern(8, 4), holders, 1, null));
         }
         var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
