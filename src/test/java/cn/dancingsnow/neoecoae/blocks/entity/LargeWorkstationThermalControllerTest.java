@@ -16,6 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -26,6 +27,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.material.WaterFluid;
+import net.neoforged.neoforge.fluids.FluidType;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
@@ -65,7 +67,13 @@ class LargeWorkstationThermalControllerTest {
         var fluids = (MappedRegistry<Fluid>) BuiltInRegistries.FLUID;
         var id = ResourceLocation.parse("neoecoae:cryotheum_solution");
         fluids.unfreeze();
-        cryotheum = Registry.register(fluids, id, new WaterFluid.Source());
+        // This registry entry is shared with diagnostics tests that resolve the coolant's display name.
+        var cryotheumType = new FluidType(FluidType.Properties.create()
+            .descriptionId("fluid.neoecoae.cryotheum_solution")) {};
+        cryotheum = Registry.register(fluids, id, new WaterFluid.Source() {
+            @Override
+            public FluidType getFluidType() { return cryotheumType; }
+        });
         fluids.freeze();
     }
 
@@ -107,6 +115,12 @@ class LargeWorkstationThermalControllerTest {
     @AfterEach
     void restoreConfig() {
         NEConfig.largeWorkstationTemperatureEnabled = previousTemperatureEnabled;
+    }
+
+    @Test
+    void registeredRecoveryCoolantHasATranslatableDisplayName() {
+        assertEquals(Component.translatable("fluid.neoecoae.cryotheum_solution"),
+            new FluidStack(cryotheum, 1).getHoverName());
     }
 
     @Test
