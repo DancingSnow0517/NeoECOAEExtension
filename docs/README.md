@@ -10,6 +10,10 @@ This documentation describes the **Minecraft 1.21.1 / NeoForge** source tree rev
 | --- | --- | --- |
 | API calls and integration contracts / API 调用与接入约定 | [API guide](API.md) | [API 调用指南](API_ZH_CN.md) |
 | ECO planner behavior and implementation / ECO 规划器行为与实现 | [ECO planner](ECO_PLANNER.md) | [ECO 规划器说明](ECO_PLANNER_ZH_CN.md) |
+| Reproducible tech-mod planner challenges / 科技配方规划挑战 | — | [2026-10-19 挑战报告](PLANNER_CHALLENGE_REPORT_2026_10_19_ZH_CN.md) |
+| Planner challenge fixes and regression evidence / 规划挑战修复与回归证据 | — | [2026-10-19 修复报告](PLANNER_CHALLENGE_FIX_REPORT_2026_10_19_ZH_CN.md) |
+
+Dated challenge reports pin their own source versions and budgets. 带日期的挑战报告按各自记录的源码版本与预算复现。
 
 Start with the API guide to request a calculation, inspect its result, submit a job, or integrate a provider/storage cell. Read the planner guide to understand route selection, byproducts, seeds, reusable inputs, cycles, exact amounts, execution phases, and diagnostic results. Each guide links to the implementation that defines its contract.
 

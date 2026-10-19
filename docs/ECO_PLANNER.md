@@ -86,6 +86,8 @@ The acyclic solver consumes captured stock, reserves pattern firings, emits bypr
 
 After the first feasible/diagnostic pass, `JointRouteOptimizer` may search a bounded set of whole-supply-chain combinations. It can combine individually insufficient producers, select a joint multi-output pattern, prefer a cheaper complete chain, and verify the candidate by physical replay. It keeps an already verified result when its improvement budget expires.
 
+With ordered verification enabled, joint routes also support exact one-for-one, unchanged input remainders. Returns participate in material balance, while the verified execution order determines how many working tools to reserve. Different feedstock routes can reuse the same tool and leave other copies available to other jobs. Zero net consumption still requires a real startup tool; durability or component changes do not qualify for this path.
+
 ## 6. Cyclic components
 
 ### 6.1 When cycle planning runs
@@ -106,17 +108,26 @@ For each pattern in an SCC, the solver derives a sparse transition column from c
 
 The equation is a feasibility and accounting tool, not a license to execute a negative inventory. A candidate must be replayed in an order that respects AE2 inputs. If the equation has a count vector but no valid replay, the route remains unresolved or moves to an ordered proposal search.
 
+Executable feasibility comes first. Single-pattern growth uses its exact formula. Static multi-pattern cycles first try a net-positive lap, prove its startup prefix, and calculate repetitions from its net output. The last lap can stop at a delivery prefix to avoid spending extra fuel on seed restoration. Exact arithmetic still checks finite fuel and import caps over the complete order. A rejected growth probe falls through to a full-order integer feasibility proposal and finally marking search; it is never an infeasibility proof.
+
+Ordinary cycle solving and joint route recovery stop at the first integer feasible vector before checking order and real supply. They do not first require a global firing-count optimum. Optional batching starts from the seed already proven sufficient, so material grown inside the job can expand subsequent batches. If batching runs out of allowance, the verified repeated plan remains available. `REPEATABLE_NET_GROWTH` identifies this path; requested quantity is not expanded into the same number of states or plan entries.
+
+Witness batches preserve a downstream firing's required inputs where possible, avoiding maximal batches that repeatedly strand another shared input and inject hypothetical seeds. A final lap can also stop within a batch at an integer firing boundary: a wash/recovery circuit that recovers after every two washes can finish a three-item order with two washes, one recovery, and one last wash, without demanding a fourth ore.
+
 ### 6.3 Seeds, boundary demand, and startup recovery
 
 A **seed** is the material needed to start a cycle that current stock and active upstream routes do not provide. An **external demand** is a boundary resource that another component can legitimately supply. They are recorded separately.
 
 A startup candidate is only a proposal. ECO verifies real external supply, reruns the route from projected stock, and subtracts held-stock reservations before accepting it. A local deficit in one witness does not prove that every producer route is impossible. The solver reports seed amount and shortfall in the trace, and it returns `MISSING_ITEMS` only when the material result is proven at the relevant boundary.
 
+After real-stock reachability closes, startup alternatives also include blocked-input deficits following already executable prefixes, retaining incomparable supplies by complete key. An initially enabled recipe can therefore request extra startup acid to reach a recovery batch. Real external supply and the complete order are still checked before accepting that candidate.
+
 **Start-up seed versus the reusable seed kept after delivery.** The start-up seed is the material reserved for this order to start the cycle. The reusable seed kept after delivery is the part that remains in stock once the order completes, so the same cycle can start again.
 
 - Reusable key: consumed and produced by the cycle's own patterns, and not a boundary key. Fuel (consumed only) and pure products (produced only) are never retained. A fully returned catalyst is retained with its seed amount only, not per firing.
-- Retained amount is the smaller of the accepted witness's own start-up seed and the stock before the order. The constraint is final stock >= delivery + retained; the goal key's existing "delivery + stock" target already covers this, so nothing is added twice.
-- The policy is fixed to "prefer": a retaining plan is used when its witness and its boundary supply both verify, possibly at a higher firing or fuel cost; otherwise the plain plan is used and `CYCLE_SEED_NOT_RETAINED` is reported. An order never fails only because a seed cannot be kept: if the retaining whole-order run is not `SUCCESS`, the order is re-planned without retention.
+- Startup reservations follow the verified execution prefix. A fully returned catalyst reserves one recipe's atomic input quantity, not every copy in network storage for one job's concurrency. Multi-pattern growth also prefers a small startup seed; stock grown inside the job may expand later batches. When only one minimum startup quantity exists, other jobs must still wait for its return.
+- Retained amount is the smaller of the accepted witness's own start-up seed and the stock before the order. Stock left unreserved by the original completed plan is accounted separately: final stock >= delivery + retained + that unreserved stock. Copies left in ME for other jobs cannot stand in for this job's returned seed. The goal key's existing "delivery + stock" target is combined by maximum, never added twice.
+- The fixed policy first verifies an ordinary whole order, including supply and reservations, then tries a seed-retaining whole order with a limited allowance. A successful replacement may use more firings or fuel. Failure or budget exhaustion returns the completed original with `CYCLE_SEED_NOT_RETAINED`; the fallback is not recomputed after the budget is gone. The optional joint firing-count optimizer also preserves an order whose seeds were retained.
 - Because the kept seed is the accepted witness's own seed, the same order can start again once its non-reusable inputs (fuel) are replenished; a later fuel shortage is a material shortage, not seed loss. Alternative restart states (starting from a different seed key) are not modelled.
 - At runtime the kept seed is ordinary CPU leftover returned to ME storage at job end, or stock that was never extracted. It is not locked against other jobs.
 
@@ -126,7 +137,7 @@ A verified cycle witness can import boundary keys that the external DAG cannot s
 
 Caps are relative to the external verifier and assume monotone supply:
 
-- Single-key cap: probe that key alone without reservations; the cap is the smallest failing amount minus 1, found by binary search.
+- Single-key cap: probe total supply for the key without reservations, find the smallest failing amount minus 1 by binary search, then subtract the cycle's owned stock to obtain the additional-import cap. A capped candidate combines its owned and imported portions for the probe, so the same stock cannot be counted as both a seed and new supply.
 - Joint failure of individually suppliable keys: branch into "one of these keys imports less".
 - A joint failure that appears only with this candidate's reservations stops the search as incomplete.
 
@@ -227,11 +238,13 @@ One `Session` shares a cooperative work/time budget across structural discovery,
 
 | Config | Default | Scope |
 | --- | ---: | --- |
-| `ecoPlanningMaxMillis` | 10,000 ms | One request/session budget. |
-| `ecoPlanningMaxWork` | 5,000,000 checkpoints | One request/session budget. |
+| `ecoPlanningMaxMillis` | 120,000 ms | One request/session budget. |
+| `ecoPlanningMaxWork` | 50,000,000 checkpoints | One request/session budget. |
 | `ecoPlanningMaxMemoryMiB` | 64 MiB | Estimated retained cycle matrices/states. |
 
-Optional seed-retention and supply-feedback searches run in nested slices (each at most half of the remaining allowance, plus fixed work and time caps). Exhausting a slice silently falls back to the plain result; exhausting the shared allowance still ends the request as unknown.
+These defaults apply to newly generated configuration; explicit values in an existing server TOML are not rewritten. Default key, pattern, state, and firing-depth cutoffs remain `0`, so ordinary order size is not structurally truncated.
+
+Growth probes, integer quantities, optional seed retention, and supply feedback use nested slices (each at most half of the remaining allowance, with fixed work/time caps for some phases). An already verified whole order remains successful when optional improvement exhausts its slice or the shared allowance. Without a completed executable order, exhaustion remains unknown rather than proving a shortage. `CYCLE_BUDGET_EXHAUSTED` identifies cycle solving; `ROUTE_SEARCH_BUDGET_EXHAUSTED` identifies producer-route search. User cancellation remains separate and cannot be replaced by a successful fallback.
 
 The cycle solver's `CycleSolveLimits` are optional operational cutoffs. Exceeding a cutoff yields `TOO_COMPLEX` or `UNKNOWN_BUDGET`; it is never a missing-material proof. Checkpoints enforce cooperative limits, not a hard deadline interrupting every operation. The exact exposed cancellation may be a `CANCELLED` result or a cancelled/failed Future depending on the entry point; consume it without submission.
 
