@@ -22,7 +22,7 @@ public abstract class NENetworkSwitchBlock<T extends AENetworkedBlockEntity> ext
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
 
     protected NENetworkSwitchBlock(Properties properties) {
-        super(properties.lightLevel(state -> state.getValue(FORMED) ? 1 : 0));
+        super(properties);
         registerDefaultState(getStateDefinition().any().setValue(FORMED, false));
     }
 

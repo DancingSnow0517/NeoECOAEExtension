@@ -7,7 +7,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockAndTintGetter;
-import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
@@ -66,22 +65,19 @@ public class FixedBlockEntityRenderers {
             poseStack.pushPose();
             BlockPos pos = blockEntity.getBlockPos();
             poseStack.translate(pos.getX() - origin.getX(), pos.getY() - origin.getY(), pos.getZ() - origin.getZ());
-            int i = level.getBrightness(LightLayer.SKY, pos);
-            int j = level.getBrightness(LightLayer.BLOCK, pos);
-            int emission = blockEntity.getBlockState().getLightEmission(level, pos);
-            if (emission > j) {
-                j = emission;
+            try (var lighting = new FixedModelLighting(level, pos, blockEntity.getBlockState(), poseStack.last(), bufferSource)) {
+                //noinspection unchecked
+                renderer.renderFixed(
+                    blockEntity,
+                    partialTick,
+                    poseStack,
+                    lighting,
+                    packedLight,
+                    packedOverlay
+                );
+            } finally {
+                poseStack.popPose();
             }
-            //noinspection unchecked
-            renderer.renderFixed(
-                blockEntity,
-                partialTick,
-                poseStack,
-                bufferSource,
-                i << 20 | j << 4,
-                packedOverlay
-            );
-            poseStack.popPose();
         }
     }
 

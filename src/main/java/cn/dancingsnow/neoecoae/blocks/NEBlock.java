@@ -20,7 +20,9 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
 
     protected NEBlock(Properties properties) {
-        super(properties.lightLevel(state -> state.getValue(FORMED) ? 1 : 0));
+        // Emitting even one level of light disables the default model's ambient occlusion.
+        // Formation alone must not change how the machine body receives environmental light.
+        super(properties);
         registerDefaultState(getStateDefinition().any().setValue(FORMED, false));
     }
 
