@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 /** Pixel offsets for the workstation's pattern viewport, independent of frame rate and row boundaries. */
 public final class WorkstationPatternScroll {
     public static final int COLUMNS = 9;
-    public static final int VISIBLE_ROWS = 4;
+    public static final int VISIBLE_ROWS = 5;
     public static final int ROW_HEIGHT = 18;
     public static final int VIEWPORT_HEIGHT = VISIBLE_ROWS * ROW_HEIGHT;
 

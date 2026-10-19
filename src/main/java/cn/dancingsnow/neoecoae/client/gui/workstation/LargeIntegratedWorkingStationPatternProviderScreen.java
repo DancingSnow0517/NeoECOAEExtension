@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.workstation;
 
 import appeng.client.gui.implementations.PatternProviderScreen;
-import appeng.client.gui.Icon;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.Scrollbar;
@@ -35,8 +34,12 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     private long lastScrollFrame;
 
     private static final int PATTERN_LEFT = 7;
-    private static final int PATTERN_TOP = 41;
+    private static final int PATTERN_TOP = 22;
     private static final int PATTERN_WIDTH = 162;
+    // The middle inventory row has matching horizontal and vertical separators between all nine cells.
+    private static final Blitter PATTERN_ROW_BACKGROUND = Blitter
+        .texture("guis/large_integrated_working_station_interface.png", 256, 256)
+        .src(7, 178, PATTERN_WIDTH, WorkstationPatternScroll.ROW_HEIGHT);
 
     public LargeIntegratedWorkingStationPatternProviderScreen(
         LargeIntegratedWorkingStationPatternProviderMenu menu,
@@ -134,8 +137,10 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         graphics.pose().pushPose();
         try {
             graphics.pose().translate(offsetX, offsetY - fractionalOffset(), 0);
-            for (Slot slot : menu.getSlots(SlotSemantics.ENCODED_PATTERN)) {
-                if (slot.isActive()) Icon.SLOT_BACKGROUND.getBlitter().dest(slot.x - 1, slot.y - 1).blit(graphics);
+            var slots = menu.getSlots(SlotSemantics.ENCODED_PATTERN);
+            for (int rowStart = 0; rowStart < slots.size(); rowStart += WorkstationPatternScroll.COLUMNS) {
+                Slot first = slots.get(rowStart);
+                if (first.isActive()) PATTERN_ROW_BACKGROUND.dest(first.x - 1, first.y - 1).blit(graphics);
             }
         } finally {
             graphics.pose().popPose();
@@ -208,8 +213,10 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     }
 
     private void clipPatterns(GuiGraphics graphics) {
-        graphics.enableScissor(leftPos + PATTERN_LEFT, topPos + PATTERN_TOP,
-            leftPos + PATTERN_LEFT + PATTERN_WIDTH, topPos + PATTERN_TOP + WorkstationPatternScroll.VIEWPORT_HEIGHT);
+        // Keep the fixed outer frame visible while rows and their separators move through the viewport.
+        graphics.enableScissor(leftPos + PATTERN_LEFT + 1, topPos + PATTERN_TOP + 1,
+            leftPos + PATTERN_LEFT + PATTERN_WIDTH - 1,
+            topPos + PATTERN_TOP + WorkstationPatternScroll.VIEWPORT_HEIGHT - 1);
     }
 
     private final class PatternScrollbar extends Scrollbar {

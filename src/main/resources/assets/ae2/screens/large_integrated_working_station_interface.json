@@ -8,21 +8,21 @@
   "slots": {
     "ENCODED_PATTERN": {
       "left": 8,
-      "top": 42,
+      "top": 23,
       "grid": "BREAK_AFTER_9COLS"
     },
     "STORAGE": {
-      "left": 14,
+      "left": 8,
       "top": 127,
       "grid": "HORIZONTAL"
     },
     "PLAYER_INVENTORY": {
-      "left": 14,
+      "left": 8,
       "bottom": 84,
       "grid": "BREAK_AFTER_9COLS"
     },
     "PLAYER_HOTBAR": {
-      "left": 14,
+      "left": 8,
       "bottom": 26,
       "grid": "HORIZONTAL"
     }
@@ -37,21 +37,12 @@
         "top": 6
       }
     },
-    "interface_config": {
-      "text": {
-        "translate": "gui.ae2.Patterns"
-      },
-      "position": {
-        "left": 8,
-        "top": 31
-      }
-    },
     "interface_stored_items": {
       "text": {
         "translate": "gui.ae2.ReturnInventory"
       },
       "position": {
-        "left": 14,
+        "left": 8,
         "top": 116
       }
     },
@@ -60,7 +51,7 @@
         "translate": "container.inventory"
       },
       "position": {
-        "left": 14,
+        "left": 8,
         "bottom": 95
       }
     }
@@ -74,9 +65,9 @@
     },
     "patternScrollbar": {
       "left": 174,
-      "top": 42,
+      "top": 23,
       "width": 7,
-      "height": 70
+      "height": 88
     },
     "lockReason": {
       "left": 5,

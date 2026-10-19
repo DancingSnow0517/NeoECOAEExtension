@@ -47,14 +47,15 @@ class WorkstationPatternScreenStyleTest {
         assertEquals(245, style.getBackground().getSrcHeight());
         assertNotNull(style.getWidget("verticalToolbar"));
         assertNotNull(style.getWidget("patternScrollbar"));
-        assertEquals(70, style.getWidget("patternScrollbar").getHeight());
+        assertEquals(88, style.getWidget("patternScrollbar").getHeight());
         assertEquals(7, style.getWidget("patternScrollbar").getWidth());
         assertTrue(style.getSlots().containsKey("PLAYER_INVENTORY"));
         assertTrue(style.getSlots().containsKey("ENCODED_PATTERN"));
         var bounds = new net.minecraft.client.renderer.Rect2i(0, 0, 188, 245);
-        assertEquals(14, style.getSlots().get("PLAYER_INVENTORY").resolve(bounds).getX());
-        assertEquals(14, style.getSlots().get("PLAYER_HOTBAR").resolve(bounds).getX());
-        assertEquals(14, style.getSlots().get("STORAGE").resolve(bounds).getX());
+        assertEquals(8, style.getSlots().get("PLAYER_INVENTORY").resolve(bounds).getX());
+        assertEquals(8, style.getSlots().get("PLAYER_HOTBAR").resolve(bounds).getX());
+        assertEquals(8, style.getSlots().get("STORAGE").resolve(bounds).getX());
+        assertEquals(23, style.getSlots().get("ENCODED_PATTERN").resolve(bounds).getY());
         verify(resources).getResource(ResourceLocation.parse("ae2:screens/large_integrated_working_station_interface.json"));
     }
 }
