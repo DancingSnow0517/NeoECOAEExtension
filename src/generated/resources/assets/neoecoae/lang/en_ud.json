@@ -699,5 +699,21 @@
   "item.neoecoae.eco_spent_nuclear_waste_cell_16m": "(ǝʇsɐM ɹɐǝןɔnN ʇuǝdS) xıɹʇɐW ǝbɐɹoʇS ㄣƎꞀ - OƆƎ",
   "item.neoecoae.eco_spent_nuclear_waste_cell_256m": "(ǝʇsɐM ɹɐǝןɔnN ʇuǝdS) xıɹʇɐW ǝbɐɹoʇS 6ƎꞀ - OƆƎ",
   "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "(ǝʇsɐM ɹɐǝןɔnN ʇuǝdS) xıɹʇɐW ǝbɐɹoʇS 9ƎꞀ - OƆƎ",
-  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "buısnoH xıɹʇɐW ǝbɐɹoʇS ǝʇsɐM ɹɐǝןɔnN ʇuǝdS OƆƎ"
+  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "buısnoH xıɹʇɐW ǝbɐɹoʇS ǝʇsɐM ɹɐǝןɔnN ʇuǝdS OƆƎ",
+  "gui.neoecoae.large_integrated_working_station.temperature": "%%%1$s :ǝɹnʇɐɹǝdɯǝ⟘",
+  "gui.neoecoae.large_integrated_working_station.recovery": "s ϛƖ \\ %2$s ɯnǝɥʇoʎɹƆ · %%%1$s :ǝɹnʇɐɹǝdɯǝ⟘",
+  "gui.neoecoae.large_integrated_working_station.selected_tier": "(6 \\ 9 \\ ᄅ ǝןɔʎɔ oʇ ʞɔıןɔ) %1$s :ɹǝıʇ ƆO ɯnɯıxɐW",
+  "gui.neoecoae.large_integrated_working_station.preheat.on": "(pǝןqɐsıp buıןooɔ) uo :buıʇɐǝɥǝɹԀ",
+  "gui.neoecoae.large_integrated_working_station.preheat.off": "(ʇɹɐʇs oʇ ʞɔıןɔ ؛ƎⱯ sǝsn) ɹǝıʇ pǝʇɔǝןǝs oʇ ʇɐǝɥǝɹԀ",
+  "gui.neoecoae.large_integrated_working_station.pause.temperature_low": "ʎןןɐnuɐɯ ʇɐǝɥǝɹd ؛ʇuǝɯǝɹınbǝɹ ɥɔʇɐq ʍoןǝq ǝɹnʇɐɹǝdɯǝ⟘ :pǝsnɐԀ",
+  "gui.neoecoae.large_integrated_working_station.pause.overheated": "pǝɹınbǝɹ buıןooɔ ɯnǝɥʇoʎɹɔ ǝʌıʇɔɐ pǝʇdnɹɹǝʇuıun s ϛƖ :pǝʇɐǝɥɹǝʌO",
+  "tooltip.neoecoae.large_integrated_working_station": "ʎbɹǝuǝ Ɩx ǝsn sǝdıɔǝɹ ןןⱯ ˙ןǝןןɐɹɐd ɹǝɥbıɥ ɹoɟ ǝɹnʇɐɹǝdɯǝʇ uıɐʇuıɐɯ puɐ ʇɐǝɥǝɹd ؛ןǝןןɐɹɐd ǝsɐq 9ϛᄅ",
+  "tooltip.neoecoae.large_integrated_working_station.water": "s\\sʇuıod ǝbɐʇuǝɔɹǝd Ɩ˙0- :buıןooɔ ɹǝʇɐʍ ؛ןǝןןɐɹɐd ㄣ8Ɛ'9Ɩ :%0ᄅ",
+  "tooltip.neoecoae.large_integrated_working_station.sodium": "s\\sʇuıod ǝbɐʇuǝɔɹǝd Ɛ˙0- :buıןooɔ ɯnıpos ؛ןǝןןɐɹɐd 9Ɛϛ'ϛ9 :%0ϛ",
+  "tooltip.neoecoae.large_integrated_working_station.cryotheum": "s\\sʇuıod ǝbɐʇuǝɔɹǝd 9˙0- :buıןooɔ ɯnǝɥʇoʎɹɔ ؛ןǝןןɐɹɐd ㄣㄣƖ'ᄅ9ᄅ :%08",
+  "tooltip.neoecoae.large_integrated_working_station.coolant_tick": "ɯnǝɥʇoʎɹɔ s ϛƖ sǝɹınbǝɹ ʇɐǝɥɹǝʌo ؛sʞɔıʇ pǝsnɐd buıpnןɔuı 'ʇ\\ᗺɯ 00Ɩ :buıןooɔ ǝʌıʇɔⱯ",
+  "gui.neoecoae.large_integrated_working_station.pause.coolant_missing": "ʇuɐןooɔ oN :buıןooƆ",
+  "gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low": "ɹǝıʇ ʇuɐןooɔ pǝʇɹoddnsu∩ :buıןooƆ",
+  "gui.neoecoae.large_integrated_working_station.pause.coolant_insufficient": "ʇuɐןooɔ ʇuǝıɔıɟɟnsuI :buıןooƆ",
+  "gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked": "pǝʞɔoןq ʇndʇno ʇuɐןooƆ :buıןooƆ"
 }

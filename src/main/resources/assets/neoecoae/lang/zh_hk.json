@@ -806,5 +806,21 @@
   "item.neoecoae.eco_radioactive_chemical_cell_64m": "ECO - LE6 存儲矩陣（放射性化學品）",
   "item.neoecoae.eco_radioactive_chemical_cell_256m": "ECO - LE9 存儲矩陣（放射性化學品）",
   "item.neoecoae.mega_matter_cell_housing": "ECO MEGA 存儲矩陣外殼（物質）",
-  "item.neoecoae.eco_mega_matter_cell_4g": "ECO - LE9 存儲矩陣（MEGA 物質）"
+  "item.neoecoae.eco_mega_matter_cell_4g": "ECO - LE9 存儲矩陣（MEGA 物質）",
+  "gui.neoecoae.large_integrated_working_station.temperature": "溫度：%s%%",
+  "gui.neoecoae.large_integrated_working_station.recovery": "溫度：%s%% · 凛冰冷卻 %s / 15 秒",
+  "gui.neoecoae.large_integrated_working_station.selected_tier": "最大超頻檔位：%s（點擊切換 2 / 6 / 9）",
+  "gui.neoecoae.large_integrated_working_station.preheat.on": "正在預熱（主動冷卻已關閉）",
+  "gui.neoecoae.large_integrated_working_station.preheat.off": "預熱至所選檔位（消耗 AE，點擊啟動）",
+  "gui.neoecoae.large_integrated_working_station.pause.temperature_low": "暂停：溫度低于批次門檻，请手動預熱",
+  "gui.neoecoae.large_integrated_working_station.pause.overheated": "過熱鎖定：需要连續 15 秒主動通入凛冰溶液",
+  "tooltip.neoecoae.large_integrated_working_station": "常规 256 並行；預熱並持續满足溫度門檻可提高並行，全部配方耗能 ×1",
+  "tooltip.neoecoae.large_integrated_working_station.water": "20%：16,384 並行；水每秒降溫 0.1 个百分點",
+  "tooltip.neoecoae.large_integrated_working_station.sodium": "50%：65,536 並行；鈉每秒降溫 0.3 个百分點",
+  "tooltip.neoecoae.large_integrated_working_station.cryotheum": "80%：262,144 並行；凛冰溶液每秒降溫 0.6 个百分點",
+  "tooltip.neoecoae.large_integrated_working_station.coolant_tick": "主動冷卻每 tick 消耗 100 mB，暂停時仍可冷卻；過熱需连續 15 秒凛冰冷卻",
+  "gui.neoecoae.large_integrated_working_station.pause.coolant_missing": "冷卻：无冷卻液",
+  "gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low": "冷卻：不支持该冷卻檔位",
+  "gui.neoecoae.large_integrated_working_station.pause.coolant_insufficient": "冷卻：冷卻液不足",
+  "gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked": "冷卻：輸出受阻"
 }

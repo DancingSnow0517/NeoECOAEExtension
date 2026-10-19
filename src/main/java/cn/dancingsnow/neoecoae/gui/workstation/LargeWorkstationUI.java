@@ -26,6 +26,7 @@ import com.google.gson.JsonElement;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import java.util.function.DoubleSupplier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
@@ -39,7 +40,9 @@ public final class LargeWorkstationUI {
         Supplier<Component> taskText, Supplier<Component> coolingTierText,
         Supplier<Component> batchSettingsText, Supplier<Component> pauseReasonText,
         BooleanSupplier overclocked, BooleanSupplier activeCooling,
-        Runnable returnStoredInputs, Runnable toggleOverclocked, Runnable toggleActiveCooling) {}
+        Runnable returnStoredInputs, Runnable toggleOverclocked, Runnable toggleActiveCooling,
+        Supplier<Component> temperatureText, Supplier<Component> selectedTierText, Supplier<Component> preheatText,
+        Runnable cycleOverclockTier, Runnable togglePreheating, DoubleSupplier temperature) {}
 
     private static final ResourceLocation JSON_LAYOUT =
         ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/large");
@@ -63,6 +66,10 @@ public final class LargeWorkstationUI {
         root.addChild(syncedLabel(config.coolingTierText(), 42, 45, 92, 8));
         root.addChild(syncedLabel(config.batchSettingsText(), 42, 55, 92, 8));
         root.addChild(syncedLabel(config.pauseReasonText(), 42, 65, 92, 8));
+        root.addChild(syncedLabel(config.temperatureText(), 42, 75, 92, 7));
+        root.addChild(new LargeWorkstationTemperatureGauge()
+            .bind(DataBindingBuilder.floatValS2C(() -> (float) config.temperature().getAsDouble()).build())
+            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(42).top(19).width(92).height(4)));
 
         // Resolve through the controller on every sync, so a rebuilt cluster cannot leave
         // an open screen displaying a detached hatch's tank.
@@ -73,7 +80,9 @@ public final class LargeWorkstationUI {
             settingButton(ECOIcon.POWER_UNIT_AE, config.toggleOverclocked(), () -> Component.translatable(
                 config.overclocked().getAsBoolean() ? "gui.neoecoae.crafting.overclock.on" : "gui.neoecoae.crafting.overclock.off")),
             settingButton(ECOIcon.TYPE_FILTER_ALL, config.toggleActiveCooling(), () -> Component.translatable(
-                config.activeCooling().getAsBoolean() ? "gui.neoecoae.crafting.active_cooling.on" : "gui.neoecoae.crafting.active_cooling.off"))
+                config.activeCooling().getAsBoolean() ? "gui.neoecoae.crafting.active_cooling.on" : "gui.neoecoae.crafting.active_cooling.off")),
+            settingButton(ECOIcon.CRAFT_HAMMER, config.togglePreheating(), config.preheatText()),
+            settingButton(ECOIcon.COG, config.cycleOverclockTier(), config.selectedTierText())
         ));
         return root;
     }

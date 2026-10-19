@@ -38,6 +38,7 @@ class LargeWorkstationCoolantInputTest {
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
         var registry = (MappedRegistry<RecipeType<?>>) BuiltInRegistries.RECIPE_TYPE;
+        if (registry.containsKey(NERecipeTypes.COOLING.getId())) return;
         registry.unfreeze();
         try {
             Registry.register(registry, NERecipeTypes.COOLING.getId(), new RecipeType<CoolingRecipe>() {});

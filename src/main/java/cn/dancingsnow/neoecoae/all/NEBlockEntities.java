@@ -396,7 +396,11 @@ public class NEBlockEntities {
                 (Class) ECOLargeIntegratedWorkingStationBlockEntity.class,
                 (net.minecraft.world.level.block.entity.BlockEntityType) type,
                 null,
-                null
+                (level, pos, state, blockEntity) -> {
+                    if (blockEntity instanceof ECOLargeIntegratedWorkingStationBlockEntity controller) {
+                        controller.tickThermal(level, pos, state);
+                    }
+                }
             );
             AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.INTEGRATED_WORKING_STATION.asItem());
         })

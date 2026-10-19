@@ -58,6 +58,17 @@ class LargeWorkstationBatchPersistenceTest {
             // Legacy batches stored an int; NBT numeric widening must preserve that energy cost.
             tag.putInt("energyPerCraft", 12345);
             assertNotNull(load.invoke(null, tag, registries, 234L));
+            tag.putInt("coolingTier", 6);
+            tag.putInt("energyMultiplier", 32);
+            var migrated = load.invoke(null, tag, registries, 234L);
+            assertNotNull(migrated, "Legacy overclocked batches retain their owned materials");
+            var migratedTag = (CompoundTag) save.invoke(migrated, registries);
+            assertEquals(1, migratedTag.getInt("energyMultiplier"));
+            assertEquals(tag.get("inputTotal"), migratedTag.get("inputTotal"));
+            tag.putInt("coolingTier", 0);
+            tag.putInt("energyMultiplier", 1);
+            tag.putLong("craftCount", 1024);
+            assertNotNull(load.invoke(null, tag, registries, 234L), "Accepted legacy normal batches must not be discarded");
             tag.putInt("progress", 1);
             assertNull(load.invoke(null, tag, registries, 234L), "Cannot restore processing with unpaid lightning");
         }

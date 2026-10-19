@@ -4,28 +4,26 @@ import org.jetbrains.annotations.Nullable;
 
 /** Immutable per-batch overclock settings for the large integrated workstation. */
 public record LargeWorkstationOverclock(int coolingTier, int maxParallelism, int energyMultiplier) {
-    public static final int BASE_PARALLELISM = 1_024;
+    private static final int[] DESCENDING_TIERS = {9, 6, 2};
+    public static final int BASE_PARALLELISM = 256;
     public static final LargeWorkstationOverclock NORMAL = new LargeWorkstationOverclock(0, BASE_PARALLELISM, 1);
 
-    public static LargeWorkstationOverclock forCurrentSettings(
-        boolean overclocked,
-        boolean activeCooling,
-        int coolingTier
-    ) {
-        if (!overclocked || !activeCooling) {
-            return NORMAL;
+    public static LargeWorkstationOverclock forTemperature(boolean overclocked, int selectedTier, double temperature) {
+        if (!overclocked) return NORMAL;
+        for (int tier : DESCENDING_TIERS) {
+            LargeWorkstationOverclock profile = forCoolingTier(tier);
+            if (tier <= selectedTier && profile.isTemperatureReady(temperature)) return profile;
         }
-        LargeWorkstationOverclock profile = forCoolingTier(coolingTier);
-        return profile == null ? NORMAL : profile;
+        return NORMAL;
     }
 
     @Nullable
     public static LargeWorkstationOverclock forCoolingTier(int coolingTier) {
         return switch (coolingTier) {
             // These are the max_overclock values from the shared F-series cooling recipes.
-            case 2 -> new LargeWorkstationOverclock(2, 16_384, 8);
-            case 6 -> new LargeWorkstationOverclock(6, 65_536, 32);
-            case 9 -> new LargeWorkstationOverclock(9, 262_144, 64);
+            case 2 -> new LargeWorkstationOverclock(2, 16_384, 1);
+            case 6 -> new LargeWorkstationOverclock(6, 65_536, 1);
+            case 9 -> new LargeWorkstationOverclock(9, 262_144, 1);
             default -> null;
         };
     }
@@ -36,7 +34,16 @@ public record LargeWorkstationOverclock(int coolingTier, int maxParallelism, int
             return NORMAL;
         }
         LargeWorkstationOverclock profile = forCoolingTier(coolingTier);
-        return profile != null && profile.energyMultiplier == energyMultiplier ? profile : null;
+        int legacyMultiplier = switch (coolingTier) { case 2 -> 8; case 6 -> 32; case 9 -> 64; default -> -1; };
+        return profile != null && (energyMultiplier == 1 || energyMultiplier == legacyMultiplier) ? profile : null;
+    }
+
+    public double minimumTemperature() {
+        return switch (coolingTier) { case 2 -> 20; case 6 -> 50; case 9 -> 80; default -> 0; };
+    }
+
+    public boolean isTemperatureReady(double temperature) {
+        return Double.isFinite(temperature) && temperature >= minimumTemperature() && temperature < 100;
     }
 
     public boolean isOverclocked() {

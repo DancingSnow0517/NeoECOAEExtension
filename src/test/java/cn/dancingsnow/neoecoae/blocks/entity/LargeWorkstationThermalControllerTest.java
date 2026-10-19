@@ -1,0 +1,248 @@
+package cn.dancingsnow.neoecoae.blocks.entity;
+
+import appeng.api.config.Actionable;
+import appeng.api.networking.IManagedGridNode;
+import appeng.api.networking.IGridNode;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
+import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import java.util.ArrayDeque;
+import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.MappedRegistry;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.level.material.WaterFluid;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class LargeWorkstationThermalControllerTest {
+    private static Fluid cryotheum;
+    private ECOLargeIntegratedWorkingStationBlockEntity host;
+    private Level level;
+    private RecipeManager recipes;
+    private FluidTank input;
+    private FluidTank output;
+
+    @BeforeAll
+    static void bootstrap() throws Exception {
+        InventoryTestBootstrap.initialize();
+        try (var registrate = mockStatic(NERegistrate.class)) {
+            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
+            Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName());
+        }
+        var recipeRegistry = (MappedRegistry<RecipeType<?>>) BuiltInRegistries.RECIPE_TYPE;
+        if (!recipeRegistry.containsKey(NERecipeTypes.COOLING.getId())) {
+            recipeRegistry.unfreeze();
+            Registry.register(recipeRegistry, NERecipeTypes.COOLING.getId(), new RecipeType<CoolingRecipe>() {});
+            recipeRegistry.freeze();
+        }
+        var fluids = (MappedRegistry<Fluid>) BuiltInRegistries.FLUID;
+        var id = ResourceLocation.parse("neoecoae:cryotheum_solution");
+        fluids.unfreeze();
+        cryotheum = Registry.register(fluids, id, new WaterFluid.Source());
+        fluids.freeze();
+    }
+
+    @BeforeEach
+    void setup() throws Exception {
+        host = mock(ECOLargeIntegratedWorkingStationBlockEntity.class, CALLS_REAL_METHODS);
+        var node = mock(IManagedGridNode.class);
+        doReturn(node).when(host).getMainNode();
+        when(node.isActive()).thenReturn(true);
+        doNothing().when(host).setChanged();
+        doNothing().when(host).markForUpdate();
+        doNothing().when(host).setWorking(anyBoolean());
+        doNothing().when(host).setProcessingTime(anyInt());
+        level = mock(Level.class);
+        recipes = mock(RecipeManager.class);
+        when(level.getRecipeManager()).thenReturn(recipes);
+        input = new FluidTank(100_000);
+        output = new FluidTank(100_000);
+        doReturn(input).when(host).getInputTank();
+        doReturn(output).when(host).getOutputTank();
+        field(host, "inputTank", input);
+        field(host, "outputTank", output);
+        field(host, "level", level);
+        field(host, "formed", true);
+        field(host, "selectedOverclockTier", 9);
+        field(host, "overclocked", true);
+        field(host, "pendingBatches", new ArrayDeque<>());
+        field(host, "coolingOutput", new LargeWorkstationCoolingOutput());
+    }
+
+    @Test
+    void strongCoolantLowersIdleMachineTemperatureAndAdvertisedCapacity() throws Exception {
+        field(host, "temperature", 20.0);
+        field(host, "activeCooling", true);
+        coolant(Fluids.WATER, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        assertEquals(16_384, host.getMaxBatchParallelism());
+        tick();
+        assertEquals(19.97, host.getTemperature(), 1e-10);
+        assertEquals(256, host.getMaxBatchParallelism());
+        assertEquals(900, input.getFluidAmount());
+    }
+
+    @Test
+    void coolantOutputBlockagePreventsConsumptionAndCooling() throws Exception {
+        field(host, "temperature", 50.0);
+        field(host, "activeCooling", true);
+        coolant(Fluids.WATER, 6, new FluidStack(Fluids.LAVA, 100));
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        output.setFluid(new FluidStack(Fluids.WATER, 100_000));
+        tick();
+        assertEquals(50, host.getTemperature());
+        assertEquals(1000, input.getFluidAmount());
+    }
+
+    @Test
+    void recoveryRequiresRealCryotheumAndThreeHundredActualConsumptionTicks() throws Exception {
+        field(host, "temperature", 100.0);
+        field(host, "overheated", true);
+        field(host, "activeCooling", true);
+        coolant(Fluids.WATER, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(Fluids.WATER, 50_000));
+        tick();
+        assertEquals(0, value(host, "recoveryTicks"));
+        assertEquals(50_000, input.getFluidAmount(), "A custom tier-9 water recipe cannot bypass cryotheum recovery");
+        coolant(cryotheum, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(cryotheum, 50_000));
+        for (int i = 0; i < 299; i++) tick();
+        assertTrue((boolean) value(host, "overheated"));
+        assertEquals(0, host.getMaxBatchParallelism());
+        tick();
+        assertFalse((boolean) value(host, "overheated"));
+        assertEquals(0, host.getTemperature());
+        assertEquals(20_000, input.getFluidAmount());
+        assertEquals(256, host.getMaxBatchParallelism());
+    }
+
+    @Test
+    void recoveryResetsWhenCoolingStopsOrItsOutputBlocks() throws Exception {
+        field(host, "temperature", 100.0);
+        field(host, "overheated", true);
+        field(host, "activeCooling", true);
+        coolant(cryotheum, 9, new FluidStack(Fluids.LAVA, 100));
+        input.setFluid(new FluidStack(cryotheum, 50_000));
+        for (int i = 0; i < 100; i++) tick();
+        assertEquals(100, value(host, "recoveryTicks"));
+        output.setFluid(new FluidStack(Fluids.WATER, 100_000));
+        tick();
+        assertEquals(0, value(host, "recoveryTicks"));
+        assertEquals(100, host.getTemperature());
+        assertEquals(40_000, input.getFluidAmount());
+    }
+
+    @Test
+    void preheatIsPaidSeparatelyStopsAtTheSelectedThresholdAndNeverRestartsAutomatically() throws Exception {
+        field(host, "selectedOverclockTier", 2);
+        field(host, "temperature", 19.95);
+        field(host, "activeCooling", true);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.togglePreheating();
+        assertFalse(host.isActiveCooling());
+        tick();
+        assertEquals(20, host.getTemperature(), 1e-10);
+        assertFalse((boolean) value(host, "preheating"));
+        verify(host).extractAEPower(doubleThat(amount -> Math.abs(amount - 500) < 1e-8), eq(Actionable.MODULATE), any());
+        field(host, "temperature", 19.0);
+        clearInvocations(host);
+        tick();
+        assertEquals(19, host.getTemperature());
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
+    void coldAcceptedBatchKeepsItsInputsAndProgressWithoutChargingProcessingEnergy() throws Exception {
+        var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
+        var constructor = type.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        var owned = new KeyCounter();
+        owned.add(AEItemKey.of(Items.IRON_INGOT), 400);
+        var produced = new KeyCounter();
+        produced.add(AEItemKey.of(Items.DIAMOND), 100);
+        Object batch = constructor.newInstance(100L, 1000L, 2, 1, owned, produced,
+            null, ResourceLocation.parse("test:thermal"), null, null, 0L);
+        field(batch, "progress", 50);
+        var queue = new ArrayDeque<>();
+        queue.add(batch);
+        field(host, "pendingBatches", queue);
+        field(host, "temperature", 19.9);
+        host.tickingRequest(mock(IGridNode.class), 20);
+        assertSame(batch, queue.getFirst());
+        assertEquals(50, value(batch, "progress"));
+        assertEquals(400, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        verify(host, never()).extractAEPower(anyDouble(), any(), any());
+    }
+
+    @Test
+    void highTierProcessingPaysBaseRecipeEnergyAndRetainsCompletedOutputWhenDeliveryIsUnavailable() throws Exception {
+        var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
+        var constructor = type.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        var owned = new KeyCounter();
+        owned.add(AEItemKey.of(Items.IRON_INGOT), 400);
+        var produced = new KeyCounter();
+        produced.add(AEItemKey.of(Items.DIAMOND), 100);
+        Object batch = constructor.newInstance(100L, 1000L, 9, 1, owned, produced,
+            null, ResourceLocation.parse("test:thermal"), null, null, 0L);
+        var queue = new ArrayDeque<>();
+        queue.add(batch);
+        field(host, "pendingBatches", queue);
+        field(host, "temperature", 80.0);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        verify(host).extractAEPower(eq(100_000.0), eq(Actionable.MODULATE), any());
+        assertEquals(200, value(batch, "progress"));
+        assertTrue(((KeyCounter) value(batch, "inputTotal")).isEmpty());
+        assertEquals(100, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        assertTrue(host.getTemperature() > 80);
+    }
+
+    private void coolant(Fluid fluid, int tier, FluidStack byproduct) {
+        var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), byproduct, 1, tier);
+        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(
+            new RecipeHolder<>(ResourceLocation.parse("test:cooling"), recipe)));
+    }
+
+    private void tick() { host.tickThermal(level, BlockPos.ZERO, Blocks.AIR.defaultBlockState()); }
+
+    private static void field(Object object, String name, Object value) throws Exception {
+        var field = findField(object, name);
+        field.setAccessible(true);
+        field.set(object, value);
+    }
+
+    private static Object value(Object object, String name) throws Exception {
+        var field = findField(object, name);
+        field.setAccessible(true);
+        return field.get(object);
+    }
+
+    private static java.lang.reflect.Field findField(Object object, String name) throws Exception {
+        for (Class<?> type = object.getClass(); type != null; type = type.getSuperclass()) {
+            try { return type.getDeclaredField(name); } catch (NoSuchFieldException ignored) { }
+        }
+        throw new NoSuchFieldException(name);
+    }
+}
