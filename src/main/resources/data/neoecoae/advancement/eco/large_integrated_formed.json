@@ -1,27 +1,28 @@
 {
+  "parent": "neoecoae:eco/integrated_working_station",
   "display": {
     "icon": {
-      "item": "neoecoae:energized_crystal"
+      "id": "neoecoae:integrated_working_station"
     },
     "title": {
-      "text": "你看，他亮闪闪的"
+      "text": "集大成者"
     },
     "description": {
-      "text": "第一次用闪电获得盈能水晶"
+      "text": "第一次让大型集成工作站成型"
     },
-    "frame": "task",
+    "frame": "goal",
     "show_toast": true,
     "announce_to_chat": false,
     "hidden": false
   },
   "criteria": {
-    "lightning": {
+    "formed": {
       "trigger": "minecraft:impossible"
     }
   },
   "requirements": [
     [
-      "lightning"
+      "formed"
     ]
   ],
   "sends_telemetry_event": false

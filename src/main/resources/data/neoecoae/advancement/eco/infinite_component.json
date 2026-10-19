@@ -1,7 +1,8 @@
 {
+  "parent": "neoecoae:eco/host_l9",
   "display": {
     "icon": {
-      "item": "neoecoae:eco_infinite_cell_component"
+      "id": "neoecoae:eco_infinite_cell_component"
     },
     "title": {
       "text": "无穷无尽"

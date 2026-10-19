@@ -1,13 +1,14 @@
 {
+  "parent": "neoecoae:eco/root",
   "display": {
     "icon": {
-      "item": "neoecoae:storage_system_l6"
+      "id": "neoecoae:storage_system_l4"
     },
     "title": {
-      "text": "这下快多了"
+      "text": "总算能用了"
     },
     "description": {
-      "text": "第一次获得任意一种 6 级主机"
+      "text": "第一次获得任意一种 4 级主机"
     },
     "frame": "task",
     "show_toast": true,
@@ -21,9 +22,9 @@
         "items": [
           {
             "items": [
-              "neoecoae:storage_system_l6",
-              "neoecoae:computation_system_l6",
-              "neoecoae:crafting_system_l6"
+              "neoecoae:storage_system_l4",
+              "neoecoae:computation_system_l4",
+              "neoecoae:crafting_system_l4"
             ]
           }
         ]

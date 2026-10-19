@@ -1,7 +1,8 @@
 {
+  "parent": "neoecoae:eco/host_l6",
   "display": {
     "icon": {
-      "item": "neoecoae:storage_system_l9"
+      "id": "neoecoae:storage_system_l9"
     },
     "title": {
       "text": "别问，问就是算力"
