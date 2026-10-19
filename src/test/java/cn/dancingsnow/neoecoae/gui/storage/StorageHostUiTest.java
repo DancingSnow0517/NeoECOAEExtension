@@ -561,19 +561,9 @@ class StorageHostUiTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void emptyBarsClearAndUnboundedCapacityShowsACenteredShadowedSymbolWithoutFillingEnergy() throws ReflectiveOperationException {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
+    void unboundedCapacityUsesTheNewPatternBarWithoutAnOverlaySymbolOrEnergyFill() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
-            Minecraft client = mock(Minecraft.class);
-            Font font = mock(Font.class);
-            var fontField = Minecraft.class.getDeclaredField("font");
-            fontField.setAccessible(true);
-            fontField.set(client, font);
-            var lineHeight = Font.class.getDeclaredField("lineHeight");
-            lineHeight.setAccessible(true);
-            lineHeight.setInt(font, 9);
-            when(font.width("∞")).thenReturn(8);
-            minecraft.when(Minecraft::getInstance).thenReturn(client);
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
             BindableValue<Tag> display = (BindableValue<Tag>) root.getChildren().getFirst();
             UIElement capacity = positionedBar(root, "capacity_bar", 208, 313, 160, 8);
@@ -594,16 +584,11 @@ class StorageHostUiTest {
                 capacity.drawBackgroundAdditional(context);
                 resources.drawBackgroundAdditional(context);
                 energy.drawBackgroundAdditional(context);
-                verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 160F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR, 208F, 313F, 160F, 8F);
                 verifyNoMoreInteractions(context);
-                verify(pose).translate(285F, 314.625F, 0F);
-                verify(pose).scale(0.75F, 0.75F, 1F);
-                verify(pose).pushPose();
-                verify(pose).popPose();
-                verify(context.graphics).drawString(font, "∞", 0, 0, 0xFFFFFFFF, true);
-                clearInvocations(context, context.graphics, pose);
+                clearInvocations(context);
             }
-            // Switching back to a full finite cell must remove the infinity symbol.
+            // Switching back to finite capacity restores the ordinary proportional bar.
             display.setValue(new StoragePanelState(Component.empty(), 2, true, false, false,
                 0, 100, 999, "100", 1, 0, 0, List.of(), List.of(), "", 0, false).toTag());
             capacity.drawBackgroundAdditional(context);
