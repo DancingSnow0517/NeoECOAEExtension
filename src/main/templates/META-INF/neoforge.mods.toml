@@ -178,6 +178,13 @@ file="META-INF/accesstransformer.cfg"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
+    modId="bigger_ae2"
+    type="optional"
+    versionRange="[21.2.3,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
     modId="appliedcreate"
     type="optional"
     versionRange="[1.1.7,)"

@@ -14,6 +14,8 @@ class StorageHostTextureTest {
             org.mockito.Mockito.when(list.getAllScanData()).thenReturn(java.util.List.of());
             mods.when(net.neoforged.fml.ModList::get).thenReturn(list);
             Class.forName(cn.dancingsnow.neoecoae.NeoECOAE.class.getName());
+            // Texture initialization scans LDLib registrations and must happen while the mod list exists.
+            Class.forName(cn.dancingsnow.neoecoae.gui.theme.NETextures.class.getName());
         }
     }
 

@@ -117,15 +117,15 @@ final class StoragePanelTextures {
     static int swatchIndex(ResourceLocation id) {
         if (id == null) return FALLBACK_SWATCH;
         return switch (id.toString()) {
-            case "neoecoae:mekanism", "neoecoae:mega_chemical", "appmek:chemical" -> 0;
-            case "neoecoae:fluids", "neoecoae:mega_fluid", "ae2:f" -> 1;
-            case "neoecoae:items", "neoecoae:bulk_item", "neoecoae:mega_item", "ae2:i" -> 2;
+            case "neoecoae:mekanism", "neoecoae:mega_chemical", "neoecoae:bigger_ae2_chemical", "appmek:chemical" -> 0;
+            case "neoecoae:fluids", "neoecoae:mega_fluid", "neoecoae:bigger_ae2_fluid", "ae2:f" -> 1;
+            case "neoecoae:items", "neoecoae:bulk_item", "neoecoae:mega_item", "neoecoae:bigger_ae2_item", "ae2:i" -> 2;
             case "neoecoae:air", "neoecoae:mega_air", "appliedpneumatics:air_type" -> 3;
-            case "neoecoae:flux", "neoecoae:mega_energy", "appflux:flux" -> 4;
+            case "neoecoae:flux", "neoecoae:mega_energy", "neoecoae:bigger_ae2_fe", "appflux:flux" -> 4;
             case "neoecoae:lightning", "ae2lt:lightning" -> 5;
-            case "neoecoae:experience", "neoecoae:mega_experience", "appex:experience" -> 6;
+            case "neoecoae:experience", "neoecoae:mega_experience", "neoecoae:bigger_ae2_experience", "appex:experience" -> 6;
             case "neoecoae:soul", "neoecoae:mega_soul", "soulplied_energistics:soul", "appliedsoul:soul" -> 7;
-            case "neoecoae:source", "neoecoae:mega_source", "arseng:source" -> 8;
+            case "neoecoae:source", "neoecoae:mega_source", "neoecoae:bigger_ae2_source", "arseng:source" -> 8;
             case "neoecoae:mana", "neoecoae:mega_mana", "appbot:mana" -> 9;
             case "neoecoae:omni", "ae2omnicells:omni", "ae2omnicells:omni_cell" -> 10;
             case "neoecoae:complex_omni", "ae2omnicells:complex_omni", "ae2omnicells:complex_omni_cell" -> 11;

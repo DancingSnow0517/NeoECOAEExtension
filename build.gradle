@@ -28,6 +28,19 @@ repositories {
     exclusiveContent {
         forRepository {
             ivy {
+                name = "Bigger AE2 releases"
+                url = "https://github.com/DancingSnow0517/BiggerAE2/releases/download"
+                patternLayout {
+                    artifact "[revision]/bigger_ae2-1.21.1-[revision].[ext]"
+                }
+                metadataSources { artifact() }
+            }
+        }
+        filter { includeGroup "github.biggerae2" }
+    }
+    exclusiveContent {
+        forRepository {
+            ivy {
                 name = "Data Energistics releases"
                 url = "https://github.com/ModularMCLib/DataEnergistics/releases/download"
                 patternLayout {
@@ -124,9 +137,13 @@ configurations {
     curiosDevMod
     devMods
     createDevMod
+    biggerAe2DevMod
 }
 
 dependencies {
+    // Optional integration target, kept out of the published runtime dependencies and bundled JAR.
+    biggerAe2DevMod("github.biggerae2:bigger_ae2:21.2.3") { transitive = false }
+    testRuntimeOnly("github.biggerae2:bigger_ae2:21.2.3") { transitive = false }
     curiosDevMod("top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1") { transitive = false }
     devMods("curse.maven:applied-pneumatics-1355087:8812885") { transitive = false }
     devMods("curse.maven:pneumaticcraft-repressurized-281849:8519226") { transitive = false }
@@ -391,9 +408,16 @@ def prepareCreateDevMod = tasks.register('prepareCreateDevMod', PrepareCreateDev
     preparedJar.set(layout.buildDirectory.file('dev-mods/create-UjX6dr61.jar'))
 }
 
+def prepareBiggerAE2DevMod = tasks.register('prepareBiggerAE2DevMod', PrepareCreateDevMod) {
+    // Bigger AE2 also embeds Registrate; use the project's copy in the development launcher.
+    sourceJar.set(layout.file(configurations.biggerAe2DevMod.elements.map { it.iterator().next().asFile }))
+    preparedJar.set(layout.buildDirectory.file('dev-mods/bigger_ae2-21.2.3.jar'))
+}
+
 def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
     from(configurations.curiosDevMod, configurations.devMods)
     from(prepareCreateDevMod.flatMap { it.preparedJar })
+    from(prepareBiggerAE2DevMod.flatMap { it.preparedJar })
     into(layout.projectDirectory.dir("run/mods"))
 }
 
