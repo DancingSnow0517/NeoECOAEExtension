@@ -43,15 +43,16 @@ class WorkstationPatternScreenStyleTest {
         });
         StyleManager.initialize(resources);
         var style = StyleManager.loadStyleDoc("/screens/large_integrated_working_station_interface.json");
+        var bounds = new net.minecraft.client.renderer.Rect2i(0, 0, 188, 245);
         assertEquals(188, style.getBackground().getSrcWidth());
         assertEquals(245, style.getBackground().getSrcHeight());
         assertNotNull(style.getWidget("verticalToolbar"));
         assertNotNull(style.getWidget("patternScrollbar"));
+        assertEquals(175, style.getWidget("patternScrollbar").resolve(bounds).getX());
         assertEquals(88, style.getWidget("patternScrollbar").getHeight());
         assertEquals(7, style.getWidget("patternScrollbar").getWidth());
         assertTrue(style.getSlots().containsKey("PLAYER_INVENTORY"));
         assertTrue(style.getSlots().containsKey("ENCODED_PATTERN"));
-        var bounds = new net.minecraft.client.renderer.Rect2i(0, 0, 188, 245);
         assertEquals(8, style.getSlots().get("PLAYER_INVENTORY").resolve(bounds).getX());
         assertEquals(8, style.getSlots().get("PLAYER_HOTBAR").resolve(bounds).getX());
         assertEquals(8, style.getSlots().get("STORAGE").resolve(bounds).getX());

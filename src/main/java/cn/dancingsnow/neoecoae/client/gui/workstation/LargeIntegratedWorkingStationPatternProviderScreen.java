@@ -137,10 +137,16 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         graphics.pose().pushPose();
         try {
             graphics.pose().translate(offsetX, offsetY - fractionalOffset(), 0);
-            var slots = menu.getSlots(SlotSemantics.ENCODED_PATTERN);
-            for (int rowStart = 0; rowStart < slots.size(); rowStart += WorkstationPatternScroll.COLUMNS) {
-                Slot first = slots.get(rowStart);
-                if (first.isActive()) PATTERN_ROW_BACKGROUND.dest(first.x - 1, first.y - 1).blit(graphics);
+            // Keep the complete five-row AE2-style grid visible even when capacity cards have not
+            // unlocked every row yet. Locked rows remain visual placeholders because their slots stay
+            // inactive in updatePatternSlots(), but the fixed viewport must not collapse into a blank area.
+            int pixels = (int) Math.floor(patternScroll.offset());
+            int physicalRows = (menu.getSlots(SlotSemantics.ENCODED_PATTERN).size()
+                + WorkstationPatternScroll.COLUMNS - 1) / WorkstationPatternScroll.COLUMNS;
+            int rowsToDraw = Math.max(WorkstationPatternScroll.VISIBLE_ROWS, physicalRows);
+            for (int row = 0; row < rowsToDraw; row++) {
+                PATTERN_ROW_BACKGROUND.dest(PATTERN_LEFT, PATTERN_TOP + row * WorkstationPatternScroll.ROW_HEIGHT
+                    - pixels).blit(graphics);
             }
         } finally {
             graphics.pose().popPose();
