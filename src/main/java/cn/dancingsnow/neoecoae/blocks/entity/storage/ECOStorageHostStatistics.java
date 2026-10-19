@@ -281,15 +281,18 @@ final class ECOStorageHostStatistics {
         ResourceLocation key = cellTypes.getKey(cellTypes.byId(cellTypeId));
         if (key == null || !key.getNamespace().equals("neoecoae")) return cellTypeId;
         String baseType = switch (key.getPath()) {
-            case "mega_item" -> "items";
-            case "mega_fluid" -> "fluids";
-            case "mega_energy" -> "flux";
-            case "mega_chemical" -> "mekanism";
+            case "mega_item", "bigger_ae2_item" -> "items";
+            case "mega_fluid", "bigger_ae2_fluid" -> "fluids";
+            case "mega_energy", "bigger_ae2_fe" -> "flux";
+            case "mega_chemical", "bigger_ae2_chemical" -> "mekanism";
             case "mega_air" -> "air";
-            case "mega_experience" -> "experience";
+            case "mega_experience", "bigger_ae2_experience" -> "experience";
             case "mega_soul" -> "soul";
             case "mega_mana" -> "mana";
-            case "mega_source" -> "source";
+            case "mega_source", "bigger_ae2_source" -> "source";
+            case "mega_matter" -> "matter";
+            case "mega_stress" -> "stress";
+            case "mega_data" -> "data";
             default -> null;
         };
         if (baseType == null) return cellTypeId;

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
@@ -32,6 +33,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.MockedStatic;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -130,6 +134,55 @@ class ECOStorageHostStatisticsTest {
         assertFalse(fixture.line("mega_item").visible().getAsBoolean());
     }
 
+    @ParameterizedTest
+    @MethodSource("additionalResourceVariants")
+    void variantCellsShareOrdinaryResourceNamesAndTotals(String variant, String ordinary) {
+        Fixture fixture = new Fixture();
+        fixture.registerType(ordinary);
+        fixture.registerType(variant);
+        fixture.addCell(ordinary, null, 2, 5, 100, 1_000);
+        fixture.addCell(variant, null, 3, 7, 200, 2_000);
+
+        StorageHostUI.StorageTypeLine line = fixture.line(ordinary);
+        assertTotals(line, 5, 12, 300, 3_000);
+        assertEquals(Component.literal(ordinary), line.displayName().get());
+        assertEquals(ResourceLocation.fromNamespaceAndPath("neoecoae", ordinary), line.resourceId());
+        assertTrue(line.visible().getAsBoolean());
+        assertFalse(fixture.line(variant).visible().getAsBoolean());
+        assertEquals(List.of(fixture.id(ordinary), fixture.id(variant)),
+            fixture.statistics.getCellEntries().stream().map(StorageHostUI.CellEntry::typeId).toList());
+        assertEquals("300", fixture.statistics.getTotalUsedBytesText());
+        assertTrue(fixture.faults.snapshot().isEmpty());
+    }
+
+    @ParameterizedTest
+    @MethodSource("additionalResourceVariants")
+    void emptyVariantCellPublishesCapacityUnderOrdinaryResourceGroup(String variant, String ordinary) {
+        Fixture fixture = new Fixture();
+        fixture.registerType(ordinary);
+        fixture.registerType(variant);
+        fixture.addCell(variant, null, 0, 5, 0, 4_096);
+
+        assertTotals(fixture.line(ordinary), 0, 5, 0, 4_096);
+        assertTrue(fixture.line(ordinary).visible().getAsBoolean());
+        assertFalse(fixture.line(variant).visible().getAsBoolean());
+        assertEquals(fixture.id(variant), fixture.statistics.getCellEntries().getFirst().typeId());
+        assertTrue(fixture.faults.snapshot().isEmpty());
+    }
+
+    private static Stream<Arguments> additionalResourceVariants() {
+        return Stream.of(
+            Arguments.of("bigger_ae2_item", "items"),
+            Arguments.of("bigger_ae2_fluid", "fluids"),
+            Arguments.of("bigger_ae2_chemical", "mekanism"),
+            Arguments.of("bigger_ae2_fe", "flux"),
+            Arguments.of("bigger_ae2_experience", "experience"),
+            Arguments.of("bigger_ae2_source", "source"),
+            Arguments.of("mega_matter", "matter"),
+            Arguments.of("mega_stress", "stress"),
+            Arguments.of("mega_data", "data"));
+    }
+
     @Test
     void megaChannelsMergeOnlyWhenTheirOrdinaryCategoryExists() {
         Fixture fixture = new Fixture();
@@ -201,7 +254,7 @@ class ECOStorageHostStatisticsTest {
         Fixture() {
             for (String path : List.of("items", "fluids", "mega_item", "mega_fluid", "flux", "mega_energy",
                 "mega_mana", "bulk_item", "omni")) {
-                Registry.register(cellTypes, key(path), new ECOCellType(Component.literal(path), 1));
+                registerType(path);
             }
             when(host.getCluster()).thenReturn(cluster);
             when(host.getTier()).thenReturn(ECOTier.L9);
@@ -211,6 +264,12 @@ class ECOStorageHostStatisticsTest {
             when(cluster.getDrives()).thenReturn(drives);
             when(host.getStorageUiDrives()).thenReturn(drives);
             when(cluster.getEnergyCells()).thenReturn(List.of());
+        }
+
+        void registerType(String path) {
+            if (!cellTypes.containsKey(key(path))) {
+                Registry.register(cellTypes, key(path), new ECOCellType(Component.literal(path), 1));
+            }
         }
 
         ECODriveBlockEntity addCell(String path, AEKeyType keyType,
