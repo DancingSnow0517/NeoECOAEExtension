@@ -16,7 +16,6 @@ import cn.dancingsnow.neoecoae.impl.storage.bulk.BulkUnits;
 import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
-import gripe._90.megacells.definition.MEGAItems;
 import gripe._90.megacells.misc.CompressionChain;
 import gripe._90.megacells.misc.CompressionService;
 import net.minecraft.core.component.DataComponents;
@@ -292,19 +291,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
 
     /** Patterns and the inventory view use the same independent cutoff. */
     public List<IPatternDetails> getDecompressionPatterns() {
-        LookupContext context = lookupContext();
-        if (!context.compressionCard) return List.of();
-        var keys = new java.util.LinkedHashSet<>(context.filters);
-        keys.addAll(storedUnits.keySet()); // Unmarked contents still need CPU conversion paths.
-        var result = new java.util.LinkedHashSet<IPatternDetails>();
-        for (AEItemKey key : keys) {
-            BulkUnits units = definition(key, context);
-            CompressionChain chain = context.chain(key);
-            if (!chain.isEmpty() && units.equals(context.units(key))) {
-                result.addAll(chain.getDecompressionPatterns(effectiveCutoff(key, units, context)));
-            }
-        }
-        return new ArrayList<>(result);
+        return List.of();
     }
 
     private BulkUnits definition(AEItemKey key, LookupContext context) {
@@ -642,8 +629,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
     }
 
     private boolean hasCompressionCard() {
-        // Cell UIs can change upgrades while the drive retains this inventory instance.
-        return getUpgradesInventory().isInstalled(MEGAItems.COMPRESSION_CARD);
+        return false;
     }
 
     public List<AEItemKey> getEffectiveConfiguredFilters() {

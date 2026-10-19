@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaLongBulkStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import gripe._90.megacells.definition.MEGAItems;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
@@ -120,6 +121,9 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
                 || !stack.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get()))) {
                 return;
             }
+            if (stack.is(MEGAItems.COMPRESSION_CARD.asItem())) {
+                return;
+            }
             boolean removingCard = delegate.getStackInSlot(slot).is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get())
                 && !stack.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get());
             delegate.setItemDirect(slot, stack);
@@ -130,11 +134,15 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return delegate.isItemValid(slot, stack);
+            return !stack.is(MEGAItems.COMPRESSION_CARD.asItem())
+                && delegate.isItemValid(slot, stack);
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (stack.is(MEGAItems.COMPRESSION_CARD.asItem())) {
+                return stack;
+            }
             return delegate.insertItem(slot, stack, simulate);
         }
 
@@ -180,19 +188,6 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
         @Override
         public void writeToNBT(CompoundTag data, String subtag, HolderLookup.Provider registries) {
             delegate.writeToNBT(data, subtag, registries);
-        }
-    }
-
-    @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context,
-            List<net.minecraft.network.chat.Component> lines, net.minecraft.world.item.TooltipFlag flag) {
-        super.appendHoverText(stack, context, lines, flag);
-        lines.add(net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.mega_filter.cutoff_hint"));
-        if (getCellInventory(stack) instanceof ECOMegaLongBulkStorageCell cell
-                && cell.getUnresolvedEntryCount() > 0) {
-            lines.add(net.minecraft.network.chat.Component.translatable(
-                "tooltip.neoecoae.storage.bulk_unresolved", cell.getUnresolvedEntryCount())
-                .withStyle(net.minecraft.ChatFormatting.RED));
         }
     }
 

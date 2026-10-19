@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.megacells;
 
 import appeng.api.upgrades.Upgrades;
-import appeng.api.networking.GridServices;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
@@ -10,10 +9,8 @@ import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaCellsBackend;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaBulkMarkingService;
-import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaDecompressionService;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
-import gripe._90.megacells.definition.MEGAItems;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 
@@ -33,7 +30,6 @@ public final class MegaCellsIntegration {
             MegaBulkMarkingService::normalizeMarker,
             MegaBulkMarkingService::isSameMarkerChain
         );
-        GridServices.register(ECOMegaDecompressionService.class, ECOMegaDecompressionService.class);
         NEMegaCellTypes.register();
         NEMegaItems.register();
         NEMegaBaseItems.register();
@@ -73,7 +69,6 @@ public final class MegaCellsIntegration {
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
             }
             Upgrades.add(NEMegaItems.ECO_MEGA_UPGRADE_CARD, NEMegaItems.ECO_MEGA_LONG_BULK_CELL, 1, group);
-            Upgrades.add(MEGAItems.COMPRESSION_CARD, NEMegaItems.ECO_MEGA_LONG_BULK_CELL, 1, group);
         });
     }
 

@@ -53,7 +53,7 @@ public final class NEMegaItems {
     static ItemEntry<Item> housing(String family, String displayFamily) {
         String housingFamily = displayFamily.startsWith("Mega ") ? displayFamily.substring("Mega ".length()) : displayFamily;
         return REGISTRATE.<Item>item(family + "_cell_housing",
-                p -> new MegaCellHousingItem(p, "cell_type.neoecoae." + family))
+                MegaCellHousingItem::new)
             .lang("ECO MEGA Storage Matrix Housing (" + housingFamily + ")")
             .model((ctx, prov) -> {})
             .register();
