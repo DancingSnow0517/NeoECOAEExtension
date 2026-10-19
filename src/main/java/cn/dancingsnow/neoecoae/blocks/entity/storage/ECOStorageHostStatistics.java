@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOInfiniteResourceCell;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
+import cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerService;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import appeng.api.stacks.AEKeyType;
@@ -170,6 +171,7 @@ final class ECOStorageHostStatistics {
         long energyConsumePerTick = 256L + (1L << (1 + 4 * host.getTier().getTier()));
         Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
         List<StorageHostUI.CellEntry> cellEntries = new ArrayList<>();
+        boolean hasSingularity = false;
         driveUiSnapshots.keySet().retainAll(host.getCluster().getDrives());
         for (ECODriveBlockEntity drive : host.getStorageUiDrives()) {
             if (drive == null) {
@@ -186,6 +188,7 @@ final class ECOStorageHostStatistics {
             int cellTypeId = view.type();
             boolean supported = view.inventory() != null && host.getTier().compareTo(view.inventory().getTier()) >= 0;
             if (supported) {
+                hasSingularity |= BiggerAE2SingularityPowerService.isSingularity(stack);
                 energyConsumePerTick = NEMath.saturatingAdd(
                     energyConsumePerTick,
                     Math.max(0L, Math.round(view.inventory().getIdleDrain()))
@@ -224,6 +227,14 @@ final class ECOStorageHostStatistics {
         }
         if (host.isFormedInfiniteMode()) {
             addInfiniteStorageTypes(storageTypes);
+        }
+
+        if (hasSingularity) {
+            var grid = host.getMainNode().getGrid();
+            if (grid != null) {
+                double surcharge = grid.getService(BiggerAE2SingularityPowerService.class).getAdditionalIdleDrain(host);
+                energyConsumePerTick = NEMath.saturatingAdd(energyConsumePerTick, Math.round(surcharge));
+            }
         }
 
         return new StorageUiSnapshot(

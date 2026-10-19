@@ -4,6 +4,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.items.contents.CellConfig;
 import appeng.util.ConfigInventory;
+import net.minecraft.ChatFormatting;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
@@ -26,9 +27,14 @@ final class BiggerAE2StorageCellItem extends ECOStorageCellItem {
             Supplier<ECOCellType> cellType) {
         super(properties.rarity(singularity ? Rarity.EPIC : Rarity.RARE),
             singularity ? ECOTier.L9 : ECOTier.L6, channel.keyType, cellType,
-            singularity ? Long.MAX_VALUE : QUANTUM_BYTES, 65_536, singularity ? 25 : 20);
+            singularity ? Long.MAX_VALUE : QUANTUM_BYTES, 65_536,
+            singularity ? BiggerAE2SingularityPowerService.BASE_IDLE_DRAIN : 20);
         this.channel = channel;
         this.singularity = singularity;
+    }
+
+    boolean isSingularity() {
+        return singularity;
     }
 
     @Override
@@ -50,6 +56,10 @@ final class BiggerAE2StorageCellItem extends ECOStorageCellItem {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         super.appendHoverText(stack, context, lines, flag);
         if (singularity) {
+            lines.add(Component.translatable("tooltip.neoecoae.digital_singularity.power")
+                .withStyle(ChatFormatting.GOLD));
+            lines.add(Component.translatable("tooltip.neoecoae.digital_singularity.power_warning")
+                .withStyle(ChatFormatting.RED));
             for (var entry : stack.getOrDefault(BiggerAE2SingularityContents.TYPE,
                     BiggerAE2SingularityContents.EMPTY).entries()) {
                 if (entry.amount().bitLength() > 63) {

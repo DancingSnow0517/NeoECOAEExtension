@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import appeng.api.stacks.AEKeyType;
+import appeng.api.networking.IGrid;
+import appeng.api.networking.IManagedGridNode;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.storage.cells.CellState;
 import cn.dancingsnow.neoecoae.api.ECOTier;
@@ -9,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.impl.storage.StorageFaults;
+import cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerService;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -63,6 +66,27 @@ class ECOStorageHostStatisticsTest {
     @AfterEach
     void closeKeyTypes() {
         keyTypes.close();
+    }
+
+    @Test
+    void energyDisplayIncludesTheHostsNetworkSingularitySurcharge() {
+        Fixture fixture = new Fixture();
+        long baseline = fixture.statistics.getEnergyConsumePerTick();
+        var drive = fixture.addCell("items", AEKeyType.items(), 0, 5, 0, Long.MAX_VALUE);
+        when(drive.getCellInventory().getIdleDrain()).thenReturn(1_024d);
+        var node = mock(IManagedGridNode.class);
+        var grid = mock(IGrid.class);
+        var power = mock(BiggerAE2SingularityPowerService.class);
+        when(fixture.host.getMainNode()).thenReturn(node);
+        when(node.getGrid()).thenReturn(grid);
+        when(grid.getService(BiggerAE2SingularityPowerService.class)).thenReturn(power);
+        when(power.getAdditionalIdleDrain(fixture.host)).thenReturn(3_072d);
+        try (var singularity = mockStatic(BiggerAE2SingularityPowerService.class)) {
+            singularity.when(() -> BiggerAE2SingularityPowerService.isSingularity(drive.getCellStack())).thenReturn(true);
+            assertEquals(baseline + 1_024 + 3_072, fixture.statistics.getEnergyConsumePerTick());
+            verify(power).getAdditionalIdleDrain(fixture.host);
+        }
+        assertTrue(fixture.faults.snapshot().isEmpty());
     }
 
     @Test
