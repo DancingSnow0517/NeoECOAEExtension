@@ -184,7 +184,7 @@ class WorkstationUIInteractionTest {
             when(fluids.getFluidInTank(anyInt())).thenReturn(FluidStack.EMPTY);
             when(fluids.getTankCapacity(anyInt())).thenReturn(1_000);
             LargeWorkstationUI.create(new LargeWorkstationUI.Config(fluids,
-                offset -> new CompoundTag(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {}, () -> {},
+                offset -> new CompoundTag(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {},
                 new ItemStackHandler(1)), player);
             UIElement root = captured.get();
             ModularUI ui = new ModularUI(UI.of(root));
@@ -215,14 +215,14 @@ class WorkstationUIInteractionTest {
                 List<Button> controls = collect(root, Button.class).stream()
                     .filter(button -> button.getId().startsWith("large-workstation-")
                         && button.getSizeWidth() == 15).toList();
-                assertEquals(1, controls.size());
-                assertEquals(List.of("large-workstation-overclock"),
+                assertEquals(2, controls.size());
+                assertEquals(List.of("large-workstation-overclock", "large-workstation-cooling"),
                     controls.stream().map(UIElement::getId).toList());
                 for (int index = 0; index < controls.size(); index++) {
-                    assertEquals(root.getPositionX() + 102 + index * 22, controls.get(index).getPositionX());
+                    assertEquals(root.getPositionX() + List.of(102, 146).get(index), controls.get(index).getPositionX());
                     assertEquals(root.getPositionY() + 89, controls.get(index).getPositionY());
                 }
-                for (String id : List.of("temperature-info", "cooling-info", "overclock-info")) {
+                for (String id : List.of("temperature-setting", "temperature-info", "cooling-info", "overclock-info")) {
                     UIElement row = collect(root, UIElement.class).stream()
                         .filter(element -> ("large-workstation-" + id).equals(element.getId())).findFirst().orElseThrow();
                     assertFalse(row instanceof Button, "Status rows only display telemetry");
@@ -234,7 +234,7 @@ class WorkstationUIInteractionTest {
                 assertEquals(root.getPositionY() + 37, scrollbar.getPositionY());
                 assertEquals(6, scrollbar.getSizeWidth());
                 assertEquals(77, scrollbar.getSizeHeight());
-                for (String id : List.of("overclock", "temperature-setting",
+                for (String id : List.of("overclock", "cooling", "temperature-setting",
                     "parallel", "temperature", "energy", "module-logo", "module-info", "task-0", "scrollbar", "status",
                     "temperature-info", "cooling-info", "overclock-info")) {
                     UIElement control = collect(root, UIElement.class).stream()

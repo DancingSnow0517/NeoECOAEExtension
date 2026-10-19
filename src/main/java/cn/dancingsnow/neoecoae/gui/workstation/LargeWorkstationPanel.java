@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -49,7 +48,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private final BindableValue<Integer> pageRequest = new BindableValue<>(0);
     private final Button[] returns = new Button[PAGE_SIZE];
     private final Button overclock;
-    private final Button temperatureSetting;
+    private final Button cooling;
     private CompoundTag state = new CompoundTag();
     private List<Task> tasks = List.of();
     private int serverOffset;
@@ -97,6 +96,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         addChild(scrollbar());
         overclock = toggle("overclock", 102, config.toggleOverclocked(), () -> controlTooltip(this::overclockTooltip));
         addChild(overclock);
+        cooling = toggle("cooling", 146, config.toggleActiveCooling(), () -> controlTooltip(this::coolingTooltip));
+        addChild(cooling);
         addChild(region("module-logo", 6, 6, 15, 15, this::moduleTooltip));
         addChild(region("machine-title", 25, 6, 115, 14, () -> List.of(
             Component.translatable("block.neoecoae.large_integrated_working_station").withStyle(ChatFormatting.YELLOW), pauseText())));
@@ -105,8 +106,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         addChild(region("parallel", 99, 35, 64, 32, this::parallelTooltip));
         addChild(region("temperature", 172, 69, 15, 55, this::temperatureTooltip));
         addChild(region("energy", 189, 69, 12, 55, this::energyTooltip));
-        temperatureSetting = targetButton();
-        addChild(temperatureSetting);
+        addChild(region("temperature-setting", 99, 117, 64, 10, this::temperatureTooltip));
         addChild(region("temperature-info", 176, 130, 68, 24, this::temperatureTooltip));
         addChild(region("cooling-info", 176, 155, 68, 24, this::coolingTooltip));
         addChild(region("overclock-info", 176, 180, 68, 24, this::overclockTooltip));
@@ -130,7 +130,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         SpriteTexture normal = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information.png"));
         SpriteTexture highlighted = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information_highlight.png"));
         UIElement frame = new UIElement().style(style -> style.backgroundTexture(SpriteTexture.of(
-            NeoECOAE.id("textures/gui/common/side_bar/gray_mirrored_button_slot_up.png"))));
+            NeoECOAE.id("textures/gui/common/side_bar/mirrored_button_slot_up.png"))));
         frame.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).right(-21).top(0).width(23).height(30));
         frame.setAllowHitTest(false);
         UIElement info = region("status", 0, 3, 21, 21, this::statusTooltip);
@@ -150,22 +150,6 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             LargeWorkstationModule.byName(state.getString("recipeModule")).title()));
         if (state.getBoolean("ignoreUpgradeCards")) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GRAY));
         return lines;
-    }
-
-    private Button targetButton() {
-        Button button = new Button().noText().setOnServerClick(event -> {
-            if (event.button == 0) config.cycleOverclockTier().run();
-        });
-        button.setId("large-workstation-temperature-setting");
-        button.buttonStyle(style -> style.baseTexture(IGuiTexture.EMPTY)
-            .hoverTexture(new ColorRectTexture(0x25FFFFFF)).pressedTexture(new ColorRectTexture(0x35413F54)));
-        absolute(button, 99, 117, 64, 10);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            var lines = new ArrayList<>(temperatureTooltip());
-            if (temperatureEnabled()) lines.add(hint("select_preheat_band"));
-            event.hoverTooltips = new HoverTooltips(lines, null, null, null);
-        });
-        return button;
     }
 
     private void read(Tag value) {
@@ -189,7 +173,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             if (returns[row] != null) returns[row].setDisplay(task != null && task.returnable());
         }
         updateToggle(overclock, state.getBoolean("overclocked"));
-        temperatureSetting.setActive(temperatureEnabled());
+        updateToggle(cooling, state.getBoolean("activeCooling"));
     }
 
     private static void updateToggle(Button button, boolean enabled) {
@@ -312,7 +296,9 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         List<Component> lines = new ArrayList<>();
         lines.add(title("temperature_setting"));
         lines.add(tr("temperature_value", decimal(state.getDouble("temperature"))));
-        lines.add(tr("selected_band", displayTier(state.getInt("selectedTier"))));
+        lines.add(tr("current_band", displayTier(state.getInt("currentTier"))));
+        lines.add(hint("temperature_automatic_hint"));
+        lines.add(tr("temperature_idle_loss", decimal(LargeWorkstationThermal.IDLE_COOLING_PER_SECOND)).withStyle(ChatFormatting.GRAY));
         for (int tier : new int[] {2, 6, 9}) {
             var profile = LargeWorkstationOverclock.forCoolingTier(tier);
             lines.add(tr("temperature_band_limits", displayTier(tier), (int) profile.minimumTemperature(),
@@ -411,10 +397,11 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         if (parallelWidth > 0) sprite(context, WorkstationTextures.widget(18, 161, parallelWidth, 7), 103, 59, parallelWidth, 7);
         text(context, tr("controls_heading"), 102, 72, 59, 0.7f, TEXT);
         centeredText(context, tr("overclock_short"), 102, 82, 15, 0.65f, TEXT);
-        text(context, tr(state.getBoolean("overclocked") ? "enabled" : "disabled"), 122, 91, 39, 0.75f,
+        centeredText(context, tr("cooling"), 146, 82, 15, 0.65f, TEXT);
+        text(context, tr(state.getBoolean("overclocked") ? "enabled" : "disabled"), 120, 91, 25, 0.6f,
             state.getBoolean("overclocked") ? SUCCESS : MUTED);
-        text(context, tr(temperatureEnabled() ? "thermal_mode" : "coolant_mode"), 122, 103, 39, 0.65f, MUTED);
-        centeredText(context, temperatureEnabled() ? tr("target_control", displayTier(state.getInt("selectedTier")))
+        text(context, tr(temperatureEnabled() ? "thermal_mode" : "coolant_mode"), 120, 103, 25, 0.55f, MUTED);
+        centeredText(context, temperatureEnabled() ? tr("current_band", displayTier(state.getInt("currentTier")))
             : tr("coolant_mode"), 99, 119, 64, 0.65f, MUTED);
         centeredText(context, tr("thermal_short"), 172, 70, 15, 0.65f, TEXT);
         centeredText(context, tr("energy_short"), 189, 70, 12, 0.65f, TEXT);
@@ -447,6 +434,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         sprite(context, WorkstationTextures.widget(0, 62, 69, 24), 9, y, 69, 24);
         if (!task.item().isEmpty()) context.graphics.renderItem(task.item(), Math.round(getPositionX()) + 13, Math.round(getPositionY()) + y + 4);
         else if (!task.fluid().isEmpty()) {
+            // AE2 blits fluids immediately; submit the buffered card background before drawing its icon.
+            context.graphics.flush();
             context.pose.pushPose();
             context.pose.translate(getPositionX() + 13, getPositionY() + y + 4, 0);
             AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, AEFluidKey.of(task.fluid()));

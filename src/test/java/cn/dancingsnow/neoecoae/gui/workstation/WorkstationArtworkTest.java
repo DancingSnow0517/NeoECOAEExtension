@@ -48,6 +48,23 @@ class WorkstationArtworkTest {
     }
 
     @Test
+    void workstationControlSlotsAndLightBarsAreMirrored() throws IOException {
+        BufferedImage background = read("large_integrated_working_station.png");
+        for (int y = 89; y <= 114; y++) {
+            for (int x = 0; x < 15; x++) {
+                assertEquals(background.getRGB(102 + x, y), background.getRGB(160 - x, y),
+                    "The cooling control slot must mirror the overclock slot at " + x + "," + y);
+            }
+        }
+        for (int y : new int[] {92, 93, 110, 111}) {
+            for (int x = 0; x < 3; x++) {
+                assertEquals(background.getRGB(99 + x, y), background.getRGB(163 - x, y),
+                    "The light guide bar must mirror at " + x + "," + y);
+            }
+        }
+    }
+
+    @Test
     void everyCardHasExternalModelsForAllFacingsAndBothWorkingStates() throws IOException {
         try (var stream = getClass().getResourceAsStream("/assets/neoecoae/blockstates/integrated_working_station.json")) {
             assertNotNull(stream);
