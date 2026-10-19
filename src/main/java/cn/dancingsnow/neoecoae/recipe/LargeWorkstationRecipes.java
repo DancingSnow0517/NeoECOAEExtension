@@ -75,7 +75,10 @@ public final class LargeWorkstationRecipes {
         DynamicOps<JsonElement> ops = registries.createSerializationContext(JsonOps.INSTANCE);
         for (var holder : sources) {
             try {
-                if (holder.value() instanceof IntegratedWorkingStationRecipe nativeRecipe) {
+                if (holder.value() instanceof LargeIntegratedWorkingStationRecipe largeRecipe) {
+                    var nativeRecipe = largeRecipe.display();
+                    recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
+                } else if (holder.value() instanceof IntegratedWorkingStationRecipe nativeRecipe) {
                     recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
                 } else {
                     String type = typeId(holder.value().getType());

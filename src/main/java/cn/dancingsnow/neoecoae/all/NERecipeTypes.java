@@ -4,6 +4,7 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeIntegratedWorkingStationRecipe;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
@@ -26,6 +27,12 @@ public class NERecipeTypes {
     public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_SERIALIZER = RECIPE_SERIALIZER.register(
         "integrated_working_station",
         IntegratedWorkingStationRecipe.Serializer::new
+    );
+
+    public static final DeferredHolder<RecipeType<?>, RecipeType<LargeIntegratedWorkingStationRecipe>> LARGE_INTEGRATED_WORKING_STATION = registerRecipe("large_integrated_working_station");
+    public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<LargeIntegratedWorkingStationRecipe>> LARGE_INTEGRATED_WORKING_STATION_SERIALIZER = RECIPE_SERIALIZER.register(
+        "large_integrated_working_station",
+        LargeIntegratedWorkingStationRecipe.Serializer::new
     );
 
     private static <T extends Recipe<?>> DeferredHolder<RecipeType<?>, RecipeType<T>> registerRecipe(String name) {

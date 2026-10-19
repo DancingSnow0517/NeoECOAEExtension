@@ -111,27 +111,34 @@ public record IntegratedWorkingStationRecipe(
     }
 
     public static class Serializer implements RecipeSerializer<IntegratedWorkingStationRecipe> {
-        public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
-            SizedIngredient.FLAT_CODEC.listOf(0, 9).optionalFieldOf("inputItems", List.of()).forGetter(IntegratedWorkingStationRecipe::inputItems),
-            SizedFluidIngredient.FLAT_CODEC.optionalFieldOf("inputFluid", new SizedFluidIngredient(FluidIngredient.empty(), 1)).forGetter(IntegratedWorkingStationRecipe::inputFluid),
-            ItemStack.OPTIONAL_CODEC.optionalFieldOf("itemOutput", ItemStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::itemOutput),
-            FluidStack.OPTIONAL_CODEC.optionalFieldOf("fluidOutput", FluidStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::fluidOutput),
-            Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy)
-        ).apply(ins, IntegratedWorkingStationRecipe::new));
+        public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = createCodec(9);
+        public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = createStreamCodec(9);
 
-        public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = StreamCodec.composite(
-            SizedIngredient.STREAM_CODEC.apply(ByteBufCodecs.list(9)),
-            IntegratedWorkingStationRecipe::inputItems,
-            SizedFluidIngredient.STREAM_CODEC,
-            IntegratedWorkingStationRecipe::inputFluid,
-            ItemStack.OPTIONAL_STREAM_CODEC,
-            IntegratedWorkingStationRecipe::itemOutput,
-            FluidStack.OPTIONAL_STREAM_CODEC,
-            IntegratedWorkingStationRecipe::fluidOutput,
-            ByteBufCodecs.VAR_INT,
-            IntegratedWorkingStationRecipe::energy,
-            IntegratedWorkingStationRecipe::new
-        );
+        static MapCodec<IntegratedWorkingStationRecipe> createCodec(int maxInputs) {
+            return RecordCodecBuilder.mapCodec(ins -> ins.group(
+                SizedIngredient.FLAT_CODEC.listOf(0, maxInputs).optionalFieldOf("inputItems", List.of()).forGetter(IntegratedWorkingStationRecipe::inputItems),
+                SizedFluidIngredient.FLAT_CODEC.optionalFieldOf("inputFluid", new SizedFluidIngredient(FluidIngredient.empty(), 1)).forGetter(IntegratedWorkingStationRecipe::inputFluid),
+                ItemStack.OPTIONAL_CODEC.optionalFieldOf("itemOutput", ItemStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::itemOutput),
+                FluidStack.OPTIONAL_CODEC.optionalFieldOf("fluidOutput", FluidStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::fluidOutput),
+                Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy)
+            ).apply(ins, IntegratedWorkingStationRecipe::new));
+        }
+
+        static StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> createStreamCodec(int maxInputs) {
+            return StreamCodec.composite(
+                SizedIngredient.STREAM_CODEC.apply(ByteBufCodecs.list(maxInputs)),
+                IntegratedWorkingStationRecipe::inputItems,
+                SizedFluidIngredient.STREAM_CODEC,
+                IntegratedWorkingStationRecipe::inputFluid,
+                ItemStack.OPTIONAL_STREAM_CODEC,
+                IntegratedWorkingStationRecipe::itemOutput,
+                FluidStack.OPTIONAL_STREAM_CODEC,
+                IntegratedWorkingStationRecipe::fluidOutput,
+                ByteBufCodecs.VAR_INT,
+                IntegratedWorkingStationRecipe::energy,
+                IntegratedWorkingStationRecipe::new
+            );
+        }
 
         @Override
         public MapCodec<IntegratedWorkingStationRecipe> codec() {

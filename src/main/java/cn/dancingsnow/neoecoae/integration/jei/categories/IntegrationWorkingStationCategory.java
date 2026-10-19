@@ -35,11 +35,19 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     private final Component title;
     private final IDrawable background;
     private final IDrawableAnimated progress;
+    private final boolean large;
 
     public IntegrationWorkingStationCategory(IGuiHelper helper) {
+        this(helper, false);
+    }
+
+    public IntegrationWorkingStationCategory(IGuiHelper helper, boolean large) {
+        this.large = large;
         icon = helper.createDrawableItemStack(NEBlocks.INTEGRATED_WORKING_STATION.asStack());
         title = Component.translatable("category.neoecoae.integrated_working_station");
-        background = helper.drawableBuilder(TextureConstants.INTEGRATED_WORKING_STATION, 0, 0, 168, 75)
+        var texture = large ? cn.dancingsnow.neoecoae.NeoECOAE.id("textures/guis/large_integration_working_station.png")
+            : TextureConstants.INTEGRATED_WORKING_STATION;
+        background = helper.drawableBuilder(texture, 0, 0, 168, 75)
             .setTextureSize(168, 75)
             .build();
         progress = helper.drawableBuilder(TextureConstants.PROGRESS_BAR, 0, 0, 6, 18)
@@ -88,8 +96,9 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
         List<SizedIngredient> inputItems = recipe.inputItems();
         for (int i = 0; i < inputItems.size(); i++) {
             SizedIngredient input = inputItems.get(i);
-            var x = 38 + i % 3 * 18;
-            var y = 12 + i / 3 * 18;
+            int columns = large ? 4 : 3;
+            var x = (large ? 26 : 38) + i % columns * 18;
+            var y = 12 + i / columns * 18;
             if (!input.ingredient().isEmpty()) {
                 builder.addInputSlot(x, y).addIngredients(VanillaTypes.ITEM_STACK, Arrays.asList(input.getItems()));
             }

@@ -71,7 +71,9 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
 
     @Override
     public void addWidgets(WidgetHolder widgets) {
-        widgets.addTexture(NeoECOAE.id("textures/guis/integration_working_station.png"), 0, 0, 168, 75, 0, 0, 168, 75, 168, 75);
+        boolean large = category == NeoECOAEEmiPlugin.LARGE_WORKING_STATION;
+        String texture = large ? "large_integration_working_station" : "integration_working_station";
+        widgets.addTexture(NeoECOAE.id("textures/guis/" + texture + ".png"), 0, 0, 168, 75, 0, 0, 168, 75, 168, 75);
         widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/recipe/progress_bar.png"), 136, 30, 6, 18, 0, 0, 6, 18, 6, 18, 2000, false, true, false);
 
         Component text = category == NeoECOAEEmiPlugin.LARGE_WORKING_STATION
@@ -103,8 +105,9 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         List<SizedIngredient> inputItems = recipe.inputItems();
         for (int i = 0; i < inputItems.size(); i++) {
             SizedIngredient input = inputItems.get(i);
-            var x = 37 + i % 3 * 18;
-            var y = 11 + i / 3 * 18;
+            int columns = large ? 4 : 3;
+            var x = (large ? 25 : 37) + i % columns * 18;
+            var y = 11 + i / columns * 18;
             if (!input.ingredient().isEmpty()) {
                 widgets.addSlot(NeoECOAEEmiPlugin.of(input), x, y).drawBack(false);
             }
