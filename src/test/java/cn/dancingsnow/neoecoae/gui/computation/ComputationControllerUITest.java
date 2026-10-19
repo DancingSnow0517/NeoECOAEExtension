@@ -5,6 +5,10 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
@@ -12,8 +16,15 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntConsumer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,11 +33,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 class ComputationControllerUITest {
     @BeforeAll
@@ -119,6 +127,66 @@ class ComputationControllerUITest {
             UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
             assertNotNull(tooltip.hoverTooltips);
             assertEquals(4, tooltip.hoverTooltips.tooltipTexts().size());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void allThreeGaugesOpenToTheirActualRatiosAndKeepFollowingSyncedValues() throws ReflectiveOperationException {
+        AtomicLong now = new AtomicLong();
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class);
+             var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            clock.when(Util::getMillis).thenAnswer(call -> now.get());
+            Minecraft client = mock(Minecraft.class);
+            var fontField = Minecraft.class.getDeclaredField("font");
+            fontField.setAccessible(true);
+            fontField.set(client, mock(Font.class));
+            minecraft.when(Minecraft::getInstance).thenReturn(client);
+            UIElement root = ComputationControllerUI.create(config(() -> {}, () -> {}, () -> {}),
+                () -> new ComputationControllerPanelState(true, 1, 0, 0, 0, 0),
+                new UIElement(), new UIElement(), new UIElement());
+            UIElement artwork = find(root, "computation_artwork");
+            BindableValue<Tag> synced = (BindableValue<Tag>) artwork.getChildren().getLast();
+            CompoundTag update = ((CompoundTag) synced.getValue()).copy();
+            update.putLong("usedBytes", 512);
+            update.putInt("usedThreads", 2);
+            synced.setValue(update);
+            GUIContext context = mock(GUIContext.class);
+            context.graphics = mock(GuiGraphics.class);
+            PoseStack pose = new PoseStack();
+            when(context.graphics.pose()).thenReturn(pose);
+
+            artwork.drawBackgroundAdditional(context);
+            verify(context, never()).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.y >= 154 && sprite.spritePosition.y <= 168),
+                anyFloat(), anyFloat(), anyFloat(), eq(7F));
+            now.set(250);
+            artwork.drawBackgroundAdditional(context);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.y == 154), eq(83F), eq(131F), eq(11F), eq(7F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.y == 161), eq(140F), eq(131F), eq(6F), eq(7F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.y == 168), eq(197F), eq(131F), eq(6F), eq(7F));
+
+            clearInvocations(context);
+            now.set(500);
+            artwork.drawBackgroundAdditional(context);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.y == 154), eq(83F), eq(131F), eq(22F), eq(7F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.y == 161), eq(140F), eq(131F), eq(11F), eq(7F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.y == 168), eq(197F), eq(131F), eq(11F), eq(7F));
+
+            clearInvocations(context);
+            update = update.copy();
+            update.putLong("usedBytes", 256);
+            synced.setValue(update);
+            artwork.drawBackgroundAdditional(context);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.y == 154), eq(83F), eq(131F), eq(11F), eq(7F));
         }
     }
 

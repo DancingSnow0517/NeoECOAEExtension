@@ -4,6 +4,7 @@ import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextu
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
+import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
@@ -58,6 +59,7 @@ final class ComputationControllerArtwork extends UIElement {
     private final Supplier<ComputationControllerPanelState> panelState;
     private final ItemStack hostItem;
     private final Supplier<IECOTier> panelTier;
+    private final HostProgressAnimation opening = new HostProgressAnimation();
     private ComputationControllerPanelState state;
     private long usedBytes, totalBytes, availableBytes;
     private int usedThreads, totalThreads, parallelCount, fullParallelCount, networkMultiplier, networkFrequency;
@@ -90,6 +92,12 @@ final class ComputationControllerArtwork extends UIElement {
         synced.registerValueListener(this::read);
         synced.setDisplay(false);
         addChild(synced);
+    }
+
+    @Override
+    protected void onRemoved() {
+        super.onRemoved();
+        opening.reset();
     }
 
     private CompoundTag snapshot() {
@@ -286,7 +294,7 @@ final class ComputationControllerArtwork extends UIElement {
         int[] permilles = {
             permille(usedBytes, totalBytes), permille(usedThreads, totalThreads), permille(parallelCount, fullParallelCount)};
         for (int i = 0; i < PANEL_X.length; i++) {
-            int fill = Math.round(44 * permilles[i] / 1000F);
+            int fill = Math.round(44 * opening.value(permilles[i] / 1000D));
             if (fill > 0) {
                 sprite(context, ComputationControllerTextures.widget(0, 154 + 7 * i, fill, 7), BAR_X[i], 131, fill, 7);
             }

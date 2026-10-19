@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.storage;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
+import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -255,23 +256,39 @@ final class StorageHostCharts {
         }
     }
 
-    private final class CapacityBar extends PanelElement {
+    private abstract class AnimatedBar extends PanelElement {
+        final HostProgressAnimation opening = new HostProgressAnimation();
+
+        @Override protected void onRemoved() {
+            super.onRemoved();
+            opening.reset();
+        }
+    }
+
+    private final class CapacityBar extends AnimatedBar {
         CapacityBar() { tooltips(StorageHostCharts.this::capacityTooltip); }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
             var snapshot = state();
+            float width = Math.round(getSizeWidth() * opening.value(snapshot.unbounded() ? 1 : snapshot.usage()));
+            if (width <= 0) return;
             if (snapshot.unbounded()) {
-                context.drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR,
-                    getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+                boolean clipped = width < getSizeWidth();
+                if (clipped) context.enableScissor(getPositionX(), getPositionY(), width, getSizeHeight());
+                try {
+                    context.drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR,
+                        getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+                } finally {
+                    if (clipped) context.disableScissor();
+                }
                 return;
             }
-            float width = Math.round(getSizeWidth() * snapshot.usage());
-            if (width > 0) context.drawTexture(StoragePanelTextures.CAPACITY_BAR,
+            context.drawTexture(StoragePanelTextures.CAPACITY_BAR,
                 getPositionX(), getPositionY(), width, getSizeHeight());
         }
     }
 
-    private final class ResourceBar extends PanelElement {
+    private final class ResourceBar extends AnimatedBar {
         private final List<Component> hoveredTooltip = new ArrayList<>();
 
         ResourceBar() { tooltips(() -> List.copyOf(hoveredTooltip)); }
@@ -279,16 +296,21 @@ final class StorageHostCharts {
         @Override public void drawBackgroundAdditional(GUIContext context) {
             hoveredTooltip.clear();
             var snapshot = state();
+            var segments = capacitySegments(snapshot, Math.round(getSizeWidth()));
+            if (segments.isEmpty()) return;
+            int revealedWidth = Math.round(getSizeWidth() * opening.value(1));
             var mouse = isHover() || isSelfOrChildHover() ? getLocalMouse(context.mouseX, context.mouseY) : null;
             float mouseX = mouse == null ? Float.NaN : mouse.x - getPositionX();
             float mouseY = mouse == null ? Float.NaN : mouse.y - getPositionY();
             int x = 0;
-            for (CapacitySegment segment : capacitySegments(snapshot, Math.round(getSizeWidth()))) {
+            for (CapacitySegment segment : segments) {
+                int width = Math.min(segment.width(), revealedWidth - x);
+                if (width <= 0) break;
                 context.drawTexture(StoragePanelTextures.swatch(segment.swatch(), segment.color()),
-                    getPositionX() + x, getPositionY(), segment.width(), getSizeHeight());
-                if (mouseX >= x && mouseX < x + segment.width() && mouseY >= 0 && mouseY < getSizeHeight()) {
+                    getPositionX() + x, getPositionY(), width, getSizeHeight());
+                if (mouseX >= x && mouseX < x + width && mouseY >= 0 && mouseY < getSizeHeight()) {
                     context.drawTexture(StoragePanelTextures.RESOURCE_HOVER,
-                        getPositionX() + x, getPositionY(), segment.width(), getSizeHeight());
+                        getPositionX() + x, getPositionY(), width, getSizeHeight());
                     hoveredTooltip.addAll(resourceTooltip(snapshot, segment));
                 }
                 x += segment.width();
@@ -296,12 +318,13 @@ final class StorageHostCharts {
         }
     }
 
-    private final class EnergyBar extends PanelElement {
+    private final class EnergyBar extends AnimatedBar {
         EnergyBar() { tooltips(StorageHostCharts.this::energyTooltip); }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
             SpriteTexture scale = StoragePanelTextures.SCALE;
-            int pixels = Math.round(scale.spriteSize.width * HostText.usageRatio(state().energy(), state().maxEnergy()));
+            int pixels = Math.round(scale.spriteSize.width
+                * opening.value(HostText.usageRatio(state().energy(), state().maxEnergy())));
             if (pixels > 0) context.drawTexture(scale.copy().setSprite(scale.spritePosition.x,
                 scale.spritePosition.y, pixels, scale.spriteSize.height), getPositionX(), getPositionY(),
                 getSizeWidth() * pixels / scale.spriteSize.width, getSizeHeight());

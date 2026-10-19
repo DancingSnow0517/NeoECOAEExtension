@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
@@ -192,6 +193,7 @@ class StorageResourceHoverTest {
         doReturn(160F).when(bar).getSizeWidth();
         doReturn(8F).when(bar).getSizeHeight();
         doReturn(true).when(bar).isHover();
+        HostProgressTestSupport.drawAfterOpening(bar, mock(GUIContext.class));
         return bar;
     }
 

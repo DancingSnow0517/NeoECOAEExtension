@@ -9,6 +9,7 @@ import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -45,6 +46,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
     private final BindableValue<Integer> scrollRequest = new BindableValue<>(0);
     private final ComputationScrollbar scrollbar;
+    private final HostProgressAnimation opening = new HostProgressAnimation();
     private List<ComputationCpuEntry> page = List.of();
     private int selectedSerial = -1, total, offset, pageOffset;
 
@@ -74,6 +76,12 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
             scrollTo(offset + (event.deltaY < 0 ? 2 : -2));
             event.stopImmediatePropagation();
         }, true);
+    }
+
+    @Override
+    protected void onRemoved() {
+        super.onRemoved();
+        opening.reset();
     }
 
     @Override
@@ -138,11 +146,12 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     }
 
     private void drawRow(GUIContext context, Font font, ComputationCpuEntry entry, float x, float y) {
-        drawCpuRow(context, font, entry, x, y, entry.serial() == selectedSerial, NORMAL, SELECTED);
+        drawCpuRow(context, font, entry, x, y, entry.serial() == selectedSerial, NORMAL, SELECTED,
+            opening.value(entry.progress()));
     }
 
     static void drawCpuRow(GUIContext context, Font font, ComputationCpuEntry entry, float x, float y,
-            boolean chosen, IGuiTexture normal, IGuiTexture selected) {
+            boolean chosen, IGuiTexture normal, IGuiTexture selected, float progress) {
         context.drawTexture(chosen ? selected : normal, x, y, ROW_WIDTH, ROW_HEIGHT);
         context.graphics.flush();
         int color = 0x413F54;
@@ -152,7 +161,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
             icon(context, Icon.S_CRAFT, x + 2, y + 10);
             fittedText(context, font, entry.amount(entry.requested(), false), x + 14, y + 13, 39, 0.666F, color);
             key(context, entry, x + 55, y + 10, 0.625F);
-            context.graphics.fill(Math.round(x + 1), Math.round(y + 20), Math.round(x + 1 + entry.progress() * 66), Math.round(y + 21),
+            context.graphics.fill(Math.round(x + 1), Math.round(y + 20), Math.round(x + 1 + progress * 66), Math.round(y + 21),
                 chosen ? 0xFF7DA9D2 : 0xFFACE9FF);
         } else {
             if (entry.parallel() > 0) {

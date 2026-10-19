@@ -7,6 +7,7 @@ import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -43,6 +44,7 @@ import org.apache.commons.lang3.time.DurationFormatUtils;
 
 /** The 326x254 ECO crafting CPU page shown when a CPU row is clicked. */
 final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
+    private final HostProgressAnimation opening = new HostProgressAnimation();
     static final int WIDTH = 326, HEIGHT = 254, ROWS = 9;
     private static final int CPU_X = 8, CPU_Y = 19, CPU_WIDTH = 67, CPU_HEIGHT = 22, CPU_STRIDE = 23;
     private static final int CPU_TRACK_X = 77, TRACK_Y = 19, TRACK_HEIGHT = 206;
@@ -244,9 +246,15 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         return title;
     }
 
+    @Override
+    protected void onRemoved() {
+        super.onRemoved();
+        opening.reset();
+    }
+
     private void drawCpu(GUIContext context, Font font, ComputationCpuEntry entry, float x, float y) {
         ComputationCpuSelector.drawCpuRow(context, font, entry, x, y, entry.serial() == selectedSerial,
-            CPU_NORMAL, CPU_SELECTED);
+            CPU_NORMAL, CPU_SELECTED, opening.value(entry.progress()));
     }
 
     static void drawItem(GUIContext context, Font font, ComputationCpuItemEntry entry, float x, float y,

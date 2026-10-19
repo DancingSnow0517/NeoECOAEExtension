@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
@@ -545,14 +546,14 @@ class StorageHostUiTest {
             UIElement resources = positionedBar(root, "resource_bar", 208, 334, 160, 8);
             UIElement energy = positionedBar(root, "energy_bar", 373, 292, 74, 7);
             GUIContext context = mock(GUIContext.class);
-            capacity.drawBackgroundAdditional(context);
+            HostProgressTestSupport.drawAfterOpening(capacity, context);
             verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 120F, 8F);
-            resources.drawBackgroundAdditional(context);
+            HostProgressTestSupport.drawAfterOpening(resources, context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62), eq(208F), eq(334F), eq(120F), eq(8F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 24 && sprite.spritePosition.y == 62), eq(328F), eq(334F), eq(40F), eq(8F));
-            energy.drawBackgroundAdditional(context);
+            HostProgressTestSupport.drawAfterOpening(energy, context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.y == 133 && sprite.spriteSize.width == 19), eq(373F), eq(292F), eq(19F), eq(7F));
             verifyNoMoreInteractions(context);
@@ -581,7 +582,7 @@ class StorageHostUiTest {
             for (boolean migrating : List.of(false, true)) {
                 display.setValue(new StoragePanelState(Component.empty(), 2, true, !migrating, migrating,
                     0, 100, 999, "0", 0, 0, 0, List.of(), List.of(), "", 0, false).toTag());
-                capacity.drawBackgroundAdditional(context);
+                HostProgressTestSupport.drawAfterOpening(capacity, context);
                 resources.drawBackgroundAdditional(context);
                 energy.drawBackgroundAdditional(context);
                 verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR, 208F, 313F, 160F, 8F);

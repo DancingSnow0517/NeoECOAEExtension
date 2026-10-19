@@ -5,6 +5,7 @@ import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelElements;
+import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.Config;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -58,6 +59,7 @@ final class CraftingControllerArtwork extends UIElement {
     private final CraftingOutputSlot[] workerSlots = new CraftingOutputSlot[CraftingControllerPanelState.SLOT_COUNT];
     private final CraftingControllerViewState view = new CraftingControllerViewState();
     private final CraftingControllerTooltips tooltips = new CraftingControllerTooltips(view);
+    private final HostProgressAnimation opening = new HostProgressAnimation();
 
     CraftingControllerArtwork(Config config, Supplier<IECOTier> panelTier) {
         this.config = config;
@@ -83,6 +85,12 @@ final class CraftingControllerArtwork extends UIElement {
         addChild(tooltipRegion(196, 155, 48, 23, tooltips::coolantRowTooltip));
         addChild(tooltipRegion(196, 180, 48, 24, tooltips::switchTooltip));
         for (CraftingOutputSlot slot : workerSlots) addChild(slot);
+    }
+
+    @Override
+    protected void onRemoved() {
+        super.onRemoved();
+        opening.reset();
     }
 
     private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<List<Component>> lines) {
@@ -269,7 +277,8 @@ final class CraftingControllerArtwork extends UIElement {
             view.state.queuePermille(), 8, 115);
         drawHorizontalProgress(context, 121, 114, PROGRESS_BAR_WIDTH,
             CraftingControllerPanelState.permille(1, view.executionTicks), 8, 122);
-        int height = Math.round(46 * view.state.energyPermille() / (float) CraftingControllerPanelState.FULL);
+        int height = Math.round(GAUGE_INTERIOR_HEIGHT * opening.value(
+            view.state.energyPermille() / (double) CraftingControllerPanelState.FULL));
         if (height > 0) sprite(context, 0, 115 + 46 - height, 8, height, 176, 78 + 46 - height, 8, height);
         drawFluidGauge(context, 195, view.coolantFluid, view.coolantAmount, view.coolantCapacity, 209);
         drawFluidGauge(context, 226, view.outputFluid, view.outputFluid.getAmount(), view.outputCapacity, 240);
@@ -363,7 +372,8 @@ final class CraftingControllerArtwork extends UIElement {
     private void drawFluidGauge(GUIContext context, int x, FluidStack fluid, int amount, int capacity, int tickX) {
         int safeCapacity = Math.max(0, capacity);
         int safeAmount = Math.clamp(amount, 0, safeCapacity);
-        int height = safeCapacity <= 0 ? 0 : Math.round(GAUGE_INTERIOR_HEIGHT * safeAmount / (float) safeCapacity);
+        int height = safeCapacity <= 0 ? 0 : Math.round(GAUGE_INTERIOR_HEIGHT
+            * opening.value(safeAmount / (double) safeCapacity));
         if (height > 0 && fluid != null && !fluid.isEmpty()) {
             FluidStack renderStack = fluid.copyWithAmount(Math.max(1, safeAmount));
             context.graphics.flush();
@@ -398,8 +408,7 @@ final class CraftingControllerArtwork extends UIElement {
 
     private void drawHorizontalProgress(GUIContext context, int x, int y, int width, int permille,
                                         int sourceX, int sourceY) {
-        int fill = Math.round(width * Math.clamp(permille, 0, CraftingControllerPanelState.FULL)
-            / (float) CraftingControllerPanelState.FULL);
+        int fill = Math.round(width * opening.value(permille / (double) CraftingControllerPanelState.FULL));
         if (fill > 0) sprite(context, sourceX, sourceY, fill, PROGRESS_BAR_HEIGHT, x, y, fill, PROGRESS_BAR_HEIGHT);
     }
 

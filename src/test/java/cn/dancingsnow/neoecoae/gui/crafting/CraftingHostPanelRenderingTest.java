@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -20,6 +21,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import net.minecraft.client.Minecraft;
+import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.RegistryAccess;
@@ -41,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.math.BigInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -71,7 +74,7 @@ class CraftingHostPanelRenderingTest {
             UIElement artwork = positioned(artwork(formedState(), hostItem));
             GUIContext context = context();
 
-            artwork.drawBackgroundAdditional(context);
+            HostProgressTestSupport.drawAfterOpening(artwork, context);
 
             verify(context).drawTexture(NETextures.Crafting.CONTROLLER, 120F, 80F, 253F, 214F);
             verify(context).drawTexture(any(), eq(143F), eq(85F), eq(13F), eq(18F));
@@ -126,7 +129,7 @@ class CraftingHostPanelRenderingTest {
             artwork = positioned(artwork);
             GUIContext context = context();
 
-            artwork.drawBackgroundAdditional(context);
+            HostProgressTestSupport.drawAfterOpening(artwork, context);
 
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 8 && sprite.spritePosition.y == 115),
@@ -136,6 +139,37 @@ class CraftingHostPanelRenderingTest {
                 eq(241F), eq(194F), eq(4F), eq(7F));
             verify(context).drawTexture(any(), eq(329F), eq(164F), eq(5F), eq(1F));
             verify(context, never()).drawTexture(any(), eq(296F), anyFloat(), eq(8F), anyFloat());
+        }
+    }
+
+    @Test
+    void openingAnimatesBothHorizontalBarsAndTheEnergyGaugeToTheirActualValues() throws ReflectiveOperationException {
+        AtomicLong now = new AtomicLong();
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class);
+             var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            clock.when(Util::getMillis).thenAnswer(call -> now.get());
+            installFont(minecraft);
+            UIElement artwork = positioned(artwork(formedState()));
+            GUIContext context = context();
+            artwork.drawBackgroundAdditional(context);
+            verify(context, never()).drawTexture(any(), eq(186F), eq(194F), anyFloat(), eq(7F));
+            verify(context, never()).drawTexture(any(), eq(241F), eq(194F), anyFloat(), eq(7F));
+            verify(context, never()).drawTexture(any(), eq(296F), anyFloat(), eq(8F), anyFloat());
+
+            clearInvocations(context);
+            now.set(250);
+            artwork.drawBackgroundAdditional(context);
+            verify(context).drawTexture(any(), eq(186F), eq(194F), eq(11F), eq(7F));
+            verify(context).drawTexture(any(), eq(241F), eq(194F), eq(6F), eq(7F));
+            verify(context).drawTexture(any(), eq(296F), eq(192F), eq(8F), eq(12F));
+
+            clearInvocations(context);
+            now.set(500);
+            artwork.drawBackgroundAdditional(context);
+            verify(context).drawTexture(any(), eq(186F), eq(194F), eq(22F), eq(7F));
+            verify(context).drawTexture(any(), eq(241F), eq(194F), eq(11F), eq(7F));
+            verify(context).drawTexture(any(), eq(296F), eq(181F), eq(8F), eq(23F));
         }
     }
 
@@ -393,7 +427,8 @@ class CraftingHostPanelRenderingTest {
     private static GUIContext context() {
         GUIContext context = mock(GUIContext.class);
         context.graphics = mock(GuiGraphics.class);
-        when(context.graphics.pose()).thenReturn(spy(new PoseStack()));
+        PoseStack pose = spy(new PoseStack());
+        when(context.graphics.pose()).thenReturn(pose);
         return context;
     }
 }
