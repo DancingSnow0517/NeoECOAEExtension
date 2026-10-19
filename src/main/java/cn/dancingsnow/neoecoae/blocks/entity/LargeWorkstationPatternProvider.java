@@ -4,6 +4,11 @@ import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.inventories.InternalInventory;
+import appeng.api.inventories.BaseInternalInventory;
+import appeng.api.upgrades.IUpgradeInventory;
+import appeng.api.upgrades.UpgradeInventories;
+import appeng.core.definitions.AEItems;
+import appeng.util.inv.filter.IAEItemFilter;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
@@ -24,10 +29,11 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The large workstation's copy of ExtendedAE's 36-slot pattern-provider logic.
+ * The large workstation's pattern provider with capacity-card upgrades and scrollable pattern storage.
  *
  * <p>The normal provider implementation is reused for pattern storage, return
  * inventory, settings and persistence. Only dispatch is specialized: a
@@ -35,9 +41,14 @@ import org.jetbrains.annotations.Nullable;
  * of being pushed into an adjacent inventory.</p>
  */
 public final class LargeWorkstationPatternProvider extends PatternProviderLogic implements ECOParallelCraftingProvider {
-    static final int PATTERN_SLOT_COUNT = 36;
+    public static final int PATTERN_COLUMNS = 9;
+    public static final int BASE_PATTERN_ROWS = 4;
+    public static final int MAX_CAPACITY_CARDS = 4;
+    public static final int MAX_PATTERN_SLOTS = (BASE_PATTERN_ROWS + MAX_CAPACITY_CARDS) * PATTERN_COLUMNS;
 
     private final ECOLargeIntegratedWorkingStationInterfaceBlockEntity host;
+    private final IUpgradeInventory capacityUpgrades;
+    private final InternalInventory visiblePatternInventory = new EffectivePatternInventory();
     private List<IPatternDetails> compatiblePatterns = List.of();
     private Set<AEItemKey> advertisedKeys = Set.of();
     private int advertisementRevision;
@@ -49,8 +60,102 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     private long lastDiskRevision = Long.MIN_VALUE;
 
     public LargeWorkstationPatternProvider(ECOLargeIntegratedWorkingStationInterfaceBlockEntity host) {
-        super(host.getMainNode(), host, PATTERN_SLOT_COUNT);
+        super(host.getMainNode(), host, MAX_PATTERN_SLOTS);
         this.host = host;
+        capacityUpgrades = UpgradeInventories.forMachine(host.getBlockState().getBlock(), MAX_CAPACITY_CARDS,
+            this::onCapacityUpgradesChanged);
+        if (capacityUpgrades instanceof AppEngInternalInventory inventory) {
+            inventory.setFilter(new IAEItemFilter() {
+                @Override
+                public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
+                    return AEItems.CAPACITY_CARD.is(stack);
+                }
+
+                @Override
+                public boolean allowExtract(InternalInventory inv, int slot, int amount) {
+                    return canRemoveCapacityCard();
+                }
+            });
+        }
+    }
+
+    @Override
+    public InternalInventory getPatternInv() {
+        return visiblePatternInventory;
+    }
+
+    public InternalInventory getMenuPatternInventory() {
+        return super.getPatternInv();
+    }
+
+    public IUpgradeInventory getCapacityUpgrades() {
+        return capacityUpgrades;
+    }
+
+    public int getUnlockedPatternRows() {
+        return BASE_PATTERN_ROWS + Math.clamp(capacityUpgrades.getInstalledUpgrades(AEItems.CAPACITY_CARD),
+            0, MAX_CAPACITY_CARDS);
+    }
+
+    public boolean canInsertPattern(int slot) {
+        return slot >= 0 && slot < getUnlockedPatternRows() * PATTERN_COLUMNS;
+    }
+
+    public boolean canRemoveCapacityCard() {
+        int rowsAfterRemoval = Math.max(BASE_PATTERN_ROWS, getUnlockedPatternRows() - 1);
+        for (int slot = rowsAfterRemoval * PATTERN_COLUMNS; slot < MAX_PATTERN_SLOTS; slot++) {
+            if (!super.getPatternInv().getStackInSlot(slot).isEmpty()) return false;
+        }
+        return true;
+    }
+
+    private void onCapacityUpgradesChanged() {
+        host.saveChanges();
+        host.onPatternSlotsChanged();
+        host.markForUpdate();
+        updatePatterns();
+    }
+
+    int getRequiredPatternRows() {
+        InternalInventory inventory = super.getPatternInv();
+        for (int slot = inventory.size() - 1; slot >= 0; slot--) {
+            if (!inventory.getStackInSlot(slot).isEmpty()) {
+                return Math.max(getUnlockedPatternRows(), slot / PATTERN_COLUMNS + 1);
+            }
+        }
+        return getUnlockedPatternRows();
+    }
+
+    private final class EffectivePatternInventory extends BaseInternalInventory {
+        @Override
+        public int size() {
+            return getRequiredPatternRows() * PATTERN_COLUMNS;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return getMenuPatternInventory().getStackInSlot(slot);
+        }
+
+        @Override
+        public void setItemDirect(int slot, ItemStack stack) {
+            getMenuPatternInventory().setItemDirect(slot, stack);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return getMenuPatternInventory().getSlotLimit(slot);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return canInsertPattern(slot) && getMenuPatternInventory().isItemValid(slot, stack);
+        }
+
+        @Override
+        public void sendChangeNotification(int slot) {
+            getMenuPatternInventory().sendChangeNotification(slot);
+        }
     }
 
     /**
@@ -84,7 +189,14 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     @Override
     public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
         super.readFromNBT(tag, registries);
+        capacityUpgrades.readFromNBT(tag, "workstationCapacityUpgrades", registries);
         disableSmartDoubling();
+    }
+
+    @Override
+    public void writeToNBT(CompoundTag tag, HolderLookup.Provider registries) {
+        super.writeToNBT(tag, registries);
+        capacityUpgrades.writeToNBT(tag, "workstationCapacityUpgrades", registries);
     }
 
     @Nullable

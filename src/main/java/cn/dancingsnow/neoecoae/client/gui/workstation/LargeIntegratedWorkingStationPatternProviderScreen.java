@@ -1,8 +1,19 @@
 package cn.dancingsnow.neoecoae.client.gui.workstation;
 
 import appeng.client.gui.implementations.PatternProviderScreen;
+import appeng.client.gui.Icon;
 import appeng.client.gui.style.ScreenStyle;
+import appeng.client.gui.style.Blitter;
+import appeng.client.gui.widgets.Scrollbar;
+import appeng.client.gui.widgets.UpgradesPanel;
+import appeng.api.upgrades.Upgrades;
+import appeng.menu.SlotSemantics;
+import appeng.menu.slot.AppEngSlot;
+import appeng.client.Point;
+import cn.dancingsnow.neoecoae.gui.workstation.WorkstationPatternScroll;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ClickType;
@@ -11,12 +22,21 @@ import net.minecraft.world.inventory.Slot;
 import java.util.HashSet;
 import java.util.Set;
 
-/** The copied ExtendedAE pattern-provider screen with NeoECOAE-owned resources. */
+/** Native AE2 pattern-provider interactions with a smoothly scrolling, clipped pattern viewport. */
 public class LargeIntegratedWorkingStationPatternProviderScreen
     extends PatternProviderScreen<LargeIntegratedWorkingStationPatternProviderMenu> {
 
     private final Set<Integer> shiftDraggedSlots = new HashSet<>();
+    private final WorkstationPatternScroll patternScroll = new WorkstationPatternScroll();
+    private final Scrollbar patternScrollbar;
     private boolean shiftDragging;
+    private boolean scrollbarDragging;
+    private double scrollbarGrabOffset;
+    private long lastScrollFrame;
+
+    private static final int PATTERN_LEFT = 7;
+    private static final int PATTERN_TOP = 41;
+    private static final int PATTERN_WIDTH = 162;
 
     public LargeIntegratedWorkingStationPatternProviderScreen(
         LargeIntegratedWorkingStationPatternProviderMenu menu,
@@ -25,11 +45,35 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         ScreenStyle style
     ) {
         super(menu, playerInventory, title, style);
+        patternScroll.setSlotCount(menu.getPatternSlotCount());
+        patternScrollbar = new PatternScrollbar();
+        patternScrollbar.setCaptureMouseWheel(false);
+        patternScrollbar.setRange(0, (int) patternScroll.maximum(), WorkstationPatternScroll.ROW_HEIGHT);
+        widgets.add("patternScrollbar", patternScrollbar);
+        try {
+            widgets.add("upgrades", new UpgradesPanel(menu.getSlots(SlotSemantics.UPGRADE),
+                () -> Upgrades.getTooltipLinesForMachine(menu.getCapacityUpgrades().getUpgradableItem())));
+        } catch (IllegalStateException existingPanel) {
+            if (!"Duplicate id: upgrades".equals(existingPanel.getMessage())) throw existingPanel;
+            // AE2 provider addons may already supply this native panel; its slots are the same four capacity slots.
+        }
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        lastScrollFrame = System.nanoTime();
+        updatePatternSlots();
     }
 
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
+        long now = System.nanoTime();
+        if (lastScrollFrame != 0) patternScroll.advance((now - lastScrollFrame) / 1_000_000_000.0);
+        lastScrollFrame = now;
+        patternScrollbar.setCurrentScroll((int) Math.round(patternScroll.offset()));
+        updatePatternSlots();
         // EAEP adds these private widgets to the superclass, including after a resize.
         hideSmartDoublingWidget("eap$SmartDoublingToggle");
         hideSmartDoublingWidget("eap$PerProviderLimitInput");
@@ -37,8 +81,22 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // The press itself stays a vanilla Shift-click; only the slots crossed afterwards are ours.
         shiftDraggedSlots.clear();
+        shiftDragging = false;
+        var scrollbarBounds = patternScrollbar.getBounds();
+        double thumbTop = topPos + scrollbarBounds.getY() + scrollbarThumbOffset();
+        if (button == 0 && patternScroll.maximum() > 0
+            && mouseX >= leftPos + scrollbarBounds.getX()
+            && mouseX < leftPos + scrollbarBounds.getX() + scrollbarBounds.getWidth()
+            && mouseY >= thumbTop && mouseY < thumbTop + Scrollbar.SMALL.handleHeight()) {
+            scrollbarDragging = true;
+            scrollbarGrabOffset = mouseY - thumbTop;
+            patternScroll.stop();
+            return true;
+        }
+        // Keep the physical slot still while a click or item-drag gesture is being resolved.
+        if (overPatterns(mouseX, mouseY)) patternScroll.stop();
+        // The press itself stays a vanilla Shift-click; only the slots crossed afterwards are ours.
         Slot slot = button == 0 && hasShiftDown() && menu.getCarried().isEmpty() ? slotAt(mouseX, mouseY) : null;
         shiftDragging = slot != null;
         if (slot != null) shiftDraggedSlots.add(slot.index);
@@ -46,7 +104,165 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        if (deltaY != 0 && overPatterns(mouseX, mouseY) && patternScroll.maximum() > 0) {
+            patternScroll.scrollBy(-deltaY * WorkstationPatternScroll.ROW_HEIGHT);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+    }
+
+    private void updatePatternSlots() {
+        int visibleSlotCount = menu.getPatternSlotCount();
+        patternScroll.setSlotCount(visibleSlotCount);
+        patternScrollbar.setRange(0, (int) patternScroll.maximum(), WorkstationPatternScroll.ROW_HEIGHT);
+        var slots = menu.getSlots(SlotSemantics.ENCODED_PATTERN);
+        int pixels = (int) Math.floor(patternScroll.offset());
+        for (int index = 0; index < slots.size(); index++) {
+            Slot slot = slots.get(index);
+            boolean visible = index < visibleSlotCount && patternScroll.isVisible(index);
+            if (slot instanceof AppEngSlot aeSlot) aeSlot.setActive(visible);
+            slot.x = visible ? PATTERN_LEFT + 1 + index % WorkstationPatternScroll.COLUMNS * 18 : -9999;
+            slot.y = visible ? PATTERN_TOP + 1 + index / WorkstationPatternScroll.COLUMNS * 18 - pixels : -9999;
+        }
+    }
+
+    @Override
+    public void drawBG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
+        super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
+        clipPatterns(graphics);
+        graphics.pose().pushPose();
+        try {
+            graphics.pose().translate(offsetX, offsetY - fractionalOffset(), 0);
+            for (Slot slot : menu.getSlots(SlotSemantics.ENCODED_PATTERN)) {
+                if (slot.isActive()) Icon.SLOT_BACKGROUND.getBlitter().dest(slot.x - 1, slot.y - 1).blit(graphics);
+            }
+        } finally {
+            graphics.pose().popPose();
+            graphics.disableScissor();
+        }
+    }
+
+    @Override
+    public void renderSlot(GuiGraphics graphics, Slot slot) {
+        if (menu.getSlotSemantic(slot) != SlotSemantics.ENCODED_PATTERN) {
+            super.renderSlot(graphics, slot);
+            return;
+        }
+        boolean clipped = needsPatternClipping(slot);
+        if (clipped) clipPatterns(graphics);
+        graphics.pose().pushPose();
+        try {
+            graphics.pose().translate(0, -fractionalOffset(), 0);
+            super.renderSlot(graphics, slot);
+        } finally {
+            graphics.pose().popPose();
+            if (clipped) graphics.disableScissor();
+        }
+    }
+
+    @Override
+    protected void renderSlotHighlight(GuiGraphics graphics, Slot slot, int mouseX, int mouseY, float partialTicks) {
+        if (menu.getSlotSemantic(slot) != SlotSemantics.ENCODED_PATTERN) {
+            super.renderSlotHighlight(graphics, slot, mouseX, mouseY, partialTicks);
+            return;
+        }
+        clipPatterns(graphics);
+        graphics.pose().pushPose();
+        try {
+            graphics.pose().translate(0, -fractionalOffset(), 0);
+            super.renderSlotHighlight(graphics, slot, mouseX, mouseY, partialTicks);
+        } finally {
+            graphics.pose().popPose();
+            graphics.disableScissor();
+        }
+    }
+
+    @Override
+    protected boolean isHovering(Slot slot, double mouseX, double mouseY) {
+        if (menu.getSlotSemantic(slot) == SlotSemantics.ENCODED_PATTERN) {
+            return slot.isActive() && overPatterns(mouseX, mouseY)
+                && super.isHovering(slot, mouseX, mouseY + fractionalOffset());
+        }
+        return super.isHovering(slot, mouseX, mouseY);
+    }
+
+    private boolean overPatterns(double mouseX, double mouseY) {
+        double x = mouseX - leftPos - PATTERN_LEFT;
+        double y = mouseY - topPos - PATTERN_TOP;
+        return x >= 0 && x < PATTERN_WIDTH && y >= 0 && y < WorkstationPatternScroll.VIEWPORT_HEIGHT;
+    }
+
+    private double fractionalOffset() {
+        return patternScroll.offset() - Math.floor(patternScroll.offset());
+    }
+
+    private boolean needsPatternClipping(Slot slot) {
+        double top = slot.y - fractionalOffset() - 1;
+        return top < PATTERN_TOP || top + 18 > PATTERN_TOP + WorkstationPatternScroll.VIEWPORT_HEIGHT;
+    }
+
+    private double scrollbarThumbOffset() {
+        return patternScroll.maximum() == 0 ? 0 : patternScroll.offset() / patternScroll.maximum()
+            * (patternScrollbar.getBounds().getHeight() - Scrollbar.SMALL.handleHeight());
+    }
+
+    private void clipPatterns(GuiGraphics graphics) {
+        graphics.enableScissor(leftPos + PATTERN_LEFT, topPos + PATTERN_TOP,
+            leftPos + PATTERN_LEFT + PATTERN_WIDTH, topPos + PATTERN_TOP + WorkstationPatternScroll.VIEWPORT_HEIGHT);
+    }
+
+    private final class PatternScrollbar extends Scrollbar {
+        private PatternScrollbar() {
+            super(Scrollbar.SMALL);
+        }
+
+        @Override
+        public void drawForegroundLayer(GuiGraphics graphics, Rect2i bounds, Point mouse) {
+            graphics.pose().pushPose();
+            try {
+                graphics.pose().translate(0, scrollbarThumbOffset(), 0);
+                var sprite = patternScroll.maximum() == 0
+                    ? Scrollbar.SMALL.disabledSprite() : Scrollbar.SMALL.enabledSprite();
+                Blitter.guiSprite(sprite).dest(getBounds().getX(), getBounds().getY()).blit(graphics);
+            } finally {
+                graphics.pose().popPose();
+            }
+        }
+
+        @Override
+        public boolean onMouseDown(Point mouse, int button) {
+            boolean handled = super.onMouseDown(mouse, button);
+            if (handled) patternScroll.scrollTo(getCurrentScroll());
+            return handled;
+        }
+
+        @Override
+        public boolean onMouseWheel(Point mouse, double delta) {
+            if (patternScroll.maximum() == 0) return false;
+            patternScroll.scrollBy(-delta * WorkstationPatternScroll.ROW_HEIGHT);
+            return true;
+        }
+
+        @Override
+        public void tick() {
+            int previous = getCurrentScroll();
+            super.tick();
+            if (getCurrentScroll() != previous) patternScroll.scrollTo(getCurrentScroll());
+        }
+    }
+
+    @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button == 0 && scrollbarDragging) {
+            var bounds = patternScrollbar.getBounds();
+            double travel = bounds.getHeight() - Scrollbar.SMALL.handleHeight();
+            patternScroll.jumpTo((mouseY - topPos - bounds.getY() - scrollbarGrabOffset)
+                / travel * patternScroll.maximum());
+            patternScrollbar.setCurrentScroll((int) Math.round(patternScroll.offset()));
+            updatePatternSlots();
+            return true;
+        }
         if (button == 0 && shiftDragging && hasShiftDown()) {
             // One drag event per frame: a fast swipe jumps over whole slots, so walk the segment.
             int steps = Math.max(1, (int) Math.ceil(Math.max(Math.abs(dragX), Math.abs(dragY)) / 4));
@@ -60,7 +276,10 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0) shiftDragging = false;
+        if (button == 0) {
+            shiftDragging = false;
+            scrollbarDragging = false;
+        }
         return super.mouseReleased(mouseX, mouseY, button);
     }
 

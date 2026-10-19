@@ -180,6 +180,7 @@ public class NeoECOAE {
             String storageCellGroup = GuiText.StorageCells.getTranslationKey();
 
             Upgrades.add(AEItems.SPEED_CARD, NEBlocks.INTEGRATED_WORKING_STATION.get(), 4);
+            Upgrades.add(AEItems.CAPACITY_CARD, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.get(), 4);
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(
                 NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,

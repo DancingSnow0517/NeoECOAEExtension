@@ -13,6 +13,12 @@ item_ids:
 
 # Large Integrated Working Station
 
+## Communication block pattern storage
+
+Each communication block starts with **4 rows / 36 pattern slots**. Insert up to **4 native AE2 capacity cards** in the right-hand upgrade panel. Each card immediately adds one row, up to **8 rows / 72 slots**.
+
+The 4-row viewport scrolls smoothly with the mouse wheel and draggable scrollbar, clipping partial rows at both edges. Empty the last row before removing a capacity card. Existing patterns outside the currently unlocked capacity remain retrievable when loading older saves; reinstall capacity cards to insert patterns into those rows again.
+
 ## Upgrade cards and recipe compatibility
 
 Supported compatible recipes load by default. Insert one card in the **Upgrade module** slot to unlock its recipe family: Advanced AE, Extended AE (including EAEP), Crystal Science, or Lightning Tech. The blank card adds no recipe family. Native recipes and adapters without a dedicated card remain available.

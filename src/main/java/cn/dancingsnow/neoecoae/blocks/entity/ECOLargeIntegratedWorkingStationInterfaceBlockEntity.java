@@ -18,6 +18,8 @@ import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.PatternStorageHost;
+import appeng.api.upgrades.IUpgradeInventory;
+import appeng.api.upgrades.IUpgradeableObject;
 import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
@@ -44,7 +46,8 @@ import java.util.List;
 /** The only machine-interface variant that exposes AE2 pattern-provider behavior. */
 public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     extends ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>
-    implements PatternProviderLogicHost, AuxiliaryPatternHolder, PatternStorageHost, IECOPatternStorage {
+    implements PatternProviderLogicHost, AuxiliaryPatternHolder, PatternStorageHost, IECOPatternStorage,
+    IUpgradeableObject {
 
     private final LargeWorkstationPatternProvider workstationProvider;
     private transient boolean workstationProviderRefreshQueued;
@@ -67,6 +70,15 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     public LargeWorkstationPatternProvider getWorkstationProvider() {
         return workstationProvider;
+    }
+
+    public int getWorkstationPatternRows() {
+        return workstationProvider.getRequiredPatternRows();
+    }
+
+    @Override
+    public IUpgradeInventory getUpgrades() {
+        return workstationProvider.getCapacityUpgrades();
     }
 
     // ---- pattern disks (AE2 Pattern Disk, optional) -------------------------------------------------
@@ -208,7 +220,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     @Override
     public int getPatternSlotCount() {
-        return LargeWorkstationPatternProvider.PATTERN_SLOT_COUNT;
+        return patternInventory().size();
     }
 
     @Override
@@ -270,7 +282,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
             return;
         }
 
-        var legacy = new AppEngInternalInventory(this, workstationProvider.getPatternInv().size(), 1);
+        var legacy = new AppEngInternalInventory(this, LargeWorkstationPatternProvider.MAX_PATTERN_SLOTS, 1);
         legacy.readFromNBT(data, "workstationPatterns", registries);
         for (int slot = 0; slot < legacy.size(); slot++) {
             workstationProvider.getPatternInv().setItemDirect(slot, legacy.getStackInSlot(slot));
@@ -281,6 +293,9 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
         workstationProvider.addDrops(drops);
+        for (ItemStack upgrade : getUpgrades()) {
+            if (!upgrade.isEmpty()) drops.add(upgrade.copy());
+        }
     }
 
     @Override

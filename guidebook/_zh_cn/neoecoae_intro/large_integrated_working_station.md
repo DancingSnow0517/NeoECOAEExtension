@@ -13,6 +13,12 @@ item_ids:
 
 # 大型集成工作站
 
+## 通讯方块样板容量
+
+通讯方块初始提供 **4 行、36 个样板槽**。在右侧的 4 个升级槽中安装 **AE2 原版容量卡**，每张增加 1 行，最多 **8 行、72 格**。插卡后立即生效。
+
+中间的样板区域显示 4 行，鼠标滚轮带平滑过渡，右侧滚动条可连续拖动；上下边缘会裁切正在滑入、滑出的槽位。取出容量卡前，需要先清空即将关闭的最后一行。旧存档中超出当前容量的样板会保留，仍可取出，但需要补装容量卡才能继续向这些行放入样板。
+
 <GameScene interactive={true} fullWidth={true} zoom="3">
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="0" y="0" z="0"></Block>
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="1" y="0" z="0"></Block>

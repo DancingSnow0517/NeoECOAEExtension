@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.menu;
 
 import appeng.api.inventories.InternalInventory;
+import appeng.api.upgrades.IUpgradeInventory;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.menu.SlotSemantic;
 import appeng.menu.SlotSemantics;
@@ -11,6 +12,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.AuxiliaryPatternHolder;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -18,7 +20,7 @@ import net.minecraft.world.item.ItemStack;
 /**
  * The copied ExtendedAE-style menu for the large workstation interface.
  *
- * <p>The only deviation from the copied menu is the pattern slot: see {@link #addSlot}.</p>
+ * <p>All physical pattern slots remain in the menu while capacity cards unlock their visible rows.</p>
  */
 public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternProviderMenu {
     public static final MenuType<LargeIntegratedWorkingStationPatternProviderMenu> TYPE = MenuTypeBuilder
@@ -31,32 +33,35 @@ public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternPro
         PatternProviderLogicHost host
     ) {
         super(TYPE, id, playerInventory, host);
+        if (logic instanceof LargeWorkstationPatternProvider provider) {
+            for (int slot = 0; slot < LargeWorkstationPatternProvider.MAX_PATTERN_SLOTS; slot++) {
+                super.addSlot(new DiskAwarePatternSlot(provider.getMenuPatternInventory(), slot, provider),
+                    SlotSemantics.ENCODED_PATTERN);
+            }
+            for (int slot = 0; slot < LargeWorkstationPatternProvider.MAX_CAPACITY_CARDS; slot++) {
+                super.addSlot(new CapacityUpgradeSlot(provider, slot), SlotSemantics.UPGRADE);
+            }
+        }
     }
 
-    /**
-     * Widens the pattern slot to accept this machine's pattern disks.
-     *
-     * <p>{@code PatternProviderMenu} builds every pattern slot as
-     * {@code RestrictedInputSlot(PROVIDER_PATTERN, ...)}, whose rule is "an encoded pattern", so a pattern disk
-     * - a container of patterns, not one - is refused by this machine's own screen. Everything behind that
-     * screen takes disks: the slots' inventory, the disk-aware terminal view, and the disk management
-     * terminal, which is why a disk could be put in from there but not from here. The bus met the same wall
-     * and answered it in its inventory filter; this is the same rule, applied where the restriction actually
-     * lives.</p>
-     *
-     * <p>Called from the superclass constructor, before this class's fields are initialised - the superclass
-     * assigns {@code logic} before it builds the pattern slots and nothing else is read here, which is what
-     * makes that safe. Slots that are not pattern slots, and calls made before {@code logic} is set, fall
-     * through untouched.</p>
-     */
+    public int getPatternSlotCount() {
+        return logic.getPatternInv().size();
+    }
+
+    public IUpgradeInventory getCapacityUpgrades() {
+        return ((LargeWorkstationPatternProvider) logic).getCapacityUpgrades();
+    }
+
+    /** Build our fixed physical slots after the superclass, so both sides use identical slot indices. */
     @Override
     protected Slot addSlot(Slot slot, SlotSemantic semantic) {
-        if (semantic == SlotSemantics.ENCODED_PATTERN
-            && slot instanceof RestrictedInputSlot patternSlot
-            && logic instanceof LargeWorkstationPatternProvider provider) {
-            AuxiliaryPatternHolder holder = provider.getWorkstationInterface();
-            return super.addSlot(
-                new DiskAwarePatternSlot(patternSlot.getInventory(), patternSlot.getSlotIndex(), holder), semantic);
+        // Optional provider addons inject their own upgrade slots into the superclass constructor.
+        // This interface owns four capacity-card slots instead, added after construction above.
+        if (logic instanceof LargeWorkstationPatternProvider
+            && (semantic == SlotSemantics.UPGRADE || semantic == SlotSemantics.ENCODED_PATTERN)) {
+            // Installed cards and recovered legacy rows are not synchronized while the menu is being constructed.
+            // Letting the superclass vary its slot count would shift return-inventory indices between the two sides.
+            return slot;
         }
         return super.addSlot(slot, semantic);
     }
@@ -64,17 +69,34 @@ public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternPro
     /** AE2's pattern-slot rule, plus the one stack type that rule cannot know about: this machine's disks. */
     private static final class DiskAwarePatternSlot extends RestrictedInputSlot {
         private final AuxiliaryPatternHolder holder;
+        private final LargeWorkstationPatternProvider provider;
 
-        private DiskAwarePatternSlot(InternalInventory inventory, int slotIndex, AuxiliaryPatternHolder holder) {
+        private DiskAwarePatternSlot(InternalInventory inventory, int slotIndex, LargeWorkstationPatternProvider provider) {
             super(PlacableItemType.PROVIDER_PATTERN, inventory, slotIndex);
-            this.holder = holder;
+            this.provider = provider;
+            this.holder = provider.getWorkstationInterface();
         }
 
         @Override
         public boolean mayPlace(ItemStack stack) {
             // Asked on both sides: the client draws the placement, the server authorises it. ownsAuxiliary()
             // reads the stack alone, so it answers the same either way.
-            return super.mayPlace(stack) || holder.ownsAuxiliary(stack);
+            return provider.canInsertPattern(getSlotIndex()) && (super.mayPlace(stack) || holder.ownsAuxiliary(stack));
+        }
+    }
+
+    private static final class CapacityUpgradeSlot extends RestrictedInputSlot {
+        private final LargeWorkstationPatternProvider provider;
+
+        private CapacityUpgradeSlot(LargeWorkstationPatternProvider provider, int slot) {
+            super(PlacableItemType.UPGRADES, provider.getCapacityUpgrades(), slot);
+            this.provider = provider;
+            setNotDraggable();
+        }
+
+        @Override
+        public boolean mayPickup(Player player) {
+            return provider.canRemoveCapacityCard() && super.mayPickup(player);
         }
     }
 }

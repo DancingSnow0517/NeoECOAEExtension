@@ -3,7 +3,7 @@
   "includes": ["common/common.json", "common/player_inventory.json"],
   "background": {
     "texture": "guis/large_integrated_working_station_interface.png",
-    "srcRect": [0, 0, 176, 245]
+    "srcRect": [0, 0, 188, 245]
   },
   "slots": {
     "ENCODED_PATTERN": {
@@ -12,8 +12,18 @@
       "grid": "BREAK_AFTER_9COLS"
     },
     "STORAGE": {
-      "left": 8,
+      "left": 14,
       "top": 127,
+      "grid": "HORIZONTAL"
+    },
+    "PLAYER_INVENTORY": {
+      "left": 14,
+      "bottom": 84,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "PLAYER_HOTBAR": {
+      "left": 14,
+      "bottom": 26,
       "grid": "HORIZONTAL"
     }
   },
@@ -41,17 +51,32 @@
         "translate": "gui.ae2.ReturnInventory"
       },
       "position": {
-        "left": 8,
+        "left": 14,
         "top": 116
+      }
+    },
+    "player_inventory_title": {
+      "text": {
+        "translate": "container.inventory"
+      },
+      "position": {
+        "left": 14,
+        "bottom": 95
       }
     }
   },
   "widgets": {
     "openPriority": {
-      "left": 152,
+      "left": 164,
       "top": -5,
       "width": 20,
       "height": 20
+    },
+    "patternScrollbar": {
+      "left": 174,
+      "top": 42,
+      "width": 7,
+      "height": 70
     },
     "lockReason": {
       "left": 5,
