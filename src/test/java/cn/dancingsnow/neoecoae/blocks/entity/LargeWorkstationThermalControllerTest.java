@@ -6,6 +6,7 @@ import appeng.api.networking.IGridNode;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -30,7 +31,10 @@ import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -42,6 +46,7 @@ class LargeWorkstationThermalControllerTest {
     private RecipeManager recipes;
     private FluidTank input;
     private FluidTank output;
+    private boolean previousTemperatureEnabled;
 
     @BeforeAll
     static void bootstrap() throws Exception {
@@ -65,6 +70,8 @@ class LargeWorkstationThermalControllerTest {
 
     @BeforeEach
     void setup() throws Exception {
+        previousTemperatureEnabled = NEConfig.largeWorkstationTemperatureEnabled;
+        NEConfig.largeWorkstationTemperatureEnabled = true;
         host = mock(ECOLargeIntegratedWorkingStationBlockEntity.class, CALLS_REAL_METHODS);
         var node = mock(IManagedGridNode.class);
         doReturn(node).when(host).getMainNode();
@@ -73,6 +80,10 @@ class LargeWorkstationThermalControllerTest {
         doNothing().when(host).markForUpdate();
         doNothing().when(host).setWorking(anyBoolean());
         doNothing().when(host).setProcessingTime(anyInt());
+        doReturn(Blocks.AIR.defaultBlockState()).when(host).getBlockState();
+        doReturn(0.0).when(host).getAECurrentPower();
+        doReturn(16_000_000.0).when(host).getAEMaxPower();
+        doReturn(0.0).when(host).extractAEPower(anyDouble(), any(), any());
         level = mock(Level.class);
         recipes = mock(RecipeManager.class);
         when(level.getRecipeManager()).thenReturn(recipes);
@@ -88,6 +99,11 @@ class LargeWorkstationThermalControllerTest {
         field(host, "overclocked", true);
         field(host, "pendingBatches", new ArrayDeque<>());
         field(host, "coolingOutput", new LargeWorkstationCoolingOutput());
+    }
+
+    @AfterEach
+    void restoreConfig() {
+        NEConfig.largeWorkstationTemperatureEnabled = previousTemperatureEnabled;
     }
 
     @Test
@@ -217,6 +233,171 @@ class LargeWorkstationThermalControllerTest {
         assertTrue(((KeyCounter) value(batch, "inputTotal")).isEmpty());
         assertEquals(100, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
         assertTrue(host.getTemperature() > 80);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0,256", "2,16384", "6,65536", "9,262144"})
+    void disabledTemperatureUsesCoolantTierRegardlessOfHeatOrSelectedMaximum(int tier, int expected) throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "selectedOverclockTier", 2);
+        field(host, "activeCooling", true);
+        if (tier == 0) when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of());
+        else {
+            coolant(Fluids.WATER, tier, FluidStack.EMPTY);
+            input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        }
+        assertEquals(expected, host.getMaxBatchParallelism(), "Cold machine needs no preheat");
+        field(host, "temperature", 100.0);
+        field(host, "overheated", true);
+        assertEquals(expected, host.getMaxBatchParallelism(), "Saved overheat cannot block coolant mode");
+        assertTrue(host.canAcceptPattern());
+        field(host, "activeCooling", false);
+        assertEquals(256, host.getMaxBatchParallelism());
+        field(host, "activeCooling", true);
+        field(host, "overclocked", false);
+        assertEquals(256, host.getMaxBatchParallelism());
+    }
+
+    @Test
+    void coolantModeDoesNotConsumeWhileIdleOrRunThermalControls() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "temperature", 50.0);
+        field(host, "activeCooling", true);
+        coolant(cryotheum, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(cryotheum, 1000));
+        host.togglePreheating();
+        host.cycleOverclockTier();
+        for (int i = 0; i < 20; i++) tick();
+        assertEquals(50, host.getTemperature());
+        assertEquals(1000, input.getFluidAmount());
+        assertEquals(9, value(host, "selectedOverclockTier"));
+        assertFalse((boolean) value(host, "preheating"));
+        verify(host, never()).extractAEPower(anyDouble(), any(), any());
+    }
+
+    @Test
+    void coolantModeConsumesOneHundredMbWithByproductAndChargesOnlyBaseRecipeEnergy() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "activeCooling", true);
+        field(host, "temperature", 100.0);
+        field(host, "overheated", true);
+        coolant(Fluids.WATER, 6, new FluidStack(Fluids.LAVA, 100));
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        var batch = queuedBatch(6);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        verify(host).extractAEPower(eq(100_000.0), eq(Actionable.MODULATE), any());
+        assertEquals(200, value(batch, "progress"));
+        assertEquals(900, input.getFluidAmount());
+        assertEquals(100, output.getFluidAmount());
+        assertEquals(100, host.getTemperature(), "Temperature state is frozen");
+        assertTrue((boolean) value(host, "overheated"), "Latch is saved for re-enabling temperature mode");
+        assertEquals(100, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2,1000,true,false", "9,99,true,false", "9,1000,false,false", "9,1000,true,true"})
+    void coolantModePausesForLowTierLowAmountDisabledCoolingOrBlockedOutput(
+        int coolantTier, int amount, boolean enabled, boolean blocked
+    ) throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "activeCooling", enabled);
+        coolant(Fluids.WATER, coolantTier, new FluidStack(Fluids.LAVA, 100));
+        input.setFluid(new FluidStack(Fluids.WATER, amount));
+        if (blocked) output.setFluid(new FluidStack(Fluids.WATER, 100_000));
+        var batch = queuedBatch(9);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(0, value(batch, "progress"));
+        assertEquals(amount, input.getFluidAmount());
+        assertEquals(400, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
+    void coolantModeDoesNotConsumeWithoutProcessingPower() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "activeCooling", true);
+        coolant(Fluids.WATER, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        var batch = queuedBatch(9);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(0, value(batch, "progress"));
+        assertEquals(1000, input.getFluidAmount());
+    }
+
+    @Test
+    void reEnablingTemperatureChecksTheSameBatchWithoutLosingOwnedInputs() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "activeCooling", true);
+        field(host, "temperature", 10.0);
+        coolant(Fluids.WATER, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        var batch = queuedBatch(9);
+        doAnswer(call -> Math.min((double) call.getArgument(0), 50_000.0))
+            .when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(100, value(batch, "progress"));
+        NEConfig.largeWorkstationTemperatureEnabled = true;
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(100, value(batch, "progress"));
+        assertEquals(400, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        assertEquals(900, input.getFluidAmount());
+    }
+
+    @Test
+    void disablingTemperatureBypassesButDoesNotEraseSavedProtection() throws Exception {
+        field(host, "temperature", 100.0);
+        field(host, "overheated", true);
+        assertEquals(0, host.getMaxBatchParallelism());
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        assertEquals(256, host.getMaxBatchParallelism());
+        host.togglePreheating();
+        tick();
+        assertTrue((boolean) value(host, "overheated"));
+        assertEquals(100, host.getTemperature());
+        NEConfig.largeWorkstationTemperatureEnabled = true;
+        assertEquals(0, host.getMaxBatchParallelism());
+    }
+
+    @Test
+    void normalCoolantModeBatchNeedsNoLiquidAndDoesNotConsumeAvailableCoolant() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "activeCooling", true);
+        coolant(Fluids.WATER, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        var batch = queuedBatch(0);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(200, value(batch, "progress"));
+        assertEquals(1000, input.getFluidAmount());
+    }
+
+    @Test
+    void acceptedCoolantBatchWaitsWhenNoCoolantRecipeIsAvailable() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "activeCooling", true);
+        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of());
+        var batch = queuedBatch(9);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(0, value(batch, "progress"));
+        assertEquals(400, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+    }
+
+    private Object queuedBatch(int tier) throws Exception {
+        var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
+        var constructor = type.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        var owned = new KeyCounter();
+        owned.add(AEItemKey.of(Items.IRON_INGOT), 400);
+        var produced = new KeyCounter();
+        produced.add(AEItemKey.of(Items.DIAMOND), 100);
+        Object batch = constructor.newInstance(100L, 1000L, tier, 1, owned, produced,
+            null, ResourceLocation.parse("test:thermal"), null, null, 0L);
+        var queue = new ArrayDeque<>();
+        queue.add(batch);
+        field(host, "pendingBatches", queue);
+        return batch;
     }
 
     private void coolant(Fluid fluid, int tier, FluidStack byproduct) {

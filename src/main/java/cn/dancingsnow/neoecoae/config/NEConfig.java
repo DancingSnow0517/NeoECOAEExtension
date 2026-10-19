@@ -87,6 +87,20 @@ public class NEConfig {
         .translation("neoecoae.configuration.postCraftingEvent")
         .define("postCraftingEvent", false);
 
+    private static final ModConfigSpec.BooleanValue LARGE_WORKSTATION_TEMPERATURE_ENABLED = BUILDER
+        .comment(
+            "启用大型集成工作站的温度、预热和过热恢复机制，默认开启。",
+            "关闭后使用冷却液模式：同时开启超频与主动冷却，水/钠/凛冰分别提供 16384/65536/262144 并行，常规为 256。",
+            "冷却液模式仅在超频批次实际推进时消耗 100 mB 冷却液，不检查温度；全部档位保持 1 倍配方能耗。",
+            "修改后重新进入世界或重启服务器。",
+            "Enable large workstation temperature, preheating and overheat recovery. Enabled by default.",
+            "When disabled, overclock plus active cooling selects 16384/65536/262144 parallel from water/sodium/cryotheum; normal is 256.",
+            "Coolant mode consumes 100 mB only when an overclocked batch advances, ignores temperature and keeps x1 recipe energy.",
+            "Reopen the world or restart the server after changing this option.")
+        .worldRestart()
+        .translation("neoecoae.configuration.largeWorkstationTemperatureEnabled")
+        .define("largeWorkstationTemperatureEnabled", true);
+
     private static final ModConfigSpec.BooleanValue LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED = BUILDER
         .comment(
             "允许大型集成工作站处理受支持模组的联动配方，默认关闭。",
@@ -242,6 +256,7 @@ public class NEConfig {
     public static long megaBulkAutoMarkThreshold = 20_000L;
     public static boolean postCraftingEvent;
     public static boolean largeWorkstationCompatRecipesEnabled = false;
+    public static boolean largeWorkstationTemperatureEnabled = true;
     public static int craftingPatternBusPages = 1;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
@@ -270,6 +285,7 @@ public class NEConfig {
         megaBulkAutoMarkThreshold = MEGA_BULK_AUTO_MARK_THRESHOLD.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         largeWorkstationCompatRecipesEnabled = LARGE_WORKSTATION_COMPAT_RECIPES_ENABLED.get();
+        largeWorkstationTemperatureEnabled = LARGE_WORKSTATION_TEMPERATURE_ENABLED.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();

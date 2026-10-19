@@ -39,6 +39,12 @@ public class ConfigLangs {
             "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n" +
                 "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
         );
+        provider.add("neoecoae.configuration.largeWorkstationTemperatureEnabled", "Enable Large Workstation Temperature");
+        provider.add("neoecoae.configuration.largeWorkstationTemperatureEnabled.tooltip",
+            "Enabled by default. Disable temperature, preheating and overheat recovery to use coolant-based parallelism.\n" +
+                "Enable overclock and active cooling: water / sodium / cryotheum provide 16,384 / 65,536 / 262,144 parallel; normal is 256.\n" +
+                "Consumes 100 mB per advancing overclocked processing tick; all tiers use x1 recipe energy.\n" +
+                "Reopen the world or restart the server after changing this option.");
         provider.add("neoecoae.configuration.largeWorkstationCompatRecipesEnabled", "Enable Large Workstation Recipe Compatibility");
         provider.add(
             "neoecoae.configuration.largeWorkstationCompatRecipesEnabled.tooltip",

@@ -17,6 +17,13 @@ public record LargeWorkstationOverclock(int coolingTier, int maxParallelism, int
         return NORMAL;
     }
 
+    /** Legacy coolant mode has no temperature or selected-tier requirement. */
+    public static LargeWorkstationOverclock forCoolant(boolean overclocked, boolean activeCooling, int coolingTier) {
+        if (!overclocked || !activeCooling) return NORMAL;
+        LargeWorkstationOverclock profile = forCoolingTier(coolingTier);
+        return profile == null ? NORMAL : profile;
+    }
+
     @Nullable
     public static LargeWorkstationOverclock forCoolingTier(int coolingTier) {
         return switch (coolingTier) {

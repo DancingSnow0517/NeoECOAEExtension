@@ -31,6 +31,19 @@ class LargeWorkstationOverclockTest {
     }
 
     @Test
+    void coolantModeUsesTheMatchingTierOnlyWhenBothSwitchesAreEnabled() {
+        assertEquals(256, LargeWorkstationOverclock.forCoolant(true, true, 0).maxParallelism());
+        assertEquals(256, LargeWorkstationOverclock.forCoolant(true, true, 4).maxParallelism());
+        assertEquals(256, LargeWorkstationOverclock.forCoolant(false, true, 9).maxParallelism());
+        assertEquals(256, LargeWorkstationOverclock.forCoolant(true, false, 9).maxParallelism());
+        for (int tier : new int[] {2, 6, 9}) {
+            assertEquals(LargeWorkstationOverclock.forCoolingTier(tier),
+                LargeWorkstationOverclock.forCoolant(true, true, tier));
+            assertEquals(1, LargeWorkstationOverclock.forCoolant(true, true, tier).energyMultiplier());
+        }
+    }
+
+    @Test
     void normalLegacyAndOverclockedBatchLimitsAreValidatedByTheirLockedProfile() {
         assertEquals(LargeWorkstationOverclock.NORMAL, LargeWorkstationOverclock.fromPersisted(0, 1));
         assertNull(LargeWorkstationOverclock.fromPersisted(6, 8));

@@ -47,6 +47,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.large_integrated_working_station.tier.cryotheum", "Cryotheum Solution");
         provider.add("gui.neoecoae.large_integrated_working_station.parallel_and_energy", "Parallel %s · Energy x%s");
         provider.add("gui.neoecoae.large_integrated_working_station.temperature", "Temperature: %s%%");
+        provider.add("gui.neoecoae.large_integrated_working_station.temperature_disabled", "Coolant mode: temperature disabled");
         provider.add("gui.neoecoae.large_integrated_working_station.recovery", "Temperature: %s%% · Cryotheum %s / 15 s");
         provider.add("gui.neoecoae.large_integrated_working_station.selected_tier", "Maximum OC tier: %s (click to cycle 2 / 6 / 9)");
         provider.add("gui.neoecoae.large_integrated_working_station.preheat.on", "Preheating: on (cooling disabled)");

@@ -30,7 +30,7 @@ item_ids:
 
 ## Parallelism and energy
 
-The normal batch limit is **256**. Enable overclocking and maintain the required temperature to use higher parallelism.
+The normal batch limit is **256**. Temperature mode is enabled by default: enable overclocking and maintain the required temperature for higher parallelism. The server configuration can also disable temperature and use coolant mode below.
 
 | Tier | Continuous operating temperature | Batch limit | Energy per recipe |
 | --- | ---: | ---: | ---: |
@@ -40,6 +40,23 @@ The normal batch limit is **256**. Enable overclocking and maintain the required
 | 9 | ≥80% | 262,144 | 1× |
 
 Energy scales with actual base-recipe operations. **1× does not mean an entire batch costs only one recipe's energy**: a batch of 100 operations pays 100 base recipe costs. Electrical preheating is charged separately.
+
+## Configuration: disabling temperature
+
+The server setting `largeWorkstationTemperatureEnabled` defaults to `true`. Set it to `false`, then reopen the world or restart the server to select parallelism directly from coolant tier. This mode requires no preheating or operating temperature and has no overheating or 15-second recovery requirement.
+
+| Coolant | Batch limit | Energy per recipe |
+| --- | ---: | ---: |
+| No coolant, or overclock / active cooling disabled | 256 | 1× |
+| Water (tier 2) | 16,384 | 1× |
+| Sodium (tier 6) | 65,536 | 1× |
+| Cryotheum Solution (tier 9) | 262,144 | 1× |
+
+Enable both **Overclock** and **Active Cooling**, then supply the corresponding coolant. Coolant tier directly determines the limit for new batches; the selected temperature tier and temperature thresholds do not apply. An overclocked batch consumes **100 mB per processing tick that actually advances work**. Idle, unpowered and paused machines consume none. Insufficient coolant, a coolant tier below the accepted batch's requirement or blocked byproducts pause the batch without losing inputs or progress. Higher-tier coolant can keep an existing lower-tier batch running.
+
+Disabling temperature stops preheating and thermal updates. The screen indicates coolant mode; preheating and temperature-tier controls have no effect. Saved temperature and overheat protection remain stored but do not block processing while disabled. Re-enabling temperature checks them again, so an already overheated machine still requires cryotheum recovery. Switching modes never discards accepted batches.
+
+**The preheating, temperature and overheat rules below apply only while temperature mode is enabled.**
 
 ## Starting and controlling temperature
 

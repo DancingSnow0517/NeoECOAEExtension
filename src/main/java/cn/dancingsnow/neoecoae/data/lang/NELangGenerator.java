@@ -222,11 +222,11 @@ public class NELangGenerator {
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting subsystem");
         provider.add("tooltip.neoecoae.large_integrated_working_station",
-            "256 base parallel; preheat and maintain temperature for higher parallel. All recipes use x1 energy");
-        provider.add("tooltip.neoecoae.large_integrated_working_station.water", "20%: 16,384 parallel; water cooling: -0.1 percentage points/s");
-        provider.add("tooltip.neoecoae.large_integrated_working_station.sodium", "50%: 65,536 parallel; sodium cooling: -0.3 percentage points/s");
-        provider.add("tooltip.neoecoae.large_integrated_working_station.cryotheum", "80%: 262,144 parallel; cryotheum cooling: -0.6 percentage points/s");
-        provider.add("tooltip.neoecoae.large_integrated_working_station.coolant_tick", "Active cooling: 100 mB/t, including paused ticks; overheat requires 15 s cryotheum");
+            "256 base parallel, x1 recipe energy. Temperature mode can be disabled in server config");
+        provider.add("tooltip.neoecoae.large_integrated_working_station.water", "Water: 16,384 parallel in coolant mode; temperature mode requires 20%");
+        provider.add("tooltip.neoecoae.large_integrated_working_station.sodium", "Sodium: 65,536 parallel in coolant mode; temperature mode requires 50%");
+        provider.add("tooltip.neoecoae.large_integrated_working_station.cryotheum", "Cryotheum: 262,144 parallel in coolant mode; temperature mode requires 80%");
+        provider.add("tooltip.neoecoae.large_integrated_working_station.coolant_tick", "100 mB/t: temperature mode cools while paused; coolant mode consumes only for advancing overclocked work");
         provider.add("tooltip.neoecoae.crafting_parallels", "Parallel core provides parallel count to the crafting subsystem");
         provider.add("tooltip.neoecoae.max_parallel_count", "Max parallel count +%d");
         provider.add("tooltip.neoecoae.overclocked", "When enabling overclocking:");

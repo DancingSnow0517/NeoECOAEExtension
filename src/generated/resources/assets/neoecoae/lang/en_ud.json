@@ -707,13 +707,16 @@
   "gui.neoecoae.large_integrated_working_station.preheat.off": "(ʇɹɐʇs oʇ ʞɔıןɔ ؛ƎⱯ sǝsn) ɹǝıʇ pǝʇɔǝןǝs oʇ ʇɐǝɥǝɹԀ",
   "gui.neoecoae.large_integrated_working_station.pause.temperature_low": "ʎןןɐnuɐɯ ʇɐǝɥǝɹd ؛ʇuǝɯǝɹınbǝɹ ɥɔʇɐq ʍoןǝq ǝɹnʇɐɹǝdɯǝ⟘ :pǝsnɐԀ",
   "gui.neoecoae.large_integrated_working_station.pause.overheated": "pǝɹınbǝɹ buıןooɔ ɯnǝɥʇoʎɹɔ ǝʌıʇɔɐ pǝʇdnɹɹǝʇuıun s ϛƖ :pǝʇɐǝɥɹǝʌO",
-  "tooltip.neoecoae.large_integrated_working_station": "ʎbɹǝuǝ Ɩx ǝsn sǝdıɔǝɹ ןןⱯ ˙ןǝןןɐɹɐd ɹǝɥbıɥ ɹoɟ ǝɹnʇɐɹǝdɯǝʇ uıɐʇuıɐɯ puɐ ʇɐǝɥǝɹd ؛ןǝןןɐɹɐd ǝsɐq 9ϛᄅ",
-  "tooltip.neoecoae.large_integrated_working_station.water": "s\\sʇuıod ǝbɐʇuǝɔɹǝd Ɩ˙0- :buıןooɔ ɹǝʇɐʍ ؛ןǝןןɐɹɐd ㄣ8Ɛ'9Ɩ :%0ᄅ",
-  "tooltip.neoecoae.large_integrated_working_station.sodium": "s\\sʇuıod ǝbɐʇuǝɔɹǝd Ɛ˙0- :buıןooɔ ɯnıpos ؛ןǝןןɐɹɐd 9Ɛϛ'ϛ9 :%0ϛ",
-  "tooltip.neoecoae.large_integrated_working_station.cryotheum": "s\\sʇuıod ǝbɐʇuǝɔɹǝd 9˙0- :buıןooɔ ɯnǝɥʇoʎɹɔ ؛ןǝןןɐɹɐd ㄣㄣƖ'ᄅ9ᄅ :%08",
-  "tooltip.neoecoae.large_integrated_working_station.coolant_tick": "ɯnǝɥʇoʎɹɔ s ϛƖ sǝɹınbǝɹ ʇɐǝɥɹǝʌo ؛sʞɔıʇ pǝsnɐd buıpnןɔuı 'ʇ\\ᗺɯ 00Ɩ :buıןooɔ ǝʌıʇɔⱯ",
+  "tooltip.neoecoae.large_integrated_working_station": "bıɟuoɔ ɹǝʌɹǝs uı pǝןqɐsıp ǝq uɐɔ ǝpoɯ ǝɹnʇɐɹǝdɯǝ⟘ ˙ʎbɹǝuǝ ǝdıɔǝɹ Ɩx 'ןǝןןɐɹɐd ǝsɐq 9ϛᄅ",
+  "tooltip.neoecoae.large_integrated_working_station.water": "%0ᄅ sǝɹınbǝɹ ǝpoɯ ǝɹnʇɐɹǝdɯǝʇ ؛ǝpoɯ ʇuɐןooɔ uı ןǝןןɐɹɐd ㄣ8Ɛ'9Ɩ :ɹǝʇɐM",
+  "tooltip.neoecoae.large_integrated_working_station.sodium": "%0ϛ sǝɹınbǝɹ ǝpoɯ ǝɹnʇɐɹǝdɯǝʇ ؛ǝpoɯ ʇuɐןooɔ uı ןǝןןɐɹɐd 9Ɛϛ'ϛ9 :ɯnıpoS",
+  "tooltip.neoecoae.large_integrated_working_station.cryotheum": "%08 sǝɹınbǝɹ ǝpoɯ ǝɹnʇɐɹǝdɯǝʇ ؛ǝpoɯ ʇuɐןooɔ uı ןǝןןɐɹɐd ㄣㄣƖ'ᄅ9ᄅ :ɯnǝɥʇoʎɹƆ",
+  "tooltip.neoecoae.large_integrated_working_station.coolant_tick": "ʞɹoʍ pǝʞɔoןɔɹǝʌo buıɔuɐʌpɐ ɹoɟ ʎןuo sǝɯnsuoɔ ǝpoɯ ʇuɐןooɔ ؛pǝsnɐd ǝןıɥʍ sןooɔ ǝpoɯ ǝɹnʇɐɹǝdɯǝʇ :ʇ\\ᗺɯ 00Ɩ",
   "gui.neoecoae.large_integrated_working_station.pause.coolant_missing": "ʇuɐןooɔ oN :buıןooƆ",
   "gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low": "ɹǝıʇ ʇuɐןooɔ pǝʇɹoddnsu∩ :buıןooƆ",
   "gui.neoecoae.large_integrated_working_station.pause.coolant_insufficient": "ʇuɐןooɔ ʇuǝıɔıɟɟnsuI :buıןooƆ",
-  "gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked": "pǝʞɔoןq ʇndʇno ʇuɐןooƆ :buıןooƆ"
+  "gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked": "pǝʞɔoןq ʇndʇno ʇuɐןooƆ :buıןooƆ",
+  "neoecoae.configuration.largeWorkstationTemperatureEnabled": "ǝɹnʇɐɹǝdɯǝ⟘ uoıʇɐʇsʞɹoM ǝbɹɐꞀ ǝןqɐuƎ",
+  "neoecoae.configuration.largeWorkstationTemperatureEnabled.tooltip": "˙uoıʇdo sıɥʇ buıbuɐɥɔ ɹǝʇɟɐ ɹǝʌɹǝs ǝɥʇ ʇɹɐʇsǝɹ ɹo pןɹoʍ ǝɥʇ uǝdoǝᴚ\n˙ʎbɹǝuǝ ǝdıɔǝɹ Ɩx ǝsn sɹǝıʇ ןןɐ ؛ʞɔıʇ buıssǝɔoɹd pǝʞɔoןɔɹǝʌo buıɔuɐʌpɐ ɹǝd ᗺɯ 00Ɩ sǝɯnsuoƆ\n˙9ϛᄅ sı ןɐɯɹou ؛ןǝןןɐɹɐd ㄣㄣƖ'ᄅ9ᄅ \\ 9Ɛϛ'ϛ9 \\ ㄣ8Ɛ'9Ɩ ǝpıʌoɹd ɯnǝɥʇoʎɹɔ \\ ɯnıpos \\ ɹǝʇɐʍ :buıןooɔ ǝʌıʇɔɐ puɐ ʞɔoןɔɹǝʌo ǝןqɐuƎ\n˙ɯsıןǝןןɐɹɐd pǝsɐq-ʇuɐןooɔ ǝsn oʇ ʎɹǝʌoɔǝɹ ʇɐǝɥɹǝʌo puɐ buıʇɐǝɥǝɹd 'ǝɹnʇɐɹǝdɯǝʇ ǝןqɐsıᗡ ˙ʇןnɐɟǝp ʎq pǝןqɐuƎ",
+  "gui.neoecoae.large_integrated_working_station.temperature_disabled": "pǝןqɐsıp ǝɹnʇɐɹǝdɯǝʇ :ǝpoɯ ʇuɐןooƆ"
 }

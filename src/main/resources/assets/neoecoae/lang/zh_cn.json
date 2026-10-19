@@ -975,11 +975,11 @@
   "gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.network_unavailable": "（尝试写入 ME 网络失败：网络不可用）",
   "gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.network_insert": "（尝试写入 ME 存储失败：只接收了部分产物）",
   "gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.input_return": "（尝试退回已占有输入失败：ME 存储只接收了部分输入）",
-  "tooltip.neoecoae.large_integrated_working_station": "常规 256 并行；预热并持续满足温度门槛可提高并行，全部配方耗能 ×1",
-  "tooltip.neoecoae.large_integrated_working_station.water": "20%：16,384 并行；水每秒降温 0.1 个百分点",
-  "tooltip.neoecoae.large_integrated_working_station.sodium": "50%：65,536 并行；钠每秒降温 0.3 个百分点",
-  "tooltip.neoecoae.large_integrated_working_station.cryotheum": "80%：262,144 并行；凛冰溶液每秒降温 0.6 个百分点",
-  "tooltip.neoecoae.large_integrated_working_station.coolant_tick": "主动冷却每 tick 消耗 100 mB，暂停时仍可冷却；过热需连续 15 秒凛冰冷却",
+  "tooltip.neoecoae.large_integrated_working_station": "常规 256 并行，全部配方能耗 ×1；可通过服务器配置关闭温度机制",
+  "tooltip.neoecoae.large_integrated_working_station.water": "冷却液模式通入水：16,384 并行；温度模式门槛为 20%",
+  "tooltip.neoecoae.large_integrated_working_station.sodium": "冷却液模式通入钠：65,536 并行；温度模式门槛为 50%",
+  "tooltip.neoecoae.large_integrated_working_station.cryotheum": "冷却液模式通入凛冰：262,144 并行；温度模式门槛为 80%",
+  "tooltip.neoecoae.large_integrated_working_station.coolant_tick": "每 tick 100 mB：温度模式暂停时仍可冷却；冷却液模式仅在超频批次实际推进时消耗",
   "cell_type.neoecoae.bulk_item": "大宗物品",
   "cell_type.neoecoae.mega_mana": "MEGA 魔力",
   "cell_type.neoecoae.mega_source": "MEGA 源质",
@@ -1084,5 +1084,8 @@
   "item.neoecoae.eco_digital_singularity_experience_storage_cell": "ECO - L9 数字奇点存储矩阵（经验）",
   "cell_type.neoecoae.bigger_ae2_source": "Bigger AE2 魔源",
   "item.neoecoae.eco_quantum_source_storage_cell": "ECO - L6 量子存储矩阵（魔源）",
-  "item.neoecoae.eco_digital_singularity_source_storage_cell": "ECO - L9 数字奇点存储矩阵（魔源）"
+  "item.neoecoae.eco_digital_singularity_source_storage_cell": "ECO - L9 数字奇点存储矩阵（魔源）",
+  "neoecoae.configuration.largeWorkstationTemperatureEnabled": "启用大型集成工作站温度机制",
+  "neoecoae.configuration.largeWorkstationTemperatureEnabled.tooltip": "默认开启。关闭后停用温度、预热和过热恢复，按冷却液等级提供并行。\n同时开启超频和主动冷却：水／钠／凛冰对应 16,384／65,536／262,144 并行，常规为 256。\n仅在超频批次实际推进时消耗 100 mB，全部档位每份配方能耗 1×。\n修改后重新进入世界或重启服务器。",
+  "gui.neoecoae.large_integrated_working_station.temperature_disabled": "冷却液模式：温度机制已关闭"
 }

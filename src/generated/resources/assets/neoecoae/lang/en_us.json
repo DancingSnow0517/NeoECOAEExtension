@@ -996,11 +996,11 @@
   "tooltip.neoecoae.infinite_resource.contents": "Infinite supply: Water / Cobblestone / Lava",
   "tooltip.neoecoae.infinite_resource.sink": "Accepts only the three listed resources; inserted resources are destroyed",
   "tooltip.neoecoae.infinite_resource.unbounded": "Can be extracted directly by the ME network and never runs out",
-  "tooltip.neoecoae.large_integrated_working_station": "256 base parallel; preheat and maintain temperature for higher parallel. All recipes use x1 energy",
-  "tooltip.neoecoae.large_integrated_working_station.coolant_tick": "Active cooling: 100 mB/t, including paused ticks; overheat requires 15 s cryotheum",
-  "tooltip.neoecoae.large_integrated_working_station.cryotheum": "80%: 262,144 parallel; cryotheum cooling: -0.6 percentage points/s",
-  "tooltip.neoecoae.large_integrated_working_station.sodium": "50%: 65,536 parallel; sodium cooling: -0.3 percentage points/s",
-  "tooltip.neoecoae.large_integrated_working_station.water": "20%: 16,384 parallel; water cooling: -0.1 percentage points/s",
+  "tooltip.neoecoae.large_integrated_working_station": "256 base parallel, x1 recipe energy. Temperature mode can be disabled in server config",
+  "tooltip.neoecoae.large_integrated_working_station.coolant_tick": "100 mB/t: temperature mode cools while paused; coolant mode consumes only for advancing overclocked work",
+  "tooltip.neoecoae.large_integrated_working_station.cryotheum": "Cryotheum: 262,144 parallel in coolant mode; temperature mode requires 80%",
+  "tooltip.neoecoae.large_integrated_working_station.sodium": "Sodium: 65,536 parallel in coolant mode; temperature mode requires 50%",
+  "tooltip.neoecoae.large_integrated_working_station.water": "Water: 16,384 parallel in coolant mode; temperature mode requires 20%",
   "tooltip.neoecoae.max_lenth": "Maximum length of structure: %d",
   "tooltip.neoecoae.max_parallel_count": "Max parallel count +%d",
   "tooltip.neoecoae.max_thread_count": "Max thread count +%d",
@@ -1082,5 +1082,8 @@
   "item.neoecoae.eco_digital_singularity_experience_storage_cell": "ECO - L9 Digital Singularity Storage Matrix (Experience)",
   "cell_type.neoecoae.bigger_ae2_source": "Bigger AE2 Source",
   "item.neoecoae.eco_quantum_source_storage_cell": "ECO - L6 Quantum Storage Matrix (Source)",
-  "item.neoecoae.eco_digital_singularity_source_storage_cell": "ECO - L9 Digital Singularity Storage Matrix (Source)"
+  "item.neoecoae.eco_digital_singularity_source_storage_cell": "ECO - L9 Digital Singularity Storage Matrix (Source)",
+  "neoecoae.configuration.largeWorkstationTemperatureEnabled": "Enable Large Workstation Temperature",
+  "neoecoae.configuration.largeWorkstationTemperatureEnabled.tooltip": "Enabled by default. Disable temperature, preheating and overheat recovery to use coolant-based parallelism.\nEnable overclock and active cooling: water / sodium / cryotheum provide 16,384 / 65,536 / 262,144 parallel; normal is 256.\nConsumes 100 mB per advancing overclocked processing tick; all tiers use x1 recipe energy.\nReopen the world or restart the server after changing this option.",
+  "gui.neoecoae.large_integrated_working_station.temperature_disabled": "Coolant mode: temperature disabled"
 }
