@@ -2,11 +2,14 @@ package cn.dancingsnow.neoecoae.mixins.minecraft;
 
 import appeng.core.definitions.AEBlocks;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.achievement.ECOAdvancementService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -44,6 +47,7 @@ public abstract class LightningBoltMixin extends Entity {
     private void onLightningLand(CallbackInfo ci) {
         Level level = this.level();
         BlockPos landPos = getStrikePosition();
+        boolean achievementAwarded = false;
         for (int dx = -1; dx<=1;dx++) {
             for (int dy = -1; dy<=1;dy++) {
                 for (int dz = -1; dz<=1;dz++) {
@@ -54,6 +58,18 @@ public abstract class LightningBoltMixin extends Entity {
                         int chance = 2 + distance;
                         if (level.getRandom().nextInt(chance) == 0) {
                             level.setBlockAndUpdate(offset, TRANSFORM_MAP.get(blockState.getBlock()).defaultBlockState());
+                            if (!achievementAwarded && level instanceof ServerLevel serverLevel) {
+                                ServerPlayer cause = ((LightningBolt) (Object) this).getCause();
+                                ECOAdvancementService.awardNearest(
+                                    serverLevel,
+                                    offset,
+                                    16.0D,
+                                    "eco/energized_crystal_lightning",
+                                    "lightning",
+                                    cause
+                                );
+                                achievementAwarded = true;
+                            }
                         }
                     }
                 }

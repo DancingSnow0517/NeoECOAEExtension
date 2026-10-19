@@ -27,6 +27,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.achievement.ECOAdvancementService;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
@@ -236,7 +237,18 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public void setFormed(boolean value) {
         if (formed != value) {
+            boolean wasFormed = formed;
             formed = value;
+            if (!wasFormed && value && level instanceof ServerLevel serverLevel) {
+                ECOAdvancementService.awardNearest(
+                    serverLevel,
+                    worldPosition,
+                    16.0D,
+                    "eco/large_integrated_formed",
+                    "formed",
+                    null
+                );
+            }
             PendingBatch batch = pendingBatches.peekFirst();
             setProcessingTime(value && batch != null ? batch.progress : 0);
             cachedTask = null;
