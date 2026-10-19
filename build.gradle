@@ -123,6 +123,7 @@ repositories {
 configurations {
     curiosDevMod
     devMods
+    createDevMod
 }
 
 dependencies {
@@ -146,7 +147,7 @@ dependencies {
     devMods("maven.modrinth:replication:XfQXDcjc") { transitive = false } // 1.21.1-1.2.7
     devMods("maven.modrinth:kotlin-for-forge:uhJhCT7X") { transitive = false } // 5.12.0
     devMods("maven.modrinth:applied-create:2bWngfNH") { transitive = false } // 1.1.7
-    devMods("maven.modrinth:create:UjX6dr61") { transitive = false } // 6.0.10, embeds Flywheel/Ponder
+    createDevMod("maven.modrinth:create:UjX6dr61") { transitive = false } // 6.0.10, embeds Flywheel/Ponder
     devMods("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
     // Data Energistics embeds Configuration 3.1.1; do not install a second standalone copy.
     testImplementation(platform('org.junit:junit-bom:5.11.4'))
@@ -346,8 +347,53 @@ configurations {
 
 // The dev launcher discovers Curios only when its JAR is in run/mods. Keep it
 // off the Java module path to avoid loading the same module twice.
+// Create's embedded Registrate would otherwise duplicate our runtimeClasspath copy.
+abstract class PrepareCreateDevMod extends DefaultTask {
+    @InputFile
+    @PathSensitive(PathSensitivity.NONE)
+    abstract RegularFileProperty getSourceJar()
+
+    @OutputFile
+    abstract RegularFileProperty getPreparedJar()
+
+    @TaskAction
+    void prepare() {
+        def output = preparedJar.get().asFile
+        output.parentFile.mkdirs()
+        new java.util.zip.ZipFile(sourceJar.get().asFile).withCloseable { source ->
+            def metadataPath = 'META-INF/jarjar/metadata.json'
+            def metadata = source.getInputStream(source.getEntry(metadataPath)).withCloseable {
+                new groovy.json.JsonSlurper().parse(it)
+            }
+            def redundant = metadata.jars.findAll {
+                it.identifier.group == 'com.tterrag.registrate' && it.identifier.artifact == 'Registrate'
+            }.collect { it.path }.toSet()
+            metadata.jars.removeAll { redundant.contains(it.path) }
+            new java.util.zip.ZipOutputStream(new FileOutputStream(output)).withCloseable { target ->
+                source.entries().each { entry ->
+                    if (!redundant.contains(entry.name)) {
+                        target.putNextEntry(new java.util.zip.ZipEntry(entry.name))
+                        if (entry.name == metadataPath) {
+                            target.write(groovy.json.JsonOutput.toJson(metadata).getBytes('UTF-8'))
+                        } else {
+                            source.getInputStream(entry).withCloseable { it.transferTo(target) }
+                        }
+                        target.closeEntry()
+                    }
+                }
+            }
+        }
+    }
+}
+
+def prepareCreateDevMod = tasks.register('prepareCreateDevMod', PrepareCreateDevMod) {
+    sourceJar.set(layout.file(configurations.createDevMod.elements.map { it.iterator().next().asFile }))
+    preparedJar.set(layout.buildDirectory.file('dev-mods/create-UjX6dr61.jar'))
+}
+
 def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
     from(configurations.curiosDevMod, configurations.devMods)
+    from(prepareCreateDevMod.flatMap { it.preparedJar })
     into(layout.projectDirectory.dir("run/mods"))
 }
 
