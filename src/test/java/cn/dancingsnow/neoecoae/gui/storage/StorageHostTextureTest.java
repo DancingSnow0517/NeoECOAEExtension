@@ -50,4 +50,14 @@ class StorageHostTextureTest {
             }
         }
     }
+
+    @Test
+    void infiniteCapacityBarUsesThePinkRepeatingWidgetCrop() {
+        var bar = StoragePanelTextures.INFINITE_CAPACITY_BAR;
+        assertEquals(32, bar.spritePosition.x);
+        assertEquals(79, bar.spritePosition.y);
+        assertEquals(24, bar.spriteSize.width);
+        assertEquals(7, bar.spriteSize.height);
+        assertEquals(com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture.WrapMode.REPEAT, bar.wrapMode);
+    }
 }

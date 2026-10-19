@@ -14,7 +14,11 @@ final class StoragePanelTextures {
     // single uploaded frame, so sampling that texture as a 12x120 sheet breaks the UVs.
     static final VanillaSpriteTexture INFINITE_ANIMATION = VanillaSpriteTexture.of(
         ResourceLocation.fromNamespaceAndPath("neoecoae", "storage/infinity"));
-    static final SpriteTexture INFINITE_CAPACITY_BAR = SpriteTexture.of(id("infinite_capacity_bar.png"));
+    // The infinite-capacity artwork is a 24x7 repeating crop in the widget atlas:
+    // two pink infinity glyphs followed by two light separator strokes. Repeat the
+    // crop horizontally so the atlas pixels keep their intended size in the 160px bar.
+    static final SpriteTexture INFINITE_CAPACITY_BAR = sprite(32, 79, 24, 7)
+        .setWrapMode(SpriteTexture.WrapMode.REPEAT);
     static final SpriteTexture HOST_ICON_BACKGROUND = sprite(0, 18, 16, 34);
     static final SpriteTexture TYPE_PANEL = sprite(0, 104, 68, 29);
     static final SpriteTexture BLUE_BAR = sprite(68, 105, 29, 4);
