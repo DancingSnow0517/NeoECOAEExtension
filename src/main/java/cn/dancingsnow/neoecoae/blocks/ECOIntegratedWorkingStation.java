@@ -5,6 +5,7 @@ import appeng.api.orientation.OrientationStrategies;
 import appeng.block.AEBaseEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
@@ -19,6 +20,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.BooleanOp;
@@ -32,6 +34,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     public static final Property<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final Property<Boolean> WORKING = BooleanProperty.create("working");
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
+    public static final EnumProperty<LargeWorkstationModule> MODULE = EnumProperty.create("module", LargeWorkstationModule.class);
 
     private static final VoxelShape NORTH = Stream.of(
         Block.box(4, 4, 1, 12, 15, 12),
@@ -81,7 +84,8 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
 
     public ECOIntegratedWorkingStation(Properties props) {
         super(props);
-        registerDefaultState(getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false).setValue(FORMED, false));
+        registerDefaultState(getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false)
+            .setValue(FORMED, false).setValue(MODULE, LargeWorkstationModule.REGULAR));
     }
 
     @Override
@@ -92,7 +96,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(WORKING, FORMED);
+        builder.add(WORKING, FORMED, MODULE);
     }
 
     @Override

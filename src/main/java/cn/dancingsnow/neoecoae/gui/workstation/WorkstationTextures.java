@@ -1,0 +1,48 @@
+package cn.dancingsnow.neoecoae.gui.workstation;
+
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import net.minecraft.resources.ResourceLocation;
+
+/** Pixel coordinates in the supplied workstation atlas; all sprites remain resource replaceable. */
+public final class WorkstationTextures {
+    public static final ResourceLocation WIDGETS = NeoECOAE.id("textures/guis/workstation/integrated_working_station_widget.png");
+    public static final ResourceLocation LARGE = NeoECOAE.id("textures/guis/workstation/large_integrated_working_station.png");
+    public static final ResourceLocation SMALL = NeoECOAE.id("textures/guis/workstation/integrated_working_station.png");
+
+    private WorkstationTextures() {}
+
+    public static SpriteTexture widget(int x, int y, int width, int height) {
+        return SpriteTexture.of(WIDGETS).setSprite(x, y, width, height);
+    }
+
+    public static SpriteTexture module(LargeWorkstationModule module) {
+        return widget(module.ordinal() * 15, 17, 15, 15);
+    }
+
+    public static SpriteTexture circuit(LargeWorkstationModule module) {
+        int[] x = {0, 28, 56, 84, 140, 168};
+        return widget(x[module.ordinal()], 34, 28, 28);
+    }
+
+    public static SpriteTexture toggle(boolean on, boolean hover) {
+        return widget((on ? 0 : 30) + (hover ? 15 : 0), 135, 15, 26);
+    }
+
+    /** The labels 4/6/9 name temperature bands, not multipliers or coolant recipe IDs. */
+    public static int temperatureBand(double temperature) {
+        if (!Double.isFinite(temperature) || temperature < 20) return 0;
+        return temperature < 50 ? 4 : temperature < 80 ? 6 : 9;
+    }
+
+    public static SpriteTexture temperatureIcon(double temperature) {
+        int y = switch (temperatureBand(temperature)) { case 4 -> 99; case 6 -> 111; case 9 -> 123; default -> 87; };
+        return widget(0, y, 12, 12);
+    }
+
+    public static SpriteTexture coolingIcon(int coolantTier) {
+        int y = switch (coolantTier) { case 6 -> 99; case 9 -> 111; default -> 87; };
+        return widget(12, y, 12, 12);
+    }
+}

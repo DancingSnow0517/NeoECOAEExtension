@@ -557,14 +557,14 @@ public class NEBlocks {
         .blockstate((ctx, prov) -> {
             ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station"));
             ModelFile modelFileWorking = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station_on"));
-            ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_off"));
-            ModelFile formedWorkingModel = prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_on"));
             prov.getVariantBuilder(ctx.get())
                 .forAllStates(s -> {
                     boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
                     boolean formed = s.getValue(ECOIntegratedWorkingStation.FORMED);
+                    ModelFile formedModel = prov.models().getExistingFile(prov.modLoc(
+                        s.getValue(ECOIntegratedWorkingStation.MODULE).modelPath(working)));
                     return ConfiguredModel.builder()
-                        .modelFile(formed ? (working ? formedWorkingModel : formedModel) : (working ? modelFileWorking : modelFile))
+                        .modelFile(formed ? formedModel : (working ? modelFileWorking : modelFile))
                         .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING).toYRot() + 180) % 360)
                         .build();
                 });
