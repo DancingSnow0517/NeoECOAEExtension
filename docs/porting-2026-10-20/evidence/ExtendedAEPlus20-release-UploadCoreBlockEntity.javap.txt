@@ -1,0 +1,16 @@
+Compiled from "UploadCoreBlockEntity.java"
+public class com.extendedae_plus.content.matrix.UploadCoreBlockEntity extends com.glodblock.github.extendedae.common.tileentities.matrix.TileAssemblerMatrixFunction implements com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart {
+  private com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster superMatrixCluster;
+  public com.extendedae_plus.content.matrix.UploadCoreBlockEntity(net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
+  public void add(com.glodblock.github.extendedae.common.me.matrix.ClusterAssemblerMatrix);
+  public void onReady();
+  public void onChunkUnloaded();
+  public void m_7651_();
+  public net.minecraft.core.BlockPos eap$getSuperMatrixPos();
+  public net.minecraft.world.level.Level eap$getSuperMatrixLevel();
+  public com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster eap$getSuperMatrixCluster();
+  public void eap$setSuperMatrixCluster(com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster);
+  public java.util.Set<net.minecraft.core.Direction> getGridConnectableSides(appeng.api.orientation.BlockOrientation);
+  public void onMainNodeStateChanged(appeng.api.networking.IGridNodeListener$State);
+  public void eap$updateSuperMatrixStatus();
+}

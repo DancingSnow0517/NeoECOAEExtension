@@ -1,0 +1,32 @@
+[
+  {
+    "file": "ae2-15.4.11-appeng.pom",
+    "url": "https://modmaven.dev/appeng/appliedenergistics2-forge/15.4.11/appliedenergistics2-forge-15.4.11.pom",
+    "date": "2026-10-20",
+    "http_status": 200,
+    "bytes": 407,
+    "sha256": "b9af97777be66f99553563f539d342c10a0db955c149f00ce3a0c1c15335779e"
+  },
+  {
+    "file": "guideme-20.1.15-central.pom",
+    "url": "https://repo.maven.apache.org/maven2/org/appliedenergistics/guideme/20.1.15/guideme-20.1.15.pom",
+    "date": "2026-10-20",
+    "http_status": 200,
+    "bytes": 1328,
+    "sha256": "a6a5d433cefd0195b03c7a76ac426623d98296b60226238aad198089d6deae7a"
+  },
+  {
+    "file": "guideme-20.1.15-guideme-maven.pom",
+    "url": "https://maven.guideme.appliedenergistics.org/org/appliedenergistics/guideme/20.1.15/guideme-20.1.15.pom",
+    "date": "2026-10-20",
+    "error": "<urlopen error _ssl.c:993: The handshake operation timed out>"
+  },
+  {
+    "file": "ae2addonlib-1.0.4-central.pom",
+    "url": "https://repo.maven.apache.org/maven2/io/github/pedroksl/ae2addonlib/1.0.4-1.20.1/ae2addonlib-1.0.4-1.20.1.pom",
+    "date": "2026-10-20",
+    "http_status": 200,
+    "bytes": 1313,
+    "sha256": "d0054c6bf478a81e4ab265d23f733077f3d1e7c8382ceb9c7d79564d46312da0"
+  }
+]

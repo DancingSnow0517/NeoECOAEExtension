@@ -1,0 +1,51 @@
+[
+  {
+    "file": "mdg-legacy-metadata.xml",
+    "url": "https://maven.neoforged.net/releases/net/neoforged/moddev/legacyforge/net.neoforged.moddev.legacyforge.gradle.plugin/maven-metadata.xml",
+    "date": "2026-10-20",
+    "status": "retrieved",
+    "bytes": 3351
+  },
+  {
+    "file": "mdg-legacy-2.0.148.pom",
+    "url": "https://maven.neoforged.net/releases/net/neoforged/moddev/legacyforge/net.neoforged.moddev.legacyforge.gradle.plugin/2.0.148/net.neoforged.moddev.legacyforge.gradle.plugin-2.0.148.pom",
+    "date": "2026-10-20",
+    "status": "retrieved",
+    "bytes": 833
+  },
+  {
+    "file": "neoforge-1.20.1-metadata.xml",
+    "url": "https://maven.neoforged.net/releases/net/neoforged/forge/maven-metadata.xml",
+    "date": "2026-10-20",
+    "status": "retrieved",
+    "bytes": 2830
+  },
+  {
+    "file": "forge-1.20.1-downloads.html",
+    "url": "https://files.minecraftforge.net/net/minecraftforge/forge/index_1.20.1.html",
+    "date": "2026-10-20",
+    "status": "retrieved",
+    "bytes": 692207
+  },
+  {
+    "file": "forge-promotions.json",
+    "url": "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json",
+    "date": "2026-10-20",
+    "status": "retrieved",
+    "bytes": 4113
+  },
+  {
+    "file": "registrate-metadata.xml",
+    "url": "https://maven.tterrag.com/com/tterrag/registrate/Registrate/maven-metadata.xml",
+    "date": "2026-10-20",
+    "status": "retrieved",
+    "bytes": 5215
+  },
+  {
+    "file": "mixinextras-forge-0.5.3.pom",
+    "url": "https://repo.maven.apache.org/maven2/io/github/llamalad7/mixinextras-forge/0.5.3/mixinextras-forge-0.5.3.pom",
+    "date": "2026-10-20",
+    "status": "retrieved",
+    "bytes": 1199
+  }
+]

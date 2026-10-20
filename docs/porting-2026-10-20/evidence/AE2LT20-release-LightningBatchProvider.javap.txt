@@ -1,0 +1,10 @@
+Compiled from "LightningBatchProvider.java"
+public interface com.moakiee.ae2lt.api.lightning.batch.LightningBatchProvider {
+  public static final int API_VERSION;
+  public static final net.minecraft.resources.ResourceLocation CAPABILITY_ID;
+  public default int capabilityVersion();
+  public default net.minecraft.resources.ResourceLocation capabilityId();
+  public abstract com.moakiee.ae2lt.api.lightning.batch.LightningBatchProvider$BatchCapability inspect(com.moakiee.ae2lt.api.lightning.batch.LightningBatchProvider$BatchRequest);
+  public abstract com.moakiee.ae2lt.api.lightning.batch.LightningBatchProvider$BatchSubmission submit(com.moakiee.ae2lt.api.lightning.batch.LightningBatchProvider$BatchRequest);
+  static {};
+}

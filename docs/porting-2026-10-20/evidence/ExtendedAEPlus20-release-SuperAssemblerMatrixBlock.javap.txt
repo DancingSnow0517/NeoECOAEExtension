@@ -1,0 +1,12 @@
+Compiled from "SuperAssemblerMatrixBlock.java"
+public abstract class com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixBlock<T extends com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixBlockEntity> extends appeng.block.AEBaseEntityBlock<T> {
+  protected com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixBlock(net.minecraft.world.level.block.state.BlockBehaviour$Properties);
+  protected void m_7926_(net.minecraft.world.level.block.state.StateDefinition$Builder<net.minecraft.world.level.block.Block, net.minecraft.world.level.block.state.BlockState>);
+  protected net.minecraft.world.level.block.state.BlockState updateBlockStateFromBlockEntity(net.minecraft.world.level.block.state.BlockState, T);
+  public net.minecraft.world.level.block.state.BlockState m_7417_(net.minecraft.world.level.block.state.BlockState, net.minecraft.core.Direction, net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.LevelAccessor, net.minecraft.core.BlockPos, net.minecraft.core.BlockPos);
+  public void m_6861_(net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.world.level.block.Block, net.minecraft.core.BlockPos, boolean);
+  public void m_6810_(net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState, boolean);
+  public net.minecraft.world.InteractionResult onActivated(net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand, net.minecraft.world.item.ItemStack, net.minecraft.world.phys.BlockHitResult);
+  private boolean isFormedForInteraction(net.minecraft.world.level.block.state.BlockState, T);
+  protected net.minecraft.world.level.block.state.BlockState updateBlockStateFromBlockEntity(net.minecraft.world.level.block.state.BlockState, appeng.blockentity.AEBaseBlockEntity);
+}

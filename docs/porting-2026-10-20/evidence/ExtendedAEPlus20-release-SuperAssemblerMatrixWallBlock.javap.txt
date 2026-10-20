@@ -1,0 +1,4 @@
+Compiled from "SuperAssemblerMatrixWallBlock.java"
+public class com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixWallBlock<T extends com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixBlockEntity> extends com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixBlock<T> {
+  public com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixWallBlock(net.minecraft.world.level.block.state.BlockBehaviour$Properties);
+}

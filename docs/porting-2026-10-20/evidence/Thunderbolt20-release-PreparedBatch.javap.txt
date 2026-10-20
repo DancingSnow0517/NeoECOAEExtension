@@ -1,0 +1,5 @@
+Compiled from "PreparedBatch.java"
+public interface com.moakiee.thunderbolt.api.crafting.batch.PreparedBatch {
+  public abstract long capacity();
+  public abstract long push(long);
+}

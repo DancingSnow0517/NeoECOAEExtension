@@ -1,0 +1,5 @@
+Compiled from "ExecutingCraftingJob.java"
+class net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob$TaskProgress {
+  long value;
+  net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob$TaskProgress();
+}

@@ -1,0 +1,1641 @@
+[
+  {
+    "config": "neoecoae.compat.advanced_ae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.AdvancedAeCraftingJobAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/advancedae/accessor/AdvancedAeCraftingJobAccessor.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = ExecutingCraftingJob.class, remap = false)"
+    ],
+    "hooks": [
+      "@Accessor(\"link\")\n    ",
+      "@Accessor(\"waitingFor\")\n    ",
+      "@Accessor(\"tasks\")\n    ",
+      "@Accessor(\"timeTracker\")\n    ",
+      "@Accessor(\"suspended\")\n    ",
+      "@Accessor(\"suspended\")\n    ",
+      "@Accessor(\"finalOutput\")\n    "
+    ],
+    "imports": [
+      "appeng.api.crafting.IPatternDetails",
+      "appeng.crafting.CraftingLink",
+      "appeng.crafting.inv.ListCraftingInventory",
+      "java.util.Map",
+      "net.pedroksl.advanced_ae.common.logic.ElapsedTimeTracker",
+      "net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.gen.Accessor"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.advanced_ae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.AdvancedAeElapsedTimeTrackerInvoker",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/advancedae/accessor/AdvancedAeElapsedTimeTrackerInvoker.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = ElapsedTimeTracker.class, remap = false)"
+    ],
+    "hooks": [
+      "@Invoker(\"addMaxItems\")\n    "
+    ],
+    "imports": [
+      "appeng.api.stacks.AEKeyType",
+      "net.pedroksl.advanced_ae.common.logic.ElapsedTimeTracker",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.gen.Invoker"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.advanced_ae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.AdvancedAeTaskProgressAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/advancedae/accessor/AdvancedAeTaskProgressAccessor.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(targets = \"net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob$TaskProgress\", remap = false)"
+    ],
+    "hooks": [
+      "@Accessor(\"value\")\n    ",
+      "@Accessor(\"value\")\n    "
+    ],
+    "imports": [
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.gen.Accessor"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.advanced_ae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.advancedae.crafting.AdvancedAeCraftingCpuLogicMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/advancedae/crafting/AdvancedAeCraftingCpuLogicMixin.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = AdvCraftingCPULogic.class, remap = false)"
+    ],
+    "hooks": [
+      "@Inject(method = \"finishJob\", at = @At(\"HEAD\")",
+      "@Inject(method = \"executeCrafting\", at = @At(\"HEAD\")",
+      "@Inject(method = \"trySubmitJob\", at = @At(\"HEAD\")",
+      "@Inject(method = \"tickCraftingLogic\", at = @At(\"HEAD\")",
+      "@Inject(method = \"readFromNBT\", at = @At(\"TAIL\")",
+      "@Inject(method = \"writeToNBT\", at = @At(\"TAIL\")",
+      "@WrapOperation(\n            method = \"executeCrafting\",\n            at = @At(\n                    value = \"INVOKE\",\n                    target = \"Lappeng/api/networking/crafting/ICraftingProvider;pushPattern(Lappeng/api/crafting/IPatternDetails;[Lappeng/api/stacks/KeyCounter;)"
+    ],
+    "imports": [
+      "appeng.api.networking.crafting.ICraftingProvider",
+      "appeng.api.config.Actionable",
+      "appeng.api.stacks.AEKey",
+      "cn.dancingsnow.neoecoae.api.me.output.ECOJobOutputReceiver",
+      "cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity",
+      "java.util.UUID",
+      "appeng.api.networking.energy.IEnergyService",
+      "appeng.api.stacks.KeyCounter",
+      "appeng.crafting.inv.ListCraftingInventory",
+      "cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity",
+      "cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob",
+      "cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "net.minecraft.world.level.Level",
+      "net.pedroksl.advanced_ae.common.cluster.AdvCraftingCPU",
+      "net.pedroksl.advanced_ae.common.logic.AdvCraftingCPULogic",
+      "net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob",
+      "org.jetbrains.annotations.Nullable",
+      "org.slf4j.Logger",
+      "org.slf4j.LoggerFactory",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.advanced_ae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.advancedae.crafting.AdvancedAeCraftingServiceMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/advancedae/crafting/AdvancedAeCraftingServiceMixin.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = CraftingService.class, remap = false)"
+    ],
+    "hooks": [],
+    "imports": [
+      "appeng.api.networking.IGrid",
+      "appeng.api.networking.crafting.ICraftingLink",
+      "appeng.api.config.Actionable",
+      "appeng.api.stacks.AEKey",
+      "appeng.me.service.CraftingService",
+      "cn.dancingsnow.neoecoae.api.me.output.ECOAdvancedAeCraftingOutputRouter",
+      "cn.dancingsnow.neoecoae.api.me.output.ECOJobOutputReceiver",
+      "java.util.HashSet",
+      "java.util.Set",
+      "java.util.UUID",
+      "net.pedroksl.advanced_ae.common.cluster.AdvCraftingCPUCluster",
+      "net.pedroksl.advanced_ae.common.entities.AdvCraftingBlockEntity",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.extendedae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.extendedae.ExtendedAeIOPortBlockEntityMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/extendedae/ExtendedAeIOPortBlockEntityMixin.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(TileExIOPort.class)"
+    ],
+    "hooks": [
+      "@WrapOperation(method = \"tickingRequest\", at = @At(value = \"INVOKE\", target = \"Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)"
+    ],
+    "imports": [
+      "appeng.api.storage.cells.ISaveProvider",
+      "appeng.api.storage.cells.StorageCell",
+      "cn.dancingsnow.neoecoae.api.storage.ECOStorageCells",
+      "com.glodblock.github.extendedae.common.tileentities.TileExIOPort",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "net.minecraft.world.item.ItemStack",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.injection.At"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.extendedae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.extendedae.ExtendedAeIOPortMenuMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/extendedae/ExtendedAeIOPortMenuMixin.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(ContainerExIOPort.class)"
+    ],
+    "hooks": [
+      "@WrapOperation(method = \"setupConfig\", at = @At(value = \"INVOKE\", target = \"Lcom/glodblock/github/extendedae/container/ContainerExIOPort;addSlot(Lnet/minecraft/world/inventory/Slot;Lappeng/menu/SlotSemantic;)"
+    ],
+    "imports": [
+      "appeng.api.inventories.InternalInventory",
+      "appeng.menu.SlotSemantic",
+      "appeng.menu.slot.RestrictedInputSlot",
+      "cn.dancingsnow.neoecoae.menu.WithECORestrictedInputSlot",
+      "com.glodblock.github.extendedae.container.ContainerExIOPort",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "com.llamalad7.mixinextras.sugar.Local",
+      "net.minecraft.world.inventory.Slot",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.injection.At"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.thunderbolt.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.Ae2LtTimeWheelCraftingCpuLogicMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/thunderbolt/Ae2LtTimeWheelCraftingCpuLogicMixin.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin",
+    "targets": [
+      "@Mixin(targets = \"com.moakiee.ae2lt.crafting.timewheel.Ae2LtTimeWheelCraftingCpuLogic\", remap = false)"
+    ],
+    "hooks": [
+      "@Inject(method = \"finishJob\", at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCancellationBridge",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.thunderbolt.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltWorkstationProviderMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/thunderbolt/ECOThunderboltWorkstationProviderMixin.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin",
+    "targets": [
+      "@Mixin(value = LargeWorkstationPatternProvider.class, remap = false)"
+    ],
+    "hooks": [],
+    "imports": [
+      "appeng.api.crafting.IPatternDetails",
+      "appeng.api.stacks.KeyCounter",
+      "cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider",
+      "cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltWorkstationBridge",
+      "com.moakiee.thunderbolt.api.crafting.batch.BatchJobView",
+      "com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.thunderbolt.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.Ae2LtIOPortBlockEntityMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/thunderbolt/Ae2LtIOPortBlockEntityMixin.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin",
+    "targets": [
+      "@Mixin(targets = \"com.moakiee.ae2lt.blockentity.OverloadedIOPortBlockEntity\", remap = false)"
+    ],
+    "hooks": [
+      "@ModifyArg(method = \"<init>\", at = @At(value = \"INVOKE\", target = \"Lappeng/util/inv/AppEngInternalInventory;setFilter(Lappeng/util/inv/filter/IAEItemFilter;)",
+      "@WrapOperation(method = \"tickingRequest\", at = @At(value = \"INVOKE\", target = \"Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)"
+    ],
+    "imports": [
+      "appeng.api.storage.cells.ISaveProvider",
+      "appeng.api.storage.cells.StorageCell",
+      "appeng.util.inv.filter.IAEItemFilter",
+      "cn.dancingsnow.neoecoae.api.storage.ECOStorageCells",
+      "cn.dancingsnow.neoecoae.compat.ae2lt.ECOIOPortInputFilter",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "net.minecraft.world.item.ItemStack",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.ModifyArg"
+    ]
+  },
+  {
+    "config": "neoecoae.compat.thunderbolt.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.Ae2LtIOPortMenuMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/thunderbolt/Ae2LtIOPortMenuMixin.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin",
+    "targets": [
+      "@Mixin(targets = \"com.moakiee.ae2lt.menu.OverloadedIOPortMenu\", remap = false)"
+    ],
+    "hooks": [
+      "@WrapOperation(method = \"setupConfig\", at = @At(value = \"NEW\", target = \"appeng/menu/slot/RestrictedInputSlot\")"
+    ],
+    "imports": [
+      "appeng.api.inventories.InternalInventory",
+      "appeng.menu.slot.RestrictedInputSlot",
+      "cn.dancingsnow.neoecoae.menu.WithECORestrictedInputSlot",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Pseudo",
+      "org.spongepowered.asm.mixin.injection.At"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.accessor.AECraftingPatternAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/accessor/AECraftingPatternAccessor.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = AECraftingPattern.class, remap = false)"
+    ],
+    "hooks": [
+      "@Accessor(\"definition\")\n    "
+    ],
+    "imports": [
+      "appeng.api.stacks.AEItemKey",
+      "appeng.crafting.pattern.AECraftingPattern",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.gen.Accessor"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/accessor/CraftingPlanSummaryAccessor.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingPlanSummary.class)"
+    ],
+    "hooks": [
+      "@Accessor(\"entries\")\n    "
+    ],
+    "imports": [
+      "appeng.menu.me.crafting.CraftingPlanSummary",
+      "appeng.menu.me.crafting.CraftingPlanSummaryEntry",
+      "java.util.List",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Mutable",
+      "org.spongepowered.asm.mixin.gen.Accessor"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.accessor.DelegatingMEInventoryAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/accessor/DelegatingMEInventoryAccessor.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(DelegatingMEInventory.class)"
+    ],
+    "hooks": [
+      "@Accessor(\"delegate\")\n    "
+    ],
+    "imports": [
+      "appeng.api.storage.MEStorage",
+      "appeng.me.storage.DelegatingMEInventory",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.gen.Accessor"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/accessor/PatternProviderLogicAccessor.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(PatternProviderLogic.class)"
+    ],
+    "hooks": [
+      "@Accessor(\"sendList\")\n    ",
+      "@Invoker(\"onPushPatternSuccess\")\n    "
+    ],
+    "imports": [
+      "appeng.api.crafting.IPatternDetails",
+      "appeng.api.stacks.GenericStack",
+      "appeng.helpers.patternprovider.PatternProviderLogic",
+      "java.util.List",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.gen.Accessor",
+      "org.spongepowered.asm.mixin.gen.Invoker"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.CraftingCalculationMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingCalculationMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingCalculation.class)"
+    ],
+    "hooks": [
+      "@Inject(method = \"<init>\", at = @At(\"RETURN\")",
+      "@Inject(method = \"runCraftAttempt\", at = @At(\"HEAD\")",
+      "@Inject(method = \"runCraftAttempt\", at = @At(\"RETURN\")",
+      "@Inject(method = \"run\", at = @At(\"RETURN\")"
+    ],
+    "imports": [
+      "appeng.api.networking.IGrid",
+      "appeng.api.networking.crafting.CalculationStrategy",
+      "appeng.api.networking.crafting.ICraftingPlan",
+      "appeng.api.networking.crafting.ICraftingSimulationRequester",
+      "appeng.api.stacks.GenericStack",
+      "appeng.crafting.CraftingCalculation",
+      "appeng.crafting.CraftingPlan",
+      "cn.dancingsnow.neoecoae.api.me.planning.ECOCraftingCalculationSettings",
+      "cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics",
+      "cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerRequest",
+      "cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions",
+      "cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry",
+      "cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService",
+      "cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity",
+      "cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult",
+      "cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus",
+      "net.minecraft.world.level.Level",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable",
+      "org.jetbrains.annotations.Nullable",
+      "org.slf4j.Logger",
+      "org.slf4j.LoggerFactory"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.AEProcessingPatternComponentMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/AEProcessingPatternComponentMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(AEProcessingPattern.class)"
+    ],
+    "hooks": [
+      "@Inject(method = \"pushInputsToExternalInventory\", at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "appeng.api.crafting.IPatternDetails",
+      "appeng.api.stacks.KeyCounter",
+      "appeng.crafting.pattern.AEProcessingPattern",
+      "cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.Ae2CpuJobAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/Ae2CpuJobAccessor.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = ExecutingCraftingJob.class, remap = false)"
+    ],
+    "hooks": [
+      "@Accessor(\"tasks\")\n    ",
+      "@Accessor(\"waitingFor\")\n    ",
+      "@Accessor(\"timeTracker\")\n    ",
+      "@Accessor(\"link\")\n    ",
+      "@Accessor(\"finalOutput\")\n    ",
+      "@Accessor(\"suspended\")\n    ",
+      "@Accessor(\"suspended\")\n    "
+    ],
+    "imports": [
+      "appeng.api.crafting.IPatternDetails",
+      "appeng.api.stacks.GenericStack",
+      "appeng.crafting.CraftingLink",
+      "appeng.crafting.execution.ElapsedTimeTracker",
+      "appeng.crafting.execution.ExecutingCraftingJob",
+      "appeng.crafting.inv.ListCraftingInventory",
+      "java.util.Map",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.gen.Accessor"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.Ae2CpuTaskAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/Ae2CpuTaskAccessor.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(targets = \"appeng.crafting.execution.ExecutingCraftingJob$TaskProgress\", remap = false)"
+    ],
+    "hooks": [
+      "@Accessor(\"value\")\n    ",
+      "@Accessor(\"value\")\n    "
+    ],
+    "imports": [
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.gen.Accessor"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.Ae2CpuTimeTrackerAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/Ae2CpuTimeTrackerAccessor.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = ElapsedTimeTracker.class, remap = false)"
+    ],
+    "hooks": [
+      "@Invoker(\"addMaxItems\") "
+    ],
+    "imports": [
+      "appeng.api.stacks.AEKeyType",
+      "appeng.crafting.execution.ElapsedTimeTracker",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.gen.Invoker"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.Ae2CraftingCpuFastPathMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/Ae2CraftingCpuFastPathMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = CraftingCpuLogic.class, remap = false)"
+    ],
+    "hooks": [
+      "@Inject(method = \"executeCrafting\", at = @At(\"HEAD\")",
+      "@Inject(method = \"trySubmitJob\", at = @At(\"HEAD\")",
+      "@Inject(method = \"tickCraftingLogic\", at = @At(\"HEAD\")",
+      "@Inject(method = \"finishJob\", at = @At(\"HEAD\")",
+      "@Inject(method = \"readFromNBT\", at = @At(\"TAIL\")",
+      "@Inject(method = \"writeToNBT\", at = @At(\"TAIL\")"
+    ],
+    "imports": [
+      "appeng.api.networking.energy.IEnergyService",
+      "appeng.crafting.execution.CraftingCpuLogic",
+      "appeng.crafting.execution.ExecutingCraftingJob",
+      "appeng.crafting.inv.ListCraftingInventory",
+      "appeng.me.cluster.implementations.CraftingCPUCluster",
+      "appeng.me.service.CraftingService",
+      "cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath",
+      "cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle",
+      "net.minecraft.core.HolderLookup",
+      "net.minecraft.nbt.CompoundTag",
+      "net.minecraft.world.level.Level",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.CraftingPlanMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingPlanMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingPlan.class)"
+    ],
+    "hooks": [],
+    "imports": [
+      "appeng.crafting.CraftingPlan",
+      "cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics",
+      "cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult",
+      "org.jetbrains.annotations.Nullable",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Unique"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.CraftingServiceMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingServiceMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingService.class)"
+    ],
+    "hooks": [
+      "@Inject(method = {\n            \"addNode\", \"removeNode\", \"refreshNodeCraftingProvider\",\n            \"addGlobalCraftingProvider\", \"removeGlobalCraftingProvider\", \"refreshGlobalCraftingProvider\"\n    }, at = @At(\"HEAD\")",
+      "@Inject(\n            method = \"onServerEndTick\",\n            at = @At(\n                    value = \"FIELD\",\n                    target = \"Lappeng/me/service/CraftingService;lastProcessedCraftingLogicChangeTick:J\",\n                    opcode = Opcodes.GETFIELD,\n                    ordinal = 0\n            )\n    ",
+      "@Inject(\n            method = \"onServerEndTick\",\n            at = @At(\n                    value = \"FIELD\",\n                    target = \"Lappeng/me/service/CraftingService;interests:Lcom/google/common/collect/Multimap;\",\n                    opcode = Opcodes.GETFIELD,\n                    ordinal = 0\n            )\n    ",
+      "@Inject(\n            method = {\"removeNode\"},\n            at = {@At(\"TAIL\")",
+      "@Inject(\n            method = {\"addNode\"},\n            at = {@At(\"TAIL\")",
+      "@Inject(\n            method = {\"updateCPUClusters\"},\n            at = {@At(\"TAIL\")",
+      "@Inject(\n            method = \"insertIntoCpus\",\n            at = @At(value = \"RETURN\", shift = At.Shift.BY, by = -1)",
+      "@Inject(method = \"submitJob\", at = @At(\"HEAD\")",
+      "@Inject(method = \"submitJob\", at = @At(\"RETURN\")",
+      "@Inject(\n            method = \"submitJob\",\n            at = @At(value = \"INVOKE_ASSIGN\", target = \"Lappeng/me/service/CraftingService;findSuitableCraftingCPU(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;Lorg/apache/commons/lang3/mutable/MutableObject;)",
+      "@Inject(\n            method = \"getCpus\",\n            at = @At(value = \"INVOKE\", target = \"Lcom/google/common/collect/ImmutableSet$Builder;build()",
+      "@Inject(\n            method = \"getRequestedAmount\",\n            at = @At(\"RETURN\")",
+      "@Inject(method = \"hasCpu\", at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "appeng.api.config.Actionable",
+      "appeng.api.networking.IGrid",
+      "appeng.api.networking.IGridNode",
+      "appeng.api.networking.IGridServiceProvider",
+      "appeng.api.networking.crafting.ICraftingCPU",
+      "appeng.api.networking.crafting.ICraftingLink",
+      "appeng.api.networking.crafting.ICraftingPlan",
+      "appeng.api.networking.crafting.ICraftingRequester",
+      "appeng.api.networking.crafting.ICraftingSubmitResult",
+      "appeng.crafting.execution.CraftingSubmitResult",
+      "appeng.api.networking.crafting.UnsuitableCpus",
+      "appeng.api.networking.energy.IEnergyService",
+      "appeng.api.networking.security.IActionSource",
+      "appeng.api.stacks.AEKey",
+      "appeng.api.crafting.IPatternDetails",
+      "appeng.crafting.CraftingLink",
+      "appeng.crafting.pattern.AECraftingPattern",
+      "appeng.me.service.CraftingService",
+      "appeng.me.service.helpers.NetworkCraftingProviders",
+      "cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU",
+      "cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision",
+      "cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics",
+      "cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics",
+      "cn.dancingsnow.neoecoae.api.me.output.ECOAdvancedAeCraftingOutputRouter",
+      "cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter",
+      "cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings",
+      "cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry",
+      "cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity",
+      "cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity",
+      "cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity",
+      "cn.dancingsnow.neoecoae.config.NEConfig",
+      "cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity",
+      "cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster",
+      "com.google.common.collect.ImmutableSet",
+      "com.llamalad7.mixinextras.sugar.Local",
+      "com.llamalad7.mixinextras.sugar.ref.LocalLongRef",
+      "net.minecraft.nbt.CompoundTag",
+      "net.minecraft.nbt.Tag",
+      "net.minecraft.resources.ResourceLocation",
+      "org.apache.commons.lang3.mutable.MutableObject",
+      "org.objectweb.asm.Opcodes",
+      "org.slf4j.Logger",
+      "org.slf4j.LoggerFactory",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable",
+      "java.util.ArrayList",
+      "java.util.Comparator",
+      "java.util.HashSet",
+      "java.util.List",
+      "java.util.Set",
+      "java.util.UUID",
+      "cn.dancingsnow.neoecoae.grid.NEMachineLookup"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.CraftingTreeNodeMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingTreeNodeMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingTreeNode.class)"
+    ],
+    "hooks": [
+      "@Inject(method = \"findCraftedStack\", at = @At(\"HEAD\")",
+      "@Inject(method = \"getValidItemTemplates\", at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "appeng.api.crafting.IPatternDetails",
+      "appeng.api.networking.crafting.ICraftingService",
+      "appeng.api.stacks.AEKey",
+      "appeng.crafting.CraftingCalculation",
+      "appeng.crafting.CraftingTreeNode",
+      "appeng.crafting.execution.InputTemplate",
+      "appeng.crafting.inv.ICraftingInventory",
+      "cn.dancingsnow.neoecoae.api.me.planning.ECOCraftingCalculationSettings",
+      "org.jetbrains.annotations.Nullable",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable",
+      "java.util.List"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.crafting.PatternProviderDiagnosticsMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/PatternProviderDiagnosticsMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(PatternProviderLogic.class)"
+    ],
+    "hooks": [
+      "@WrapMethod(method = \"pushPattern\")\n    ",
+      "@WrapOperation(method = \"pushPattern\", at = @At(value = \"INVOKE\", target = \"Ljava/util/List;isEmpty()",
+      "@WrapOperation(method = \"pushPattern\", at = @At(value = \"INVOKE\", target =\n        \"Lappeng/api/networking/IManagedGridNode;isActive()",
+      "@WrapOperation(method = \"pushPattern\", at = @At(value = \"INVOKE\", target =\n        \"Ljava/util/List;contains(Ljava/lang/Object;)",
+      "@Inject(method = \"getCraftingLockedReason\", at = @At(\"RETURN\")",
+      "@Inject(method = \"findAdapter\", at = @At(\"RETURN\")",
+      "@Inject(method = \"adapterAcceptsAll\", at = @At(\"RETURN\")",
+      "@WrapOperation(method = \"pushPattern\", at = @At(value = \"INVOKE\", target =\n        \"Lappeng/api/implementations/blockentities/ICraftingMachine;pushPattern(Lappeng/api/crafting/IPatternDetails;[Lappeng/api/stacks/KeyCounter;Lnet/minecraft/core/Direction;)",
+      "@WrapOperation(method = \"pushPattern\", at = @At(value = \"INVOKE\", target =\n        \"Lappeng/helpers/patternprovider/PatternProviderTarget;containsPatternInput(Ljava/util/Set;)",
+      "@WrapOperation(method = \"pushPattern\", at = @At(value = \"INVOKE\", target =\n        \"Lappeng/api/crafting/IPatternDetails;supportsPushInputsToExternalInventory()"
+    ],
+    "imports": [
+      "java.util.EnumSet",
+      "java.util.List",
+      "java.util.Set",
+      "appeng.api.config.LockCraftingMode",
+      "appeng.api.crafting.IPatternDetails",
+      "appeng.api.implementations.blockentities.ICraftingMachine",
+      "appeng.api.networking.IManagedGridNode",
+      "appeng.api.stacks.AEKey",
+      "appeng.api.stacks.GenericStack",
+      "appeng.api.stacks.KeyCounter",
+      "appeng.helpers.patternprovider.PatternProviderLogic",
+      "appeng.helpers.patternprovider.PatternProviderLogicHost",
+      "appeng.helpers.patternprovider.PatternProviderTarget",
+      "cn.dancingsnow.neoecoae.api.me.diagnostics.ECOPatternPushDiagnostics",
+      "cn.dancingsnow.neoecoae.config.NEConfig",
+      "com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "net.minecraft.core.Direction",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.menu.CellWorkbenchMenuMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CellWorkbenchMenuMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CellWorkbenchMenu.class)"
+    ],
+    "hooks": [
+      "@Inject(method = \"iterateCellStacks\", at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "appeng.api.stacks.AEKey",
+      "appeng.menu.implementations.CellWorkbenchMenu",
+      "cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaLongBulkStorageCell",
+      "cn.dancingsnow.neoecoae.items.ECOStorageCellItem",
+      "net.minecraft.world.item.ItemStack",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable",
+      "java.util.Iterator"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.menu.CraftConfirmMenuMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftConfirmMenuMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = CraftConfirmMenu.class, priority = 1100)"
+    ],
+    "hooks": [
+      "@Inject(method = \"broadcastChanges\", at = @At(\"TAIL\")",
+      "@Inject(method = \"onCPUSelectionChanged\", at = @At(\"TAIL\")",
+      "@Inject(method = \"broadcastChanges\", at = @At(\"HEAD\")",
+      "@Inject(method = \"cpuMatches\", at = @At(\"HEAD\")",
+      "@Inject(method = \"<init>\", at = @At(\"RETURN\")",
+      "@Inject(\n        method = {\n            \"planJob\",\n            \"data_energistics$planJob\",\n            \"molecularmanipulator$planLong\",\n            \"appliedenhancements$planLong\",\n            \"appliedenhancements$planRequested\",\n            \"appliedenhancements$planExact\"\n        },\n        at = @At(\"HEAD\")",
+      "@WrapOperation(\n        method = {\n            \"planJob\",\n            \"data_energistics$planJob\",\n            \"molecularmanipulator$planLong\",\n            \"appliedenhancements$planRequested\"\n        },\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Lappeng/api/networking/crafting/ICraftingService;beginCraftingCalculation(\"\n                + \"Lnet/minecraft/world/level/Level;\"\n                + \"Lappeng/api/networking/crafting/ICraftingSimulationRequester;\"\n                + \"Lappeng/api/stacks/AEKey;\"\n                + \"J\"\n                + \"Lappeng/api/networking/crafting/CalculationStrategy;\"\n                + \")",
+      "@Inject(\n        method = \"broadcastChanges\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Lappeng/menu/me/crafting/CraftingPlanSummary;fromJob(\"\n                + \"Lappeng/api/networking/IGrid;\"\n                + \"Lappeng/api/networking/security/IActionSource;\"\n                + \"Lappeng/api/networking/crafting/ICraftingPlan;\"\n                + \")",
+      "@WrapOperation(\n        method = \"broadcastChanges\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Lappeng/menu/me/crafting/CraftingPlanSummary;fromJob(\"\n                + \"Lappeng/api/networking/IGrid;\"\n                + \"Lappeng/api/networking/security/IActionSource;\"\n                + \"Lappeng/api/networking/crafting/ICraftingPlan;\"\n                + \")",
+      "@Inject(method = \"broadcastChanges\", at = @At(\"TAIL\")",
+      "@Inject(\n        method = \"startJob\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Lappeng/menu/me/crafting/CraftConfirmMenu;getGrid()",
+      "@WrapOperation(\n        method = \"startJob\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Lappeng/api/networking/crafting/ICraftingService;submitJob(\"\n                + \"Lappeng/api/networking/crafting/ICraftingPlan;\"\n                + \"Lappeng/api/networking/crafting/ICraftingRequester;\"\n                + \"Lappeng/api/networking/crafting/ICraftingCPU;\"\n                + \"ZLappeng/api/networking/security/IActionSource;\"\n                + \")",
+      "@Inject(method = \"startJob\", at = @At(\"HEAD\")",
+      "@Inject(method = \"startJob\", at = @At(\"RETURN\")"
+    ],
+    "imports": [
+      "appeng.api.config.Actionable",
+      "appeng.api.networking.crafting.CalculationStrategy",
+      "appeng.api.networking.crafting.ICraftingCPU",
+      "appeng.api.networking.crafting.ICraftingPlan",
+      "appeng.api.networking.crafting.ICraftingRequester",
+      "appeng.api.networking.crafting.ICraftingService",
+      "appeng.api.networking.crafting.ICraftingSimulationRequester",
+      "appeng.api.networking.crafting.ICraftingSubmitResult",
+      "appeng.api.networking.IGrid",
+      "appeng.api.networking.security.IActionHost",
+      "appeng.api.networking.security.IActionSource",
+      "appeng.api.stacks.AEKey",
+      "appeng.api.storage.ISubMenuHost",
+      "appeng.core.network.clientbound.CraftConfirmPlanPacket",
+      "appeng.menu.guisync.GuiSync",
+      "appeng.menu.me.crafting.CraftConfirmMenu",
+      "appeng.menu.me.crafting.CraftingPlanSummary",
+      "appeng.menu.me.crafting.CraftingPlanSummaryEntry",
+      "cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode",
+      "cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics",
+      "cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings",
+      "cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions",
+      "cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity",
+      "cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService",
+      "cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningStageLogger",
+      "cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics",
+      "cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList",
+      "cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry",
+      "cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult",
+      "cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus",
+      "cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot",
+      "cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory",
+      "cn.dancingsnow.neoecoae.config.NEConfig",
+      "cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "java.math.BigInteger",
+      "java.util.ArrayList",
+      "java.util.Collections",
+      "java.util.LinkedHashMap",
+      "java.util.LinkedHashSet",
+      "java.util.List",
+      "java.util.concurrent.Future",
+      "net.minecraft.server.level.ServerPlayer",
+      "net.minecraft.world.entity.player.Inventory",
+      "net.minecraft.world.level.Level",
+      "org.jetbrains.annotations.Nullable",
+      "org.slf4j.Logger",
+      "org.slf4j.LoggerFactory",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable",
+      "cn.dancingsnow.neoecoae.grid.NEMachineLookup"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.menu.CraftConfirmMenuForceStartMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftConfirmMenuForceStartMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = CraftConfirmMenu.class, remap = false)"
+    ],
+    "hooks": [
+      "@Inject(method = \"startJob\", at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "appeng.api.networking.crafting.ICraftingPlan",
+      "appeng.menu.me.crafting.CraftConfirmMenu",
+      "cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync",
+      "cn.dancingsnow.neoecoae.compat.extendedaeplus.EAEPForcedCrafting",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.menu.CraftingCpuListEntryMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftingCpuListEntryMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingStatusMenu.CraftingCpuListEntry.class)"
+    ],
+    "hooks": [
+      "@Inject(\n        method = \"readFromPacket\",\n        at = @At(\"RETURN\")\n    ",
+      "@Inject(\n        method = \"writeToPacket\",\n        at = @At(\"RETURN\")\n    "
+    ],
+    "imports": [
+      "appeng.menu.me.crafting.CraftingStatusMenu",
+      "cn.dancingsnow.neoecoae.api.IOverlayTextureHolder",
+      "cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuListEntry",
+      "net.minecraft.network.RegistryFriendlyByteBuf",
+      "net.minecraft.resources.ResourceLocation",
+      "org.jetbrains.annotations.Nullable",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.menu.CraftingCpuMenuMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftingCpuMenuMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingCPUMenu.class)"
+    ],
+    "hooks": [
+      "@Inject(\n        method = {\"setCPU(Lappeng/api/networking/crafting/ICraftingCPU;)",
+      "@Inject(\n        method = {\"cancelCrafting\"},\n        at = {@At(\"TAIL\")",
+      "@Inject(\n        method = {\"removed\"},\n        at = {@At(\"TAIL\")",
+      "@Inject(\n        method = {\"broadcastChanges\"},\n        at = {@At(\"HEAD\")",
+      "@Inject(\n        method = \"toggleScheduling\",\n        at = @At(\"TAIL\")\n    "
+    ],
+    "imports": [
+      "appeng.api.config.CpuSelectionMode",
+      "cn.dancingsnow.neoecoae.network.MenuDataTransport",
+      "cn.dancingsnow.neoecoae.network.MapDelta",
+      "cn.dancingsnow.neoecoae.network.ExactMapSync",
+      "cn.dancingsnow.neoecoae.crafting.amount.ExactAmount",
+      "java.util.Map",
+      "appeng.api.networking.crafting.ICraftingCPU",
+      "appeng.api.stacks.AEKey",
+      "appeng.api.stacks.KeyCounter",
+      "appeng.core.network.clientbound.CraftingStatusPacket",
+      "appeng.me.cluster.implementations.CraftingCPUCluster",
+      "appeng.menu.AEBaseMenu",
+      "appeng.menu.me.common.IncrementalUpdateHelper",
+      "appeng.menu.me.crafting.CraftingCPUMenu",
+      "appeng.menu.me.crafting.CraftingStatus",
+      "appeng.menu.me.crafting.CraftingStatusEntry",
+      "cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU",
+      "cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic",
+      "com.google.common.collect.ImmutableList",
+      "it.unimi.dsi.fastutil.objects.Object2LongMap",
+      "net.minecraft.world.entity.player.Inventory",
+      "net.minecraft.world.entity.player.Player",
+      "net.minecraft.world.inventory.MenuType",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo",
+      "java.util.function.Consumer"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.menu.CraftingStatusMenuMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftingStatusMenuMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingStatusMenu.class)"
+    ],
+    "hooks": [
+      "@WrapOperation(\n        method = \"createCpuList\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Ljava/util/ArrayList;add(Ljava/lang/Object;)"
+    ],
+    "imports": [
+      "appeng.api.networking.crafting.ICraftingCPU",
+      "appeng.menu.me.crafting.CraftingCPUMenu",
+      "appeng.menu.me.crafting.CraftingStatusMenu",
+      "cn.dancingsnow.neoecoae.api.IOverlayTextureHolder",
+      "cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuListEntry",
+      "cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "com.llamalad7.mixinextras.sugar.Local",
+      "net.minecraft.world.entity.player.Inventory",
+      "net.minecraft.world.inventory.MenuType",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At",
+      "java.util.ArrayList"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.menu.IOPortMenuMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/IOPortMenuMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(IOPortMenu.class)"
+    ],
+    "hooks": [
+      "@WrapOperation(method = \"setupConfig\", at = @At(value = \"INVOKE\", target = \"Lappeng/menu/implementations/IOPortMenu;addSlot(Lnet/minecraft/world/inventory/Slot;Lappeng/menu/SlotSemantic;)"
+    ],
+    "imports": [
+      "appeng.api.inventories.InternalInventory",
+      "appeng.menu.SlotSemantic",
+      "appeng.menu.implementations.IOPortMenu",
+      "appeng.menu.slot.RestrictedInputSlot",
+      "cn.dancingsnow.neoecoae.menu.WithECORestrictedInputSlot",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "com.llamalad7.mixinextras.sugar.Local",
+      "net.minecraft.world.inventory.Slot",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.menu.PatternEncodingTermMenuMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/PatternEncodingTermMenuMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(PatternEncodingTermMenu.class)"
+    ],
+    "hooks": [
+      "@Inject(\n        method = \"<init>(Lnet/minecraft/world/inventory/MenuType;ILnet/minecraft/world/entity/player/Inventory;Lappeng/helpers/IPatternTerminalMenuHost;Z)"
+    ],
+    "imports": [
+      "appeng.api.config.Actionable",
+      "appeng.api.crafting.PatternDetailsHelper",
+      "appeng.api.networking.IGrid",
+      "appeng.api.networking.IGridNode",
+      "appeng.api.networking.security.IActionSource",
+      "appeng.api.stacks.AEItemKey",
+      "appeng.api.storage.ITerminalHost",
+      "appeng.helpers.IPatternTerminalMenuHost",
+      "appeng.menu.me.common.MEStorageMenu",
+      "appeng.menu.me.items.PatternEncodingTermMenu",
+      "appeng.menu.slot.RestrictedInputSlot",
+      "appeng.parts.encoding.EncodingMode",
+      "cn.dancingsnow.neoecoae.api.ECOPatternInsertion",
+      "cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult",
+      "cn.dancingsnow.neoecoae.api.ECOPreparedPattern",
+      "cn.dancingsnow.neoecoae.api.IECOPatternStorageService",
+      "cn.dancingsnow.neoecoae.api.PatternEncodingTermMenuExtension",
+      "net.minecraft.world.entity.player.Inventory",
+      "net.minecraft.world.inventory.MenuType",
+      "net.minecraft.world.item.ItemStack",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.storage.AppEngInternalInventoryMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/AppEngInternalInventoryMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(AppEngInternalInventory.class)"
+    ],
+    "hooks": [
+      "@Inject(method = \"onContentsChanged\", at = @At(\"RETURN\")"
+    ],
+    "imports": [
+      "appeng.util.inv.AppEngInternalInventory",
+      "appeng.util.inv.InternalInventoryHost",
+      "com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware",
+      "net.minecraft.core.HolderLookup",
+      "net.minecraft.core.NonNullList",
+      "net.minecraft.nbt.CompoundTag",
+      "net.minecraft.world.item.ItemStack",
+      "net.neoforged.neoforge.common.util.INBTSerializable",
+      "org.jetbrains.annotations.UnknownNullability",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo",
+      "java.util.ArrayList",
+      "java.util.List"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.storage.CellWorkbenchBlockEntityMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/CellWorkbenchBlockEntityMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CellWorkbenchBlockEntity.class)"
+    ],
+    "hooks": [
+      "@Inject(method = \"getCellConfigInventory\", at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "appeng.api.inventories.ISegmentedInventory",
+      "appeng.blockentity.misc.CellWorkbenchBlockEntity",
+      "appeng.util.ConfigInventory",
+      "cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaLongBulkStorageCellItem",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.storage.IOPortBlockEntityMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/IOPortBlockEntityMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(IOPortBlockEntity.class)"
+    ],
+    "hooks": [
+      "@WrapOperation(method = \"tickingRequest\", at = @At(value = \"INVOKE\", target = \"Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)"
+    ],
+    "imports": [
+      "appeng.api.storage.cells.ISaveProvider",
+      "appeng.api.storage.cells.StorageCell",
+      "appeng.blockentity.storage.IOPortBlockEntity",
+      "cn.dancingsnow.neoecoae.api.storage.ECOStorageCells",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "net.minecraft.world.item.ItemStack",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.storage.NativeMEStorageCellFilterMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/NativeMEStorageCellFilterMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(targets = {\n        \"appeng.blockentity.storage.MEChestBlockEntity$CellInventoryFilter\",\n        \"appeng.blockentity.storage.DriveBlockEntity$CellValidInventoryFilter\"\n})"
+    ],
+    "hooks": [
+      "@Inject(method = \"allowInsert\", at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "appeng.api.inventories.InternalInventory",
+      "cn.dancingsnow.neoecoae.items.ECOStorageCellItem",
+      "net.minecraft.world.item.ItemStack",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.storage.NetworkStorageMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/NetworkStorageMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(NetworkStorage.class)"
+    ],
+    "hooks": [
+      "@WrapOperation(\n        method = \"extract\",\n        at = @At(value = \"INVOKE\", target = \"Lappeng/api/storage/MEStorage;extract(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)",
+      "@WrapOperation(\n        method = \"getAvailableStacks\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Lappeng/api/storage/MEStorage;getAvailableStacks(Lappeng/api/stacks/KeyCounter;)"
+    ],
+    "imports": [
+      "appeng.api.stacks.KeyCounter",
+      "appeng.api.stacks.AEKey",
+      "appeng.api.config.Actionable",
+      "appeng.api.networking.security.IActionSource",
+      "appeng.api.storage.MEStorage",
+      "appeng.me.storage.NetworkStorage",
+      "cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage",
+      "cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator",
+      "cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.injection.At",
+      "java.math.BigInteger",
+      "java.util.List",
+      "java.util.NavigableMap",
+      "java.util.Objects"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ae2.storage.StoredEnergyAmountMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/StoredEnergyAmountMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = StoredEnergyAmount.class, remap = false)"
+    ],
+    "hooks": [],
+    "imports": [
+      "appeng.me.energy.StoredEnergyAmount",
+      "com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware",
+      "net.minecraft.core.HolderLookup",
+      "net.minecraft.nbt.DoubleTag",
+      "net.neoforged.neoforge.common.util.INBTSerializable",
+      "org.jetbrains.annotations.UnknownNullability",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.ldlib.AsyncThreadDataMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/ldlib/AsyncThreadDataMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = AsyncThreadData.class, remap = false)"
+    ],
+    "hooks": [
+      "@Redirect(\n        method = \"addAsyncLogic\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Ljava/util/concurrent/CopyOnWriteArrayList;add(Ljava/lang/Object;)"
+    ],
+    "imports": [
+      "com.lowdragmc.lowdraglib2.async.AsyncThreadData",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Redirect",
+      "java.util.concurrent.CopyOnWriteArrayList"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.minecraft.LightningBoltMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/minecraft/LightningBoltMixin.java",
+    "side": "mixins",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(LightningBolt.class)"
+    ],
+    "hooks": [
+      "@Inject(\n        method = \"tick\",\n        at = @At(value = \"INVOKE\", target = \"Lnet/minecraft/world/entity/LightningBolt;clearCopperOnLightningStrike(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)"
+    ],
+    "imports": [
+      "appeng.core.definitions.AEBlocks",
+      "cn.dancingsnow.neoecoae.all.NEBlocks",
+      "cn.dancingsnow.neoecoae.achievement.ECOAdvancementService",
+      "net.minecraft.core.BlockPos",
+      "net.minecraft.world.entity.Entity",
+      "net.minecraft.world.entity.EntityType",
+      "net.minecraft.world.entity.LightningBolt",
+      "net.minecraft.world.level.Level",
+      "net.minecraft.server.level.ServerLevel",
+      "net.minecraft.server.level.ServerPlayer",
+      "net.minecraft.world.level.block.Block",
+      "net.minecraft.world.level.block.state.BlockState",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo",
+      "java.util.Map"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.client.accessor.MenuScreensAccessor",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/client/accessor/MenuScreensAccessor.java",
+    "side": "client",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(MenuScreens.class)"
+    ],
+    "hooks": [
+      "@Accessor(\"SCREENS\")\n    "
+    ],
+    "imports": [
+      "java.util.Map",
+      "net.minecraft.client.gui.screens.MenuScreens",
+      "net.minecraft.world.inventory.MenuType",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.gen.Accessor"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.client.ae2.AEBaseScreenGrayToolbarMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/AEBaseScreenGrayToolbarMixin.java",
+    "side": "client",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(AEBaseScreen.class)"
+    ],
+    "hooks": [
+      "@ModifyExpressionValue(method = \"<init>\",\n        at = @At(value = \"NEW\", target = \"appeng/client/gui/widgets/VerticalButtonBar\")"
+    ],
+    "imports": [
+      "appeng.client.gui.AEBaseScreen",
+      "appeng.client.gui.widgets.VerticalButtonBar",
+      "cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreen",
+      "cn.dancingsnow.neoecoae.client.gui.widget.ECOGrayVerticalButtonBar",
+      "com.llamalad7.mixinextras.injector.ModifyExpressionValue",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.client.ae2.CellWorkbenchScreenMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/CellWorkbenchScreenMixin.java",
+    "side": "client",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CellWorkbenchScreen.class)"
+    ],
+    "hooks": [],
+    "imports": [
+      "appeng.client.gui.implementations.CellWorkbenchScreen",
+      "appeng.client.gui.implementations.UpgradeableScreen",
+      "appeng.client.gui.style.ScreenStyle",
+      "appeng.menu.implementations.CellWorkbenchMenu",
+      "cn.dancingsnow.neoecoae.client.NeoECOAEClient",
+      "net.minecraft.client.gui.components.Button",
+      "net.minecraft.network.chat.Component",
+      "net.minecraft.world.entity.player.Inventory",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Unique"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.client.ae2.CpuSelectionListMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/CpuSelectionListMixin.java",
+    "side": "client",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CPUSelectionList.class)"
+    ],
+    "hooks": [
+      "@Inject(\n        method = \"drawBackgroundLayer\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Lcom/mojang/blaze3d/vertex/PoseStack;popPose()",
+      "@WrapOperation(\n        method = \"drawBackgroundLayer\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IFII)",
+      "@WrapOperation(\n        method = \"getTooltip\",\n        at = @At(\n            value = \"INVOKE\",\n            target = \"Lappeng/core/localization/Tooltips;ofBytes(J)",
+      "@WrapOperation(\n        method = \"drawBackgroundLayer\",\n        at = @At(value = \"INVOKE\", target = \"Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IFII)"
+    ],
+    "imports": [
+      "appeng.client.Point",
+      "appeng.client.gui.style.Blitter",
+      "appeng.client.gui.widgets.CPUSelectionList",
+      "appeng.client.gui.widgets.InfoBar",
+      "appeng.core.localization.Tooltips",
+      "appeng.menu.me.crafting.CraftingStatusMenu",
+      "cn.dancingsnow.neoecoae.api.IOverlayTextureHolder",
+      "cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuListEntry",
+      "cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "com.llamalad7.mixinextras.sugar.Local",
+      "net.minecraft.client.gui.GuiGraphics",
+      "net.minecraft.client.renderer.Rect2i",
+      "net.minecraft.network.chat.Component",
+      "net.minecraft.network.chat.MutableComponent",
+      "net.minecraft.resources.ResourceLocation",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.client.ae2.CraftConfirmScreenMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/CraftConfirmScreenMixin.java",
+    "side": "client",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(value = CraftConfirmScreen.class, priority = 1100)"
+    ],
+    "hooks": [
+      "@Inject(method = \"updateBeforeRender\", at = @At(\"TAIL\")",
+      "@Inject(method = \"start\", at = @At(\"HEAD\")",
+      "@WrapOperation(\n        method = \"updateBeforeRender\",\n        at = @org.spongepowered.asm.mixin.injection.At(\n            value = \"INVOKE\",\n            target = \"Lappeng/core/localization/GuiText;text([Ljava/lang/Object;)"
+    ],
+    "imports": [
+      "appeng.client.gui.AEBaseScreen",
+      "appeng.client.gui.me.crafting.CraftConfirmScreen",
+      "appeng.client.gui.style.ScreenStyle",
+      "appeng.core.localization.GuiText",
+      "appeng.menu.me.crafting.CraftConfirmMenu",
+      "cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter",
+      "cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "net.minecraft.network.chat.Component",
+      "net.minecraft.network.chat.MutableComponent",
+      "net.minecraft.world.entity.player.Inventory",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo",
+      "net.minecraft.client.gui.components.Button",
+      "net.minecraft.client.gui.screens.Screen",
+      "net.neoforged.neoforge.network.PacketDistributor",
+      "cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.client.ae2.CraftingCpuScreenMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/CraftingCpuScreenMixin.java",
+    "side": "client",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingCPUScreen.class)"
+    ],
+    "hooks": [
+      "@WrapOperation(\n        method = \"render\",\n        at = @At(value = \"INVOKE\", target = \"Ljava/util/List;isEmpty()"
+    ],
+    "imports": [
+      "appeng.client.gui.me.crafting.CraftingCPUScreen",
+      "appeng.menu.me.crafting.CraftingStatusMenu",
+      "cn.dancingsnow.neoecoae.api.IOverlayTextureHolder",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "java.util.List",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.client.ae2.CraftingStatusTableMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/CraftingStatusTableMixin.java",
+    "side": "client",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(CraftingStatusTableRenderer.class)"
+    ],
+    "hooks": [
+      "@Inject(method = \"getEntryDescription(Lappeng/menu/me/crafting/CraftingStatusEntry;)",
+      "@Inject(method = \"getEntryTooltip(Lappeng/menu/me/crafting/CraftingStatusEntry;)"
+    ],
+    "imports": [
+      "appeng.client.gui.me.crafting.CraftingStatusTableRenderer",
+      "appeng.menu.me.crafting.CraftingStatusEntry",
+      "cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost",
+      "cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable",
+      "net.minecraft.network.chat.Component",
+      "java.util.List"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.client.ae2.PatternEncodingTermScreenMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/PatternEncodingTermScreenMixin.java",
+    "side": "client",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(PatternEncodingTermScreen.class)"
+    ],
+    "hooks": [],
+    "imports": [
+      "appeng.client.gui.me.common.MEStorageScreen",
+      "appeng.client.gui.me.items.PatternEncodingTermScreen",
+      "appeng.client.gui.style.ScreenStyle",
+      "appeng.menu.me.items.PatternEncodingTermMenu",
+      "cn.dancingsnow.neoecoae.api.PatternEncodingTermMenuExtension",
+      "cn.dancingsnow.neoecoae.gui.widget.UploadButton",
+      "net.minecraft.network.chat.Component",
+      "net.minecraft.world.entity.player.Inventory",
+      "org.spongepowered.asm.mixin.Mixin"
+    ]
+  },
+  {
+    "config": "neoecoae.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.client.minecraft.ModelBakeryMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/client/minecraft/ModelBakeryMixin.java",
+    "side": "client",
+    "required": true,
+    "plugin": null,
+    "targets": [
+      "@Mixin(ModelBakery.class)"
+    ],
+    "hooks": [
+      "@Inject(at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "cn.dancingsnow.neoecoae.client.all.NEBuiltinModels",
+      "net.minecraft.client.resources.model.ModelBakery",
+      "net.minecraft.client.resources.model.UnbakedModel",
+      "net.minecraft.resources.ResourceLocation",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable"
+    ]
+  },
+  {
+    "config": "neoecoae.terminal_big_amount.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.terminalbigamount.MEStorageMenuExactAmountMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/terminalbigamount/MEStorageMenuExactAmountMixin.java",
+    "side": "mixins",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(MEStorageMenu.class)"
+    ],
+    "hooks": [
+      "@WrapOperation(method = \"broadcastChanges\", at = @At(value = \"INVOKE\", target =\n        \"Lappeng/api/storage/MEStorage;getAvailableStacks()"
+    ],
+    "imports": [
+      "appeng.menu.me.common.MEStorageMenu",
+      "appeng.api.stacks.KeyCounter",
+      "appeng.api.storage.MEStorage",
+      "cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalExactAmountSync",
+      "com.llamalad7.mixinextras.injector.wrapoperation.Operation",
+      "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At"
+    ]
+  },
+  {
+    "config": "neoecoae.terminal_big_amount.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.terminalbigamount.client.MEStorageScreenExactAmountMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/terminalbigamount/client/MEStorageScreenExactAmountMixin.java",
+    "side": "client",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(MEStorageScreen.class)"
+    ],
+    "hooks": [
+      "@Inject(method = \"containerTick\", at = @At(\"TAIL\")",
+      "@Inject(method = \"removed\", at = @At(\"HEAD\")",
+      "@ModifyExpressionValue(method = \"renderSlot\", at = @At(value = \"INVOKE\", target =\n        \"Lappeng/api/stacks/AEKey;formatAmount(JLappeng/api/stacks/AmountFormat;)",
+      "@ModifyExpressionValue(method = \"renderGridInventoryEntryTooltip\", at = @At(value = \"INVOKE\", target =\n        \"Lappeng/core/localization/Tooltips;getAmountTooltip(Lappeng/core/localization/ButtonToolTips;Lappeng/api/stacks/AEKey;J)"
+    ],
+    "imports": [
+      "appeng.client.gui.me.common.MEStorageScreen",
+      "appeng.client.gui.me.common.Repo",
+      "appeng.api.config.SortOrder",
+      "appeng.menu.me.common.GridInventoryEntry",
+      "cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountClientCache",
+      "cn.dancingsnow.neoecoae.crafting.display.format.ExactAmountFormatter",
+      "com.llamalad7.mixinextras.injector.ModifyExpressionValue",
+      "com.llamalad7.mixinextras.sugar.Local",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.Unique",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfo"
+    ]
+  },
+  {
+    "config": "neoecoae.terminal_big_amount.mixins.json",
+    "class": "cn.dancingsnow.neoecoae.mixins.terminalbigamount.client.RepoExactAmountMixin",
+    "file": "src/main/java/cn/dancingsnow/neoecoae/mixins/terminalbigamount/client/RepoExactAmountMixin.java",
+    "side": "client",
+    "required": false,
+    "plugin": null,
+    "targets": [
+      "@Mixin(Repo.class)"
+    ],
+    "hooks": [
+      "@Inject(method = \"getComparator\", at = @At(\"HEAD\")"
+    ],
+    "imports": [
+      "appeng.api.config.SortDir",
+      "appeng.api.config.SortOrder",
+      "appeng.client.gui.me.common.MEStorageScreen",
+      "appeng.client.gui.me.common.Repo",
+      "appeng.client.gui.widgets.ISortSource",
+      "appeng.menu.me.common.GridInventoryEntry",
+      "cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountComparator",
+      "java.util.Comparator",
+      "org.spongepowered.asm.mixin.Final",
+      "org.spongepowered.asm.mixin.Mixin",
+      "org.spongepowered.asm.mixin.Shadow",
+      "org.spongepowered.asm.mixin.injection.At",
+      "org.spongepowered.asm.mixin.injection.Inject",
+      "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable"
+    ]
+  }
+]

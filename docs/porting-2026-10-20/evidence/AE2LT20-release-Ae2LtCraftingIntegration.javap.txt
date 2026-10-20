@@ -1,0 +1,6 @@
+Compiled from "Ae2LtCraftingIntegration.java"
+public final class com.moakiee.ae2lt.api.crafting.Ae2LtCraftingIntegration {
+  private com.moakiee.ae2lt.api.crafting.Ae2LtCraftingIntegration();
+  public static com.moakiee.ae2lt.api.crafting.Ae2LtCraftingIntegration$OverloadRegistration prepareOverload(java.lang.Object, appeng.api.crafting.IPatternDetails, java.util.UUID, appeng.api.stacks.AEKey);
+  public static long insertCpuOutput(appeng.api.networking.crafting.ICraftingCPU, java.util.UUID, appeng.api.stacks.AEKey, long, appeng.api.config.Actionable);
+}

@@ -1,0 +1,10 @@
+Compiled from "ScaledProcessingPatternAdv.java"
+public final class com.extendedae_plus.api.crafting.ScaledProcessingPatternAdv extends com.extendedae_plus.api.crafting.ScaledProcessingPattern implements net.pedroksl.advanced_ae.common.patterns.AdvPatternDetails {
+  private final java.util.LinkedHashMap<appeng.api.stacks.AEKey, net.minecraft.core.Direction> dirMap;
+  public com.extendedae_plus.api.crafting.ScaledProcessingPatternAdv(appeng.crafting.pattern.AEProcessingPattern, long);
+  public boolean directionalInputsSet();
+  public java.util.LinkedHashMap<appeng.api.stacks.AEKey, net.minecraft.core.Direction> getDirectionMap();
+  public net.minecraft.core.Direction getDirectionSideForInputKey(appeng.api.stacks.AEKey);
+  public void pushInputsToExternalInventory(appeng.api.stacks.KeyCounter[], appeng.api.crafting.IPatternDetails$PatternInputSink);
+  public java.util.HashMap getDirectionMap();
+}

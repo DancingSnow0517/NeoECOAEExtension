@@ -1,0 +1,11 @@
+Compiled from "RequestedAmountHolder.java"
+public final class com.extendedae_plus.util.smartDoubling.RequestedAmountHolder {
+  private static final java.lang.ThreadLocal<com.extendedae_plus.util.smartDoubling.RequestedAmountHolder$LongStack> HOLDER;
+  private static final int MAX_DEPTH;
+  private com.extendedae_plus.util.smartDoubling.RequestedAmountHolder();
+  public static void push(long);
+  public static void pop();
+  public static long get();
+  public static void clear();
+  static {};
+}

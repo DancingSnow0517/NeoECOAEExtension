@@ -1,0 +1,1911 @@
+{
+  "checked_at": "2026-10-20 Asia/Shanghai",
+  "project": {
+    "client_side": "required",
+    "server_side": "required",
+    "game_versions": [
+      "1.20.1",
+      "1.21.1",
+      "26.1.2"
+    ],
+    "environment": [
+      "client_and_server"
+    ],
+    "id": "xr109llC",
+    "slug": "extendedae-plus",
+    "project_type": "mod",
+    "team": "YNZW8rUP",
+    "organization": null,
+    "title": "ExtendedAE-Plus",
+    "description": "Adds more practical features and auxiliary operations to Applied Energistics 2.",
+    "body": "## ExtendedAE Plus\n\n**ExtendedAE Plus** is an extension mod for Applied Energistics 2 (AE2) that adds practical functions and auxiliary operations to enhance your automation experience.\n\n---\n\n### Main Features\n\n#### 🚀 **Crafting Acceleration**\n* **Multi-level Crafting Accelerators:** Provides five tiers of crafting acceleration units: 4x, 16x, 64x, 256x, and 1024x.\n* **Enhanced Assembly Matrix:** Includes Super Speed Cores, Crafting Cores, and Pattern Cores to significantly boost automation efficiency.\n\n#### 📡 **Wireless Connectivity**\n* **Wireless Transceiver:** Supports connecting your ME Network across vast distances and even across dimensions.\n* **Channel Cards:** Provides wireless channel connectivity capabilities for devices like Pattern Providers.\n\n#### ⚡ **Entity Acceleration**\n* **Entity Accelerator:** Speeds up the tick rate of surrounding block entities (supports 2x, 4x, 8x, and 16x multipliers).\n* **Entity Acceleration Cards:** Configurable upgrade cards that support blacklisting and customizable energy consumption rates.\n\n#### 🎯 **Smart Crafting**\n* **Virtual Crafting Card:** Allows Pattern Providers to perform virtual crafting without the need for physical item transfer.\n* **Intelligent Multiplier:** Automatically and intelligently scales pattern output based on demand, supporting polling distribution.\n* **Network Pattern Controller:** Centralized management and control of patterns within the ME Network.\n\n#### 🔧 **Convenient Operations**\n* **Pattern Upload Core:** Quickly bulk-uploads patterns to the Pattern Provider.\n* **Infinite Storage Cell:** Provides a storage unit with theoretically infinite capacity.\n* **Enhanced Interface:** Improved Pattern Terminal and Provider interfaces supporting more operations.\n\n#### 🔌 **Compatibility**\n* Perfectly compatible with mainstream AE2 extensions like Applied Flux and Mega Cells.\n* Supports JEI (Just Enough Items) recipe viewer integration.\n* Compatible with the Curios accessory slot system.\n\n---\n\n### Configuration Options\n\nThe mod offers extensive configuration options, including:\n\n* Pattern Provider capacity multiplier.\n* Wireless connection distance and cross-dimensional settings.\n* Entity Accelerator energy consumption and blacklisting.\n* Control over Intelligent Multiplier behavior.",
+    "body_url": null,
+    "published": "2025-08-16T15:07:38.504260Z",
+    "updated": "2026-09-29T06:40:21.547285Z",
+    "approved": "2025-08-22T05:55:43.227692Z",
+    "queued": "2025-08-21T03:40:59.217510Z",
+    "status": "approved",
+    "requested_status": "approved",
+    "moderator_message": null,
+    "license": {
+      "id": "LicenseRef-LGPL-3.0",
+      "name": "",
+      "url": "https://github.com/GaLicn/ExtendedAE_Plus?tab=LGPL-3.0-1-ov-file"
+    },
+    "downloads": 248650,
+    "followers": 28,
+    "categories": [
+      "management",
+      "storage",
+      "utility"
+    ],
+    "additional_categories": [
+      "game-mechanics",
+      "technology"
+    ],
+    "loaders": [
+      "forge",
+      "neoforge"
+    ],
+    "versions": [
+      "bXiRO9uz",
+      "wV2W56pB",
+      "hUapqbDM",
+      "b7FlTdrW",
+      "cg5W02MK",
+      "bErZ3hlK",
+      "hcMMdvma",
+      "svt7a4pc",
+      "5MLv3Uxk",
+      "vzwughkJ",
+      "YjyU3Qrs",
+      "aGPfKe8V",
+      "G5v357hg",
+      "S4JvxFcD",
+      "5jwUhrdM",
+      "d661Dk1c",
+      "ZMOMiGYe",
+      "Vi5Hqb5I",
+      "qJhMXfWf",
+      "CpncCAVo",
+      "zCnqemiE",
+      "Q1b0ZMgN",
+      "PNBefg6e",
+      "i320N7oY",
+      "b7MtEbEU",
+      "PbrdWjPO",
+      "c3P1Usf8",
+      "ThpWgNul",
+      "9MoVLuA0",
+      "L2GbM7IC",
+      "agsJGnqK",
+      "l4N2i23p",
+      "BEfpxMXl",
+      "7RT50VZB",
+      "uP5ipPFF",
+      "neJLqdYv",
+      "F7DvKTlI",
+      "BdDOfMzg",
+      "pN9pMjiW",
+      "G2bHHv7g",
+      "g4iCbDEu",
+      "3KER88lz",
+      "bfWu5QkG",
+      "8t9eLn0v",
+      "JzefQcmp",
+      "i2f3ggaN",
+      "DLFDZIVx",
+      "3sniosWU",
+      "A3uRgnwT",
+      "o8U8Ekro",
+      "HNyEHPOp",
+      "AtuOmKkV",
+      "W9WXH7F7"
+    ],
+    "icon_url": "https://cdn.modrinth.com/data/xr109llC/b82ca953e444b30c896543cca36606e66a8a196c.png",
+    "raw_icon_url": "https://cdn.modrinth.com/data/xr109llC/b82ca953e444b30c896543cca36606e66a8a196c.png",
+    "issues_url": "https://github.com/GaLicn/ExtendedAE_Plus/issues",
+    "source_url": "https://github.com/GaLicn/ExtendedAE_Plus",
+    "wiki_url": null,
+    "discord_url": null,
+    "donation_urls": [
+      {
+        "id": "other",
+        "platform": "Other",
+        "url": "https://afdian.com/a/eaep1"
+      },
+      {
+        "id": "ko-fi",
+        "platform": "Ko-fi",
+        "url": "https://ko-fi.com/galieaep"
+      }
+    ],
+    "gallery": [
+      {
+        "url": "https://cdn.modrinth.com/data/xr109llC/images/ec0297b0097901615dbdff1c88366560ddecd5b1.png",
+        "raw_url": "https://cdn.modrinth.com/data/xr109llC/images/ec0297b0097901615dbdff1c88366560ddecd5b1.png",
+        "featured": false,
+        "title": "Hide Sample Button on the Left",
+        "description": "Clicking the hide button will hide the samples in the Extended Sample Management Terminal.",
+        "created": "2025-08-16T15:20:03.239022Z",
+        "ordering": 0
+      },
+      {
+        "url": "https://cdn.modrinth.com/data/xr109llC/images/048d22e1144151f64e3b22e3dbe1e8287a321ed6.png",
+        "raw_url": "https://cdn.modrinth.com/data/xr109llC/images/048d22e1144151f64e3b22e3dbe1e8287a321ed6.png",
+        "featured": false,
+        "title": "Upload Pattern Button",
+        "description": "Click to smart-search Pattern supplier names",
+        "created": "2025-08-16T15:21:43.748765Z",
+        "ordering": 0
+      },
+      {
+        "url": "https://cdn.modrinth.com/data/xr109llC/images/31992d1d3833cc04445808605411df51468f5276_350.webp",
+        "raw_url": "https://cdn.modrinth.com/data/xr109llC/images/31992d1d3833cc04445808605411df51468f5276.png",
+        "featured": false,
+        "title": "Select the patternprovider for upload",
+        "description": "\"After clicking Upload Sample, you will be redirected to the sample supplier selection page (it will automatically search Chinese names based on the mapping table; if you don’t need Chinese, don’t create the mapping).\"",
+        "created": "2025-08-16T15:23:50.670293Z",
+        "ordering": 0
+      },
+      {
+        "url": "https://cdn.modrinth.com/data/xr109llC/images/acdebaedc7c067293a09d163833ed544761b3a65_350.webp",
+        "raw_url": "https://cdn.modrinth.com/data/xr109llC/images/acdebaedc7c067293a09d163833ed544761b3a65.png",
+        "featured": false,
+        "title": "Wireless Transceiver",
+        "description": "\"A more powerful ME Wireless Transceiver that supports cross-dimensional transmission. Left-click/right-click to toggle between master and slave mode, Shift + left-click/right-click to change the frequency.\"",
+        "created": "2025-08-16T15:24:55.990311Z",
+        "ordering": 0
+      },
+      {
+        "url": "https://cdn.modrinth.com/data/xr109llC/images/46da34cf38943e27d1066988ad794195f9a1d72b_350.webp",
+        "raw_url": "https://cdn.modrinth.com/data/xr109llC/images/46da34cf38943e27d1066988ad794195f9a1d72b.png",
+        "featured": false,
+        "title": "Smart Blocking Mode for Sample Suppliers",
+        "description": "\"The same recipe will keep dispatching until it’s completely processed and the container is empty, then the next recipe will start. (GregTech note: assembly input is allowed and circuit settings are unaffected, but the catalyst slot cannot contain any inp",
+        "created": "2025-08-22T09:16:26.211180Z",
+        "ordering": 0
+      },
+      {
+        "url": "https://cdn.modrinth.com/data/xr109llC/images/9c9e59624d70edcb7e87e491978a1da9b3101bb3.png",
+        "raw_url": "https://cdn.modrinth.com/data/xr109llC/images/9c9e59624d70edcb7e87e491978a1da9b3101bb3.png",
+        "featured": false,
+        "title": "Labeled_wireless_transcieves",
+        "description": "Labeled_wireless_transcieves",
+        "created": "2025-12-13T11:01:29.017209Z",
+        "ordering": 0
+      }
+    ],
+    "color": 15264234,
+    "thread_id": "AC5qQ5Se",
+    "monetization_status": "monetized"
+  },
+  "versions": [
+    {
+      "id": "W9WXH7F7",
+      "version_number": "1.6.3",
+      "name": "ExtendedAE-Plus 1.6.3 [NeoForge 26.1.2]",
+      "game_versions": [
+        "26.1.2"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-09-29T06:40:21.547285Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "T2aFrcaK",
+          "hashes": {
+            "sha1": "c5bfd159805f6d06786c496f515dddf3b7bebcd3",
+            "sha512": "3a29080d44cb7b6c624572708fb787a0dd15863ece5c1553889e1c06f1983fef0ef0f56e6d16833cdfda7892fbc70f43f54faf338b336e4ded4bbfa5ab8d72a0"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/W9WXH7F7/extendedae_plus-1.6.3.jar",
+          "filename": "extendedae_plus-1.6.3.jar",
+          "primary": true,
+          "size": 1506949,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "AtuOmKkV",
+      "version_number": "1.6.3",
+      "name": "ExtendedAE-Plus 1.6.3 [NeoForge 1.21.1]",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-09-28T08:37:57.672267Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "u6dRKJwZ",
+          "file_name": null,
+          "dependency_type": "optional"
+        }
+      ],
+      "files": [
+        {
+          "id": "suiYtG0L",
+          "hashes": {
+            "sha512": "5c43dcff863603f2fd390c2d5335d35a04a7cec4707d01bddd3f3890398104952d6b369d98ede87111b8ef125a9e90fe0e1beab748a908327f54229210886bcc",
+            "sha1": "10b7ca701276a76938c2e30c0af2d4a2568b293f"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/AtuOmKkV/extendedae_plus-1.6.3.jar",
+          "filename": "extendedae_plus-1.6.3.jar",
+          "primary": true,
+          "size": 1510011,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "HNyEHPOp",
+      "version_number": "1.6.3",
+      "name": "ExtendedAE-Plus 1.6.3 [Forge 1.20.1]",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-09-28T08:36:57.783448Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "u6dRKJwZ",
+          "file_name": null,
+          "dependency_type": "optional"
+        },
+        {
+          "version_id": null,
+          "project_id": "XxWD5pD3",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "vX3g6jOO",
+          "hashes": {
+            "sha1": "5a81550c022743d79f84518903a894a80c42e87e",
+            "sha512": "bb56aa89a2a8c43aada694cb79bb43a00e8bc7b641cde7c4921db0d50ed1b795217f39bce6bd86e2e6753559639602650ee0c5c54fd5adfcdde072a16cb95594"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/HNyEHPOp/extendedae_plus-1.6.3.jar",
+          "filename": "extendedae_plus-1.6.3.jar",
+          "primary": true,
+          "size": 2315478,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "o8U8Ekro",
+      "version_number": "1.6.2",
+      "name": "ExtendedAE-Plus 1.6.2 [NeoForge 1.21.1]",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-08-28T16:02:15.517880Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "WPUBOodn",
+          "hashes": {
+            "sha512": "9fec48dd068c3fd4c4eed104385f48878e9ba74db44175237ad378e0f7ea881884a87dfa5328c17d5b9d09b68b80bc54ca5df982f5b769d11377872a2c331ec9",
+            "sha1": "da89d21be9947a2baf8e6b73d80ac3e52f57a64d"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/o8U8Ekro/extendedae_plus-1.6.2.jar",
+          "filename": "extendedae_plus-1.6.2.jar",
+          "primary": true,
+          "size": 1496860,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "A3uRgnwT",
+      "version_number": "1.6.2",
+      "name": "ExtendedAE-Plus 1.6.2 [Forge 1.20.1]",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-08-28T15:59:40.679588Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "XxWD5pD3",
+          "file_name": null,
+          "dependency_type": "required"
+        },
+        {
+          "version_id": null,
+          "project_id": "u6dRKJwZ",
+          "file_name": null,
+          "dependency_type": "optional"
+        }
+      ],
+      "files": [
+        {
+          "id": "22Ck2zlx",
+          "hashes": {
+            "sha1": "57e35383648a1d8fb5198ffb6a8e160333832d59",
+            "sha512": "b9f6abd4d53b2e67e95ff2068fa3bcb0f0926844bdc2c3c7371335398e5fcd9148c090821245ff9549cfe3633acd7e34fd6cabdfe16d756747bef60db4bfc901"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/A3uRgnwT/extendedae_plus-1.6.2.jar",
+          "filename": "extendedae_plus-1.6.2.jar",
+          "primary": true,
+          "size": 2306357,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "3sniosWU",
+      "version_number": "1.6.1-f1",
+      "name": "ExtendedAE-Plus 1.6.1-f1 [Forge 1.20.1]",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-08-22T04:57:07.102489Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "u6dRKJwZ",
+          "file_name": null,
+          "dependency_type": "optional"
+        },
+        {
+          "version_id": null,
+          "project_id": "XxWD5pD3",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "D84RiEut",
+          "hashes": {
+            "sha1": "c36e4eea2f13ff39a53be0495ebc2a95bb2f28fa",
+            "sha512": "bc1adb6caf68cc2f9331e5c6d1eaaefbc36977349e4d655afb42b722fa4bb1d3256a8222e4a9569ff60f341f908610e70ed9b3c4870f7b3c32fdde4c2f53e331"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/3sniosWU/extendedae_plus-1.6.1-f1.jar",
+          "filename": "extendedae_plus-1.6.1-f1.jar",
+          "primary": true,
+          "size": 2287352,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "DLFDZIVx",
+      "version_number": "1.6.1",
+      "name": "ExtendedAE-Plus 1.6.1 [NeoForge 1.21.1]",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-08-21T18:51:42.065769Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "MypFvAE7",
+          "hashes": {
+            "sha1": "222c613c091ab607ad6f8b900600c77bf804ac1c",
+            "sha512": "f616982f973d89268373387753c735fbbf202525473bfa01eada1d3e0d72a1bb297e882020a427615bb37ca82b2f712dd3667eabe9784e06b402e7617e5ebad3"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/DLFDZIVx/extendedae_plus-1.6.1.jar",
+          "filename": "extendedae_plus-1.6.1.jar",
+          "primary": true,
+          "size": 1485165,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "i2f3ggaN",
+      "version_number": "1.6.1",
+      "name": "ExtendedAE-Plus 1.6.1 [Forge 1.20.1]",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-08-21T18:06:09.307265Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "XxWD5pD3",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "NnPWXkIC",
+          "hashes": {
+            "sha512": "751cb58de2217a97eb723e29129689d78de6db6c4c2aa2d7a15270b0abe12f9f0d6778ebc8849d25b56a40dabcc5e3dd2fa0dc203a00b9cb5b9d6c2c20dd4b91",
+            "sha1": "61cac84467893c7f633674f5758cd484be521ddb"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/i2f3ggaN/extendedae_plus-1.6.1.jar",
+          "filename": "extendedae_plus-1.6.1.jar",
+          "primary": true,
+          "size": 2287318,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "JzefQcmp",
+      "version_number": "1.6.0-f2",
+      "name": "ExtendedAE-Plus 1.6.0-f2 [NeoForge 1.21.1]",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-08-21T06:51:01.067656Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "RwQ4yj2U",
+          "hashes": {
+            "sha512": "5bdea899a8dcfcd02a7d3330ecb034c6dfb7c029f22fff7eed81711b093a396161295444c17b1970ae7374b12a07506f1559470a98895bd652b704b4159bb0b0",
+            "sha1": "f98aed55bcf16ea146ba95ecf486f03d0b2ff846"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/JzefQcmp/extendedae_plus-1.6.0-f2.jar",
+          "filename": "extendedae_plus-1.6.0-f2.jar",
+          "primary": true,
+          "size": 1473390,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "8t9eLn0v",
+      "version_number": "1.6.0-f2",
+      "name": "ExtendedAE-Plus 1.6.0-f2 [Forge 1.20.1]",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-08-21T06:48:25.940334Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "XxWD5pD3",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "MtFpcqOF",
+          "hashes": {
+            "sha512": "5dcc39ac093872c66f05e652c23de5c7daf76f60682319306fe4e426ab8ef4fad0c6f8c29056ee5af2c397ad1e4a2e5a58a288c735341f292fbdbab98b5f3c74",
+            "sha1": "ef63353ac876f509e84ef802e9df0560fda1b70f"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/8t9eLn0v/extendedae_plus-1.6.0-f2.jar",
+          "filename": "extendedae_plus-1.6.0-f2.jar",
+          "primary": true,
+          "size": 2275308,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "bfWu5QkG",
+      "version_number": "1.6.0-f1",
+      "name": "ExtendedAE-Plus 1.6.0-f1 [NeoForge 1.21.1]",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-08-21T03:53:43.759266Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "B0FbHLJi",
+          "hashes": {
+            "sha512": "48d8b927105cdf215cfb3e1eca995f393febf51f13c3ae14172e96752da285e21b2e18d8f0166e3a4f5af02022019055089d2331496221cf3963c815dcb69d2e",
+            "sha1": "7fe8d36e4a1bb08d3a1acf2461e4fc435bfaaf3d"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/bfWu5QkG/extendedae_plus-1.6.0-f1.jar",
+          "filename": "extendedae_plus-1.6.0-f1.jar",
+          "primary": true,
+          "size": 1472307,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "3KER88lz",
+      "version_number": "1.6.0-f1",
+      "name": "ExtendedAE-Plus 1.6.0-f1 [Forge 1.20.1]",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-08-21T03:50:19.199756Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "XxWD5pD3",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "odYzvDZD",
+          "hashes": {
+            "sha512": "03e44890b5ab5429bd0cbdeeb0171e39d2d299f50060eaee355b4b1b9f351dbd74feb6f9caec008403cdaec4b4d6c4ace0c18ca69aaec43022e8d71a128000ea",
+            "sha1": "881ce0fc8eba793e49cdaceba6f6528a6fb37695"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/3KER88lz/extendedae_plus-1.6.0-f1.jar",
+          "filename": "extendedae_plus-1.6.0-f1.jar",
+          "primary": true,
+          "size": 2277166,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "g4iCbDEu",
+      "version_number": "1.6.0",
+      "name": "ExtendedAE-Plus 1.6.0 [Forge 1.20.1]",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-08-20T16:28:54.209080Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "XxWD5pD3",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "VQXq34Zy",
+          "hashes": {
+            "sha512": "c3095bc40ac2f68346962b1bbedeae9d324b542b87a14819a6fee448c4d815514113a5af6b4130405eed2a49c94fa88cfd7b93571d2b449ea69f111c61e10cef",
+            "sha1": "3f1454b5eb06ab8b42fc0f78b5a0a9006c8dcab9"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/g4iCbDEu/extendedae_plus-1.6.0.jar",
+          "filename": "extendedae_plus-1.6.0.jar",
+          "primary": true,
+          "size": 2277565,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "G2bHHv7g",
+      "version_number": "1.6.0",
+      "name": "ExtendedAE-Plus 1.6.0 [NeoForge 1.21.1]",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-08-20T16:26:43.252778Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Hrj3pOeD",
+          "hashes": {
+            "sha1": "6b32f2bc8fcf2df59c831dec416e0d0c6532dc42",
+            "sha512": "0c87d8826624a004bcbdf2766a9d3b5c9176d772027895a4d02215bc23b538b14ab1bca4d2d3cd7c239c723847da4f8b23a7b1ae133fcb4ac08a40c885a0b2ce"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/G2bHHv7g/extendedae_plus-1.6.0.jar",
+          "filename": "extendedae_plus-1.6.0.jar",
+          "primary": true,
+          "size": 1472547,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "pN9pMjiW",
+      "version_number": "1.5.5",
+      "name": "ExtendedAE-Plus 1.5.5 [Forge 1.20.1]",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-07-06T08:01:48.848039Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "9t2QzZOy",
+          "hashes": {
+            "sha512": "abb444fe5282eb0e05e44211a3e0e9db19439d55a78f925d004c7297714fa090d2b6672cd237fb607a026f43ce5f060987f84ebfa4c885c52f2e9d9771bdb026",
+            "sha1": "c38038f8d588ba0e7854ea7f6067a293f27e1529"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/pN9pMjiW/extendedae_plus-1.5.5.jar",
+          "filename": "extendedae_plus-1.5.5.jar",
+          "primary": true,
+          "size": 1300112,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "BdDOfMzg",
+      "version_number": "1.5.5",
+      "name": "ExtendedAE-Plus 1.5.5 [NeoForge 1.21.1]",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-07-06T07:16:28.480507Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "irLwfGbW",
+          "hashes": {
+            "sha512": "c1211f90af315542b4a6092bf8ce59fdb6afd100ebcb8315bab08f08d1829492740002eb5c7ef4cae5dc7bd48b38d4d16f84b9ff014fae2115450df2c2a5ab58",
+            "sha1": "7e6aa6ac5cfbcbbfbb43eacdebb9900929352cad"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/BdDOfMzg/extendedae_plus-1.5.5.jar",
+          "filename": "extendedae_plus-1.5.5.jar",
+          "primary": true,
+          "size": 1059077,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "F7DvKTlI",
+      "version_number": "1.21.1-1.5.4.1",
+      "name": "ExtendedAE-Plus 1.21.1-1.5.4.1",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-05-25T04:03:47.880932Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "vsiZ86Lh",
+          "hashes": {
+            "sha512": "8bd8839f2a8cc969925599775e9b7c38ac2c50f45fb99d39a1198809f8ad7c137e80f1477e6efd58bee5afd29d2d65873e96293c3f173c163e2c0cabc389ba70",
+            "sha1": "27ffe47f82eb4d2122840252c3fdd2184eb06a1f"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/F7DvKTlI/extendedae_plus-1.21.1-1.5.4.1.jar",
+          "filename": "extendedae_plus-1.21.1-1.5.4.1.jar",
+          "primary": true,
+          "size": 993465,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "neJLqdYv",
+      "version_number": "1.5.4.1",
+      "name": "ExtendedAE-Plus 1.5.4.1",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-05-25T04:03:31.495196Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "DO6F8T5Y",
+          "hashes": {
+            "sha1": "dd4de6efc2607c75b9623b077d46cab979133457",
+            "sha512": "c4d35347e9a7cfc10872eb878defa3ad5643ede39f36a70cce98fb3bf6af1c8386df1ab013a70de2e6ed31fd7fef8c1a673b6dfe23861bdcbc5026988442fbdd"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/neJLqdYv/extendedae_plus-1.5.4.1.jar",
+          "filename": "extendedae_plus-1.5.4.1.jar",
+          "primary": true,
+          "size": 1255985,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "uP5ipPFF",
+      "version_number": "1.5.4",
+      "name": "ExtendedAE-Plus 1.5.4",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-04-21T11:26:20.497115Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "s1224x0J",
+          "hashes": {
+            "sha512": "aaab436eabda7203a08af3b37173cb6ea116b25907d8ce86729e0b1f07e4854d21c466504e031b67c5bae62aaabfb4da392f31ec60e58747a904fd8ec9cd3386",
+            "sha1": "8725ba1d3fcfa20c09d0f104eeb7898538e8e1e3"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/uP5ipPFF/extendedae_plus-1.5.4.jar",
+          "filename": "extendedae_plus-1.5.4.jar",
+          "primary": true,
+          "size": 1253824,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "7RT50VZB",
+      "version_number": "1.21.1-1.5.4",
+      "name": "ExtendedAE-Plus 1.21.1-1.5.4",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-04-21T11:25:26.351194Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "kXwDfYZX",
+          "hashes": {
+            "sha512": "cf7ba7d23841096db0c796cee202734a8f9864f28479a922a2e0c5a1183112d3fe9765df92d359e25d6af9a0ef25fdef96356dec29c2e8d68e7782369fe62539",
+            "sha1": "664636d562582b1a770a290ace0c7e344993e071"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/7RT50VZB/extendedae_plus-1.21.1-1.5.4.jar",
+          "filename": "extendedae_plus-1.21.1-1.5.4.jar",
+          "primary": true,
+          "size": 938766,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "BEfpxMXl",
+      "version_number": "1.5.3-fix",
+      "name": "ExtendedAE-Plus 1.5.3-fix",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-04-01T09:19:14.136161Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "1gU3E2n7",
+          "hashes": {
+            "sha512": "c8c91ef426bff0c3af703a659c6065e3276d285df60bb9221dd5c992dd1ad2c4eb1dc7c4d818d8d023a669fbb084f4e28d72590e599e142c26cb460287f4c173",
+            "sha1": "efe1b171c3aedef2e8ddc8d4fd35a80f46a31a68"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/BEfpxMXl/extendedae_plus-1.5.3-fix.jar",
+          "filename": "extendedae_plus-1.5.3-fix.jar",
+          "primary": true,
+          "size": 1169635,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "l4N2i23p",
+      "version_number": "1.5.3",
+      "name": "ExtendedAE-Plus 1.5.3",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-03-26T12:29:27.228616Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "C73ituGO",
+          "hashes": {
+            "sha512": "bf853bfefb8d2e54debeedb3631836af59b621c542e3ae8f68a4a8193db69d4682f25a30bab1bcd7a673267c62b90cfd820985e1233e83b6efc5241e55e6e93e",
+            "sha1": "cf07255e7277cb08a48f34397126918d072196d2"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/l4N2i23p/extendedae_plus-1.5.3.jar",
+          "filename": "extendedae_plus-1.5.3.jar",
+          "primary": true,
+          "size": 1167926,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "agsJGnqK",
+      "version_number": "1.21.1-1.5.3",
+      "name": "ExtendedAE-Plus 1.21.1-1.5.3",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-03-26T12:28:36.597952Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "jlkshxYW",
+          "hashes": {
+            "sha512": "8101469ead11e1d6621c39696fc9b54f4c48f3df76d010582dcfc3b809cd164d5f7cb921626f5438270df2eb96e9a4fc6fbee3d0ce41135a626f7d68a18bcb82",
+            "sha1": "95cf787344a15bd67dab5c9927d6812946eff362"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/agsJGnqK/extendedae_plus-1.21.1-1.5.3.jar",
+          "filename": "extendedae_plus-1.21.1-1.5.3.jar",
+          "primary": true,
+          "size": 852699,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "L2GbM7IC",
+      "version_number": "1.5.2-fix",
+      "name": "ExtendedAE-Plus 1.5.2-fix",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-03-03T06:16:29.010461Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "n4Sj5aKg",
+          "hashes": {
+            "sha1": "5c8091ff3898a8fa26214d1d38d2489883967324",
+            "sha512": "1f65e51e9c032eaa503df90ce3ff367b1dbc85a8a5ccf674500c5b607176bb554d59be0351c6543c4569bd956f4e59f81a7b3f498f5a061f0167db25225878c0"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/L2GbM7IC/extendedae_plus-1.5.2-fix.jar",
+          "filename": "extendedae_plus-1.5.2-fix.jar",
+          "primary": true,
+          "size": 1129645,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "9MoVLuA0",
+      "version_number": "1.21.1-1.5.2-fix",
+      "name": "ExtendedAE-Plus 1.21.1-1.5.2-fix",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-03-02T11:40:34.735161Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "3x8SFI7J",
+          "hashes": {
+            "sha1": "d5539e8d1ef133d19007a0e56c37309543d1ab52",
+            "sha512": "8a328b79388cfa780617b176a53a379d24d95959612628232c0e76ad02a9075781a91c5307d87b2219635eefdc1a36a249f3156789f1f0205174e33a27f1cdd1"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/9MoVLuA0/extendedae_plus-1.21.1-1.5.2-fix.jar",
+          "filename": "extendedae_plus-1.21.1-1.5.2-fix.jar",
+          "primary": true,
+          "size": 814718,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ThpWgNul",
+      "version_number": "1.21.1-1.5.2",
+      "name": "ExtendedAE-Plus 1.21.1-1.5.2",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-03-02T05:46:32.274577Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "P1GsOADI",
+          "hashes": {
+            "sha1": "f35b60c94a0b3ac5c7b25660033689263981e35a",
+            "sha512": "b428b752f207f34c9747145d4e92636afb4548972d4013b478b91a380b582cefbf60414ae4970285ca89312c9c73c0468ececb57ac39f3856836662081b9b5df"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/ThpWgNul/extendedae_plus-1.21.1-1.5.2.jar",
+          "filename": "extendedae_plus-1.21.1-1.5.2.jar",
+          "primary": true,
+          "size": 811719,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "c3P1Usf8",
+      "version_number": "1.5.2",
+      "name": "ExtendedAE-Plus 1.5.2",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-03-02T05:45:23.044447Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "gIpKLmET",
+          "hashes": {
+            "sha512": "fc19d02a40e428358c62589bcb4cb6b2c737e63dbddbd678589f3bd86490be95dc770c1873bb9012f5a150e228bd96f2aa3eb5a31c8c13e489c95b8a4a30a765",
+            "sha1": "2d4fb5b0a00fa99ff46ab06a30f1ff4f5a995f47"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/c3P1Usf8/extendedae_plus-1.5.2.jar",
+          "filename": "extendedae_plus-1.5.2.jar",
+          "primary": true,
+          "size": 1128800,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "PbrdWjPO",
+      "version_number": "1.5.1",
+      "name": "ExtendedAE-Plus 1.5.1",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-12-13T11:00:56.954349Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "I6mVj4W0",
+          "hashes": {
+            "sha1": "211823b992b8fe2a49fceb7e49b5f0eddce44539",
+            "sha512": "3f8feda45753f27e2c5b776a42e52b31f3f159b1b1f26dce3efe3f3edc4bf93b153f491f8c9916165ae5b393bca00553f9cb6a18a27b9a92580e612d341320be"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/PbrdWjPO/extendedae_plus-1.5.1.jar",
+          "filename": "extendedae_plus-1.5.1.jar",
+          "primary": true,
+          "size": 1088003,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "b7MtEbEU",
+      "version_number": "1.21.1-1.5.1",
+      "name": "ExtendedAE-Plus 1.21.1-1.5.1",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-12-13T11:00:29.696749Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "NF63vrXW",
+          "hashes": {
+            "sha1": "3e01e4ffa8ceef1f20e0b4215f663490833864a7",
+            "sha512": "ecd98af6d089250cf367f20bb367267bbfcb7c8cedb7dc7db24f10287c61fe8714a5eb181b92e09ea7b4bbaf1541d05262a3ed109cbacd95af104b17218fa2cf"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/b7MtEbEU/extendedae_plus-1.21.1-1.5.1.jar",
+          "filename": "extendedae_plus-1.21.1-1.5.1.jar",
+          "primary": true,
+          "size": 774311,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "i320N7oY",
+      "version_number": "1.21.1-1.5.0",
+      "name": "ExtendedAE-Plus 1.21.1-1.5.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-12-05T06:23:32.967620Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "bKJLUqH3",
+          "hashes": {
+            "sha1": "347d9b7f9b33adf19ef56cf959685caab217ad63",
+            "sha512": "82f6272c6c988d7daca49ac3cbcc07b26999605b53687329b19b203bba41cae12950d6a1501d57128d3bdc39658f8e60a2f6a832c53647012023f1d9e35046d0"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/i320N7oY/extendedae_plus-1.21.1-1.5.0.jar",
+          "filename": "extendedae_plus-1.21.1-1.5.0.jar",
+          "primary": true,
+          "size": 706142,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "PNBefg6e",
+      "version_number": "1.5.0-fix",
+      "name": "ExtendedAE-Plus 1.5.0-fix",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-12-05T03:01:41.538221Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "sAUhTirz",
+          "hashes": {
+            "sha512": "50e5023178a42bca052e285bef2e8084a9501a4761d1348b7ce39ee1444be9cb94cb6beda7dbfd9c2084f63fc1a81198eb6cc82b0236729dc7eb99b9a2c00914",
+            "sha1": "ee47f7ef86f5e8ab539e89e20d301809b83495c9"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/PNBefg6e/extendedae_plus-1.5.0-fix.jar",
+          "filename": "extendedae_plus-1.5.0-fix.jar",
+          "primary": true,
+          "size": 1020841,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "Q1b0ZMgN",
+      "version_number": "1.5.0",
+      "name": "ExtendedAE-Plus 1.5.0",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-12-02T14:37:27.747330Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "fobC4HU6",
+          "hashes": {
+            "sha1": "77b7d38d67ad011858b112c0fdfcb95b433a768c",
+            "sha512": "71bcb7fd3edf6736028877a53e33509b89242ce4066faecb21761d701063ab7c99dd6d22384ed90ebaa903c6f4878e485d1fe6c2e6d18d786a316de2a50c00eb"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/Q1b0ZMgN/extendedae_plus-1.5.0.jar",
+          "filename": "extendedae_plus-1.5.0.jar",
+          "primary": true,
+          "size": 1022652,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "zCnqemiE",
+      "version_number": "1.4.6",
+      "name": "ExtendedAE-Plus 1.4.6",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-11-26T07:02:27.498121Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "WJP5ER57",
+          "hashes": {
+            "sha1": "656d7188022ad34c40d08e456077b35f35293e30",
+            "sha512": "42788ce9effbf0e1bad21844208de6205cc46f32165e29c8be3084bb3d51f158c6a081f5d597facf0d785eea05f51d19517bbe3e0b87f81bccbff784676c340e"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/zCnqemiE/extendedae_plus-1.4.6.jar",
+          "filename": "extendedae_plus-1.4.6.jar",
+          "primary": true,
+          "size": 1439556,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "CpncCAVo",
+      "version_number": "1.21.1-1.4.4",
+      "name": "ExtendedAE-Plus 1.21.1-1.4.4",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-11-25T07:28:16.622504Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "ni0g4hoM",
+          "hashes": {
+            "sha1": "485d585a013e811746cfa7faf102224e953b2515",
+            "sha512": "1df17887c5ba5e662769b795cfb4a89a93f1f1663285b61deced0baddf71d20c0552361dc742f210dc9851d0cd02fbb85e0b4582556eb292b40d419eaded0b2d"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/CpncCAVo/extendedae_plus-1.21.1-1.4.4.jar",
+          "filename": "extendedae_plus-1.21.1-1.4.4.jar",
+          "primary": true,
+          "size": 1034986,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "qJhMXfWf",
+      "version_number": "1.4.5",
+      "name": "ExtendedAE-Plus 1.4.5",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-11-17T10:59:18.437185Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "TuasmXB3",
+          "hashes": {
+            "sha512": "96e1c81e575829eb9d4fccb32a2494a0700e50cfc346b3268639c3e9a06321a21a39501f46366851fa732ecc7b13af81e31dfd93452ba8ee39e3046f96267cc9",
+            "sha1": "5af6edae42c695ad3982323ac5b85e581385b4e1"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/qJhMXfWf/extendedae_plus-1.4.5.jar",
+          "filename": "extendedae_plus-1.4.5.jar",
+          "primary": true,
+          "size": 1415047,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "Vi5Hqb5I",
+      "version_number": "1.4.4",
+      "name": "ExtendedAE-Plus 1.4.4",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-10-05T08:10:16.129132Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "6Q3CJWt6",
+          "hashes": {
+            "sha512": "16425c4bad52a964a62dbf936b432d7621f42d319b81c2e97ed583158b76977371ea2a180014299673e9e86711de8b8915409ac3aa329e12a10e372f0622d2c0",
+            "sha1": "27572422b44deb20d2a35f08a42840a1407b5897"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/Vi5Hqb5I/extendedae_plus-1.4.4.jar",
+          "filename": "extendedae_plus-1.4.4.jar",
+          "primary": true,
+          "size": 1238234,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ZMOMiGYe",
+      "version_number": "1.21.1-1.4.3",
+      "name": "ExtendedAE-Plus 1.21.1-1.4.3",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-09-27T16:32:19.087676Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "bLsd0WAd",
+          "hashes": {
+            "sha1": "7ad8c7b9f449d066aef6ce0db7a6c6d461102396",
+            "sha512": "f1d49d0d9bd4b4fb701b430bba541e4ea02bd8cd0f8f08692703108fe9be3c39ad6870a534d7ecc641ee8081e172d3b1255dea18ed545fa8a8bf27c5badbf964"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/ZMOMiGYe/extendedae_plus-1.21.1-1.4.3.jar",
+          "filename": "extendedae_plus-1.21.1-1.4.3.jar",
+          "primary": true,
+          "size": 775166,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "d661Dk1c",
+      "version_number": "1.4.3",
+      "name": "ExtendedAE-Plus 1.4.3",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-09-24T04:16:26.136568Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "JF1wfhO2",
+          "hashes": {
+            "sha512": "1872b1014082865eb55184cd396594dc4791690bbf46cabc49fc2a40bb75b485d682431bb04dc09e0d59d5a38d6870ff19d27476cbe590ba8321902e53f3b310",
+            "sha1": "2b4cbe0b36aca834beca2027a02c2e53698d1914"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/d661Dk1c/extendedae_plus-1.4.3.jar",
+          "filename": "extendedae_plus-1.4.3.jar",
+          "primary": true,
+          "size": 1000988,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "5jwUhrdM",
+      "version_number": "1.21.1-1.4.2",
+      "name": "ExtendedAE-Plus 1.21.1-1.4.2",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-09-21T15:44:25.302135Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "Btcfb99n",
+          "hashes": {
+            "sha512": "1655a1dad7d6daff3bead39dd803d42e15e703c0767ab7061ce338a50851dce7e096d2bfa31cf8f2caf4e6375dd25a029af5bada421c18652cfffce171699fcf",
+            "sha1": "2a4cd2cab1af50e292eaf12e412ee5766fa34837"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/5jwUhrdM/extendedae_plus-1.21.1-1.4.2.jar",
+          "filename": "extendedae_plus-1.21.1-1.4.2.jar",
+          "primary": true,
+          "size": 706121,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "S4JvxFcD",
+      "version_number": "1.4.2",
+      "name": "ExtendedAE-Plus 1.4.2",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-09-18T09:29:44.428700Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "Q3PFjBvn",
+          "hashes": {
+            "sha512": "40139ba2461641b008dbde35f87dec5442f6bac0e50e3cd203c3c48328762fa9eeca8f65f48389be0ff0c37aaeb9a6b474fb4493b7dc34286e8927fded39c4a5",
+            "sha1": "46ef5e1590e84f380b2a8f2fbbc3efe86df38600"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/S4JvxFcD/extendedae_plus-1.4.2.jar",
+          "filename": "extendedae_plus-1.4.2.jar",
+          "primary": true,
+          "size": 940052,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "G5v357hg",
+      "version_number": "1.21.1-1.4.0-fix",
+      "name": "ExtendedAE-Plus 1.21.1-1.4.0-fix",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-09-08T05:11:45.953777Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "jrLfqYx0",
+          "hashes": {
+            "sha512": "33ddb856ad9ee519052977e51b0e0713dcdbf4ba9c308e27c4b0396f6c7f3ecf6c5a91a24c042c4882e73f1a27b3ed1b37644483a63948799e2cc28b410b5582",
+            "sha1": "0961383641110a8fdaeb5226914e1a8aa5b4219b"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/G5v357hg/extendedae_plus-1.21.1-1.4.0-fix.jar",
+          "filename": "extendedae_plus-1.21.1-1.4.0-fix.jar",
+          "primary": true,
+          "size": 609831,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "aGPfKe8V",
+      "version_number": "1.21.1-1.4.0",
+      "name": "ExtendedAE-Plus 1.21.1-1.4.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-09-07T06:23:22.936603Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "x2EIowz1",
+          "hashes": {
+            "sha1": "4c8f3635a9b66331a869f9dc89097492fd3d4b60",
+            "sha512": "ec6a60560e035e7460fa640d471e53ff9f08ce9af26d1a181b32f100ee252ea68dbb8de8bfcd2ee6db9f47caee90b0c8e812befdd2b28926f12c947403be19d8"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/aGPfKe8V/extendedae_plus-1.21.1-1.4.0.jar",
+          "filename": "extendedae_plus-1.21.1-1.4.0.jar",
+          "primary": true,
+          "size": 603084,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "YjyU3Qrs",
+      "version_number": "1.4.1",
+      "name": "ExtendedAE-Plus 1.4.1",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-09-07T06:22:23.460625Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "rAJeGg4E",
+          "hashes": {
+            "sha1": "8c2dd6ffa037fcde57909b1a7a02cba3d57cae57",
+            "sha512": "c96f33d1b903249df14e88994dc98f288c8a7205bc68edcf0357756ff704630ed0863016c03505c0d37ab6f5268de3842f911ff302646f36c981dd72beaa59a9"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/YjyU3Qrs/extendedae_plus-1.4.1.jar",
+          "filename": "extendedae_plus-1.4.1.jar",
+          "primary": true,
+          "size": 623551,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "vzwughkJ",
+      "version_number": "1.4.0-fix",
+      "name": "ExtendedAE-Plus 1.4.0-fix",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-31T13:29:20.127407Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "8uCgo2Cl",
+          "hashes": {
+            "sha1": "ffaefba596a1925fad9f6fb54fccfbd0a1b7475d",
+            "sha512": "0af54b57926dbcbcb89f6487733fafcad27e928e88747e0a5162d25cb8563a2259a7bbd9effb36745620c0ef963a0cf11f06ae7d10cd4e94fc80e7a7ff09f53b"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/vzwughkJ/extendedae_plus-1.4.0-fix.jar",
+          "filename": "extendedae_plus-1.4.0-fix.jar",
+          "primary": true,
+          "size": 613655,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "5MLv3Uxk",
+      "version_number": "1.4.0",
+      "name": "ExtendedAE-Plus 1.4.0",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-29T12:04:36.889237Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "3g6tUjsm",
+          "hashes": {
+            "sha512": "5bc46bd86ac2ea8940123c9ec96423eebef014ebecdcc98c54ec2bc9d0b55744372997544c05973137b27a8d9eaf0ff7e546bd28f7a311562da8f06f5cc3c70c",
+            "sha1": "2753c729e3a03836edbf515daf847be08034d680"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/5MLv3Uxk/extendedae_plus-1.4.0.jar",
+          "filename": "extendedae_plus-1.4.0.jar",
+          "primary": true,
+          "size": 1544127,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "svt7a4pc",
+      "version_number": "1.3.3",
+      "name": "ExtendedAE-Plus 1.3.3",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-24T17:03:34.561584Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "gWVd8vll",
+          "hashes": {
+            "sha1": "5e9fc67ea30101c5e918d87703efb749ad4aa067",
+            "sha512": "d8e61dfdbc4607ac8c6405c49020220133c23708f02c3e8dad346e2783162fe4b2d58f8b2fac9d5a34a1eca3cf9dd379dd0af0cc6ee467588d852bbbca5b4341"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/svt7a4pc/extendedae_plus-1.3.3.jar",
+          "filename": "extendedae_plus-1.3.3.jar",
+          "primary": true,
+          "size": 463175,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "hcMMdvma",
+      "version_number": "1.3.2",
+      "name": "ExtendedAE-Plus 1.3.2",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-21T03:44:55.377989Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "WAV5WKoK",
+          "hashes": {
+            "sha512": "03a4345e702654f41149e6a280be144aa19117f2f9458c44b05cad5003c61ef922e0a3f968d94355f50eb755835fa2355aaad630ec67f021da34b6af5d46590d",
+            "sha1": "02b47132436148165936e13afd4214d9bbf8082c"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/hcMMdvma/extendedae_plus-1.3.2.jar",
+          "filename": "extendedae_plus-1.3.2.jar",
+          "primary": true,
+          "size": 1192528,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "bErZ3hlK",
+      "version_number": "1.3.0",
+      "name": "ExtendedAE-Plus 1.3.0",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-16T15:47:24.013207Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "cXJLmPsi",
+          "hashes": {
+            "sha512": "3090fee9c656d99889703da20477e6b07f4f8063333acd198a938e8a7b8477b6f15c83aebc78da4f335ea29122bb0c2dac053f4d7dedc498e9d0db66a9dd6fe2",
+            "sha1": "9fcc5096354a688c18c0d3106a13474c5e99145a"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/bErZ3hlK/extendedae_plus-1.3.0.jar",
+          "filename": "extendedae_plus-1.3.0.jar",
+          "primary": true,
+          "size": 1169073,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "cg5W02MK",
+      "version_number": "1.2.2",
+      "name": "ExtendedAE-Plus 1.2.2",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-16T15:44:56.918006Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "bGFcqFFo",
+          "hashes": {
+            "sha512": "4cd542f070dec5fd9e9dad8f88407b80b854ab9fb0a9a4c102a2eb5ee0a5a7fb0e78f1ef02494916d10fe7d46770be88c1b339017db2ce0b033916b348bab639",
+            "sha1": "f866b2c5a24a264324866502076ae20e087aeec1"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/cg5W02MK/extendedae_plus-1.2.2.jar",
+          "filename": "extendedae_plus-1.2.2.jar",
+          "primary": true,
+          "size": 1169073,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "b7FlTdrW",
+      "version_number": "1.2.1-fix",
+      "name": "ExtendedAE-Plus 1.2.1-fix",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-16T15:43:06.389633Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "mzLZbQ4D",
+          "hashes": {
+            "sha512": "61e7f9b6488c40fc4958393328cbe204e253d72225203a5cd8c81a5f3209097ed8977c12886258dcfc7d7bb3b8509c68b1335d971a275cccf88741843f515f82",
+            "sha1": "3e20587f210861da4f8dbb777c92eb588aa25f0b"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/b7FlTdrW/extendedae_plus-1.2.1-fix-a.jar",
+          "filename": "extendedae_plus-1.2.1-fix-a.jar",
+          "primary": true,
+          "size": 1131319,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "hUapqbDM",
+      "version_number": "1.2.0-a",
+      "name": "ExtendedAE-Plus 1.2.0-a",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-16T15:41:18.561974Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "FU4hrEJF",
+          "hashes": {
+            "sha512": "4addaeb1bd0859167c057d258ab73324fa51651748478a3fd412d1697734f3fc8ffb07c4a527dc5a926b2f3f36c775d152104dabc1572fa4e0423cb055c1d443",
+            "sha1": "8c90ecba050964bbabd220dfe4ee35e0ff0cfedc"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/hUapqbDM/extendedae_plus-1.2.0-a.jar",
+          "filename": "extendedae_plus-1.2.0-a.jar",
+          "primary": true,
+          "size": 1095001,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "wV2W56pB",
+      "version_number": "1.1.3",
+      "name": "ExtendedAE-Plus 1.1.3",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-16T15:37:36.761918Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "BujFO2ef",
+          "hashes": {
+            "sha1": "a95babe2f5d643732381728cf45113ce03c37fc9",
+            "sha512": "bf701b07f52cfd45625c383067e9b4e48e8d3f3ba384d632bd5c589d532cf486e361291d88fa9fbebe7f5d016a03fdc4a2df0c103f1d7f5e7845fdb9e8a765f6"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/wV2W56pB/extendedae_plus-1.1.3.jar",
+          "filename": "extendedae_plus-1.1.3.jar",
+          "primary": true,
+          "size": 67115,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "bXiRO9uz",
+      "version_number": "1.0.0",
+      "name": "ExtendedAE-Plus 1.0.0",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-16T15:33:12.305696Z",
+      "version_type": "release",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "JiOqfoFM",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ],
+      "files": [
+        {
+          "id": "GGblJ7t1",
+          "hashes": {
+            "sha1": "7ff12c78f507cad7f342426e2159181063651a73",
+            "sha512": "aff902a21c02b83dc901d2dec995989e16e51b981fb9fc488804652ad658cf2af22a858bed6e93871783528d0f8286688058553de0ab238e5e50c97a263a9408"
+          },
+          "url": "https://cdn.modrinth.com/data/xr109llC/versions/bXiRO9uz/extendedae_plus-1.0.0.jar",
+          "filename": "extendedae_plus-1.0.0.jar",
+          "primary": true,
+          "size": 60875,
+          "file_type": null
+        }
+      ]
+    }
+  ]
+}

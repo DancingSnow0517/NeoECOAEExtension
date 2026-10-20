@@ -1,0 +1,16 @@
+Compiled from "ScaledProcessingPattern.java"
+public class com.extendedae_plus.api.crafting.ScaledProcessingPattern implements appeng.api.crafting.IPatternDetails {
+  private final appeng.crafting.pattern.AEProcessingPattern original;
+  private final long multiplier;
+  public com.extendedae_plus.api.crafting.ScaledProcessingPattern(appeng.crafting.pattern.AEProcessingPattern, long);
+  public appeng.crafting.pattern.AEProcessingPattern getOriginal();
+  public long getMultiplier();
+  public final appeng.api.stacks.AEItemKey getDefinition();
+  public final appeng.api.crafting.IPatternDetails$IInput[] getInputs();
+  public final appeng.api.stacks.GenericStack[] getOutputs();
+  public final appeng.api.stacks.GenericStack[] getSparseInputs();
+  public final appeng.api.stacks.GenericStack[] getSparseOutputs();
+  public int hashCode();
+  public boolean equals(java.lang.Object);
+  public java.lang.String toString();
+}

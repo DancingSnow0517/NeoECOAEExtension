@@ -1,0 +1,18 @@
+Compiled from "PatternCorePlusBlockEntity.java"
+public class com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity extends com.glodblock.github.extendedae.common.tileentities.matrix.TileAssemblerMatrixPattern implements com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart {
+  public static final int INV_SIZE;
+  private final appeng.util.inv.FilteredInternalInventory exposedInventory;
+  private com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster superMatrixCluster;
+  public com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity(net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
+  public appeng.util.inv.FilteredInternalInventory getExposedInventory();
+  public appeng.api.implementations.blockentities.PatternContainerGroup getTerminalGroup();
+  public net.minecraft.world.level.block.entity.BlockEntityType<?> m_58903_();
+  public void onChangeInventory(appeng.api.inventories.InternalInventory, int);
+  public void onChunkUnloaded();
+  public void m_7651_();
+  public net.minecraft.core.BlockPos eap$getSuperMatrixPos();
+  public net.minecraft.world.level.Level eap$getSuperMatrixLevel();
+  public com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster eap$getSuperMatrixCluster();
+  public void eap$setSuperMatrixCluster(com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster);
+  public void eap$updateSuperMatrixStatus();
+}

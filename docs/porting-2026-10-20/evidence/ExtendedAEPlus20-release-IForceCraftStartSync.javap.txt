@@ -1,0 +1,5 @@
+Compiled from "IForceCraftStartSync.java"
+public interface com.extendedae_plus.api.crafting.IForceCraftStartSync {
+  public abstract void eap$clientSetForceCraftStart(boolean);
+  public abstract boolean eap$consumeForceCraftStartFlag();
+}

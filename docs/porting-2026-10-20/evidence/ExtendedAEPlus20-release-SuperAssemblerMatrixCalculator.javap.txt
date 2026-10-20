@@ -1,0 +1,39 @@
+Compiled from "SuperAssemblerMatrixCalculator.java"
+public final class com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCalculator {
+  private static final int MAX_PARTS_TO_SCAN;
+  private static final int MIN_DELTA;
+  private static final int[] ULTIMATE_LOAD_RECALCULATION_DELAYS;
+  private static final java.util.Map<net.minecraft.server.level.ServerLevel, it.unimi.dsi.fastutil.longs.LongOpenHashSet> PENDING_RECALCULATIONS;
+  private static final java.util.Map<net.minecraft.server.level.ServerLevel, it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<it.unimi.dsi.fastutil.longs.LongOpenHashSet>> DELAYED_RECALCULATIONS;
+  private com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCalculator();
+  public static void clearScheduledRecalculations();
+  public static void scheduleRecalculate(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos);
+  public static void scheduleAfterNeighborChange(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos, net.minecraft.core.BlockPos);
+  public static void scheduleUltimateLoadRecalculate(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos);
+  private static void scheduleDelayedRecalculate(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos, int);
+  public static void processScheduledRecalculations(net.minecraft.server.level.ServerLevel);
+  private static void recalculate(net.minecraft.server.level.ServerLevel, it.unimi.dsi.fastutil.longs.LongOpenHashSet);
+  public static boolean formUltimate(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos);
+  private static boolean tryFormUltimate(net.minecraft.server.level.ServerLevel, com.extendedae_plus.content.matrix.supermatrix.UltimateSuperAssemblerMatrixStructure$Match);
+  private static void form(net.minecraft.server.level.ServerLevel, java.util.Set<com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart>, net.minecraft.core.BlockPos, net.minecraft.core.BlockPos, com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster);
+  private static it.unimi.dsi.fastutil.longs.LongOpenHashSet collectConnectedPositions(net.minecraft.server.level.ServerLevel, long);
+  private static java.util.Set<com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart> collectSuperParts(net.minecraft.server.level.ServerLevel, it.unimi.dsi.fastutil.longs.LongOpenHashSet);
+  private static java.util.Set<com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart> collectSuperParts(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos, net.minecraft.core.BlockPos);
+  private static java.util.Set<com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart> collectUltimateParts(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos, net.minecraft.core.BlockPos);
+  private static com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster verifyAndCreate(net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos, net.minecraft.core.BlockPos);
+  private static void clear(java.util.Set<com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart>);
+  private static void destroyExisting(java.util.Set<com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart>);
+  private static net.minecraft.core.BlockPos min(it.unimi.dsi.fastutil.longs.LongOpenHashSet);
+  private static net.minecraft.core.BlockPos max(it.unimi.dsi.fastutil.longs.LongOpenHashSet);
+  private static boolean isAlreadyFormed(java.util.Set<com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart>);
+  private static boolean isInternal(net.minecraft.core.BlockPos, net.minecraft.core.BlockPos, net.minecraft.core.BlockPos);
+  private static boolean isEdge(net.minecraft.core.BlockPos, net.minecraft.core.BlockPos, net.minecraft.core.BlockPos);
+  private static boolean isSuperFunction(net.minecraft.world.level.block.entity.BlockEntity);
+  private static boolean isStructureComponent(net.minecraft.world.level.block.entity.BlockEntity);
+  private static com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart asPart(net.minecraft.world.level.block.entity.BlockEntity);
+  private static it.unimi.dsi.fastutil.longs.LongOpenHashSet lambda$processScheduledRecalculations$3(net.minecraft.server.level.ServerLevel);
+  private static it.unimi.dsi.fastutil.longs.LongOpenHashSet lambda$scheduleDelayedRecalculate$2(long);
+  private static it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap lambda$scheduleDelayedRecalculate$1(net.minecraft.server.level.ServerLevel);
+  private static it.unimi.dsi.fastutil.longs.LongOpenHashSet lambda$scheduleRecalculate$0(net.minecraft.server.level.ServerLevel);
+  static {};
+}

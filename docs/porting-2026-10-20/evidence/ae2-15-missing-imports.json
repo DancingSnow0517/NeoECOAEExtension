@@ -1,0 +1,56 @@
+{
+  "appeng.api.AECapabilities": [
+    "src/main/java/cn/dancingsnow/neoecoae/NeoECOAE.java",
+    "src/main/java/cn/dancingsnow/neoecoae/registration/NEBlockEntityEntry.java"
+  ],
+  "appeng.recipes.game.StorageCellDisassemblyRecipe": [
+    "src/main/java/cn/dancingsnow/neoecoae/all/NEItems.java",
+    "src/main/java/cn/dancingsnow/neoecoae/items/ECOStorageCellItem.java",
+    "src/main/java/cn/dancingsnow/neoecoae/integration/appbot/NEAppBotItems.java",
+    "src/main/java/cn/dancingsnow/neoecoae/integration/appflux/NEAppFluxItems.java",
+    "src/main/java/cn/dancingsnow/neoecoae/integration/appmek/NEAppMekItems.java",
+    "src/main/java/cn/dancingsnow/neoecoae/integration/arsenergistique/NEArsEnergistiqueItems.java",
+    "src/main/java/cn/dancingsnow/neoecoae/integration/dataenergistics/NEDataItems.java",
+    "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/item/ECOUniversalStorageCellItem.java"
+  ],
+  "appeng.blockentity.grid.AENetworkedBlockEntity": [
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/NENetworkSwitchBlock.java",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/NEBlockEntity.java"
+  ],
+  "appeng.api.ids.AEComponents": [
+    "src/main/java/cn/dancingsnow/neoecoae/items/ECOStorageCellItem.java",
+    "src/main/java/cn/dancingsnow/neoecoae/impl/storage/ECOStorageCell.java",
+    "src/main/java/cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageMember.java",
+    "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/backend/ECOMegaLongBulkStorageCell.java",
+    "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/item/ECOMegaLongBulkStorageCellItem.java"
+  ],
+  "appeng.api.config.PowerUnit": [
+    "src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipes.java",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOEnergyCellBlockEntity.java"
+  ],
+  "appeng.blockentity.grid.AENetworkedPoweredBlockEntity": [
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOIntegratedWorkingStationBlockEntity.java"
+  ],
+  "appeng.menu.locator.MenuHostLocator": [
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOLargeIntegratedWorkingStationInterfaceBlockEntity.java"
+  ],
+  "appeng.api.stacks.*": [
+    "src/main/java/cn/dancingsnow/neoecoae/compat/ae2/ECOProcessingExecutionPattern.java"
+  ],
+  "appeng.core.network.ClientboundPacket": [
+    "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingCPULogic.java"
+  ],
+  "appeng.core.network.clientbound.CraftingJobStatusPacket": [
+    "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingCPULogic.java",
+    "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingJobLifecycleController.java"
+  ],
+  "appeng.client.gui.widgets.AE2Button": [
+    "src/main/java/cn/dancingsnow/neoecoae/gui/computation/ComputationCpuStatusPanel.java"
+  ],
+  "appeng.core.network.clientbound.CraftConfirmPlanPacket": [
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftConfirmMenuMixin.java"
+  ],
+  "appeng.core.network.clientbound.CraftingStatusPacket": [
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftingCpuMenuMixin.java"
+  ]
+}

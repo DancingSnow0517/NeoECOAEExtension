@@ -1,0 +1,21 @@
+Compiled from "ScaledMolecularAssemblerPattern.java"
+public final class com.extendedae_plus.api.crafting.ScaledMolecularAssemblerPattern implements appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern {
+  private final appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern original;
+  private final long multiplier;
+  public com.extendedae_plus.api.crafting.ScaledMolecularAssemblerPattern(appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern, long);
+  public appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern getOriginal();
+  public long getMultiplier();
+  public appeng.api.stacks.AEItemKey getDefinition();
+  public appeng.api.crafting.IPatternDetails$IInput[] getInputs();
+  public appeng.api.stacks.GenericStack[] getOutputs();
+  public net.minecraft.world.item.ItemStack assemble(net.minecraft.world.Container, net.minecraft.world.level.Level);
+  public boolean isItemValid(int, appeng.api.stacks.AEItemKey, net.minecraft.world.level.Level);
+  public boolean isSlotEnabled(int);
+  public void fillCraftingGrid(appeng.api.stacks.KeyCounter[], appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern$CraftingGridAccessor);
+  public net.minecraft.core.NonNullList<net.minecraft.world.item.ItemStack> getRemainingItems(net.minecraft.world.inventory.CraftingContainer);
+  public int hashCode();
+  public boolean equals(java.lang.Object);
+  public java.lang.String toString();
+  private static appeng.api.stacks.KeyCounter[] divideCounters(appeng.api.stacks.KeyCounter[], long);
+  private static boolean areCountersEmpty(appeng.api.stacks.KeyCounter[]);
+}

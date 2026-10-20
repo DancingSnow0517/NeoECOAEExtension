@@ -1,0 +1,14 @@
+Compiled from "ContainerExIOPort.java"
+public class com.glodblock.github.extendedae.container.ContainerExIOPort extends appeng.menu.implementations.UpgradeableMenu<com.glodblock.github.extendedae.common.tileentities.TileExIOPort> {
+  public static final net.minecraft.world.inventory.MenuType<com.glodblock.github.extendedae.container.ContainerExIOPort> TYPE;
+  public appeng.api.config.FullnessMode fMode;
+  public appeng.api.config.OperationMode opMode;
+  public com.glodblock.github.extendedae.container.ContainerExIOPort(int, net.minecraft.world.entity.player.Inventory, com.glodblock.github.extendedae.common.tileentities.TileExIOPort);
+  protected void setupConfig();
+  protected void loadSettingsFromHost(appeng.api.util.IConfigManager);
+  public appeng.api.config.FullnessMode getFullMode();
+  private void setFullMode(appeng.api.config.FullnessMode);
+  public appeng.api.config.OperationMode getOperationMode();
+  private void setOperationMode(appeng.api.config.OperationMode);
+  static {};
+}

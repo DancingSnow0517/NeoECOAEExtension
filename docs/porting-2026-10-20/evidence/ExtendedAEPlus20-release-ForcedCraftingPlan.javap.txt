@@ -1,0 +1,17 @@
+Compiled from "ForcedCraftingPlan.java"
+public class com.extendedae_plus.crafting.ForcedCraftingPlan implements appeng.api.networking.crafting.ICraftingPlan,com.extendedae_plus.api.crafting.IForcedCraftingPlan {
+  private final appeng.api.networking.crafting.ICraftingPlan delegate;
+  private final appeng.api.stacks.KeyCounter manualMissingItems;
+  public com.extendedae_plus.crafting.ForcedCraftingPlan(appeng.api.networking.crafting.ICraftingPlan);
+  public appeng.api.stacks.KeyCounter eap$getManualMissingItems();
+  public java.util.Map<appeng.api.stacks.AEKey, java.lang.Long> eap$getManualMissingSnapshot();
+  public appeng.api.stacks.GenericStack finalOutput();
+  public long bytes();
+  public boolean simulation();
+  public boolean multiplePaths();
+  public appeng.api.stacks.KeyCounter usedItems();
+  public appeng.api.stacks.KeyCounter emittedItems();
+  public appeng.api.stacks.KeyCounter missingItems();
+  public java.util.Map<appeng.api.crafting.IPatternDetails, java.lang.Long> patternTimes();
+  private static appeng.api.stacks.KeyCounter copy(appeng.api.stacks.KeyCounter);
+}

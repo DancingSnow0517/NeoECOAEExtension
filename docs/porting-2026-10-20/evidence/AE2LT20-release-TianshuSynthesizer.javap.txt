@@ -1,0 +1,8 @@
+Compiled from "TianshuSynthesizer.java"
+public interface com.moakiee.ae2lt.api.tianshu.synthesis.TianshuSynthesizer {
+  public static final int API_VERSION;
+  public static final net.minecraft.resources.ResourceLocation CAPABILITY_ID;
+  public abstract com.moakiee.ae2lt.api.tianshu.synthesis.TianshuSynthesizer$SynthesizerCapability inspect(com.moakiee.ae2lt.api.tianshu.synthesis.TianshuSynthesizer$SynthesisRequest);
+  public abstract com.moakiee.ae2lt.api.tianshu.synthesis.TianshuSynthesizer$SynthesisSubmission submit(com.moakiee.ae2lt.api.tianshu.synthesis.TianshuSynthesizer$SynthesisRequest);
+  static {};
+}

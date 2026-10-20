@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-20T21:57:28.4823746+08:00",
+  "repository": "https://github.com/DancingSnow0517/NeoECOAEExtension.git",
+  "origin_main": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "local_head": "be75fe591bb9b26b94408b2d848e5bce0d828051",
+  "ahead": [
+    "be75fe591 fix: 按升级模块区分大型工作站通讯接口的终端分组"
+  ],
+  "dirty_status": [
+    "M src/main/java/cn/dancingsnow/neoecoae/client/gui/workstation/LargeIntegratedWorkingStationPatternProviderScreen.java",
+    " M src/main/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationPatternScroll.java",
+    " M src/main/java/cn/dancingsnow/neoecoae/menu/LargeIntegratedWorkingStationPatternProviderMenu.java",
+    " M src/main/resources/assets/ae2/screens/large_integrated_working_station_interface.json",
+    " M src/main/resources/assets/ae2/textures/guis/large_integrated_working_station_interface.png",
+    " M src/test/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationPatternInventoryTest.java",
+    " M src/test/java/cn/dancingsnow/neoecoae/client/gui/workstation/WorkstationPatternViewportTest.java",
+    " M src/test/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationPatternScreenStyleTest.java",
+    " M src/test/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationPatternScrollTest.java"
+  ],
+  "note": "Final git fetch origin main succeeded; origin/main remains dc8344f48ee866e57e02c285fdda5e0fb5da9421. Local HEAD be75fe591 and the same nine dirty paths are excluded and preserved."
+}

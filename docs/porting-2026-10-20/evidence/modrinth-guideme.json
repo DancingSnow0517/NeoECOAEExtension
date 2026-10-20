@@ -1,0 +1,2900 @@
+{
+  "checked_at": "2026-10-20 Asia/Shanghai",
+  "project": {
+    "client_side": "required",
+    "server_side": "required",
+    "game_versions": [
+      "1.20.1",
+      "1.20.4",
+      "1.21.1",
+      "1.21.5",
+      "1.21.8",
+      "1.21.10",
+      "1.21.11",
+      "26.1-snapshot-1",
+      "26.1-snapshot-3",
+      "26.1-snapshot-4",
+      "26.1.1",
+      "26.1.2",
+      "26.2",
+      "26.3-snapshot-1",
+      "26.3-snapshot-2",
+      "26.3-snapshot-3",
+      "26.3-snapshot-4",
+      "26.3-snapshot-5",
+      "26.3-snapshot-6",
+      "26.3-snapshot-7",
+      "26.3-snapshot-8",
+      "26.3-snapshot-9",
+      "26.3-snapshot-10",
+      "26.3-pre-1",
+      "26.3-pre-2",
+      "26.3-pre-3",
+      "26.3-rc-1",
+      "26.3-rc-2",
+      "26.3-rc-3",
+      "26.3",
+      "26.4-snapshot-1",
+      "26.4-snapshot-2",
+      "26.4-snapshot-3",
+      "26.4-snapshot-4"
+    ],
+    "environment": [
+      "client_and_server"
+    ],
+    "id": "Ck4E7v7R",
+    "slug": "guideme",
+    "project_type": "mod",
+    "team": "EresTnjy",
+    "organization": null,
+    "title": "GuideME",
+    "description": "A guidebook toolkit for mods and modpack makers alike with comfortable markdown formatting, and live 3d scenes!",
+    "body": "# GuideME\n\nThis project offers the foundation for your mods or modpacks guidebook. Based on the technology powering Applied Energistics 2s guidebook, it allows you to write your guide in simple Markdown, while embedding 3d scenes straight from structure files.\n\nFor players, guides based on GuideME offer:\n\n- Smooth scrolling goodness\n- Content being front and center, with an advanced text layout engine supporting reflow and inline elements\n- Interactive 3D scenes with annotations, intuitively illustrating concepts from your mod\n- Cross-linking between topics and quick information in link tooltips\n- Showing inline-recipes in your guidebook \"JEI-Style\"\n- Offers the ability to \"hold G\" to quickly jump to the relevant guidebook page in any item tooltip\n\nFor modders, it offers a rich extensibility API, allowing you to:\n\n- Add custom inline or block tags to Markdown, backed by a custom Widget system\n- Extend the recipe rendering to display your custom recipes in the guide\n- Use custom Markdown front-matter to easily add arbitrary information to guidebook pages\n- Use custom indices to quickly find pages based on custom attributes\n- Allow resource packs or addons to add their own content to your guide\n\n## Example\n\nThe following is an example page from the AE2 guidebook (source).\n\n```\n---\nnavigation:\n  parent: ae2-mechanics/ae2-mechanics-index.md\n  title: Channels\n  icon: controller\n---\n\n# Channels\n\nApplied Energistics 2's [ME Networks](me-network-connections.md) require\nChannels to support [devices](../ae2-mechanics/devices.md) which use networked storage, or other network\nservices. Think of channels like USB cables to all your devices. A computer only has so many USB ports and can only support\nso many devices connected to it. Most machines, full-block devices, and standard cables can only pass through\nup to 8 channels. You can think of full-block devices and standard cables as a bundle of 8 \"channel wires\". However, [dense cables](../items-blocks-machines/cables.md#dense-cable) can support up\nto 32 channels. The only other devices capable of transmitting 32 are <ItemLink id=\"me_p2p_tunnel\" />\nand the [Quantum Network Bridge](../items-blocks-machines/quantum_bridge.md). Each time a device uses up a channel, imagine pulling off a usb \"wire\" from\nthe bundle, which obviously means that \"wire\" isn't available further down the line.\n\n<GameScene zoom=\"7\" interactive={true}>\n  <ImportStructure src=\"../assets/assemblies/channel_demonstration_1.snbt\" />\n</GameScene>\n```\n\n![Example](https://cdn.modrinth.com/data/cached_images/6e2fe4965e8ddc6a440ffa085d7a5df88fbd7424.png)",
+    "body_url": null,
+    "published": "2025-01-17T22:35:18.397149Z",
+    "updated": "2026-10-16T01:45:00.162611Z",
+    "approved": "2025-01-20T09:16:19.463128Z",
+    "queued": "2025-01-18T01:02:00.285966Z",
+    "status": "approved",
+    "requested_status": "approved",
+    "moderator_message": null,
+    "license": {
+      "id": "LicenseRef-Multiple-OSS-Licenses",
+      "name": "",
+      "url": "https://github.com/AppliedEnergistics/GuideME/blob/main/LICENSE.MD"
+    },
+    "downloads": 3294499,
+    "followers": 90,
+    "categories": [
+      "library"
+    ],
+    "additional_categories": [
+      "utility"
+    ],
+    "loaders": [
+      "forge",
+      "neoforge"
+    ],
+    "versions": [
+      "bk0EGcWt",
+      "xp5Eb3cc",
+      "MFsx32k5",
+      "b6Cvev2f",
+      "oftzXuTn",
+      "jinKQoM0",
+      "4hCuLHEr",
+      "kJ9mBuNy",
+      "ljwXoFk1",
+      "Es9tJz5e",
+      "6fHQ0s8c",
+      "AYhPSSxp",
+      "HY5YtN9j",
+      "A26EU8of",
+      "TvPfN29f",
+      "TJCbccGV",
+      "EYCR81MC",
+      "5mqlOvG2",
+      "6YvyGAhn",
+      "XvKviSFT",
+      "MfzKuNeT",
+      "PALpfSdf",
+      "9sKYi729",
+      "UCCmRukH",
+      "OxZVGdoc",
+      "q4vfSfnf",
+      "UZdn4CrG",
+      "9bFR1hey",
+      "z9pvLwQu",
+      "RvL3KRMw",
+      "CysMb58a",
+      "c2xUpSFa",
+      "ZT6SDp8y",
+      "ktHc44gU",
+      "k7QwRTdT",
+      "pkfJxPf5",
+      "epJbg5GY",
+      "zABB8eQ6",
+      "wGYFyyDD",
+      "9aIv5HxH",
+      "38moZClH",
+      "M0tbbSsK",
+      "UD2nQxJx",
+      "Dhg3onO2",
+      "iDrLs24j",
+      "Gwp5RAgH",
+      "OfYs7zqx",
+      "tFSpeWeb",
+      "FL1LKeeF",
+      "34nxwTed",
+      "ukJkxTNZ",
+      "i3Dj1DYf",
+      "HiiD800A",
+      "qRC2AU31",
+      "Mbfe7k4x",
+      "mfDRKud3",
+      "o5fVAod4",
+      "tXH7e2zY",
+      "ucVfDIJN",
+      "fTbylf08",
+      "EaVlVvP1",
+      "6r6kdXLW",
+      "4piwoOoM",
+      "SYp7t1xZ",
+      "xT72Jt9l",
+      "p5SMSFSs",
+      "ILW6vM7o",
+      "9YGnKYDF",
+      "ReOCRQ9T",
+      "jL1I6Zox",
+      "JOVPJkqr",
+      "pP3LL7Ak",
+      "DWuxBDxq",
+      "8QVhcWvx",
+      "Zvfc10U9",
+      "LJM2gPTc",
+      "q2t9O2b8",
+      "TMLh9vTF",
+      "wGVS8dO2",
+      "8kfbvsJl",
+      "wiNQW8T5",
+      "bFr2FBaJ",
+      "i7Tp1AHw",
+      "ZkJhP9xE",
+      "rduAfwb7",
+      "GyilxTID",
+      "hFpGwC6q",
+      "l9rs20gM",
+      "Vvte0XiA",
+      "JnplCcod",
+      "HqNROlBJ",
+      "VD5BRwvu",
+      "69ocM6po",
+      "kCCUXhEU",
+      "k8pDKdkO"
+    ],
+    "icon_url": "https://cdn.modrinth.com/data/Ck4E7v7R/04e8cbe7daff69feb20bf114074475001d9c7be5.png",
+    "raw_icon_url": "https://cdn.modrinth.com/data/Ck4E7v7R/04e8cbe7daff69feb20bf114074475001d9c7be5.png",
+    "issues_url": "https://github.com/AppliedEnergistics/GuideME/issues",
+    "source_url": "https://github.com/AppliedEnergistics/GuideME/",
+    "wiki_url": null,
+    "discord_url": "https://discord.gg/Zd6t9ka7ne",
+    "donation_urls": [],
+    "gallery": [
+      {
+        "url": "https://cdn.modrinth.com/data/Ck4E7v7R/images/6e2fe4965e8ddc6a440ffa085d7a5df88fbd7424_350.webp",
+        "raw_url": "https://cdn.modrinth.com/data/Ck4E7v7R/images/6e2fe4965e8ddc6a440ffa085d7a5df88fbd7424.png",
+        "featured": false,
+        "title": null,
+        "description": null,
+        "created": "2025-01-17T22:43:06.348280Z",
+        "ordering": 0
+      }
+    ],
+    "color": 8687273,
+    "thread_id": "JwnifFEt",
+    "monetization_status": "monetized"
+  },
+  "versions": [
+    {
+      "id": "k8pDKdkO",
+      "version_number": "26.3.4-alpha",
+      "name": "GuideME 26.3.4-alpha",
+      "game_versions": [
+        "26.3",
+        "26.4-snapshot-1",
+        "26.4-snapshot-2",
+        "26.4-snapshot-3",
+        "26.4-snapshot-4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-10-16T01:45:00.162611Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "IYdKJIil",
+          "hashes": {
+            "sha1": "03e9137f8118204bd0d0dc32c8e1ec762b1a3775",
+            "sha512": "0fee84231d32e106d08aa028827a6c7136fe3cad90e29b8e1d0c80f2a620e3594f555e8bee21f4bb57174e6e62f992d2f376ee9874e3dea03d14d9f5bd120f55"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/k8pDKdkO/guideme-26.3.4-alpha.jar",
+          "filename": "guideme-26.3.4-alpha.jar",
+          "primary": true,
+          "size": 5311239,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "kCCUXhEU",
+      "version_number": "26.2.2-alpha",
+      "name": "GuideME 26.2.2-alpha",
+      "game_versions": [
+        "26.2",
+        "26.3-snapshot-1",
+        "26.3-snapshot-2",
+        "26.3-snapshot-3",
+        "26.3-snapshot-4",
+        "26.3-snapshot-5",
+        "26.3-snapshot-6",
+        "26.3-snapshot-7",
+        "26.3-snapshot-8",
+        "26.3-snapshot-9",
+        "26.3-snapshot-10",
+        "26.3-pre-1",
+        "26.3-pre-2",
+        "26.3-pre-3",
+        "26.3-rc-1",
+        "26.3-rc-2",
+        "26.3-rc-3"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-10-08T00:51:55.439973Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Pu0pfSOH",
+          "hashes": {
+            "sha512": "08fea710bd9edec972754dc76c4f06d470d8ec2c73f12e145fc656023c954fd01e699a812ace279cf4d2a427e3b205546339a389e474e62ff043a15a827dd851",
+            "sha1": "8a301cc6a8cd9348e92c62b189c49bb9f28adc5e"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/kCCUXhEU/guideme-26.2.2-alpha.jar",
+          "filename": "guideme-26.2.2-alpha.jar",
+          "primary": true,
+          "size": 5216193,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "69ocM6po",
+      "version_number": "26.3.3-alpha",
+      "name": "GuideME 26.3.3-alpha",
+      "game_versions": [
+        "26.3",
+        "26.4-snapshot-1",
+        "26.4-snapshot-2",
+        "26.4-snapshot-3"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-10-08T00:24:23.354087Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "CRfLykGs",
+          "hashes": {
+            "sha1": "3c4354a58190e8946c9e9052c95e622832127fac",
+            "sha512": "d090fddd20ef4142462c9efecf3c602c48e3893b23ce7959a0955c2b948f3d458c1f48a8a00cc68e8cd9f039266bacf1504e6e99251a60433a3b0e5a6ec108df"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/69ocM6po/guideme-26.3.3-alpha.jar",
+          "filename": "guideme-26.3.3-alpha.jar",
+          "primary": true,
+          "size": 5295901,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "VD5BRwvu",
+      "version_number": "26.3.1-alpha",
+      "name": "GuideME 26.3.1-alpha",
+      "game_versions": [
+        "26.3",
+        "26.4-snapshot-1",
+        "26.4-snapshot-2"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-10-02T21:37:12.221895Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "tvAoRHF8",
+          "hashes": {
+            "sha1": "e2d1ebebc65db3025d008e8edb9a951dc97dadb6",
+            "sha512": "2739a29d649ead3c98d4ecb56cfa2097d5a6b23dc5981fff3d43748eb69199639635fba368795b1fba3f7cb6e010d4ae3f6cd4c4ab4ec463c7cd4fa336f529ae"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/VD5BRwvu/guideme-26.3.1-alpha.jar",
+          "filename": "guideme-26.3.1-alpha.jar",
+          "primary": true,
+          "size": 5216918,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "HqNROlBJ",
+      "version_number": "26.2.1-alpha",
+      "name": "GuideME 26.2.1-alpha",
+      "game_versions": [
+        "26.2",
+        "26.3-snapshot-1",
+        "26.3-snapshot-2",
+        "26.3-snapshot-3",
+        "26.3-snapshot-4",
+        "26.3-snapshot-5",
+        "26.3-snapshot-6",
+        "26.3-snapshot-7",
+        "26.3-snapshot-8",
+        "26.3-snapshot-9",
+        "26.3-snapshot-10",
+        "26.3-pre-1",
+        "26.3-pre-2",
+        "26.3-pre-3",
+        "26.3-rc-1",
+        "26.3-rc-2",
+        "26.3-rc-3"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-10-01T08:05:16.423403Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "je2OfyrS",
+          "hashes": {
+            "sha1": "f6bc4f770409f1faebed48c8cfd3b9f729cf0a34",
+            "sha512": "7193f6c393b275f68a8470553b047703d9e25ef3db9f208a9321f11fa844ff51fabf9ab4a4e2b1ed78d7d0e7d17537f2ffd0228b20d5e60a6219139ce5613f66"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/HqNROlBJ/guideme-26.2.1-alpha.jar",
+          "filename": "guideme-26.2.1-alpha.jar",
+          "primary": true,
+          "size": 5213254,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "JnplCcod",
+      "version_number": "26.1.15-beta",
+      "name": "GuideME 26.1.15-beta",
+      "game_versions": [
+        "26.1.2"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-09-30T22:52:01.758371Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "edW4lHVh",
+          "hashes": {
+            "sha512": "c98f19285b37b4055a321ed9faed89cdc15dfc3bfbbad29e813f92b0fd4b6cf77b01a2ffcf971d57171c247d748e760355e87b3fd4722af699c2b0bef17a4e6e",
+            "sha1": "c0624c8e38e41bd0e14ac453d0c06c793575985b"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/JnplCcod/guideme-26.1.15-beta.jar",
+          "filename": "guideme-26.1.15-beta.jar",
+          "primary": true,
+          "size": 5197691,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "Vvte0XiA",
+      "version_number": "26.1.14-beta",
+      "name": "GuideME 26.1.14-beta",
+      "game_versions": [
+        "26.1.2"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-09-26T23:24:34.448703Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "sV1WbVwH",
+          "hashes": {
+            "sha1": "abe3222d6c8303a49f3fa468267c2a1d3371c699",
+            "sha512": "8e77de54661658fdbfcb8dae14fea0d0f0ef0e50b91554b5a130e33fd3dd0e0ea37f3da1c3790509c901532d96e6ba5c3e171d6724a01b3982ff9a2e18862f23"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/Vvte0XiA/guideme-26.1.14-beta.jar",
+          "filename": "guideme-26.1.14-beta.jar",
+          "primary": true,
+          "size": 5197829,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "l9rs20gM",
+      "version_number": "26.1.13-beta",
+      "name": "GuideME 26.1.13-beta",
+      "game_versions": [
+        "26.1.2"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-09-26T20:40:17.809483Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "irQrSU67",
+          "hashes": {
+            "sha512": "ea8eed3e731b45933637094523e93f02375067ba3e4a5fa6191b5e4a00885c5691aa4ffd1a10ac904e5830b3b044bc6a6be00c401b037c7a3b27f51093593daf",
+            "sha1": "2ed5612d21997f314198ae50f82a699c84588f99"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/l9rs20gM/guideme-26.1.13-beta.jar",
+          "filename": "guideme-26.1.13-beta.jar",
+          "primary": true,
+          "size": 5197822,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "hFpGwC6q",
+      "version_number": "21.1.19",
+      "name": "GuideME 21.1.19",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-09-16T17:18:45.961167Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "mXYY0B89",
+          "hashes": {
+            "sha512": "4dfa132e5cfd69a86c958867067f1c5ab39bb69ae35b2a62c24bb9924e9c688f1a4930ab75d335b22378d9f98cd7fceae8d030812b8f90c9aa282de8ea129f5a",
+            "sha1": "e85cd4c266f974dd360c46e8dad7ecf4c7ee96c6"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/hFpGwC6q/guideme-21.1.19.jar",
+          "filename": "guideme-21.1.19.jar",
+          "primary": true,
+          "size": 9311992,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "GyilxTID",
+      "version_number": "21.1.18",
+      "name": "GuideME 21.1.18",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-09-15T17:19:15.900331Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "WAEtb5Hl",
+          "hashes": {
+            "sha1": "21c3d68c5235820fb72bb42fc835b7c2b6c6fafa",
+            "sha512": "c0122015fa63938afc59f94f95d8242c0df4d5bb30977e7125d67dec791d475da1f956c441033f09cee2851c5c076f808252fcddd66e656b365e62f6132bc776"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/GyilxTID/guideme-21.1.18.jar",
+          "filename": "guideme-21.1.18.jar",
+          "primary": true,
+          "size": 9309562,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "rduAfwb7",
+      "version_number": "21.1.17",
+      "name": "GuideME 21.1.17",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-07-12T19:49:01.738873Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "b8Pd8VQa",
+          "hashes": {
+            "sha512": "8b5d8cf7592d7b4759f5347c5acd1b0eb46403437b10b900f535e4cdde59ab1b37d57b71f3f67cdc99a66d55ad5d760f51b55ba2bc50aecf538f8572003e4cbf",
+            "sha1": "060e374f578db694a0b8f3ad409bd424cae86359"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/rduAfwb7/guideme-21.1.17.jar",
+          "filename": "guideme-21.1.17.jar",
+          "primary": true,
+          "size": 9309396,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ZkJhP9xE",
+      "version_number": "26.1.12-beta",
+      "name": "GuideME 26.1.12-beta",
+      "game_versions": [
+        "26.1.2"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-06-06T10:11:47.913028Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Be8dk0yv",
+          "hashes": {
+            "sha1": "d609c5b4617369b2dc781efb149c718d03698740",
+            "sha512": "f661f7924c51af2c0150fe56ff956ec31bcb085728d7fc685264644aeeac24017a6e6f1a1e8d9067a143ca72e9e673f4aed2d6e50e904056871b98c5918e3ff7"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/ZkJhP9xE/guideme-26.1.12-beta.jar",
+          "filename": "guideme-26.1.12-beta.jar",
+          "primary": true,
+          "size": 5192549,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "i7Tp1AHw",
+      "version_number": "20.1.15",
+      "name": "GuideME 20.1.15",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2026-06-06T09:47:01.233648Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "4w860lhD",
+          "hashes": {
+            "sha1": "3d432fc99cefcfd17a12635d2d220f09a069f1c7",
+            "sha512": "c08f2ab76b4442a5fcdd19c7ddc6e2a4c74469fd96844d2f868f2fb18517aced97bf40032c3036f7ca4b094de1ded9e3dab57924a49f3a3d499b61a0ecc2a9cc"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/i7Tp1AHw/guideme-20.1.15.jar",
+          "filename": "guideme-20.1.15.jar",
+          "primary": true,
+          "size": 9414827,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "bFr2FBaJ",
+      "version_number": "21.1.16",
+      "name": "GuideME 21.1.16",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-05-22T21:56:14.727466Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "jwOuVzNU",
+          "hashes": {
+            "sha1": "6c89cb18fd426a5dd851dd30ec72f02cb8bbcce7",
+            "sha512": "52bc29671cb378045fc22598575f32ff80e4483e88aff75674d881ff49933a3e96ee9e424996ddaa52b63d9fdeb2ea0a993bf3fec5f6daf43e3142c0f973e192"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/bFr2FBaJ/guideme-21.1.16.jar",
+          "filename": "guideme-21.1.16.jar",
+          "primary": true,
+          "size": 9309277,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "wiNQW8T5",
+      "version_number": "26.1.11-beta",
+      "name": "GuideME 26.1.11-beta",
+      "game_versions": [
+        "26.1.2"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-05-22T21:41:11.814417Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "4SGCyV0M",
+          "hashes": {
+            "sha1": "c2281931e1a8f18ad5f9aa4d7b7df3ecbc5a1800",
+            "sha512": "c53306ab1a81d9477b18f994cb78b6ac8097db12bec739dea0de8cfa560afd661b525912d43991037ad575fe50a9e271734e8c1eb34a0c1c79c5881dcafc21a3"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/wiNQW8T5/guideme-26.1.11-beta.jar",
+          "filename": "guideme-26.1.11-beta.jar",
+          "primary": true,
+          "size": 5192551,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "8kfbvsJl",
+      "version_number": "26.1.10-alpha",
+      "name": "GuideME 26.1.10-alpha",
+      "game_versions": [
+        "26.1.2"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-04-15T06:46:33.745566Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "S7BZdHH1",
+          "hashes": {
+            "sha512": "b71334a3d5368590a024b689869e050453dcd822b9d9ca250b2b7146db397e29723b7b4e6ca35d60e278cdf4e4d034f5b53908609ee7cb0623d3245eec889f79",
+            "sha1": "235ea6fd617861509667b4d11aca0e4c887aa8b9"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/8kfbvsJl/guideme-26.1.10-alpha.jar",
+          "filename": "guideme-26.1.10-alpha.jar",
+          "primary": true,
+          "size": 5192452,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "wGVS8dO2",
+      "version_number": "26.1.9-alpha",
+      "name": "GuideME 26.1.9-alpha",
+      "game_versions": [
+        "26.1.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-04-06T16:40:49.053469Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "VSeqDyaq",
+          "hashes": {
+            "sha512": "4e73000c361ba226ae7ec7cfc38e485d7608dad964f78a9508cbd7af151fc5d75b014b162e2389ecc18ec5f0a2aafe8fae368dcae3630d9c6abfd0ecef360e00",
+            "sha1": "715dfb7785d7d6bb6820e0a466c3e17ead1943fd"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/wGVS8dO2/guideme-26.1.9-alpha.jar",
+          "filename": "guideme-26.1.9-alpha.jar",
+          "primary": true,
+          "size": 5192451,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "TMLh9vTF",
+      "version_number": "26.1.7-alpha",
+      "name": "GuideME 26.1.7-alpha",
+      "game_versions": [
+        "26.1-snapshot-4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-01-22T01:47:30.821976Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "3Wdf1DF6",
+          "hashes": {
+            "sha1": "f98be8f1bd01ead253b1d96a644c3db4932d9509",
+            "sha512": "a356c6a434ed0cc5b82fbaf5cb2fa1fba57cc10f33b0b90d4e3f7a29c365a93d6b972fab1cdce0e5a04824975af19c1b5e54fee796723b738610d053b408a9ab"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/TMLh9vTF/guideme-26.1.7-alpha.jar",
+          "filename": "guideme-26.1.7-alpha.jar",
+          "primary": true,
+          "size": 5194021,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "q2t9O2b8",
+      "version_number": "26.1.6-alpha",
+      "name": "GuideME 26.1.6-alpha",
+      "game_versions": [
+        "26.1-snapshot-4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-01-21T23:17:45.432224Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "bfDvRGWx",
+          "hashes": {
+            "sha512": "734b1ddb656172e40a121761c00a6f627d8e17f467a82ed92ba7b4a021025bd598ab4527cee6808a1f17f47ed4912b91785d3f1073f5ec50498baac4aa098d1a",
+            "sha1": "4ecff036cdd6c76838992720cb05fdb1f24184c4"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/q2t9O2b8/guideme-26.1.6-alpha.jar",
+          "filename": "guideme-26.1.6-alpha.jar",
+          "primary": true,
+          "size": 5193709,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "LJM2gPTc",
+      "version_number": "26.1.5-alpha",
+      "name": "GuideME 26.1.5-alpha",
+      "game_versions": [
+        "26.1-snapshot-3"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-01-20T01:27:23.354356Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "oqlPxPmn",
+          "hashes": {
+            "sha512": "c76f7febf1ac2680c20880c09744afd7ddcb527ae554532a9a4712773cd0b4952602c21a386e99fd29372d0cb38b3b7e93eb4fca72e4676e125f4a1d063f9db4",
+            "sha1": "fa77f3e670830f4bd8f4dae25718d2e92238c408"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/LJM2gPTc/guideme-26.1.5-alpha.jar",
+          "filename": "guideme-26.1.5-alpha.jar",
+          "primary": true,
+          "size": 5193709,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "Zvfc10U9",
+      "version_number": "26.1.4-alpha",
+      "name": "GuideME 26.1.4-alpha",
+      "game_versions": [
+        "26.1-snapshot-1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-01-01T15:41:32.595714Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Drg4S918",
+          "hashes": {
+            "sha1": "e9d8d0da1a2de5ac18e0971e7b6b0ae65da632df",
+            "sha512": "578de014ab279dedef3fa09f43c54b51be0ffbd2eeff164b50b252f80047bf5de62de00aa7cfaa423ecd9bdc9c00bc479ff48027c8f987bbd7cb29289f30d4cd"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/Zvfc10U9/guideme-26.1.4-alpha.jar",
+          "filename": "guideme-26.1.4-alpha.jar",
+          "primary": true,
+          "size": 4799414,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "8QVhcWvx",
+      "version_number": "26.1.3-alpha",
+      "name": "GuideME 26.1.3-alpha",
+      "game_versions": [
+        "26.1-snapshot-1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-01-01T02:02:26.675301Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "XHztJtan",
+          "hashes": {
+            "sha512": "ae6e7a0f689c693580eda51b8427f38beaee57d498978f89860dc9afbb791ce27a17dcab08771a7e77a363544359a8b17ab1cb918d20d4481a0ceb4df526a4b3",
+            "sha1": "b973ea9f378f830f5ed8a6c740ce6a8f95e16ae8"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/8QVhcWvx/guideme-26.1.3-alpha.jar",
+          "filename": "guideme-26.1.3-alpha.jar",
+          "primary": true,
+          "size": 4799184,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "DWuxBDxq",
+      "version_number": "26.1.2-alpha",
+      "name": "GuideME 26.1.2-alpha",
+      "game_versions": [
+        "26.1-snapshot-1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-12-28T19:52:12.523708Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "cfmmQG54",
+          "hashes": {
+            "sha512": "8542cdd39e804b7de53678d488e0000042afbef9216a13d4774f3d8249c55fd282a846eeb6d0f48e3c51479f53d8867c0337177eede731f884cde2708c09bd7e",
+            "sha1": "7d330625cbaa32c3de1df0d26a14b97fe434c7c5"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/DWuxBDxq/guideme-26.1.2-alpha.jar",
+          "filename": "guideme-26.1.2-alpha.jar",
+          "primary": true,
+          "size": 4799604,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "pP3LL7Ak",
+      "version_number": "21.11.1-beta",
+      "name": "GuideME 21.11.1-beta",
+      "game_versions": [
+        "1.21.11"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-12-22T19:17:32.950212Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "IXQBU56y",
+          "hashes": {
+            "sha1": "d6a1dfd0c6148b08e9401119db6e8286f8488998",
+            "sha512": "1883845007dde84cd68805ecc243a64d1392368e49a016cb4b531a8d4aa64dc0d53e9facd6f8e9a084c0c51e1308a18d847df7b90fa74f9741aebb567bb6fd5e"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/pP3LL7Ak/guideme-21.11.1-beta.jar",
+          "filename": "guideme-21.11.1-beta.jar",
+          "primary": true,
+          "size": 4738581,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "JOVPJkqr",
+      "version_number": "26.1.1-alpha",
+      "name": "GuideME 26.1.1-alpha",
+      "game_versions": [
+        "26.1-snapshot-1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-12-20T11:13:22.935457Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Bhw9CZIp",
+          "hashes": {
+            "sha512": "873dbd55885c095f58619fb72300246a7ababea1c10d3d6e11b0469a94632b3f7fcd0a1d4aa5b3632b31deeef99e79e3b95aa7d0cb911c6b4b00e4a4f65658fe",
+            "sha1": "50b7e93490def1fe79078c5be757523c98b11e68"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/JOVPJkqr/guideme-26.1.1-alpha.jar",
+          "filename": "guideme-26.1.1-alpha.jar",
+          "primary": true,
+          "size": 4737553,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "jL1I6Zox",
+      "version_number": "26.1.0-alpha",
+      "name": "GuideME 26.1.0-alpha",
+      "game_versions": [
+        "26.1-snapshot-1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-12-20T01:33:11.736207Z",
+      "version_type": "alpha",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "eYj2rmYs",
+          "hashes": {
+            "sha1": "635f9050b25010ee8bca524d78b83487db1974f6",
+            "sha512": "6a58e929a9787821c94c95d93646dad576fdb63119dae9461bf527443e15a0dfd53f2be2f09d2e780e61badc947fccc70393e8186d63cbbeeab9bd4200383c3f"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/jL1I6Zox/guideme-26.1.0-alpha.jar",
+          "filename": "guideme-26.1.0-alpha.jar",
+          "primary": true,
+          "size": 4737551,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ReOCRQ9T",
+      "version_number": "20.4.6",
+      "name": "GuideME 20.4.6",
+      "game_versions": [
+        "1.20.4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-10-19T22:32:16.365739Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "siHxPgMU",
+          "hashes": {
+            "sha512": "c1d35bbf2ee1df63afdfc8ead107caaa03a3823f5746a0f9f6049431869c708db12ad736d9160fc2aca143ad0547ac92fbecef456a272fdab570da73732e4e4f",
+            "sha1": "de3c01a2e5d1079389d37c7a582131634c59dfb8"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/ReOCRQ9T/guideme-20.4.6.jar",
+          "filename": "guideme-20.4.6.jar",
+          "primary": true,
+          "size": 9300833,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "9YGnKYDF",
+      "version_number": "20.1.14",
+      "name": "GuideME 20.1.14",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-10-19T22:32:07.928990Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "FyDT27pC",
+          "hashes": {
+            "sha1": "57d883148f04989128505a1bd8919629440f714f",
+            "sha512": "15311cb0607205d2da3eb369499b8523bd0d8fa41e30c87c0b0e5756df5ea2123389262e6883f66e6c7b1d43d68e20cdfec73b31c202df8fbb99fa80d4fe7b1d"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/9YGnKYDF/guideme-20.1.14.jar",
+          "filename": "guideme-20.1.14.jar",
+          "primary": true,
+          "size": 9413204,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ILW6vM7o",
+      "version_number": "21.1.15",
+      "name": "GuideME 21.1.15",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-10-19T22:31:24.388133Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Lteahqw2",
+          "hashes": {
+            "sha512": "4a35b2d9ae3958cb9e152757223b0fc0f85ed2c55da2c3bb773b9a353cf5db15e4294ac2b6d897c0d7c82674dd86c084dd2e35fb80b5bcf92067735c03288edc",
+            "sha1": "924c6bca566ee83789a4fd1ce72ea3ddfdf0f5e5"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/ILW6vM7o/guideme-21.1.15.jar",
+          "filename": "guideme-21.1.15.jar",
+          "primary": true,
+          "size": 9309183,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "p5SMSFSs",
+      "version_number": "21.10.2-beta",
+      "name": "GuideME 21.10.2-beta",
+      "game_versions": [
+        "1.21.10"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-10-19T22:29:14.470444Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "sPf4D6Yf",
+          "hashes": {
+            "sha512": "0bf1c57a80e894937297a8c74def6f51d8ed31cd906b8920e333ef804d4a5aae0f361d148bd2b2bd53b14ab656abea086f82fdf7144956d3cf2d838213287382",
+            "sha1": "803cab82542b7b69cbf2d9acb8d009a6fb7da447"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/p5SMSFSs/guideme-21.10.2-beta.jar",
+          "filename": "guideme-21.10.2-beta.jar",
+          "primary": true,
+          "size": 4738612,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "xT72Jt9l",
+      "version_number": "21.10.1-beta",
+      "name": "GuideME 21.10.1-beta",
+      "game_versions": [
+        "1.21.10"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-10-08T09:28:17.473386Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "AWnf6J7X",
+          "hashes": {
+            "sha1": "4787edb056ca677e772a1092d0d1aea6936f82bb",
+            "sha512": "e091b14c0e2867b33f37f2fe0e10778bac5d5e4352e609e71f722439d6c36e9dcb6a0fe18e737d62d2cd11615c22aee32d792a4b8a18a628b9e497275972c11a"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/xT72Jt9l/guideme-21.10.1-beta.jar",
+          "filename": "guideme-21.10.1-beta.jar",
+          "primary": true,
+          "size": 4738535,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "SYp7t1xZ",
+      "version_number": "20.1.13",
+      "name": "GuideME 20.1.13",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-09-20T00:30:31.979044Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "YFUOT866",
+          "hashes": {
+            "sha512": "1983c44e7ab1110096929eb49f3e1eeeced97719140ff1b732fce5646744c2b0a971060a3d4289b79ff339ffc9d582f8f2afff5bd88e7cd61e43fb5a1ccc760d",
+            "sha1": "fc66445539dbd7cd7d763297ea73af5e34c642db"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/SYp7t1xZ/guideme-20.1.13.jar",
+          "filename": "guideme-20.1.13.jar",
+          "primary": true,
+          "size": 9413127,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "4piwoOoM",
+      "version_number": "21.8.3",
+      "name": "GuideME 21.8.3",
+      "game_versions": [
+        "1.21.8"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-09-09T00:05:01.163099Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "kXo38RSC",
+          "hashes": {
+            "sha512": "784ff449ff382e32d476bd74730bc64e47666dc30b0f0866c365969126a77084186dc93892bebccaeeeb1ec3f3acfa35550617603b3462e22f8e34d9b4582be4",
+            "sha1": "259380ff87db56fd467d4c0044e8b2365a88803d"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/4piwoOoM/guideme-21.8.3.jar",
+          "filename": "guideme-21.8.3.jar",
+          "primary": true,
+          "size": 4736207,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "6r6kdXLW",
+      "version_number": "21.8.2",
+      "name": "GuideME 21.8.2",
+      "game_versions": [
+        "1.21.8"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-09-08T17:47:59.721059Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "8UE8rdG0",
+          "hashes": {
+            "sha512": "936c577e2751f4f1f8dd0a889183d781508abd7e2d765af5c024df86b8aefff658df5cfd773dcdb85ea6073dbf7ce4834de7fd81fbbd30673c32f99ac775059a",
+            "sha1": "a41bc522761682a100244a97286dc470a64537b5"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/6r6kdXLW/guideme-21.8.2.jar",
+          "filename": "guideme-21.8.2.jar",
+          "primary": true,
+          "size": 4736198,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "EaVlVvP1",
+      "version_number": "20.1.12",
+      "name": "GuideME 20.1.12",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-08-29T18:01:57.910566Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "mzoqNJVr",
+          "hashes": {
+            "sha1": "64b858e6983a2a5cc149ea2f4d579dd6a44973c9",
+            "sha512": "508acd73e48a12f8372e66f06bc2e029f1b02be68468c5ec2d22574fc39a3712428c2daa43d34cc2dc60276e728c421bd53295359be399197a809d218b678ab5"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/EaVlVvP1/guideme-20.1.12.jar",
+          "filename": "guideme-20.1.12.jar",
+          "primary": true,
+          "size": 9413011,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "fTbylf08",
+      "version_number": "21.1.14",
+      "name": "GuideME 21.1.14",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-07-25T23:39:11.070247Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "KM8IkIEO",
+          "hashes": {
+            "sha512": "443d6de4dcee59bf2650bf5f7fdb14ae44017353bb69ec380b0eaf76ccc7b407d9e6c3d8b7572df6e6c524514ade7fb77ff507cc75f7356e0a555c3f4f14c143",
+            "sha1": "70f385e3abdd51ef455ecd0739910040f3d5a3f9"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/fTbylf08/guideme-21.1.14.jar",
+          "filename": "guideme-21.1.14.jar",
+          "primary": true,
+          "size": 9308969,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ucVfDIJN",
+      "version_number": "21.8.1",
+      "name": "GuideME 21.8.1",
+      "game_versions": [
+        "1.21.8"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-07-25T23:26:39.965058Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "RkiwvtYr",
+          "hashes": {
+            "sha512": "100ba3de936acc4f62a195d3f43f2547e4fc770ad55d882ac7b0960fc2aa5796f9676b2c551eadc7f89fb38d5f649239d91483ee5ccf46650595b370241487b0",
+            "sha1": "25bcc81ebcc77de116dd93ee8d5f7f891a8f60b6"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/ucVfDIJN/guideme-21.8.1.jar",
+          "filename": "guideme-21.8.1.jar",
+          "primary": true,
+          "size": 9341303,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "tXH7e2zY",
+      "version_number": "21.1.13",
+      "name": "GuideME 21.1.13",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-23T21:04:12.204209Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "HcZAz38Y",
+          "hashes": {
+            "sha512": "9459d61579e664a96e8db2aaba8ef1a7b6a28c130c649ea974593f4a691ff326b2cda26aa00f32ce6df8501624703b079d93e712f08ff117930631d48c6459d7",
+            "sha1": "bd6050c78ac5adb84c67a6f32f6bd8fa51a67323"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/tXH7e2zY/guideme-21.1.13.jar",
+          "filename": "guideme-21.1.13.jar",
+          "primary": true,
+          "size": 9307542,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "o5fVAod4",
+      "version_number": "21.5.9-beta",
+      "name": "GuideME 21.5.9-beta",
+      "game_versions": [
+        "1.21.5"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-23T21:00:06.553124Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "FE6Z4EyU",
+          "hashes": {
+            "sha1": "521ec3f05a973fba464b50cd063c74f0f68b2f09",
+            "sha512": "951b9f39e66b1850dd1438d961b298fbdf2f140dc604ad1bdcdbe9e1da6b600c088a4b5515d0a88e8eea06bc0aac4620f78f6f1b62a5464f0e6a6e8416a4b7be"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/o5fVAod4/guideme-21.5.9-beta.jar",
+          "filename": "guideme-21.5.9-beta.jar",
+          "primary": true,
+          "size": 9320464,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "mfDRKud3",
+      "version_number": "20.1.11",
+      "name": "GuideME 20.1.11",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-06-21T15:02:42.041968Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "SUkEWzO5",
+          "hashes": {
+            "sha512": "614c00ebaa8ce6430f3bcd91ad3256cd9443af9c7ca7dc9784a901ab110b71c7e31375e51836f3551445dd42d1494160b0c57b03170cd9f964bf10255c8307b5",
+            "sha1": "174f15f296fe4d1f74d618ca83b64fd9d9a215f7"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/mfDRKud3/guideme-20.1.11.jar",
+          "filename": "guideme-20.1.11.jar",
+          "primary": true,
+          "size": 9412982,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "Mbfe7k4x",
+      "version_number": "20.4.5",
+      "name": "GuideME 20.4.5",
+      "game_versions": [
+        "1.20.4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-21T14:59:00.251908Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "RqLlk2q3",
+          "hashes": {
+            "sha512": "1e5ba53e97289878588d836b80cfee8588753e642f773203af3d21b59b933eeae7fb946b5db739dbe696604efbc6034c7e6bde64c97f55b5ce83a73a86c61faa",
+            "sha1": "37d9839494c1ab7c1ba4b881b3b0502d702f3981"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/Mbfe7k4x/guideme-20.4.5.jar",
+          "filename": "guideme-20.4.5.jar",
+          "primary": true,
+          "size": 9300657,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "qRC2AU31",
+      "version_number": "21.1.12",
+      "name": "GuideME 21.1.12",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-21T14:50:59.055264Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "1ukn61yI",
+          "hashes": {
+            "sha512": "f7b3f5a9e7b981caa6607dbdf3ba605cb32038175e98e70b4d09dd5b9239b4679a2243ef80f6454f224eb02b327ec58f01ab52bf6831e5936e7f6156bf589133",
+            "sha1": "3149679c77dc346478b91d09926590784d127ddb"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/qRC2AU31/guideme-21.1.12.jar",
+          "filename": "guideme-21.1.12.jar",
+          "primary": true,
+          "size": 9307546,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "HiiD800A",
+      "version_number": "21.5.8-beta",
+      "name": "GuideME 21.5.8-beta",
+      "game_versions": [
+        "1.21.5"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-21T14:22:08.156314Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "ynhCzhzd",
+          "hashes": {
+            "sha512": "7356b47661f946cc23a292726323e573d33453d16bc94641f081f07b22f6bf26d34cac3b81b624dd30deb8e572d8d0bc3f8445a2ffe412af6f6023de9771008b",
+            "sha1": "a196c1221541675919276bdfd544b36423fc42de"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/HiiD800A/guideme-21.5.8-beta.jar",
+          "filename": "guideme-21.5.8-beta.jar",
+          "primary": true,
+          "size": 9320467,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "i3Dj1DYf",
+      "version_number": "21.1.11",
+      "name": "GuideME 21.1.11",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-19T23:14:28.943960Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "6DwzALr0",
+          "hashes": {
+            "sha1": "b3b2cc7ccbd47bf573ed05144f04cabf82e465d4",
+            "sha512": "889f948ec59bc0d9543639c051c313065ef8d77ce264f1b3a5ef0ca8e0fa13d6ba1951613ed093fc2eef905c6e831b8e5ae58a17b4bbcb3171dccf9355bd8ec8"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/i3Dj1DYf/guideme-21.1.11.jar",
+          "filename": "guideme-21.1.11.jar",
+          "primary": true,
+          "size": 9301871,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ukJkxTNZ",
+      "version_number": "20.1.10",
+      "name": "GuideME 20.1.10",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-06-19T22:46:23.629411Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "ZSXl63HI",
+          "hashes": {
+            "sha512": "c6853736b31b37eb17aa905923f100f6e270ad50923653af37c7610159eb90bca207b3fd368ad81023243329c900f10c3274060b0dcddb071548cdb70d6f157a",
+            "sha1": "28fecfbba23266c6db0415dc5455d5da06a7645e"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/ukJkxTNZ/guideme-20.1.10.jar",
+          "filename": "guideme-20.1.10.jar",
+          "primary": true,
+          "size": 9407207,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "34nxwTed",
+      "version_number": "20.4.4",
+      "name": "GuideME 20.4.4",
+      "game_versions": [
+        "1.20.4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-19T22:29:21.576495Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "gIBmmGZr",
+          "hashes": {
+            "sha512": "dc1eb64d64d7616d23ba3b5bf4f41260d73c75d5f6229ce7a85901a5a6dbdaa3880ad582defabb315a358202646a4175d4994dc8fa06a9fedc2275061b8aa8be",
+            "sha1": "0fa091a1a568792e517fc35987db7fce47efbdc7"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/34nxwTed/guideme-20.4.4.jar",
+          "filename": "guideme-20.4.4.jar",
+          "primary": true,
+          "size": 9294969,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "FL1LKeeF",
+      "version_number": "21.5.7-beta",
+      "name": "GuideME 21.5.7-beta",
+      "game_versions": [
+        "1.21.5"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-19T22:13:52.751949Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "3qJiIfHh",
+          "hashes": {
+            "sha512": "867599c7880d9c99df6f2e3e22ae2d721aaad3c979501fb967a6bf95740ed1b24b4470bb2d74b7e3bb26222b4b3c3b01b954f435a8ee5006e8c608b010d3687a",
+            "sha1": "0ad824d388fa81482a3f9176aed2a85e2a697fff"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/FL1LKeeF/guideme-21.5.7-beta.jar",
+          "filename": "guideme-21.5.7-beta.jar",
+          "primary": true,
+          "size": 9314756,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "tFSpeWeb",
+      "version_number": "20.1.9",
+      "name": "GuideME 20.1.9",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-06-15T15:50:43.498280Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "zmtvYhow",
+          "hashes": {
+            "sha512": "4cf4eeb241acfdb3d48a6beefd702e1f3d1e1725a1f8524dd6b627629f2baff2ad19323d1141c340ee49667946e0c999e1f79aede459602dbaab9a4994dafd39",
+            "sha1": "5619e9e6c4e2f14c3e7f093698e2103c75f4dcf2"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/tFSpeWeb/guideme-20.1.9.jar",
+          "filename": "guideme-20.1.9.jar",
+          "primary": true,
+          "size": 9403366,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "OfYs7zqx",
+      "version_number": "21.1.10",
+      "name": "GuideME 21.1.10",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-15T15:50:26.558705Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "DmoV9gFo",
+          "hashes": {
+            "sha1": "a7b31fa4f8cdbb28459441ecd6d7834266eb844e",
+            "sha512": "6c230690e679666e87fcfa98f81feabd724e102381b872a5495db80421d632b864c295dd680454622c46916ca6d0f71a7b543188e03eee013914feaff005e5b3"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/OfYs7zqx/guideme-21.1.10.jar",
+          "filename": "guideme-21.1.10.jar",
+          "primary": true,
+          "size": 9298750,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "Gwp5RAgH",
+      "version_number": "20.4.3",
+      "name": "GuideME 20.4.3",
+      "game_versions": [
+        "1.20.4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-15T15:50:10.675384Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "mldJ5q9s",
+          "hashes": {
+            "sha512": "14d40d9ab435449753d4e75c468727e02a2cc312e8c1db67a6d5ffa5640be079fb180b0d06a20e7de197facfdff52cc15436461f0b65d3aa41a3601d7b05e3ab",
+            "sha1": "2c5435bfe61358fa280ab449e2f99b3bd3e6346e"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/Gwp5RAgH/guideme-20.4.3.jar",
+          "filename": "guideme-20.4.3.jar",
+          "primary": true,
+          "size": 9290957,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "iDrLs24j",
+      "version_number": "21.5.6-beta",
+      "name": "GuideME 21.5.6-beta",
+      "game_versions": [
+        "1.21.5"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-06-15T14:46:04.009334Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "kntBzZ5d",
+          "hashes": {
+            "sha512": "8a302ffc667ed8aa8d8482e6a8dc0f8bfd0e6a18f3eb8fc710e00158b07a53fdcf195a8c82fe298496a33c37589bbbcda31c0975c433b48cf2d823c048c703af",
+            "sha1": "1348358ba6b19ee46c6f2849f6cba989156d0cfe"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/iDrLs24j/guideme-21.5.6-beta.jar",
+          "filename": "guideme-21.5.6-beta.jar",
+          "primary": true,
+          "size": 9311583,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "Dhg3onO2",
+      "version_number": "20.1.8",
+      "name": "GuideME 20.1.8",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-06-09T21:54:55.729682Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "pkzWt8gH",
+          "hashes": {
+            "sha1": "cc5e96b09949c5f1ad5d6aa5c45695f760715e95",
+            "sha512": "460b6995e8a1f8b44c3a6543cefb75a9040e4476f302cc5a110fc14a8fb969b7fe0ba886378524b89852df5b62b1309df71d9a5df3dcb95a4cbba39521bb7197"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/Dhg3onO2/guideme-20.1.8.jar",
+          "filename": "guideme-20.1.8.jar",
+          "primary": true,
+          "size": 9401167,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "UD2nQxJx",
+      "version_number": "20.1.7",
+      "name": "GuideME 20.1.7",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-05-03T00:27:15.237566Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "jpPAznA1",
+          "hashes": {
+            "sha1": "fc039093c479b3632b1ab60ea503e79b76b686f9",
+            "sha512": "8e12ede30db086a3d30236783848f53fb984d413727cdb364bac487be8818d5c4a3696d4446db5d1dd83be62f347ceac6bcd7af9ccb27e09a160ea03c15e9dbb"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/UD2nQxJx/guideme-20.1.7.jar",
+          "filename": "guideme-20.1.7.jar",
+          "primary": true,
+          "size": 9401162,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "M0tbbSsK",
+      "version_number": "20.4.2",
+      "name": "GuideME 20.4.2",
+      "game_versions": [
+        "1.20.4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-05-02T19:22:47.182073Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "XbR38YCl",
+          "hashes": {
+            "sha512": "13d48453b06a2e9efa13f89d77fbd083b60c31c96ee309243b7c8dd21ff24a76c183b85b69b60fabc833a1a5d7e2a466d833fee49370e3e15865a0c42d2f3c51",
+            "sha1": "973e822facb9ac3edbcca3fb2edb3cdab090a638"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/M0tbbSsK/guideme-20.4.2.jar",
+          "filename": "guideme-20.4.2.jar",
+          "primary": true,
+          "size": 9290086,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "38moZClH",
+      "version_number": "20.1.6",
+      "name": "GuideME 20.1.6",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-05-02T19:06:54.297029Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "dbTqKfbY",
+          "hashes": {
+            "sha1": "9fee6f30f970406426c05032609a096cb1da2a8b",
+            "sha512": "300b0651d5babc0eaae942c461fc859a4ac843d95a1c9c565e6da2fb89aa51e27745d7aa8363061490623c40e21afc201559a22c7cc28df909b5dabea6c40abf"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/38moZClH/guideme-20.1.6.jar",
+          "filename": "guideme-20.1.6.jar",
+          "primary": true,
+          "size": 9397385,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "9aIv5HxH",
+      "version_number": "21.1.9",
+      "name": "GuideME 21.1.9",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-05-02T17:15:27.929044Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "gp5iZ9o5",
+          "hashes": {
+            "sha1": "7a50b822de6519a796e25d79201c865cfc6b8e3d",
+            "sha512": "06c975505e6d3aafa8df4011ea78a2cb5763f59239196b043cd2a58f648c33eda7a54481532d8524a2e1e242ac3162db08a3be93e87414ca310e22b1865a9100"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/9aIv5HxH/guideme-21.1.9.jar",
+          "filename": "guideme-21.1.9.jar",
+          "primary": true,
+          "size": 9296562,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "wGYFyyDD",
+      "version_number": "21.5.5-beta",
+      "name": "GuideME 21.5.5-beta",
+      "game_versions": [
+        "1.21.5"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-05-02T17:13:19.893695Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "fta5wlDt",
+          "hashes": {
+            "sha1": "462adcf2fc15f0d4563723565d5293b2d3e91d5b",
+            "sha512": "7276d0daa3287a331c917121542b363409549ace6b2ec47bb62abe877a64caf575aabfa2f53baf467994dee1626577d3a8db8e7503eeb1a83316566f8df1f57d"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/wGYFyyDD/guideme-21.5.5-beta.jar",
+          "filename": "guideme-21.5.5-beta.jar",
+          "primary": true,
+          "size": 9309391,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "zABB8eQ6",
+      "version_number": "20.4.1",
+      "name": "GuideME 20.4.1",
+      "game_versions": [
+        "1.20.4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-05-02T16:37:26.556104Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "y3SRHftR",
+          "hashes": {
+            "sha512": "22f30b38e05e1ac2672c4d58d9e5bac3afb8314a01b4dbcf3a399072c1ec73231802053a04e6869a5a0c5274a9c39b9fd7700e3b592e2f5e39524e1b02257ca5",
+            "sha1": "f7688cc6cfc160119f23b83aae77271948122dfb"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/zABB8eQ6/guideme-20.4.1.jar",
+          "filename": "guideme-20.4.1.jar",
+          "primary": true,
+          "size": 9290046,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "epJbg5GY",
+      "version_number": "20.1.5",
+      "name": "GuideME 20.1.5",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-05-02T16:12:28.464471Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "L12pKwqE",
+          "hashes": {
+            "sha512": "dbf38c9646e71bde84d9203d748768ab5f5b76bdbb5015930e1e964d907d480e69aad4e79cef33a87b74231de24549244bb43e8f615f213a254f0fadb189c689",
+            "sha1": "d2c721b1d4210514d2da4176d98d6bb4629a86ba"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/epJbg5GY/guideme-20.1.5.jar",
+          "filename": "guideme-20.1.5.jar",
+          "primary": true,
+          "size": 9397339,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "pkfJxPf5",
+      "version_number": "20.1.4",
+      "name": "GuideME 20.1.4",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-04-29T19:53:29.354623Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "tou4K5dX",
+          "hashes": {
+            "sha1": "829c1e11716f085b3b18330234e8dcd4b5f61a26",
+            "sha512": "4d5a0938089b8054a36f4e3135067174d2181ae43929fbd1b09bbccd6c3236f5f2cbc0d3d11a30ae1a2f3735057652398bca2d9acdfdacbab97a5fc2af5ccf6f"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/pkfJxPf5/guideme-20.1.4.jar",
+          "filename": "guideme-20.1.4.jar",
+          "primary": true,
+          "size": 9397161,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "k7QwRTdT",
+      "version_number": "21.1.8",
+      "name": "GuideME 21.1.8",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-04-07T19:41:47.014624Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "72EwAQBf",
+          "hashes": {
+            "sha1": "9092f2317c459f99ea5d2932fee8dbb5dff6ae36",
+            "sha512": "561ca9f564f25701ec57acb8a88107fddf4e3f4db400e4ac0a7ab33a7d0419344f26eadd2a3048c87e995bbbc2e78d96f257b5c0726c98c72c55c92fa7e2b936"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/k7QwRTdT/guideme-21.1.8.jar",
+          "filename": "guideme-21.1.8.jar",
+          "primary": true,
+          "size": 9295046,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ktHc44gU",
+      "version_number": "21.5.4-beta",
+      "name": "GuideME 21.5.4-beta",
+      "game_versions": [
+        "1.21.5"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-04-03T23:46:49.379330Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "YHqm2Y0y",
+          "hashes": {
+            "sha1": "725e3ce8c9be530e8ac7dab2c5eb9f479a351e20",
+            "sha512": "756e0271c2a71ed2a41b909abbf09f2b9365556f9eb571a5e11df2b218a0651d149fe7366b9ee9b1e1f377263aa4897c63227c3daaf7ca3d32944f62551154a9"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/ktHc44gU/guideme-21.5.4-beta.jar",
+          "filename": "guideme-21.5.4-beta.jar",
+          "primary": true,
+          "size": 9308016,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ZT6SDp8y",
+      "version_number": "21.1.7",
+      "name": "GuideME 21.1.7",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-04-03T19:18:40.610485Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "2H5PaGVI",
+          "hashes": {
+            "sha512": "edfd2fb3c364deea1fee456191fc20be243898e715305b317f1b5df67c176774b781abb7e67fe46c90959f752cfb957186e43d8208f45391d3996c28c307aa0f",
+            "sha1": "b7b97fa793324c47ff0834bfd69b7a9fc90a740f"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/ZT6SDp8y/guideme-21.1.7.jar",
+          "filename": "guideme-21.1.7.jar",
+          "primary": true,
+          "size": 9295107,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "c2xUpSFa",
+      "version_number": "21.5.3-beta",
+      "name": "GuideME 21.5.3-beta",
+      "game_versions": [
+        "1.21.5"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-04-03T08:27:44.664619Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "13Itk7FP",
+          "hashes": {
+            "sha1": "29adc6bdc54834c59da10b0db3216d11bee4989c",
+            "sha512": "f5f92e0eb1f3755ffa53438c3e1d60a509aac64680c2da54e9a863d83a436405b28ad96e6d4c892a72ca3b20a8210cc09b3c99e13bdfc679c8dc25dc00e9a8d0"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/c2xUpSFa/guideme-21.5.3-beta.jar",
+          "filename": "guideme-21.5.3-beta.jar",
+          "primary": true,
+          "size": 9307665,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "CysMb58a",
+      "version_number": "21.5.2-beta",
+      "name": "GuideME 21.5.2-beta",
+      "game_versions": [
+        "1.21.5"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-03-28T20:17:53.779359Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "So5ZdaRp",
+          "hashes": {
+            "sha1": "53a0a6b00a36ecda17069bc000052daf72e64d88",
+            "sha512": "caaa4fbe3ace70beb508211c817eb74183002340216ec1ce4f6949c7cb23063e46dc283fa76e5f2118922b1831de8f38fa16ee69d47ddbca5a123d8de92432d3"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/CysMb58a/guideme-21.5.2-beta.jar",
+          "filename": "guideme-21.5.2-beta.jar",
+          "primary": true,
+          "size": 9298028,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "RvL3KRMw",
+      "version_number": "21.5.1-beta",
+      "name": "GuideME 21.5.1-beta",
+      "game_versions": [
+        "1.21.5"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-03-27T00:13:30.349564Z",
+      "version_type": "beta",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "kYmmOLUK",
+          "hashes": {
+            "sha512": "780bfca83c4f9d6e42680f19e6c836a9becf225ee8d3e108628d40db4b3e4f28f0e367334847e0c4c4d2ac0061446d4cfdb23d3ea77b945c421ca9df88656c68",
+            "sha1": "8891959a58c551f4def4297720e61eef831c76b6"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/RvL3KRMw/guideme-21.5.1-beta.jar",
+          "filename": "guideme-21.5.1-beta.jar",
+          "primary": true,
+          "size": 9297188,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "z9pvLwQu",
+      "version_number": "21.1.6",
+      "name": "GuideME 21.1.6",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-03-22T12:31:11.864978Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "pKhQKIHx",
+          "hashes": {
+            "sha1": "e41741a84faeb55d52cd854722db55aeb8069c0f",
+            "sha512": "6adffa8155fdd0a0b1e6a01bfb6a8d88c2b80ee9884b95d6b677681133b089e9095fe5517e24a2fc96f968fae1461440352febe4be8aa8f40ddbc66894f05959"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/z9pvLwQu/guideme-21.1.6.jar",
+          "filename": "guideme-21.1.6.jar",
+          "primary": true,
+          "size": 9294748,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "9bFR1hey",
+      "version_number": "21.1.5",
+      "name": "GuideME 21.1.5",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-03-10T23:03:10.184863Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "BprEAUAc",
+          "hashes": {
+            "sha1": "52160a65e4e63e4883f99193b6e29fdcd1eecb87",
+            "sha512": "9486dc603e41d4efc465981dc8301caf41f0d487280604667390183d4e900be036d55def3892aeb55f0a9b4e0874d6fbdc229a7de130e821c32f35419eb128ec"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/9bFR1hey/guideme-21.1.5.jar",
+          "filename": "guideme-21.1.5.jar",
+          "primary": true,
+          "size": 9291610,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "UZdn4CrG",
+      "version_number": "21.1.4",
+      "name": "GuideME 21.1.4",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-03-09T11:37:10.288614Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "p2TKl9yx",
+          "hashes": {
+            "sha1": "49b67e1ae1d0c4b8ca20707b1fdfe5190c201cb9",
+            "sha512": "f6d2d9483548361765263e120e265cb093462995e264dedd08cbc9143339a3fcc53458973e3ab7461e32b4d96229ae5a11fa401ab972f81d85a1f6aac6986f2e"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/UZdn4CrG/guideme-21.1.4.jar",
+          "filename": "guideme-21.1.4.jar",
+          "primary": true,
+          "size": 9291534,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "q4vfSfnf",
+      "version_number": "21.1.3",
+      "name": "GuideME 21.1.3",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-03-09T01:07:40.271531Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "ZtnD6ED6",
+          "hashes": {
+            "sha512": "324256abebb6a0c879889b38f7021e5797a9e5e4a4af3335d2c57f5f09d8c8fb43c3eb90cd95294ca2adb83c3291ea6a52cb47c059c067e9d6ae07a03893bd2f",
+            "sha1": "d979b4950559e1d1b660c7eb6624e353a44f6a1f"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/q4vfSfnf/guideme-21.1.3.jar",
+          "filename": "guideme-21.1.3.jar",
+          "primary": true,
+          "size": 9291305,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "OxZVGdoc",
+      "version_number": "21.1.2",
+      "name": "GuideME 21.1.2",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-03-08T11:25:17.072716Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "QqPzn9DL",
+          "hashes": {
+            "sha1": "772ba1e3351c43d637050a71052a5b4086116a15",
+            "sha512": "faa9374170f6f29c0c3fdd818518fe7926c38202c68bca9bedd644940868b0ff57ab74ac4aead69d4749560fd9ebcbd782a16924c1958e630cfb4046792ff531"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/OxZVGdoc/guideme-21.1.2.jar",
+          "filename": "guideme-21.1.2.jar",
+          "primary": true,
+          "size": 9291689,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "UCCmRukH",
+      "version_number": "20.4.0",
+      "name": "GuideME 20.4.0",
+      "game_versions": [
+        "1.20.4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-02-23T21:31:43.305850Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "qFc2HEON",
+          "hashes": {
+            "sha1": "1403630398f0386b0d52004f56f91991258345a2",
+            "sha512": "3b1cdb1f05f0f4cbaba79b03002629dbe553535a4f68d5c0aa415aa1b025075929ebbca77c6e7d96901923bf22f3665221e62914c4f840cf2abeca9e2f3fa5eb"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/UCCmRukH/guideme-20.4.0.jar",
+          "filename": "guideme-20.4.0.jar",
+          "primary": true,
+          "size": 9289868,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "9sKYi729",
+      "version_number": "20.1.3",
+      "name": "GuideME 20.1.3",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-02-23T19:28:50.371688Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "jjJPNU3a",
+          "hashes": {
+            "sha1": "bbea4764d47f2c2e4dea299b1ab66289cbe654bd",
+            "sha512": "702e23e0ce22956c81c1cb15c898e512ebb9edb89e5a8acc145ec48dc9fba222fedbedc250f8771947a9dd11c074e0bbc8a38a60d4bc13030ca97403af4429d9"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/9sKYi729/guideme-20.1.3.jar",
+          "filename": "guideme-20.1.3.jar",
+          "primary": true,
+          "size": 9397053,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "PALpfSdf",
+      "version_number": "21.1.1",
+      "name": "GuideME 21.1.1",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-02-23T01:16:22.204728Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "ce1aer19",
+          "hashes": {
+            "sha1": "5b0b0860be162db359e9caba32aad0e81357ea4b",
+            "sha512": "f6f53555e80dc7cd61a1913bd59219dcbe9e7ad9ffc61afc552a66d36c7990098fd508605b0b83324e8718c4939d9164cce12d67a1d19a801dbf92d05ba49ba3"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/PALpfSdf/guideme-21.1.1.jar",
+          "filename": "guideme-21.1.1.jar",
+          "primary": true,
+          "size": 9291675,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "MfzKuNeT",
+      "version_number": "21.1.0",
+      "name": "GuideME 21.1.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-02-10T22:16:37.727903Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "HlMUv5mR",
+          "hashes": {
+            "sha512": "8b7298d39514929c41f2d660a0bc1b23b63c66f270df40f27b271caf0a52fc8dfd36dc37146dde4f2a87b7741b51d819cbd6eac47e1455d04312bd5c3b29887a",
+            "sha1": "2df813c3638518edaf0df4c484d40859c25e97b7"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/MfzKuNeT/guideme-21.1.0.jar",
+          "filename": "guideme-21.1.0.jar",
+          "primary": true,
+          "size": 9249128,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "XvKviSFT",
+      "version_number": "20.1.2",
+      "name": "GuideME 20.1.2",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-02-09T16:21:39.106443Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "jU38q6P8",
+          "hashes": {
+            "sha1": "7958eccc64d28a83cbf43af9ae901765806decf4",
+            "sha512": "e0404639c48a2c5a5a89446da2da901f0c46866685863cd4c84e2bea2393f8e316866442b508c6bee9d7ab09cc5cf734142818677d4a2d1f4bef386ae6f194b8"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/XvKviSFT/guideme-20.1.2.jar",
+          "filename": "guideme-20.1.2.jar",
+          "primary": true,
+          "size": 9354524,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "6YvyGAhn",
+      "version_number": "20.1.1",
+      "name": "GuideME 20.1.1",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-02-09T02:13:54.275367Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "4QrF4nTV",
+          "hashes": {
+            "sha512": "bb10fd5498ee8286af0a695cabbeac33816b1665bc0ad98779ecee4fddeca465d779aade6abc1104c1bbe13602f21ff0df7b95e982d9a147ad805d58d293fec9",
+            "sha1": "f9cc0fb043d29555a38112d1018c9c8256a249a3"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/6YvyGAhn/guideme-20.1.1.jar",
+          "filename": "guideme-20.1.1.jar",
+          "primary": true,
+          "size": 9259699,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "5mqlOvG2",
+      "version_number": "20.1.0",
+      "name": "GuideME 20.1.0",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge"
+      ],
+      "date_published": "2025-02-09T01:07:09.871299Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "PIX3rW7t",
+          "hashes": {
+            "sha1": "95f4e2d4e056a41014eb6e20685a71fcafede73c",
+            "sha512": "51905f849c9fe40525d65793dded33bf9816e3a6212441c0b3085c5883a8e5add0a190423124113c73b86bbeff7c00c9e05dbf463bdab5245f1c3575fc6f986a"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/5mqlOvG2/guideme-20.1.0.jar",
+          "filename": "guideme-20.1.0.jar",
+          "primary": true,
+          "size": 9260377,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "EYCR81MC",
+      "version_number": "2.6.0",
+      "name": "GuideME 2.6.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-02-07T00:09:22.986243Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "njCHs9J8",
+          "hashes": {
+            "sha512": "ff72e9fb06cb819bfc0065e0ca5bf37655ea9c200c1d154f45c5463d48ab003d2fe385339a50644b5c686b9be30cd7d592a98b4b245fa184fabb3fa9078e9dd2",
+            "sha1": "2ab194f846049a45ae8830ea261d31984eb3a5e1"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/EYCR81MC/guideme-2.6.0.jar",
+          "filename": "guideme-2.6.0.jar",
+          "primary": true,
+          "size": 9245721,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "TJCbccGV",
+      "version_number": "2.5.1",
+      "name": "GuideME 2.5.1",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-29T01:40:48.789949Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Rrdbx7Jm",
+          "hashes": {
+            "sha1": "31462bb553a349e89a4eb8e8ac8d45495ac40dff",
+            "sha512": "f6a0ea9bd060d34cf372752bc2cee1b268995764c7fe9d8e42cff7fb8b9d50f0588f5345ad77bfe2ff43fe457a63f7295b58a42c61c33ed28381c47b04ec15e5"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/TJCbccGV/guideme-2.5.1.jar",
+          "filename": "guideme-2.5.1.jar",
+          "primary": true,
+          "size": 9232867,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "TvPfN29f",
+      "version_number": "2.5.0",
+      "name": "GuideME 2.5.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-29T01:14:55.303420Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "RFFYTTfD",
+          "hashes": {
+            "sha1": "e3c18153591cc5c936c0b3ec04201ba3185b2f2d",
+            "sha512": "25c8c762ccd70e395fe8dd8f11d5762b86d07e0ec759a22105b2ce13ad1a48d044989bfac44ca2654feea79fd0d1c9ccd7b7def17002105d30aadf3f0e514871"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/TvPfN29f/guideme-2.5.0.jar",
+          "filename": "guideme-2.5.0.jar",
+          "primary": true,
+          "size": 9230732,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "A26EU8of",
+      "version_number": "2.4.0",
+      "name": "GuideME 2.4.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-29T00:39:44.115323Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "ysYWaww5",
+          "hashes": {
+            "sha1": "770a8d79702382b529e0e3bd7328b34dca209561",
+            "sha512": "7b9b6ba9d113793de637f9a70ffa694fd00d6f0539da0ea7a96d9c35505d4ea009b7d7b825a400ca5e26f919fc3108786a32a1a0b40737e54c85fc563145d009"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/A26EU8of/guideme-2.4.0.jar",
+          "filename": "guideme-2.4.0.jar",
+          "primary": true,
+          "size": 9230728,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "HY5YtN9j",
+      "version_number": "2.3.1",
+      "name": "GuideME 2.3.1",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-28T18:08:38.830941Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "SOfH6iu2",
+          "hashes": {
+            "sha512": "8bf4c5ef9dc91bc5046fc5ee1c06886270906bf6f24eea0b9c75dd2460a20149a0ea86925c8075b241a5f617ab3b440000e3629cf9792dbeec6b2849a76ab33b",
+            "sha1": "7e535ced32ed584d43fdc0cc3bda580a90d03dfd"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/HY5YtN9j/guideme-2.3.1.jar",
+          "filename": "guideme-2.3.1.jar",
+          "primary": true,
+          "size": 9227312,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "AYhPSSxp",
+      "version_number": "2.3.0",
+      "name": "GuideME 2.3.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-27T21:36:09.724163Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "DBY99ZYR",
+          "hashes": {
+            "sha512": "aed99fa87a4e28d0975d7d675b63957b98fa7c286f153b3ee5c26ee40efb93e247fb73adb1ea3abd2d47aae8f07c14b0a5ecaf505e50fcd4cf354374ecfbba78",
+            "sha1": "d5e1816a86e999dfdff0bf7fca7f55213eaae57e"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/AYhPSSxp/guideme-2.3.0.jar",
+          "filename": "guideme-2.3.0.jar",
+          "primary": true,
+          "size": 9227240,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "6fHQ0s8c",
+      "version_number": "2.2.0",
+      "name": "GuideME 2.2.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-27T10:28:11.862070Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Pen2QoSA",
+          "hashes": {
+            "sha512": "919b8bf44f225c3f2cf1925942da10eec2846514c620b8cb74015b9bf7a670c8ce87a9699b8824ff810c7125ec38fc7767b08c7160fe37e82738270eaf44b4dd",
+            "sha1": "7e1c8f158fbe7a8c4fce4777140dfdf319327db1"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/6fHQ0s8c/guideme-2.2.0.jar",
+          "filename": "guideme-2.2.0.jar",
+          "primary": true,
+          "size": 9227240,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "Es9tJz5e",
+      "version_number": "2.1.1",
+      "name": "GuideME 2.1.1",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-25T15:22:58.635789Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "vYLNSJ9r",
+          "hashes": {
+            "sha1": "4ce1a91c796c502de79537afd115005042127c51",
+            "sha512": "7f385643793daf7531446da13dae2a39598c2e8b268dcd00fd3d80add8071c6d76a8551491ace0fda6d0326b5b7cb1f865675d14bf792327e4fa9c86054ac0cb"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/Es9tJz5e/guideme-2.1.1.jar",
+          "filename": "guideme-2.1.1.jar",
+          "primary": true,
+          "size": 1484918,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "ljwXoFk1",
+      "version_number": "2.1.0",
+      "name": "GuideME 2.1.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-24T19:50:07.051524Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Xnswaptw",
+          "hashes": {
+            "sha1": "d6506d879759fc8b88e258f750010d30d4aa73a0",
+            "sha512": "09ddbeca0b4c615a96bfce03e096816c1ec92c2a3e585b4ee5eaedf8d9d1d4451331d40f7a0e8835c511c6a705b41b1c7924b834088609f55f3d13b51fe2ed31"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/ljwXoFk1/guideme-2.1.0.jar",
+          "filename": "guideme-2.1.0.jar",
+          "primary": true,
+          "size": 1484906,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "kJ9mBuNy",
+      "version_number": "2.0.1",
+      "name": "GuideME 2.0.1",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-24T16:15:23.550882Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "pUIcC67x",
+          "hashes": {
+            "sha1": "2622ba53de0cf973077b096abd472c13fb56a558",
+            "sha512": "35219370ded6689185f92643a030866f809dddb256e4cea5f377e932939daf19ab42774c90830f7072f0196ff35deb2538a83cc993df7ef28a8baa258e04fc44"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/kJ9mBuNy/guideme-2.0.1.jar",
+          "filename": "guideme-2.0.1.jar",
+          "primary": true,
+          "size": 1475890,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "4hCuLHEr",
+      "version_number": "2.0.0",
+      "name": "GuideME 2.0.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-22T23:42:51.977947Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "BA5pbptA",
+          "hashes": {
+            "sha512": "5a372e31ca1e01b8061b3a0ad1161b11e8f72271040966e44e1d2430cf1de649eb9299ade28b6a6fc7406e58c02b3dcfd9942013ec4db0729333eab5730f0b48",
+            "sha1": "09ef9222b7860cc5a2a262bff05a536498f8a63a"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/4hCuLHEr/guideme-2.0.0.jar",
+          "filename": "guideme-2.0.0.jar",
+          "primary": true,
+          "size": 1476037,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "jinKQoM0",
+      "version_number": "1.0.4",
+      "name": "GuideME 1.0.4",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-21T01:29:07.402418Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "ymVmG0JZ",
+          "hashes": {
+            "sha1": "5bcd19a1c5faafdfe6754496aec74d523a285823",
+            "sha512": "e8bb9163897fcfeae35c69c38f1c229adc675dc034e42c670fd758877adcf65402be4c425e489d0f29fdcb21c297f9b38d97a11382c839a3030695d6172aa073"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/jinKQoM0/guideme-1.0.4.jar",
+          "filename": "guideme-1.0.4.jar",
+          "primary": true,
+          "size": 1473892,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "oftzXuTn",
+      "version_number": "1.0.3",
+      "name": "GuideME 1.0.3",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-21T01:05:42.150979Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "CKnvn68E",
+          "hashes": {
+            "sha1": "540af2e10fbbeda89035d602a1748cabe1f9707f",
+            "sha512": "137de1eeecb300a6a7a8cabb6caef9a42cb3735e8a2ab3428e997d739842d285808f5c56635c0e2b1d3e3d73fde83860fd5f2866c56aa44a4bd5f97e3bf04442"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/oftzXuTn/guideme-1.0.3.jar",
+          "filename": "guideme-1.0.3.jar",
+          "primary": true,
+          "size": 1473773,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "b6Cvev2f",
+      "version_number": "1.0.2",
+      "name": "GuideME 1.0.2",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-21T00:03:30.322589Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "KMOdwYhF",
+          "hashes": {
+            "sha1": "2bf893f526fcc3a45bec5a8a27bce375868c05b1",
+            "sha512": "35233f504919f0a557231b0f7275a40325a1e56ce56cbc69ce268d533fa10d89225bdc8432767eb8fc753ec3553d962a4c190f3df7162b58019a901b440bb555"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/b6Cvev2f/guideme-1.0.2.jar",
+          "filename": "guideme-1.0.2.jar",
+          "primary": true,
+          "size": 1473108,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "MFsx32k5",
+      "version_number": "1.0.1",
+      "name": "GuideME 1.0.1",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-20T10:38:44.639719Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "qX6no5xi",
+          "hashes": {
+            "sha512": "0ee3e7bbd29ccc7df5eead537f07c98eb9069d0485cd0da881652bdaeb7d71bad1525f0d0cebe145ebe248fe19eec92c8d3c4c27d35ca426b27f578bf07542cd",
+            "sha1": "375fb391b2c6a4f05205d62984e80a7a1e9ab3a8"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/MFsx32k5/guideme-1.0.1.jar",
+          "filename": "guideme-1.0.1.jar",
+          "primary": true,
+          "size": 1472821,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "xp5Eb3cc",
+      "version_number": "1.0.0",
+      "name": "GuideME 1.0.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-18T01:11:04.625034Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "BgsdlPFb",
+          "hashes": {
+            "sha1": "6a1544a50dd577c1d5a5347ef95baab35d6bea75",
+            "sha512": "4fe1cc1fc6afdd41b42464ff2a40eae2510ccf4ef5ceaac0893a7a287a95a5725f564ff94a1acb4809c3e5df8fb3fdf64be41e4277ad6d673a5846269622c404"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/xp5Eb3cc/guideme-1.0.0.jar",
+          "filename": "guideme-1.0.0.jar",
+          "primary": true,
+          "size": 1448752,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "bk0EGcWt",
+      "version_number": "1.0.0",
+      "name": "GuideME 1.0.0",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-01-18T01:01:08.696842Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "z1dvqtix",
+          "hashes": {
+            "sha512": "2ecead0156d9a59ddf0cfd58f0200c80ab16d7d65a37a17e352e0c10f89ac561f9449a99dec40bf18244dbd6a3529fb18701b89e55065c55568f79afbd5d6485",
+            "sha1": "da3d23929b7413367b578055a1577da770fb1439"
+          },
+          "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/bk0EGcWt/guideme-1.0.0.jar",
+          "filename": "guideme-1.0.0.jar",
+          "primary": true,
+          "size": 1448752,
+          "file_type": null
+        }
+      ]
+    }
+  ]
+}

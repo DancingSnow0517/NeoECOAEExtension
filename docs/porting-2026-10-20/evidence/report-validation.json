@@ -1,0 +1,27 @@
+{
+  "checked_at": "2026-10-20T21:57:28.836719+08:00",
+  "scope": "core + ExtendedAE + AdvancedAE + ExtendedAE Plus + AE2LT and required libraries",
+  "reports": [
+    "PORTING_1_20_1_PLAN_ZH_CN.md",
+    "docs\\porting-2026-10-20\\DEPENDENCY_MATRIX.md",
+    "docs\\porting-2026-10-20\\EXECUTION_AND_ACCEPTANCE.md",
+    "docs\\porting-2026-10-20\\MIXIN_AUDIT.md",
+    "docs\\porting-2026-10-20\\SOURCE_AND_EVIDENCE.md"
+  ],
+  "report_count": 5,
+  "markdown_links_checked": 510,
+  "source_lock_count": 16,
+  "mixin_candidates": 53,
+  "phases": 11,
+  "person_days": {
+    "low": 60,
+    "high": 101
+  },
+  "acceptance_items": 22,
+  "valid_json_files": 40,
+  "audited_artifact_hashes": 12,
+  "implementation_files_in_target": [],
+  "errors": [],
+  "warnings": [],
+  "validation_boundary": "This validates reports, source-link paths/line ranges, evidence syntax and recorded JAR hashes only. No target mod compilation, Mixin application, game launch or runtime acceptance."
+}

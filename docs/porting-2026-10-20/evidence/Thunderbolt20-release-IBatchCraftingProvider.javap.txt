@@ -1,0 +1,11 @@
+Compiled from "IBatchCraftingProvider.java"
+public interface com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider extends appeng.api.networking.crafting.ICraftingProvider {
+  public default void beginDispatchTick(long);
+  public default com.moakiee.thunderbolt.api.crafting.batch.BatchDispatchMode getBatchDispatchMode(appeng.api.crafting.IPatternDetails);
+  public default long getBatchCapacity(appeng.api.crafting.IPatternDetails);
+  public default com.moakiee.thunderbolt.api.crafting.batch.PreparedBatch prepareBatch(appeng.api.crafting.IPatternDetails, appeng.api.stacks.KeyCounter[], long, com.moakiee.thunderbolt.api.crafting.batch.BatchJobView);
+  public default boolean supportsSharedBatchInputs();
+  public abstract long pushBatch(appeng.api.crafting.IPatternDetails, appeng.api.stacks.KeyCounter[], long);
+  public default long pushBatch(appeng.api.crafting.IPatternDetails, appeng.api.stacks.KeyCounter[], long, com.moakiee.thunderbolt.api.crafting.batch.BatchJobView);
+  public default boolean pushPattern(appeng.api.crafting.IPatternDetails, appeng.api.stacks.KeyCounter[]);
+}

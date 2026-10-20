@@ -1,0 +1,22 @@
+Compiled from "ExecutingCraftingJob.java"
+public class net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob {
+  private static final java.lang.String NBT_LINK;
+  private static final java.lang.String NBT_PLAYER_ID;
+  private static final java.lang.String NBT_FINAL_OUTPUT;
+  private static final java.lang.String NBT_WAITING_FOR;
+  private static final java.lang.String NBT_TIME_TRACKER;
+  private static final java.lang.String NBT_REMAINING_AMOUNT;
+  private static final java.lang.String NBT_TASKS;
+  private static final java.lang.String NBT_CRAFTING_PROGRESS;
+  final appeng.crafting.CraftingLink link;
+  final appeng.crafting.inv.ListCraftingInventory waitingFor;
+  final java.util.Map<appeng.api.crafting.IPatternDetails, net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob$TaskProgress> tasks;
+  final net.pedroksl.advanced_ae.common.logic.ElapsedTimeTracker timeTracker;
+  appeng.api.stacks.GenericStack finalOutput;
+  long remainingAmount;
+  java.lang.Integer playerId;
+  net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob(appeng.api.networking.crafting.ICraftingPlan, net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob$CraftingDifferenceListener, appeng.crafting.CraftingLink, java.lang.Integer);
+  net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob(net.minecraft.nbt.CompoundTag, net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob$CraftingDifferenceListener, net.pedroksl.advanced_ae.common.logic.AdvCraftingCPULogic);
+  net.minecraft.nbt.CompoundTag writeToNBT();
+  private static net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob$TaskProgress lambda$new$0(appeng.api.crafting.IPatternDetails);
+}

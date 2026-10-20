@@ -1,0 +1,15 @@
+Compiled from "OverloadedIOPortMenu.java"
+public class com.moakiee.ae2lt.menu.OverloadedIOPortMenu extends appeng.menu.implementations.UpgradeableMenu<com.moakiee.ae2lt.blockentity.OverloadedIOPortBlockEntity> {
+  public static final net.minecraft.world.inventory.MenuType<com.moakiee.ae2lt.menu.OverloadedIOPortMenu> TYPE;
+  public appeng.api.config.FullnessMode fullness;
+  public appeng.api.config.OperationMode operation;
+  public int transferInterval;
+  public com.moakiee.ae2lt.blockentity.OverloadedIOPortBlockEntity$Status status;
+  public int batchLimit;
+  public long transferCap;
+  public com.moakiee.ae2lt.menu.OverloadedIOPortMenu(int, net.minecraft.world.entity.player.Inventory, com.moakiee.ae2lt.blockentity.OverloadedIOPortBlockEntity);
+  protected void setupConfig();
+  protected void loadSettingsFromHost(appeng.api.util.IConfigManager);
+  private static net.minecraft.network.chat.Component lambda$static$0(com.moakiee.ae2lt.blockentity.OverloadedIOPortBlockEntity);
+  static {};
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "file": "forge-getting-started.html",
+    "url": "https://docs.minecraftforge.net/en/1.20.1/gettingstarted/",
+    "date": "2026-10-20",
+    "http_status": 200,
+    "bytes": 31600,
+    "sha256": "381a170973fbf589afb8033d45fb8bacb965ffa6a1b1ec958407ef64f1552603"
+  },
+  {
+    "file": "forge-simpleimpl.html",
+    "url": "https://docs.minecraftforge.net/en/1.20.1/networking/simpleimpl/",
+    "date": "2026-10-20",
+    "http_status": 200,
+    "bytes": 31196,
+    "sha256": "1c50f69b5ae7dff407978c6f625b94cf1d7f10e2ade60a2af88005255d4d1ad7"
+  },
+  {
+    "file": "forge-access-transformers.html",
+    "url": "https://docs.minecraftforge.net/en/1.20.1/advanced/accesstransformers/",
+    "date": "2026-10-20",
+    "http_status": 200,
+    "bytes": 29253,
+    "sha256": "ef29e16d1d97d2f15b201725c610e92a68f0b2e2a9df9851dd250c664c2dddf8"
+  },
+  {
+    "file": "forge-capabilities.html",
+    "url": "https://docs.minecraftforge.net/en/1.20.1/datastorage/capabilities/",
+    "date": "2026-10-20",
+    "http_status": 200,
+    "bytes": 37063,
+    "sha256": "d0096dfdf70fa1fce4aa69ec7de9b5c4541e9de33f3eb0a93461123572c2bfe0"
+  },
+  {
+    "file": "ae2-15.4.11.pom",
+    "url": "https://modmaven.dev/org/appliedenergistics/appliedenergistics2/15.4.11/appliedenergistics2-15.4.11.pom",
+    "date": "2026-10-20",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "file": "guideme-20.1.15.pom",
+    "url": "https://modmaven.dev/org/appliedenergistics/guideme/20.1.15/guideme-20.1.15.pom",
+    "date": "2026-10-20",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "file": "ldlib-1.0.52.a.pom",
+    "url": "https://maven.firstdarkdev.xyz/snapshots/com/lowdragmc/ldlib/ldlib-forge-1.20.1/1.0.52.a/ldlib-forge-1.20.1-1.0.52.a.pom",
+    "date": "2026-10-20",
+    "http_status": 200,
+    "bytes": 414,
+    "sha256": "59488d2cd42fa940de2ca3ae8e510a4fc097d7865614f12f90e85828b959a40f"
+  },
+  {
+    "file": "registrate-1.3.11.pom",
+    "url": "https://maven.tterrag.com/com/tterrag/registrate/Registrate/MC1.20-1.3.11/Registrate-MC1.20-1.3.11.pom",
+    "date": "2026-10-20",
+    "http_status": 200,
+    "bytes": 414,
+    "sha256": "3d17910edfd63457159f0aa8a60dc17a77131bc613f6df25d857b4ae0bec4dc9"
+  }
+]

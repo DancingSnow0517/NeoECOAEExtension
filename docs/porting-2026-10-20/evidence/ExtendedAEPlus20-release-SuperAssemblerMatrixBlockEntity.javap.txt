@@ -1,0 +1,41 @@
+Compiled from "SuperAssemblerMatrixBlockEntity.java"
+public abstract class com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixBlockEntity extends appeng.blockentity.grid.AENetworkBlockEntity implements appeng.api.networking.crafting.ICraftingProvider,appeng.api.networking.ticking.IGridTickable,appeng.helpers.patternprovider.PatternContainer,com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixPart {
+  private static final appeng.api.inventories.InternalInventory EMPTY_PATTERN_INVENTORY;
+  private boolean core;
+  private boolean unloading;
+  private com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster superCluster;
+  protected com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixBlockEntity(net.minecraft.world.level.block.entity.BlockEntityType<?>, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
+  public boolean isCore();
+  public void setCore(boolean);
+  protected net.minecraft.world.item.Item getItemFromBlockEntity();
+  public void m_183515_(net.minecraft.nbt.CompoundTag);
+  public void loadTag(net.minecraft.nbt.CompoundTag);
+  public void onReady();
+  public void onChunkUnloaded();
+  public void m_7651_();
+  public void m_6339_();
+  public net.minecraft.core.BlockPos eap$getSuperMatrixPos();
+  public net.minecraft.world.level.Level eap$getSuperMatrixLevel();
+  public com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster eap$getSuperMatrixCluster();
+  public void eap$setSuperMatrixCluster(com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster);
+  public java.util.Set<net.minecraft.core.Direction> getGridConnectableSides(appeng.api.orientation.BlockOrientation);
+  public void eap$updateSuperMatrixStatus();
+  public java.util.List<appeng.api.crafting.IPatternDetails> getAvailablePatterns();
+  public boolean pushPattern(appeng.api.crafting.IPatternDetails, appeng.api.stacks.KeyCounter[]);
+  public boolean isBusy();
+  public appeng.api.networking.ticking.TickingRequest getTickingRequest(appeng.api.networking.IGridNode);
+  public appeng.api.networking.ticking.TickRateModulation tickingRequest(appeng.api.networking.IGridNode, int);
+  public void wakeCoreNode();
+  public long insertToNetwork(appeng.api.stacks.AEKey, long);
+  public appeng.api.networking.IGrid getGrid();
+  public appeng.api.inventories.InternalInventory getTerminalPatternInventory();
+  public net.minecraftforge.items.IItemHandler getExposedPatternItemHandler();
+  public <T> net.minecraftforge.common.util.LazyOptional<T> getCapability(net.minecraftforge.common.capabilities.Capability<T>, net.minecraft.core.Direction);
+  public boolean isVisibleInTerminal();
+  public appeng.api.implementations.blockentities.PatternContainerGroup getTerminalGroup();
+  public void refreshCraftingProvider();
+  private java.util.Iterator<appeng.api.networking.IGridNode> getMultiblockNodes();
+  public void onMainNodeStateChanged(appeng.api.networking.IGridNodeListener$State);
+  private static void lambda$wakeCoreNode$0(appeng.api.networking.IGrid, appeng.api.networking.IGridNode);
+  static {};
+}

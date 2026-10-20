@@ -1,0 +1,352 @@
+[
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.async.AsyncThreadData",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.async.AsyncThreadData"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.editor.resource.BuiltinResourceProvider",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.editor.resource.TexturesResource",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.gui.editor.data.resource.TexturesResource"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolder",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.slot.LocalSlot",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.texture.ColorBorderTexture",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.gui.texture.IGuiTexture"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.texture.UIResourceTexture",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.gui.texture.UIResourceTexture"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.texture.VanillaSpriteTexture",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.ModularUI",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.gui.modular.ModularUI"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.UI",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.UIElement",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.Button",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.Label",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.Scene",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.Scroller",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.TextField",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.kjs.ui.UIEvents"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.util.DrawerHelper",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.gui.util.DrawerHelper"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.integration.xei.IngredientIO",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.jei.IngredientIO"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.integration.xei.emi.ModularUIEMIRecipe",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.integration.xei.jei.ModularUIRecipeCategory",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.jei.ModularUIRecipeCategory"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.math.Size",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.utils.Size"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.plugin.ILDLibPlugin",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.plugin.ILDLibPlugin"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.plugin.LDLibPlugin",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.plugin.LDLibPlugin"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.registry.annotation.LDLRegister",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.gui.editor.annotation.LDLRegister"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.syncdata.IContentChangeAware"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.accessor.direct.RegistryAccessor",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.syncdata.annotation.Persisted"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.annotation.RPCMethod",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.syncdata.annotation.RPCMethod"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.syncdata.annotation.RequireRerender"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity",
+    "same_named_ldlib1_types": []
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.rpc.RPCSender",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.syncdata.rpc.RPCSender"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.syncdata.storage.IManagedStorage",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.syncdata.IManagedStorage"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.utils.ResourceHelper",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.utils.ResourceHelper"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.utils.data.BlockInfo",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.utils.BlockInfo"
+    ]
+  },
+  {
+    "main_import": "com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld",
+    "same_named_ldlib1_types": [
+      "com.lowdragmc.lowdraglib.utils.TrackedDummyWorld"
+    ]
+  }
+]

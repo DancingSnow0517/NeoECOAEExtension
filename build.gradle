@@ -1,0 +1,100 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.148'
+}
+
+group = mod_group_id
+version = mod_version
+base.archivesName = mod_id
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+repositories {
+    mavenCentral()
+    maven {
+        url = 'https://modmaven.dev'
+        content { includeGroup 'appeng' }
+    }
+    maven {
+        url = 'https://maven.firstdarkdev.xyz/snapshots'
+        content { includeGroup 'com.lowdragmc.ldlib' }
+    }
+    maven {
+        url = 'https://maven.tterrag.com/'
+        content { includeGroup 'com.tterrag.registrate' }
+    }
+    maven {
+        url = 'https://maven.minecraftforge.net/'
+        content { includeGroup 'org.spongepowered' }
+    }
+}
+
+dependencies {
+    modImplementation("appeng:appliedenergistics2-forge:${ae2_version}") {
+        version { strictly ae2_version }
+    }
+    modImplementation "org.appliedenergistics:guideme:${guideme_version}"
+    modImplementation "com.lowdragmc.ldlib:ldlib-forge-${minecraft_version}:${ldlib_version}"
+    modApi "com.tterrag.registrate:Registrate:${registrate_version}"
+    jarJar "com.tterrag.registrate:Registrate:${registrate_version}"
+    implementation "io.github.llamalad7:mixinextras-forge:${mixinextras_version}"
+    jarJar "io.github.llamalad7:mixinextras-forge:${mixinextras_version}"
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+legacyForge {
+    version = "${minecraft_version}-${forge_version}"
+    validateAccessTransformers = true
+    runs {
+        client { client() }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        data {
+            data()
+            programArguments.addAll '--mod', mod_id, '--all',
+                '--output', file('src/generated/resources').absolutePath,
+                '--existing', file('src/main/resources').absolutePath
+        }
+        configureEach {
+            gameDirectory = project.file("run/base/${name}")
+            logLevel = org.slf4j.event.Level.INFO
+            systemProperty 'neoecoae.bootstrapSmoke', providers.gradleProperty('bootstrapSmoke').getOrElse('false')
+        }
+    }
+    mods {
+        neoecoae { sourceSet sourceSets.main }
+    }
+}
+
+sourceSets.main.resources.srcDir 'src/generated/resources'
+sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    maxHeapSize = '2G'
+}
+
+tasks.named('processResources', ProcessResources) {
+    def properties = [mod_id: mod_id, mod_name: mod_name, mod_version: mod_version,
+                      mod_authors: mod_authors, mod_license: mod_license]
+    inputs.properties properties
+    filesMatching('META-INF/mods.toml') { expand properties }
+}
+
+tasks.named('jar', Jar) {
+    manifest.attributes('Implementation-Title': mod_name,
+                        'Implementation-Version': mod_version)
+}

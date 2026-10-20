@@ -1,0 +1,6 @@
+Compiled from "HybridCoreBlockEntity.java"
+public class com.extendedae_plus.content.matrix.HybridCoreBlockEntity extends com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity {
+  public com.extendedae_plus.content.matrix.HybridCoreBlockEntity(net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
+  public appeng.api.implementations.blockentities.PatternContainerGroup getTerminalGroup();
+  public net.minecraft.world.level.block.entity.BlockEntityType<?> m_58903_();
+}

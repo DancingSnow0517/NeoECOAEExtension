@@ -1,0 +1,7 @@
+Compiled from "SuperAssemblerMatrixFrameBlockEntity.java"
+public class com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixFrameBlockEntity extends com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixBlockEntity {
+  public com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixFrameBlockEntity(net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
+  public void onLoad();
+  public net.minecraftforge.client.model.data.ModelData getModelData();
+  private void refreshLoadedFrameModels();
+}

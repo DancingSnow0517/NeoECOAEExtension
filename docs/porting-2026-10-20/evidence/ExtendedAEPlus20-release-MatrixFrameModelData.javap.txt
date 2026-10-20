@@ -1,0 +1,9 @@
+Compiled from "MatrixFrameModelData.java"
+public final class com.extendedae_plus.content.matrix.supermatrix.MatrixFrameModelData {
+  public static final net.minecraftforge.client.model.data.ModelProperty<com.extendedae_plus.content.matrix.supermatrix.MatrixFrameModelData$Connections> CONNECTIONS;
+  private static final com.extendedae_plus.content.matrix.supermatrix.MatrixFrameModelData$Connections EMPTY_CONNECTIONS;
+  private com.extendedae_plus.content.matrix.supermatrix.MatrixFrameModelData();
+  public static net.minecraftforge.client.model.data.ModelData create(net.minecraft.world.level.BlockAndTintGetter, net.minecraft.core.BlockPos, net.minecraftforge.client.model.data.ModelData);
+  public static com.extendedae_plus.content.matrix.supermatrix.MatrixFrameModelData$Connections getOrEmpty(net.minecraftforge.client.model.data.ModelData);
+  static {};
+}

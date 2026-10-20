@@ -1,0 +1,12 @@
+Compiled from "PatternScaler.java"
+public final class com.extendedae_plus.util.smartDoubling.PatternScaler {
+  private static final boolean advAvailable;
+  private static final java.lang.reflect.Constructor<?> advCtor;
+  private static final java.lang.Class<?> advIfaceClass;
+  private com.extendedae_plus.util.smartDoubling.PatternScaler();
+  public static com.extendedae_plus.api.crafting.ScaledProcessingPattern createScaled(appeng.crafting.pattern.AEProcessingPattern, long);
+  public static appeng.api.crafting.IPatternDetails createScaled(appeng.api.crafting.IPatternDetails, long);
+  public static int getComputedMul(appeng.crafting.pattern.AEProcessingPattern, int);
+  private static long getUnitMultiplier(appeng.api.stacks.AEKey);
+  static {};
+}

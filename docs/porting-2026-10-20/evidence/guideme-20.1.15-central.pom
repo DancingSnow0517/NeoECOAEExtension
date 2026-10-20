@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.appliedenergistics</groupId>
+  <artifactId>guideme</artifactId>
+  <version>20.1.15</version>
+  <name>GuideME</name>
+  <description>GuideME offers the foundation for your Minecraft guidebook needs, be it for mods or modpacks.</description>
+  <url>https://guideme.appliedenergistics.org</url>
+  <licenses>
+    <license>
+      <name>LGPLv3, MIT, and Apache License v2</name>
+      <url>https://guideme.appliedenergistics.org/license</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>shartte</name>
+      <email>team@appliedenergistics.org</email>
+      <organization>Applied Energistics</organization>
+      <organizationUrl>https://github.com/AppliedEnergistics/</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git://github.com/AppliedEnergistics/GuideME.git</connection>
+    <developerConnection>scm:git:ssh://github.com:AppliedEnergistics/GuideME.git</developerConnection>
+    <url>https://github.com/AppliedEnergistics/GuideME/tree/main</url>
+  </scm>
+</project>

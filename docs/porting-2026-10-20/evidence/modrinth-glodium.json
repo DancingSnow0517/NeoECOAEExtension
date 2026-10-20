@@ -1,0 +1,271 @@
+{
+  "checked_at": "2026-10-20 Asia/Shanghai",
+  "project": {
+    "client_side": "required",
+    "server_side": "required",
+    "game_versions": [
+      "1.20.1",
+      "1.20.4",
+      "1.21",
+      "1.21.1",
+      "26.1",
+      "26.1.1",
+      "26.1.2"
+    ],
+    "environment": [
+      "client_and_server"
+    ],
+    "id": "UhW5uCKw",
+    "slug": "glodium",
+    "project_type": "mod",
+    "team": "s0PnpuEp",
+    "organization": null,
+    "title": "Glodium",
+    "description": "A codelib for render, registry and network stuff",
+    "body": "A lib that provides a better render, network and registry system.\n\nIt doesn't do anything if you install it alone.",
+    "body_url": null,
+    "published": "2024-02-10T07:26:27.583327Z",
+    "updated": "2026-08-08T09:14:07.729769Z",
+    "approved": "2024-02-20T07:12:38.522510Z",
+    "queued": "2024-02-10T07:30:50.854260Z",
+    "status": "approved",
+    "requested_status": "approved",
+    "moderator_message": null,
+    "license": {
+      "id": "MIT",
+      "name": "MIT License",
+      "url": null
+    },
+    "downloads": 940665,
+    "followers": 6,
+    "categories": [],
+    "additional_categories": [],
+    "loaders": [
+      "fabric",
+      "forge",
+      "neoforge"
+    ],
+    "versions": [
+      "L4Y9PIpm",
+      "sIc0jtl4",
+      "f4j0ofVD",
+      "eoUaDkZf",
+      "4L3qDjdy",
+      "pfbmdJ3b",
+      "t0p0CUPy"
+    ],
+    "icon_url": "https://cdn.modrinth.com/data/UhW5uCKw/b82d401e1987eec5615311e9a90295c8e86b2112.png",
+    "raw_icon_url": "https://cdn.modrinth.com/data/UhW5uCKw/b82d401e1987eec5615311e9a90295c8e86b2112.png",
+    "issues_url": "https://github.com/GlodBlock/Glodium/issues",
+    "source_url": "https://github.com/GlodBlock/Glodium",
+    "wiki_url": null,
+    "discord_url": "https://discord.gg/8ppgAfY3yF",
+    "donation_urls": [],
+    "gallery": [],
+    "color": 14853660,
+    "thread_id": "siFiOAB1",
+    "monetization_status": "monetized"
+  },
+  "versions": [
+    {
+      "id": "t0p0CUPy",
+      "version_number": "26.1-1.2-neoforge",
+      "name": "Glodium 26.1-1.2-neoforge",
+      "game_versions": [
+        "26.1",
+        "26.1.1",
+        "26.1.2"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2026-08-08T09:14:07.729769Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "PyF7TI3z",
+          "hashes": {
+            "sha512": "14486de80e9d726c8c54c064d02836515978658cfc7c2d43b2b6ee0c9c4c34e672cf0f6c760da1f46a3c7aaf3ab9942261d1f9cb04563bbab2d57549a17b2c94",
+            "sha1": "d2703560e45d20c6ab4152d9a0ed38f238d5bb36"
+          },
+          "url": "https://cdn.modrinth.com/data/UhW5uCKw/versions/t0p0CUPy/Glodium-26.1-1.2-neoforge.jar",
+          "filename": "Glodium-26.1-1.2-neoforge.jar",
+          "primary": true,
+          "size": 77175,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "pfbmdJ3b",
+      "version_number": "1.21-2.2-neoforge",
+      "name": "Glodium 1.21-2.2-neoforge",
+      "game_versions": [
+        "1.21.1"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-02-04T13:09:39.978003Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "neMsmMkk",
+          "hashes": {
+            "sha512": "56a387a1bdaf0146c9a7e14de0aca8b6f53f25d3ba9d46255f142043387282ed9e4fa0011d309e32d9ffe5362b129c07e301226dd4ac11eda9a4f42f27c0b5d1",
+            "sha1": "9f61a3162665ad0b37f6f268339ac98097af1a87"
+          },
+          "url": "https://cdn.modrinth.com/data/UhW5uCKw/versions/pfbmdJ3b/Glodium-1.21-2.2-neoforge.jar",
+          "filename": "Glodium-1.21-2.2-neoforge.jar",
+          "primary": true,
+          "size": 61377,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "4L3qDjdy",
+      "version_number": "1.21-1.2-neoforge",
+      "name": "Glodium 1.21-1.2-neoforge",
+      "game_versions": [
+        "1.21"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-02-04T13:09:08.087101Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "j9J0W30H",
+          "hashes": {
+            "sha512": "1be120a75ad528d3a6ccc349a98aa608bfb702c1f3485e34d2aa32dd20e617a999923d5600d1e5fb403be675e099c41540a281be7cc96d1e3e573f77cadcb911",
+            "sha1": "ac5159b183d607ba8274afbcf7be0f647ec6ab27"
+          },
+          "url": "https://cdn.modrinth.com/data/UhW5uCKw/versions/4L3qDjdy/Glodium-1.21-1.2-neoforge.jar",
+          "filename": "Glodium-1.21-1.2-neoforge.jar",
+          "primary": true,
+          "size": 61321,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "eoUaDkZf",
+      "version_number": "1.20-1.5-forge",
+      "name": "Glodium 1.20-1.5-forge",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge",
+        "neoforge"
+      ],
+      "date_published": "2025-02-04T13:08:25.693981Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "Iqf6Y7kv",
+          "hashes": {
+            "sha1": "c7534db3248adfcf39a6158b423dfc9bfc99a378",
+            "sha512": "57ba996845f588191b12f5e4c578b6f33a2b431facd54176dc61abba0f08f86cbc03c39cf795c7d5dea4926a923ec88e646a25d1a9a3a5bb9508fcb79a661a5e"
+          },
+          "url": "https://cdn.modrinth.com/data/UhW5uCKw/versions/eoUaDkZf/Glodium-1.20-1.5-forge.jar",
+          "filename": "Glodium-1.20-1.5-forge.jar",
+          "primary": true,
+          "size": 60550,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "f4j0ofVD",
+      "version_number": "1.20-2.2-neoforge",
+      "name": "Glodium 1.20-2.2-neoforge",
+      "game_versions": [
+        "1.20.4"
+      ],
+      "loaders": [
+        "neoforge"
+      ],
+      "date_published": "2025-02-04T13:06:20.070275Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "GhHNJV5U",
+          "hashes": {
+            "sha1": "6e39165508153b7810e2d94339d034c9bad1a66d",
+            "sha512": "e4b090906e03f3d12a636e8fab2a4456fb0bb98124170de390e840dc6613452872a8c5b99d0e1f0d4a68cf807598b90d22e10352278af783601bcead440947a8"
+          },
+          "url": "https://cdn.modrinth.com/data/UhW5uCKw/versions/f4j0ofVD/Glodium-1.20-2.2-neoforge.jar",
+          "filename": "Glodium-1.20-2.2-neoforge.jar",
+          "primary": true,
+          "size": 47126,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "sIc0jtl4",
+      "version_number": "1.20-1.1-fabric",
+      "name": "Glodium 1.20-1.1-fabric",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "fabric"
+      ],
+      "date_published": "2024-02-10T07:29:15.147470Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "9eVi8iFZ",
+          "hashes": {
+            "sha512": "752beae6da1e204fd78d277dd30b28dd8a70dd54f26c665f6e68c9be34d77e9353975c3ad64804cbd4045e8d7e41447d5bd89e4f3ddcd16308530cf66e3c4f00",
+            "sha1": "5c20bcfd89226a8bb00bc6ef93f93e4bcdca7657"
+          },
+          "url": "https://cdn.modrinth.com/data/UhW5uCKw/versions/sIc0jtl4/Glodium-1.20-1.1-fabric.jar",
+          "filename": "Glodium-1.20-1.1-fabric.jar",
+          "primary": true,
+          "size": 49671,
+          "file_type": null
+        }
+      ]
+    },
+    {
+      "id": "L4Y9PIpm",
+      "version_number": "1.20-1.3-forge",
+      "name": "Glodium 1.20-1.3-forge",
+      "game_versions": [
+        "1.20.1"
+      ],
+      "loaders": [
+        "forge",
+        "neoforge"
+      ],
+      "date_published": "2024-02-10T07:28:50.935965Z",
+      "version_type": "release",
+      "dependencies": [],
+      "files": [
+        {
+          "id": "tYFbyDBR",
+          "hashes": {
+            "sha512": "118a9b8ccd15d36fece51a4498446e3d11a87af7491748cfb362760fcc3747b493dc500c23af4dabec07cf1adb9ac82080c360ec64b76e6951a26659fc68c4c1",
+            "sha1": "0d404d24eed3962c553c5414b636879d683d9100"
+          },
+          "url": "https://cdn.modrinth.com/data/UhW5uCKw/versions/L4Y9PIpm/Glodium-1.20-1.3-forge.jar",
+          "filename": "Glodium-1.20-1.3-forge.jar",
+          "primary": true,
+          "size": 48066,
+          "file_type": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2170 @@
+{
+    "compileClasspath": {
+        "selected": [
+            {
+                "id": "root project :",
+                "reasons": [
+                    "root"
+                ]
+            },
+            {
+                "id": "com.tterrag.registrate:Registrate:MC1.21.1-1.4.8",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.appliedenergistics:guideme:21.1.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:a-useless-mod:VX1feqRC",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:omnisequence-transfinite-1624558:8991983",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:mega-cells-622112:7952621",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:ae2-lightning-tech:AosdXlfS",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:thunderbolt-core:oyVnlG5A",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.appliedenergistics.yoga:yoga:1.0.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "dev.vfyjxf:taffy:1.1.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:jade-324717:8591319",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT:20260621.181850-47",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:applied-botanics:leZwUP1X",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "mezz.jei:jei-1.21.1-neoforge-api:19.56.0.438",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "mezz.jei:jei-1.21.1-common-api:19.56.0.438",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "dev.emi:emi-neoforge:1.1.22+1.21.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "dev.latvian.mods:kubejs-neoforge:2101.7.2-build.353",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "dev.latvian.mods:rhino:2101.2.7-build.81",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.appliedenergistics:appliedenergistics2:19.2.18",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ae2-pattern-disk-1698612:9009050",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:omni-cells-1359517:8050965",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:2.2.40",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:mekanism-268560:7904058",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-mekanistics-574300:7096962",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:glodium-957920:5821676",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ex-pattern-provider-892005:8811572",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-flux-965012:8204513",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:advancedae-1084104:8564177",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ars-energistique-905641:6203425",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "software.bernie.geckolib:geckolib-neoforge-1.21.1:4.8.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.projectlombok:lombok:1.18.34",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:neoforge:21.1.251",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged.fancymodloader:loader:4.0.44",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm-tree:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm-commons:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "net.neoforged:mergetool:2.0.3",
+                "reasons": [
+                    "requested",
+                    "between versions 2.0.3 and 2.0.0"
+                ]
+            },
+            {
+                "id": "org.apache.logging.log4j:log4j-api:2.22.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.guava:guava:32.1.2-jre",
+                "reasons": [
+                    "requested",
+                    "between versions 32.1.2-jre, 31.1-jre and 31.0.1-jre"
+                ]
+            },
+            {
+                "id": "com.google.guava:failureaccess:1.0.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.code.findbugs:jsr305:3.0.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.checkerframework:checker-qual:3.33.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.errorprone:error_prone_annotations:2.18.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.j2objc:j2objc-annotations:2.8",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.code.gson:gson:2.10.1",
+                "reasons": [
+                    "requested",
+                    "between versions 2.10.1, 2.10 and 2.8.5"
+                ]
+            },
+            {
+                "id": "org.apache.maven:maven-artifact:3.8.5",
+                "reasons": [
+                    "requested",
+                    "between versions 3.8.5 and 3.8.1"
+                ]
+            },
+            {
+                "id": "org.codehaus.plexus:plexus-utils:3.3.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.commons:commons-lang3:3.14.0",
+                "reasons": [
+                    "requested",
+                    "between versions 3.14.0, 3.12.0 and 3.8.1"
+                ]
+            },
+            {
+                "id": "com.electronwill.night-config:core:3.8.3",
+                "reasons": [
+                    "requested",
+                    "between versions 3.8.3 and 3.8.0"
+                ]
+            },
+            {
+                "id": "com.electronwill.night-config:toml:3.8.3",
+                "reasons": [
+                    "requested",
+                    "between versions 3.8.3 and 3.8.0"
+                ]
+            },
+            {
+                "id": "cpw.mods:modlauncher:11.0.5",
+                "reasons": [
+                    "requested",
+                    "between versions 11.0.5 and 11.0.3"
+                ]
+            },
+            {
+                "id": "net.neoforged:coremods:7.0.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:logging:1.2.7",
+                "reasons": [
+                    "requested",
+                    "between versions 1.2.7 and 1.1.1"
+                ]
+            },
+            {
+                "id": "net.neoforged:JarJarSelector:0.4.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:JarJarMetadata:0.4.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.machinezoo.noexception:noexception:1.7.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:bus:8.0.5",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.jodah:typetools:0.6.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged.fancymodloader:earlydisplay:4.0.44",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:accesstransformers:10.0.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.slf4j:slf4j-api:2.0.9",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.antlr:antlr4-runtime:4.13.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.minecrell:terminalconsoleappender:1.3.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.logging.log4j:log4j-core:2.22.1",
+                "reasons": [
+                    "requested",
+                    "between versions 2.22.1 and 2.8.1"
+                ]
+            },
+            {
+                "id": "org.jline:jline-reader:3.20.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.jline:jline-terminal:3.20.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.fabricmc:sponge-mixin:0.15.2+mixin.0.8.7",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.openjdk.nashorn:nashorn-core:15.4",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm-util:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm-analysis:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "cpw.mods:securejarhandler:3.0.8",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "cpw.mods:bootstraplauncher:2.0.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:JarJarFileSystems:0.4.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.github.llamalad7:mixinextras-neoforge:0.5.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:neoform:1.21.1-20240808.144430",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.jetbrains:annotations:24.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "ca.weblite:java-objc-bridge:1.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:minecraft-dependencies:1.21.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.github.oshi:oshi-core:6.4.10",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.ibm.icu:icu4j:73.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:authlib:6.0.54",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:blocklist:1.0.10",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:brigadier:1.3.10",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:datafixerupper:8.0.16",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:patchy:2.2.10",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:text2speech:1.17.9",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "commons-codec:commons-codec:1.16.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "commons-io:commons-io:2.15.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "commons-logging:commons-logging:1.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-buffer:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-codec:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-common:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-handler:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-resolver:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-transport-classes-epoll:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-transport-native-unix-common:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-transport:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "it.unimi.dsi:fastutil:8.5.12",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.java.dev.jna:jna-platform:5.14.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.java.dev.jna:jna:5.14.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.sf.jopt-simple:jopt-simple:5.0.4",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.commons:commons-compress:1.26.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.httpcomponents:httpclient:4.5.13",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.httpcomponents:httpcore:4.4.16",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.logging.log4j:log4j-slf4j2-impl:2.22.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.jcraft:jorbis:0.0.17",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.joml:joml:1.10.5",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-freetype:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-glfw:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-jemalloc:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-openal:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-opengl:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-stb:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-tinyfd:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lz4:lz4-java:1.8.0",
+                "reasons": [
+                    "requested"
+                ]
+            }
+        ],
+        "unresolved": [
+            
+        ]
+    },
+    "runtimeClasspath": {
+        "selected": [
+            {
+                "id": "root project :",
+                "reasons": [
+                    "root"
+                ]
+            },
+            {
+                "id": "com.tterrag.registrate:Registrate:MC1.21.1-1.4.8",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:DevLaunch:1.0.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.appliedenergistics:appliedenergistics2:19.2.18",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.appliedenergistics:guideme:21.1.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ae2-pattern-disk-1698612:9009050",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:omni-cells-1359517:8050965",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:2.2.40",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:mekanism-268560:7904058",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-mekanistics-574300:7096962",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:glodium-957920:5821676",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ex-pattern-provider-892005:8811572",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-flux-965012:8204513",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:advancedae-1084104:8564177",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "software.bernie.geckolib:geckolib-neoforge-1.21.1:4.8.3",
+                "reasons": [
+                    "requested",
+                    "between versions 4.8.3 and 4.6.6"
+                ]
+            },
+            {
+                "id": "com.github.glitchfiend:TerraBlender-neoforge:1.21-4.0.0.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.hollingsworth.nuggets:nuggets-neoforge-1.21:1.0.11.42",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-core:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-analysis-common:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-queryparser:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-queries:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-sandbox:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-facet:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ars-energistique-905641:6203425",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:neoforge:21.1.251",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged.fancymodloader:loader:4.0.44",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:JarJarFileSystems:0.4.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.sf.jopt-simple:jopt-simple:5.0.4",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "cpw.mods:securejarhandler:3.0.8",
+                "reasons": [
+                    "requested",
+                    "between versions 3.0.8, 3.0.7 and 3.0.4"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm-tree:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm-commons:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "net.neoforged:accesstransformers:10.0.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.slf4j:slf4j-api:2.0.9",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.antlr:antlr4-runtime:4.13.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged.accesstransformers:at-modlauncher:10.0.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.minecrell:terminalconsoleappender:1.3.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.logging.log4j:log4j-core:2.22.1",
+                "reasons": [
+                    "requested",
+                    "between versions 2.22.1, 2.20.0 and 2.8.1"
+                ]
+            },
+            {
+                "id": "org.apache.logging.log4j:log4j-api:2.22.1",
+                "reasons": [
+                    "requested",
+                    "between versions 2.22.1, 2.17.1, 2.14.1 and 2.20.0"
+                ]
+            },
+            {
+                "id": "org.jline:jline-reader:3.20.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.jline:jline-terminal:3.20.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "commons-io:commons-io:2.15.1",
+                "reasons": [
+                    "requested",
+                    "between versions 2.15.1 and 2.11.0"
+                ]
+            },
+            {
+                "id": "net.neoforged:mergetool:2.0.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm-util:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.ow2.asm:asm-analysis:9.10.1",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "net.minecraftforge:srgutils:0.4.15",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.guava:guava:32.1.2-jre",
+                "reasons": [
+                    "requested",
+                    "between versions 32.1.2-jre, 31.1-jre and 31.0.1-jre"
+                ]
+            },
+            {
+                "id": "com.google.guava:failureaccess:1.0.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.code.findbugs:jsr305:3.0.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.checkerframework:checker-qual:3.33.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.errorprone:error_prone_annotations:2.18.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.j2objc:j2objc-annotations:2.8",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.google.code.gson:gson:2.10.1",
+                "reasons": [
+                    "requested",
+                    "between versions 2.10.1, 2.10 and 2.8.5"
+                ]
+            },
+            {
+                "id": "org.apache.maven:maven-artifact:3.8.5",
+                "reasons": [
+                    "requested",
+                    "between versions 3.8.5 and 3.8.1"
+                ]
+            },
+            {
+                "id": "org.codehaus.plexus:plexus-utils:3.3.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.commons:commons-lang3:3.14.0",
+                "reasons": [
+                    "requested",
+                    "between versions 3.14.0, 3.12.0 and 3.8.1"
+                ]
+            },
+            {
+                "id": "com.electronwill.night-config:core:3.8.3",
+                "reasons": [
+                    "requested",
+                    "between versions 3.8.3 and 3.8.0"
+                ]
+            },
+            {
+                "id": "com.electronwill.night-config:toml:3.8.3",
+                "reasons": [
+                    "requested",
+                    "between versions 3.8.3 and 3.8.0"
+                ]
+            },
+            {
+                "id": "cpw.mods:modlauncher:11.0.5",
+                "reasons": [
+                    "requested",
+                    "between versions 11.0.5, 11.0.3 and 10.1.10"
+                ]
+            },
+            {
+                "id": "net.neoforged:coremods:7.0.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.openjdk.nashorn:nashorn-core:15.4",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:logging:1.2.7",
+                "reasons": [
+                    "requested",
+                    "between versions 1.2.7 and 1.1.1"
+                ]
+            },
+            {
+                "id": "org.apache.logging.log4j:log4j-slf4j2-impl:2.22.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:JarJarSelector:0.4.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:JarJarMetadata:0.4.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.machinezoo.noexception:noexception:1.7.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:bus:8.0.5",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.jodah:typetools:0.6.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged.fancymodloader:earlydisplay:4.0.44",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.fabricmc:sponge-mixin:0.15.2+mixin.0.8.7",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "cpw.mods:bootstraplauncher:2.0.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:neoform:1.21.1-20240808.144430",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.neoforged:minecraft-dependencies:1.21.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.github.oshi:oshi-core:6.4.10",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.ibm.icu:icu4j:73.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:authlib:6.0.54",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:blocklist:1.0.10",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:brigadier:1.3.10",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:datafixerupper:8.0.16",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:patchy:2.2.10",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.mojang:text2speech:1.17.9",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "commons-codec:commons-codec:1.16.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "commons-logging:commons-logging:1.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-buffer:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-codec:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-common:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-handler:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-resolver:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-transport-classes-epoll:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-transport-native-unix-common:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "io.netty:netty-transport:4.1.97.Final",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "it.unimi.dsi:fastutil:8.5.12",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.java.dev.jna:jna-platform:5.14.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.java.dev.jna:jna:5.14.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.commons:commons-compress:1.26.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.httpcomponents:httpclient:4.5.13",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.httpcomponents:httpcore:4.4.16",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.jcraft:jorbis:0.0.17",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.joml:joml:1.10.5",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-freetype:3.3.3",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-glfw:3.3.3",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-jemalloc:3.3.3",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-openal:3.3.3",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-opengl:3.3.3",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-stb:3.3.3",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-tinyfd:3.3.3",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl:3.3.3",
+                "reasons": [
+                    "requested",
+                    "by ancestor"
+                ]
+            },
+            {
+                "id": "org.lz4:lz4-java:1.8.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:applied-energistics-2-wireless-terminals:19.5.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:mega-cells-622112:7952621",
+                "reasons": [
+                    "requested"
+                ]
+            }
+        ],
+        "unresolved": [
+            
+        ]
+    },
+    "testCompileClasspath": {
+        "selected": [
+            {
+                "id": "root project :",
+                "reasons": [
+                    "root"
+                ]
+            },
+            {
+                "id": "com.tterrag.registrate:Registrate:MC1.21.1-1.4.8",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.appliedenergistics:appliedenergistics2:19.2.18",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ae2-pattern-disk-1698612:9009050",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:omni-cells-1359517:8050965",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:2.2.40",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:mekanism-268560:7904058",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-mekanistics-574300:7096962",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:glodium-957920:5821676",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ex-pattern-provider-892005:8811572",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-flux-965012:8204513",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:advancedae-1084104:8564177",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ars-energistique-905641:6203425",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "software.bernie.geckolib:geckolib-neoforge-1.21.1:4.8.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.projectlombok:lombok:1.18.34",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.junit:junit-bom:5.11.4",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.junit.jupiter:junit-jupiter:5.11.4",
+                "reasons": [
+                    "constraint",
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.junit.jupiter:junit-jupiter-api:5.11.4",
+                "reasons": [
+                    "requested",
+                    "constraint"
+                ]
+            },
+            {
+                "id": "org.opentest4j:opentest4j:1.3.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.junit.platform:junit-platform-commons:1.11.4",
+                "reasons": [
+                    "requested",
+                    "constraint"
+                ]
+            },
+            {
+                "id": "org.apiguardian:apiguardian-api:1.1.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.junit.jupiter:junit-jupiter-params:5.11.4",
+                "reasons": [
+                    "requested",
+                    "constraint"
+                ]
+            },
+            {
+                "id": "org.mockito:mockito-core:5.15.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.bytebuddy:byte-buddy:1.15.11",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.bytebuddy:byte-buddy-agent:1.15.11",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ae2-jei-integration-1074338:7727898",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:extendedae-plus-1337639:8755074",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:ae2-lightning-tech:AosdXlfS",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:thunderbolt-core:oyVnlG5A",
+                "reasons": [
+                    "requested"
+                ]
+            }
+        ],
+        "unresolved": [
+            
+        ]
+    },
+    "testRuntimeClasspath": {
+        "selected": [
+            {
+                "id": "root project :",
+                "reasons": [
+                    "root"
+                ]
+            },
+            {
+                "id": "com.tterrag.registrate:Registrate:MC1.21.1-1.4.8",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.appliedenergistics:appliedenergistics2:19.2.18",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.appliedenergistics:guideme:21.1.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ae2-pattern-disk-1698612:9009050",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:omni-cells-1359517:8050965",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:2.2.40",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:mekanism-268560:7904058",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-mekanistics-574300:7096962",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:glodium-957920:5821676",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ex-pattern-provider-892005:8811572",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-flux-965012:8204513",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:advancedae-1084104:8564177",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "software.bernie.geckolib:geckolib-neoforge-1.21.1:4.8.3",
+                "reasons": [
+                    "requested",
+                    "between versions 4.8.3 and 4.6.6"
+                ]
+            },
+            {
+                "id": "com.github.glitchfiend:TerraBlender-neoforge:1.21-4.0.0.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "com.hollingsworth.nuggets:nuggets-neoforge-1.21:1.0.11.42",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-core:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-analysis-common:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-queryparser:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-queries:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-sandbox:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.apache.lucene:lucene-facet:10.1.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ars-energistique-905641:6203425",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:applied-energistics-2-wireless-terminals:19.5.1",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:mega-cells-622112:7952621",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.junit:junit-bom:5.11.4",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.junit.jupiter:junit-jupiter:5.11.4",
+                "reasons": [
+                    "constraint",
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.junit.jupiter:junit-jupiter-api:5.11.4",
+                "reasons": [
+                    "requested",
+                    "constraint"
+                ]
+            },
+            {
+                "id": "org.opentest4j:opentest4j:1.3.0",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.junit.platform:junit-platform-commons:1.11.4",
+                "reasons": [
+                    "requested",
+                    "constraint"
+                ]
+            },
+            {
+                "id": "org.junit.jupiter:junit-jupiter-params:5.11.4",
+                "reasons": [
+                    "requested",
+                    "constraint"
+                ]
+            },
+            {
+                "id": "org.junit.jupiter:junit-jupiter-engine:5.11.4",
+                "reasons": [
+                    "requested",
+                    "constraint"
+                ]
+            },
+            {
+                "id": "org.junit.platform:junit-platform-engine:1.11.4",
+                "reasons": [
+                    "requested",
+                    "constraint"
+                ]
+            },
+            {
+                "id": "org.junit.platform:junit-platform-launcher:1.11.4",
+                "reasons": [
+                    "constraint",
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.mockito:mockito-core:5.15.2",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.bytebuddy:byte-buddy:1.15.11",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "net.bytebuddy:byte-buddy-agent:1.15.11",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.objenesis:objenesis:3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ae2-jei-integration-1074338:7727898",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:extendedae-plus-1337639:8755074",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:ae2-lightning-tech:AosdXlfS",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:thunderbolt-core:oyVnlG5A",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "github.biggerae2:bigger_ae2:21.2.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "github.dataenergistics:data-energistics:3.3.5",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:applied-generators:InEKowoU",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:just-enough-characters-250702:8771217",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "org.lwjgl:lwjgl-glfw:3.3.3",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:flux-networks-248020:6089446",
+                "reasons": [
+                    "requested"
+                ]
+            }
+        ],
+        "unresolved": [
+            
+        ]
+    },
+    "devMods": {
+        "selected": [
+            {
+                "id": "root project :",
+                "reasons": [
+                    "root"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-pneumatics-1355087:8812885",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:pneumaticcraft-repressurized-281849:8519226",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-experienced-1157608:7705498",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:applied-soul-1337114:8711537",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:soulplied-energistics-1143614:8333758",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:experiencelib-1156551:7705470",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:industrial-foregoing-266515:7073719",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:industrial-foregoing-souls-904394:6235883",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:titanium-287342:7951516",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:patchouli-306770:7730942",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:jade-324717:8591319",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "mezz.jei:jei-1.21.1-neoforge:19.56.0.438",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "curse.maven:ae2-jei-integration-1074338:7727898",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:applied-replicatics:nQ4pLTkV",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:replication:XfQXDcjc",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:kotlin-for-forge:uhJhCT7X",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:applied-create:2bWngfNH",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "github.dataenergistics:data-energistics:3.3.5",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:applied-generators:InEKowoU",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:ae2-lightning-tech:AosdXlfS",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:thunderbolt-core:oyVnlG5A",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT:20260621.181850-47",
+                "reasons": [
+                    "requested"
+                ]
+            },
+            {
+                "id": "maven.modrinth:applied-botanics:leZwUP1X",
+                "reasons": [
+                    "requested"
+                ]
+            }
+        ],
+        "unresolved": [
+            
+        ]
+    },
+    "createDevMod": {
+        "selected": [
+            {
+                "id": "root project :",
+                "reasons": [
+                    "root"
+                ]
+            },
+            {
+                "id": "maven.modrinth:create:UjX6dr61",
+                "reasons": [
+                    "requested"
+                ]
+            }
+        ],
+        "unresolved": [
+            
+        ]
+    },
+    "biggerAe2DevMod": {
+        "selected": [
+            {
+                "id": "root project :",
+                "reasons": [
+                    "root"
+                ]
+            },
+            {
+                "id": "github.biggerae2:bigger_ae2:21.2.3",
+                "reasons": [
+                    "requested"
+                ]
+            }
+        ],
+        "unresolved": [
+            
+        ]
+    },
+    "curiosDevMod": {
+        "selected": [
+            {
+                "id": "root project :",
+                "reasons": [
+                    "root"
+                ]
+            },
+            {
+                "id": "top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1",
+                "reasons": [
+                    "requested"
+                ]
+            }
+        ],
+        "unresolved": [
+            
+        ]
+    },
+    "annotationProcessor": {
+        "selected": [
+            {
+                "id": "root project :",
+                "reasons": [
+                    "root"
+                ]
+            },
+            {
+                "id": "org.projectlombok:lombok:1.18.34",
+                "reasons": [
+                    "requested"
+                ]
+            }
+        ],
+        "unresolved": [
+            
+        ]
+    }
+}

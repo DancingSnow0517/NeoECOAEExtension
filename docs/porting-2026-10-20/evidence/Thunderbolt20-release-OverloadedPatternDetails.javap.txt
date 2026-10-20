@@ -1,0 +1,9 @@
+Compiled from "OverloadedPatternDetails.java"
+public interface com.moakiee.thunderbolt.core.crafting.overload.OverloadedPatternDetails extends com.moakiee.thunderbolt.core.crafting.pattern.FuzzyPatternInputs {
+  public abstract java.lang.String overloadPatternIdentity();
+  public abstract boolean hasFuzzyInputs();
+  public abstract boolean isFuzzyInput(int);
+  public abstract boolean isFuzzyOutput(int);
+  public default boolean acceptsSameIdVariants(int);
+  public default boolean producesSameIdVariants(int);
+}

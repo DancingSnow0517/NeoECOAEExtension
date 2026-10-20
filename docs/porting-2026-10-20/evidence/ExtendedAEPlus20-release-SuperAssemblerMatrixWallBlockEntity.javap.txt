@@ -1,0 +1,4 @@
+Compiled from "SuperAssemblerMatrixWallBlockEntity.java"
+public class com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixWallBlockEntity extends com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixBlockEntity {
+  public com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixWallBlockEntity(net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
+}

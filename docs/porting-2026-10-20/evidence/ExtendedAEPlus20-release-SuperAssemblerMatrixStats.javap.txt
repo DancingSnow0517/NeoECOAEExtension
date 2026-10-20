@@ -1,0 +1,30 @@
+Compiled from "SuperAssemblerMatrixStats.java"
+public final class com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixStats extends java.lang.Record {
+  private final int crafterCores;
+  private final int patternCores;
+  private final int speedCores;
+  private final int uploadCores;
+  private final int fixedParallelBudget;
+  private final int fixedPatternCapacity;
+  public static final int PARALLEL_PER_CRAFTER_CORE;
+  public static final int PATTERN_SLOTS_PER_CORE;
+  private static final int[] CRAFT_TICKS;
+  public com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixStats(int, int, int, int);
+  public com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixStats(int, int, int, int, int, int);
+  public static com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixStats ultimate();
+  public int parallelBudget();
+  public int patternCapacity();
+  public int speedTier();
+  public int singleCraftTicks();
+  public boolean uploadEnabled();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public int crafterCores();
+  public int patternCores();
+  public int speedCores();
+  public int uploadCores();
+  public int fixedParallelBudget();
+  public int fixedPatternCapacity();
+  static {};
+}

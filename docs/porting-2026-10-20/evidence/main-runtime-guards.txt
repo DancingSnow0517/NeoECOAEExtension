@@ -1,0 +1,69 @@
+src/main/java/cn/dancingsnow/neoecoae\all\NEItems.java:65:        "ae2cs", "AE2 Crystal Science Integrated Working Station Upgrade Card");
+src/main/java/cn/dancingsnow/neoecoae\all\NEItems.java:71:        "appgen", "Applied Generators Integrated Working Station Upgrade Card");
+src/main/java/cn/dancingsnow/neoecoae\api\integration\IntegrationManager.java:23:        ProgressMeter meter = StartupNotificationManager.addProgressBar("Load Integrations", LoadingModList.get().getModFiles().size());
+src/main/java/cn/dancingsnow/neoecoae\api\integration\IntegrationManager.java:24:        for (ModFileInfo modFile : LoadingModList.get().getModFiles()) {
+src/main/java/cn/dancingsnow/neoecoae\api\integration\IntegrationManager.java:72:            if (LoadingModList.get().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
+src/main/java/cn/dancingsnow/neoecoae\data\provider\NELangMergerProvider.java:80:        IModFile file = ModList.get().getModFileById(modid).getFile();
+src/main/java/cn/dancingsnow/neoecoae\mixins\compat\advancedae\crafting\AdvancedAeCraftingCpuLogicMixin.java:98:        if (level == null || net.neoforged.fml.ModList.get().isLoaded("molecularmanipulator")) return;
+src/main/java/cn/dancingsnow/neoecoae\registration\NERegistrate.java:33:        Optional<IEventBus> modEventBus = ModList.get().getModContainerById(modid).map(ModContainer::getEventBus);
+src/main/java/cn/dancingsnow/neoecoae\compat\storage\ECOOptionalUnboundedCells.java:16:        var mods = ModList.get();
+src/main/java/cn/dancingsnow/neoecoae\compat\storage\ECOOptionalUnboundedCells.java:18:        if (mods.isLoaded("ae2lt")) ECOAe2LtUnboundedCells.collect(cell, target);
+src/main/java/cn/dancingsnow/neoecoae\compat\storage\ECOOptionalUnboundedCells.java:19:        if (mods.isLoaded("extendedae")) ECOExtendedAEUnboundedCells.collect(cell, target);
+src/main/java/cn/dancingsnow/neoecoae\compat\omnisequence\ECOOmniSequenceDirectDispatch.java:47:        var mods = ModList.get();
+src/main/java/cn/dancingsnow/neoecoae\data\lang\GuiLangs.java:18:        provider.add("recipe_type.neoecoae.ae2cs.circuit_etcher_recipe", "AE2CS: Circuit Etching");
+src/main/java/cn/dancingsnow/neoecoae\data\lang\GuiLangs.java:19:        provider.add("recipe_type.neoecoae.ae2cs.crystal_aggregator_recipe", "AE2CS: Crystal Aggregation");
+src/main/java/cn/dancingsnow/neoecoae\data\lang\GuiLangs.java:20:        provider.add("recipe_type.neoecoae.appgen.synthesizing", "Applied Generators: Synthesizing");
+src/main/java/cn/dancingsnow/neoecoae\data\lang\GuiLangs.java:80:        provider.add("gui.neoecoae.workstation.module.ae2cs", "Crystal Science");
+src/main/java/cn/dancingsnow/neoecoae\data\lang\GuiLangs.java:83:        provider.add("gui.neoecoae.workstation.module.appgen", "Applied Generators");
+src/main/java/cn/dancingsnow/neoecoae\data\lang\GuiLangs.java:116:        provider.add("gui.neoecoae.workstation.module_short.ae2cs", "Crystal Sci.");
+src/main/java/cn/dancingsnow/neoecoae\data\lang\GuiLangs.java:119:        provider.add("gui.neoecoae.workstation.module_short.appgen", "Generators");
+src/main/java/cn/dancingsnow/neoecoae\compat\mekenergistics\ECOMekEnergisticsBatchCapability.java:1:package cn.dancingsnow.neoecoae.compat.mekenergistics;
+src/main/java/cn/dancingsnow/neoecoae\compat\mekenergistics\ECOMekEnergisticsBatchCapability.java:13:    private static final String OWNER = "com.beipuo.mekenergistics.blockentity.api.MeAeSupportOwner";
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\MegaCellsIntegration.java:20:@Integration(MegaCellsBackend.MOD_ID)
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\MegaCellsIntegration.java:115:        if (ModList.get().isLoaded("appliedpneumatics")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\MegaCellsIntegration.java:118:        if (ModList.get().isLoaded("appex")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\MegaCellsIntegration.java:121:        if (ModList.get().isLoaded("appliedsoul") && ModList.get().isLoaded("soulplied_energistics")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\MegaCellsIntegration.java:124:        if (ModList.get().isLoaded("appbot")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\MegaCellsIntegration.java:127:        if (ModList.get().isLoaded("arseng")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\MegaCellsIntegration.java:130:        if (ModList.get().isLoaded("apprep")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\MegaCellsIntegration.java:133:        if (ModList.get().isLoaded("appliedcreate")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\MegaCellsIntegration.java:136:        if (ModList.get().isLoaded("data_energistics")) {
+src/main/java/cn/dancingsnow/neoecoae\recipe\LargeWorkstationRecipes.java:53:        "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing",
+src/main/java/cn/dancingsnow/neoecoae\recipe\LargeWorkstationRecipes.java:261:        if (type.equals("appgen:synthesizing")) return AppliedGeneratorsWorkstationRecipes.decode(id, data, ops);
+src/main/java/cn/dancingsnow/neoecoae\recipe\LargeWorkstationRecipes.java:291:            case "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe" -> {
+src/main/java/cn/dancingsnow/neoecoae\recipe\LargeWorkstationRecipes.java:302:                    : type.equals("ae2cs:circuit_etcher_recipe") ? 3200 : 200;
+src/main/java/cn/dancingsnow/neoecoae\recipe\LargeWorkstationModule.java:14:    CRYSTAL_SCIENCE("ae2cs", 0x7DCBE8, "ae2cs"),
+src/main/java/cn/dancingsnow/neoecoae\recipe\LargeWorkstationModule.java:18:    APPLIED_GENERATORS("appgen", 0xF5A23C, "appgen");
+src/main/java/cn/dancingsnow/neoecoae\recipe\LargeWorkstationModule.java:81:            case "ae2cs" -> CRYSTAL_SCIENCE;
+src/main/java/cn/dancingsnow/neoecoae\recipe\LargeWorkstationModule.java:84:            case "appgen" -> APPLIED_GENERATORS;
+src/main/java/cn/dancingsnow/neoecoae\integration\appmek\AppMekIntegration.java:15:@Integration("appmek")
+src/main/java/cn/dancingsnow/neoecoae\client\gui\crafting\EAEPQuickSearch.java:21:        var mods = ModList.get();
+src/main/java/cn/dancingsnow/neoecoae\client\gui\crafting\EAEPQuickSearch.java:22:        if (mods == null || !mods.isLoaded("extendedae_plus")
+src/main/java/cn/dancingsnow/neoecoae\client\gui\crafting\EAEPQuickSearch.java:25:            if (mods.isLoaded("emi")) {
+src/main/java/cn/dancingsnow/neoecoae\client\gui\crafting\EAEPQuickSearch.java:28:            if (!mods.isLoaded("jei")) return Optional.empty();
+src/main/java/cn/dancingsnow/neoecoae\compat\extendedaeplus\EAEPForcedCrafting.java:19:        return ModList.get() != null && ModList.get().isLoaded("extendedae_plus");
+src/main/java/cn/dancingsnow/neoecoae\recipe\AppliedGeneratorsWorkstationRecipes.java:22:    private static final ResourceLocation TYPE = ResourceLocation.parse("appgen:synthesizing");
+src/main/java/cn/dancingsnow/neoecoae\integration\appliedsoul\AppliedSoulIntegration.java:10:@Integration("appliedsoul")
+src/main/java/cn/dancingsnow/neoecoae\integration\appliedpneumatics\AppliedPneumaticsIntegration.java:12:@Integration("appliedpneumatics")
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\backend\MegaCellsBackend.java:26:        return ModList.get().isLoaded(APPFLUX_MOD_ID);
+src/main/java/cn/dancingsnow/neoecoae\integration\megacells\backend\MegaCellsBackend.java:30:        return ModList.get().isLoaded(APPMEK_MOD_ID) && ModList.get().isLoaded(MEKANISM_MOD_ID);
+src/main/java/cn/dancingsnow/neoecoae\integration\appliedcreate\AppliedCreateIntegration.java:8:@Integration("appliedcreate")
+src/main/java/cn/dancingsnow/neoecoae\network\ECONetwork.java:13:        String modVersion = ModList.get().getModContainerById(NeoECOAE.MOD_ID)
+src/main/java/cn/dancingsnow/neoecoae\compat\ae2lt\ECOAe2LtBatchCapability.java:23:        if (provider == null || ModList.get() == null || !ModList.get().isLoaded("ae2lt")) return null;
+src/main/java/cn/dancingsnow/neoecoae\integration\appflux\AppFluxIntegration.java:15:@Integration("appflux")
+src/main/java/cn/dancingsnow/neoecoae\integration\appex\AppliedExperiencedIntegration.java:10:@Integration("appex")
+src/main/java/cn/dancingsnow/neoecoae\integration\appbot\AppBotaniaIntegration.java:15:@Integration("appbot")
+src/main/java/cn/dancingsnow/neoecoae\integration\jei\JeiBookmarkAccess.java:14:        return ModList.get().isLoaded("jei") && JeiBookmarkAccessImpl.isAvailable();
+src/main/java/cn/dancingsnow/neoecoae\integration\ae2pattern\PatternDiskIntegration.java:43:@Integration("ae2_pattern_disk")
+src/main/java/cn/dancingsnow/neoecoae\mixins\ae2\crafting\Ae2CraftingCpuFastPathMixin.java:42:        if (net.neoforged.fml.ModList.get().isLoaded("molecularmanipulator")) return;
+src/main/java/cn/dancingsnow/neoecoae\integration\ae2omnicells\AE2OmniCellsIntegration.java:17:@Integration("ae2omnicells")
+src/main/java/cn/dancingsnow/neoecoae\integration\ae2omnicells\AE2OmniCellsIntegration.java:29:        if (ModList.get().isLoaded("appmek")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\ae2omnicells\AE2OmniCellsIntegration.java:43:        if (ModList.get().isLoaded("appmek")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\ae2omnicells\AE2OmniCellsIntegration.java:51:            if (ModList.get().isLoaded("appmek")) {
+src/main/java/cn/dancingsnow/neoecoae\integration\ae2lt\AE2LightningTechIntegration.java:15:@Integration("ae2lt")
+src/main/java/cn/dancingsnow/neoecoae\crafting\execution\ECOProcessingPatternDispatcher.java:18:import cn.dancingsnow.neoecoae.compat.mekenergistics.ECOMekEnergisticsBatchCapability;
+src/main/java/cn/dancingsnow/neoecoae\integration\arsenergistique\ArsEnergistiqueIntegration.java:15:@Integration("arseng")
+src/main/java/cn/dancingsnow/neoecoae\integration\biggerae2\BiggerAE2Integration.java:20:@Integration("bigger_ae2")
+src/main/java/cn/dancingsnow/neoecoae\integration\biggerae2\BiggerAE2Integration.java:26:            if (channel.requiredMod != null && !ModList.get().isLoaded(channel.requiredMod)) continue;
+src/main/java/cn/dancingsnow/neoecoae\integration\apprep\AppliedReplicaticsIntegration.java:8:@Integration("apprep")
+src/main/java/cn/dancingsnow/neoecoae\integration\dataenergistics\DataEnergisticsIntegration.java:14:@Integration("data_energistics")
