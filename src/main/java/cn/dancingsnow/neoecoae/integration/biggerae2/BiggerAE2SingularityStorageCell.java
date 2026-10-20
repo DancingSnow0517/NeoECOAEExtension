@@ -8,7 +8,8 @@ import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -23,7 +24,7 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 
 /** Quantity is unbounded, type count is finite. This is stored inventory, never a resource source. */
-final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements ECOBigIntegerStorage, ExactAmountSource {
+final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements ECOBigIntegerStorage, CombinedExactAmountSource {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
     private final Map<AEKey, BigInteger> amounts = new LinkedHashMap<>();
     private final BiggerAE2StorageCellItem item;
@@ -113,7 +114,17 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        if (!ECOInfiniteStorageMember.isSealed(cellStack)) amounts.forEach((key, amount) -> out.add(key, saturated(amount)));
+        if (!ECOInfiniteStorageMember.isSealed(cellStack)) amounts.forEach((key, amount) -> addVisible(out, key, amount));
+    }
+
+    /** Shares the ECO infinite storage terminal path without reading each cell's contents twice. */
+    @Override
+    public void neoecoae$listWithExactAmounts(KeyCounter out, BiConsumer<AEKey, ExactAmount> visitor) {
+        if (ECOInfiniteStorageMember.isSealed(cellStack)) return;
+        amounts.forEach((key, amount) -> {
+            addVisible(out, key, amount);
+            visitor.accept(key, ExactAmount.finite(amount));
+        });
     }
 
     @Override
@@ -176,6 +187,10 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     }
 
     private BigInteger total() { return amounts.values().stream().reduce(BigInteger.ZERO, BigInteger::add); }
+
+    private static void addVisible(KeyCounter out, AEKey key, BigInteger amount) {
+        out.set(key, NEMath.saturatingAdd(out.get(key), saturated(amount)));
+    }
 
     private static long saturated(BigInteger amount) { return amount.min(MAX_LONG).longValueExact(); }
 }

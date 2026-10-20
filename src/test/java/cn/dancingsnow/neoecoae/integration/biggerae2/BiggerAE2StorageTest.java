@@ -142,11 +142,15 @@ class BiggerAE2StorageTest {
         return value[0];
     }
 
-    private static ItemStack stack(boolean singularity) {
+    static ItemStack stack(boolean singularity) {
+        return stack(singularity, AEKeyType.items());
+    }
+
+    static ItemStack stack(boolean singularity, AEKeyType keyType) {
         var item = mock(BiggerAE2StorageCellItem.class);
         var tier = mock(IECOTier.class);
         when(item.getTier()).thenReturn(tier);
-        when(item.getKeyType()).thenReturn(AEKeyType.items());
+        when(item.getKeyType()).thenReturn(keyType);
         when(item.getTotalTypes()).thenReturn(5);
         when(item.getCellType()).thenReturn(new ECOCellType(Component.literal("Test"), 5));
         when(item.getBytes()).thenReturn(singularity ? Long.MAX_VALUE : BiggerAE2StorageCellItem.QUANTUM_BYTES);
@@ -154,8 +158,8 @@ class BiggerAE2StorageTest {
         when(item.getUpgrades(any())).thenReturn(mock(IUpgradeInventory.class));
         ConfigInventory config;
         try (var types = mockStatic(AEKeyTypes.class)) {
-            types.when(AEKeyTypes::getAll).thenReturn(Set.of(AEKeyType.items()));
-            config = ConfigInventory.configTypes(5).supportedTypes(Set.of(AEKeyType.items())).build();
+            types.when(AEKeyTypes::getAll).thenReturn(Set.of(keyType));
+            config = ConfigInventory.configTypes(5).supportedTypes(Set.of(keyType)).build();
         }
         when(item.getConfigInventory(any())).thenReturn(config);
         var stack = spy(new ItemStack(Items.PAPER));
