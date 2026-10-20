@@ -158,12 +158,17 @@ class StorageHostProgressAnimationTest {
                 now.set(250);
                 capacity.drawBackgroundAdditional(context);
                 verify(context).enableScissor(208F, 313F, 80F, 8F);
-                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR, 208F, 313F, 160F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 208F, 313F, 72F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_SYMBOL, 280F, 313F, 16F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 296F, 313F, 72F, 8F);
                 verify(context).disableScissor();
+                verifyNoMoreInteractions(context);
                 clearInvocations(context);
                 now.set(500);
                 capacity.drawBackgroundAdditional(context);
-                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR, 208F, 313F, 160F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 208F, 313F, 72F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_SYMBOL, 280F, 313F, 16F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 296F, 313F, 72F, 8F);
                 verifyNoMoreInteractions(context);
             }
         }

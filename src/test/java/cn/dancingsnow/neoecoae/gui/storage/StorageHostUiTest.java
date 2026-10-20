@@ -565,7 +565,7 @@ class StorageHostUiTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void unboundedCapacityUsesTheNewPatternBarWithoutAnOverlaySymbolOrEnergyFill() {
+    void unboundedCapacityCentersTheNativeSymbolBetweenRepeatingSides() {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
@@ -588,7 +588,9 @@ class StorageHostUiTest {
                 HostProgressTestSupport.drawAfterOpening(capacity, context);
                 resources.drawBackgroundAdditional(context);
                 energy.drawBackgroundAdditional(context);
-                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR, 208F, 313F, 160F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 208F, 313F, 72F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_SYMBOL, 280F, 313F, 16F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 296F, 313F, 72F, 8F);
                 verifyNoMoreInteractions(context);
                 clearInvocations(context);
             }

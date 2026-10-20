@@ -278,20 +278,35 @@ final class StorageHostCharts {
             hoveredTooltip.clear();
             var snapshot = state();
             if (snapshot.unbounded()) {
-                float width = Math.round(getSizeWidth() * opening.value(1));
-                if (width <= 0) return;
-                boolean clipped = width < getSizeWidth();
-                if (clipped) context.enableScissor(getPositionX(), getPositionY(), width, getSizeHeight());
-                try {
-                    context.drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR,
-                        getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
-                } finally {
-                    if (clipped) context.disableScissor();
-                }
+                drawInfiniteCapacity(context);
                 return;
             }
             int width = Math.round(getSizeWidth() * (float) Math.clamp(snapshot.usage(), 0, 1));
             drawSegments(context, snapshot, width);
+        }
+
+        private void drawInfiniteCapacity(GUIContext context) {
+            float width = getSizeWidth();
+            float revealedWidth = Math.round(width * opening.value(1));
+            if (revealedWidth <= 0 || getSizeHeight() <= 0) return;
+            var symbol = StoragePanelTextures.INFINITE_CAPACITY_SYMBOL;
+            var fill = StoragePanelTextures.INFINITE_CAPACITY_FILL;
+            int symbolWidth = symbol.spriteSize.width;
+            int height = symbol.spriteSize.height;
+            float symbolOffset = Math.round((width - symbolWidth) / 2);
+            float x = getPositionX();
+            float y = getPositionY() + Math.round((getSizeHeight() - height) / 2);
+            // Opening and undersized layouts crop the fixed artwork instead of scaling it.
+            boolean clipped = revealedWidth < width || width < symbolWidth || getSizeHeight() < height;
+            if (clipped) context.enableScissor(x, getPositionY(), revealedWidth, getSizeHeight());
+            try {
+                if (symbolOffset > 0) context.drawTexture(fill, x, y, symbolOffset, height);
+                context.drawTexture(symbol, x + symbolOffset, y, symbolWidth, height);
+                float rightOffset = symbolOffset + symbolWidth;
+                if (rightOffset < width) context.drawTexture(fill, x + rightOffset, y, width - rightOffset, height);
+            } finally {
+                if (clipped) context.disableScissor();
+            }
         }
     }
 
