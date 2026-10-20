@@ -420,6 +420,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.parallel_limit", "Limit: %s");
         provider.add("gui.neoecoae.crafting.ui.parallel_overflow", "Overflow: %s (%s)");
         provider.add("gui.neoecoae.crafting.ui.runtime_ticks", "Runtime: %s t");
+        provider.add("gui.neoecoae.crafting.ui.runtime_ticks_short", "Time %st");
+        provider.add("gui.neoecoae.crafting.ui.virtual_crafting", "Virtual Crafting");
+        provider.add("gui.neoecoae.crafting.ui.virtual_crafting_short", "Virtual");
         provider.add("gui.neoecoae.crafting.ui.fx_short", "FX %s / %s");
         provider.add("gui.neoecoae.crafting.ui.ft_short", "FT %s");
         provider.add("gui.neoecoae.crafting.ui.queue", "Queue %s / %s");

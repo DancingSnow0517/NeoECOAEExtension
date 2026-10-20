@@ -313,6 +313,15 @@ final class CraftingControllerArtwork extends UIElement {
                     view.batchCapacity == Long.MAX_VALUE ? "∞" : values[0]), view.batchCapacity),
             Component.translatable("gui.neoecoae.crafting.ui.queue_used_short",
                 Component.literal(tooltips.percent(view.state.queuePermille())).withColor(QUEUE_VALUE_COLOR))));
+        if (view.virtualMode) {
+            drawStatisticLines(context, PARALLEL_COLUMN_X, List.of(
+                Component.translatable("gui.neoecoae.crafting.ui.parallel_count_short",
+                    Component.literal("∞").withColor(PARALLEL_VALUE_COLOR)),
+                Component.translatable("gui.neoecoae.crafting.ui.parallel_limit_short", "∞"),
+                Component.translatable("gui.neoecoae.crafting.ui.virtual_crafting_short"),
+                Component.translatable("gui.neoecoae.crafting.ui.runtime_ticks_short", view.executionTicks)));
+            return;
+        }
         drawStatisticLines(context, PARALLEL_COLUMN_X, List.of(
             statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
                 values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_count_short",
