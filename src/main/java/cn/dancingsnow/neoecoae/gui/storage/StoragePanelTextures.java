@@ -23,8 +23,6 @@ final class StoragePanelTextures {
     static final SpriteTexture TYPE_PANEL = sprite(0, 104, 68, 29);
     static final SpriteTexture BLUE_BAR = sprite(68, 105, 29, 4);
     static final SpriteTexture PINK_BAR = sprite(68, 109, 29, 4);
-    // Keep the highlight's one-pixel end caps when widening the main capacity gauge.
-    static final SpriteTexture CAPACITY_BAR = PINK_BAR.copy().setBorder(1, 0, 1, 0);
     static final SpriteTexture SLIDER = sprite(68, 113, 6, 15);
     static final SpriteTexture SCALE = sprite(0, 133, 74, 7);
     static final SpriteTexture INFINITY = sprite(16, 52, 24, 10);

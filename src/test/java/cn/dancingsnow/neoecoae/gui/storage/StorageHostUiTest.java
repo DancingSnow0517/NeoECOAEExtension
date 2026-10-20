@@ -531,7 +531,7 @@ class StorageHostUiTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void totalUsageResourceSegmentsAndEnergyTicksDrawIndependentlyAtResolvedPositions() {
+    void halfUsedByteSegmentsStopAtHalfWidthWhileResourceSharesAndEnergyDrawIndependently() {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
@@ -541,13 +541,16 @@ class StorageHostUiTest {
                 1, 10, 30, 60, "30", 1, BigInteger.valueOf(30));
             BindableValue<Tag> display = (BindableValue<Tag>) root.getChildren().getFirst();
             display.setValue(new StoragePanelState(Component.empty(), 2, true, false, false,
-                25, 100, 999, "120", 0.75, 0, 0, List.of(), List.of(fluid, item), "", 0, false).toTag());
+                25, 100, 999, "120", 0.5, 0, 0, List.of(), List.of(fluid, item), "", 0, false).toTag());
             UIElement capacity = positionedBar(root, "capacity_bar", 208, 313, 160, 8);
             UIElement resources = positionedBar(root, "resource_bar", 208, 334, 160, 8);
             UIElement energy = positionedBar(root, "energy_bar", 373, 292, 74, 7);
             GUIContext context = mock(GUIContext.class);
             HostProgressTestSupport.drawAfterOpening(capacity, context);
-            verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 120F, 8F);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62), eq(208F), eq(313F), eq(60F), eq(8F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 24 && sprite.spritePosition.y == 62), eq(268F), eq(313F), eq(20F), eq(8F));
             HostProgressTestSupport.drawAfterOpening(resources, context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62), eq(208F), eq(334F), eq(120F), eq(8F));
@@ -589,11 +592,14 @@ class StorageHostUiTest {
                 verifyNoMoreInteractions(context);
                 clearInvocations(context);
             }
-            // Switching back to finite capacity restores the ordinary proportional bar.
+            // Switching back to finite capacity restores byte segments within the used width.
+            var item = new StoragePanelState.TypeLine(2, Component.literal("items"), 0xEC8600,
+                1, 10, 100, 100, "100", 2, BigInteger.valueOf(100));
             display.setValue(new StoragePanelState(Component.empty(), 2, true, false, false,
-                0, 100, 999, "100", 1, 0, 0, List.of(), List.of(), "", 0, false).toTag());
+                0, 100, 999, "100", 1, 0, 0, List.of(), List.of(item), "", 0, false).toTag());
             capacity.drawBackgroundAdditional(context);
-            verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 160F, 8F);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62), eq(208F), eq(313F), eq(160F), eq(8F));
             verifyNoInteractions(context.graphics, pose);
         }
     }

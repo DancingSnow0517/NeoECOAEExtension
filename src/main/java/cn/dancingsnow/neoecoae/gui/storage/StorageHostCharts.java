@@ -265,14 +265,21 @@ final class StorageHostCharts {
         }
     }
 
-    private final class CapacityBar extends AnimatedBar {
-        CapacityBar() { tooltips(StorageHostCharts.this::capacityTooltip); }
+    private final class CapacityBar extends StackedBar {
+        CapacityBar() {
+            tooltips(() -> {
+                List<Component> lines = new ArrayList<>(capacityTooltip());
+                lines.addAll(hoveredTooltip);
+                return lines;
+            });
+        }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
+            hoveredTooltip.clear();
             var snapshot = state();
-            float width = Math.round(getSizeWidth() * opening.value(snapshot.unbounded() ? 1 : snapshot.usage()));
-            if (width <= 0) return;
             if (snapshot.unbounded()) {
+                float width = Math.round(getSizeWidth() * opening.value(1));
+                if (width <= 0) return;
                 boolean clipped = width < getSizeWidth();
                 if (clipped) context.enableScissor(getPositionX(), getPositionY(), width, getSizeHeight());
                 try {
@@ -283,22 +290,20 @@ final class StorageHostCharts {
                 }
                 return;
             }
-            context.drawTexture(StoragePanelTextures.CAPACITY_BAR,
-                getPositionX(), getPositionY(), width, getSizeHeight());
+            int width = Math.round(getSizeWidth() * (float) Math.clamp(snapshot.usage(), 0, 1));
+            drawSegments(context, snapshot, width);
         }
     }
 
-    private final class ResourceBar extends AnimatedBar {
-        private final List<Component> hoveredTooltip = new ArrayList<>();
+    private abstract class StackedBar extends AnimatedBar {
+        final List<Component> hoveredTooltip = new ArrayList<>();
 
-        ResourceBar() { tooltips(() -> List.copyOf(hoveredTooltip)); }
-
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        void drawSegments(GUIContext context, StoragePanelState snapshot, int filledWidth) {
             hoveredTooltip.clear();
-            var snapshot = state();
-            var segments = capacitySegments(snapshot, Math.round(getSizeWidth()));
+            var segments = capacitySegments(snapshot, filledWidth);
             if (segments.isEmpty()) return;
-            int revealedWidth = Math.round(getSizeWidth() * opening.value(1));
+            // Reveal fixed byte-share boundaries rather than rescaling every segment during opening.
+            int revealedWidth = Math.round(filledWidth * opening.value(1));
             var mouse = isHover() || isSelfOrChildHover() ? getLocalMouse(context.mouseX, context.mouseY) : null;
             float mouseX = mouse == null ? Float.NaN : mouse.x - getPositionX();
             float mouseY = mouse == null ? Float.NaN : mouse.y - getPositionY();
@@ -315,6 +320,14 @@ final class StorageHostCharts {
                 }
                 x += segment.width();
             }
+        }
+    }
+
+    private final class ResourceBar extends StackedBar {
+        ResourceBar() { tooltips(() -> List.copyOf(hoveredTooltip)); }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            drawSegments(context, state(), Math.round(getSizeWidth()));
         }
     }
 
@@ -457,7 +470,7 @@ final class StorageHostCharts {
     record CapacitySegment(int swatch, int color, int width) {}
     private record ResourceColor(int swatch, int color) {}
 
-    /** Fill the bar with stored-resource shares, merging aliases and preserving exact proportions beyond long. */
+    /** Divide the supplied filled width by exact stored bytes, merging aliases and preserving amounts beyond long. */
     static List<CapacitySegment> capacitySegments(StoragePanelState state, int availableWidth) {
         int width = Math.max(0, availableWidth);
         if (width <= 0) return List.of();

@@ -45,19 +45,39 @@ class StorageHostProgressAnimationTest {
             now.set(250);
             capacity.drawBackgroundAdditional(context);
             energy.drawBackgroundAdditional(context);
-            verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 60F, 8F);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62),
+                eq(208F), eq(313F), eq(60F), eq(8F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.y == 133 && sprite.spriteSize.width == 9),
                 eq(373F), eq(292F), eq(9F), eq(7F));
+            verifyNoMoreInteractions(context);
+
+            clearInvocations(context);
+            now.set(375);
+            capacity.drawBackgroundAdditional(context);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62),
+                eq(208F), eq(313F), eq(90F), eq(8F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 24 && sprite.spritePosition.y == 62),
+                eq(298F), eq(313F), eq(11F), eq(8F));
+            verifyNoMoreInteractions(context);
 
             clearInvocations(context);
             now.set(500);
             capacity.drawBackgroundAdditional(context);
             energy.drawBackgroundAdditional(context);
-            verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 120F, 8F);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62),
+                eq(208F), eq(313F), eq(90F), eq(8F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 24 && sprite.spritePosition.y == 62),
+                eq(298F), eq(313F), eq(30F), eq(8F));
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.y == 133 && sprite.spriteSize.width == 19),
                 eq(373F), eq(292F), eq(19F), eq(7F));
+            verifyNoMoreInteractions(context);
 
             UIElement parent = new UIElement().addChild(capacity);
             parent.removeChild(capacity);
@@ -67,7 +87,13 @@ class StorageHostProgressAnimationTest {
             verifyNoInteractions(context);
             now.set(1_000);
             capacity.drawBackgroundAdditional(context);
-            verify(context).drawTexture(StoragePanelTextures.CAPACITY_BAR, 208F, 313F, 120F, 8F);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62),
+                eq(208F), eq(313F), eq(90F), eq(8F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 24 && sprite.spritePosition.y == 62),
+                eq(298F), eq(313F), eq(30F), eq(8F));
+            verifyNoMoreInteractions(context);
         }
     }
 

@@ -14,6 +14,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -25,32 +27,46 @@ class StorageResourceHoverTest {
         StorageHostUiTest.bootstrap();
     }
 
-    @Test
-    void hoverHighlightsOnlyTheSelectedSegmentAndShowsItsMergedResourceAmounts() {
+    @ParameterizedTest
+    @ValueSource(strings = {"resource_bar", "capacity_bar"})
+    void hoverHighlightsOnlyTheSelectedSegmentAndShowsItsMergedResourceAmounts(String id) {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement bar = bar(state(false, 0.75, List.of(type(1, "fluids", 30),
-                type(2, "items", 60), type(2, "items", 30))));
+                type(2, "items", 60), type(2, "items", 30))), id);
+            boolean capacity = id.equals("capacity_bar");
+            float itemWidth = capacity ? 90F : 120F;
+            float fluidWidth = capacity ? 30F : 40F;
+            int tooltipLines = capacity ? 3 : 1;
             GUIContext context = mock(GUIContext.class);
             context.mouseX = 220;
             context.mouseY = 337;
             bar.drawBackgroundAdditional(context);
             verify(context, times(1)).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
-                eq(208F), eq(334F), eq(120F), eq(8F));
-            Object[] item = tooltipArguments(bar);
+                eq(208F), eq(334F), eq(itemWidth), eq(8F));
+            Object[] item = tooltipArguments(bar, tooltipLines);
             assertEquals("items", ((Component) item[0]).getString());
             assertEquals("90", item[1]);
             assertEquals("75.0%", item[2]);
 
             clearInvocations(context);
-            context.mouseX = 328; // Exact boundary belongs to the next resource, not both.
+            context.mouseX = Math.round(208 + itemWidth); // Exact boundary belongs to the next resource, not both.
             bar.drawBackgroundAdditional(context);
             verify(context, times(1)).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
-                eq(328F), eq(334F), eq(40F), eq(8F));
-            Object[] fluid = tooltipArguments(bar);
+                eq(208F + itemWidth), eq(334F), eq(fluidWidth), eq(8F));
+            Object[] fluid = tooltipArguments(bar, tooltipLines);
             assertEquals("fluids", ((Component) fluid[0]).getString());
             assertEquals("30", fluid[1]);
             assertEquals("25.0%", fluid[2]);
+
+            for (float mouseX : new float[] {208 + itemWidth + fluidWidth, 209 + itemWidth + fluidWidth}) {
+                clearInvocations(context);
+                context.mouseX = Math.round(mouseX);
+                bar.drawBackgroundAdditional(context);
+                verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
+                    anyFloat(), anyFloat(), anyFloat(), anyFloat());
+                assertEquals(capacity ? 2 : 0, bar.collectHoverTooltips().tooltipTexts().size());
+            }
         }
     }
 
@@ -173,21 +189,33 @@ class StorageResourceHoverTest {
     }
 
     private static Object[] tooltipArguments(UIElement bar) {
+        return tooltipArguments(bar, 1);
+    }
+
+    private static Object[] tooltipArguments(UIElement bar, int expectedLines) {
         // LDLib2 collects hover tooltips after drawing, without filling in event.x/event.y.
         var lines = bar.collectHoverTooltips().tooltipTexts();
-        assertEquals(1, lines.size());
-        return assertInstanceOf(TranslatableContents.class, lines.getFirst().getContents()).getArgs();
+        assertEquals(expectedLines, lines.size());
+        return assertInstanceOf(TranslatableContents.class, lines.getLast().getContents()).getArgs();
+    }
+
+    private static UIElement bar(StoragePanelState state) {
+        return bar(state, "resource_bar");
     }
 
     @SuppressWarnings("unchecked")
-    private static UIElement bar(StoragePanelState state) {
+    private static UIElement bar(StoragePanelState state, String id) {
         UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
         ((BindableValue<Tag>) root.getChildren().getFirst()).setValue(state.toTag());
-        return positioned(root);
+        return positioned(root, id);
     }
 
     private static UIElement positioned(UIElement root) {
-        UIElement bar = spy(root.selectId("resource_bar").findFirst().orElseThrow());
+        return positioned(root, "resource_bar");
+    }
+
+    private static UIElement positioned(UIElement root, String id) {
+        UIElement bar = spy(root.selectId(id).findFirst().orElseThrow());
         doReturn(208F).when(bar).getPositionX();
         doReturn(334F).when(bar).getPositionY();
         doReturn(160F).when(bar).getSizeWidth();
