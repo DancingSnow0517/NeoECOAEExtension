@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "ae2:256k_crafting_storage"
+    },
+    "B": {
+      "item": "ae2:interface"
+    },
+    "C": {
+      "item": "ae2:controller"
+    },
+    "D": {
+      "item": "neoecoae:crafting_casing"
+    },
+    "E": {
+      "item": "neoecoae:crafting_vent"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "CDC",
+    "AEA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:crafting_worker"
+  }
+}

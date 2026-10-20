@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "neoecoae:item/eco_cells/bigger_ae2/digital_singularity_chemical_cell_housing",
+    "layer1": "neoecoae:item/eco_cells/cell_light_l4",
+    "layer2": "neoecoae:item/eco_cells/cell_status_light",
+    "layer3": "neoecoae:item/eco_cells/bigger_ae2/digital_singularity_cell_layer"
+  }
+}

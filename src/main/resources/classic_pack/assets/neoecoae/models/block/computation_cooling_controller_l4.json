@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "neoecoae:block/computation_casing",
+    "east": "neoecoae:block/computation_casing",
+    "north": "neoecoae:block/computation_cooling_controller_l4_front",
+    "particle": "neoecoae:block/computation_casing",
+    "south": "neoecoae:block/computation_threading_core_back",
+    "up": "neoecoae:block/computation_casing",
+    "west": "neoecoae:block/computation_casing"
+  }
+}

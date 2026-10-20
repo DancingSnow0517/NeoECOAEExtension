@@ -1,0 +1,245 @@
+package cn.dancingsnow.neoecoae.gui.theme;
+
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
+import com.lowdragmc.lowdraglib2.editor.resource.BuiltinResourceProvider;
+import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.UIResourceTexture;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.math.Size;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Map;
+
+
+@SuppressWarnings("unused")
+public class NETextures {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NETextures.class);
+    private static final Map<ResourceLocation, String> PANEL_ATLASES = Map.of(
+        NeoECOAE.id("textures/guis/eco_cpu_controller.png"), "Computation-BACKGROUND_ATLAS",
+        NeoECOAE.id("textures/guis/cpu_widget.png"), "Computation-WIDGETS_ATLAS",
+        NeoECOAE.id("textures/guis/storage/storage_controller.png"), "Storage-CONTROLLER_ATLAS",
+        NeoECOAE.id("textures/guis/storage/storage_widget.png"), "Storage-ATLAS",
+        NeoECOAE.id("textures/guis/crafting_controller.png"), "Crafting-CONTROLLER_ATLAS",
+        NeoECOAE.id("textures/guis/crafting_widgets.png"), "Crafting-WIDGETS_ATLAS"
+    );
+    private static ResourceInstance<IGuiTexture> panelResources;
+
+    /** A sprite whose atlas can be replaced through the ui-eco provider without changing its pixel rectangle. */
+    public static SpriteTexture panelSprite(ResourceLocation atlas) {
+        String name = PANEL_ATLASES.get(atlas);
+        return name == null ? SpriteTexture.of(atlas)
+            : new PanelAtlasSprite(new BuiltinPath("ui-eco:" + name), atlas);
+    }
+
+    static IGuiTexture panelAtlas(BuiltinPath path) {
+        return panelResources == null ? null : panelResources.getResource(path);
+    }
+    public static IGuiTexture BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/common/background.png"))
+        .setSpriteSize(Size.of(16, 16))
+        .setBorder(2, 2, 2, 4);
+    public static IGuiTexture INVENTORY_BORDER = SpriteTexture.of(NeoECOAE.id("textures/gui/common/inventory_border.png"))
+        .setSpriteSize(Size.of(16, 16))
+        .setBorder(1, 1, 1, 1);
+    public static IGuiTexture CARD_BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/common/card_background.png"))
+        .setSpriteSize(Size.of(16, 16))
+        .setBorder(3, 3, 3, 3);
+    public static IGuiTexture NBT_BENCH = SpriteTexture.of(NeoECOAE.id("textures/guis/nbtbench.png"))
+        .setSprite(0, 0, 176, 253);
+    public static IGuiTexture PATTERN_MANAGER = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
+        .setSprite(0, 0, 195, 237);
+    public static IGuiTexture PATTERN_MANAGER_SLOT = Crafting.widget(38, 129, 16, 16);
+    public static IGuiTexture PATTERN_MANAGER_ROW = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
+        .setSprite(7, 170, 162, 18);
+    public static IGuiTexture PATTERN_MANAGER_SCROLLBAR_TRACK = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
+        .setSprite(178, 31, 6, 108).setBorder(1);
+
+    private static final net.minecraft.resources.ResourceLocation LDLIB_ATLAS =
+        NeoECOAE.id("textures/gui/vendor/ldlib/gdp_styles.png");
+    public static IGuiTexture RECT_RD = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(1, 29, 13, 13).setBorder(4, 4, 4, 4);
+    public static IGuiTexture RECT_RD_LIGHT = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(1, 15, 13, 13).setBorder(4, 4, 4, 4);
+    public static IGuiTexture RECT_RD_DARK = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(1, 43, 13, 13).setBorder(4, 4, 4, 4);
+    public static IGuiTexture RECT_RD_T = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(15, 29, 13, 13).setBorder(4, 4, 4, 4);
+    public static IGuiTexture HOST_PANEL_BORDER = SpriteTexture.of(LDLIB_ATLAS)
+        .setSprite(205, 154, 16, 16).setBorder(6, 6, 6, 6);
+
+    public static IGuiTexture BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/common/button.png"))
+        .setSpriteSize(Size.of(20, 20))
+        .setBorder(2, 2, 2, 5);
+    public static IGuiTexture BUTTON_HIGHLIGHTED = SpriteTexture.of(NeoECOAE.id("textures/gui/common/button_highlighted.png"))
+        .setSpriteSize(Size.of(20, 20))
+        .setBorder(2, 3, 2, 5);
+
+    // Priority controls use the bundled AE2 artwork in our own namespace.
+    public static IGuiTexture AE2_BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/sprites/button.png"))
+        .setSprite(0, 0, 200, 20)
+        .setBorder(3);
+    public static IGuiTexture AE2_BUTTON_HIGHLIGHTED =
+        SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/sprites/button_highlighted.png"))
+            .setSprite(0, 0, 200, 20)
+            .setBorder(3);
+    public static IGuiTexture AE2_BUTTON_DISABLED =
+        SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/sprites/button_disabled.png"))
+            .setSprite(0, 0, 200, 20)
+            .setBorder(3);
+    public static IGuiTexture PRIORITY_BACKGROUND =
+        SpriteTexture.of(NeoECOAE.id("textures/guis/priority.png"))
+            .setSprite(0, 0, 176, 125);
+    public static IGuiTexture PRIORITY_TEXT_FIELD =
+        SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/text_field.png"))
+            .setSprite(0, 0, 128, 12)
+            .setBorder(1, 0, 1, 0);
+    public static IGuiTexture PRIORITY_TEXT_FIELD_DISABLED =
+        SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/text_field.png"))
+            .setSprite(0, 12, 128, 12)
+            .setBorder(1, 0, 1, 0);
+    public static IGuiTexture PRIORITY_TEXT_FIELD_FOCUS =
+        SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/text_field.png"))
+            .setSprite(0, 24, 128, 12)
+            .setBorder(1, 0, 1, 0);
+    public static IGuiTexture AE2_TOOLBOX =
+        SpriteTexture.of(NeoECOAE.id("textures/guis/eco_extra_panels.png"))
+            .setSprite(0, 0, 61, 66);
+
+    public static IGuiTexture SWITCH_OFF = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/checkbox.png"))
+        .setSprite(0,28, 22, 12);
+    public static IGuiTexture SWITCH_OFF_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/checkbox.png"))
+        .setSprite(22, 28, 22, 12);
+    public static IGuiTexture SWITCH_ON = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/checkbox.png"))
+        .setSprite(0, 40, 22, 12);
+    public static IGuiTexture SWITCH_ON_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/checkbox.png"))
+        .setSprite(22, 40, 22, 12);
+
+    public static IGuiTexture AE_SCROLLBAR_TRACK = CARD_BACKGROUND;
+    public static IGuiTexture AE_SCROLLBAR_THUMB = BUTTON;
+
+    public static IGuiTexture ITEM_SLOT = SpriteTexture.of(NeoECOAE.id("textures/gui/common/slot.png"))
+        .setSpriteSize(Size.of(18, 18))
+        .setBorder(1, 2, 1, 1);
+
+    public static IGuiTexture AE2_SLOT_HIGHLIGHT = new IGuiTexture() {
+        @Override
+        public void draw(
+            GuiGraphics graphics,
+            float mouseX,
+            float mouseY,
+            float x,
+            float y,
+            float width,
+            float height,
+            float partialTicks
+        ) {
+            drawAE2SlotHighlight(graphics, x, y, width, height);
+        }
+
+        @Override
+        public void draw(GUIContext context, float x, float y, float width, float height) {
+            // LDLib renders each slot independently. Drawing an outline outside the
+            // current 16x16 content area immediately would let adjacent slots cover it.
+            context.postRendering(postContext ->
+                drawAE2SlotHighlight(postContext.graphics, x, y, width, height));
+        }
+
+        @Override
+        public IGuiTexture copy() {
+            return this;
+        }
+    };
+
+    private static void drawAE2SlotHighlight(
+        GuiGraphics graphics,
+        float x,
+        float y,
+        float width,
+        float height
+    ) {
+        int left = Mth.floor(x);
+        int top = Mth.floor(y);
+        int right = Mth.floor(x + width);
+        int bottom = Mth.floor(y + height);
+
+        graphics.hLine(left, right, top - 1, 0xFFDAFFFF);
+        graphics.hLine(left - 1, right, bottom, 0xFFDAFFFF);
+        graphics.vLine(left - 1, top - 2, bottom, 0xFFDAFFFF);
+        graphics.vLine(right, top - 2, bottom, 0xFFDAFFFF);
+        graphics.fillGradient(
+            RenderType.guiOverlay(),
+            left,
+            top,
+            right,
+            bottom,
+            0x669CD3FF,
+            0x669CD3FF,
+            0
+        );
+    }
+
+    public static IGuiTexture PATTERN_OVERLAY = guiTexture("widget/pattern_overlay.png");
+    public static IGuiTexture OUTPUTS = guiTexture("widget/outputs.png");
+    public static IGuiTexture MULTIBLOCK = guiTexture("widget/multiblock.png");
+    public static IGuiTexture CPU_SELECTOR = guiTexture("widget/cpu_selector.png");
+    public static IGuiTexture CPU_SELECTOR_CLOSED = guiTexture("widget/cpu_selector_closed.png");
+
+    private static IGuiTexture guiTexture(String path) {
+        return SpriteTexture.of(NeoECOAE.id("textures/gui/" + path));
+    }
+
+    public static class Crafting {
+        public static final net.minecraft.resources.ResourceLocation CONTROLLER_ATLAS =
+            NeoECOAE.id("textures/guis/crafting_controller.png");
+        public static final net.minecraft.resources.ResourceLocation WIDGETS_ATLAS =
+            NeoECOAE.id("textures/guis/crafting_widgets.png");
+        public static final int WIDGETS_WIDTH = 288;
+        public static final int WIDGETS_HEIGHT = 256;
+        public static IGuiTexture CONTROLLER = panelSprite(CONTROLLER_ATLAS).setSprite(0, 0, 253, 214);
+
+        public static SpriteTexture widget(int x, int y, int width, int height) {
+            return panelSprite(WIDGETS_ATLAS).setSprite(x, y, width, height);
+        }
+    }
+
+    public static void init(ResourceInstance<IGuiTexture> instance) {
+        BuiltinResourceProvider<IGuiTexture> provider = new BuiltinResourceProvider<>("ui-eco", instance);
+        addTextures(provider, NETextures.class, "");
+        PANEL_ATLASES.forEach((atlas, name) -> provider.addResource(name, SpriteTexture.of(atlas)));
+        instance.addBuiltinProvider(provider);
+        panelResources = instance;
+    }
+
+
+    private static void addTextures(BuiltinResourceProvider<IGuiTexture> provider, Class<?> cls, String pathPrefix) {
+        for (Field field : cls.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers()) && IGuiTexture.class.isAssignableFrom(field.getType())) {
+                try {
+                    IGuiTexture texture = (IGuiTexture) field.get(null);
+                    String name = pathPrefix + field.getName();
+                    provider.addResource(name, texture);
+                    BuiltinPath path = new BuiltinPath("ui-eco:" + name);
+                    LOGGER.debug("Registering builtin texture: {}", path);
+                    IGuiTexture builtinTexture = new UIResourceTexture(path);
+                    field.set(null, builtinTexture);
+                } catch (Exception e) {
+                    LOGGER.warn("Failed to register builtin texture field {}.{}", cls.getName(), field.getName(), e);
+                }
+            }
+        }
+        for (Class<?> declaredClass : cls.getDeclaredClasses()) {
+            if (Modifier.isStatic(declaredClass.getModifiers())) {
+                addTextures(provider, declaredClass, pathPrefix + declaredClass.getSimpleName() + "-");
+            }
+        }
+    }
+}

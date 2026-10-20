@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:computation_casing"
+    },
+    "B": {
+      "item": "ae2:crafting_monitor"
+    },
+    "C": {
+      "item": "ae2:crafting_unit"
+    },
+    "D": {
+      "item": "ae2:pattern_provider"
+    },
+    "E": {
+      "item": "ae2:calculation_processor"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "CDC",
+    "AEA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:computation_drive"
+  }
+}

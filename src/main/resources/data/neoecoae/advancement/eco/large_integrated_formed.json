@@ -1,0 +1,29 @@
+{
+  "parent": "neoecoae:eco/integrated_working_station",
+  "display": {
+    "icon": {
+      "id": "neoecoae:integrated_working_station"
+    },
+    "title": {
+      "text": "集大成者"
+    },
+    "description": {
+      "text": "第一次让大型集成工作站成型"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "formed": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "formed"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

@@ -1,0 +1,38 @@
+{
+	"format_version": "1.9.2",
+	"credit": "Made with Blockbench",
+	"parent": "block/block",
+	"render_type": "cutout",
+	"textures": {
+		"particle": "neoecoae:block/compute/me_bus",
+		"block": "neoecoae:block/compute/me_bus",
+		"lights": "neoecoae:block/compute/me_bus_light"
+	},
+	"elements": [
+		{
+			"from": [0, 0, 0],
+			"to": [16, 16, 16],
+			"shade": false,
+			"faces": {
+				"north": {"uv": [0, 0, 16, 16], "texture": "#lights", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"east": {"uv": [0, 0, 16, 16], "texture": "#lights", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"south": {"uv": [0, 0, 16, 16], "texture": "#lights", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"west": {"uv": [0, 0, 16, 16], "texture": "#lights", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"up": {"uv": [0, 0, 16, 16], "texture": "#lights", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"down": {"uv": [0, 0, 16, 16], "texture": "#lights", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+			}
+		},
+		{
+			"from": [0, 0, 0],
+			"to": [16, 16, 16],
+			"faces": {
+				"north": {"uv": [0, 0, 16, 16], "texture": "#block"},
+				"east": {"uv": [0, 0, 16, 16], "texture": "#block"},
+				"south": {"uv": [0, 0, 16, 16], "texture": "#block"},
+				"west": {"uv": [0, 0, 16, 16], "texture": "#block"},
+				"up": {"uv": [0, 0, 16, 16], "texture": "#block"},
+				"down": {"uv": [0, 0, 16, 16], "texture": "#block"}
+			}
+		}
+	]
+}

@@ -1,0 +1,33 @@
+{
+  "type": "element",
+  "id": "computation_controller_root",
+  "layout": { "position": "relative", "width": 295, "height": 231 },
+  "overflow": "visible",
+  "children": [
+    {
+      "type": "element",
+      "id": "computation_main",
+      "overflow": "visible",
+      "layout": { "position": "absolute", "left": 21, "top": 0, "width": 253, "height": 231 },
+      "children": [
+        { "type": "custom", "name": "computation_artwork", "id": "computation_artwork" },
+        { "type": "custom", "name": "computation_drive_grid", "id": "computation_drive_grid", "overflow": "visible",
+          "layout": { "position": "absolute", "left": 49, "top": 30, "width": 196, "height": 52 } },
+        { "type": "custom", "name": "computation_switch", "key": "substitutions", "id": "computation_switch_substitutions",
+          "layout": { "position": "absolute", "left": 10, "top": 113, "width": 15, "height": 26, "padding": 0 } },
+        { "type": "custom", "name": "computation_switch", "key": "cycle_planning", "id": "computation_switch_cycle_planning",
+          "layout": { "position": "absolute", "left": 33, "top": 113, "width": 15, "height": 26, "padding": 0 } },
+        { "type": "custom", "name": "computation_switch", "key": "fast_planner", "id": "computation_switch_fast_planner",
+          "layout": { "position": "absolute", "left": 56, "top": 113, "width": 15, "height": 26, "padding": 0 } },
+        { "type": "player_inventory", "id": "computation_player_inventory",
+          "layout": { "position": "absolute", "left": 7, "top": 146, "width": 162, "height": 76 } },
+        { "type": "custom", "name": "computation_toolbar", "id": "computation_toolbar" },
+        { "type": "custom", "name": "computation_info", "id": "computation-info" },
+        { "type": "custom", "name": "computation_cpu_selector", "id": "computation_cpu_selector", "overflow": "visible",
+          "layout": { "position": "absolute", "left": 251, "top": 0, "width": 90, "height": 164 } }
+      ]
+    },
+    { "type": "custom", "name": "computation_status", "id": "computation_status",
+      "layout": { "position": "absolute", "display": "none", "left": 0, "top": 0, "width": 326, "height": 254 } }
+  ]
+}

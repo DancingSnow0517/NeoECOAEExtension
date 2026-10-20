@@ -1,0 +1,17 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": [
+    "minecraft:the_end",
+    "minecraft:end_highlands",
+    "minecraft:end_midlands",
+    "minecraft:small_end_islands",
+    "minecraft:end_barrens"
+  ],
+  "features": [
+    "neoecoae:ore_aluminum",
+    "neoecoae:ore_aluminum_small",
+    "neoecoae:ore_tungsten",
+    "neoecoae:ore_tungsten_small"
+  ],
+  "step": "underground_ores"
+}

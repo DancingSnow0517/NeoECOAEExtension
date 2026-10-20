@@ -1,0 +1,39 @@
+{
+	"credit": "Made with WI_8614_ice",
+	"render_type": "cutout",
+	"textures": {
+		"0": "neoecoae:block/worker/light/crafting_worker_led_active",
+		"1": "neoecoae:block/worker/crafting_worker_led_active",
+		"particle": "neoecoae:block/worker/light/crafting_worker_led_active"
+	},
+	"elements": [
+		{
+			"name": "drive_on",
+			"from": [3, 6, -0.25],
+			"to": [8, 13, 0.25],
+			"rotation": {"angle": 0, "axis": "y", "origin": [5.5, 9.5, 0]},
+			"faces": {
+				"north": {"uv": [8, 0, 15, 9], "texture": "#1"},
+				"east": {"uv": [8, 0, 9, 9], "texture": "#1"},
+				"south": {"uv": [15, 0, 8, 9], "texture": "#1"},
+				"west": {"uv": [14, 9, 15, 0], "texture": "#1"},
+				"up": {"uv": [15, 0, 8, 1], "texture": "#1"},
+				"down": {"uv": [8, 8, 15, 9], "texture": "#1"}
+			}
+		},
+		{
+			"name": "bloom",
+			"from": [3, 6, -0.25],
+			"to": [8, 13, 0.25],
+			"rotation": {"angle": 0, "axis": "y", "origin": [5.5, 9.5, 0]},
+			"faces": {
+				"north": {"uv": [8, 0, 15, 9], "texture": "#0"},
+				"east": {"uv": [8, 0, 9, 9], "texture": "#0"},
+				"south": {"uv": [15, 0, 8, 9], "texture": "#0"},
+				"west": {"uv": [14, 9, 15, 0], "texture": "#0"},
+				"up": {"uv": [15, 0, 8, 1], "texture": "#0"},
+				"down": {"uv": [8, 8, 15, 9], "texture": "#0"}
+			}
+		}
+	]
+}

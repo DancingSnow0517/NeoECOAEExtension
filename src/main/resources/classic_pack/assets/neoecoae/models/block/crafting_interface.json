@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "neoecoae:block/crafting_interface_top",
+    "side": "neoecoae:block/crafting_interface"
+  }
+}

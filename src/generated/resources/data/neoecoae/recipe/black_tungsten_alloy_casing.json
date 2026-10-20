@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "tag": "c:ingots/black_tungsten_alloy"
+    },
+    "B": {
+      "item": "ae2:quartz_vibrant_glass"
+    },
+    "C": {
+      "item": "neoecoae:crystal_ingot"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "BCB",
+    "ABA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:black_tungsten_alloy_casing"
+  }
+}

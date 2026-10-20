@@ -1,0 +1,100 @@
+package cn.dancingsnow.neoecoae.all;
+
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.material.Fluid;
+
+public class NETags {
+    public static final class Items {
+        public static final TagKey<Item> IRON_DUST = common("dusts/iron");
+
+        public static final TagKey<Item> ALUMINUM_ORE = common("ores/aluminum");
+        public static final TagKey<Item> RAW_ALUMINUM_STORAGE_BLOCK = common("storage_blocks/raw_aluminum");
+        public static final TagKey<Item> ALUMINUM_STORAGE_BLOCK = common("storage_blocks/aluminum");
+        public static final TagKey<Item> ALUMINUM_RAW = common("raw_materials/aluminum");
+        public static final TagKey<Item> ALUMINUM_INGOT = common("ingots/aluminum");
+        public static final TagKey<Item> ALUMINUM_DUST = common("dusts/aluminum");
+
+        public static final TagKey<Item> TUNGSTEN_ORE = common("ores/tungsten");
+        public static final TagKey<Item> RAW_TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/raw_tungsten");
+        public static final TagKey<Item> TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/tungsten");
+        public static final TagKey<Item> TUNGSTEN_RAW = common("raw_materials/tungsten");
+        public static final TagKey<Item> TUNGSTEN_INGOT = common("ingots/tungsten");
+        public static final TagKey<Item> TUNGSTEN_DUST = common("dusts/tungsten");
+
+        public static final TagKey<Item> ALUMINUM_ALLOY_STORAGE_BLOCK = common("storage_blocks/aluminum_alloy");
+        public static final TagKey<Item> ALUMINUM_ALLOY_INGOT = common("ingots/aluminum_alloy");
+        public static final TagKey<Item> ALUMINUM_ALLOY_DUST = common("dusts/aluminum_alloy");
+
+        public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK = common("storage_blocks/black_tungsten_alloy");
+        public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_INGOT = common("ingots/black_tungsten_alloy");
+        public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_DUST = common("dusts/black_tungsten_alloy");
+
+        public static final TagKey<Item> OBSIDIAN_INGOT = common("ingots/obsidian");
+        public static final TagKey<Item> DATA_CRYSTAL = common("gems/data_crystal");
+
+        public static final TagKey<Item> ENERGIZED_CRYSTAL = common("gems/energized_crystal");
+        public static final TagKey<Item> ENERGIZED_CRYSTAL_DUST = common("dusts/energized_crystal");
+        public static final TagKey<Item> ENERGIZED_CRYSTAL_BLOCK = common("storage_blocks/energized_crystal");
+
+        public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL = common("gems/energized_fluix_crystal");
+        public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_DUST = common("dusts/energized_fluix_crystal");
+        public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common("storage_blocks/energized_fluix_crystal");
+
+        // 用于制作水晶锭的基底
+        public static final TagKey<Item> CRYSTAL_INGOT_BASE = mod("crystal_ingot_base");
+        // 用于制作超导锭的基底
+        public static final TagKey<Item> SUPERCONDUCTIVE_INGOT_BASE = mod("superconductive_ingot_base");
+        public static final TagKey<Item> INFINITE_CELL_COMPONENTS = mod("infinite_cell_components");
+
+        private static TagKey<Item> mod(String path) {
+            return ItemTags.create(NeoECOAE.id(path));
+        }
+
+        private static TagKey<Item> common(String path) {
+            return ItemTags.create(ResourceLocation.fromNamespaceAndPath("c", path));
+        }
+    }
+
+    public static final class Blocks {
+        public static final TagKey<Block> ALUMINUM_ORE = common("ores/aluminum");
+        public static final TagKey<Block> RAW_ALUMINUM_STORAGE_BLOCK = common("storage_blocks/raw_aluminum");
+        public static final TagKey<Block> ALUMINUM_STORAGE_BLOCK = common("storage_blocks/aluminum");
+
+        public static final TagKey<Block> TUNGSTEN_ORE = common("ores/tungsten");
+        public static final TagKey<Block> RAW_TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/raw_tungsten");
+        public static final TagKey<Block> TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/tungsten");
+
+        public static final TagKey<Block> ALUMINUM_ALLOY_STORAGE_BLOCK = common("storage_blocks/aluminum_alloy");
+        public static final TagKey<Block> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK = common("storage_blocks/black_tungsten_alloy");
+
+        public static final TagKey<Block> ENERGIZED_CRYSTAL_STORAGE_BLOCK = common("storage_blocks/energized_crystal");
+        public static final TagKey<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common("storage_blocks/energized_fluix_crystal");
+
+        private static TagKey<Block> mod(String path) {
+            return BlockTags.create(NeoECOAE.id(path));
+        }
+
+        private static TagKey<Block> common(String path) {
+            return BlockTags.create(ResourceLocation.fromNamespaceAndPath("c", path));
+        }
+    }
+
+    public static final class Fluids {
+        public static final TagKey<Fluid> STEAM = common("steam");
+
+        private static TagKey<Fluid> mod(String path) {
+            return FluidTags.create(NeoECOAE.id(path));
+        }
+
+        private static TagKey<Fluid> common(String path) {
+            return FluidTags.create(ResourceLocation.fromNamespaceAndPath("c", path));
+        }
+    }
+}

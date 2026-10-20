@@ -1,0 +1,126 @@
+package cn.dancingsnow.neoecoae.mixins.client.ae2;
+
+import appeng.client.Point;
+import appeng.client.gui.style.Blitter;
+import appeng.client.gui.widgets.CPUSelectionList;
+import appeng.client.gui.widgets.InfoBar;
+import appeng.core.localization.Tooltips;
+import appeng.menu.me.crafting.CraftingStatusMenu;
+import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuListEntry;
+import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(CPUSelectionList.class)
+public class CpuSelectionListMixin {
+
+    @Shadow
+    @Final
+    private Blitter buttonBg;
+
+    @Inject(
+        method = "drawBackgroundLayer",
+        at = @At(
+            value = "INVOKE",
+            target = "Lcom/mojang/blaze3d/vertex/PoseStack;popPose()V",
+            shift = At.Shift.AFTER
+        )
+    )
+    private void onDrawBackgroundLayer(
+        GuiGraphics guiGraphics,
+        Rect2i bounds,
+        Point mouse,
+        CallbackInfo ci,
+        @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu,
+        @Local(name = "x") int x,
+        @Local(name = "y") int y
+    ) {
+        ResourceLocation texture = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
+        if (texture != null) {
+            guiGraphics.blit(texture, x + buttonBg.getSrcWidth() - 10, y + 2, 0, 0, 7, 7, 7, 7);
+        }
+    }
+
+    @WrapOperation(
+        method = "drawBackgroundLayer",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IFII)V",
+            ordinal = 1
+        )
+    )
+    private void wrapStorageAdd(
+        InfoBar instance,
+        String text,
+        int color,
+        float scale,
+        int xPos,
+        int yPos,
+        Operation<Void> original,
+        @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
+    ) {
+        // Both AE2 19.2.17 and 19.2.18 use this call after formatting storage differently.
+        String storage = ECOCraftingCpuListEntry.isEcoCpu(cpu)
+            ? NEByteFormatter.formatCpuStorage(cpu.storage()) : text;
+        original.call(instance, storage, color, scale, xPos, yPos);
+    }
+
+    @WrapOperation(
+        method = "getTooltip",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/core/localization/Tooltips;ofBytes(J)Lnet/minecraft/network/chat/MutableComponent;"
+        )
+    )
+    private MutableComponent wrapStorageTooltip(long storage, Operation<MutableComponent> original,
+            @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu) {
+        if (!ECOCraftingCpuListEntry.isEcoCpu(cpu)) {
+            return original.call(storage);
+        }
+        return Component.literal(NEByteFormatter.format(storage)).withStyle(Tooltips.NUMBER_TEXT);
+    }
+
+    @WrapOperation(
+        method = "drawBackgroundLayer",
+        at = @At(value = "INVOKE", target = "Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IFII)V", ordinal = 2)
+    )
+    private void wrapAdd(
+        InfoBar instance,
+        String text,
+        int color,
+        float scale,
+        int xPos,
+        int yPos,
+        Operation<Void> original,
+        @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
+    ) {
+        if (ECOCraftingCpuListEntry.isEcoCpu(cpu) && cpu.coProcessors() >= 1000) {
+            Tooltips.Amount amount = Tooltips.getAmount(cpu.coProcessors());
+            int index = amount.digit().indexOf('.');
+            String digit = index > 0 ? amount.digit().substring(0, index) : amount.digit();
+            original.call(
+                instance,
+                digit + amount.unit(),
+                color,
+                scale,
+                xPos,
+                yPos
+            );
+        } else {
+            original.call(instance, text, color, scale, xPos, yPos);
+        }
+    }
+}

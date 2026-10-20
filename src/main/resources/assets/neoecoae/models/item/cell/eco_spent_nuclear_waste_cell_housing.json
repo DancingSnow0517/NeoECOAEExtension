@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "neoecoae:item/eco_cells/ae2omnicells/spent_neuclear_waste_cell_housing",
+    "layer1": "neoecoae:item/eco_cells/ae2omnicells/spent_neuclear_waste_cell_layer"
+  }
+}

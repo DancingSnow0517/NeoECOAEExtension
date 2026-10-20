@@ -1,0 +1,128 @@
+package cn.dancingsnow.neoecoae.integration.emi.recipe;
+
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
+import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
+import appeng.api.stacks.GenericStack;
+import dev.emi.emi.api.recipe.EmiRecipeCategory;
+import net.minecraft.resources.ResourceLocation;
+import dev.emi.emi.api.recipe.BasicEmiRecipe;
+import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.api.widget.WidgetHolder;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.neoforged.neoforge.common.crafting.SizedIngredient;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+
+import java.util.List;
+
+public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
+
+    private final IntegratedWorkingStationRecipe recipe;
+    private final long energy;
+    private final List<GenericStack> extraInputs;
+    private final Component sourceType;
+
+    public IntegrationWorkingStationEmiRecipe(RecipeHolder<IntegratedWorkingStationRecipe> holder) {
+        this(NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION, holder.id(), holder.value(), holder.value().energy(), List.of(), null);
+    }
+
+    public IntegrationWorkingStationEmiRecipe(LargeWorkstationRecipe recipe) {
+        this(NeoECOAEEmiPlugin.LARGE_WORKING_STATION,
+            NeoECOAE.id("/large_workstation/" + recipe.id().getNamespace() + "/" + recipe.id().getPath()),
+            recipe.display(), recipe.energy(), recipe.extraInputs(), recipe.sourceTypeDescription());
+    }
+
+    private IntegrationWorkingStationEmiRecipe(EmiRecipeCategory category, ResourceLocation id,
+        IntegratedWorkingStationRecipe recipe, long energy, List<GenericStack> extraInputs, Component sourceType) {
+        super(category, id, 168, sourceType != null ? 139 : 75);
+        this.recipe = recipe;
+        this.energy = energy;
+        this.extraInputs = extraInputs;
+        this.sourceType = sourceType;
+
+        // item inputs
+        for (SizedIngredient inputItem : recipe.inputItems()) {
+            inputs.add(NeoECOAEEmiPlugin.of(inputItem));
+        }
+
+        // fluid input
+        SizedFluidIngredient inputFluid = recipe.inputFluid();
+        if (!inputFluid.ingredient().isEmpty()) {
+            inputs.add(NeoECOAEEmiPlugin.of(inputFluid));
+        }
+
+        // item output
+        ItemStack itemOutput = recipe.itemOutput();
+        if (!itemOutput.isEmpty()) {
+            outputs.add(EmiStack.of(itemOutput));
+        }
+
+        // fluid output
+        FluidStack fluidOutput = recipe.fluidOutput();
+        if (!fluidOutput.isEmpty()) {
+            outputs.add(EmiStack.of(fluidOutput.getFluid(), fluidOutput.getAmount()));
+        }
+    }
+
+    @Override
+    public void addWidgets(WidgetHolder widgets) {
+        boolean large = category == NeoECOAEEmiPlugin.LARGE_WORKING_STATION;
+        String texture = large ? "large_integration_working_station" : "integration_working_station";
+        widgets.addTexture(NeoECOAE.id("textures/guis/" + texture + ".png"), 0, 0, 168, 75, 0, 0, 168, 75, 168, 75);
+        widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/recipe/progress_bar.png"), 136, 30, 6, 18, 0, 0, 6, 18, 6, 18, 2000, false, true, false);
+
+        Component text = category == NeoECOAEEmiPlugin.LARGE_WORKING_STATION
+            ? Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy", energy)
+            : Component.translatable("gui.neoecoae.integrated_working_station.energy", energy / 1000);
+        widgets.addText(text, 24, 66, 0x403e53, false);
+        if (!extraInputs.isEmpty()) {
+            var extra = extraInputs.getFirst();
+            widgets.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_amount",
+                extra.amount()), 0, 79, 0x403e53, false);
+            widgets.addText(extra.what().getDisplayName(), 0, 91, 0x403e53, false);
+        }
+        if (sourceType != null) {
+            var font = Minecraft.getInstance().font;
+            var lines = font.split(sourceType, 168);
+            for (int i = 0; i < lines.size(); i++) {
+                widgets.addText(lines.get(i), 0, 105 + i * font.lineHeight, 0x403e53, false);
+            }
+            widgets.addTooltipText(List.of(sourceType), 0, 105, 168, 34);
+        }
+
+        // input fluid
+        SizedFluidIngredient inputFluid = recipe.inputFluid();
+        if (!inputFluid.ingredient().isEmpty()) {
+            widgets.addTank(NeoECOAEEmiPlugin.of(inputFluid), 4, 8, 18, 60, 16000).drawBack(false);
+        }
+
+        // input items
+        List<SizedIngredient> inputItems = recipe.inputItems();
+        for (int i = 0; i < inputItems.size(); i++) {
+            SizedIngredient input = inputItems.get(i);
+            int columns = large ? 4 : 3;
+            var x = (large ? 25 : 37) + i % columns * 18;
+            var y = 11 + i / columns * 18;
+            if (!input.ingredient().isEmpty()) {
+                widgets.addSlot(NeoECOAEEmiPlugin.of(input), x, y).drawBack(false);
+            }
+        }
+
+        // output item
+        ItemStack itemOutput = recipe.itemOutput();
+        if (!itemOutput.isEmpty()) {
+            widgets.addSlot(EmiStack.of(itemOutput), 113, 30).recipeContext(this).drawBack(false);
+        }
+
+        // output fluid
+        FluidStack fluidOutput = recipe.fluidOutput();
+        if (!fluidOutput.isEmpty()) {
+            widgets.addTank(EmiStack.of(fluidOutput.getFluid(), fluidOutput.getAmount()), 146, 8, 18, 60, 16000).recipeContext(this).drawBack(false);
+        }
+    }
+}

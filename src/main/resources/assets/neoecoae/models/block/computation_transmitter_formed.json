@@ -1,0 +1,57 @@
+{
+	"loader": "neoforge:composite",
+	"parent": "block/block",
+	"textures": {
+		"particle": "neoecoae:block/compute/transmitter/transmitter_side_east"
+	},
+	"children": {
+		"base": {
+			"parent": "neoecoae:block/computation_transmitter_formed_base"
+		},
+		"glass": {
+			"render_type": "translucent",
+			"textures": {
+				"glass": "neoecoae:block/compute/transmitter/transmitter_north_glass"
+			},
+			"elements": [
+				{
+					"from": [0, 0, 0],
+					"to": [16, 6, 6],
+					"faces": {
+						"up": {"uv": [0, 0, 16, 6], "texture": "#glass"}
+					}
+				},
+				{
+					"from": [0, 10, 0],
+					"to": [16, 16, 6],
+					"faces": {
+						"down": {"uv": [0, 6, 16, 0], "texture": "#glass"}
+					}
+				},
+				{
+					"from": [1, 6, 1],
+					"to": [15, 10, 1],
+					"faces": {
+						"north": {"uv": [1, 6, 15, 10], "texture": "#glass"},
+						"south": {"uv": [1, 6, 15, 10], "texture": "#glass"}
+					}
+				}
+			]
+		},
+		"coolant": {
+			"render_type": "cutout",
+			"textures": {
+				"coolant": "neoecoae:block/cryotheum_solution_still"
+			},
+			"elements": [
+				{
+					"from": [1, 6, 2],
+					"to": [15, 10, 6],
+					"faces": {
+						"north": {"uv": [1, 6, 15, 10], "texture": "#coolant", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+					}
+				}
+			]
+		}
+	}
+}

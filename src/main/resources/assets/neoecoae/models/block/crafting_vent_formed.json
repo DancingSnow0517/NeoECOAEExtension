@@ -1,0 +1,7 @@
+{
+    "parent": "neoecoae:block/crafting_vent",
+    "textures": {
+        "0": "neoecoae:block/crafting/casing_formed",
+        "3": "neoecoae:block/crafting/vent_north_formed"
+    }
+}

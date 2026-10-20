@@ -1,0 +1,40 @@
+{
+  "parent": "neoecoae:eco/host_l4",
+  "display": {
+    "icon": {
+      "id": "neoecoae:storage_system_l6"
+    },
+    "title": {
+      "text": "这下快多了"
+    },
+    "description": {
+      "text": "第一次获得任意一种 6 级主机"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "neoecoae:storage_system_l6",
+              "neoecoae:computation_system_l6",
+              "neoecoae:crafting_system_l6"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "obtained"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

@@ -1,0 +1,44 @@
+package cn.dancingsnow.neoecoae.multiblock.placement;
+
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
+import lombok.Getter;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class MultiBlockPlanContext extends MultiBlockContext {
+    @Getter
+    private final List<PlannedBlock> plannedBlocks = new ArrayList<>();
+
+    public MultiBlockPlanContext(int repeats) {
+        this.repeats = repeats;
+    }
+
+    @Override
+    public void setBlock(BlockPos pos, BlockState blockState) {
+        plannedBlocks.add(new PlannedBlock(
+            pos.immutable(),
+            blockState,
+            blockState.getBlock().asItem().getDefaultInstance().copy()
+        ));
+    }
+
+    @Override
+    public Level getLevel() {
+        return null;
+    }
+
+    @Override
+    public List<BlockPos> allBlocks() {
+        return plannedBlocks.stream().map(PlannedBlock::relativePos)
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+    }
+
+    @Override
+    public boolean isFormed() {
+        return false;
+    }
+}

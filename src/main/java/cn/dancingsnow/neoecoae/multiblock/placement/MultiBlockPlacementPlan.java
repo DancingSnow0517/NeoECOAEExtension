@@ -1,0 +1,33 @@
+package cn.dancingsnow.neoecoae.multiblock.placement;
+
+import lombok.Getter;
+import net.minecraft.core.BlockPos;
+
+import java.util.List;
+
+@Getter
+public class MultiBlockPlacementPlan {
+    private final List<WorldPlannedBlock> allBlocks;
+    private final List<WorldPlannedBlock> missingBlocks;
+    private final List<BlockPos> conflictPositions;
+    private final List<RequiredItem> requiredItems;
+    private final int reusedBlockCount;
+
+    public MultiBlockPlacementPlan(
+        List<WorldPlannedBlock> allBlocks,
+        List<WorldPlannedBlock> missingBlocks,
+        List<BlockPos> conflictPositions,
+        List<RequiredItem> requiredItems,
+        int reusedBlockCount
+    ) {
+        this.allBlocks = allBlocks;
+        this.missingBlocks = missingBlocks;
+        this.conflictPositions = conflictPositions;
+        this.requiredItems = requiredItems;
+        this.reusedBlockCount = reusedBlockCount;
+    }
+
+    public int getRequiredItemCount() {
+        return requiredItems.stream().mapToInt(RequiredItem::count).sum();
+    }
+}

@@ -1,0 +1,138 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"parent": "block/block",
+	"textures": {
+		"0": "neoecoae:block/compute/cable/plug_c",
+		"1": "neoecoae:block/compute/cable/cable_c",
+		"particle": "neoecoae:block/compute/cable/plug_c"
+	},
+	"elements": [
+		{
+			"name": "plug",
+			"from": [-2, -2, -1.5],
+			"to": [2, 2, 1.5],
+			"rotation": {"angle": 0, "axis": "z", "origin": [0, 0, -0.5]},
+			"faces": {
+				"north": {"uv": [4, 4, 0, 8], "texture": "#0"},
+				"east": {"uv": [4, 8, 0, 11], "rotation": 270, "texture": "#0"},
+				"south": {"uv": [4, 0, 0, 4], "texture": "#0"},
+				"west": {"uv": [0, 8, 4, 11], "rotation": 90, "texture": "#0"},
+				"up": {"uv": [0, 11, 4, 8], "texture": "#0"},
+				"down": {"uv": [0, 8, 4, 11], "texture": "#0"}
+			}
+		},
+		{
+			"name": "light",
+			"from": [-2, -2, -1.5],
+			"to": [2, 2, 1.5],
+			"shade": false,
+			"rotation": {"angle": 0, "axis": "z", "origin": [0, 0, -0.5]},
+			"faces": {
+				"east": {"uv": [4, 11, 0, 14], "rotation": 270, "texture": "#0", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"west": {"uv": [0, 11, 4, 14], "rotation": 90, "texture": "#0", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"up": {"uv": [0, 14, 4, 11], "texture": "#0", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"down": {"uv": [0, 11, 4, 14], "texture": "#0", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+			}
+		},
+		{
+			"name": "base",
+			"from": [-1.5, -1.5, -2.5],
+			"to": [1.5, 1.5, -1.5],
+			"rotation": {"angle": 0, "axis": "z", "origin": [0, 0, -0.5]},
+			"faces": {
+				"east": {"uv": [4, 4, 7, 3], "rotation": 270, "texture": "#0"},
+				"west": {"uv": [4, 4, 7, 3], "rotation": 90, "texture": "#0"},
+				"up": {"uv": [4, 4, 7, 3], "texture": "#0"},
+				"down": {"uv": [4, 4, 7, 3], "texture": "#0"}
+			}
+		},
+		{
+			"name": "base",
+			"from": [-1.5, -12.5, 0.5],
+			"to": [1.5, -9.5, 1.5],
+			"rotation": {"angle": 0, "axis": "z", "origin": [0, 0, -0.5]},
+			"faces": {
+				"east": {"uv": [4, 3, 7, 4], "rotation": 270, "texture": "#0"},
+				"south": {"uv": [4, 0, 7, 3], "rotation": 90, "texture": "#0"},
+				"west": {"uv": [4, 3, 7, 4], "rotation": 90, "texture": "#0"},
+				"up": {"uv": [4, 3, 7, 4], "texture": "#0"},
+				"down": {"uv": [4, 3, 7, 4], "texture": "#0"}
+			}
+		},
+		{
+			"name": "cable1",
+			"from": [-1.5, -12.5, -5.5],
+			"to": [1.5, 1.5, -2.5],
+			"rotation": {"angle": 0, "axis": "z", "origin": [0, 0, -0.5]},
+			"faces": {
+				"north": {"uv": [6, 0, 9, 14], "texture": "#1"},
+				"east": {"uv": [3, 0, 0, 14], "texture": "#1"},
+				"south": {"uv": [6, 0, 9, 14], "texture": "#1"},
+				"west": {"uv": [0, 0, 3, 14], "texture": "#1"},
+				"up": {"uv": [6, 5, 9, 2], "texture": "#1"},
+				"down": {"uv": [6, 2, 9, 5], "texture": "#1"}
+			}
+		},
+		{
+			"name": "cable2",
+			"from": [-1.5, -12.5, -2.5],
+			"to": [1.5, -9.5, 0.5],
+			"rotation": {"angle": 0, "axis": "z", "origin": [0, 0, -0.5]},
+			"faces": {
+				"east": {"uv": [6, 2, 9, 5], "rotation": 90, "texture": "#1"},
+				"west": {"uv": [9, 2, 6, 5], "rotation": 90, "texture": "#1"},
+				"up": {"uv": [6, 2, 9, 5], "texture": "#1"},
+				"down": {"uv": [6, 2, 9, 5], "texture": "#1"}
+			}
+		},
+		{
+			"name": "cable1_light",
+			"from": [-1.5, -12.5, -5.5],
+			"to": [1.5, 1.5, -2.5],
+			"shade": false,
+			"rotation": {"angle": 0, "axis": "z", "origin": [0, 0, -0.5]},
+			"faces": {
+				"north": {"uv": [9, 0, 12, 14], "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"east": {"uv": [6, 0, 3, 14], "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"south": {"uv": [9, 0, 12, 14], "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"west": {"uv": [3, 0, 6, 14], "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"up": {"uv": [9, 5, 12, 2], "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"down": {"uv": [9, 2, 12, 5], "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+			}
+		},
+		{
+			"name": "cable2_light",
+			"from": [-1.5, -12.5, -2.5],
+			"to": [1.5, -9.5, 0.5],
+			"shade": false,
+			"rotation": {"angle": 0, "axis": "z", "origin": [0, 0, -0.5]},
+			"faces": {
+				"east": {"uv": [9, 2, 12, 5], "rotation": 90, "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"west": {"uv": [9, 5, 12, 2], "rotation": 90, "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"up": {"uv": [9, 2, 12, 5], "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}},
+				"down": {"uv": [9, 2, 12, 5], "texture": "#1", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+			}
+		}
+	],
+	"groups": [
+		{
+			"name": "plug",
+			"origin": [8, 8, 8],
+			"color": 0,
+			"children": [0, 1, 2]
+		},
+		{
+			"name": "cable",
+			"origin": [0, 0, 0],
+			"color": 0,
+			"children": [3, 4, 5]
+		},
+		{
+			"name": "cable_light",
+			"origin": [8, 8, 8],
+			"color": 0,
+			"children": [6, 7]
+		}
+	]
+}

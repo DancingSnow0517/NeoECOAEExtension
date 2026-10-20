@@ -1,24 +1,224 @@
 package cn.dancingsnow.neoecoae;
 
-import com.mojang.logging.LogUtils;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.server.ServerStartedEvent;
-import net.minecraftforge.fml.common.Mod;
+
+import appeng.api.AECapabilities;
+import appeng.api.upgrades.Upgrades;
+import appeng.blockentity.AEBaseInvBlockEntity;
+import appeng.core.definitions.AEItems;
+import appeng.core.localization.GuiText;
+import cn.dancingsnow.neoecoae.all.NEBlockEntities;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.all.NECellTypes;
+import cn.dancingsnow.neoecoae.all.NECreativeTabs;
+import cn.dancingsnow.neoecoae.all.NEDataComponents;
+import cn.dancingsnow.neoecoae.all.NEEcoTiers;
+import cn.dancingsnow.neoecoae.all.NEFluids;
+import cn.dancingsnow.neoecoae.all.NEGridServices;
+import cn.dancingsnow.neoecoae.all.NEItems;
+import cn.dancingsnow.neoecoae.all.NEMenus;
+import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.all.NERegistries;
+import cn.dancingsnow.neoecoae.all.NETooltips;
+import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.command.NECommands;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.data.NEDataGen;
+import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
+import cn.dancingsnow.neoecoae.util.DrainOnlyFluidHandler;
+import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.network.ECONetwork;
+import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
+import com.tterrag.registrate.util.entry.ItemEntry;
+import lombok.Getter;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.repository.Pack;
+import net.minecraft.server.packs.repository.PackSource;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.fml.loading.progress.StartupNotificationManager;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.AddPackFindersEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
+import net.neoforged.neoforge.registries.NewRegistryEvent;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/** Minimal Forge entry point used to verify the target environment before importing main. */
+import java.util.List;
+
 @Mod(NeoECOAE.MOD_ID)
-public final class NeoECOAE {
+public class NeoECOAE {
+    private final Logger logger = LoggerFactory.getLogger(MOD_ID);
+    @Getter
+    private static final IntegrationManager integrationManager = new IntegrationManager();
     public static final String MOD_ID = "neoecoae";
-    private static final Logger LOGGER = LogUtils.getLogger();
+    public static IEventBus MOD_BUS = null;
 
-    public NeoECOAE() {
-        LOGGER.info("NeoECOAE Forge 1.20.1 environment bootstrap loaded; feature migration has not started.");
-        if (Boolean.getBoolean("neoecoae.bootstrapSmoke")) {
-            MinecraftForge.EVENT_BUS.addListener((ServerStartedEvent event) -> {
-                LOGGER.info("NEOECOAE_BOOTSTRAP_SERVER_READY");
-                event.getServer().halt(false);
-            });
-        }
+    public static final NERegistrate REGISTRATE = NERegistrate.create(MOD_ID);
+
+    public NeoECOAE(IEventBus modBus, ModContainer modContainer) {
+        MOD_BUS = modBus;
+        // Force the copied AE2/ExtendedAE-style menu type to enter AE2's menu
+        // registration queue during mod construction.
+        LargeIntegratedWorkingStationPatternProviderMenu.TYPE.toString();
+
+        NECreativeTabs.register();
+        NEMenus.register(modBus);
+        NEItems.register();
+        NEBlocks.register();
+        NEFluids.register();
+        NEBlockEntities.register();
+        NEDataGen.configureDataGen();
+        NEGridServices.register();
+        NEEcoTiers.register();
+        NECellTypes.register();
+        NERecipeTypes.register(modBus);
+        NEDataComponents.register(modBus);
+
+        StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
+        integrationManager.compileContent();
+        integrationManager.loadAllIntegrations();
+        cn.dancingsnow.neoecoae.compat.ae2.AE2PatternOptimizationIntegration.init();
+        cn.dancingsnow.neoecoae.compat.ECOPatternIntegrations.initialize();
+        StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
+        // These values govern server-authoritative gameplay and are also read by client-side
+        // previews/tooltips. SERVER configs are synchronized to joining clients by NeoForge.
+        modContainer.registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
+
+        modBus.addListener(NeoECOAE::registerCapabilities);
+        modBus.addListener(NeoECOAE::initUpgrades);
+        modBus.addListener(NeoECOAE::initStorageCells);
+        modBus.addListener(NeoECOAE::newRegistry);
+        modBus.addListener(NeoECOAE::addClassicPack);
+        modBus.addListener(ECONetwork::registerPayloadHandlers);
+        NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::tick);
+        NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::stopped);
+        NeoForge.EVENT_BUS.addListener(NETooltips::register);
+        NeoForge.EVENT_BUS.addListener(NECommands::register);
+        NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
+    }
+
+    public static ResourceLocation id(String path) {
+        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+    }
+
+    private static void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.ECO_DRIVE.get(),
+            (be, side) -> be.HANDLER
+        );
+        event.registerBlockEntity(
+            Capabilities.FluidHandler.BLOCK,
+            NEBlockEntities.INPUT_HATCH.get(),
+            (be, side) -> be.tank
+        );
+        event.registerBlockEntity(
+            Capabilities.FluidHandler.BLOCK,
+            NEBlockEntities.OUTPUT_HATCH.get(),
+            (be, side) -> new DrainOnlyFluidHandler(be.tank)
+        );
+        event.registerBlockEntity(
+            Capabilities.FluidHandler.BLOCK,
+            NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.get(),
+            (be, side) -> be.tank
+        );
+        event.registerBlockEntity(
+            Capabilities.FluidHandler.BLOCK,
+            NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.get(),
+            (be, side) -> new DrainOnlyFluidHandler(be.tank)
+        );
+        event.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
+            (be, side) -> be.itemHandler
+        );
+        event.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.COMPUTATION_DRIVE.get(),
+            (be, unused) -> be.getItemHandler()
+        );
+        event.registerBlockEntity(
+            AECapabilities.IN_WORLD_GRID_NODE_HOST,
+            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+            (be, unused) -> be
+        );
+        event.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+            AEBaseInvBlockEntity::getExposedItemHandler
+        );
+        event.registerBlockEntity(
+            Capabilities.FluidHandler.BLOCK,
+            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+            (be, side) -> be.getFluidCombined()
+        );
+        event.registerBlockEntity(
+            Capabilities.EnergyStorage.BLOCK,
+            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+            ECOLargeIntegratedWorkingStationBlockEntity::getEnergyStorage
+        );
+    }
+
+    private static void initUpgrades(FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> {
+            String storageCellGroup = GuiText.StorageCells.getTranslationKey();
+
+            Upgrades.add(AEItems.SPEED_CARD, NEBlocks.INTEGRATED_WORKING_STATION.get(), 4);
+            Upgrades.add(AEItems.CAPACITY_CARD, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.get(), 4);
+
+            List<ItemEntry<ECOStorageCellItem>> cells = List.of(
+                NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,
+                NEItems.ECO_BULK_ITEM_CELL_16M, NEItems.ECO_BULK_ITEM_CELL_64M, NEItems.ECO_BULK_ITEM_CELL_256M,
+                NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_FLUID_CELL_64M, NEItems.ECO_FLUID_CELL_256M
+            );
+            for (ItemEntry<ECOStorageCellItem> cell : cells) {
+                Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
+                Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
+                Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
+            }
+        });
+    }
+
+    private static void initStorageCells(FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> {
+            ECOStorageCells.register(ECOStorageCellItem.Handler.INSTANCE);
+            ECOStorageCells.register(ECOCreativeCell.Handler.INSTANCE);
+        });
+    }
+
+    private static void newRegistry(NewRegistryEvent event) {
+        event.register(NERegistries.CELL_TYPE);
+        event.register(NERegistries.ECO_TIER);
+    }
+
+    private static void addClassicPack(AddPackFindersEvent event) {
+        event.addPackFinders(
+            NeoECOAE.id("classic_pack"),
+            PackType.CLIENT_RESOURCES,
+            Component.translatable("neoecoae.classic_pack"),
+            PackSource.BUILT_IN,
+            false,
+            Pack.Position.TOP
+        );
+    }
+
+    private static void onTagsUpdated(TagsUpdatedEvent event) {
+        AE2PatternIntrospection.onRecipeReloadOrServerReload();
     }
 }

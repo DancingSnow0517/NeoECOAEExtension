@@ -1,0 +1,80 @@
+{
+  "type": "element",
+  "id": "crafting_interface_root",
+  "layout": {
+    "width": 195,
+    "height": 237
+  },
+  "overflow": "visible",
+  "texture": {
+    "location": "neoecoae:textures/guis/pattern_manager.png",
+    "sprite": [0, 0, 195, 237]
+  },
+  "children": [
+    {
+      "type": "custom",
+      "id": "operation_status",
+      "custom": "operation_status",
+      "layout": { "position": "absolute", "left": 0, "top": 0, "width": 0, "height": 0 }
+    },
+    {
+      "type": "custom",
+      "id": "title",
+      "custom": "title",
+      "layout": { "position": "absolute", "left": 7, "top": 4.5, "width": 162, "height": 10 }
+    },
+    {
+      "type": "custom",
+      "id": "operation_indicator",
+      "custom": "operation_indicator",
+      "layout": { "position": "absolute", "left": 181, "top": 4, "width": 10, "height": 12 }
+    },
+    {
+      "type": "custom",
+      "id": "input_search",
+      "custom": "input_search",
+      "layout": { "position": "absolute", "left": 21, "top": 18, "width": 66, "height": 12 }
+    },
+    {
+      "type": "custom",
+      "id": "output_search",
+      "custom": "output_search",
+      "layout": { "position": "absolute", "left": 103, "top": 18, "width": 66, "height": 12 }
+    },
+    {
+      "type": "custom",
+      "id": "pattern_preview",
+      "custom": "pattern_preview",
+      "layout": { "position": "absolute", "left": 7, "top": 31, "width": 162, "height": 108 }
+    },
+    {
+      "type": "custom",
+      "id": "pattern_scrollbar",
+      "custom": "pattern_scrollbar",
+      "layout": { "position": "absolute", "left": 174, "top": 31, "width": 14, "height": 108 }
+    },
+    {
+      "type": "custom",
+      "id": "side_controls",
+      "custom": "side_controls"
+    },
+    {
+      "type": "custom",
+      "id": "status_label",
+      "custom": "status_label",
+      "layout": { "position": "absolute", "left": 7, "top": 140, "width": 162, "height": 9 }
+    },
+    {
+      "type": "custom",
+      "id": "transfer_progress",
+      "custom": "transfer_progress",
+      "layout": { "position": "absolute", "left": 7, "top": 149, "width": 162, "height": 2 }
+    },
+    {
+      "type": "custom",
+      "id": "player_inventory",
+      "custom": "player_inventory",
+      "layout": { "position": "absolute", "left": 7, "top": 152, "width": 162, "height": 76 }
+    }
+  ]
+}

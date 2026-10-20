@@ -1,0 +1,8 @@
+{
+    "parent": "neoecoae:block/storage_controller/controller_off_base",
+    "textures": {
+        "north": "neoecoae:block/storage/controller/controller_north_b",
+        "side": "neoecoae:block/storage/controller/controller_side_b",
+        "particle": "neoecoae:block/storage/controller/controller_side_b"
+    }
+}

@@ -1,0 +1,40 @@
+{
+  "parent": "neoecoae:eco/host_l6",
+  "display": {
+    "icon": {
+      "id": "neoecoae:storage_system_l9"
+    },
+    "title": {
+      "text": "别问，问就是算力"
+    },
+    "description": {
+      "text": "第一次获得任意一种 9 级主机"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "neoecoae:storage_system_l9",
+              "neoecoae:computation_system_l9",
+              "neoecoae:crafting_system_l9"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "obtained"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

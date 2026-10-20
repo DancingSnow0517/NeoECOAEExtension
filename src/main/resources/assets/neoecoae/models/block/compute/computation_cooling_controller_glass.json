@@ -1,0 +1,36 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"parent": "block/block",
+	"texture_size": [128, 128],
+	"textures": {
+		"0": "neoecoae:block/compute/cooling_controller/controller_a_formed",
+		"particle": "neoecoae:block/compute/cooling_controller/controller_a_formed"
+	},
+	"elements": [
+		{
+			"name": "front_glass_a",
+			"from": [-15, -16, -4],
+			"to": [-15, 24, 2],
+			"faces": {
+				"west": {"uv": [4.625, 0.5, 5.375, 5.5], "texture": "#0"}
+			}
+		},
+		{
+			"name": "front_glass_b",
+			"from": [-15, 2, -8],
+			"to": [-15, 6, -4],
+			"faces": {
+				"west": {"uv": [4.125, 2.75, 4.625, 3.25], "texture": "#0"}
+			}
+		},
+		{
+			"name": "back_glass_a",
+			"from": [15, -16, -4],
+			"to": [15, 24, 2],
+			"faces": {
+				"east": {"uv": [6.625, 0.5, 7.375, 5.5], "texture": "#0"}
+			}
+		}
+	]
+}

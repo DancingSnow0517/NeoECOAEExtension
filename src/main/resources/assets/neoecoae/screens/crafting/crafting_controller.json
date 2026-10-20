@@ -1,0 +1,61 @@
+{
+  "type": "element",
+  "id": "crafting_controller_root",
+  "layout": {
+    "position": "relative",
+    "width": 253,
+    "height": 214
+  },
+  "overflow": "visible",
+  "children": [
+    {
+      "type": "custom",
+      "id": "crafting_artwork",
+      "custom": "crafting_artwork"
+    },
+    {
+      "type": "custom",
+      "id": "overclock_button",
+      "custom": "mode_button",
+      "mode": "overclock",
+      "action": "toggle_overclocked",
+      "binding": "overclocked",
+      "layout": {
+        "position": "absolute",
+        "left": 37,
+        "top": 96,
+        "width": 15,
+        "height": 26,
+        "padding": 0
+      }
+    },
+    {
+      "type": "custom",
+      "id": "active_cooling_button",
+      "custom": "mode_button",
+      "mode": "active_cooling",
+      "action": "toggle_active_cooling",
+      "binding": "active_cooling",
+      "layout": {
+        "position": "absolute",
+        "left": 10,
+        "top": 96,
+        "width": 15,
+        "height": 26,
+        "padding": 0
+      }
+    },
+    {
+      "type": "custom",
+      "id": "player_inventory",
+      "custom": "player_inventory",
+      "layout": {
+        "position": "absolute",
+        "left": 7,
+        "top": 129,
+        "width": 162,
+        "height": 76
+      }
+    }
+  ]
+}

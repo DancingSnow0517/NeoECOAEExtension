@@ -1,0 +1,9 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.compat.omnisequence",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.compat.omnisequence.ECOOmniSequenceMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["ECOOmniSequenceProviderMixin"],
+  "injectors": {"defaultRequire": 1}
+}

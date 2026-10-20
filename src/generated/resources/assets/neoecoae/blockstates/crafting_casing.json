@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "classic_visible=false,formed=false,invisible=false": {
+      "model": "neoecoae:block/crafting_casing"
+    },
+    "classic_visible=false,formed=false,invisible=true": {
+      "model": "neoecoae:block/crafting_casing"
+    },
+    "classic_visible=false,formed=true,invisible=false": {
+      "model": "neoecoae:block/crafting_casing_formed"
+    },
+    "classic_visible=false,formed=true,invisible=true": {
+      "model": "neoecoae:block/crafting_casing_formed"
+    },
+    "classic_visible=true,formed=false,invisible=false": {
+      "model": "neoecoae:block/crafting_casing"
+    },
+    "classic_visible=true,formed=false,invisible=true": {
+      "model": "neoecoae:block/crafting_casing"
+    },
+    "classic_visible=true,formed=true,invisible=false": {
+      "model": "neoecoae:block/crafting_casing_formed"
+    },
+    "classic_visible=true,formed=true,invisible=true": {
+      "model": "neoecoae:block/crafting_casing_formed"
+    }
+  }
+}

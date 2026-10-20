@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_computation_cooling_controller_l6": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:computation_cooling_controller_l6"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:computation_cooling_controller_l9"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_computation_cooling_controller_l6"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:computation_cooling_controller_l9"
+    ]
+  }
+}

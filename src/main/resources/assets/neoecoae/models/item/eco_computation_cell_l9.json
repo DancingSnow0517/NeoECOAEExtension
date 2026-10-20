@@ -1,0 +1,7 @@
+{
+	"parent": "neoecoae:item/eco_computation_cell_base",
+	"textures": {
+		"base": "neoecoae:block/compute/drive/cell_north_c",
+		"side": "neoecoae:block/compute/drive/cell_side_c"
+	}
+}

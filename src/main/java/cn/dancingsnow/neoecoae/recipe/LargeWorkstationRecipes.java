@@ -1,0 +1,356 @@
+package cn.dancingsnow.neoecoae.recipe;
+
+import appeng.api.config.PowerUnit;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.JsonOps;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponentPredicate;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.common.crafting.DataComponentIngredient;
+import net.neoforged.neoforge.common.crafting.SizedIngredient;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.crafting.DataComponentFluidIngredient;
+import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.stream.Collectors;
+
+/** Loads supported recipes by default; installed cards select each workstation's available recipes. */
+public final class LargeWorkstationRecipes {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LargeWorkstationRecipes.class);
+    private static final Set<String> COMPAT_TYPES = Set.of(
+        "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation",
+        "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing",
+        "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler",
+        "data_energistics:data_reassembler", "data_energistics:data_charger",
+        "data_energistics:data_integrated_charger", "data_energistics:data_charge_press");
+    private static final Map<RecipeManager, Cache> CACHE = new WeakHashMap<>();
+    // Lightning recipes have explicit priority. AE cost, lightning amount and ID break ties.
+    private static final Comparator<LargeWorkstationRecipe> COST_ORDER = Comparator
+        .comparing((LargeWorkstationRecipe recipe) -> recipe.extraInputs().stream().noneMatch(LargeWorkstationRecipes::isLightning))
+        .thenComparingLong(LargeWorkstationRecipe::energy)
+        .thenComparingLong(recipe -> recipe.extraInputs().stream().mapToLong(GenericStack::amount).sum())
+        .thenComparing(recipe -> recipe.id().toString());
+
+    private LargeWorkstationRecipes() {}
+
+    public static List<LargeWorkstationRecipe> getAll(Level level) {
+        return getAll(level.getRecipeManager(), level.registryAccess());
+    }
+
+    public static synchronized List<LargeWorkstationRecipe> getAll(RecipeManager manager, HolderLookup.Provider registries) {
+        // RecipeManager replaces its immutable by-name map on both datapack reload and client sync.
+        // Its values view is stable between reloads, including for unregistered RecipeType.simple types.
+        Collection<RecipeHolder<?>> sources = manager.getRecipes();
+        var previous = CACHE.get(manager);
+        if (previous != null && previous.sources == sources) return previous.recipes;
+        List<LargeWorkstationRecipe> recipes = new ArrayList<>();
+        DynamicOps<JsonElement> ops = registries.createSerializationContext(JsonOps.INSTANCE);
+        for (var holder : sources) {
+            try {
+                if (holder.value() instanceof LargeIntegratedWorkingStationRecipe largeRecipe) {
+                    var nativeRecipe = largeRecipe.display();
+                    recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
+                } else if (holder.value() instanceof IntegratedWorkingStationRecipe nativeRecipe) {
+                    recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
+                } else {
+                    String type = typeId(holder.value().getType());
+                    if (!COMPAT_TYPES.contains(type)) continue;
+                    recipes.add(decode(holder.id(), type, encode(holder.value(), ops), ops));
+                }
+            } catch (RuntimeException failure) {
+                // A changed upstream format must fail closed, never silently omit a cost or result.
+                LOGGER.warn("Cannot adapt large workstation recipe {}", holder.id(), failure);
+            }
+        }
+        var result = deduplicate(recipes, ops);
+        Map<ResourceLocation, LargeWorkstationRecipe> recipesById = new HashMap<>();
+        for (var recipe : recipes) recipesById.put(recipe.id(), recipe);
+        CACHE.put(manager, new Cache(sources, result, Map.copyOf(recipesById),
+            new EnumMap<>(LargeWorkstationModule.class)));
+        return result;
+    }
+
+    public static List<LargeWorkstationRecipe> getAvailable(Level level, LargeWorkstationModule module) {
+        return getAvailable(level.getRecipeManager(), level.registryAccess(), module);
+    }
+
+    static synchronized List<LargeWorkstationRecipe> getAvailable(RecipeManager manager,
+            HolderLookup.Provider registries, LargeWorkstationModule module) {
+        getAll(manager, registries);
+        Cache cache = CACHE.get(manager);
+        if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.recipes;
+        return cache.moduleRecipes.computeIfAbsent(module, installed -> selectForModule(
+            cache.recipesById.values(), installed, registries.createSerializationContext(JsonOps.INSTANCE)));
+    }
+
+    /** Filter before deduplication: a locked cheaper adapter must not hide an unlocked native recipe. */
+    static List<LargeWorkstationRecipe> selectForModule(Collection<LargeWorkstationRecipe> recipes,
+            LargeWorkstationModule module, DynamicOps<JsonElement> ops) {
+        return deduplicate(recipes.stream().filter(recipe -> module.unlocks(recipe.sourceType())).toList(), ops);
+    }
+
+    /** Keeps original recipes addressable for batches saved before equivalent recipes were merged. */
+    @Nullable
+    public static LargeWorkstationRecipe getById(Level level, ResourceLocation id) {
+        return getById(level.getRecipeManager(), level.registryAccess(), id);
+    }
+
+    @Nullable
+    static synchronized LargeWorkstationRecipe getById(RecipeManager manager, HolderLookup.Provider registries, ResourceLocation id) {
+        getAll(manager, registries);
+        return CACHE.get(manager).recipesById.get(id);
+    }
+
+    /** Material inputs and outputs define equivalence; source mod and processing costs do not. */
+    static List<LargeWorkstationRecipe> deduplicate(List<LargeWorkstationRecipe> recipes, DynamicOps<JsonElement> ops) {
+        Map<MaterialContract, LargeWorkstationRecipe> unique = new HashMap<>();
+        List<LargeWorkstationRecipe> result = new ArrayList<>();
+        for (var recipe : recipes) {
+            try {
+                var display = recipe.display();
+                Map<Object, Long> items = new HashMap<>();
+                for (var input : display.inputItems()) {
+                    Object predicate = itemPredicate(input.ingredient(), ops);
+                    items.merge(predicate, (long) input.count(), Math::addExact);
+                }
+                var fluid = display.inputFluid();
+                Map<AEKey, Long> resources = new HashMap<>();
+                for (var extra : recipe.extraInputs()) {
+                    if (!isLightning(extra)) resources.merge(extra.what(), extra.amount(), Math::addExact);
+                }
+                var contract = new MaterialContract(Map.copyOf(items), fluid.ingredient().isEmpty() ? null
+                    : new FluidInput(fluidPredicate(fluid.ingredient(), ops), fluid.amount()),
+                    Map.copyOf(resources),
+                    display.hasItemOutput() ? new GenericStack(AEItemKey.of(display.itemOutput()), display.itemOutput().getCount()) : null,
+                    display.hasFluidOutput() ? new GenericStack(AEFluidKey.of(display.fluidOutput()), display.fluidOutput().getAmount()) : null);
+                unique.merge(contract, recipe, (first, second) -> COST_ORDER.compare(first, second) <= 0 ? first : second);
+            } catch (RuntimeException failure) {
+                // Unknown predicates remain available rather than being merged by their display stacks.
+                LOGGER.warn("Cannot compare large workstation recipe {} for duplicates", recipe.id(), failure);
+                result.add(recipe);
+            }
+        }
+        result.addAll(unique.values());
+        result.sort(Comparator.comparing(recipe -> recipe.id().toString()));
+        return List.copyOf(result);
+    }
+
+    private static Object itemPredicate(Ingredient ingredient, DynamicOps<JsonElement> ops) {
+        if (ingredient.isSimple() && ingredient.getItems().length > 0) {
+            return Arrays.stream(ingredient.getItems()).map(stack -> BuiltInRegistries.ITEM.getKey(stack.getItem()))
+                .collect(Collectors.toUnmodifiableSet());
+        }
+        if (ingredient.getCustomIngredient() instanceof DataComponentIngredient components) {
+            return new ComponentPredicate(components.items().stream().map(holder -> BuiltInRegistries.ITEM.getKey(holder.value()))
+                .collect(Collectors.toUnmodifiableSet()), components.components(), components.isStrict());
+        }
+        // Custom ingredients can constrain components or have incomplete display alternatives.
+        return Ingredient.CODEC.encodeStart(ops, ingredient).getOrThrow();
+    }
+
+    private static Object fluidPredicate(FluidIngredient ingredient, DynamicOps<JsonElement> ops) {
+        if (ingredient.isSimple() && ingredient.getStacks().length > 0) {
+            return Arrays.stream(ingredient.getStacks()).map(stack -> BuiltInRegistries.FLUID.getKey(stack.getFluid()))
+                .collect(Collectors.toUnmodifiableSet());
+        }
+        if (ingredient instanceof DataComponentFluidIngredient components) {
+            return new ComponentPredicate(components.fluids().stream().map(holder -> BuiltInRegistries.FLUID.getKey(holder.value()))
+                .collect(Collectors.toUnmodifiableSet()), components.components(), components.isStrict());
+        }
+        return FluidIngredient.CODEC.encodeStart(ops, ingredient).getOrThrow();
+    }
+
+    private record FluidInput(Object predicate, long amount) {}
+    private record ComponentPredicate(Set<ResourceLocation> alternatives, DataComponentPredicate components, boolean strict) {}
+    private record MaterialContract(Map<Object, Long> items, @Nullable FluidInput fluid, Map<AEKey, Long> resources,
+                                    @Nullable GenericStack itemOutput, @Nullable GenericStack fluidOutput) {}
+
+    private static boolean isLightning(GenericStack stack) {
+        return stack.what().getType().getId().getNamespace().equals("ae2lt");
+    }
+
+    @Nullable
+    public static LargeWorkstationRecipe find(Level level, KeyCounter inputs, KeyCounter outputs) {
+        return find(getAll(level), inputs, outputs);
+    }
+
+    private static LargeWorkstationRecipe find(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
+        LargeWorkstationRecipe fallback = null;
+        for (var recipe : recipes) {
+            if (!recipe.matches(inputs, outputs)) continue;
+            // Distinct ingredient predicates can still overlap for one concrete pattern.
+            // Duplicate material contracts have already been resolved by COST_ORDER.
+            if (recipe.extraInputs().isEmpty()) return recipe;
+            if (fallback == null) fallback = recipe;
+        }
+        return fallback;
+    }
+
+    /** Prefer an exact recipe before interpreting an encoded pattern as multiple recipe operations. */
+    @Nullable
+    public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs) {
+        return findScaled(getAll(level), inputs, outputs);
+    }
+
+    @Nullable
+    public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs, LargeWorkstationModule module) {
+        return findScaled(getAvailable(level, module), inputs, outputs);
+    }
+
+    @Nullable
+    private static PatternMatch findScaled(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
+        var exact = find(recipes, inputs, outputs);
+        if (exact != null) return new PatternMatch(exact, 1);
+        PatternMatch fallback = null;
+        for (var recipe : recipes) {
+            long multiplier = recipe.matchingMultiplier(inputs, outputs);
+            if (multiplier == 0) continue;
+            var match = new PatternMatch(recipe, multiplier);
+            if (recipe.extraInputs().isEmpty()) return match;
+            if (fallback == null) fallback = match;
+        }
+        return fallback;
+    }
+
+    public record PatternMatch(LargeWorkstationRecipe recipe, long multiplier) {}
+
+    private static String typeId(RecipeType<?> type) {
+        var id = BuiltInRegistries.RECIPE_TYPE.getKey(type);
+        return id == null ? type.toString() : id.toString();
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static JsonObject encode(Recipe<?> recipe, DynamicOps<JsonElement> ops) {
+        Codec codec = recipe.getSerializer().codec().codec();
+        return ((JsonElement) codec.encodeStart(ops, recipe).getOrThrow()).getAsJsonObject();
+    }
+
+    static LargeWorkstationRecipe decode(ResourceLocation id, String type, JsonObject data, DynamicOps<JsonElement> ops) {
+        if (type.startsWith("data_energistics:")) return DataWorkstationRecipes.decode(id, type, data, ops);
+        if (type.equals("appgen:synthesizing")) return AppliedGeneratorsWorkstationRecipes.decode(id, data, ops);
+        List<SizedIngredient> items = new ArrayList<>();
+        SizedFluidIngredient fluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
+        ItemStack result = ItemStack.EMPTY;
+        FluidStack fluidResult = FluidStack.EMPTY;
+        List<GenericStack> extras = List.of();
+        long energy;
+        switch (type) {
+            case "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation" -> {
+                if (data.has("inputs")) for (var input : data.getAsJsonArray("inputs")) {
+                    var entry = input.getAsJsonObject();
+                    items.add(new SizedIngredient(parse(Ingredient.CODEC_NONEMPTY, ops, entry.get("ingredient")), entry.get("count").getAsInt()));
+                }
+                if (type.equals("ae2lt:overload_processing")) {
+                    if (data.has("inputFluid")) {
+                        var stack = parse(FluidStack.OPTIONAL_CODEC, ops, data.get("inputFluid"));
+                        if (!stack.isEmpty()) fluid = new SizedFluidIngredient(
+                            net.neoforged.neoforge.fluids.crafting.DataComponentFluidIngredient.of(true, stack), stack.getAmount());
+                    }
+                    if (data.has("results")) {
+                        var results = data.getAsJsonArray("results");
+                        if (results.size() > 1) throw new IllegalArgumentException("Multiple item outputs");
+                        if (!results.isEmpty()) result = parse(ItemStack.CODEC, ops, results.get(0));
+                    }
+                    if (data.has("resultFluid")) fluidResult = parse(FluidStack.OPTIONAL_CODEC, ops, data.get("resultFluid"));
+                } else result = parse(ItemStack.CODEC, ops, data.get("result"));
+                // AE2LT Reborn's totalEnergy is FE; the workstation consumes its AE equivalent.
+                energy = (long) Math.ceil(PowerUnit.FE.convertTo(PowerUnit.AE, data.get("totalEnergy").getAsLong()));
+                extras = List.of(LightningInput.decode(data));
+            }
+            case "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe" -> {
+                for (String name : List.of("input_a", "input_b", "input_c")) {
+                    if (data.has(name)) {
+                        var item = parse(SizedIngredient.FLAT_CODEC, ops, data.get(name));
+                        if (!item.ingredient().isEmpty()) items.add(item);
+                    }
+                }
+                result = parse(ItemStack.CODEC, ops, data.get("result"));
+                if (data.has("fluid_input")) fluid = parse(SizedFluidIngredient.FLAT_CODEC, ops, data.get("fluid_input"));
+                if (data.has("fluid_output")) fluidResult = parse(FluidStack.OPTIONAL_CODEC, ops, data.get("fluid_output"));
+                energy = data.has("energy_cost") ? data.get("energy_cost").getAsLong()
+                    : type.equals("ae2cs:circuit_etcher_recipe") ? 3200 : 200;
+            }
+            case "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler" -> {
+                for (var input : data.getAsJsonArray("input_items")) {
+                    var entry = input.getAsJsonObject();
+                    var ingredient = parse(Ingredient.CODEC, ops, entry.get("ingredient"));
+                    int amount = entry.has("amount") ? entry.get("amount").getAsInt() : 1;
+                    if (!ingredient.isEmpty() && amount > 0) items.add(new SizedIngredient(ingredient, amount));
+                }
+                if (data.has("input_fluid")) {
+                    var entry = data.getAsJsonObject("input_fluid");
+                    var ingredient = parse(FluidIngredient.CODEC, ops, entry.get("ingredient"));
+                    int amount = entry.has("amount") ? entry.get("amount").getAsInt() : 1;
+                    if (!ingredient.isEmpty() && amount > 0) fluid = new SizedFluidIngredient(ingredient, amount);
+                }
+                if (type.equals("advanced_ae:reaction")) {
+                    var output = parse(GenericStack.CODEC, ops, data.get("output"));
+                    int count = Math.toIntExact(output.amount());
+                    if (output.what() instanceof AEItemKey item) result = item.toStack(count);
+                    else if (output.what() instanceof AEFluidKey key) fluidResult = key.toStack(count);
+                    else throw new IllegalArgumentException("Unsupported output key");
+                    energy = data.get("input_energy").getAsLong();
+                } else {
+                    result = parse(ItemStack.CODEC, ops, data.get("output"));
+                    energy = 2000; // EAEP: 200 progress * 10 AE per progress per operation.
+                }
+            }
+            default -> throw new IllegalArgumentException("Unsupported recipe type: " + type);
+        }
+        if (result.isEmpty() && fluidResult.isEmpty()) throw new IllegalArgumentException("Empty output");
+        var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
+            (int) Math.min(Integer.MAX_VALUE, energy));
+        return new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type));
+    }
+
+    private static <T> T parse(Codec<T> codec, DynamicOps<JsonElement> ops, JsonElement value) {
+        return codec.parse(ops, value).getOrThrow();
+    }
+
+    /** Loaded only when an AE2LT recipe is actually present. */
+    private static final class LightningInput {
+        static GenericStack decode(JsonObject data) {
+            var tier = data.has("lightningTier")
+                ? com.moakiee.ae2lt.me.key.LightningKey.Tier.CODEC.parse(JsonOps.INSTANCE, data.get("lightningTier")).getOrThrow()
+                : com.moakiee.ae2lt.me.key.LightningKey.Tier.HIGH_VOLTAGE;
+            int amount = data.has("lightningCost") ? data.get("lightningCost").getAsInt() : 4;
+            if (amount <= 0) throw new IllegalArgumentException("Invalid lightning cost");
+            return new GenericStack(com.moakiee.ae2lt.me.key.LightningKey.of(tier), amount);
+        }
+    }
+
+    private record Cache(Collection<RecipeHolder<?>> sources, List<LargeWorkstationRecipe> recipes,
+                         Map<ResourceLocation, LargeWorkstationRecipe> recipesById,
+                         Map<LargeWorkstationModule, List<LargeWorkstationRecipe>> moduleRecipes) {}
+}

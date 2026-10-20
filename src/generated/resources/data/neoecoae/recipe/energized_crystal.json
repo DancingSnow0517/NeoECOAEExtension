@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "tag": "c:storage_blocks/energized_crystal"
+    }
+  ],
+  "result": {
+    "count": 4,
+    "id": "neoecoae:energized_crystal"
+  }
+}

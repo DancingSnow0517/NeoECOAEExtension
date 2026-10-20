@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "neoecoae:block/storage_interface"
+    }
+  }
+}

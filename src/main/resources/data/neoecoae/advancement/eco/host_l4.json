@@ -1,0 +1,40 @@
+{
+  "parent": "neoecoae:eco/root",
+  "display": {
+    "icon": {
+      "id": "neoecoae:storage_system_l4"
+    },
+    "title": {
+      "text": "总算能用了"
+    },
+    "description": {
+      "text": "第一次获得任意一种 4 级主机"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "neoecoae:storage_system_l4",
+              "neoecoae:computation_system_l4",
+              "neoecoae:crafting_system_l4"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "obtained"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "neoecoae:screens/schema",
+  "title": "NeoECOAE LDLib2 UI definition",
+  "description": "Static layout for NeoUiJsonLoader. Actions, state and custom widgets are registered by the screen context.",
+  "type": "object",
+  "properties": {
+    "root": { "$ref": "#/$defs/node" },
+    "type": { "type": "string" },
+    "children": { "type": "array", "items": { "$ref": "#/$defs/node" } }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": ["container", "element", "texture", "label", "button", "item_slot", "fluid_slot", "player_inventory", "custom"]
+        },
+        "id": { "type": "string" },
+        "class": { "type": ["string", "array"], "items": { "type": "string" } },
+        "classes": { "type": "array", "items": { "type": "string" } },
+        "visible": {
+          "type": "boolean",
+          "description": "Permanent render visibility. Runtime panels that are toggled with LDLib2 setDisplay should use layout.display=none instead."
+        },
+        "overflow": { "enum": ["visible"] },
+        "text": { "type": "string" },
+        "translate": { "type": "boolean" },
+        "no_text": { "type": "boolean" },
+        "name": { "type": "string" },
+        "custom": { "type": "string", "description": "Context-defined custom element name." },
+        "texture": {
+          "oneOf": [
+            { "type": "string" },
+            {
+              "type": "object",
+              "properties": {
+                "location": { "type": "string" },
+                "texture": { "type": "string" },
+                "sprite": { "$ref": "#/$defs/sprite" }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "sprite": { "$ref": "#/$defs/sprite" },
+        "layout": { "$ref": "#/$defs/layout" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "action": { "type": "string", "description": "Allow-listed action interpreted by NeoUiJsonContext." },
+        "state": { "type": "string", "description": "Allow-listed binding interpreted by NeoUiJsonContext." }
+      },
+      "additionalProperties": true
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "position": { "enum": ["relative", "absolute"] },
+        "display": { "enum": ["block", "flex", "grid", "none", "default"] },
+        "justifyContent": { "type": "string" },
+        "alignContent": { "type": "string" },
+        "alignItems": { "type": "string" },
+        "alignSelf": { "type": "string" },
+        "justifyItems": { "type": "string" },
+        "justifySelf": { "type": "string" },
+        "overflow": { "enum": ["visible"] },
+        "left": { "$ref": "#/$defs/length" },
+        "top": { "$ref": "#/$defs/length" },
+        "right": { "$ref": "#/$defs/length" },
+        "bottom": { "$ref": "#/$defs/length" },
+        "width": { "$ref": "#/$defs/size" },
+        "height": { "$ref": "#/$defs/size" },
+        "padding": { "$ref": "#/$defs/length" },
+        "paddingAll": { "$ref": "#/$defs/length" },
+        "paddingLeft": { "$ref": "#/$defs/length" },
+        "paddingTop": { "$ref": "#/$defs/length" },
+        "paddingRight": { "$ref": "#/$defs/length" },
+        "paddingBottom": { "$ref": "#/$defs/length" },
+        "margin": { "$ref": "#/$defs/length" },
+        "marginAll": { "$ref": "#/$defs/length" },
+        "marginLeft": { "$ref": "#/$defs/length" },
+        "marginTop": { "$ref": "#/$defs/length" },
+        "marginRight": { "$ref": "#/$defs/length" },
+        "marginBottom": { "$ref": "#/$defs/length" },
+        "gap": { "$ref": "#/$defs/length" },
+        "gapAll": { "$ref": "#/$defs/length" },
+        "gapRow": { "$ref": "#/$defs/length" },
+        "gapColumn": { "$ref": "#/$defs/length" },
+        "flexDirection": { "enum": ["row", "column", "row_reverse", "column_reverse"] },
+        "flex": { "type": "number" },
+        "flexGrow": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "length": {
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string", "pattern": "^(auto|[+-]?[0-9]+(\\.[0-9]+)?%?)$" }
+      ]
+    },
+    "size": {
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string", "pattern": "^(auto|[+-]?[0-9]+(\\.[0-9]+)?%?)$" }
+      ]
+    },
+    "sprite": {
+      "oneOf": [
+        {
+          "type": "array",
+          "prefixItems": [
+            { "type": "integer" }, { "type": "integer" },
+            { "type": "integer", "minimum": 1 }, { "type": "integer", "minimum": 1 }
+          ],
+          "minItems": 4,
+          "maxItems": 4
+        },
+        {
+          "type": "object",
+          "required": ["x", "y", "width", "height"],
+          "properties": {
+            "x": { "type": "integer" }, "y": { "type": "integer" },
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

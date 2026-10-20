@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_energized_superconductive_ingot": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:energized_superconductive_ingot"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:superconducting_processor_press"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_energized_superconductive_ingot"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:superconducting_processor_press"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "neoecoae:block/crafting_vent",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "neoecoae:block/crafting_vent"
+    },
+    "facing=south": {
+      "model": "neoecoae:block/crafting_vent",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "neoecoae:block/crafting_vent",
+      "y": 270
+    }
+  }
+}

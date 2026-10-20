@@ -1,0 +1,484 @@
+{
+  "variants": {
+    "facing=east,formed=false,module=regular,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 90
+    },
+    "facing=east,formed=false,module=regular,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=false,module=advanced_ae,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 90
+    },
+    "facing=east,formed=false,module=advanced_ae,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=false,module=extendedae,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 90
+    },
+    "facing=east,formed=false,module=extendedae,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=false,module=ae2cs,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 90
+    },
+    "facing=east,formed=false,module=ae2cs,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=false,module=aelt,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 90
+    },
+    "facing=east,formed=false,module=aelt,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=false,module=other,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 90
+    },
+    "facing=east,formed=false,module=other,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=true,module=regular,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_off",
+      "y": 90
+    },
+    "facing=east,formed=true,module=regular,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=true,module=advanced_ae,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off",
+      "y": 90
+    },
+    "facing=east,formed=true,module=advanced_ae,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_on",
+      "y": 90
+    },
+    "facing=east,formed=true,module=extendedae,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off",
+      "y": 90
+    },
+    "facing=east,formed=true,module=extendedae,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_on",
+      "y": 90
+    },
+    "facing=east,formed=true,module=ae2cs,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off",
+      "y": 90
+    },
+    "facing=east,formed=true,module=ae2cs,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_on",
+      "y": 90
+    },
+    "facing=east,formed=true,module=aelt,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off",
+      "y": 90
+    },
+    "facing=east,formed=true,module=aelt,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_on",
+      "y": 90
+    },
+    "facing=east,formed=true,module=other,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_off",
+      "y": 90
+    },
+    "facing=east,formed=true,module=other,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_on",
+      "y": 90
+    },
+    "facing=north,formed=false,module=regular,working=false": {
+      "model": "neoecoae:block/integrated_working_station"
+    },
+    "facing=north,formed=false,module=regular,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on"
+    },
+    "facing=north,formed=false,module=advanced_ae,working=false": {
+      "model": "neoecoae:block/integrated_working_station"
+    },
+    "facing=north,formed=false,module=advanced_ae,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on"
+    },
+    "facing=north,formed=false,module=extendedae,working=false": {
+      "model": "neoecoae:block/integrated_working_station"
+    },
+    "facing=north,formed=false,module=extendedae,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on"
+    },
+    "facing=north,formed=false,module=ae2cs,working=false": {
+      "model": "neoecoae:block/integrated_working_station"
+    },
+    "facing=north,formed=false,module=ae2cs,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on"
+    },
+    "facing=north,formed=false,module=aelt,working=false": {
+      "model": "neoecoae:block/integrated_working_station"
+    },
+    "facing=north,formed=false,module=aelt,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on"
+    },
+    "facing=north,formed=false,module=other,working=false": {
+      "model": "neoecoae:block/integrated_working_station"
+    },
+    "facing=north,formed=false,module=other,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on"
+    },
+    "facing=north,formed=true,module=regular,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_off"
+    },
+    "facing=north,formed=true,module=regular,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_on"
+    },
+    "facing=north,formed=true,module=advanced_ae,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off"
+    },
+    "facing=north,formed=true,module=advanced_ae,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_on"
+    },
+    "facing=north,formed=true,module=extendedae,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off"
+    },
+    "facing=north,formed=true,module=extendedae,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_on"
+    },
+    "facing=north,formed=true,module=ae2cs,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off"
+    },
+    "facing=north,formed=true,module=ae2cs,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_on"
+    },
+    "facing=north,formed=true,module=aelt,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off"
+    },
+    "facing=north,formed=true,module=aelt,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_on"
+    },
+    "facing=north,formed=true,module=other,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_off"
+    },
+    "facing=north,formed=true,module=other,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_on"
+    },
+    "facing=south,formed=false,module=regular,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 180
+    },
+    "facing=south,formed=false,module=regular,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=false,module=advanced_ae,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 180
+    },
+    "facing=south,formed=false,module=advanced_ae,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=false,module=extendedae,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 180
+    },
+    "facing=south,formed=false,module=extendedae,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=false,module=ae2cs,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 180
+    },
+    "facing=south,formed=false,module=ae2cs,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=false,module=aelt,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 180
+    },
+    "facing=south,formed=false,module=aelt,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=false,module=other,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 180
+    },
+    "facing=south,formed=false,module=other,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=true,module=regular,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_off",
+      "y": 180
+    },
+    "facing=south,formed=true,module=regular,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=true,module=advanced_ae,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off",
+      "y": 180
+    },
+    "facing=south,formed=true,module=advanced_ae,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_on",
+      "y": 180
+    },
+    "facing=south,formed=true,module=extendedae,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off",
+      "y": 180
+    },
+    "facing=south,formed=true,module=extendedae,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_on",
+      "y": 180
+    },
+    "facing=south,formed=true,module=ae2cs,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off",
+      "y": 180
+    },
+    "facing=south,formed=true,module=ae2cs,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_on",
+      "y": 180
+    },
+    "facing=south,formed=true,module=aelt,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off",
+      "y": 180
+    },
+    "facing=south,formed=true,module=aelt,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_on",
+      "y": 180
+    },
+    "facing=south,formed=true,module=other,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_off",
+      "y": 180
+    },
+    "facing=south,formed=true,module=other,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_on",
+      "y": 180
+    },
+    "facing=west,formed=false,module=regular,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 270
+    },
+    "facing=west,formed=false,module=regular,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=false,module=advanced_ae,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 270
+    },
+    "facing=west,formed=false,module=advanced_ae,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=false,module=extendedae,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 270
+    },
+    "facing=west,formed=false,module=extendedae,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=false,module=ae2cs,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 270
+    },
+    "facing=west,formed=false,module=ae2cs,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=false,module=aelt,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 270
+    },
+    "facing=west,formed=false,module=aelt,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=false,module=other,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 270
+    },
+    "facing=west,formed=false,module=other,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=true,module=regular,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_off",
+      "y": 270
+    },
+    "facing=west,formed=true,module=regular,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=true,module=advanced_ae,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off",
+      "y": 270
+    },
+    "facing=west,formed=true,module=advanced_ae,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_on",
+      "y": 270
+    },
+    "facing=west,formed=true,module=extendedae,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off",
+      "y": 270
+    },
+    "facing=west,formed=true,module=extendedae,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_on",
+      "y": 270
+    },
+    "facing=west,formed=true,module=ae2cs,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off",
+      "y": 270
+    },
+    "facing=west,formed=true,module=ae2cs,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_on",
+      "y": 270
+    },
+    "facing=west,formed=true,module=aelt,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off",
+      "y": 270
+    },
+    "facing=west,formed=true,module=aelt,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_on",
+      "y": 270
+    },
+    "facing=west,formed=true,module=other,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_off",
+      "y": 270
+    },
+    "facing=west,formed=true,module=other,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_on",
+      "y": 270
+    },
+    "facing=east,formed=false,module=data_energistics,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 90
+    },
+    "facing=east,formed=false,module=data_energistics,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=true,module=data_energistics,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off",
+      "y": 90
+    },
+    "facing=east,formed=true,module=data_energistics,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on",
+      "y": 90
+    },
+    "facing=north,formed=false,module=data_energistics,working=false": {
+      "model": "neoecoae:block/integrated_working_station"
+    },
+    "facing=north,formed=false,module=data_energistics,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on"
+    },
+    "facing=north,formed=true,module=data_energistics,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off"
+    },
+    "facing=north,formed=true,module=data_energistics,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on"
+    },
+    "facing=south,formed=false,module=data_energistics,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 180
+    },
+    "facing=south,formed=false,module=data_energistics,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=true,module=data_energistics,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off",
+      "y": 180
+    },
+    "facing=south,formed=true,module=data_energistics,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on",
+      "y": 180
+    },
+    "facing=west,formed=false,module=data_energistics,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 270
+    },
+    "facing=west,formed=false,module=data_energistics,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=true,module=data_energistics,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off",
+      "y": 270
+    },
+    "facing=west,formed=true,module=data_energistics,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on",
+      "y": 270
+    },
+    "facing=east,formed=false,module=appgen,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 90
+    },
+    "facing=east,formed=false,module=appgen,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=true,module=appgen,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off",
+      "y": 90
+    },
+    "facing=east,formed=true,module=appgen,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_on",
+      "y": 90
+    },
+    "facing=north,formed=false,module=appgen,working=false": {
+      "model": "neoecoae:block/integrated_working_station"
+    },
+    "facing=north,formed=false,module=appgen,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on"
+    },
+    "facing=north,formed=true,module=appgen,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off"
+    },
+    "facing=north,formed=true,module=appgen,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_on"
+    },
+    "facing=south,formed=false,module=appgen,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 180
+    },
+    "facing=south,formed=false,module=appgen,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=true,module=appgen,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off",
+      "y": 180
+    },
+    "facing=south,formed=true,module=appgen,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_on",
+      "y": 180
+    },
+    "facing=west,formed=false,module=appgen,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 270
+    },
+    "facing=west,formed=false,module=appgen,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=true,module=appgen,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off",
+      "y": 270
+    },
+    "facing=west,formed=true,module=appgen,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_on",
+      "y": 270
+    }
+  }
+}

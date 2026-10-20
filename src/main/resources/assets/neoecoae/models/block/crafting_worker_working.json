@@ -1,0 +1,37 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"parent": "block/block",
+	"render_type": "cutout",
+	"textures": {
+		"0": "neoecoae:block/crafting/core/working_core_north_formed",
+		"1": "neoecoae:block/crafting/core/working_core_light_working",
+		"2": "neoecoae:block/crafting/casing_formed",
+		"3": "neoecoae:block/crafting/casing_back",
+		"4": "neoecoae:block/crafting/core/core_side",
+		"particle": "neoecoae:block/crafting/core/core_side"
+	},
+	"elements": [
+		{
+			"from": [0, 0, 0],
+			"to": [16, 16, 16],
+			"faces": {
+				"north": {"uv": [0, 0, 16, 16], "texture": "#0", "cullface":"north" },
+				"east": {"uv": [0, 0, 16, 16], "texture": "#4", "cullface": "east"},
+				"south": {"uv": [0, 0, 16, 16], "texture": "#3", "cullface": "south"},
+				"west": {"uv": [0, 0, 16, 16], "texture": "#4", "cullface":"west"},
+				"up": {"uv": [0, 0, 16, 16], "texture": "#2", "cullface": "up"},
+				"down": {"uv": [0, 0, 16, 16], "texture": "#2", "cullface": "down"}
+			}
+		},
+		{
+			"name": "light",
+			"from": [0, 0, 0],
+			"to": [16, 16, 0],
+			"shade": false,
+			"faces": {
+				"north": {"uv": [0, 0, 16, 16], "texture": "#1", "cullface": "north", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+			}
+		}
+	]
+}

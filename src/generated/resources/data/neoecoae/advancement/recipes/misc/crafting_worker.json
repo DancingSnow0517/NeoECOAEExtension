@@ -1,0 +1,43 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_crafting_casing": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:crafting_casing"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_crafting_vent": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:crafting_vent"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:crafting_worker"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_crafting_casing",
+      "has_crafting_vent"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:crafting_worker"
+    ]
+  }
+}

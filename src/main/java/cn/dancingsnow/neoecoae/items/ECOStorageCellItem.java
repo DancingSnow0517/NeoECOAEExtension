@@ -1,0 +1,349 @@
+package cn.dancingsnow.neoecoae.items;
+
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.IncludeExclude;
+import appeng.api.ids.AEComponents;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
+import appeng.api.storage.cells.ISaveProvider;
+import appeng.api.upgrades.IUpgradeInventory;
+import appeng.api.upgrades.UpgradeInventories;
+import appeng.core.AEConfig;
+import appeng.core.localization.GuiText;
+import appeng.core.localization.PlayerMessages;
+import appeng.core.localization.Tooltips;
+import appeng.items.contents.CellConfig;
+import appeng.items.storage.StorageCellTooltipComponent;
+import appeng.recipes.game.StorageCellDisassemblyRecipe;
+import appeng.util.ConfigInventory;
+import appeng.util.InteractionUtil;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import lombok.Getter;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
+
+public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
+
+    @Getter
+    private final IECOTier tier;
+    private final long totalBytes;
+    private final int bytesPerType;
+    private final double idleDrain;
+    private final Supplier<AEKeyType> keyType;
+    private final Supplier<ECOCellType> cellType;
+
+    public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType, Supplier<ECOCellType> cellType) {
+        this(properties, tier, () -> keyType, cellType);
+    }
+
+    public ECOStorageCellItem(Properties properties, IECOTier tier, Supplier<AEKeyType> keyType, Supplier<ECOCellType> cellType) {
+        this(
+            properties,
+            tier,
+            keyType,
+            cellType,
+            tier.getStorageTotalBytes(),
+            1 << (12 + tier.getTier()),
+            (double) tier.getStorageTotalBytes() / (1 << 20)
+        );
+    }
+
+    public ECOStorageCellItem(
+        Properties properties,
+        IECOTier tier,
+        AEKeyType keyType,
+        Supplier<ECOCellType> cellType,
+        long totalBytes,
+        int bytesPerType,
+        double idleDrain
+    ) {
+        this(properties, tier, () -> keyType, cellType, totalBytes, bytesPerType, idleDrain);
+    }
+
+    public ECOStorageCellItem(
+        Properties properties,
+        IECOTier tier,
+        Supplier<AEKeyType> keyType,
+        Supplier<ECOCellType> cellType,
+        long totalBytes,
+        int bytesPerType,
+        double idleDrain
+    ) {
+        super(properties);
+        this.tier = tier;
+        this.totalBytes = totalBytes;
+        this.bytesPerType = bytesPerType;
+        this.idleDrain = idleDrain;
+        this.keyType = keyType;
+        this.cellType = cellType;
+    }
+
+    @Override
+    public AEKeyType getKeyType() {
+        return keyType.get();
+    }
+
+    @Override
+    public long getBytes() {
+        return totalBytes;
+    }
+
+    @Override
+    public int getBytesPerType() {
+        return bytesPerType;
+    }
+
+    @Override
+    public double getIdleDrain() {
+        return idleDrain;
+    }
+
+    @Override
+    public int getTotalTypes() {
+        return cellType.get().typeCount();
+    }
+
+    @Override
+    public ECOCellType getCellType() {
+        return cellType.get();
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+                .withStyle(ChatFormatting.LIGHT_PURPLE));
+            ECOInfiniteStorageMember.getDomainId(stack).ifPresent(id -> lines.add(
+                Component.literal("UUID: " + id).withStyle(ChatFormatting.AQUA)));
+            return;
+        }
+        var handler = getCellInventory(stack);
+        if (handler == null) {
+            return;
+        }
+        lines.add(bytesUsedLine(handler.getUsedBytes(), handler.getTotalBytes()));
+        lines.add(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
+    }
+
+    /**
+     * {@link Long#MAX_VALUE} is the saturation sentinel for an unbounded capacity, so render it as
+     * an infinity symbol instead of the raw number.
+     */
+    private static Component bytesUsedLine(long used, long total) {
+        if (total != Long.MAX_VALUE) {
+            return Tooltips.bytesUsed(used, total);
+        }
+        return Tooltips.of(
+            GuiText.BytesUsed,
+            Tooltips.of(
+                Tooltips.ofUnformattedNumberWithRatioColor(used, 0.0, false),
+                Tooltips.of(" "),
+                Tooltips.of(GuiText.Of),
+                Tooltips.of(" "),
+                Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT)
+            )
+        );
+    }
+
+    @Override
+    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            return Optional.empty();
+        }
+        var handler = getCellInventory(stack);
+        if (handler == null) {
+            return Optional.empty();
+        }
+
+        var upgradeStacks = new ArrayList<ItemStack>();
+        if (AEConfig.instance().isTooltipShowCellUpgrades()) {
+            for (var upgrade : handler.getUpgradesInventory()) {
+                upgradeStacks.add(upgrade);
+            }
+        }
+
+        // Find items with the highest stored amount
+        boolean hasMoreContent;
+        List<GenericStack> content;
+        if (AEConfig.instance().isTooltipShowCellContent()) {
+            content = new ArrayList<>();
+
+            var maxCountShown = AEConfig.instance().getTooltipMaxCellContentShown();
+
+            var availableStacks = handler.getAvailableStacks();
+            for (var entry : availableStacks) {
+                content.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+            }
+
+            // Fill up with stacks from the filter if it's not inverted
+            if (content.size() < maxCountShown && handler.getPartitionListMode() == IncludeExclude.WHITELIST) {
+                var config = handler.getConfigInventory();
+                for (int i = 0; i < config.size(); i++) {
+                    var what = config.getKey(i);
+                    if (what != null) {
+                        // Don't add it twice
+                        if (availableStacks.get(what) <= 0) {
+                            content.add(new GenericStack(what, 0));
+                        }
+                    }
+                    if (content.size() > maxCountShown) {
+                        break; // Don't need to add filters beyond 6 (to determine if it has more than 5 below)
+                    }
+                }
+            }
+
+            // Sort by amount descending
+            content.sort(Comparator.comparingLong(GenericStack::amount).reversed());
+
+            hasMoreContent = content.size() > maxCountShown;
+            if (content.size() > maxCountShown) {
+                content.subList(maxCountShown, content.size()).clear();
+            }
+        } else {
+            hasMoreContent = false;
+            content = Collections.emptyList();
+        }
+
+        return Optional.of(new StorageCellTooltipComponent(
+            upgradeStacks,
+            content,
+            hasMoreContent,
+            true)
+        );
+    }
+
+    @Nullable
+    public static ECOStorageCell getCellInventory(ItemStack stack) {
+        return getCellInventory(stack, null);
+    }
+
+    @Nullable
+    public static ECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+        if (stack.getItem() instanceof ECOStorageCellItem cellItem) {
+            return cellItem.createCellInventory(stack, host);
+        }
+        return null;
+    }
+
+    protected ECOStorageCell createCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+        return new ECOStorageCell(stack, host);
+    }
+
+    @Override
+    public FuzzyMode getFuzzyMode(ItemStack is) {
+        return is.getOrDefault(AEComponents.STORAGE_CELL_FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+    }
+
+    @Override
+    public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
+        is.set(AEComponents.STORAGE_CELL_FUZZY_MODE, fzMode);
+    }
+
+
+    @Override
+    public ConfigInventory getConfigInventory(ItemStack is) {
+        return CellConfig.create(getKeyTypes(), is);
+    }
+
+    @Override
+    public IUpgradeInventory getUpgrades(ItemStack stack) {
+        return UpgradeInventories.forItem(stack, 4);
+    }
+
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        this.disassembleDrive(player.getItemInHand(hand), level, player);
+        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), player.getItemInHand(hand));
+    }
+
+    @Override
+    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
+        return this.disassembleDrive(stack, context.getLevel(), context.getPlayer())
+            ? InteractionResult.sidedSuccess(context.getLevel().isClientSide())
+            : InteractionResult.PASS;
+    }
+
+    private boolean disassembleDrive(ItemStack stack, Level level, Player player) {
+        if (!InteractionUtil.isInAlternateUseMode(player)) {
+            return false;
+        }
+
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"), true);
+            return false;
+        }
+
+        // Only the server can authoritatively inspect contents and replace the held cell.
+        if (level.isClientSide()) {
+            return true;
+        }
+
+        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
+        if (disassembledStacks.isEmpty()) {
+            return false;
+        }
+
+        Inventory playerInventory = player.getInventory();
+        if (playerInventory.getSelected() != stack) {
+            return false;
+        }
+
+        ECOStorageCell cellInventory = getCellInventory(stack);
+        if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()) {
+            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+            return false;
+        }
+
+        playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);
+
+        // Drop items from the recipe.
+        for (var disassembledStack : disassembledStacks) {
+            playerInventory.placeItemBackInInventory(disassembledStack.copy());
+        }
+
+        // Drop upgrades
+        getUpgrades(stack).forEach(playerInventory::placeItemBackInInventory);
+
+        return true;
+    }
+
+    public static class Handler implements IECOCellHandler {
+
+        public static final Handler INSTANCE = new Handler();
+
+        @Override
+        public boolean isCell(ItemStack stack) {
+            return stack.getItem() instanceof ECOStorageCellItem;
+        }
+
+        @Override
+        public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
+            return ECOStorageCellItem.getCellInventory(is, host);
+        }
+    }
+}

@@ -1,0 +1,38 @@
+{
+  "parent": "neoecoae:eco/host_l9",
+  "display": {
+    "icon": {
+      "id": "neoecoae:eco_infinite_cell_component"
+    },
+    "title": {
+      "text": "无穷无尽"
+    },
+    "description": {
+      "text": "第一次获得无限组件"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "neoecoae:eco_infinite_cell_component"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "obtained"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

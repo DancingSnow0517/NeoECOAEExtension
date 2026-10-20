@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "neoecoae:block/storage_interface_top",
+    "side": "neoecoae:block/storage_interface"
+  }
+}

@@ -1,0 +1,235 @@
+package cn.dancingsnow.neoecoae.mixins.ae2.crafting;
+
+import appeng.api.networking.IGrid;
+import appeng.api.networking.crafting.CalculationStrategy;
+import appeng.api.networking.crafting.ICraftingPlan;
+import appeng.api.networking.crafting.ICraftingSimulationRequester;
+import appeng.api.stacks.GenericStack;
+import appeng.crafting.CraftingCalculation;
+import appeng.crafting.CraftingPlan;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOCraftingCalculationSettings;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerRequest;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
+import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import net.minecraft.world.level.Level;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Mixin(CraftingCalculation.class)
+public abstract class CraftingCalculationMixin implements ECOCraftingCalculationSettings {
+    @Unique
+    private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
+    @Unique
+    private static final ECOCraftingPlannerService NEOECOAE_DAG_PLANNER = new ECOCraftingPlannerService();
+    @Unique
+    private boolean neoecoae$ignorePatternSubstitutions;
+    @Unique
+    private ECOCraftingPlannerService.Session neoecoae$plannerSession;
+    @Unique
+    private volatile ECOPlanningResult neoecoae$lastPlanningResult;
+    /** Result of this exact runCraftAttempt invocation; candidate planners may invoke attempts concurrently. */
+    @Unique
+    private volatile ThreadLocal<ECOPlanningResult> neoecoae$attemptPlanningResult;
+    /** Re-entrant native fallback marker; calculation probes may run on different worker threads. */
+    @Unique
+    private volatile ThreadLocal<Boolean> neoecoae$nativeFallbackBypass;
+
+    /**
+     * Mixin-added fields are not guaranteed to run their Java field initializers in every
+     * transformed/constructed CraftingCalculation path. Recover lazily before use so a
+     * partially initialized instance cannot abort a candidate calculation with an NPE.
+     */
+    @Unique
+    private ThreadLocal<ECOPlanningResult> neoecoae$getAttemptPlanningResult() {
+        ThreadLocal<ECOPlanningResult> local = this.neoecoae$attemptPlanningResult;
+        if (local == null) {
+            synchronized (this) {
+                local = this.neoecoae$attemptPlanningResult;
+                if (local == null) {
+                    local = new ThreadLocal<>();
+                    this.neoecoae$attemptPlanningResult = local;
+                }
+            }
+        }
+        return local;
+    }
+
+    @Unique
+    private ThreadLocal<Boolean> neoecoae$getNativeFallbackBypass() {
+        ThreadLocal<Boolean> local = this.neoecoae$nativeFallbackBypass;
+        if (local == null) {
+            synchronized (this) {
+                local = this.neoecoae$nativeFallbackBypass;
+                if (local == null) {
+                    local = ThreadLocal.withInitial(() -> false);
+                    this.neoecoae$nativeFallbackBypass = local;
+                }
+            }
+        }
+        return local;
+    }
+
+    @Shadow
+    abstract void handlePausing() throws InterruptedException;
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void captureNetworkPlanningMode(
+        Level level,
+        IGrid grid,
+        ICraftingSimulationRequester simRequester,
+        GenericStack output,
+        CalculationStrategy strategy,
+        CallbackInfo ci
+    ) {
+        // Grid settings are only defaults for an explicit ECO request. Ordinary AE2, Data, and addon requests
+        // must remain on the calculation implementation selected by the crafting-service entry point.
+        this.neoecoae$plannerSession = null;
+        this.neoecoae$ignorePatternSubstitutions = false;
+        if (!(simRequester instanceof ECOPlannerRequest ecoRequest)) {
+            return;
+        }
+
+        ECOPlannerOptions options = ecoRequest.neoecoae$getPlannerOptions();
+        var inventory = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
+        this.neoecoae$plannerSession = NEOECOAE_DAG_PLANNER.createSession(
+            grid.getCraftingService(), output.what(), inventory,
+            options.cyclePlanningEnabled(),
+            options.ignorePatternSubstitutions(),
+            options.fuzzyPlanningItemIds());
+        this.neoecoae$ignorePatternSubstitutions = options.ignorePatternSubstitutions();
+    }
+
+    @Inject(method = "runCraftAttempt", at = @At("HEAD"), cancellable = true)
+    private void runEcoDagAttempt(boolean simulate, long amount,
+            CallbackInfoReturnable<CraftingPlan> cir) throws InterruptedException {
+        // A RETURN hook must never observe a result left by an earlier probe on a reused worker thread.
+        ThreadLocal<ECOPlanningResult> attemptResultLocal = neoecoae$getAttemptPlanningResult();
+        attemptResultLocal.remove();
+        if (neoecoae$plannerSession == null) {
+            return;
+        }
+        ThreadLocal<Boolean> fallbackBypassLocal = neoecoae$getNativeFallbackBypass();
+        if (fallbackBypassLocal.get()) {
+            fallbackBypassLocal.remove();
+            return;
+        }
+        ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::neoecoae$checkpointExternal);
+        attemptResultLocal.set(result);
+        neoecoae$lastPlanningResult = result;
+        switch (result.status()) {
+            case SUCCESS -> cir.setReturnValue(result.plan());
+            case MISSING_ITEMS -> cir.setReturnValue(simulate ? result.plan() : null);
+            case CYCLE_UNSUPPORTED, AMOUNT_OVERFLOW -> cir.setReturnValue(result.plan());
+            case PLANNED_BUT_AMOUNT_UNREPRESENTABLE -> cir.setReturnValue(result.plan());
+            case PARTIAL, CYCLE_UNRESOLVED -> cir.setReturnValue(result.plan());
+            case CANCELLED -> throw new InterruptedException("ECO DAG crafting calculation cancelled");
+            case PARTIAL_UNSUPPORTED, UNSUPPORTED, INTERNAL_ERROR -> {
+                // ECOPlannerRequest is an explicit hard route. Returning ECO's
+                // diagnostic shell keeps AppliedEnhancements/OmniSequence from
+                // consuming the same calculation and falling through to AE2.
+                // Native fallback remains available only to ordinary AE2
+                // calculations that never opted into ECO.
+                cir.setReturnValue(result.plan());
+            }
+        }
+    }
+
+    /** Translate candidate-planner exit/timeout signals at the integration boundary without a Thunder dependency. */
+    @Unique
+    private void neoecoae$checkpointExternal() throws InterruptedException {
+        try {
+            handlePausing();
+        } catch (RuntimeException signal) {
+            if (!neoecoae$isCancellationSignal(signal)) throw signal;
+            InterruptedException cancelled = new InterruptedException("External crafting candidate was cancelled");
+            cancelled.initCause(signal);
+            throw cancelled;
+        }
+    }
+
+    @Unique
+    private static boolean neoecoae$isCancellationSignal(Throwable failure) {
+        for (Throwable cursor = failure; cursor != null; cursor = cursor.getCause()) {
+            String name = cursor.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
+            if (name.contains("cancel") || name.contains("timeout") || name.contains("candidateexit")
+                    || name.contains("abort")) return true;
+        }
+        return Thread.currentThread().isInterrupted();
+    }
+
+    @Inject(method = "runCraftAttempt", at = @At("RETURN"), order = 2000)
+    private void attachEcoDiagnosticToNativePlan(boolean simulate, long amount,
+            CallbackInfoReturnable<CraftingPlan> cir) {
+        ThreadLocal<ECOPlanningResult> attemptResultLocal = neoecoae$getAttemptPlanningResult();
+        ECOPlanningResult attemptResult = attemptResultLocal.get();
+        attemptResultLocal.remove();
+        CraftingPlan plan = cir.getReturnValue();
+        boolean exactPlan = plan != null && attemptResult != null
+            && PlanIdentity.matches(plan, attemptResult.plan());
+        boolean fallbackDiagnostic = plan != null && attemptResult != null
+            && attemptResult.shouldUseNativeFallback();
+        if ((exactPlan || fallbackDiagnostic)
+                && (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
+                && diagnostics.neoecoae$getPlanningResult() == null) {
+            // Another RETURN transformer may rebuild/patch the public plan produced by this exact attempt. Carry
+            // executable metadata only across an exact identity. A failed ECO attempt may still annotate the
+            // native fallback for the confirmation GUI; it is deliberately not registered as execution metadata.
+            diagnostics.neoecoae$setPlanningResult(attemptResult);
+        }
+        if (exactPlan) {
+            // Register the actual plan leaving this attempt as well as the original ECO plan. RETURN
+            // transformers are allowed to rebuild CraftingPlan; metadata is retained only for an exact identity.
+            ECOPlanningResultRegistry.register(plan, attemptResult);
+        }
+    }
+
+    @Inject(method = "run", at = @At("RETURN"), order = 2000)
+    private void attachEcoDiagnosticToFinalPublicPlan(CallbackInfoReturnable<ICraftingPlan> cir) {
+        ICraftingPlan plan = cir.getReturnValue();
+        if (plan == null || plan.simulation()) return;
+
+        ECOPlanningResult selected = ECOPlanningResultRegistry.find(plan);
+        ECOPlanningResult diagnostic = selected;
+        if (diagnostic == null && neoecoae$lastPlanningResult != null
+                && neoecoae$lastPlanningResult.shouldUseNativeFallback()) {
+            // AE2 may copy the native fallback after runCraftAttempt. Preserve the failed ECO explanation for
+            // the report without treating it as metadata for this different executable task vector.
+            diagnostic = neoecoae$lastPlanningResult;
+        }
+
+        Object publicPlan = plan;
+        if (diagnostic != null
+                && (diagnostic.shouldUseNativeFallback() || PlanIdentity.matches(plan, diagnostic.plan()))
+                && publicPlan instanceof ECOCraftingPlanDiagnostics diagnostics
+                && diagnostics.neoecoae$getPlanningResult() == null) {
+            diagnostics.neoecoae$setPlanningResult(diagnostic);
+        }
+        if (selected != null && PlanIdentity.matches(plan, selected.plan())) {
+            ECOPlanningResultRegistry.register(plan, selected);
+        }
+    }
+
+    @Override
+    public boolean neoecoae$isIgnoringPatternSubstitutions() {
+        return neoecoae$ignorePatternSubstitutions;
+    }
+
+    @Override
+    @Nullable
+    public ECOPlanningResult neoecoae$getLastPlanningResult() {
+        return neoecoae$lastPlanningResult;
+    }
+}

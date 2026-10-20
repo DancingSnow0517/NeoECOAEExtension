@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "neoecoae:block/computation_casing"
+    }
+  }
+}

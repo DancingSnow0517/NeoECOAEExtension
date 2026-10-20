@@ -1,0 +1,22 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 62500,
+  "inputFluid": {
+    "amount": 250,
+    "tag": "minecraft:water"
+  },
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "ae2:charged_certus_quartz_crystal"
+    },
+    {
+      "count": 4,
+      "tag": "c:dusts/energized_crystal"
+    }
+  ],
+  "itemOutput": {
+    "count": 8,
+    "id": "neoecoae:energized_crystal"
+  }
+}

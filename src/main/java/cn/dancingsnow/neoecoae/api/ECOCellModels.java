@@ -1,0 +1,62 @@
+package cn.dancingsnow.neoecoae.api;
+
+import appeng.core.definitions.AEItems;
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.all.NEItems;
+import lombok.Getter;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Map;
+
+public class ECOCellModels {
+    private static final Map<Holder<Item>, ResourceLocation> deferredRegistration = new HashMap<>();
+    @Getter
+    private static final Map<Item, ResourceLocation> registry = new IdentityHashMap<>();
+    public static final ResourceLocation DEFAULT_MODEL = NeoECOAE.id("block/cell/storage_cell_default");
+
+    static {
+        register(NEItems.ECO_ITEM_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_item"));
+        register(NEItems.ECO_ITEM_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_item"));
+        register(NEItems.ECO_ITEM_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_item"));
+        register(NEItems.ECO_INFINITE_ITEM_CELL, NeoECOAE.id("block/cell/storage_cell_l9_infinite_resource"));
+
+        register(NEItems.ECO_BULK_ITEM_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_bulk"));
+        register(NEItems.ECO_BULK_ITEM_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_bulk"));
+        register(NEItems.ECO_BULK_ITEM_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_bulk_item"));
+
+        register(NEItems.ECO_FLUID_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_fluid"));
+        register(NEItems.ECO_FLUID_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_fluid"));
+        register(NEItems.ECO_FLUID_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_fluid"));
+    }
+
+    public static ResourceLocation getModelLocation(Item item) {
+        if (item == null) {
+            return DEFAULT_MODEL;
+        }
+        return registry.getOrDefault(item, DEFAULT_MODEL);
+    }
+
+    public static void register(Holder<Item> item, ResourceLocation model) {
+        deferredRegistration.put(item, model);
+    }
+
+    public static void register(Item item, ResourceLocation model) {
+        registry.put(item, model);
+    }
+
+    public static void runDeferredRegistration() {
+        register(AEItems.CREATIVE_CELL.asItem(), NeoECOAE.id("block/cell/storage_cell_creative"));
+        deferredRegistration.forEach((itemHolder, location) -> {
+            register(itemHolder.value(), location);
+        });
+    }
+
+    public static Map<Item, ResourceLocation> getDeferredModels() {
+        runDeferredRegistration();
+        return registry;
+    }
+}

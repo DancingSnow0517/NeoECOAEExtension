@@ -1,0 +1,8 @@
+{
+    "parent": "neoecoae:block/computation_core/threading_core_formed_base",
+    "textures": {
+        "particle": "neoecoae:block/compute/core/core_side_a",
+        "side": "neoecoae:block/compute/core/core_side_a",
+        "light": "neoecoae:block/compute/core/threading_core_light_a_working"
+    }
+}

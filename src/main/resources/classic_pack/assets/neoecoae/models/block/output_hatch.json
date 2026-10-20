@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "neoecoae:block/crafting_casing",
+    "east": "neoecoae:block/crafting_casing",
+    "north": "neoecoae:block/output_hatch",
+    "particle": "neoecoae:block/crafting_casing",
+    "south": "neoecoae:block/crafting_casing",
+    "up": "neoecoae:block/crafting_casing",
+    "west": "neoecoae:block/crafting_casing"
+  }
+}

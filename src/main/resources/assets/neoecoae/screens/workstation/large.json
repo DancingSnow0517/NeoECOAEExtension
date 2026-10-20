@@ -1,0 +1,264 @@
+{
+  "type": "element",
+  "id": "large_workstation_root",
+  "layout": {
+    "width": 253,
+    "height": 214
+  },
+  "texture": {
+    "location": "neoecoae:textures/guis/workstation/large_integrated_working_station.png",
+    "sprite": [
+      0,
+      0,
+      253,
+      214
+    ]
+  },
+  "children": [
+    {
+      "type": "custom",
+      "id": "large_workstation_content",
+      "custom": "content",
+      "layout": {
+        "position": "absolute",
+        "left": 0,
+        "top": 0,
+        "width": "100%",
+        "height": "100%"
+      }
+    },
+    {
+      "type": "custom",
+      "id": "large_workstation_player_inventory",
+      "custom": "player_inventory",
+      "layout": {
+        "position": "absolute",
+        "left": 0,
+        "top": 0,
+        "width": 253,
+        "height": 214
+      },
+      "slots": [
+        {
+          "index": 9,
+          "left": 8,
+          "top": 130
+        },
+        {
+          "index": 10,
+          "left": 26,
+          "top": 130
+        },
+        {
+          "index": 11,
+          "left": 44,
+          "top": 130
+        },
+        {
+          "index": 12,
+          "left": 62,
+          "top": 130
+        },
+        {
+          "index": 13,
+          "left": 80,
+          "top": 130
+        },
+        {
+          "index": 14,
+          "left": 98,
+          "top": 130
+        },
+        {
+          "index": 15,
+          "left": 116,
+          "top": 130
+        },
+        {
+          "index": 16,
+          "left": 134,
+          "top": 130
+        },
+        {
+          "index": 17,
+          "left": 152,
+          "top": 130
+        },
+        {
+          "index": 18,
+          "left": 8,
+          "top": 148
+        },
+        {
+          "index": 19,
+          "left": 26,
+          "top": 148
+        },
+        {
+          "index": 20,
+          "left": 44,
+          "top": 148
+        },
+        {
+          "index": 21,
+          "left": 62,
+          "top": 148
+        },
+        {
+          "index": 22,
+          "left": 80,
+          "top": 148
+        },
+        {
+          "index": 23,
+          "left": 98,
+          "top": 148
+        },
+        {
+          "index": 24,
+          "left": 116,
+          "top": 148
+        },
+        {
+          "index": 25,
+          "left": 134,
+          "top": 148
+        },
+        {
+          "index": 26,
+          "left": 152,
+          "top": 148
+        },
+        {
+          "index": 27,
+          "left": 8,
+          "top": 166
+        },
+        {
+          "index": 28,
+          "left": 26,
+          "top": 166
+        },
+        {
+          "index": 29,
+          "left": 44,
+          "top": 166
+        },
+        {
+          "index": 30,
+          "left": 62,
+          "top": 166
+        },
+        {
+          "index": 31,
+          "left": 80,
+          "top": 166
+        },
+        {
+          "index": 32,
+          "left": 98,
+          "top": 166
+        },
+        {
+          "index": 33,
+          "left": 116,
+          "top": 166
+        },
+        {
+          "index": 34,
+          "left": 134,
+          "top": 166
+        },
+        {
+          "index": 35,
+          "left": 152,
+          "top": 166
+        },
+        {
+          "index": 0,
+          "left": 8,
+          "top": 188
+        },
+        {
+          "index": 1,
+          "left": 26,
+          "top": 188
+        },
+        {
+          "index": 2,
+          "left": 44,
+          "top": 188
+        },
+        {
+          "index": 3,
+          "left": 62,
+          "top": 188
+        },
+        {
+          "index": 4,
+          "left": 80,
+          "top": 188
+        },
+        {
+          "index": 5,
+          "left": 98,
+          "top": 188
+        },
+        {
+          "index": 6,
+          "left": 116,
+          "top": 188
+        },
+        {
+          "index": 7,
+          "left": 134,
+          "top": 188
+        },
+        {
+          "index": 8,
+          "left": 152,
+          "top": 188
+        }
+      ]
+    },
+    {
+      "type": "custom",
+      "id": "large_workstation_input_fluid",
+      "custom": "input_fluid",
+      "layout": {
+        "position": "absolute",
+        "left": 204,
+        "top": 78,
+        "width": 18,
+        "height": 46,
+        "paddingAll": 0
+      }
+    },
+    {
+      "type": "custom",
+      "id": "large_workstation_output_fluid",
+      "custom": "output_fluid",
+      "layout": {
+        "position": "absolute",
+        "left": 227,
+        "top": 78,
+        "width": 18,
+        "height": 46,
+        "paddingAll": 0
+      }
+    },
+    {
+      "type": "custom",
+      "id": "large-workstation-module-card",
+      "custom": "module_card",
+      "layout": {
+        "position": "absolute",
+        "left": 227,
+        "top": 42,
+        "width": 16,
+        "height": 16,
+        "paddingAll": 0
+      }
+    }
+  ]
+}

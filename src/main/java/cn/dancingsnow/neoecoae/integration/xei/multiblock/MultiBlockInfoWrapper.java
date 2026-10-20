@@ -1,0 +1,341 @@
+package cn.dancingsnow.neoecoae.integration.xei.multiblock;
+
+import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Scene;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
+import com.lowdragmc.lowdraglib2.integration.xei.IngredientIO;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
+import lombok.Getter;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
+import org.appliedenergistics.yoga.YogaEdge;
+import org.appliedenergistics.yoga.YogaFlexDirection;
+import org.appliedenergistics.yoga.YogaGutter;
+import org.appliedenergistics.yoga.YogaPositionType;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.IntConsumer;
+
+public class MultiBlockInfoWrapper {
+
+    public static final int DEFAULT_WIDTH = 170;
+    public static final int DEFAULT_HEIGHT = 190;
+    public static final int MIN_HEIGHT = 120;
+    public static final int EMI_VERTICAL_RESERVE = 105;
+
+    private static final int PADDING = 4;
+    private static final int GAP = 2;
+    private static final int HEADER_HEIGHT = 22;
+    private static final int MATERIALS_HEIGHT = 27;
+    private static final int CONTROL_BUTTON_WIDTH = 44;
+    private static final int CONTROL_BUTTON_HEIGHT = 18;
+
+    @Getter
+    private final MultiBlockDefinition definition;
+    private final TrackedDummyWorld world;
+    private final int width;
+    private final int height;
+    private final IntConsumer expandChanged;
+
+    private Scene scene;
+    private Button expandButton;
+    private Button layerButton;
+    private Button formedButton;
+
+    private int expand = 1;
+    private int layer = -1;
+    private int layerMax = 0;
+    private boolean formed = false;
+
+    private ItemStack selectedItem = ItemStack.EMPTY;
+    private ScrollerView requiredItems;
+    private final List<RequiredItemSlot> requiredItemSlots = new ArrayList<>();
+
+    public MultiBlockInfoWrapper(MultiBlockDefinition definition) {
+        this(definition, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+    }
+
+    public MultiBlockInfoWrapper(MultiBlockDefinition definition, int width, int height) {
+        this(definition, width, height, ignored -> {});
+    }
+
+    public MultiBlockInfoWrapper(
+        MultiBlockDefinition definition,
+        int width,
+        int height,
+        IntConsumer expandChanged
+    ) {
+        this.definition = definition;
+        this.world = new TrackedDummyWorld();
+        this.width = Math.max(width, DEFAULT_WIDTH);
+        this.height = Math.max(height, MIN_HEIGHT);
+        this.expandChanged = expandChanged;
+    }
+
+    public ModularUI createModularUI() {
+        int sceneHeight = height - PADDING * 2 - GAP * 2 - HEADER_HEIGHT - MATERIALS_HEIGHT;
+
+        var root = new UIElement().layout(layout -> layout
+            .setWidth(width)
+            .setHeight(height)
+            .setPadding(YogaEdge.ALL, PADDING)
+            .setGap(YogaGutter.ALL, GAP)
+        ).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+
+        root.addChild(new TextElement()
+            .setText(definition.getName())
+            .textStyle(textStyle -> textStyle
+                .adaptiveWidth(false)
+                .adaptiveHeight(false)
+                .textWrap(TextWrap.WRAP)
+                .fontSize(8.5f)
+                .lineSpacing(1)
+                .textShadow(true))
+            .layout(layout -> layout
+                .setWidthPercent(100)
+                .setHeight(HEADER_HEIGHT)));
+
+        UIElement sceneContainer = new UIElement().layout(layout -> layout
+            .setWidthPercent(100)
+            .setHeight(sceneHeight)
+        );
+        root.addChild(sceneContainer);
+
+        scene = new Scene()
+            .createScene(world)
+            .setDraggable(true)
+            .setScalable(true)
+            .setRenderSelect(true)
+            .setRenderFacing(false)
+            .setShowHoverBlockTips(true)
+            .useCacheBuffer()
+            .setOnSelected(this::onSelect);
+        scene.getLayout()
+            .positionType(YogaPositionType.ABSOLUTE)
+            .setWidthPercent(100)
+            .setHeightPercent(100)
+            .setPosition(YogaEdge.LEFT, 0)
+            .setPosition(YogaEdge.TOP, 0);
+        sceneContainer.addChild(scene);
+
+        UIElement buttons = new UIElement().layout(layout -> layout
+            .positionType(YogaPositionType.ABSOLUTE)
+            .setWidth(CONTROL_BUTTON_WIDTH * 3 + GAP * 2)
+            .setHeight(CONTROL_BUTTON_HEIGHT)
+            .flexDirection(YogaFlexDirection.ROW)
+            .setGap(YogaGutter.ALL, GAP)
+            .setPosition(YogaEdge.RIGHT, 2)
+            .setPosition(YogaEdge.TOP, 2)
+        );
+        expandButton = new Button().setText("E: " + expand).setOnClick(event -> expand());
+        expandButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
+        buttons.addChild(expandButton);
+
+        layerButton = new Button().setText("L: " + layer).setOnClick(event -> nextLayer());
+        layerButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
+        buttons.addChild(layerButton);
+
+        formedButton = new Button().setText("F: " + formed).setOnClick(event -> cycleFormed());
+        formedButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
+        buttons.addChild(formedButton);
+
+        sceneContainer.addChild(buttons);
+
+        sceneContainer.addChild(new ItemSlot()
+            .bindDataSource(SupplierDataSource.of(() -> selectedItem))
+            .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
+                .setPosition(YogaEdge.LEFT, 2)
+                .setPosition(YogaEdge.TOP, 2))
+            .addClass("panel_border"));
+
+        requiredItems = new ScrollerView();
+        requiredItems.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        requiredItems.viewPort(c -> c
+            .layout(layout -> layout.paddingAll(1).paddingBottom(3))
+            .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
+        requiredItems.viewContainer(c -> c
+            .layout(layout -> layout.flexDirection(YogaFlexDirection.ROW))
+            .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
+        requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(MATERIALS_HEIGHT));
+        root.addChild(requiredItems);
+
+        initializeRequiredItemSlots();
+        expandChanged.accept(expand);
+        createScene();
+        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))));
+    }
+
+    public List<RequiredItem> getRequiredItems() {
+        var context = MultiBlockContext.dummyDelegated(expand, new TrackedDummyWorld());
+        definition.createLevel(context);
+        return context.getRequiredItems();
+    }
+
+    private void onSelect(BlockPos blockPos, Direction direction) {
+        BlockState state = world.getBlockState(blockPos);
+        if (!state.isAir()) {
+            selectedItem = new ItemStack(state.getBlock());
+        } else {
+            selectedItem = ItemStack.EMPTY;
+        }
+    }
+
+    private void cycleFormed() {
+        formed = !formed;
+        formedButton.setText("F: " + formed);
+        createScene();
+    }
+
+    private void expand() {
+        if (expand == definition.getExpandMax()) {
+            expand = definition.getExpandMin();
+        } else {
+            expand++;
+        }
+        expandChanged.accept(expand);
+        expandButton.setText("E: " + expand);
+        if (formed) {
+            cycleFormed();
+        } else {
+            createScene();
+        }
+    }
+
+    private void nextLayer() {
+        if (layer + 1 > layerMax) {
+            layer = -1;
+        } else {
+            layer++;
+        }
+        layerButton.setText("L: " + layer);
+        if (formed) {
+            cycleFormed();
+        } else {
+            createScene();
+        }
+    }
+
+    private void createScene() {
+        world.clear();
+        MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(expand, world);
+        context.setFormed(formed);
+        definition.createLevel(context);
+        this.layerMax = context.getYMax();
+        layer = Math.clamp(layer, -1, layerMax);
+        if (layer == -1) {
+            scene.setRenderedCore(context.allBlocks());
+        } else {
+            List<BlockPos> rendered = new ArrayList<>();
+            for (BlockPos pos : context.allBlocks()) {
+                if (pos.getY() == layer) {
+                    rendered.add(pos);
+                }
+            }
+            scene.setRenderedCore(rendered);
+        }
+        updateRequiredItemSlots(context.getRequiredItems());
+    }
+
+    /**
+     * JEI keeps references to the recipe slot widgets after the recipe UI is
+     * created. Keep those widgets alive while the preview length changes, so
+     * JEI and AE2 observe the updated stack count instead of the initial one.
+     */
+    private void initializeRequiredItemSlots() {
+        requiredItemSlots.clear();
+        MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(
+            definition.getExpandMax(),
+            new TrackedDummyWorld()
+        );
+        definition.createLevel(context);
+
+        for (int i = 0; i < context.getRequiredItems().size(); i++) {
+            RequiredItemSlot slot = new RequiredItemSlot(0);
+            slot.xeiRecipeIngredient(IngredientIO.INPUT)
+                .xeiRecipeSlot(IngredientIO.INPUT, 1);
+            requiredItemSlots.add(slot);
+            requiredItems.addScrollViewChild(slot);
+        }
+    }
+
+    private void updateRequiredItemSlots(List<RequiredItem> items) {
+        for (RequiredItemSlot slot : requiredItemSlots) {
+            slot.setRequiredItem(null);
+        }
+
+        for (RequiredItem item : items) {
+            RequiredItemSlot slot = requiredItemSlots.stream()
+                .filter(candidate -> candidate.matches(item.stack()))
+                .findFirst()
+                .orElseGet(() -> requiredItemSlots.stream()
+                    .filter(RequiredItemSlot::isUnused)
+                    .findFirst()
+                    .orElse(null));
+            if (slot != null) {
+                slot.setRequiredItem(item);
+            }
+        }
+    }
+
+    private static final class RequiredItemSlot extends ItemSlot {
+        private int count;
+        private ItemStack requiredItem = ItemStack.EMPTY;
+
+        private RequiredItemSlot(int count) {
+            this.count = count;
+            getStyle().backgroundTexture(NETextures.ITEM_SLOT);
+        }
+
+        private void setRequiredItem(@Nullable RequiredItem requiredItem) {
+            if (requiredItem == null || requiredItem.isEmpty()) {
+                this.requiredItem = ItemStack.EMPTY;
+                this.count = 0;
+                setItem(ItemStack.EMPTY, false);
+            } else {
+                this.requiredItem = requiredItem.stack();
+                this.count = requiredItem.count();
+                setItem(requiredItem.stackWithCount(), false);
+            }
+        }
+
+        private boolean matches(ItemStack stack) {
+            return !requiredItem.isEmpty() && ItemStack.isSameItemSameComponents(requiredItem, stack);
+        }
+
+        private boolean isUnused() {
+            return requiredItem.isEmpty();
+        }
+
+        @Override
+        protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
+            if (itemStack.isEmpty()) {
+                return;
+            }
+            DrawerHelper.drawItemStack(guiContext.graphics, itemStack.copyWithCount(1), 0, 0, -1, null);
+            guiContext.graphics.pose().pushPose();
+            guiContext.graphics.pose().translate(0, 0, 240);
+            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(count), 17, 17, 0xffffff, true, 0.8f);
+            guiContext.graphics.pose().popPose();
+        }
+    }
+}

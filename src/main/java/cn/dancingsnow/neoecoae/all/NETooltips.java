@@ -1,0 +1,190 @@
+package cn.dancingsnow.neoecoae.all;
+
+import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.blocks.BuddingEnergizedCrystalBlock;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
+
+import java.util.List;
+import java.util.Set;
+
+public class NETooltips {
+    private static final Component HOLD_SHIFT = Component.translatable("tooltip.neoecoae.holdshift").withStyle(ChatFormatting.GRAY);
+
+    private static final Set<Item> STORAGE_SYSTEMS = Set.of(
+        NEBlocks.STORAGE_SYSTEM_L4.asItem(),
+        NEBlocks.STORAGE_SYSTEM_L6.asItem(),
+        NEBlocks.STORAGE_SYSTEM_L9.asItem()
+    );
+
+    private static final Set<Item> CRAFTING_SYSTEMS = Set.of(
+        NEBlocks.CRAFTING_SYSTEM_L4.asItem(),
+        NEBlocks.CRAFTING_SYSTEM_L6.asItem(),
+        NEBlocks.CRAFTING_SYSTEM_L9.asItem()
+    );
+
+    private static final Set<Item> COMPUTATION_SYSTEMS = Set.of(
+        NEBlocks.COMPUTATION_SYSTEM_L4.asItem(),
+        NEBlocks.COMPUTATION_SYSTEM_L6.asItem(),
+        NEBlocks.COMPUTATION_SYSTEM_L9.asItem()
+    );
+
+    public static void register(ItemTooltipEvent event) {
+        ItemStack stack = event.getItemStack();
+        List<Component> tooltip = event.getToolTip();
+        TooltipFlag flags = event.getFlags();
+        if (LargeWorkstationModule.isUpgradeCard(stack)) {
+            LargeWorkstationModule module = LargeWorkstationModule.fromUpgradeCard(stack);
+            tooltip.add(Component.translatable("gui.neoecoae.workstation.module_card_install").withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable(module == LargeWorkstationModule.REGULAR
+                ? "gui.neoecoae.workstation.module_card_blank" : "gui.neoecoae.workstation.module_card_unlock", module.title())
+                .withStyle(ChatFormatting.GRAY));
+            if (module != LargeWorkstationModule.REGULAR) {
+                tooltip.add(Component.translatable("gui.neoecoae.workstation.module_card_config").withStyle(ChatFormatting.DARK_GRAY));
+            }
+        }
+        if (STORAGE_SYSTEMS.contains(stack.getItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.storage_system"),
+                Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.storageSystemMaxLength)
+            );
+        }
+        if (stack.is(NEBlocks.ECO_DRIVE.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.storage_dirve.0"),
+                Component.translatable("tooltip.neoecoae.storage_dirve.1")
+            );
+        }
+        if (CRAFTING_SYSTEMS.contains(stack.getItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.crafting_system"),
+                Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.craftingSystemMaxLength)
+            );
+        }
+        if (stack.is(NEBlocks.INTEGRATED_WORKING_STATION.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.water"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.sodium"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.cryotheum"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.coolant_tick")
+            );
+        }
+        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOCraftingParallelCore parallelCore) {
+            IECOTier tier = parallelCore.getTier();
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.crafting_parallels"),
+                Component.translatable("tooltip.neoecoae.max_parallel_count", tier.getCrafterParallel()),
+                Component.translatable("tooltip.neoecoae.overclocked"),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.max_parallel_count", tier.getOverclockedCrafterParallel())
+                ),
+                Component.translatable("tooltip.neoecoae.active_cooling"),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.clear_negative_effect")
+                )
+            );
+        }
+
+        if (stack.is(NEBlocks.CRAFTING_WORKER.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.crafting_worker.0"),
+                Component.translatable("tooltip.neoecoae.crafting_worker.1"),
+                Component.translatable("tooltip.neoecoae.overclocked"),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.crafting_jobs_l4", ECOTier.L4.getOverclockedCrafterQueueMultiply())
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.crafting_jobs_l6", ECOTier.L6.getOverclockedCrafterQueueMultiply())
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.crafting_jobs_l9", ECOTier.L9.getOverclockedCrafterQueueMultiply())
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.power_multiply_l4", ECOTier.L4.getOverclockedCrafterPowerMultiply())
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.power_multiply_l6", ECOTier.L6.getOverclockedCrafterPowerMultiply())
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.power_multiply_l9", ECOTier.L9.getOverclockedCrafterPowerMultiply())
+                ),
+                Component.translatable("tooltip.neoecoae.active_cooling"),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.clear_negative_effect")
+                )
+            );
+        }
+
+        if (stack.is(NEBlocks.FX_MONITOR_CORE.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.fx_monitor_core.0"),
+                Component.translatable("tooltip.neoecoae.fx_monitor_core.1")
+            );
+        }
+        if (stack.is(NEBlocks.CRAFTING_PATTERN_BUS.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.crafting_pattern_bus.0"),
+                Component.translatable("tooltip.neoecoae.crafting_pattern_bus.1"),
+                Component.translatable("tooltip.neoecoae.crafting_pattern_bus.2")
+            );
+        }
+
+        if (COMPUTATION_SYSTEMS.contains(stack.getItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.computation_system"),
+                Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.computationSystemMaxLength),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.0"),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.1"),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.2"),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.3"),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.4")
+            );
+        }
+        if (stack.is(NEBlocks.COMPUTATION_DRIVE.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.computation_drive.0"),
+                Component.translatable("tooltip.neoecoae.computation_drive.1")
+            );
+        }
+        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOComputationThreadingCore threadingCore) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.computation_threading_core.0"),
+                Component.translatable("tooltip.neoecoae.computation_threading_core.1"),
+                Component.translatable("tooltip.neoecoae.computation_threading_core.2"),
+                Component.translatable("tooltip.neoecoae.max_thread_count", threadingCore.getTier().getCPUThreads())
+            );
+        }
+        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOComputationParallelCore parallelCore) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.computation_parallel_core.0"),
+                Component.translatable("tooltip.neoecoae.computation_parallel_core.1"),
+                Component.translatable("tooltip.neoecoae.max_parallel_count", parallelCore.getTier().getCPUAccelerators())
+            );
+        }
+        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof BuddingEnergizedCrystalBlock) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.budding_energized_crystal_block")
+            );
+        }
+    }
+
+    private static void addTooltips(List<Component> tooltip, TooltipFlag flags, Component... tooltips) {
+        if (flags.hasShiftDown()) {
+            tooltip.addAll(List.of(tooltips));
+        } else if (!tooltip.contains(HOLD_SHIFT)) {
+            tooltip.add(HOLD_SHIFT);
+        }
+    }
+}
