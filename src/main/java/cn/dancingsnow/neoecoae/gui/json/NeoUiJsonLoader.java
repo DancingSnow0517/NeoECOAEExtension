@@ -137,7 +137,7 @@ public final class NeoUiJsonLoader {
         if ("visible".equalsIgnoreCase(overflow)) {
             element.setOverflowVisible(true);
         }
-        applyTexture(element, node, source);
+        applyTexture(element, node, source, context);
         addChildren(element, node, context, source);
         // This is the only dynamic hook.  It is supplied by the screen and is
         // therefore the only place where an action or binding can be attached.
@@ -273,7 +273,7 @@ public final class NeoUiJsonLoader {
         return false;
     }
 
-    private static void applyTexture(UIElement element, JsonObject node, ResourceLocation source) {
+    private static void applyTexture(UIElement element, JsonObject node, ResourceLocation source, NeoUiJsonContext context) {
         JsonElement texture = node.get("texture");
         if (texture == null || texture.isJsonNull()) {
             return;
@@ -291,7 +291,7 @@ public final class NeoUiJsonLoader {
             throw error(source, "texture location is empty", null);
         }
         ResourceLocation textureLocation = parseLocation(textureName, source.getNamespace(), source);
-        SpriteTexture sprite = NETextures.panelSprite(textureLocation);
+        SpriteTexture sprite = NETextures.panelSprite(textureLocation, context::panelTier);
         JsonElement spriteElement = textureObject == null ? node.get("sprite") : textureObject.get("sprite");
         int[] rectangle = spriteRectangle(spriteElement, source);
         if (rectangle != null) {

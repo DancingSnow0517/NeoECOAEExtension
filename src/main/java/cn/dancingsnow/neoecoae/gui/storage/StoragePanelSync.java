@@ -7,18 +7,25 @@ import java.util.function.Supplier;
 import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.CompoundTag;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
+import net.minecraft.world.level.block.state.BlockState;
 
 /** One display snapshot and one bounded page request, registered identically on both sides. */
 final class StoragePanelSync {
     private final Supplier<StorageHostUI.Config> config;
     private final int pageSize;
+    private final Supplier<BlockState> hostState;
     private final BindableValue<Integer> pageRequest = new BindableValue<>(0);
     private int requestedOffset;
     private HostPanelTextureState textures = HostPanelTextureState.EMPTY;
     private StoragePanelState state = StoragePanelState.EMPTY;
 
     StoragePanelSync(UIElement parent, Supplier<StorageHostUI.Config> config, int pageSize) {
+        this(parent, config, pageSize, null);
+    }
+
+    StoragePanelSync(UIElement parent, Supplier<StorageHostUI.Config> config, int pageSize, Supplier<BlockState> hostState) {
         this.config = config;
+        this.hostState = hostState;
         this.pageSize = pageSize;
         Tag initial = snapshot();
         BindableValue<Tag> synced = new BindableValue<>(initial);
@@ -45,7 +52,9 @@ final class StoragePanelSync {
     private Tag snapshot() {
         state = StoragePanelState.capture(config.get(), requestedOffset, pageSize);
         requestedOffset = state.cellOffset();
-        textures = HostPanelTextureState.capture(config.get().hostItem().get());
+        // Keep the old item-preview factory compatible; live host factories always supply placed state.
+        textures = hostState == null ? HostPanelTextureState.capture(config.get().hostItem().get())
+            : HostPanelTextureState.capture(hostState.get());
         CompoundTag tag = state.toTag(config.get().registries());
         textures.write(tag);
         return tag;

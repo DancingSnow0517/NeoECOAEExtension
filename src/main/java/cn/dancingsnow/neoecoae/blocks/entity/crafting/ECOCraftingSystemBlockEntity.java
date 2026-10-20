@@ -869,7 +869,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         CraftingHostPanelUI.Config panelConfig = createCraftingPanelConfig(holder.player);
         UIElement root = CraftingHostPanelUI.create(panelConfig,
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/crafting_system.md"),
-            MultiblockBuilderUI.createInlineOpenButton(buildWindow), buildWindow, this::getMaintenanceStatusTooltip, this::getTier);
+            MultiblockBuilderUI.createInlineOpenButton(buildWindow), buildWindow, this::getMaintenanceStatusTooltip,
+            this::getTier, this::getBlockState);
         return ECOModularUI.create(root, holder.player);
     }
 

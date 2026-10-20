@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.theme;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinResourceProvider;
@@ -76,6 +78,31 @@ class PanelAtlasSpriteTest {
                 assertEquals(cached.borderLT, resolved.borderLT);
                 assertEquals(cached.borderRB, resolved.borderRB);
                 assertEquals(cached.color, resolved.color);
+
+                IECOTier addon = mock(IECOTier.class);
+                var custom = ResourceLocation.fromNamespaceAndPath("addon", "textures/tier/" + atlas.getValue());
+                when(addon.getPanelAtlas(atlas.getKey())).thenReturn(custom);
+                var activeTier = new AtomicReference<IECOTier>(addon);
+                var scoped = assertInstanceOf(PanelAtlasSprite.class, NETextures.panelSprite(original, activeTier::get)
+                    .setSprite(7, 11, 29, 4).setBorder(1, 0, 1, 0).setColor(0xFFAABBCC)
+                    .setWrapMode(SpriteTexture.WrapMode.REPEAT).copy());
+                SpriteTexture own = scoped.resolve();
+                assertEquals(custom, own.getImageLocation());
+                assertEquals(scoped.spritePosition, own.spritePosition);
+                assertEquals(scoped.spriteSize, own.spriteSize);
+                assertEquals(scoped.borderLT, own.borderLT);
+                assertEquals(scoped.borderRB, own.borderRB);
+                assertEquals(scoped.color, own.color);
+                assertEquals(scoped.wrapMode, own.wrapMode);
+                assertEquals(replacement, cached.resolve().getImageLocation(), "Addon atlas must not recolor other hosts");
+                for (var builtin : ECOTier.values()) {
+                    assertNull(builtin.getPanelAtlas(atlas.getKey()));
+                    activeTier.set(builtin);
+                    assertEquals(replacement, scoped.resolve().getImageLocation());
+                }
+                activeTier.set(addon);
+                when(addon.getPanelAtlas(atlas.getKey())).thenReturn(null);
+                assertEquals(replacement, scoped.resolve().getImageLocation());
             }
         } finally {
             for (var entry : saved.entrySet()) entry.getKey().set(null, entry.getValue());

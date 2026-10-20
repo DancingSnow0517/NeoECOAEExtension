@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import java.util.function.Supplier;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.VanillaSpriteTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -52,6 +54,19 @@ final class StoragePanelTextures {
 
     static SpriteTexture sprite(int x, int y, int width, int height) {
         return NETextures.panelSprite(ATLAS).setSprite(x, y, width, height);
+    }
+
+    /** Copy a template's crop and style into this panel's atlas; never mutate shared constants. */
+    static SpriteTexture forTier(SpriteTexture template, Supplier<IECOTier> tier) {
+        IECOTier current = tier.get();
+        if (!ATLAS.equals(template.getImageLocation()) || current == null || current.getPanelAtlas("Storage-ATLAS") == null)
+            return template;
+        var sprite = NETextures.panelSprite(ATLAS, tier)
+            .setSprite(template.spritePosition.x, template.spritePosition.y, template.spriteSize.width, template.spriteSize.height)
+            .setBorder(template.borderLT.x, template.borderLT.y, template.borderRB.x, template.borderRB.y)
+            .setColor(template.color).setWrapMode(template.wrapMode);
+        sprite.copyTransform(template);
+        return sprite;
     }
 
     static SpriteTexture tier(int tier) {

@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.gui.json;
 
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Runtime hooks used by {@link NeoUiJsonLoader}.  JSON files only describe the
@@ -11,6 +13,12 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 public interface NeoUiJsonContext {
     /** A context which creates no custom elements and performs no configuration. */
     NeoUiJsonContext EMPTY = new NeoUiJsonContext() { };
+
+    /** Tier used by the six replaceable panel atlases in this UI instance. */
+    @Nullable
+    default IECOTier panelTier() {
+        return null;
+    }
 
     /**
      * Creates a dynamic element for a node whose {@code type} is {@code custom}.

@@ -26,6 +26,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
@@ -167,20 +168,29 @@ public final class StorageHostUI {
     }
 
     public static UIElement create(Config config, Supplier<IECOTier> panelTier) {
-        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier));
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, null));
+    }
+
+    public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState) {
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, hostState));
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
         private final Supplier<IECOTier> panelTier;
+        private final Supplier<BlockState> hostState;
         private StoragePanelSync sync;
         private StorageHostCharts charts;
         private int columns;
 
-        private JsonContext(Config config, Supplier<IECOTier> panelTier) {
+        private JsonContext(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState) {
             this.config = config;
             this.panelTier = panelTier;
+            this.hostState = hostState;
         }
+
+        @Override
+        public IECOTier panelTier() { return panelTier.get(); }
 
         @Override
         public UIElement createCustom(JsonObject definition) {
@@ -190,11 +200,11 @@ public final class StorageHostUI {
                     UIElement root = new UIElement();
                     columns = definition.get("cell_columns").getAsInt();
                     if (columns < 1 || columns > 32) throw new IllegalArgumentException("Invalid storage cell columns");
-                    sync = new StoragePanelSync(root, () -> config, columns * 3);
+                    sync = new StoragePanelSync(root, () -> config, columns * 3, hostState);
                     charts = new StorageHostCharts(sync, columns * 3, config.hostItem().get(), panelTier);
                     yield root;
                 }
-                case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config);
+                case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config, panelTier);
                 case "infinite_component_slot" -> infiniteComponentSlot(config);
                 case "player_inventory" -> playerInventory();
                 default -> charts.create(custom, definition);

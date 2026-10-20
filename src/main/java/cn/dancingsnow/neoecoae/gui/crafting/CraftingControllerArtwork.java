@@ -4,6 +4,7 @@ import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_HEIGHT
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelElements;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
@@ -55,6 +56,7 @@ final class CraftingControllerArtwork extends UIElement {
     private static final String[] NUMBER_UNITS = {"", "K", "M", "G", "T", "P", "E"};
     private final Config config;
     private final Supplier<IECOTier> panelTier;
+    private final Supplier<HostPanelTextureState> textures;
     private final ItemStack hostItem;
     private final CraftingOutputSlot[] workerSlots = new CraftingOutputSlot[CraftingControllerPanelState.SLOT_COUNT];
     private final CraftingControllerViewState view = new CraftingControllerViewState();
@@ -62,7 +64,12 @@ final class CraftingControllerArtwork extends UIElement {
     private final HostProgressAnimation opening = new HostProgressAnimation();
 
     CraftingControllerArtwork(Config config, Supplier<IECOTier> panelTier) {
+        this(config, panelTier, () -> HostPanelTextureState.EMPTY);
+    }
+
+    CraftingControllerArtwork(Config config, Supplier<IECOTier> panelTier, Supplier<HostPanelTextureState> textures) {
         this.config = config;
+        this.textures = textures;
         this.panelTier = panelTier;
         hostItem = config.hostItem().get().copyWithCount(1);
         for (int cell = 0; cell < workerSlots.length; cell++) {
@@ -109,7 +116,7 @@ final class CraftingControllerArtwork extends UIElement {
 
     @Override
     public void drawBackgroundAdditional(GUIContext context) {
-        context.drawTexture(NETextures.Crafting.CONTROLLER, getPositionX(), getPositionY(), UI_WIDTH, UI_HEIGHT);
+        context.drawTexture(NETextures.Crafting.controller(panelTier), getPositionX(), getPositionY(), UI_WIDTH, UI_HEIGHT);
         drawHeader(context);
         if (!hostItem.isEmpty()) {
             context.graphics.renderItem(hostItem, Math.round(getPositionX()) + 9,
@@ -216,8 +223,15 @@ final class CraftingControllerArtwork extends UIElement {
     }
 
     private void drawTier(GUIContext context, int tier) {
+        var custom = textures.get().tier();
+        if (custom != null) {
+            context.drawTexture(SpriteTexture.of(custom).setSprite(0, 0, 13, 18),
+                getPositionX() + 23, getPositionY() + 5, 13, 18);
+            return;
+        }
         if (HostPanelTier.drawName(context, panelTier.get(), getPositionX() + 23,
-            getPositionY() + 5, 13, 18, 0xFF3F3D52)) return;
+            getPositionY() + 5, 13, 18, 0xFF3F3D52,
+            NETextures.panelSprite(NETextures.Crafting.CONTROLLER_ATLAS, panelTier).setSprite(36, 5, 1, 18))) return;
         int sourceX = switch (tier) { case 1 -> 0; case 2 -> 13; case 3 -> 26; default -> -1; };
         if (sourceX >= 0) sprite(context, sourceX, 0, 13, 18, 23, 5, 13, 18);
     }
@@ -249,7 +263,11 @@ final class CraftingControllerArtwork extends UIElement {
     }
 
     private void drawHostMarker(GUIContext context, int tier, boolean bottom, int y) {
-        if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom,
+        var custom = textures.get().marker();
+        if (custom != null) {
+            context.drawTexture(SpriteTexture.of(custom).setSprite(0, bottom ? 8 : 0, 13, 8),
+                getPositionX() + 12, getPositionY() + y, 10, 7);
+        } else if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom,
             getPositionX() + 12, getPositionY() + y, 10, 7) && tier >= 1 && tier <= STATUS_CORNER_X.length) {
             sprite(context, STATUS_CORNER_X[tier - 1], bottom ? 44 : 19, 10, 7, 12, y, 10, 7);
         }
@@ -396,13 +414,13 @@ final class CraftingControllerArtwork extends UIElement {
 
     private void drawGaugeTick(GUIContext context, int x, int y, int width) {
         // Tick marks remain part of the controller artwork, above the rendered fluid.
-        context.drawTexture(NETextures.panelSprite(NETextures.Crafting.CONTROLLER_ATLAS).setSprite(x, y, width, 1),
+        context.drawTexture(NETextures.panelSprite(NETextures.Crafting.CONTROLLER_ATLAS, panelTier).setSprite(x, y, width, 1),
             getPositionX() + x, getPositionY() + y, width, 1);
     }
 
     private void sprite(GUIContext context, int u, int v, int sourceWidth, int sourceHeight,
                         int x, int y, int width, int height) {
-        context.drawTexture(NETextures.Crafting.widget(u, v, sourceWidth, sourceHeight),
+        context.drawTexture(NETextures.Crafting.widget(u, v, sourceWidth, sourceHeight, panelTier),
             getPositionX() + x, getPositionY() + y, width, height);
     }
 

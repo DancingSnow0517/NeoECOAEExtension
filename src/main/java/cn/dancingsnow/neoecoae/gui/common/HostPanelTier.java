@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.common;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -30,7 +31,14 @@ public final class HostPanelTier {
     /** Returns false when the caller should draw the original built-in tier glyph. */
     public static boolean drawName(GUIContext context, @Nullable IECOTier tier,
         float x, float y, float width, float height, int color) {
+        return drawName(context, tier, x, y, width, height, color, null);
+    }
+
+    /** The optional clean background removes the controller's baked-in placeholder glyph. */
+    public static boolean drawName(GUIContext context, @Nullable IECOTier tier,
+        float x, float y, float width, float height, int color, @Nullable IGuiTexture background) {
         if (tier == null || tier instanceof ECOTier) return false;
+        if (background != null) context.drawTexture(background, x, y, width, height);
         Component name = tier.getPanelTierName();
         var font = Minecraft.getInstance().font;
         float scale = Math.min(1, Math.min(width / Math.max(1, font.width(name)), height / font.lineHeight));

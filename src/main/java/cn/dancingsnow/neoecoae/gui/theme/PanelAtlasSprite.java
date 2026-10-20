@@ -1,23 +1,33 @@
 package cn.dancingsnow.neoecoae.gui.theme;
 
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
+import java.util.function.Supplier;
 
 /** Resolves the provider on draw so even cached widget sprites observe addResource replacements. */
 final class PanelAtlasSprite extends SpriteTexture {
     private final BuiltinPath atlasPath;
+    private final Supplier<IECOTier> tier;
+    private final String atlasName;
 
-    PanelAtlasSprite(BuiltinPath atlasPath, ResourceLocation fallback) {
+    PanelAtlasSprite(BuiltinPath atlasPath, ResourceLocation fallback, Supplier<IECOTier> tier, String atlasName) {
         this.atlasPath = atlasPath;
+        this.tier = tier;
+        this.atlasName = atlasName;
         setImageLocation(fallback);
     }
 
     SpriteTexture resolve() {
-        var resource = NETextures.panelAtlas(atlasPath);
-        var image = resource != null && resource.getRawTexture() instanceof SpriteTexture sprite
-            && !(sprite instanceof PanelAtlasSprite) ? sprite.getImageLocation() : getImageLocation();
+        IECOTier current = tier.get();
+        ResourceLocation image = current == null ? null : current.getPanelAtlas(atlasName);
+        if (image == null) {
+            var resource = NETextures.panelAtlas(atlasPath);
+            image = resource != null && resource.getRawTexture() instanceof SpriteTexture sprite
+                && !(sprite instanceof PanelAtlasSprite) ? sprite.getImageLocation() : getImageLocation();
+        }
         return SpriteTexture.of(image)
             .setSprite(spritePosition.x, spritePosition.y, spriteSize.width, spriteSize.height)
             .setBorder(borderLT.x, borderLT.y, borderRB.x, borderRB.y)
@@ -26,7 +36,7 @@ final class PanelAtlasSprite extends SpriteTexture {
 
     @Override
     public SpriteTexture copy() {
-        var copy = new PanelAtlasSprite(atlasPath, getImageLocation());
+        var copy = new PanelAtlasSprite(atlasPath, getImageLocation(), tier, atlasName);
         copy.setSprite(spritePosition.x, spritePosition.y, spriteSize.width, spriteSize.height)
             .setBorder(borderLT.x, borderLT.y, borderRB.x, borderRB.y)
             .setColor(color).setWrapMode(wrapMode);

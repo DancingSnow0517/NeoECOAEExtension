@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
@@ -22,6 +24,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 /** Assembles the controller UI; drawing, transport and events have dedicated components. */
@@ -55,7 +58,14 @@ public final class CraftingHostPanelUI {
     }
 
     public static UIElement create(Config config, Supplier<IECOTier> panelTier) {
-        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier));
+        return create(config, panelTier, () -> null);
+    }
+
+    public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState) {
+        var textures = new HostPanelTextureSync(hostState, HostPanelTextureState.Panel.CRAFTING);
+        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, textures));
+        root.addChild(textures);
+        return root;
     }
 
     /**
@@ -82,17 +92,22 @@ public final class CraftingHostPanelUI {
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
         private final Supplier<IECOTier> panelTier;
+        private final HostPanelTextureSync textures;
 
-        private JsonContext(Config config, Supplier<IECOTier> panelTier) {
+        private JsonContext(Config config, Supplier<IECOTier> panelTier, HostPanelTextureSync textures) {
             this.config = config;
             this.panelTier = panelTier;
+            this.textures = textures;
         }
+
+        @Override
+        public IECOTier panelTier() { return panelTier.get(); }
 
         @Override
         public UIElement createCustom(JsonObject definition) {
             String custom = string(definition, "custom", string(definition, "id", ""));
             return switch (custom) {
-                case "crafting_artwork" -> new CraftingControllerArtwork(config, panelTier);
+                case "crafting_artwork" -> new CraftingControllerArtwork(config, panelTier, textures);
                 case "mode_button" -> modeButton(definition);
                 case "player_inventory" -> playerInventory(false);
                 default -> throw new IllegalArgumentException("Unknown crafting UI custom element: " + custom);
@@ -121,9 +136,9 @@ public final class CraftingHostPanelUI {
             String mode = string(definition, "mode", "");
             return switch (mode) {
                 case "overclock" -> CraftingControllerInteractions.createModeButton(
-                    mode, config.overclocked(), config.toggleOverclocked());
+                    mode, config.overclocked(), config.toggleOverclocked(), panelTier, textures);
                 case "active_cooling" -> CraftingControllerInteractions.createModeButton(
-                    mode, config.activeCooling(), config.toggleActiveCooling());
+                    mode, config.activeCooling(), config.toggleActiveCooling(), panelTier, textures);
                 default -> throw new IllegalArgumentException("Unknown crafting mode: " + mode);
             };
         }
@@ -155,7 +170,13 @@ public final class CraftingHostPanelUI {
 
     public static UIElement create(Config config, UIElement guide, UIElement buildButton,
         UIElement buildWindow, Supplier<Component> maintenanceStatus, Supplier<IECOTier> panelTier) {
-        UIElement root = create(config, panelTier);
+        return create(config, guide, buildButton, buildWindow, maintenanceStatus, panelTier, () -> null);
+    }
+
+    public static UIElement create(Config config, UIElement guide, UIElement buildButton,
+        UIElement buildWindow, Supplier<Component> maintenanceStatus, Supplier<IECOTier> panelTier,
+        Supplier<BlockState> hostState) {
+        UIElement root = create(config, panelTier, hostState);
         List<UIElement> buttons = new ArrayList<>();
         buttons.add(guide);
         buttons.add(buildButton);

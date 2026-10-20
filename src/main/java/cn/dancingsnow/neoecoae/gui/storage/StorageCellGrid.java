@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import java.util.function.Supplier;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -25,12 +27,18 @@ import net.minecraft.world.item.ItemStack;
 final class StorageCellGrid extends UIElement {
     private final StoragePanelSync sync;
     private final int columns;
+    private final Supplier<IECOTier> panelTier;
     private final RPCEmitter extraction;
     private final RPCEmitter insertion;
     private boolean interacting;
 
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config) {
+        this(sync, columns, config, () -> null);
+    }
+
+    StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config, Supplier<IECOTier> panelTier) {
         this.sync = sync;
+        this.panelTier = panelTier;
         this.columns = columns;
         extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class, Boolean.class,
             (position, expected, shift) -> isOpenMenu(config) && config.cellExtractor().extract(position, expected, shift)));
@@ -66,7 +74,7 @@ final class StorageCellGrid extends UIElement {
             var drive = state.cells().get(i);
             if (drive.position() == null) continue;
             int row = i / columns;
-            var background = StoragePanelTextures.cellBackground(row);
+            var background = StoragePanelTextures.forTier(StoragePanelTextures.cellBackground(row), panelTier);
             context.drawTexture(background,
                 getPositionX() + i % columns * 18, getPositionY() + row * 18,
                 16, background.spriteSize.height);

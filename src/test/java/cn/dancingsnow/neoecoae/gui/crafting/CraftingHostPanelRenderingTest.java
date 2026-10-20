@@ -379,6 +379,66 @@ class CraftingHostPanelRenderingTest {
         return artwork(state, ItemStack.EMPTY);
     }
 
+    @Test
+    void hostProviderAndTierAtlasesReachBadgesButtonsBarsAndControllerGaugeTicks() throws Exception {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            installFont(minecraft);
+            var block = mock(net.minecraft.world.level.block.Block.class,
+                withSettings().extraInterfaces(cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.class));
+            var placed = mock(net.minecraft.world.level.block.state.BlockState.class);
+            when(placed.getBlock()).thenReturn(block);
+            var provider = (cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider) block;
+            when(provider.getPanelTexture(same(placed), any())).thenReturn(net.minecraft.resources.ResourceLocation.parse("addon:badge.png"));
+            when(provider.getPanelTexture(same(placed), any(), anyInt(), anyBoolean(), anyBoolean()))
+                .thenAnswer(call -> net.minecraft.resources.ResourceLocation.parse("addon:mode_" + call.getArgument(2) + "_"
+                    + call.getArgument(3) + "_" + call.getArgument(4) + ".png"));
+            var tier = mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
+            when(tier.getPanelAtlas(anyString())).thenAnswer(call -> net.minecraft.resources.ResourceLocation.parse(
+                "addon:" + ((String) call.getArgument(0)).toLowerCase(java.util.Locale.ROOT) + ".png"));
+            var overclocked = new AtomicBoolean(true);
+            var cooling = new AtomicBoolean(false);
+            UIElement root = CraftingHostPanelUI.create(config(formedState(), ItemStack.EMPTY, List.of(),
+                overclocked::get, () -> overclocked.set(!overclocked.get()), cooling::get, () -> cooling.set(!cooling.get())),
+                () -> tier, () -> placed);
+            var artwork = positioned(root.getChildren().getFirst());
+            GUIContext context = context();
+            HostProgressTestSupport.drawAfterOpening(artwork, context);
+            verify(context).drawTexture(argThat(texture -> net.minecraft.resources.ResourceLocation.parse("addon:crafting-controller_atlas.png")
+                .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), eq(120F), eq(80F), eq(253F), eq(214F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spriteSize.height == 1 && net.minecraft.resources.ResourceLocation.parse("addon:crafting-controller_atlas.png")
+                .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))),
+                eq(329F), eq(164F), eq(5F), eq(1F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && net.minecraft.resources.ResourceLocation.parse("addon:crafting-widgets_atlas.png")
+                .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture)) && sprite.spritePosition.y == 115),
+                eq(186F), eq(194F), eq(22F), eq(7F));
+            verify(context).drawTexture(argThat(texture -> net.minecraft.resources.ResourceLocation.parse("addon:badge.png")
+                .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), eq(143F), eq(85F), eq(13F), eq(18F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite && sprite.spritePosition.y == 8
+                && sprite.getImageLocation().toString().equals("addon:badge.png")), eq(132F), eq(134F), eq(10F), eq(7F));
+            var coolingButton = (Button) root.selectId("active_cooling_button").findFirst().orElseThrow();
+            var overclockButton = (Button) root.selectId("overclock_button").findFirst().orElseThrow();
+            coolingButton.getStyleBag().compute(0);
+            overclockButton.getStyleBag().compute(0);
+            assertEquals("addon:mode_0_false_false.png", ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).getImageLocation().toString());
+            assertEquals("addon:mode_1_true_true.png", ((SpriteTexture) overclockButton.getButtonStyle().hoverTexture()).getImageLocation().toString());
+            var textures = (cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync) root.getChildren().getLast();
+            textures.setValue(new CompoundTag());
+            coolingButton.getStyleBag().compute(1);
+            assertEquals(net.minecraft.resources.ResourceLocation.parse("addon:crafting-widgets_atlas.png"),
+                cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(coolingButton.getButtonStyle().baseTexture()));
+            clearInvocations(context);
+            when(tier.getPanelTierName()).thenReturn(Component.literal("L1"));
+            artwork.drawBackgroundAdditional(context);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 36 && sprite.spritePosition.y == 5 && sprite.spriteSize.width == 1),
+                eq(143F), eq(85F), eq(13F), eq(18F));
+            verify(block, never()).defaultBlockState();
+        }
+    }
+
     private static UIElement artwork(CraftingControllerPanelState state, ItemStack hostItem) {
         return artwork(state, hostItem, List.of());
     }

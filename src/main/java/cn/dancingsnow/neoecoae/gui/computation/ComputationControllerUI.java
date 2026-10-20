@@ -2,6 +2,9 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.Part;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
@@ -36,6 +39,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 /** Texture-backed computation controller; LDLib2 retains inventory, toolbar actions and menu synchronization. */
@@ -85,6 +89,13 @@ public final class ComputationControllerUI {
 
     public static UIElement create(Config config, Supplier<ComputationControllerPanelState> panelState,
         UIElement guideButton, UIElement buildButton, UIElement buildWindow, Supplier<IECOTier> panelTier) {
+        return create(config, panelState, guideButton, buildButton, buildWindow, panelTier, () -> null);
+    }
+
+    public static UIElement create(Config config, Supplier<ComputationControllerPanelState> panelState,
+        UIElement guideButton, UIElement buildButton, UIElement buildWindow, Supplier<IECOTier> panelTier,
+        Supplier<BlockState> hostState) {
+        var textures = new HostPanelTextureSync(hostState, HostPanelTextureState.Panel.COMPUTATION);
         Button cpuMode = ComputationControllerInteractions.createCpuSelectionButton(config);
         cpuMode.setId("computation-cpu-mode");
         Button frequency = ComputationControllerInteractions.createNetworkFrequencyButton(config);
@@ -131,14 +142,17 @@ public final class ComputationControllerUI {
             List.of(Component.translatable("gui.neoecoae.computation.ui.cpu_list")), null, null, null));
         UIElement root = NeoUiJsonLoader.load(LAYOUT, new NeoUiJsonContext() {
             @Override
+            public IECOTier panelTier() { return panelTier.get(); }
+
+            @Override
             public UIElement createCustom(JsonObject node) {
                 return switch (node.has("name") ? node.get("name").getAsString() : "") {
-                    case "computation_artwork" -> new ComputationControllerArtwork(config, panelState, panelTier);
+                    case "computation_artwork" -> new ComputationControllerArtwork(config, panelState, panelTier, textures);
                     case "computation_drive_grid" -> new ComputationDriveGrid(config);
                     case "computation_cpu_selector" -> selector;
                     case "computation_status" -> status;
                     case "computation_switch" -> createSwitch(config,
-                        node.has("key") ? node.get("key").getAsString() : "");
+                        node.has("key") ? node.get("key").getAsString() : "", panelTier, textures);
                     case "computation_toolbar" -> HostSideButtonBar.left(guideButton, buildButton, cpuMode, frequency, listToggle);
                     case "computation_info" -> info;
                     default -> null;
@@ -159,6 +173,7 @@ public final class ComputationControllerUI {
         rootRef[0] = root;
         root.setOverflowVisible(true);
         mainOf(root).addChild(buildWindow);
+        root.addChild(textures);
         return root;
     }
 
@@ -179,7 +194,8 @@ public final class ComputationControllerUI {
         });
     }
 
-    private static Button createSwitch(Config config, String key) {
+    private static Button createSwitch(Config config, String key, Supplier<IECOTier> panelTier,
+        HostPanelTextureSync textures) {
         BooleanSupplier enabled;
         Runnable action;
         switch (key) {
@@ -202,12 +218,14 @@ public final class ComputationControllerUI {
         button.layout(layout -> layout.paddingAll(0));
         BindableValue<Boolean> value = new BindableValue<>(enabled.getAsBoolean());
         value.bind(DataBindingBuilder.boolS2C(enabled::getAsBoolean).build());
-        value.registerValueListener(state -> switchTexture(button, Boolean.TRUE.equals(state)));
+        int index = switch (key) { case "substitutions" -> 0; case "cycle_planning" -> 1; default -> 2; };
+        value.registerValueListener(state -> switchTexture(button, Boolean.TRUE.equals(state), index, panelTier, textures.get()));
+        textures.onChange(() -> switchTexture(button, Boolean.TRUE.equals(value.getValue()), index, panelTier, textures.get()));
         value.setDisplay(false);
         button.addChild(value);
         BindableValue<Integer> count = "substitutions".equals(key)
             ? syncedPatternCount(button, config.substitutionPatternCount()) : null;
-        switchTexture(button, enabled.getAsBoolean());
+        switchTexture(button, enabled.getAsBoolean(), index, panelTier, textures.get());
         button.setOnServerClick(event -> action.run());
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             boolean on = Boolean.TRUE.equals(value.getValue());
@@ -234,9 +252,12 @@ public final class ComputationControllerUI {
         return synced;
     }
 
-    private static void switchTexture(Button button, boolean enabled) {
-        IGuiTexture normal = ComputationControllerTextures.switchSprite(enabled, false);
-        IGuiTexture hover = ComputationControllerTextures.switchSprite(enabled, true);
+    private static void switchTexture(Button button, boolean enabled, int index, Supplier<IECOTier> tier,
+        HostPanelTextureState textures) {
+        IGuiTexture normal = ComputationControllerTextures.switchSprite(enabled, false, tier,
+            textures.texture(Part.COMPUTATION_SWITCH, index, enabled, false));
+        IGuiTexture hover = ComputationControllerTextures.switchSprite(enabled, true, tier,
+            textures.texture(Part.COMPUTATION_SWITCH, index, enabled, true));
         button.buttonStyle(style -> style.baseTexture(normal).hoverTexture(hover).pressedTexture(hover));
     }
 }
