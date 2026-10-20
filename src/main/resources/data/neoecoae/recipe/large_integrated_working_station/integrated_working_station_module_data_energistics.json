@@ -44,6 +44,10 @@
       "count": 128
     }
   ],
+  "inputFluid": {
+    "fluid": "data_energistics:data_corrosion_liquid",
+    "amount": 16000
+  },
   "itemOutput": {
     "id": "neoecoae:integrated_working_station_module_data_energistics",
     "count": 1

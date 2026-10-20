@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -15,6 +16,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.registries.RegistryManager;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -44,6 +47,18 @@ class WorkstationUpgradeCardRecipeTest {
         assertEquals(PREFIX + variant, json.getAsJsonObject("itemOutput").get("id").getAsString());
         assertEquals(1, json.getAsJsonObject("itemOutput").get("count").getAsInt());
         assertEquals(16_384_000, json.get("energy").getAsInt());
+        String expectedFluid = switch (variant) {
+            case "advanced_ae" -> "advanced_ae:quantum_infusion_source";
+            case "data_energistics" -> "data_energistics:data_corrosion_liquid";
+            default -> null;
+        };
+        if (expectedFluid == null) {
+            assertFalse(json.has("inputFluid"));
+        } else {
+            var fluid = json.getAsJsonObject("inputFluid");
+            assertEquals(expectedFluid, fluid.get("fluid").getAsString());
+            assertEquals(16_000, fluid.get("amount").getAsInt());
+        }
         Map<String, Integer> expected = new LinkedHashMap<>();
         if (variant.equals("empty")) {
             expected.put("ae2:advanced_card", 1);
@@ -137,6 +152,16 @@ class WorkstationUpgradeCardRecipeTest {
             }
             KeyCounter outputs = new KeyCounter();
             outputs.add(AEItemKey.of(Items.DIAMOND), 1);
+            var requiredFluid = recipe.display().inputFluid();
+            if (!requiredFluid.ingredient().isEmpty()) {
+                assertFalse(runtime.matches(inputs, outputs));
+                inputs.add(AEFluidKey.of(Fluids.LAVA), requiredFluid.amount());
+                assertFalse(runtime.matches(inputs, outputs));
+                inputs.remove(AEFluidKey.of(Fluids.LAVA), requiredFluid.amount());
+                inputs.add(AEFluidKey.of(Fluids.WATER), requiredFluid.amount() - 1);
+                assertFalse(runtime.matches(inputs, outputs));
+                inputs.add(AEFluidKey.of(Fluids.WATER), 1);
+            }
             assertTrue(runtime.matches(inputs, outputs));
             var required = recipe.display().inputItems().getLast();
             inputs.remove(AEItemKey.of(required.getItems()[0]), 1);
@@ -146,6 +171,10 @@ class WorkstationUpgradeCardRecipeTest {
                 inputs.add(AEItemKey.of(input.getItems()[0]), input.count());
             }
             outputs.add(AEItemKey.of(Items.DIAMOND), 1);
+            if (!requiredFluid.ingredient().isEmpty()) {
+                assertEquals(0, runtime.matchingMultiplier(inputs, outputs));
+                inputs.add(AEFluidKey.of(Fluids.WATER), requiredFluid.amount());
+            }
             assertEquals(2, runtime.matchingMultiplier(inputs, outputs));
         } finally {
             NEConfig.largeWorkstationIgnoreUpgradeCards = previous;
@@ -182,6 +211,32 @@ class WorkstationUpgradeCardRecipeTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"advanced_ae", "data_energistics"})
+    void fluidCostsSurviveJsonAndNetworkRoundTrips(String variant) throws IOException {
+        var recipe = decodeWithVanillaItems(resource(variant));
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        var ops = registries.createSerializationContext(JsonOps.INSTANCE);
+        var json = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow();
+        var restored = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, json).getOrThrow();
+
+        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries);
+        try (var sync = mockStatic(RegistryManager.class)) {
+            LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, restored);
+            var synced = LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer);
+            for (var decoded : List.of(recipe, restored, synced)) {
+                var fluid = decoded.display().inputFluid();
+                assertEquals(16_000, fluid.amount());
+                assertTrue(fluid.test(new FluidStack(Fluids.WATER, 16_000)));
+                assertFalse(fluid.test(new FluidStack(Fluids.WATER, 15_999)));
+                assertFalse(fluid.test(new FluidStack(Fluids.LAVA, 16_000)));
+            }
+            assertFalse(buffer.isReadable());
+        } finally {
+            buffer.release();
+        }
+    }
+
     @Test void nativeLargeInputLimitMatchesTheTwelveSlotViewer() throws IOException {
         var json = resource("aelt");
         var inputs = json.getAsJsonArray("inputItems");
@@ -202,7 +257,7 @@ class WorkstationUpgradeCardRecipeTest {
         return JsonParser.parseString(Files.readString(path)).getAsJsonObject();
     }
 
-    // Unit tests have vanilla registries; use distinct items while preserving every recipe quantity.
+    // Unit tests have vanilla registries; substitute items and fluids while preserving every recipe quantity.
     private static LargeIntegratedWorkingStationRecipe decodeWithVanillaItems(JsonObject source) {
         var json = source.deepCopy();
         var items = List.of(Items.PAPER, Items.IRON_INGOT, Items.GOLD_INGOT, Items.REDSTONE,
@@ -211,6 +266,9 @@ class WorkstationUpgradeCardRecipeTest {
         var inputs = json.getAsJsonArray("inputItems");
         for (int i = 0; i < inputs.size(); i++) {
             inputs.get(i).getAsJsonObject().addProperty("item", BuiltInRegistries.ITEM.getKey(items.get(i)).toString());
+        }
+        if (json.has("inputFluid")) {
+            json.getAsJsonObject("inputFluid").addProperty("fluid", "minecraft:water");
         }
         json.getAsJsonObject("itemOutput").addProperty("id", "minecraft:diamond");
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);

@@ -40,6 +40,10 @@
       "count": 64
     }
   ],
+  "inputFluid": {
+    "fluid": "advanced_ae:quantum_infusion_source",
+    "amount": 16000
+  },
   "itemOutput": {
     "id": "neoecoae:integrated_working_station_module_advanced_ae",
     "count": 1
