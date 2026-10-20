@@ -283,6 +283,140 @@ class WorkstationUIInteractionTest {
     }
 
     @Test
+    void largeTaskQueueColorsRunningAndQueuedStatuses() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            CompoundTag snapshot = taskSnapshot(12);
+            var panel = taskPanel(snapshot);
+            for (int row = 0; row < 2; row++) {
+                UIElement region = taskRegion(panel, "task-" + row);
+                UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                hover.target = region;
+                UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                assertEquals(row == 0 ? 0x55FF55 : 0xFFFF55,
+                    hover.hoverTooltips.tooltipTexts().get(3).getStyle().getColor().getValue());
+            }
+            snapshot.getList("tasks", net.minecraft.nbt.Tag.TAG_COMPOUND).getCompound(0)
+                .putString("status", "gui.neoecoae.workstation.pause.no_power");
+            panel.setValue(snapshot.copy());
+            UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            hover.target = taskRegion(panel, "task-0");
+            UIEventDispatcher.dispatchEvent(hover, false, false, false);
+            assertEquals(0x9B4438, hover.hoverTooltips.tooltipTexts().get(3).getStyle().getColor().getValue());
+        }
+    }
+
+    @Test
+    void largeTaskQueueMovesHitboxesWithTheCardsAndClipsPartialRows() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            var panel = taskPanel(taskSnapshot(12));
+            var ui = new ModularUI(UI.of(panel));
+            ui.init(640, 480);
+            UIEvent wheel = UIEvent.create(UIEvents.MOUSE_WHEEL);
+            wheel.x = panel.getPositionX() + 20;
+            wheel.y = panel.getPositionY() + 50;
+            wheel.deltaY = -0.5f;
+            wheel.target = panel.hitTest(wheel.x, wheel.y).getA();
+            UIEventDispatcher.dispatchEvent(wheel, true, true, false);
+            panel.advanceScroll(1.0 / 60);
+            computeStyles(panel);
+            UIElement first = taskRegion(panel, "task-0");
+            float shift = first.getStyle().transform2D().translate().resolveY(first.getSizeHeight());
+            assertTrue(shift < 0 && shift > -13, "Wheel input should animate through fractional pixels");
+            UIElement button = taskRegion(panel, "return-0");
+            assertSame(button, panel.hitTest(button.getPositionX() + 2, button.getPositionY() + shift + 2).getA());
+            assertNotSame(first, panel.hitTest(panel.getPositionX() + 15, panel.getPositionY() + 37).getA());
+            UIElement bottom = taskRegion(panel, "task-3");
+            assertSame(bottom, panel.hitTest(panel.getPositionX() + 15, panel.getPositionY() + 113).getA(),
+                "The incoming fourth card is already interactive inside the viewport");
+            UIElement outside = taskRegion(panel, "return-3");
+            assertNotSame(outside, panel.hitTest(outside.getPositionX() + 2, outside.getPositionY() + shift + 2).getA(),
+                "A return button outside the clipped viewport must not intercept clicks");
+            panel.advanceScroll(1);
+            computeStyles(panel);
+            assertEquals(-13, first.getStyle().transform2D().translate().resolveY(first.getSizeHeight()));
+            UIEvent more = UIEvent.create(UIEvents.MOUSE_WHEEL);
+            more.x = wheel.x;
+            more.y = wheel.y;
+            more.deltaY = -0.25f;
+            more.target = panel.hitTest(more.x, more.y).getA();
+            UIEventDispatcher.dispatchEvent(more, true, true, false);
+            panel.advanceScroll(1);
+            computeStyles(panel);
+            assertSame(outside, panel.hitTest(outside.getPositionX() + 2, outside.getPositionY() - 19.5f + 2).getA(),
+                "The partially visible incoming return button must follow its card");
+        }
+    }
+
+    @Test
+    void largeTaskScrollbarRetainsItsGrabPointAndCanStopBetweenRows() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            var panel = taskPanel(taskSnapshot(12));
+            var ui = new ModularUI(UI.of(panel));
+            ui.init(640, 480);
+            UIElement scrollbar = taskRegion(panel, "scrollbar");
+            assertSame(scrollbar, panel.hitTest(scrollbar.getPositionX() + 1, scrollbar.getPositionY() + 19).getA(),
+                "The thumb track must stay above the task cards along their shared edge");
+            UIEvent press = UIEvent.create(UIEvents.MOUSE_DOWN);
+            press.button = 0;
+            press.x = scrollbar.getPositionX() + 3;
+            press.y = scrollbar.getPositionY() + 5;
+            press.target = scrollbar;
+            UIEventDispatcher.dispatchEvent(press, false, false, false);
+            UIEvent drag = UIEvent.create(UIEvents.DRAG_SOURCE_UPDATE);
+            drag.x = press.x;
+            drag.y = press.y + 2.5f;
+            drag.target = scrollbar;
+            UIEventDispatcher.dispatchEvent(drag, false, false, false);
+            computeStyles(panel);
+            UIElement row = taskRegion(panel, "task-0");
+            float shift = row.getStyle().transform2D().translate().resolveY(row.getSizeHeight());
+            assertEquals(-2.5 / 62 * 9 * 26, shift, 1e-5);
+            panel.advanceScroll(1);
+            computeStyles(panel);
+            assertEquals(shift, row.getStyle().transform2D().translate().resolveY(row.getSizeHeight()));
+        }
+    }
+
+    private static LargeWorkstationPanel taskPanel(CompoundTag snapshot) {
+        return new LargeWorkstationPanel(new LargeWorkstationUI.Config(new FluidTank(1_000),
+            offset -> snapshot.copy(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {},
+            new ItemStackHandler(1)), mock(Player.class));
+    }
+
+    private static UIElement taskRegion(UIElement panel, String id) {
+        return collect(panel, UIElement.class).stream()
+            .filter(element -> ("large-workstation-" + id).equals(element.getId())).findFirst().orElseThrow();
+    }
+
+    private static void computeStyles(UIElement element) {
+        element.getStyleBag().compute(0);
+        for (var child : element.getChildren()) computeStyles(child);
+    }
+
+    private static CompoundTag taskSnapshot(int total) {
+        CompoundTag snapshot = new CompoundTag();
+        snapshot.putInt("totalTasks", total);
+        var tasks = new net.minecraft.nbt.ListTag();
+        for (int row = 0; row < Math.min(total, LargeWorkstationUI.SNAPSHOT_SIZE); row++) {
+            var task = new CompoundTag();
+            task.putUUID("id", new java.util.UUID(0, row));
+            task.putLong("amount", 100 + row);
+            task.putBoolean("returnable", true);
+            task.putBoolean("current", row == 0);
+            task.putString("status", "gui.neoecoae.workstation." + (row == 0 ? "pause.none" : "task_queued"));
+            tasks.add(task);
+        }
+        snapshot.put("tasks", tasks);
+        return snapshot;
+    }
+
+    @Test
     void overclockButtonSeparatesLeftClickFromRightClickPreheat() {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);

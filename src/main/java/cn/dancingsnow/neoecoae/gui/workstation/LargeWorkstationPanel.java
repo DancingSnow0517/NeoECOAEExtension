@@ -35,24 +35,28 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
-/** Fixed three-row viewport. Server snapshots contain only the requested page and machine telemetry. */
+/** Clipped three-row viewport with a small synchronized buffer for continuous scrolling. */
 final class LargeWorkstationPanel extends BindableValue<Tag> {
-    static final int PAGE_SIZE = 3;
     private static final int TEXT = 0xFF303448;
     private static final int MUTED = 0xFF596177;
     private static final int SUCCESS = 0xFF226B58;
     private static final int WARNING = 0xFF9B4438;
+    private static final int TASK_RUNNING = 0xFF55FF55;
+    private static final int TASK_QUEUED = 0xFFFFFF55;
     private static final String PREFIX = "gui.neoecoae.workstation.";
     private final Config config;
     private final Player player;
     private final BindableValue<Integer> pageRequest = new BindableValue<>(0);
-    private final Button[] returns = new Button[PAGE_SIZE];
+    private final Button[] returns = new Button[LargeWorkstationUI.SNAPSHOT_SIZE];
+    private final UIElement[] taskRows = new UIElement[LargeWorkstationUI.SNAPSHOT_SIZE];
+    private final LargeWorkstationTaskScroll taskScroll = new LargeWorkstationTaskScroll();
     private final Button overclock;
     private final Button cooling;
     private CompoundTag state = new CompoundTag();
     private List<Task> tasks = List.of();
     private int serverOffset;
-    private int requestedOffset;
+    private long lastFrame;
+    private float scrollbarGrabOffset;
 
     LargeWorkstationPanel(Config config, Player player) {
         super(new CompoundTag());
@@ -68,28 +72,51 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             if (id != null && mui != null && mui.getMenu() == player.containerMenu
                 && player.containerMenu.stillValid(player)) config.returnTask().accept(id);
         }));
-        for (int row = 0; row < PAGE_SIZE; row++) {
+        UIElement viewport = new UIElement() {
+            @Override
+            public void drawBackgroundAdditional(GUIContext context) {
+                context.pose.pushPose();
+                try {
+                    context.pose.translate(0, taskScroll.rowShift(), 0);
+                    for (int row = 0; row < tasks.size(); row++) drawTask(context, tasks.get(row), row);
+                } finally {
+                    context.graphics.flush();
+                    context.pose.popPose();
+                }
+            }
+        };
+        viewport.setId("large-workstation-task-viewport");
+        absolute(viewport, 9, 38, 69, LargeWorkstationTaskScroll.VIEWPORT_HEIGHT);
+        viewport.setOverflowVisible(false);
+        addChild(viewport);
+        for (int row = 0; row < taskRows.length; row++) {
             final int index = row;
-            UIElement hitbox = region("task-" + row, 9, 38 + row * 26, 69, 24, () -> taskTooltip(index));
-            addChild(hitbox);
+            UIElement hitbox = region("task-" + row, 0, row * 26, 69, 24, () -> taskTooltip(index));
+            hitbox.setOverflowVisible(true);
+            taskRows[row] = hitbox;
+            viewport.addChild(hitbox);
             Button button = new Button().noText().setOnClick(event -> {
                 Task task = task(index);
-                if (event.button == 0 && task != null && task.returnable()) returnTask.send(task.id());
+                if (event.button == 0 && task != null && task.returnable()) {
+                    taskScroll.stop();
+                    returnTask.send(task.id());
+                }
             });
             button.setId("large-workstation-return-" + row);
             button.buttonStyle(style -> style.baseTexture(WorkstationTextures.widget(0, 6, 12, 11))
                 .hoverTexture(WorkstationTextures.widget(12, 6, 12, 11))
                 .pressedTexture(WorkstationTextures.widget(24, 6, 12, 11)));
-            absolute(button, 65, 51 + row * 26, 12, 11);
+            absolute(button, 56, 13, 12, 11);
             button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips =
                 new HoverTooltips(returnTooltip(index), null, null, null));
-            addChild(button);
+            hitbox.addChild(button);
             returns[row] = button;
         }
         addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY != 0 && event.x >= getPositionX() + 9 && event.x < getPositionX() + 87
                 && event.y >= getPositionY() + 38 && event.y < getPositionY() + 114) {
-                scrollTo(requestedOffset + (event.deltaY < 0 ? 1 : -1));
+                taskScroll.scrollBy(-event.deltaY);
+                requestPage();
                 event.stopImmediatePropagation();
             }
         }, true);
@@ -155,11 +182,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     private void read(Tag value) {
         state = value instanceof CompoundTag tag ? tag : new CompoundTag();
-        requestedOffset = state.getInt("offset");
         HolderLookup.Provider registries = config.registries().get();
         List<Task> decoded = new ArrayList<>();
         var entries = state.getList("tasks", Tag.TAG_COMPOUND);
-        for (int i = 0; i < Math.min(PAGE_SIZE, entries.size()); i++) {
+        for (int i = 0; i < Math.min(LargeWorkstationUI.SNAPSHOT_SIZE, entries.size()); i++) {
             CompoundTag entry = entries.getCompound(i);
             if (!entry.hasUUID("id")) continue;
             decoded.add(new Task(entry.getUUID("id"), registries == null ? ItemStack.EMPTY
@@ -168,11 +194,9 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                 entry.getInt("progress"), entry.getString("status"), entry.getString("detail"), entry.getBoolean("returnable"),
                 entry.getBoolean("current"), LargeWorkstationModule.byName(entry.getString("module"))));
         }
-        tasks = List.copyOf(decoded);
-        for (int row = 0; row < PAGE_SIZE; row++) {
-            Task task = task(row);
-            if (returns[row] != null) returns[row].setDisplay(task != null && task.returnable());
-        }
+        int first = state.contains("taskOffset") ? state.getInt("taskOffset") : state.getInt("offset");
+        if (taskScroll.receive(state.getInt("totalTasks"), first, decoded.size())) tasks = List.copyOf(decoded);
+        updateTaskRows();
         updateToggle(overclock, state.getBoolean("overclocked"));
         updateToggle(cooling, state.getBoolean("activeCooling"));
     }
@@ -182,31 +206,69 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             .hoverTexture(WorkstationTextures.toggle(enabled, true)).pressedTexture(WorkstationTextures.toggle(enabled, true)));
     }
 
+    void advanceScroll(double seconds) {
+        taskScroll.advance(seconds);
+        updateTaskRows();
+        requestPage();
+    }
+
+    void advanceFrame() {
+        long now = System.nanoTime();
+        if (lastFrame != 0) advanceScroll((now - lastFrame) / 1_000_000_000.0);
+        lastFrame = now;
+    }
+
+    private void updateTaskRows() {
+        float shift = (float) taskScroll.rowShift();
+        for (int row = 0; row < taskRows.length; row++) {
+            Task task = task(row);
+            taskRows[row].transform(transform -> transform.translate(0, shift));
+            taskRows[row].setVisible(task != null || row == 0 && tasks.isEmpty());
+            returns[row].setDisplay(task != null && task.returnable());
+        }
+    }
+
+    private void requestPage() {
+        int requested = taskScroll.requestedRow();
+        if (pageRequest.getValue() != requested) pageRequest.setValue(requested);
+    }
+
     private UIElement scrollbar() {
         UIElement track = new UIElement() {
             @Override
             public void drawBackgroundAdditional(GUIContext context) {
                 int max = maxOffset();
-                int y = max == 0 ? 0 : Math.round(62f * state.getInt("offset") / max);
+                float y = max == 0 ? 0 : (float) (62 * taskScroll.thumbOffset() / taskScroll.maximum());
                 context.drawTexture(WorkstationTextures.widget(max == 0 ? 75 : 69, 62, 6, 15).setBorder(2, 0, 2, 0),
                     getPositionX(), getPositionY() + y, getSizeWidth(), 15);
             }
         };
         track.setId("large-workstation-scrollbar");
+        track.style(style -> style.zIndex(1));
         absolute(track, 76, 37, 13, 77);
         track.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button != 0 || maxOffset() == 0) return;
-            scrollTo(Math.round(Math.clamp((event.y - track.getPositionY() - 7.5f) / 62, 0f, 1f) * maxOffset()));
+            float localY = event.y - track.getPositionY();
+            float thumbY = (float) (62 * taskScroll.thumbOffset() / taskScroll.maximum());
+            scrollbarGrabOffset = localY >= thumbY && localY < thumbY + 15 ? localY - thumbY : 7.5f;
+            taskScroll.jumpTo((localY - scrollbarGrabOffset) / 62 * taskScroll.maximum());
+            updateTaskRows();
+            requestPage();
             if (track.getModularUI() != null) track.getModularUI().getDragHandler().startDrag(0f, null, track);
             event.hasHandler = true;
             event.stopImmediatePropagation();
         });
         track.addEventListener(UIEvents.DRAG_SOURCE_UPDATE, event -> {
-            scrollTo(Math.round(Math.clamp((event.y - track.getPositionY() - 7.5f) / 62, 0f, 1f) * maxOffset()));
+            taskScroll.jumpTo((event.y - track.getPositionY() - scrollbarGrabOffset) / 62 * taskScroll.maximum());
+            updateTaskRows();
+            requestPage();
             event.stopImmediatePropagation();
         });
         track.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (event.deltaY != 0) scrollTo(requestedOffset + (event.deltaY < 0 ? 1 : -1));
+            if (event.deltaY != 0) {
+                taskScroll.scrollBy(-event.deltaY);
+                requestPage();
+            }
             event.stopImmediatePropagation();
         });
         track.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty()
@@ -214,12 +276,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         return track;
     }
 
-    private int maxOffset() { return Math.max(0, state.getInt("totalTasks") - PAGE_SIZE); }
-
-    private void scrollTo(int offset) {
-        requestedOffset = Math.clamp(offset, 0, maxOffset());
-        pageRequest.setValue(requestedOffset);
-    }
+    private int maxOffset() { return Math.max(0, state.getInt("totalTasks") - LargeWorkstationUI.PAGE_SIZE); }
 
     private Task task(int index) { return index < tasks.size() ? tasks.get(index) : null; }
 
@@ -230,7 +287,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(task.title().copy().withStyle(ChatFormatting.YELLOW));
         lines.add(tr(task.fluid().isEmpty() ? "task_amount" : "task_fluid_amount", HostText.expandedNumber(task.amount())));
         lines.add(tr("task_source", task.module().title()));
-        lines.add(Component.translatable(task.status()).withStyle(task.problem() ? ChatFormatting.GOLD : ChatFormatting.GRAY));
+        lines.add(Component.translatable(task.status()).withColor(task.statusColor()));
         if (!task.detail().isEmpty()) lines.add(Component.translatable(task.detail()));
         lines.add(tr("progress", Math.clamp(task.progress(), 0, 200) / 2));
         if (task.returnable()) lines.add(hint("task_return_hint"));
@@ -244,8 +301,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     private Component queueRange() {
         int total = state.getInt("totalTasks");
-        return total == 0 ? tr("task_count", 0) : tr("queue_range", state.getInt("offset") + 1,
-            Math.min(total, state.getInt("offset") + PAGE_SIZE), total);
+        return total == 0 ? tr("task_count", 0) : tr("queue_range", taskScroll.firstVisibleRow() + 1,
+            taskScroll.lastVisibleRow(), total);
     }
 
     private List<Component> moduleTooltip() {
@@ -411,7 +468,6 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             centeredText(context, tr("empty_task"), 9, 65, 69, 0.8f, TEXT);
             centeredText(context, tr("queue_empty_hint"), 9, 77, 69, 0.65f, MUTED);
         }
-        for (int row = 0; row < tasks.size(); row++) drawTask(context, tasks.get(row), row);
         centeredText(context, queueRange(), 9, 119, 77, 0.65f, MUTED);
         text(context, tr("parallel"), 103, 39, 57, 0.7f, TEXT);
         text(context, Component.literal(number(state.getLong("parallelUsed")) + " / " + number(state.getLong("parallelCapacity"))),
@@ -467,7 +523,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         text(context, task.title(), 33, y + 1, 43, 0.7f, TEXT);
         text(context, Component.literal("×" + number(task.amount())), 33, y + 8, 23, 0.6f, MUTED);
         text(context, tr(!task.current() ? "task_queued" : task.progress() >= 200 ? "task_output"
-            : task.problem() ? "status_paused" : "status_running"), 58, y + 8, 18, 0.55f, task.problem() ? WARNING : MUTED);
+            : task.problem() ? "status_paused" : "status_running"), 58, y + 8, 18, 0.55f, task.statusColor());
         // A recessed three-pixel track stays visible even for queued tasks at zero progress.
         fill(context, 33, y + 17, 30, 4, 0xFF413F54);
         fill(context, 34, y + 18, 28, 2, 0xFF696D88);
@@ -545,5 +601,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                         boolean returnable, boolean current, LargeWorkstationModule module) {
         Component title() { return !item.isEmpty() ? item.getHoverName() : !fluid.isEmpty() ? fluid.getHoverName() : tr("empty_task"); }
         boolean problem() { return current && !status.isEmpty() && !status.endsWith(".none") && !status.equals(PREFIX + "task_output"); }
+        int statusColor() {
+            return !current ? TASK_QUEUED : progress >= 200 ? MUTED : problem() ? WARNING : TASK_RUNNING;
+        }
     }
 }

@@ -35,6 +35,8 @@ import net.neoforged.neoforge.items.IItemHandlerModifiable;
 /** Resource-defined geometry with a bounded synchronized task viewport. */
 public final class LargeWorkstationUI {
     public static final int PAGE_SIZE = 3;
+    public static final int SNAPSHOT_PADDING = 2;
+    public static final int SNAPSHOT_SIZE = PAGE_SIZE + 2 * SNAPSHOT_PADDING;
     private LargeWorkstationUI() {}
 
     public record Config(IFluidHandler fluids, IntFunction<CompoundTag> snapshot,
@@ -51,6 +53,11 @@ public final class LargeWorkstationUI {
         root.addChild(HostSideButtonBar.left(GuideButton.create(player,
             "neoecoae:neoecoae_intro/large_integrated_working_station.md")));
         return ECOModularUI.create(root, player);
+    }
+
+    /** Advance before LDLib calculates transforms and resolves this frame's hovered element. */
+    public static void advanceFrame(ModularUI ui) {
+        for (var panel : ui.getElementsByType(LargeWorkstationPanel.class)) panel.advanceFrame();
     }
 
     private record JsonContext(Config config, Player player) implements NeoUiJsonContext {

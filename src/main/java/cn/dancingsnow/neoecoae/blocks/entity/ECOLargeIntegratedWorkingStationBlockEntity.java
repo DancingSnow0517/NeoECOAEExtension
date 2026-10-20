@@ -647,6 +647,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         int total = pendingBatches.size();
         int offset = Math.clamp(requestedOffset, 0, Math.max(0, total - LargeWorkstationUI.PAGE_SIZE));
         snapshot.putInt("offset", offset);
+        int taskOffset = Math.max(0, offset - LargeWorkstationUI.SNAPSHOT_PADDING);
+        snapshot.putInt("taskOffset", taskOffset);
         snapshot.putInt("totalTasks", total);
         snapshot.putBoolean("overclocked", overclocked);
         snapshot.putBoolean("activeCooling", activeCooling);
@@ -686,8 +688,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         ListTag entries = new ListTag();
         int index = 0;
         for (PendingBatch batch : pendingBatches) {
-            if (index++ < offset) continue;
-            if (entries.size() >= LargeWorkstationUI.PAGE_SIZE) break;
+            if (index++ < taskOffset) continue;
+            if (entries.size() >= LargeWorkstationUI.SNAPSHOT_SIZE) break;
             CompoundTag entry = new CompoundTag();
             entry.putUUID("id", batch.interactionId);
             entry.putInt("progress", batch.progress);
