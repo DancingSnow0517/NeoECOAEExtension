@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -67,7 +68,8 @@ final class ECOStorageInterfaceTransfer {
     @Nullable
     MEStorage getStorageInterfaceHostStorage() {
         if (host.storageHostMode().isTransitioning()
-            || host.storageHostMode().isInfiniteState() && host.isInfiniteExitRequested()) {
+            || host.storageHostMode().isInfiniteState()
+                && (host.isInfiniteExitRequested() || !host.canUseHostDomainStorage())) {
             return null;
         }
         List<MEStorage> cells = new ArrayList<>();
@@ -94,19 +96,22 @@ final class ECOStorageInterfaceTransfer {
             return null;
         }
         if (cachedCombinedStorage == null || !cachedCombinedStorage.inventories().equals(cells)) {
-            cachedCombinedStorage = new CombinedStorage(cells, host.getBlockState().getBlock().getName());
+            cachedCombinedStorage = new CombinedStorage(cells, host.getBlockState().getBlock().getName(),
+                    () -> !host.storageHostMode().isInfiniteState() || host.canInsertIntoInfiniteDomain());
         }
         return cachedCombinedStorage;
     }
 
-    record CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description)
+    record CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description,
+            BooleanSupplier allowAccess)
         implements MEStorage, CombinedExactAmountSource {
-        CombinedStorage {
-
+        CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description) {
+            this(inventories, description, () -> true);
         }
 
         @Override
         public long insert(AEKey key, long amount, appeng.api.config.Actionable mode, IActionSource source) {
+            if (!allowAccess.getAsBoolean()) return 0L;
             long inserted = 0L;
             for (int pass = 0; pass < 2 && inserted < amount; pass++) {
                 for (MEStorage inventory : inventories) {
@@ -121,6 +126,7 @@ final class ECOStorageInterfaceTransfer {
 
         @Override
         public long extract(AEKey key, long amount, appeng.api.config.Actionable mode, IActionSource source) {
+            if (!allowAccess.getAsBoolean()) return 0L;
             long extracted = 0L;
             for (MEStorage inventory : inventories) {
                 if (extracted >= amount) break;
@@ -131,6 +137,7 @@ final class ECOStorageInterfaceTransfer {
 
         @Override
         public void getAvailableStacks(KeyCounter out) {
+            if (!allowAccess.getAsBoolean()) return;
             for (MEStorage inventory : inventories) {
                 KeyCounter contribution = new KeyCounter();
                 ExactAmountCollector.collect(inventory, contribution, inventory::getAvailableStacks);
@@ -140,6 +147,7 @@ final class ECOStorageInterfaceTransfer {
 
         @Override
         public void neoecoae$listWithExactAmounts(KeyCounter out, BiConsumer<AEKey, ExactAmount> visitor) {
+            if (!allowAccess.getAsBoolean()) return;
             Map<AEKey, ExactAmount> totals = new HashMap<>();
             for (MEStorage inventory : inventories) {
                 KeyCounter contribution = new KeyCounter();

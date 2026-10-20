@@ -606,6 +606,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public void invalidateInfiniteMembers() {
         infiniteMembersDirty = true;
+        infiniteModeController.membersChanged();
     }
 
     public int getMissingInfiniteMembers() {
@@ -662,7 +663,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean canUseHostDomainStorage() {
-        return formed && hostMode.isInfiniteState() && infiniteDomainId != null;
+        return formed && hostMode.isInfiniteState() && infiniteDomainId != null
+                && getMissingInfiniteMembers() == 0;
     }
 
     public boolean canInsertIntoInfiniteDomain() {

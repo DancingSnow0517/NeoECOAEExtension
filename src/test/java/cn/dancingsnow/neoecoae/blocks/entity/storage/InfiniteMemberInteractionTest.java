@@ -101,6 +101,7 @@ class InfiniteMemberInteractionTest {
         var host = mock(ECOStorageSystemBlockEntity.class);
         when(host.storageHostMode()).thenReturn(cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode.FORMED_INFINITE);
         when(host.canUseHostDomainStorage()).thenReturn(true);
+        when(host.canInsertIntoInfiniteDomain()).thenReturn(true);
         var tier = mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
         when(host.getTier()).thenReturn(tier);
         var engine = mock(cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine.class);
