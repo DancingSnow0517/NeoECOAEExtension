@@ -720,9 +720,6 @@ class LargeWorkstationThermalControllerTest {
             (int) value(batch, "progress") * remainingCount + (long) value(batch, "progressRemainder"));
         assertTrue(charged.isEmpty(), "The first portion is covered by already-paid work");
 
-        // A later temperature increase must not merge the remaining downgraded portions back together.
-        field(host, "temperature", 80.0);
-        assertEquals(262_144, host.getMaxBatchParallelism(), "New tasks retain the high-tier capacity");
         for (int i = 0; !queue.isEmpty() && i < 1_024; i++) host.tickingRequest(mock(IGridNode.class), 1);
 
         assertTrue(queue.isEmpty());
@@ -732,6 +729,186 @@ class LargeWorkstationThermalControllerTest {
         assertEquals(1_000.0 * (262_143 - paidWork / 200.0), charged.stream().mapToDouble(Double::doubleValue).sum(), 1e-6);
         assertTrue(((KeyCounter) value(batch, "inputTotal")).isEmpty());
         assertEquals(0, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2,16384,19.9,20,false", "6,65536,49.9,50,false", "9,262144,79.9,80,false",
+        "6,65536,49.9,50,true"})
+    void reheatingRestoresDowngradedParallelismAndCreditsEveryPaidCraftStep(
+        int tier, long count, double cold, double recovered, boolean reload
+    ) throws Exception {
+        field(host, "temperature", cold);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(count, tier, 0, null);
+        field(batch, "recipeId", null);
+        queue.add(batch);
+        doAnswer(call -> Math.min((double) call.getArgument(0), 128_000.0))
+            .when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertTrue((boolean) value(batch, "segmented"));
+        assertEquals(25_600L, (int) value(batch, "progress") * count + (long) value(batch, "progressRemainder"));
+        if (reload) {
+            batch = reloadBatch(batch);
+            queue.clear();
+            queue.add(batch);
+        }
+
+        field(host, "temperature", recovered);
+        doReturn(0.0).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertFalse((boolean) value(batch, "segmented"), "Restored temperature must release the 256-craft fallback");
+        assertEquals(count, value(batch, "craftCount"));
+        assertEquals(25_600L, (int) value(batch, "progress") * count + (long) value(batch, "progressRemainder"));
+        assertEquals(count * 4, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        when(level.registryAccess()).thenReturn(net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
+        var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
+        snapshot.setAccessible(true);
+        var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
+        assertEquals(count, tag.getLong("parallelUsed"));
+        assertEquals(count, tag.getLong("parallelCapacity"));
+        var settings = (net.minecraft.network.chat.contents.TranslatableContents) host.getBatchSettingsText().getContents();
+        assertEquals((int) count, settings.getArgs()[0]);
+        field(host, "temperature", cold);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertTrue((boolean) value(batch, "segmented"), "A later temperature drop must still enforce fallback");
+        field(host, "temperature", recovered);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertFalse((boolean) value(batch, "segmented"));
+        assertEquals(25_600L, (int) value(batch, "progress") * count + (long) value(batch, "progressRemainder"));
+
+        var delivered = new KeyCounter();
+        when(networkStorage().insert(any(), anyLong(), eq(Actionable.MODULATE), any())).thenAnswer(call -> {
+            delivered.add(call.getArgument(0), call.getArgument(1));
+            return call.getArgument(1);
+        });
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        clearInvocations(host);
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertTrue(queue.isEmpty());
+        assertEquals(count, delivered.get(AEItemKey.of(Items.DIAMOND)));
+        verify(host).extractAEPower(eq(count * 1_000.0 - 128_000), eq(Actionable.MODULATE), any());
+        assertTrue(((KeyCounter) value(batch, "inputTotal")).isEmpty());
+    }
+
+    @Test
+    void reheatedTaskDeliversItsBlockedPortionBeforeRestoringTheRemainingParallelism() throws Exception {
+        field(host, "temperature", 49.9);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(1_024, 6, 0, null);
+        queue.add(batch);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(256, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        field(host, "temperature", 50.0);
+        clearInvocations(host);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+        assertTrue((boolean) value(batch, "segmented"));
+
+        var delivered = new KeyCounter();
+        when(networkStorage().insert(any(), anyLong(), eq(Actionable.MODULATE), any())).thenAnswer(call -> {
+            delivered.add(call.getArgument(0), call.getArgument(1));
+            return call.getArgument(1);
+        });
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertSame(batch, queue.getFirst());
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertFalse((boolean) value(batch, "segmented"));
+        assertTrue(queue.isEmpty());
+        assertEquals(1_024, delivered.get(AEItemKey.of(Items.DIAMOND)));
+        verify(host).extractAEPower(eq(768_000.0), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
+    void reheatedTaskKeepsItsFallbackAndPaidWorkUntilAllCompatibilityInputsAreOwned() throws Exception {
+        field(host, "temperature", 49.9);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(1_024, 6, 0, null);
+        ((KeyCounter) value(batch, "missingExtras")).add(AEItemKey.of(Items.GOLD_INGOT), 1_024);
+        queue.add(batch);
+        var storage = networkStorage();
+        when(storage.extract(any(), anyLong(), eq(Actionable.MODULATE), any())).thenAnswer(call -> call.getArgument(1));
+        doAnswer(call -> Math.min((double) call.getArgument(0), 128_000.0))
+            .when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        field(host, "temperature", 50.0);
+        when(storage.extract(any(), anyLong(), eq(Actionable.MODULATE), any())).thenReturn(0L);
+        clearInvocations(host, storage);
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        verify(storage).extract(eq(AEItemKey.of(Items.GOLD_INGOT)), eq(768L), eq(Actionable.MODULATE), any());
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+        assertTrue((boolean) value(batch, "segmented"), "Incomplete input acquisition must leave a reloadable fallback");
+        batch = reloadBatch(batch);
+        queue.clear();
+        queue.add(batch);
+        assertEquals(25_600L, (int) value(batch, "progress") * 1_024L + (long) value(batch, "progressRemainder"));
+        assertEquals(768, ((KeyCounter) value(batch, "missingExtras")).get(AEItemKey.of(Items.GOLD_INGOT)));
+
+        when(storage.extract(any(), anyLong(), eq(Actionable.MODULATE), any())).thenAnswer(call -> call.getArgument(1));
+        doReturn(0.0).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertFalse((boolean) value(batch, "segmented"));
+        assertEquals(0, ((KeyCounter) value(batch, "missingExtras")).get(AEItemKey.of(Items.GOLD_INGOT)));
+        assertEquals(1_024, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.GOLD_INGOT)));
+        assertNotNull(reloadBatch(batch));
+    }
+
+    @Test
+    void coolantModeRestoresADowngradedTaskWhenItsOriginalCoolingRequirementsAreMet() throws Exception {
+        field(host, "temperature", 49.9);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(1_024, 6, 0, null);
+        queue.add(batch);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertTrue((boolean) value(batch, "segmented"));
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        coolant(Fluids.WATER, 6, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(Fluids.WATER, 1_000));
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertTrue((boolean) value(batch, "segmented"), "Coolant mode still requires active cooling");
+        assertEquals(1_000, input.getFluidAmount());
+
+        field(host, "activeCooling", true);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertFalse((boolean) value(batch, "segmented"));
+        assertEquals(1_024, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        assertEquals(900, input.getFluidAmount());
+        verify(host).extractAEPower(eq(1_024_000.0), eq(Actionable.MODULATE), any());
+    }
+
+    private Object reloadBatch(Object batch) throws Exception {
+        var itemField = appeng.core.definitions.ItemDefinition.class.getDeclaredField("item");
+        itemField.setAccessible(true);
+        Object previousMissingContentItem = itemField.get(appeng.core.definitions.AEItems.MISSING_CONTENT);
+        var missingItem = mock(net.neoforged.neoforge.registries.DeferredItem.class);
+        when(missingItem.get()).thenReturn(Items.BARRIER);
+        itemField.set(appeng.core.definitions.AEItems.MISSING_CONTENT, missingItem);
+        try (var keys = mockStatic(appeng.api.stacks.AEKeyTypes.class);
+             var internal = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class)) {
+            internal.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
+                .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
+            keys.when(() -> appeng.api.stacks.AEKeyTypes.get(appeng.api.stacks.AEKeyType.items().getId()))
+                .thenReturn(appeng.api.stacks.AEKeyType.items());
+            var save = batch.getClass().getDeclaredMethod("save", net.minecraft.core.HolderLookup.Provider.class);
+            save.setAccessible(true);
+            var load = batch.getClass().getDeclaredMethod("load", net.minecraft.nbt.CompoundTag.class,
+                net.minecraft.core.HolderLookup.Provider.class, long.class);
+            load.setAccessible(true);
+            var registries = net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+            var saved = (net.minecraft.nbt.CompoundTag) save.invoke(batch, registries);
+            Object restored = load.invoke(null, saved, registries, gameTime);
+            assertNotNull(restored);
+            assertEquals(saved, save.invoke(restored, registries));
+            return restored;
+        } finally {
+            itemField.set(appeng.core.definitions.AEItems.MISSING_CONTENT, previousMissingContentItem);
+        }
     }
 
     @Test

@@ -1032,15 +1032,21 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             LargeWorkstationOverclock locked = LargeWorkstationOverclock.forCoolingTier(batch.coolingTier);
             if (thermal && (locked == null || !locked.isTemperatureReady(temperature))) {
                 // Keep one ownership ledger and spend its already-paid work on 256-craft portions.
-                // The fallback stays in place for the rest of this batch, even if it heats up again.
                 batch.segmented = true;
                 setChanged();
             }
         }
 
-        if (!acquireExtraInputs(batch)) {
+        boolean restoreBatch = batch.segmented && batch.coolingTier > 0
+            && getCurrentBatchProfile().coolingTier() >= batch.coolingTier;
+        if (!acquireExtraInputs(batch, batch.segmented && !restoreBatch)) {
             setPauseReason(PauseReason.LIGHTNING_MISSING);
             return TickRateModulation.SLOWER;
+        }
+        if (restoreBatch) {
+            // Restore only after owning the full batch's extras, keeping interrupted saves valid.
+            batch.segmented = false;
+            setChanged();
         }
         refillPendingBatch(batch);
 
@@ -1553,10 +1559,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     /** Partial extractions remain owned and persisted, so retries and cancellation cannot double-charge. */
     private boolean acquireExtraInputs(PendingBatch batch) {
+        return acquireExtraInputs(batch, batch.segmented);
+    }
+
+    private boolean acquireExtraInputs(PendingBatch batch, boolean segmented) {
         if (isCounterEmpty(batch.missingExtras)) return true;
         IGrid grid = getMainNode().getGrid();
         if (grid == null) return false;
-        if (batch.segmented) {
+        if (segmented) {
             boolean complete = true;
             MEStorage storage = grid.getStorageService().getInventory();
             for (GenericStack extra : counterEntries(batch.missingExtras)) {
@@ -1955,7 +1965,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         /** Already-paid craft steps left over when a larger batch cannot express them as whole progress steps. */
         private long progressRemainder;
         private long thermalWorkMultiplier = 1;
-        /** A temperature downgrade permanently limits this task's remaining work to 256-craft portions. */
+        /** Temperature fallback uses 256-craft portions until this batch's overclock conditions recover. */
         private boolean segmented;
 
         private PendingBatch(

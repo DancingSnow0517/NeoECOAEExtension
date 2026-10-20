@@ -88,7 +88,7 @@ New batches use the highest temperature-ready tier. When parallelism becomes ava
 
 Temperature requirements are checked throughout processing. **Falling below the batch requirement switches its remaining work to portions of at most 256 crafts**, with a smaller final portion when needed. No further preheating is required to finish it. Already-paid work, including fractional progress, is credited toward the earliest portions without charging twice. Each portion consumes only its inputs, acquires only its required compatibility inputs and delivers its own products. Blocked products wait for delivery before another portion starts; returning a task first delivers completed products, then returns its unprocessed inputs.
 
-The task keeps one queue entry, and its portion mode and remaining work survive save/reload. It stays limited to 256 crafts per portion even after reheating; **new batches still use the original limits for the current temperature band**. Disabling overclocking still pauses high-tier tasks that have not fallen back; downgraded tasks can continue at the normal portion size.
+The task keeps one queue entry, and its portion mode and remaining work survive save/reload. **With overclocking enabled, reaching the batch's original temperature threshold automatically clears the 256-craft fallback and restores its original parallelism.** Paid progress and fractional work remain credited. Completed portions must be delivered and all remaining compatibility inputs acquired before restoration; missing inputs preserve the fallback and its progress while waiting. Saved downgraded tasks can recover too, and switching to coolant mode restores them when their original coolant-tier requirements are met. New batches still use the limits for the current temperature band. Disabling overclocking still pauses high-tier tasks that have not fallen back; downgraded tasks can continue at the normal portion size.
 
 ## Heating and coolant selection
 
@@ -116,7 +116,7 @@ Each hatch holds **1,024,000 mB**. Keep the output hatch clear when using a cool
 
 At **100%**, the machine locks processing and new batch admission, stops preheating and retains accepted inputs and progress.
 
-Recovery requires active cooling to be enabled, **Cryotheum Solution** in the input hatch, continuous coolant delivery and unobstructed byproduct output. A full recovery consumes **30,000 mB (30 B)** over **15 seconds (300 server ticks)** of uninterrupted cooling. Hover over the information button to check recovery status. Forced recovery brings temperature to **0%**; the machine stays locked until it finishes. Existing high-tier tasks can then finish in 256-craft portions.
+Recovery requires active cooling to be enabled, **Cryotheum Solution** in the input hatch, continuous coolant delivery and unobstructed byproduct output. A full recovery consumes **30,000 mB (30 B)** over **15 seconds (300 server ticks)** of uninterrupted cooling. Hover over the information button to check recovery status. Forced recovery brings temperature to **0%**; the machine stays locked until it finishes. Existing high-tier tasks initially resume in 256-craft portions and automatically regain their original parallelism once reheated to their original threshold.
 
 Recovery requires **uninterrupted successful Cryotheum Solution consumption**. Disabled cooling, interrupted delivery, blocked output, disassembly or reloading clears progress and returns temperature to 100%, requiring a fresh 15 seconds. Water, sodium, custom high-tier coolants, toggling overclocking and simply waiting cannot clear the latch.
 
@@ -125,7 +125,7 @@ Recovery requires **uninterrupted successful Cryotheum Solution consumption**. D
 | Symptom | Action |
 | --- | --- |
 | Overclocking is enabled but capacity is still 256 | Current temperature is below 20%; advance recipes or use independent preheating to warm up |
-| A task uses only 256 parallelism after cooling | Its remaining work has fallen back to 256-craft portions, preserving inputs and paid work; new batches still follow the current temperature band |
+| A task uses only 256 parallelism after cooling | The fallback is temporary; enable overclocking, restore its original temperature threshold, deliver completed products and supply its remaining compatibility inputs to regain its original parallelism |
 | Stronger coolant lowers temperature | Cooling exceeds actual heating; a weaker coolant may be suitable |
 | Temperature still rises with cooling enabled | Cooling only slows the rise when heating exceeds cooling; hover over cooling information to check its state, amount, recipe and byproduct output capacity |
 | Recovery does not advance or resets | Supply real Cryotheum Solution continuously, allow successful cooling every tick and avoid interruptions or reloading |

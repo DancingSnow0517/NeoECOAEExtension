@@ -116,7 +116,7 @@ class LargeWorkstationBatchPersistenceTest {
         }
     }
 
-    @Test void downgradedTaskKeepsIts256LimitPaidWorkAndRemainingCompatibilityInputsAfterReload() throws Exception {
+    @Test void downgradedTaskKeepsItsFallbackPaidWorkAndRemainingCompatibilityInputsAfterReload() throws Exception {
         try (var keys = mockStatic(AEKeyTypes.class);
              var internal = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class)) {
             internal.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
