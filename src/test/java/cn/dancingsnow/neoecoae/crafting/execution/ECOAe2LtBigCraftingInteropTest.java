@@ -23,6 +23,7 @@ import com.moakiee.ae2lt.blockentity.TianshuSupercomputerControllerBlockEntity;
 import com.moakiee.ae2lt.crafting.big.*;
 import com.moakiee.thunderbolt.compat.neoeco.NeoEcoFastPathCompat;
 import com.moakiee.thunderbolt.core.crafting.big.BigExecutionProgram;
+import com.moakiee.thunderbolt.core.crafting.planner.CraftPattern;
 import java.lang.reflect.*;
 import java.math.BigInteger;
 import java.util.*;
@@ -65,7 +66,7 @@ class ECOAe2LtBigCraftingInteropTest {
         assertEquals(COUNT, f.job.acceptedCopies);
         assertEquals(COUNT, thread.getExactCraftCount());
         assertEquals(BigInteger.ZERO, f.job.escrow.getOrDefault(f.input, BigInteger.ZERO));
-        assertEquals(COUNT.multiply(BigInteger.valueOf(3)), f.job.waiting.get(f.output));
+        assertEquals(COUNT.multiply(BigInteger.valueOf(3)), waiting(f.job).get(f.output));
         verify(f.provider, never()).pushPattern(any(), any());
 
         var host = mock(TianshuSupercomputerControllerBlockEntity.class);
@@ -77,7 +78,7 @@ class ECOAe2LtBigCraftingInteropTest {
                 cpu, UUID.randomUUID(), f.output, total, Actionable.MODULATE));
         assertEquals(total, ECOAe2LtCraftingAdapter.insertExactCpuOutput(cpu, f.job.id,
                 f.output, total, Actionable.SIMULATE));
-        assertEquals(total, f.job.waiting.get(f.output));
+        assertEquals(total, waiting(f.job).get(f.output));
 
         var router = mock(CraftingServiceMixin.class, CALLS_REAL_METHODS);
         when(router.getCpus()).thenReturn(ImmutableSet.of(cpu));
@@ -93,7 +94,7 @@ class ECOAe2LtBigCraftingInteropTest {
         eject.setAccessible(true);
         assertEquals(true, eject.invoke(thread));
         assertTrue(thread.isFree());
-        assertTrue(f.job.waiting.isEmpty());
+        assertTrue(waiting(f.job).isEmpty());
         assertEquals(total, f.job.escrow.get(f.output));
         verify(outputRouter, times(1)).neoecoae$insertExactIntoCpuForJob(f.job.id, f.output, total, Actionable.MODULATE);
         verify(outputRouter, never()).neoecoae$insertIntoCpuForJob(any(), any(), anyLong(), any());
@@ -105,7 +106,7 @@ class ECOAe2LtBigCraftingInteropTest {
                 new ECOFastPathDispatchProvider.ExactPreparation(call.getArgument(1), () -> false));
         assertFalse(f.dispatch());
         assertEquals(COUNT.multiply(BigInteger.TWO), f.job.escrow.get(f.input));
-        assertTrue(f.job.waiting.isEmpty());
+        assertTrue(waiting(f.job).isEmpty());
         assertEquals(BigInteger.ZERO, f.job.acceptedCopies);
         verify(f.energy, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
     }
@@ -117,16 +118,16 @@ class ECOAe2LtBigCraftingInteropTest {
                     throw new ECOIndeterminateBatchException("accepted before failure", null);
                 }));
         assertFalse(f.dispatch());
-        assertTrue(f.job.dispatchFailed);
+        assertTrue((boolean) BigCraftingJob.class.getField("dispatchFailed").get(f.job));
         assertEquals(BigInteger.ZERO, f.job.escrow.getOrDefault(f.input, BigInteger.ZERO));
-        assertEquals(COUNT.multiply(BigInteger.valueOf(3)), f.job.waiting.get(f.output));
+        assertEquals(COUNT.multiply(BigInteger.valueOf(3)), waiting(f.job).get(f.output));
         assertFalse(f.dispatch());
         verify(f.provider, times(1)).eco$prepareExactFastPath(any(), any());
     }
 
-    @Test void unknownExternalProviderKeepsTheLongContractAndGetsNoExactCommit() {
+    @Test void unknownExternalProviderKeepsTheLongContractAndGetsNoExactCommit() throws Exception {
         var provider = mock(ICraftingProvider.class);
-        assertNull(NeoEcoFastPathCompat.prepareExact(provider, mock(IPatternDetails.class),
+        assertNull(exactPrepare().invoke(null, provider, mock(IPatternDetails.class),
                 new KeyCounter[0], COUNT, null, UUID.randomUUID()));
         verify(provider, never()).pushPattern(any(), any());
     }
@@ -149,7 +150,7 @@ class ECOAe2LtBigCraftingInteropTest {
                 new ECOFastPathDispatchProvider.ExactPreparation(call.getArgument(1), () -> true));
         assertTrue(f.dispatch());
         assertEquals(count, f.job.acceptedCopies);
-        assertEquals(count.multiply(BigInteger.valueOf(3)), f.job.waiting.get(f.output));
+        assertEquals(count.multiply(BigInteger.valueOf(3)), waiting(f.job).get(f.output));
         assertEquals(BigInteger.ZERO, f.job.escrow.getOrDefault(f.input, BigInteger.ZERO));
     }
 
@@ -161,7 +162,7 @@ class ECOAe2LtBigCraftingInteropTest {
         assertTrue(f.dispatch());
         assertEquals(accepted, f.job.acceptedCopies);
         assertEquals(BigInteger.valueOf(14), f.job.escrow.get(f.input));
-        assertEquals(accepted.multiply(BigInteger.valueOf(3)), f.job.waiting.get(f.output));
+        assertEquals(accepted.multiply(BigInteger.valueOf(3)), waiting(f.job).get(f.output));
     }
 
     @Test void bigCpuCancellationPublishesTheSameWorkerRecoveryNotice() throws Exception {
@@ -188,11 +189,21 @@ class ECOAe2LtBigCraftingInteropTest {
 
     private interface Provider extends ICraftingProvider, ECOFastPathDispatchProvider {}
 
-    private static Fixture fixture() {
+    private static Fixture fixture() throws Exception {
         return fixture(COUNT);
     }
 
-    private static Fixture fixture(BigInteger count) {
+    @SuppressWarnings("unchecked")
+    private static Fixture fixture(BigInteger count) throws Exception {
+        exactPrepare();
+        Class<?> recipeType;
+        try {
+            recipeType = Class.forName("com.moakiee.ae2lt.crafting.big.BigProviderRecipe");
+            BigCraftingJob.class.getMethod("beginStreaming");
+        } catch (ReflectiveOperationException | LinkageError unavailable) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "Installed AE2LT has no exact streaming integration API");
+            throw new AssertionError(unavailable);
+        }
         var input = AEItemKey.of(net.minecraft.world.item.Items.IRON_INGOT);
         var output = AEItemKey.of(net.minecraft.world.item.Items.DIAMOND);
         var pattern = mock(IPatternDetails.class);
@@ -204,20 +215,21 @@ class ECOAe2LtBigCraftingInteropTest {
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {slot});
         when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 3)));
         when(pattern.getPrimaryOutput()).thenReturn(new GenericStack(output, 3));
-        var recipe = BigProviderRecipe.capture(pattern, List.of(Map.of(input, 2L)), null);
+        var recipe = recipeType.getMethod("capture", IPatternDetails.class, List.class, net.minecraft.world.level.Level.class)
+                .invoke(null, pattern, List.of(Map.of(input, 2L)), null);
         assertNotNull(recipe);
         var program = BigExecutionProgram.of(List.of(BigExecutionProgram.block(
-                List.of(new BigExecutionProgram.Step<>(recipe.pattern(), count)), BigInteger.ONE)));
+                List.of(new BigExecutionProgram.Step<>((CraftPattern<AEKey>) recipeType.getMethod("pattern").invoke(recipe), count)), BigInteger.ONE)));
         var job = new BigCraftingJob(output, count.multiply(BigInteger.valueOf(3)), program);
         job.escrow.put(input, count.multiply(BigInteger.TWO));
-        job.beginStreaming();
+        BigCraftingJob.class.getMethod("beginStreaming").invoke(job);
         var provider = mock(Provider.class);
         var energy = mock(IEnergyService.class);
         when(energy.extractAEPower(anyDouble(), any(), any())).thenAnswer(call -> call.getArgument(0));
         return new Fixture(job, recipe, pattern, provider, energy, input, output);
     }
 
-    private record Fixture(BigCraftingJob job, BigProviderRecipe recipe, IPatternDetails pattern,
+    private record Fixture(BigCraftingJob job, Object recipe, IPatternDetails pattern,
             Provider provider, IEnergyService energy, AEItemKey input, AEItemKey output) {
         boolean dispatch() throws Exception {
             var execution = mock(ECOExtractedPatternExecution.class);
@@ -230,7 +242,7 @@ class ECOAe2LtBigCraftingInteropTest {
                 proof.when(() -> ECOExtractedPatternExecution.fromProviderPush(eq(pattern), any(), isNull()))
                         .thenReturn(execution);
                 var dispatch = Class.forName("com.moakiee.ae2lt.crafting.big.NeoEcoBigIntegerCompat")
-                        .getDeclaredMethod("dispatch", BigCraftingJob.class, BigProviderRecipe.class,
+                        .getDeclaredMethod("dispatch", BigCraftingJob.class, recipe.getClass(),
                                 IPatternDetails.class, ICraftingProvider.class, net.minecraft.world.level.Level.class,
                                 IEnergyService.class, Runnable.class);
                 dispatch.setAccessible(true);
@@ -244,5 +256,20 @@ class ECOAe2LtBigCraftingInteropTest {
         var field = type.getDeclaredField(name);
         field.setAccessible(true);
         return field;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<AEKey, BigInteger> waiting(BigCraftingJob job) throws ReflectiveOperationException {
+        return (Map<AEKey, BigInteger>) BigCraftingJob.class.getField("waiting").get(job);
+    }
+
+    private static Method exactPrepare() throws Exception {
+        try {
+            return NeoEcoFastPathCompat.class.getMethod("prepareExact", ICraftingProvider.class, IPatternDetails.class,
+                KeyCounter[].class, BigInteger.class, net.minecraft.world.level.Level.class, UUID.class);
+        } catch (NoSuchMethodException | LinkageError unavailable) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "Installed Thunderbolt has no exact admission API");
+            throw new AssertionError(unavailable);
+        }
     }
 }

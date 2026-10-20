@@ -44,7 +44,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Exercises existing ordinary dispatch independently of the unused capability adapter. */
 class ECOAe2LtExistingInteropTest {
     @Test
-    void timeWheelOrdinaryDispatchPreservesTheActiveJobId() throws Exception {
+    void releasedTimeWheelOrdinaryDispatchPreservesTheActiveJobId() throws Exception {
         var id = UUID.randomUUID();
         var logic = mock(Ae2LtTimeWheelCraftingCpuLogic.class);
         var jobField = Ae2LtTimeWheelCraftingCpuLogic.class.getDeclaredField("job");
@@ -60,16 +60,8 @@ class ECOAe2LtExistingInteropTest {
         var pattern = mock(IPatternDetails.class);
         var inputs = new KeyCounter[] {new KeyCounter()};
         when(provider.pushPattern(pattern, inputs, id)).thenReturn(true);
-        var resolvedType = Class.forName(Ae2LtTimeWheelCraftingCpuLogic.class.getName() + "$ResolvedProvider");
-        var resolvedCtor = resolvedType.getDeclaredConstructor(ICraftingProvider.class, IPatternDetails.class);
-        resolvedCtor.setAccessible(true);
-        var scheduleType = Class.forName("com.moakiee.thunderbolt.core.crafting.batch.TickProviderDispatchSchedule");
-        var scheduleCtor = scheduleType.getDeclaredConstructor();
-        scheduleCtor.setAccessible(true);
-        var push = Ae2LtTimeWheelCraftingCpuLogic.class.getDeclaredMethod("tryPushPattern",
-                resolvedType, KeyCounter[].class, scheduleType);
-        push.setAccessible(true);
-        assertEquals(true, push.invoke(logic, resolvedCtor.newInstance(provider, pattern), inputs, scheduleCtor.newInstance()));
+        assertTrue(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtJobDispatch.push(logic, provider, pattern, inputs,
+            () -> provider.pushPattern(pattern, inputs)));
         verify(provider).pushPattern(pattern, inputs, id);
         verify(provider, never()).pushPattern(pattern, inputs);
     }

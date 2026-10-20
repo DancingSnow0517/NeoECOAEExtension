@@ -33,6 +33,20 @@ public final class ECOAe2LtCancellationBridge {
     private ECOAe2LtCancellationBridge() {
     }
 
+    /** The released time-wheel engine stores its job identity on the active crafting link. */
+    public static UUID craftingId(Object logic) {
+        if (logic == null) return null;
+        var access = ACCESS.get(logic.getClass()).orElse(null);
+        if (access == null) return null;
+        try {
+            Object job = access.job.get(logic);
+            Object link = job == null ? null : access.link.get(job);
+            return link == null ? null : (UUID) access.craftingId.invoke(link);
+        } catch (ReflectiveOperationException | ClassCastException unavailable) {
+            return null;
+        }
+    }
+
     /** Publishes the terminal decision before the time-wheel logic clears its private job. */
     public static void cancel(Object logic) {
         if (logic == null) {
@@ -45,12 +59,7 @@ public final class ECOAe2LtCancellationBridge {
         }
 
         try {
-            Object job = access.job.get(logic);
-            if (job == null) {
-                return;
-            }
-            Object link = access.link.get(job);
-            UUID jobId = link == null ? null : (UUID) access.craftingId.invoke(link);
+            UUID jobId = craftingId(logic);
             if (jobId == null) {
                 return;
             }

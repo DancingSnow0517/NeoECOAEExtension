@@ -11,7 +11,6 @@ import appeng.crafting.CraftingLink;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys;
-import com.moakiee.ae2lt.api.crafting.Ae2LtCraftingIntegration;
 import com.moakiee.ae2lt.overload.runtime.cpu.OverloadCpuStateManager;
 import com.moakiee.ae2lt.overload.runtime.model.*;
 import com.moakiee.ae2lt.overload.runtime.pattern.*;
@@ -57,8 +56,8 @@ class ECOOverloadAccountingIntegrationTest {
         var f = fixture(false, 4);
         f.register(4);
         assertEquals(0, f.logic.insert(AEItemKey.of(Items.STICK), 4, Actionable.MODULATE));
-        assertEquals(0, Ae2LtCraftingIntegration.claimOverloadOutput(f.logic, UUID.randomUUID(),
-                f.actual, 4, Actionable.MODULATE, (stack, mode) -> fail("wrong job reached CPU")));
+        assertEquals(0, ECOOverloadCpuAccountingBridge.claim(f.logic, UUID.randomUUID(),
+                f.actual, 4, Actionable.MODULATE));
         assertEquals(4, pending(f));
         assertEquals(4, f.job.waitingFor.list.get(f.expected));
     }
@@ -116,8 +115,10 @@ class ECOOverloadAccountingIntegrationTest {
     @Test void partialCpuClaimDoesNotConsumeTheUnacceptedTail() {
         var f = fixture(false, 7);
         f.register(7);
-        assertEquals(2, Ae2LtCraftingIntegration.claimOverloadOutput(f.logic, f.job.link.getCraftingID(),
-                f.actual, 7, Actionable.MODULATE, (stack, mode) -> Math.min(2L, stack.amount())));
+        f.job.waitingFor.clear();
+        f.job.waitingFor.insert(f.expected, 2, Actionable.MODULATE);
+        assertEquals(2, ECOOverloadCpuAccountingBridge.claim(f.logic, f.job.link.getCraftingID(),
+                f.actual, 7, Actionable.MODULATE));
         assertEquals(5, pending(f));
     }
 
