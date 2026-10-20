@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -12,7 +14,7 @@ final class LargeWorkstationTemperatureGauge extends UIElement implements IBinda
 
     @Override
     public IDataSource<Float> setValue(@Nullable Float value) {
-        this.value = value == null || !Float.isFinite(value) ? 0 : Math.clamp(value, 0, 100);
+        this.value = value == null || !Float.isFinite(value) ? 0 : JdkCompat.clamp(value, 0, 100);
         return this;
     }
 

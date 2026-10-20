@@ -17,11 +17,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.common.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.fluids.crafting.FluidIngredient;
+import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -124,7 +124,7 @@ class LargeWorkstationPatternScalingTest {
     @Test void exactRecipeKeepsItsOriginalEnergyWhenASmallerRecipeAlsoMatches() throws Exception {
         var controller = controller();
         var base = recipe();
-        var exact = new LargeWorkstationRecipe(ResourceLocation.parse("test:exact"), new IntegratedWorkingStationRecipe(
+        var exact = new LargeWorkstationRecipe(new ResourceLocation("test:exact"), new IntegratedWorkingStationRecipe(
             List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 8)), base.display().inputFluid(),
             new ItemStack(Items.DIAMOND, 4), FluidStack.EMPTY, 150), 150, List.of());
         var holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 8)};
@@ -150,7 +150,7 @@ class LargeWorkstationPatternScalingTest {
     }
 
     private static LargeWorkstationRecipe recipe() {
-        return new LargeWorkstationRecipe(ResourceLocation.parse("test:scaled"), new IntegratedWorkingStationRecipe(
+        return new LargeWorkstationRecipe(new ResourceLocation("test:scaled"), new IntegratedWorkingStationRecipe(
             List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 4)),
             new SizedFluidIngredient(FluidIngredient.empty(), 1), new ItemStack(Items.DIAMOND, 2),
             FluidStack.EMPTY, 100), 100, List.of());

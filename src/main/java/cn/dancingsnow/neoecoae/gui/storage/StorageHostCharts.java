@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
@@ -290,7 +292,7 @@ final class StorageHostCharts {
                 }
                 return;
             }
-            int width = Math.round(getSizeWidth() * (float) Math.clamp(snapshot.usage(), 0, 1));
+            int width = Math.round(getSizeWidth() * (float) JdkCompat.clamp(snapshot.usage(), 0, 1));
             drawSegments(context, snapshot, width);
         }
     }
@@ -373,8 +375,8 @@ final class StorageHostCharts {
         }
 
         int maximumOffset() { return Math.max(0, state().types().size() - 3); }
-        int currentOffset() { return offset = Math.clamp(offset, 0, maximumOffset()); }
-        void scroll(int delta) { offset = Math.clamp(currentOffset() + delta, 0, maximumOffset()); }
+        int currentOffset() { return offset = JdkCompat.clamp(offset, 0, maximumOffset()); }
+        void scroll(int delta) { offset = JdkCompat.clamp(currentOffset() + delta, 0, maximumOffset()); }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
             int start = currentOffset();
@@ -436,7 +438,7 @@ final class StorageHostCharts {
             });
             addEventListener(UIEvents.MOUSE_DOWN, event -> {
                 if (event.button != 0) return;
-                double ratio = Math.clamp((event.y - getPositionY()) / Math.max(1, getSizeHeight()), 0, 1);
+                double ratio = JdkCompat.clamp((event.y - getPositionY()) / Math.max(1, getSizeHeight()), 0, 1);
                 typePanel.offset = (int) Math.round(ratio * typePanel.maximumOffset());
                 event.stopImmediatePropagation();
             });

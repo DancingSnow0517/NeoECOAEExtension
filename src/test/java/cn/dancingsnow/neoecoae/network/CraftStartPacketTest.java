@@ -5,7 +5,7 @@ import cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.minecraftforge.network.handling.IPayloadContext;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.*;

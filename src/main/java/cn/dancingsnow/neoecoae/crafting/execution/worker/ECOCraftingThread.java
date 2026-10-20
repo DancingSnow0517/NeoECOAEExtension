@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 
 import appeng.api.config.Actionable;
@@ -47,9 +49,9 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.INBTSerializable;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.util.INBTSerializable;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnknownNullability;
 import org.slf4j.Logger;
@@ -583,7 +585,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private int calculateProgressPerTick(int overclockTimes) {
-        return Math.clamp(10 + Math.max(0, overclockTimes) * 10, 10, MAX_PROGRESS);
+        return JdkCompat.clamp(10 + Math.max(0, overclockTimes) * 10, 10, MAX_PROGRESS);
     }
 
     private int calculateRequestedProgress(int ticksPassed, int bonusValue, int remainingProgress) {
@@ -1144,7 +1146,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private void postCraftingEventSafely(ItemStack craftedOutput) {
         try {
-            NeoForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
+            MinecraftForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
                 NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()), craftedOutput, craftingInv
             ));
         } catch (RuntimeException e) {
@@ -1304,7 +1306,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             : nbt.contains("occupiedThreadSlots") ? nbt.getInt("occupiedThreadSlots") : 1;
         boolean invalidPersistedState = persistedProgress < 0
             || persistedFiniteBatchCraftCount <= 0;
-        this.progress = Math.clamp(persistedProgress, 0, MAX_PROGRESS);
+        this.progress = JdkCompat.clamp(persistedProgress, 0, MAX_PROGRESS);
         this.progressRemainder = readProgressRemainder(nbt);
         this.finiteBatchCraftCount = ECOBatchCraftingHelper.clampPersistedBatchSize(persistedFiniteBatchCraftCount);
         this.craftCount = nbt.contains("craftCount") ? Math.max(1L, nbt.getLong("craftCount"))

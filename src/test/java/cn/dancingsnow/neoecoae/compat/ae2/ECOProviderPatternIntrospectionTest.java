@@ -42,7 +42,7 @@ class ECOProviderPatternIntrospectionTest {
 
     @Test
     void registeredOptionalContractIsFollowed() {
-        ECOPatternWrappers.register(ResourceLocation.fromNamespaceAndPath("neoecoae_test", "wrapper"),
+        ECOPatternWrappers.register(new ResourceLocation("neoecoae_test", "wrapper"),
             0, RegisteredWrapper.class, RegisteredWrapper::delegate);
         IPatternDetails base = mock(IPatternDetails.class);
         IPatternDetails wrapped = mock(IPatternDetails.class, withSettings().extraInterfaces(RegisteredWrapper.class));
@@ -64,8 +64,8 @@ class ECOProviderPatternIntrospectionTest {
 
     @Test
     void wrapperRegistrationUsesPriorityAndRejectsDuplicateIds() {
-        var low = ResourceLocation.fromNamespaceAndPath("neoecoae_test", "low_priority_wrapper");
-        var high = ResourceLocation.fromNamespaceAndPath("neoecoae_test", "high_priority_wrapper");
+        var low = new ResourceLocation("neoecoae_test", "low_priority_wrapper");
+        var high = new ResourceLocation("neoecoae_test", "high_priority_wrapper");
         IPatternDetails base = mock(IPatternDetails.class);
         IPatternDetails wrong = mock(IPatternDetails.class);
         ECOPatternWrappers.register(low, 0, PriorityWrapper.class, wrapper -> wrong);

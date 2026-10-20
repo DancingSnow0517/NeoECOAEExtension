@@ -16,11 +16,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -124,6 +124,6 @@ class LargeWorkstationCoolantInputTest {
 
     private static RecipeHolder<CoolingRecipe> cooling(net.minecraft.world.level.material.Fluid fluid) {
         var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), FluidStack.EMPTY, 1500, 2);
-        return new RecipeHolder<>(ResourceLocation.parse("test:coolant"), recipe);
+        return new RecipeHolder<>(new ResourceLocation("test:coolant"), recipe);
     }
 }

@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.impl.storage.StorageFaults;
-import cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerService;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -69,23 +68,12 @@ class ECOStorageHostStatisticsTest {
     }
 
     @Test
-    void energyDisplayIncludesTheHostsNetworkSingularitySurcharge() {
+    void energyDisplayIncludesTheInstalledCellsIdleDrain() {
         Fixture fixture = new Fixture();
         long baseline = fixture.statistics.getEnergyConsumePerTick();
         var drive = fixture.addCell("items", AEKeyType.items(), 0, 5, 0, Long.MAX_VALUE);
         when(drive.getCellInventory().getIdleDrain()).thenReturn(1_024d);
-        var node = mock(IManagedGridNode.class);
-        var grid = mock(IGrid.class);
-        var power = mock(BiggerAE2SingularityPowerService.class);
-        when(fixture.host.getMainNode()).thenReturn(node);
-        when(node.getGrid()).thenReturn(grid);
-        when(grid.getService(BiggerAE2SingularityPowerService.class)).thenReturn(power);
-        when(power.getAdditionalIdleDrain(fixture.host)).thenReturn(3_072d);
-        try (var singularity = mockStatic(BiggerAE2SingularityPowerService.class)) {
-            singularity.when(() -> BiggerAE2SingularityPowerService.isSingularity(drive.getCellStack())).thenReturn(true);
-            assertEquals(baseline + 1_024 + 3_072, fixture.statistics.getEnergyConsumePerTick());
-            verify(power).getAdditionalIdleDrain(fixture.host);
-        }
+        assertEquals(baseline + 1_024, fixture.statistics.getEnergyConsumePerTick());
         assertTrue(fixture.faults.snapshot().isEmpty());
     }
 
@@ -115,7 +103,7 @@ class ECOStorageHostStatisticsTest {
         assertEquals(CellState.FULL, cells.get(2).state());
         assertTrue(cells.get(1).online());
         assertFalse(cells.get(2).online());
-        assertEquals(ResourceLocation.parse("neoecoae:items"), fixture.line("items").resourceId());
+        assertEquals(new ResourceLocation("neoecoae:items"), fixture.line("items").resourceId());
 
         when(first.getCellInventory().getUsedBytes()).thenReturn(99L);
         when(second.getCellInventory().getUsedBytes()).thenReturn(0L);
@@ -170,7 +158,7 @@ class ECOStorageHostStatisticsTest {
         StorageHostUI.StorageTypeLine line = fixture.line(ordinary);
         assertTotals(line, 5, 12, 300, 3_000);
         assertEquals(Component.literal(ordinary), line.displayName().get());
-        assertEquals(ResourceLocation.fromNamespaceAndPath("neoecoae", ordinary), line.resourceId());
+        assertEquals(new ResourceLocation("neoecoae", ordinary), line.resourceId());
         assertTrue(line.visible().getAsBoolean());
         assertFalse(fixture.line(variant).visible().getAsBoolean());
         assertEquals(List.of(fixture.id(ordinary), fixture.id(variant)),
@@ -268,7 +256,7 @@ class ECOStorageHostStatisticsTest {
 
     private static final class Fixture {
         final Registry<ECOCellType> cellTypes = new MappedRegistry<>(ResourceKey.createRegistryKey(
-            ResourceLocation.fromNamespaceAndPath("neoecoae_test", "storage_cell_types")), Lifecycle.stable());
+            new ResourceLocation("neoecoae_test", "storage_cell_types")), Lifecycle.stable());
         final ECOStorageSystemBlockEntity host = mock(ECOStorageSystemBlockEntity.class);
         final NEStorageCluster cluster = mock(NEStorageCluster.class);
         final List<ECODriveBlockEntity> drives = new ArrayList<>();
@@ -335,7 +323,7 @@ class ECOStorageHostStatisticsTest {
         }
 
         private static ResourceLocation key(String path) {
-            return ResourceLocation.fromNamespaceAndPath("neoecoae", path);
+            return new ResourceLocation("neoecoae", path);
         }
     }
 }

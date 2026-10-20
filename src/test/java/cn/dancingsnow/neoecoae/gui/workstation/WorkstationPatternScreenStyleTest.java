@@ -57,6 +57,6 @@ class WorkstationPatternScreenStyleTest {
         assertEquals(8, style.getSlots().get("PLAYER_HOTBAR").resolve(bounds).getX());
         assertEquals(8, style.getSlots().get("STORAGE").resolve(bounds).getX());
         assertEquals(23, style.getSlots().get("ENCODED_PATTERN").resolve(bounds).getY());
-        verify(resources).getResource(ResourceLocation.parse("ae2:screens/large_integrated_working_station_interface.json"));
+        verify(resources).getResource(new ResourceLocation("ae2:screens/large_integrated_working_station_interface.json"));
     }
 }

@@ -2,8 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.crafting;
 
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,7 +17,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEntity> implements BlockUIMenuType.BlockUI {
+public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEntity> {
     public ECOFluidInputHatchBlock(Properties properties) {
         super(properties);
     }
@@ -26,7 +25,9 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (player instanceof ServerPlayer serverPlayer) {
-            BlockUIMenuType.openUI(serverPlayer, pos);
+            if (level.getBlockEntity(pos) instanceof ECOFluidInputHatchBlockEntity blockEntity) {
+                BlockEntityUIFactory.INSTANCE.openUI(blockEntity, serverPlayer);
+            }
             return InteractionResult.CONSUME;
         }
         return InteractionResult.SUCCESS;
@@ -37,11 +38,4 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
         return true;
     }
 
-    @Override
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        if (holder.player.level().getBlockEntity(holder.pos) instanceof ECOFluidInputHatchBlockEntity be) {
-            return be.createUI(holder);
-        }
-        return null;
-    }
 }

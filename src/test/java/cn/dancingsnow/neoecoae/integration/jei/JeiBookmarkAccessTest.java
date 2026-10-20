@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.jei;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 

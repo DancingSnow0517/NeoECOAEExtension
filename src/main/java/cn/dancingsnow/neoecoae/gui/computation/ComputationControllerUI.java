@@ -40,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Texture-backed computation controller; LDLib2 retains inventory, toolbar actions and menu synchronization. */
 public final class ComputationControllerUI {
-    private static final ResourceLocation LAYOUT = ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/computation/controller");
+    private static final ResourceLocation LAYOUT = new ResourceLocation("neoecoae", "screens/computation/controller");
 
     public record Config(
         BooleanSupplier connected, IntSupplier networkMultiplier, IntSupplier normalSwitchCount, IntSupplier highEnergySwitchCount,
@@ -79,12 +79,12 @@ public final class ComputationControllerUI {
 
     public static UIElement create(Config config,
                                    Supplier<ComputationControllerPanelState> panelState,
-                                   UIElement guideButton, UIElement buildButton, UIElement buildWindow) {
-        return create(config, panelState, guideButton, buildButton, buildWindow, () -> null);
+                                   UIElement guideButton) {
+        return create(config, panelState, guideButton, () -> null);
     }
 
     public static UIElement create(Config config, Supplier<ComputationControllerPanelState> panelState,
-        UIElement guideButton, UIElement buildButton, UIElement buildWindow, Supplier<IECOTier> panelTier) {
+        UIElement guideButton, Supplier<IECOTier> panelTier) {
         Button cpuMode = ComputationControllerInteractions.createCpuSelectionButton(config);
         cpuMode.setId("computation-cpu-mode");
         Button frequency = ComputationControllerInteractions.createNetworkFrequencyButton(config);
@@ -110,7 +110,7 @@ public final class ComputationControllerUI {
         UIElement info = CraftingHostPanelUI.createMaintenanceStatusIcon(config.endgameStatus());
         info.setId("computation-info");
         info.style(style -> style.backgroundTexture(SpriteTexture.of(
-            ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/common/side_bar/mirrored_button_slot_up.png"))));
+            new ResourceLocation("neoecoae", "textures/gui/common/side_bar/mirrored_button_slot_up.png"))));
         Button listToggle = HostSideButtonBar.createButton();
         UIElement listToggleIcon = new UIElement().layout(layout -> layout.heightPercent(100).setAspectRatio(1f))
             .style(style -> style.backgroundTexture(NETextures.CPU_SELECTOR_CLOSED))
@@ -139,7 +139,7 @@ public final class ComputationControllerUI {
                     case "computation_status" -> status;
                     case "computation_switch" -> createSwitch(config,
                         node.has("key") ? node.get("key").getAsString() : "");
-                    case "computation_toolbar" -> HostSideButtonBar.left(guideButton, buildButton, cpuMode, frequency, listToggle);
+                    case "computation_toolbar" -> HostSideButtonBar.left(guideButton, cpuMode, frequency, listToggle);
                     case "computation_info" -> info;
                     default -> null;
                 };
@@ -158,7 +158,6 @@ public final class ComputationControllerUI {
         });
         rootRef[0] = root;
         root.setOverflowVisible(true);
-        mainOf(root).addChild(buildWindow);
         return root;
     }
 

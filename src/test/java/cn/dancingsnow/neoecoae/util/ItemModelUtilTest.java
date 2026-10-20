@@ -64,7 +64,7 @@ class ItemModelUtilTest {
         when(context.getName()).thenReturn("eco_fe_cell_16m");
         ItemModelUtil.cellModel("fe", "16m").accept(context, provider);
         verify(provider).withExistingParent("eco_fe_cell_16m",
-            ResourceLocation.fromNamespaceAndPath("neoecoae", "item/cell/eco_energy_cell_16m"));
+            new ResourceLocation("neoecoae", "item/cell/eco_energy_cell_16m"));
     }
 
     @SuppressWarnings("unchecked")
@@ -75,7 +75,7 @@ class ItemModelUtilTest {
     private static RegistrateItemModelProvider provider() {
         var provider = mock(RegistrateItemModelProvider.class);
         when(provider.modLoc(anyString())).thenAnswer(call ->
-            ResourceLocation.fromNamespaceAndPath("neoecoae", call.getArgument(0)));
+            new ResourceLocation("neoecoae", call.getArgument(0)));
         return provider;
     }
 

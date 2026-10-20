@@ -9,7 +9,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import java.util.ArrayList;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 
 /** Tank contents stay inside the frame; ticks are rendered over the fluid and hover highlight. */
 final class WorkstationFluidGauge extends FluidSlot {

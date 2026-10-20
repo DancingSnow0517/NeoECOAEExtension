@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
@@ -14,7 +16,7 @@ final class CraftingControllerTooltips {
         this.view = view;
     }
     String percent(int permille) {
-        return (Math.round(Math.clamp(permille, 0, CraftingControllerPanelState.FULL) / 10.0f)) + "%";
+        return (Math.round(JdkCompat.clamp(permille, 0, CraftingControllerPanelState.FULL) / 10.0f)) + "%";
     }
 
     String formatCapacity(long value) {
@@ -27,7 +29,7 @@ final class CraftingControllerTooltips {
 
     String overflowPercent() {
         return (view.ftParallelCapacity <= 0L ? 0L
-            : Math.clamp(Math.round(view.overflowCapacity * 100.0D / view.ftParallelCapacity), 0L, 100L)) + "%";
+            : JdkCompat.clamp(Math.round(view.overflowCapacity * 100.0D / view.ftParallelCapacity), 0L, 100L)) + "%";
     }
 
     List<Component> queueTooltip() {

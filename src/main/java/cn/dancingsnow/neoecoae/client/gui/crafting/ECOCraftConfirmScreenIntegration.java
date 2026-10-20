@@ -9,7 +9,7 @@ import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.minecraftforge.client.event.ScreenEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

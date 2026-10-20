@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 
@@ -21,15 +20,6 @@ public final class StorageHostActionUI {
 
     public record Config(
         Player player,
-        IntSupplier selectedLength,
-        BooleanSupplier mirrored,
-        Consumer<Boolean> setMirrored,
-        Runnable decreaseLength,
-        Runnable increaseLength,
-        Runnable build,
-        BooleanSupplier formed,
-        BooleanSupplier buildInProgress,
-        Supplier<MultiBlockPlacementPlan> previewPlan,
         IntSupplier priority,
         IntConsumer setPriority,
         IntConsumer changePriority
@@ -39,39 +29,24 @@ public final class StorageHostActionUI {
     public record Elements(
         Config config,
         Player player,
-        UIElement buildWindow,
         UIElement priorityWindow
     ) {
         public void addTo(UIElement root) {
             List<UIElement> buttons = List.of(
                 GuideButton.create(player, "neoecoae:neoecoae_intro/storage_system.md"),
-                MultiblockBuilderUI.createInlineOpenButton(buildWindow),
                 StoragePriorityUI.createInlineOpenButton(priorityWindow)
             );
             root.addChild(HostSideButtonBar.left(buttons.toArray(UIElement[]::new)));
-            root.addChild(buildWindow);
             root.addChild(priorityWindow);
         }
     }
 
     public static Elements create(Config config) {
-        UIElement buildWindow = MultiblockBuilderUI.createFloatingPanel(new MultiblockBuilderUI.Config(
-            config.player(),
-            config.selectedLength(),
-            config.mirrored(),
-            config.setMirrored(),
-            config.decreaseLength(),
-            config.increaseLength(),
-            config.build(),
-            config.formed(),
-            config.buildInProgress(),
-            config.previewPlan()
-        ));
         UIElement priorityWindow = StoragePriorityUI.createFloatingPanel(new StoragePriorityUI.Config(
             config.priority(),
             config.setPriority(),
             config.changePriority()
         ));
-        return new Elements(config, config.player(), buildWindow, priorityWindow);
+        return new Elements(config, config.player(), priorityWindow);
     }
 }

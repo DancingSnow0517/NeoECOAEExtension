@@ -5,7 +5,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
@@ -14,8 +14,8 @@ import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Contract;
 
 public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock) implements Recipe<CoolingRecipe.Input> {
@@ -71,7 +71,7 @@ public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int c
             Codec.INT.optionalFieldOf("max_overclock", 0).forGetter(CoolingRecipe::maxOverclock)
         ).apply(ins, CoolingRecipe::new));
 
-        private static final StreamCodec<RegistryFriendlyByteBuf, CoolingRecipe> STREAM_CODEC = StreamCodec.composite(
+        private static final StreamCodec<FriendlyByteBuf, CoolingRecipe> STREAM_CODEC = StreamCodec.composite(
             SizedFluidIngredient.STREAM_CODEC,
             CoolingRecipe::input,
             FluidStack.OPTIONAL_STREAM_CODEC,
@@ -89,7 +89,7 @@ public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int c
         }
 
         @Override
-        public StreamCodec<RegistryFriendlyByteBuf, CoolingRecipe> streamCodec() {
+        public StreamCodec<FriendlyByteBuf, CoolingRecipe> streamCodec() {
             return STREAM_CODEC;
         }
     }

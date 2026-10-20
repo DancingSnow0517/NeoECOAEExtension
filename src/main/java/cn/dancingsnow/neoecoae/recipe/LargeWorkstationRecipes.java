@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.recipe;
 
-import appeng.api.config.PowerUnit;
+import appeng.api.config.PowerUnits;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -23,12 +23,12 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.crafting.DataComponentIngredient;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.DataComponentFluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.common.crafting.DataComponentIngredient;
+import net.minecraftforge.common.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.crafting.DataComponentFluidIngredient;
+import net.minecraftforge.fluids.crafting.FluidIngredient;
+import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,10 +50,7 @@ public final class LargeWorkstationRecipes {
     private static final Logger LOGGER = LoggerFactory.getLogger(LargeWorkstationRecipes.class);
     private static final Set<String> COMPAT_TYPES = Set.of(
         "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation",
-        "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing",
-        "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler",
-        "data_energistics:data_reassembler", "data_energistics:data_charger",
-        "data_energistics:data_integrated_charger", "data_energistics:data_charge_press");
+        "advanced_ae:reaction", "expatternprovider:crystal_assembler", "extendedae:crystal_assembler");
     private static final Map<RecipeManager, Cache> CACHE = new WeakHashMap<>();
     // Lightning recipes have explicit priority. AE cost, lightning amount and ID break ties.
     private static final Comparator<LargeWorkstationRecipe> COST_ORDER = Comparator
@@ -257,8 +254,6 @@ public final class LargeWorkstationRecipes {
     }
 
     static LargeWorkstationRecipe decode(ResourceLocation id, String type, JsonObject data, DynamicOps<JsonElement> ops) {
-        if (type.startsWith("data_energistics:")) return DataWorkstationRecipes.decode(id, type, data, ops);
-        if (type.equals("appgen:synthesizing")) return AppliedGeneratorsWorkstationRecipes.decode(id, data, ops);
         List<SizedIngredient> items = new ArrayList<>();
         SizedFluidIngredient fluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
         ItemStack result = ItemStack.EMPTY;
@@ -275,7 +270,7 @@ public final class LargeWorkstationRecipes {
                     if (data.has("inputFluid")) {
                         var stack = parse(FluidStack.OPTIONAL_CODEC, ops, data.get("inputFluid"));
                         if (!stack.isEmpty()) fluid = new SizedFluidIngredient(
-                            net.neoforged.neoforge.fluids.crafting.DataComponentFluidIngredient.of(true, stack), stack.getAmount());
+                            net.minecraftforge.fluids.crafting.DataComponentFluidIngredient.of(true, stack), stack.getAmount());
                     }
                     if (data.has("results")) {
                         var results = data.getAsJsonArray("results");
@@ -285,23 +280,10 @@ public final class LargeWorkstationRecipes {
                     if (data.has("resultFluid")) fluidResult = parse(FluidStack.OPTIONAL_CODEC, ops, data.get("resultFluid"));
                 } else result = parse(ItemStack.CODEC, ops, data.get("result"));
                 // AE2LT Reborn's totalEnergy is FE; the workstation consumes its AE equivalent.
-                energy = (long) Math.ceil(PowerUnit.FE.convertTo(PowerUnit.AE, data.get("totalEnergy").getAsLong()));
+                energy = (long) Math.ceil(PowerUnits.FE.convertTo(PowerUnits.AE, data.get("totalEnergy").getAsLong()));
                 extras = List.of(LightningInput.decode(data));
             }
-            case "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe" -> {
-                for (String name : List.of("input_a", "input_b", "input_c")) {
-                    if (data.has(name)) {
-                        var item = parse(SizedIngredient.FLAT_CODEC, ops, data.get(name));
-                        if (!item.ingredient().isEmpty()) items.add(item);
-                    }
-                }
-                result = parse(ItemStack.CODEC, ops, data.get("result"));
-                if (data.has("fluid_input")) fluid = parse(SizedFluidIngredient.FLAT_CODEC, ops, data.get("fluid_input"));
-                if (data.has("fluid_output")) fluidResult = parse(FluidStack.OPTIONAL_CODEC, ops, data.get("fluid_output"));
-                energy = data.has("energy_cost") ? data.get("energy_cost").getAsLong()
-                    : type.equals("ae2cs:circuit_etcher_recipe") ? 3200 : 200;
-            }
-            case "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler" -> {
+            case "advanced_ae:reaction", "expatternprovider:crystal_assembler", "extendedae:crystal_assembler" -> {
                 for (var input : data.getAsJsonArray("input_items")) {
                     var entry = input.getAsJsonObject();
                     var ingredient = parse(Ingredient.CODEC, ops, entry.get("ingredient"));
@@ -331,7 +313,7 @@ public final class LargeWorkstationRecipes {
         if (result.isEmpty() && fluidResult.isEmpty()) throw new IllegalArgumentException("Empty output");
         var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
-        return new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type));
+        return new LargeWorkstationRecipe(id, display, energy, extras, new ResourceLocation(type));
     }
 
     private static <T> T parse(Codec<T> codec, DynamicOps<JsonElement> ops, JsonElement value) {

@@ -11,11 +11,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
     REGULAR("regular", 0x878FA5, ""),
     ADVANCED_AE("advanced_ae", 0xB668D0, "advanced_ae"),
     EXTENDED_AE("extendedae", 0x45D9A0, "extendedae"),
-    CRYSTAL_SCIENCE("ae2cs", 0x7DCBE8, "ae2cs"),
-    LIGHTNING_TECH("aelt", 0xED7CCC, "aelt"),
-    OTHER("other", 0x3D8FEA, "other"),
-    DATA_ENERGISTICS("data_energistics", 0x49CDBF, "data_energistics"),
-    APPLIED_GENERATORS("appgen", 0xF5A23C, "appgen");
+    LIGHTNING_TECH("aelt", 0xED7CCC, "aelt");
 
     private final String name;
     private final int color;
@@ -41,11 +37,11 @@ public enum LargeWorkstationModule implements StringRepresentable {
     }
 
     public ResourceLocation upgradeCardId() {
-        return ResourceLocation.fromNamespaceAndPath("neoecoae", "integrated_working_station_module_"
+        return new ResourceLocation("neoecoae", "integrated_working_station_module_"
             + (this == REGULAR ? "empty" : name));
     }
 
-    public boolean hasUpgradeCard() { return this != OTHER; }
+    public boolean hasUpgradeCard() { return true; }
 
     public static boolean isUpgradeCard(ItemStack stack) {
         if (stack.isEmpty()) return false;
@@ -63,9 +59,9 @@ public enum LargeWorkstationModule implements StringRepresentable {
     }
 
     public boolean unlocks(ResourceLocation sourceType) {
+        if (!supportsSourceType(sourceType)) return false;
         LargeWorkstationModule source = fromSourceType(sourceType);
-        // Adapters without a registered card remain available alongside native recipes.
-        return source == REGULAR || source == OTHER || source == this;
+        return source == REGULAR || source == this;
     }
 
     public String modelPath(boolean working) {
@@ -77,12 +73,17 @@ public enum LargeWorkstationModule implements StringRepresentable {
         if (type == null || type.equals(LargeWorkstationRecipe.NATIVE_TYPE)) return REGULAR;
         return switch (type.getNamespace()) {
             case "advanced_ae", "advancedae" -> ADVANCED_AE;
-            case "extendedae", "extendedae_plus" -> EXTENDED_AE;
-            case "ae2cs" -> CRYSTAL_SCIENCE;
+            case "extendedae", "expatternprovider" -> EXTENDED_AE;
             case "ae2lt" -> LIGHTNING_TECH;
-            case "data_energistics" -> DATA_ENERGISTICS;
-            case "appgen" -> APPLIED_GENERATORS;
-            default -> OTHER;
+            default -> throw new IllegalArgumentException("Unsupported workstation source: " + type);
+        };
+    }
+
+    public static boolean supportsSourceType(ResourceLocation type) {
+        if (type == null || type.equals(LargeWorkstationRecipe.NATIVE_TYPE)) return true;
+        return switch (type.getNamespace()) {
+            case "advanced_ae", "advancedae", "extendedae", "expatternprovider", "ae2lt" -> true;
+            default -> false;
         };
     }
 

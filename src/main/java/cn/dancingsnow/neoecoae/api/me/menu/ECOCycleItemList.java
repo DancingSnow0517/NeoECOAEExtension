@@ -7,7 +7,7 @@ import java.util.List;
 import java.math.BigInteger;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 
 /** Cycle members synchronized with the crafting confirmation screen. */
 public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
@@ -17,11 +17,11 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
 
     }
 
-    public ECOCycleItemList(RegistryFriendlyByteBuf data) {
+    public ECOCycleItemList(FriendlyByteBuf data) {
         this(readFromPacket(data));
     }
 
-    private static List<Entry> readFromPacket(RegistryFriendlyByteBuf data) {
+    private static List<Entry> readFromPacket(FriendlyByteBuf data) {
         int size = data.readVarInt();
         if (size < 0 || size > 100_000) throw new IllegalArgumentException("Invalid cycle item count");
         List<Entry> items = new ArrayList<>(size);
@@ -34,7 +34,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
     }
 
     @Override
-    public void writeToPacket(RegistryFriendlyByteBuf data) {
+    public void writeToPacket(FriendlyByteBuf data) {
         if (items.size() > 100_000) throw new IllegalArgumentException("Too many cycle items");
         data.writeVarInt(items.size());
         for (Entry item : items) {
@@ -106,13 +106,13 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         public BigInteger displayedTotal() { return isCycleProduct() ? exactProduced : exactConsumed; }
     }
 
-    private static void writeBigInteger(RegistryFriendlyByteBuf data, BigInteger value) {
+    private static void writeBigInteger(FriendlyByteBuf data, BigInteger value) {
         byte[] bytes = value.toByteArray();
         if (bytes.length > 4096) throw new IllegalArgumentException("Cycle diagnostic integer is too large");
         data.writeByteArray(bytes);
     }
 
-    private static BigInteger readBigInteger(RegistryFriendlyByteBuf data) {
+    private static BigInteger readBigInteger(FriendlyByteBuf data) {
         byte[] bytes = data.readByteArray(4096);
         if (bytes.length == 0) throw new IllegalArgumentException("Empty cycle diagnostic integer");
         return new BigInteger(bytes);

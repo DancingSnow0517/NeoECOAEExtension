@@ -6,14 +6,14 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class LargeWorkstationCoolingOutputTest {
-    private static final ResourceLocation FIRST = ResourceLocation.parse("test:first_coolant");
-    private static final ResourceLocation SECOND = ResourceLocation.parse("test:second_coolant");
+    private static final ResourceLocation FIRST = new ResourceLocation("test:first_coolant");
+    private static final ResourceLocation SECOND = new ResourceLocation("test:second_coolant");
     private static final FluidStack OUTPUT = new FluidStack(Fluids.WATER, 1);
 
     @Test

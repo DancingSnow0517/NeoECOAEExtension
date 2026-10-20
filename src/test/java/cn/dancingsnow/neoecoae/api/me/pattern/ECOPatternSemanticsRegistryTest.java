@@ -182,7 +182,7 @@ class ECOPatternSemanticsRegistryTest {
     }
 
     private ResourceLocation register(String path, int priority, ECOPatternSemanticAdapter adapter) {
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath("pattern_api_test", path);
+        ResourceLocation id = new ResourceLocation("pattern_api_test", path);
         ECOPatternSemanticsRegistry.register(id, priority, adapter);
         registrations.add(id);
         return id;

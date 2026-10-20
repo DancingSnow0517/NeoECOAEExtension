@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae;
 
 
-import appeng.api.AECapabilities;
 import appeng.api.upgrades.Upgrades;
 import appeng.blockentity.AEBaseInvBlockEntity;
 import appeng.core.definitions.AEItems;
@@ -41,18 +40,19 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.repository.PackSource;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.fml.loading.progress.StartupNotificationManager;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.AddPackFindersEvent;
-import net.neoforged.neoforge.event.TagsUpdatedEvent;
-import net.neoforged.neoforge.registries.NewRegistryEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.loading.progress.StartupNotificationManager;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.AddPackFindersEvent;
+import net.minecraftforge.event.TagsUpdatedEvent;
+import net.minecraftforge.registries.NewRegistryEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.ModLoadingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +68,8 @@ public class NeoECOAE {
 
     public static final NERegistrate REGISTRATE = NERegistrate.create(MOD_ID);
 
-    public NeoECOAE(IEventBus modBus, ModContainer modContainer) {
+    public NeoECOAE() {
+        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         MOD_BUS = modBus;
         // Force the copied AE2/ExtendedAE-style menu type to enter AE2's menu
         // registration queue during mod construction.
@@ -95,81 +96,86 @@ public class NeoECOAE {
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
         // These values govern server-authoritative gameplay and are also read by client-side
         // previews/tooltips. SERVER configs are synchronized to joining clients by NeoForge.
-        modContainer.registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
 
         modBus.addListener(NeoECOAE::registerCapabilities);
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);
         modBus.addListener(NeoECOAE::addClassicPack);
-        modBus.addListener(ECONetwork::registerPayloadHandlers);
-        NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::tick);
-        NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::stopped);
-        NeoForge.EVENT_BUS.addListener(NETooltips::register);
-        NeoForge.EVENT_BUS.addListener(NECommands::register);
-        NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
+        ECONetwork.register();
+        cn.dancingsnow.neoecoae.platform.sync.ManagedRpcNetwork.register(
+            net.minecraftforge.fml.ModList.get().getModContainerById(MOD_ID).orElseThrow()
+                .getModInfo().getVersion().toString());
+        MinecraftForge.EVENT_BUS.addGenericListener(net.minecraft.world.level.block.entity.BlockEntity.class,
+            ForgeBlockCapabilities::attach);
+        MinecraftForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::tick);
+        MinecraftForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::stopped);
+        MinecraftForge.EVENT_BUS.addListener(NETooltips::register);
+        MinecraftForge.EVENT_BUS.addListener(NECommands::register);
+        MinecraftForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
+        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
+        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
+        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
     }
 
     public static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+        return new ResourceLocation(MOD_ID, path);
     }
 
-    private static void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+    private static void registerCapabilities(FMLCommonSetupEvent event) {
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.ITEM_HANDLER,
             NEBlockEntities.ECO_DRIVE.get(),
             (be, side) -> be.HANDLER
         );
-        event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.FLUID_HANDLER,
             NEBlockEntities.INPUT_HATCH.get(),
             (be, side) -> be.tank
         );
-        event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.FLUID_HANDLER,
             NEBlockEntities.OUTPUT_HATCH.get(),
             (be, side) -> new DrainOnlyFluidHandler(be.tank)
         );
-        event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.FLUID_HANDLER,
             NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.get(),
             (be, side) -> be.tank
         );
-        event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.FLUID_HANDLER,
             NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.get(),
             (be, side) -> new DrainOnlyFluidHandler(be.tank)
         );
-        event.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.ITEM_HANDLER,
             NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
             (be, side) -> be.itemHandler
         );
-        event.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.ITEM_HANDLER,
             NEBlockEntities.COMPUTATION_DRIVE.get(),
             (be, unused) -> be.getItemHandler()
         );
-        event.registerBlockEntity(
-            AECapabilities.IN_WORLD_GRID_NODE_HOST,
-            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-            (be, unused) -> be
-        );
-        event.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.ITEM_HANDLER,
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
             AEBaseInvBlockEntity::getExposedItemHandler
         );
-        event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+        ForgeBlockCapabilities.register(
+            appeng.capabilities.Capabilities.IN_WORLD_GRID_NODE_HOST,
+            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+            (be, side) -> be
+        );
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.FLUID_HANDLER,
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
             (be, side) -> be.getFluidCombined()
         );
-        event.registerBlockEntity(
-            Capabilities.EnergyStorage.BLOCK,
+        ForgeBlockCapabilities.register(
+            ForgeCapabilities.ENERGY,
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
             ECOLargeIntegratedWorkingStationBlockEntity::getEnergyStorage
         );
@@ -203,8 +209,7 @@ public class NeoECOAE {
     }
 
     private static void newRegistry(NewRegistryEvent event) {
-        event.register(NERegistries.CELL_TYPE);
-        event.register(NERegistries.ECO_TIER);
+        NERegistries.create(event);
     }
 
     private static void addClassicPack(AddPackFindersEvent event) {

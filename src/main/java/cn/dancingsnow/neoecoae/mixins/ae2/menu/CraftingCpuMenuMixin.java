@@ -214,7 +214,7 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
             if ((serial != neoecoae$lastBigSerial || stateChanged || tick >= neoecoae$nextProgressTick)
                     && (serial != neoecoae$lastBigSerial || !java.util.Objects.equals(progress, neoecoae$lastBigProgress))) {
                 neoecoae$nextProgressTick = tick + MenuDataTransport.UPDATE_INTERVAL;
-                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                cn.dancingsnow.neoecoae.network.ECONetwork.sendToPlayer(player,
                     new cn.dancingsnow.neoecoae.network.ECOBigOrderProgressS2CPacket(containerId, serial, progress));
                 neoecoae$lastBigSerial = serial;
                 neoecoae$lastBigProgress = progress;

@@ -6,9 +6,9 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.tick.ServerTickEvent;
+import cn.dancingsnow.neoecoae.network.ECONetwork;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ class MenuDataTransportTest {
         var tick = new ServerTickEvent.Post(() -> true, server);
         List<ECOMenuChunkS2CPacket> sent = new ArrayList<>();
         try (var packets = mockStatic(PacketDistributor.class)) {
-            packets.when(() -> PacketDistributor.sendToPlayer(eq(player), any(ECOMenuChunkS2CPacket.class)))
+            packets.when(() -> ECONetwork.sendToPlayer(eq(player), any(ECOMenuChunkS2CPacket.class)))
                 .thenAnswer(call -> { sent.add(call.getArgument(1)); return null; });
             MenuDataTransport.send(player, MenuDataTransport.Channel.GRAPH, buf -> buf.writeBytes(new byte[100_000]));
             MenuDataTransport.send(player, MenuDataTransport.Channel.TERMINAL, buf -> buf.writeBytes(new byte[40_000]));

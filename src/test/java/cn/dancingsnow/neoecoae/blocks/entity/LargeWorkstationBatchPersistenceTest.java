@@ -38,7 +38,7 @@ class LargeWorkstationBatchPersistenceTest {
             var output = new KeyCounter();
             output.add(AEFluidKey.of(Fluids.LAVA), 4000);
             Object batch = constructor.newInstance(4L, 5_000_000_000L, 0, 1, owned, output,
-                null, ResourceLocation.parse("ae2lt:test"), null, null, 123L);
+                null, new ResourceLocation("ae2lt:test"), null, null, 123L);
             var missingField = type.getDeclaredField("missingExtras");
             missingField.setAccessible(true);
             ((KeyCounter) missingField.get(batch)).add(LightningKey.EXTREME_HIGH_VOLTAGE, 18);

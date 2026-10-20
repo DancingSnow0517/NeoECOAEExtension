@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.progress;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import java.util.Map;
 import java.util.Objects;
 
@@ -15,7 +17,7 @@ public record ECOCraftingProgressSnapshot(
         Map<AEKeyType, Long> completedWorkByType) implements ECOCraftingProgressView {
 
     public ECOCraftingProgressSnapshot {
-        progress = Float.isFinite(progress) ? Math.clamp(progress, 0.0F, 1.0F) : 0.0F;
+        progress = Float.isFinite(progress) ? JdkCompat.clamp(progress, 0.0F, 1.0F) : 0.0F;
         elapsedTimeNanos = Math.max(0L, elapsedTimeNanos);
         startedWorkByType = Objects.requireNonNull(startedWorkByType, "startedWorkByType");
         completedWorkByType = Objects.requireNonNull(completedWorkByType, "completedWorkByType");

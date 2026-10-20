@@ -50,7 +50,7 @@ class PatternCatalogScanTest {
         when(grid.getActiveMachines(GenericContainer.class)).thenReturn(Set.of(source));
         ItemStack pattern = new ItemStack(Items.STONE);
         pattern.set(AEComponents.ENCODED_CRAFTING_PATTERN, new EncodedCraftingPattern(List.of(),
-                new ItemStack(Items.DIAMOND), ResourceLocation.withDefaultNamespace("test"), false, false));
+                new ItemStack(Items.DIAMOND), new ResourceLocation("test"), false, false));
         when(source.getTerminalPatternInventory().getStackInSlot(19)).thenAnswer(call -> { reads.add("source:19"); return pattern; });
         // Discovery accepts integration-defined encoded items; no mod registry is installed in this JVM test.
         try (var patterns = mockStatic(PatternDetailsHelper.class)) {

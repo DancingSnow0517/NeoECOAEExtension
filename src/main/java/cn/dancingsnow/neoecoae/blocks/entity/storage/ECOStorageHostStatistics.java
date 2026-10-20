@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOInfiniteResourceCell;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
-import cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerService;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import appeng.api.stacks.AEKeyType;
@@ -188,7 +187,6 @@ final class ECOStorageHostStatistics {
             int cellTypeId = view.type();
             boolean supported = view.inventory() != null && host.getTier().compareTo(view.inventory().getTier()) >= 0;
             if (supported) {
-                hasSingularity |= BiggerAE2SingularityPowerService.isSingularity(stack);
                 energyConsumePerTick = NEMath.saturatingAdd(
                     energyConsumePerTick,
                     Math.max(0L, Math.round(view.inventory().getIdleDrain()))
@@ -227,14 +225,6 @@ final class ECOStorageHostStatistics {
         }
         if (host.isFormedInfiniteMode()) {
             addInfiniteStorageTypes(storageTypes);
-        }
-
-        if (hasSingularity) {
-            var grid = host.getMainNode().getGrid();
-            if (grid != null) {
-                double surcharge = grid.getService(BiggerAE2SingularityPowerService.class).getAdditionalIdleDrain(host);
-                energyConsumePerTick = NEMath.saturatingAdd(energyConsumePerTick, Math.round(surcharge));
-            }
         }
 
         return new StorageUiSnapshot(
@@ -307,7 +297,7 @@ final class ECOStorageHostStatistics {
             default -> null;
         };
         if (baseType == null) return cellTypeId;
-        ECOCellType base = cellTypes.get(ResourceLocation.fromNamespaceAndPath("neoecoae", baseType));
+        ECOCellType base = cellTypes.get(new ResourceLocation("neoecoae", baseType));
         // Keep the original group if an optional channel's ordinary cell type is unavailable.
         return base == null ? cellTypeId : cellTypes.getId(base);
     }

@@ -6,7 +6,7 @@ import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.builders.AbstractBuilder;
 import com.tterrag.registrate.builders.BuilderCallback;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.registries.DeferredHolder;
+import net.minecraftforge.registries.RegistryObject;
 
 public class NECellTypeBuilder<P> extends AbstractBuilder<ECOCellType, ECOCellType, P, NECellTypeBuilder<P>> {
 
@@ -36,7 +36,7 @@ public class NECellTypeBuilder<P> extends AbstractBuilder<ECOCellType, ECOCellTy
     }
 
     @Override
-    protected NECellTypeEntry createEntryWrapper(DeferredHolder<ECOCellType, ECOCellType> delegate) {
+    protected NECellTypeEntry createEntryWrapper(RegistryObject<ECOCellType> delegate) {
         return new NECellTypeEntry(getOwner(), delegate);
     }
 

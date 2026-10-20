@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import net.minecraft.world.item.Items;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

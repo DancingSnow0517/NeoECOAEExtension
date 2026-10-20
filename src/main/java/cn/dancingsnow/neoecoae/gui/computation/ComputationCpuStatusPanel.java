@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.client.AEKeyRendering;
 import appeng.api.util.AEColor;
 import appeng.client.gui.widgets.AE2Button;
@@ -54,15 +56,15 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private static final int TEXT = 0x413F54;
     private static final int BATCH_ICON_SIZE = 16, BATCH_ICON_LEFT = -1;
     private static final ResourceLocation BATCH_ICON =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/eco_batching.png");
+        new ResourceLocation("neoecoae", "textures/gui/computation/eco_batching.png");
     // The source sheet is 384x384, but only the 326x254 top slice is the page background.
     // The two 67x22 CPU row states live at y=260 in the same sheet.
     private static final IGuiTexture BACKGROUND = SpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 0, WIDTH, HEIGHT);
+        new ResourceLocation("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 0, WIDTH, HEIGHT);
     private static final IGuiTexture CPU_NORMAL = SpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 260, CPU_WIDTH, CPU_HEIGHT);
+        new ResourceLocation("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 260, CPU_WIDTH, CPU_HEIGHT);
     private static final IGuiTexture CPU_SELECTED = SpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
+        new ResourceLocation("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
 
     private final ComputationControllerUI.Config config;
     private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
@@ -201,13 +203,13 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private void scrollCpuTo(int value) {
-        cpuOffset = Math.clamp(value, 0, Math.max(0, total - ROWS));
+        cpuOffset = JdkCompat.clamp(value, 0, Math.max(0, total - ROWS));
         cpuScrollbar.update(cpuOffset, total - ROWS, ROWS / 3);
         cpuScrollRequest.setValue(cpuOffset);
     }
 
     private void scrollItemsTo(int value) {
-        itemOffset = Math.clamp(value / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
+        itemOffset = JdkCompat.clamp(value / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
         itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal), 1);
         itemScrollRequest.setValue(itemOffset);
     }
@@ -390,7 +392,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (!config.canInteract().getAsBoolean()) return;
             refresh();
             int total = selectedItems(selection.selected()).size();
-            itemOffset = Math.clamp(offset / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
+            itemOffset = JdkCompat.clamp(offset / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
             cached = null;
         }
 
@@ -424,7 +426,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 tag.put("selected", selectedEntry.write(registries));
                 List<ComputationCpuItemEntry> all = selectedItems(selectedCpu);
                 tag.putInt("itemTotal", all.size());
-                itemOffset = Math.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(all.size())) * ITEM_COLS;
+                itemOffset = JdkCompat.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(all.size())) * ITEM_COLS;
                 tag.putInt("itemOffset", itemOffset);
                 ListTag itemPage = new ListTag();
                 for (ComputationCpuItemEntry item : all.subList(itemOffset, Math.min(all.size(), itemOffset + ITEM_PAGE))) {

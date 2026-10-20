@@ -8,7 +8,7 @@ import io.netty.buffer.Unpooled;
 import java.math.BigInteger;
 import java.util.List;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -34,14 +34,14 @@ class CycleSeedParallelismSyncTest {
                 ExecutionCountKnowledge.EXACT, CycleSolveStatus.SUCCESS, 3, parallelism)).toList();
         try (var statics = mockStatic(AEKey.class)) {
             statics.when(() -> AEKey.writeKey(any(), any())).thenAnswer(call -> {
-                ((RegistryFriendlyByteBuf) call.getArgument(0)).writeVarInt(17);
+                ((FriendlyByteBuf) call.getArgument(0)).writeVarInt(17);
                 return null;
             });
             statics.when(() -> AEKey.readKey(any())).thenAnswer(call -> {
-                assertEquals(17, ((RegistryFriendlyByteBuf) call.getArgument(0)).readVarInt());
+                assertEquals(17, ((FriendlyByteBuf) call.getArgument(0)).readVarInt());
                 return key;
             });
-            var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            var buffer = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
             try {
                 var expected = new ECOCycleItemList(entries);
                 expected.writeToPacket(buffer);

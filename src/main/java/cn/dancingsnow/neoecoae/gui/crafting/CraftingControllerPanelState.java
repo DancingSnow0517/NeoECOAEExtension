@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import net.minecraft.nbt.CompoundTag;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.util.List;
 
@@ -39,9 +41,9 @@ public record CraftingControllerPanelState(
     private static final String ENERGY = "energy";
 
     public CraftingControllerPanelState {
-        hostTier = Math.clamp(hostTier, 0, 3);
-        queuePermille = Math.clamp(queuePermille, 0, FULL);
-        energyPermille = Math.clamp(energyPermille, 0, FULL);
+        hostTier = JdkCompat.clamp(hostTier, 0, 3);
+        queuePermille = JdkCompat.clamp(queuePermille, 0, FULL);
+        energyPermille = JdkCompat.clamp(energyPermille, 0, FULL);
     }
 
     public boolean hasFx(int cell) {
@@ -140,6 +142,6 @@ public record CraftingControllerPanelState(
     }
 
     private static int tierBits(List<Integer> tiers, int slot) {
-        return slot < tiers.size() ? Math.clamp(tiers.get(slot), 0, 3) : 0;
+        return slot < tiers.size() ? JdkCompat.clamp(tiers.get(slot), 0, 3) : 0;
     }
 }

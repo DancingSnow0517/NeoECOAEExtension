@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
@@ -170,7 +172,7 @@ final class ECOInfiniteStorageModeController {
         int totalTargets = migrated + countPendingMigrationTargets();
         return totalTargets == 0
                 ? 100
-                : Math.clamp(Math.round(migrated * 100.0F / totalTargets), 0, 100);
+                : JdkCompat.clamp(Math.round(migrated * 100.0F / totalTargets), 0, 100);
     }
 
     private int countMigrationSources() {

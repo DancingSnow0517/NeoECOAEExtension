@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import net.minecraft.nbt.CompoundTag;
 
 /** Percentage-based thermal rules. Every step represents one loaded server tick, never offline time. */
@@ -15,16 +17,16 @@ public final class LargeWorkstationThermal {
 
     public record State(double temperature, boolean overheated, int recoveryTicks) {
         public State {
-            temperature = Double.isFinite(temperature) ? Math.clamp(temperature, 0, 100) : 100;
+            temperature = Double.isFinite(temperature) ? JdkCompat.clamp(temperature, 0, 100) : 100;
             overheated = overheated || temperature >= 100;
-            recoveryTicks = overheated ? Math.clamp(recoveryTicks, 0, RECOVERY_TICKS - 1) : 0;
+            recoveryTicks = overheated ? JdkCompat.clamp(recoveryTicks, 0, RECOVERY_TICKS - 1) : 0;
             // A saved low temperature is never sufficient to bypass a latched overheat.
             if (overheated) temperature = 100.0 * (RECOVERY_TICKS - recoveryTicks) / RECOVERY_TICKS;
         }
     }
 
     public static double heatingPerSecond(double temperature) {
-        double fraction = Math.clamp(temperature, 0, 100) / 100;
+        double fraction = JdkCompat.clamp(temperature, 0, 100) / 100;
         return 0.2 + 0.8 * fraction * fraction;
     }
 
@@ -51,7 +53,7 @@ public final class LargeWorkstationThermal {
             return next >= RECOVERY_TICKS ? new State(0, false, 0)
                 : new State(100.0 * (RECOVERY_TICKS - next) / RECOVERY_TICKS, true, next);
         }
-        double heating = Double.isFinite(preheatFraction) ? PREHEAT_PER_SECOND * Math.clamp(preheatFraction, 0, 1) : 0;
+        double heating = Double.isFinite(preheatFraction) ? PREHEAT_PER_SECOND * JdkCompat.clamp(preheatFraction, 0, 1) : 0;
         double load = Double.isFinite(processingLoad) ? Math.max(0, processingLoad) : 0;
         heating += heatingPerSecond(state.temperature) * load;
         double cooling = consumedCoolant ? coolingPerSecond(coolantTier) : 0;

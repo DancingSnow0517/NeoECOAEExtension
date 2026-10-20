@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.crafting.IPatternDetails;
@@ -46,9 +48,9 @@ import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
+import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
+import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -75,11 +77,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.energy.IEnergyStorage;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +89,7 @@ import org.slf4j.LoggerFactory;
 /** Controller for the fixed 3x2x2 large integrated working station. */
 public class ECOLargeIntegratedWorkingStationBlockEntity
     extends ECOIntegratedWorkingStationBlockEntity
-    implements ISyncPersistRPCBlockEntity, IGridTickable, IAEMultiBlock<NEIntegratedWorkingStationCluster> {
+    implements NEManagedBlockEntity, IGridTickable, IAEMultiBlock<NEIntegratedWorkingStationCluster> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOLargeIntegratedWorkingStationBlockEntity.class);
     private static final int MAX_PROCESSING_STEPS = 200;
     /** Processing steps available per formed-controller tick; energy still limits actual progress. */
@@ -258,7 +260,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             if (getMainNode().isReady()) {
                 onGridConnectableSidesChanged();
             }
-            if (level != null) level.invalidateCapabilities(worldPosition);
+            cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities.refresh(this);
             markForUpdate();
         }
     }
@@ -645,7 +647,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private CompoundTag getUiSnapshot(int requestedOffset) {
         CompoundTag snapshot = new CompoundTag();
         int total = pendingBatches.size();
-        int offset = Math.clamp(requestedOffset, 0, Math.max(0, total - LargeWorkstationUI.PAGE_SIZE));
+        int offset = JdkCompat.clamp(requestedOffset, 0, Math.max(0, total - LargeWorkstationUI.PAGE_SIZE));
         snapshot.putInt("offset", offset);
         snapshot.putInt("totalTasks", total);
         snapshot.putBoolean("overclocked", overclocked);
@@ -675,7 +677,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putString("module", getInstalledModule().getSerializedName());
         snapshot.putBoolean("moduleInstalled", !moduleInventory.getStackInSlot(0).isEmpty());
         snapshot.putString("pause", pauseTranslationKey());
-        snapshot.putString("coolingProblem", PauseReason.values()[Math.clamp(coolingProblemId, 0, PauseReason.values().length - 1)].translationKey);
+        snapshot.putString("coolingProblem", PauseReason.values()[JdkCompat.clamp(coolingProblemId, 0, PauseReason.values().length - 1)].translationKey);
         ListTag entries = new ListTag();
         int index = 0;
         for (PendingBatch batch : pendingBatches) {
@@ -691,7 +693,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 : pauseTranslationKey());
             if (batch == head && (pauseReasonId == PauseReason.OUTPUT_BLOCKED.ordinal()
                 || pauseReasonId == PauseReason.INPUT_RETURN_BLOCKED.ordinal())) {
-                entry.putString("detail", OutputBlockedReason.values()[Math.clamp(outputBlockedReasonId,
+                entry.putString("detail", OutputBlockedReason.values()[JdkCompat.clamp(outputBlockedReasonId,
                     0, OutputBlockedReason.values().length - 1)].translationKey);
             }
             var source = batch.recipeId == null || level == null ? null : LargeWorkstationRecipes.getById(level, batch.recipeId);
@@ -1204,7 +1206,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 }
                 double paid = source.extractAEPower(required, Actionable.MODULATE, PowerMultiplier.CONFIG);
                 recordUiEnergy(paid);
-                preheatFraction = Math.clamp(paid / LargeWorkstationThermal.PREHEAT_AE_PER_TICK, 0, fraction);
+                preheatFraction = JdkCompat.clamp(paid / LargeWorkstationThermal.PREHEAT_AE_PER_TICK, 0, fraction);
             }
         }
         int coolingTier = 0;
@@ -1213,7 +1215,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (activeCooling && !preheating && temperature > 0) {
             RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
             // Only the real cryotheum fluid can clear the safety latch, even with custom cooling recipes.
-            boolean recoveryFluid = ResourceLocation.fromNamespaceAndPath("neoecoae", "cryotheum_solution")
+            boolean recoveryFluid = new ResourceLocation("neoecoae", "cryotheum_solution")
                 .equals(BuiltInRegistries.FLUID.getKey(getInputTank().getFluid().getFluid()));
             if (!overheated || recoveryFluid) {
                 CoolingTickPlan plan = prepareCoolingTick(holder);
@@ -1618,11 +1620,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             getFluidCombined(), this::getUiSnapshot, () -> level.registryAccess(), this::returnTaskInputs,
             this::toggleOverclocked, this::toggleActiveCooling,
             this::togglePreheating, moduleInventory), holder.player);
-    }
-
-    public Button createAutoBuildButton(Player player) {
-        return LargeWorkstationUI.settingButton(NETextures.MULTIBLOCK, () -> autoBuild(player),
-            () -> Component.translatable("gui.neoecoae.large_integrated_working_station.auto_build"));
     }
 
     /** Returns inputs still owned by incomplete batches to the ME network. */

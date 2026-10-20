@@ -8,9 +8,9 @@ import mekanism.common.registries.MekanismFluids;
 import mekanism.common.tags.MekanismTags;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.tags.FluidTags;
-import net.neoforged.neoforge.common.conditions.ICondition;
-import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
-import net.neoforged.neoforge.common.conditions.NotCondition;
+import net.minecraftforge.common.conditions.ICondition;
+import net.minecraftforge.common.conditions.ModLoadedCondition;
+import net.minecraftforge.common.conditions.NotCondition;
 
 public class CoolingRecipes {
     public static void init(RegistrateRecipeProvider provider) {

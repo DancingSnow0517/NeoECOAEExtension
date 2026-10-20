@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockAndTintGetter;
-import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
+import net.minecraftforge.client.event.AddSectionGeometryEvent;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

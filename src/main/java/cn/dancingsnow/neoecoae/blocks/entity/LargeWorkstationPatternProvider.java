@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
@@ -21,7 +23,6 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
-import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -60,7 +61,6 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     @Nullable
     private ECOLargeIntegratedWorkingStationBlockEntity lastController;
     /** Disk contents the cached list was built from; a change invalidates it the way a recipe change does. */
-    private long lastDiskRevision = Long.MIN_VALUE;
 
     public LargeWorkstationPatternProvider(ECOLargeIntegratedWorkingStationInterfaceBlockEntity host) {
         super(host.getMainNode(), host, MAX_PATTERN_SLOTS);
@@ -102,7 +102,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     }
 
     public int getUnlockedPatternRows() {
-        return BASE_PATTERN_ROWS + Math.clamp(capacityUpgrades.getInstalledUpgrades(AEItems.CAPACITY_CARD),
+        return BASE_PATTERN_ROWS + JdkCompat.clamp(capacityUpgrades.getInstalledUpgrades(AEItems.CAPACITY_CARD),
             0, MAX_CAPACITY_CARDS);
     }
 
@@ -265,23 +265,14 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
             return List.of();
         }
         Object recipes = LargeWorkstationRecipes.getAvailable(host.getLevel(), controller.getInstalledModule());
-        long diskRevision = host.diskRevision();
-        if (!compatiblePatternsDirty && lastController == controller && lastRecipes == recipes
-            && lastDiskRevision == diskRevision) {
+        if (!compatiblePatternsDirty && lastController == controller && lastRecipes == recipes) {
             return compatiblePatterns;
         }
         List<IPatternDetails> result = new ArrayList<>();
         for (var pattern : super.getAvailablePatterns()) {
             if (controller.acceptPattern(pattern, null, false)) result.add(pattern);
         }
-        // Patterns on a disk go through the same compatibility gate as the ones in slots: a recipe this
-        // workstation would refuse should not be advertised just because it arrived on a disk.
-        for (var pattern : PatternDiskSupport.decodeAuxiliary(host.getWorkstationProvider().getPatternInv(),
-            host.getLevel())) {
-            if (controller.acceptPattern(pattern, null, false)) result.add(pattern);
-        }
-        boolean sourceChanged = lastController != controller || lastRecipes != recipes
-            || lastDiskRevision != diskRevision;
+        boolean sourceChanged = lastController != controller || lastRecipes != recipes;
         compatiblePatterns = result;
         Set<AEItemKey> keys = new HashSet<>();
         for (IPatternDetails pattern : result) {
@@ -294,7 +285,6 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
         compatiblePatternsDirty = false;
         lastController = controller;
         lastRecipes = recipes;
-        lastDiskRevision = diskRevision;
         return compatiblePatterns;
     }
 

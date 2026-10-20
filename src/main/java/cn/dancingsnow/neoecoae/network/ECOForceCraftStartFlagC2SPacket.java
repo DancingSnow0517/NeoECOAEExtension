@@ -4,20 +4,18 @@ import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import cn.dancingsnow.neoecoae.platform.network.NEStreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import cn.dancingsnow.neoecoae.platform.network.NEPacketContext;
 
-public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStart) implements CustomPacketPayload {
-    public static final Type<ECOForceCraftStartFlagC2SPacket> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "force_craft_start_flag"));
-    public static final StreamCodec<FriendlyByteBuf, ECOForceCraftStartFlagC2SPacket> STREAM_CODEC =
-        StreamCodec.of((buf, packet) -> { buf.writeVarInt(packet.containerId); buf.writeBoolean(packet.forceStart); },
+public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStart) {
+
+    public static final NEStreamCodec<FriendlyByteBuf, ECOForceCraftStartFlagC2SPacket> STREAM_CODEC =
+        NEStreamCodec.of((buf, packet) -> { buf.writeVarInt(packet.containerId); buf.writeBoolean(packet.forceStart); },
             buf -> new ECOForceCraftStartFlagC2SPacket(buf.readVarInt(), buf.readBoolean()));
 
-    public static void handle(ECOForceCraftStartFlagC2SPacket packet, IPayloadContext context) {
+    public static void handle(ECOForceCraftStartFlagC2SPacket packet, NEPacketContext context) {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
             var current = player.containerMenu;
@@ -50,5 +48,4 @@ public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStar
         });
     }
 
-    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }

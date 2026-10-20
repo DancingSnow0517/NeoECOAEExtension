@@ -8,15 +8,14 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.bigorder.*;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import cn.dancingsnow.neoecoae.platform.network.NEStreamCodec;
+import cn.dancingsnow.neoecoae.platform.network.NEPacketContext;
 import org.jetbrains.annotations.Nullable;
 
 public record ECOBigOrderProgressS2CPacket(int containerId, int cpuSerial, @Nullable ECOBigOrderProgress progress)
-        implements CustomPacketPayload {
-    public static final Type<ECOBigOrderProgressS2CPacket> TYPE = new Type<>(NeoECOAE.id("big_order_progress"));
-    public static final StreamCodec<FriendlyByteBuf, ECOBigOrderProgressS2CPacket> STREAM_CODEC = StreamCodec.of(
+        {
+
+    public static final NEStreamCodec<FriendlyByteBuf, ECOBigOrderProgressS2CPacket> STREAM_CODEC = NEStreamCodec.of(
         (buf, packet) -> {
             buf.writeVarInt(packet.containerId);
             buf.writeVarInt(packet.cpuSerial);
@@ -43,12 +42,11 @@ public record ECOBigOrderProgressS2CPacket(int containerId, int cpuSerial, @Null
                 buf.readVarLong(), buf.readVarLong(), buf.readUtf(256));
             return new ECOBigOrderProgressS2CPacket(menu, serial, p);
         });
-    public static void handle(ECOBigOrderProgressS2CPacket packet, IPayloadContext context) {
+    public static void handle(ECOBigOrderProgressS2CPacket packet, NEPacketContext context) {
         context.enqueueWork(() -> {
             var menu = context.player().containerMenu;
             if (menu.containerId == packet.containerId && menu instanceof ECOBigOrderStatusHost host)
                 host.neoecoae$setBigOrderProgress(packet.cpuSerial, packet.progress);
         });
     }
-    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }

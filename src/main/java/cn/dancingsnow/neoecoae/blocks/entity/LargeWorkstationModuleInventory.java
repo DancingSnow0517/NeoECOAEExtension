@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraftforge.items.ItemStackHandler;
 
 /** One persistent upgrade card, separate from recipe inputs and speed upgrades. */
 final class LargeWorkstationModuleInventory extends ItemStackHandler {

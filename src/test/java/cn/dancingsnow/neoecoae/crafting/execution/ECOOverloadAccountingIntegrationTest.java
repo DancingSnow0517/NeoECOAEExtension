@@ -143,7 +143,7 @@ class ECOOverloadAccountingIntegrationTest {
         var itemField = appeng.core.definitions.ItemDefinition.class.getDeclaredField("item");
         itemField.setAccessible(true);
         var original = itemField.get(appeng.core.definitions.AEItems.MISSING_CONTENT);
-        var missing = mock(net.neoforged.neoforge.registries.DeferredItem.class);
+        var missing = mock(net.minecraftforge.registries.DeferredItem.class);
         when(missing.get()).thenReturn(Items.BARRIER);
         itemField.set(appeng.core.definitions.AEItems.MISSING_CONTENT, missing);
         try (var keys = mockStatic(AEKeyTypesInternal.class);
@@ -192,7 +192,7 @@ class ECOOverloadAccountingIntegrationTest {
         when(source.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
         when(source.getOutputs()).thenReturn(List.of(new GenericStack(expected, 1)));
         var parsed = new ParsedPatternDefinition(new SourcePatternSnapshot(
-                ResourceLocation.parse("test:overload"), null, null), List.of(),
+                new ResourceLocation("test:overload"), null, null), List.of(),
                 List.of(new ParsedPatternOutput(0, template, true)));
         var details = new OverloadPatternDetails(parsed, EncodedOverloadPattern.builder()
                 .output(0, MatchMode.ID_ONLY).build());

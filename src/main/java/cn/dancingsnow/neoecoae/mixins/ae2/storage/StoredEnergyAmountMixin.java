@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.storage;
 
 import appeng.me.energy.StoredEnergyAmount;
-import com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware;
+import com.lowdragmc.lowdraglib.syncdata.IContentChangeAware;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.DoubleTag;
-import net.neoforged.neoforge.common.util.INBTSerializable;
+import net.minecraftforge.common.util.INBTSerializable;
 import org.jetbrains.annotations.UnknownNullability;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;

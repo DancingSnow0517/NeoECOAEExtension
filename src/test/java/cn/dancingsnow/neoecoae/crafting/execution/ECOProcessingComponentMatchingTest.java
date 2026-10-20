@@ -41,7 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class ECOProcessingComponentMatchingTest {
-    private static final Set<ResourceLocation> MARKED = Set.of(ResourceLocation.parse("minecraft:iron_pickaxe"));
+    private static final Set<ResourceLocation> MARKED = Set.of(new ResourceLocation("minecraft:iron_pickaxe"));
 
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
@@ -203,8 +203,8 @@ class ECOProcessingComponentMatchingTest {
         var named = new ItemStack(Items.IRON_BLOCK);
         named.set(DataComponents.CUSTOM_NAME, Component.literal("Exact requested result"));
         var stock = new KeyCounter(); stock.add(pickaxe(131), 1);
-        var marked = Set.of(ResourceLocation.parse("minecraft:iron_pickaxe"),
-            ResourceLocation.parse("minecraft:iron_block"));
+        var marked = Set.of(new ResourceLocation("minecraft:iron_pickaxe"),
+            new ResourceLocation("minecraft:iron_block"));
         var result = new ECOCraftingPlannerService().createSession(service(pattern), AEItemKey.of(named),
             stock, false, false, marked).plan(1, false, ECOCancellation.NONE);
         assertNotEquals(PlanningStatus.SUCCESS, result.status());
@@ -237,7 +237,7 @@ class ECOProcessingComponentMatchingTest {
         cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry.register(plan, result);
         try {
             assertFalse(ECOExternalCpuSupport.supportsPlan(plan));
-            result.setFuzzyPlanningItemIds(Set.of(ResourceLocation.parse("minecraft:stone")));
+            result.setFuzzyPlanningItemIds(Set.of(new ResourceLocation("minecraft:stone")));
             assertTrue(ECOExternalCpuSupport.supportsPlan(plan));
         } finally {
             cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry.clear();

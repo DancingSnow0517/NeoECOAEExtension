@@ -29,8 +29,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
 
 /** Resource-defined geometry with a bounded synchronized task viewport. */
 public final class LargeWorkstationUI {
@@ -43,7 +43,7 @@ public final class LargeWorkstationUI {
         Runnable togglePreheating, IItemHandlerModifiable moduleInventory) {}
 
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/large");
+        new ResourceLocation("neoecoae", "screens/workstation/large");
 
     public static ModularUI create(Config config, Player player) {
         UIElement root = WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config, player));

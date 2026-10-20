@@ -13,7 +13,7 @@ public final class ExternalCellKeyTypes {
     }
 
     public static Supplier<AEKeyType> byId(String namespace, String path) {
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(namespace, path);
+        ResourceLocation id = new ResourceLocation(namespace, path);
         return () -> Objects.requireNonNull(AEKeyTypes.get(id), "Missing AE key type " + id);
     }
 }

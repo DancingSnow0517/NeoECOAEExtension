@@ -15,7 +15,7 @@ import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import appeng.init.client.InitScreens;
-import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import net.minecraftforge.client.event.RegisterMenuScreensEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
 import com.lowdragmc.lowdraglib2.editor.resource.TexturesResource;
@@ -23,16 +23,16 @@ import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
-import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModContainer;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.client.event.AddSectionGeometryEvent;
+import net.minecraftforge.client.event.RegisterColorHandlersEvent;
+import net.minecraftforge.client.event.ScreenEvent;
 import appeng.menu.implementations.CellWorkbenchMenu;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
@@ -40,7 +40,7 @@ import cn.dancingsnow.neoecoae.network.ECOImportJeiBookmarksC2SPacket;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.network.PacketDistributor;
+import cn.dancingsnow.neoecoae.network.ECONetwork;
 
 @Mod(value = NeoECOAE.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
@@ -70,7 +70,7 @@ public class NeoECOAEClient {
     }
 
     @SubscribeEvent
-    public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+    public static void onClientTick(net.minecraftforge.client.event.ClientTickEvent.Post event) {
         var player = net.minecraft.client.Minecraft.getInstance().player;
         cn.dancingsnow.neoecoae.network.MenuDataTransport.retainClientMenu(player == null ? null : player.containerMenu);
     }
@@ -85,7 +85,7 @@ public class NeoECOAEClient {
             Component.translatable("gui.neoecoae.import_jei_bookmarks"), ignored -> {
                 if (!JeiBookmarkAccess.isAvailable()) return;
                 var keys = JeiBookmarkAccess.bookmarkedKeys();
-                PacketDistributor.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
+                ECONetwork.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
             });
         importButton.active = JeiBookmarkAccess.isAvailable();
         importButton.visible = importButton.active;

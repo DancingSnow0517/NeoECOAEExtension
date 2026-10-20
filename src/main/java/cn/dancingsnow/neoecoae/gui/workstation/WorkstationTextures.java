@@ -30,10 +30,10 @@ public final class WorkstationTextures {
     /** Explicit columns preserve the supplied artwork and existing serialized module values. */
     private static int moduleColumn(LargeWorkstationModule module) {
         return switch (module) {
-            case DATA_ENERGISTICS -> 5;
-            case OTHER -> 6;
-            case APPLIED_GENERATORS -> 7;
-            default -> module.ordinal();
+            case REGULAR -> 0;
+            case ADVANCED_AE -> 1;
+            case EXTENDED_AE -> 2;
+            case LIGHTNING_TECH -> 4;
         };
     }
 

@@ -23,7 +23,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 
 /** Configuration surface for the computation host's fast-planning item match rules. */

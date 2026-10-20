@@ -76,9 +76,9 @@ class ECOAe2LtCancellationBridgeTest {
         var constructor = batchType.getDeclaredConstructors()[0];
         constructor.setAccessible(true);
         var unfinished = constructor.newInstance(1L, 1L, 0, 1, inputs, outputs, id,
-                net.minecraft.resources.ResourceLocation.parse("test:cancel"), null, null, 0L);
+                new net.minecraft.resources.ResourceLocation("test:cancel"), null, null, 0L);
         var finished = constructor.newInstance(1L, 1L, 0, 1, new appeng.api.stacks.KeyCounter(), outputs, id,
-                net.minecraft.resources.ResourceLocation.parse("test:cancel"), null, null, 0L);
+                new net.minecraft.resources.ResourceLocation("test:cancel"), null, null, 0L);
         ((appeng.api.stacks.KeyCounter) field(batchType, "pendingOutput").get(finished)).add(output, 1);
         var queue = new java.util.ArrayDeque<>();
         queue.add(unfinished);

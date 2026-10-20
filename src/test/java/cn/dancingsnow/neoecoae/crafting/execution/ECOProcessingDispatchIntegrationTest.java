@@ -552,7 +552,7 @@ class ECOProcessingDispatchIntegrationTest {
             InventoryTestBootstrap.initialize();
             var keyType = mock(AEKeyType.class);
             when(key.getType()).thenReturn(keyType);
-            when(keyType.getId()).thenReturn(ResourceLocation.fromNamespaceAndPath("test", "input"));
+            when(keyType.getId()).thenReturn(new ResourceLocation("test", "input"));
             var pattern = mock(AEProcessingPattern.class);
             when(pattern.getDefinition()).thenReturn(AEItemKey.of(Items.STONE));
             when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{mock(IPatternDetails.IInput.class)});

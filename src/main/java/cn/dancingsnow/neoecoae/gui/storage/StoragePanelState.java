@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.CellEntry;
 import appeng.api.storage.cells.CellState;
@@ -79,7 +81,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     static int pageOffset(int requested, int total, int pageSize) {
         if (total <= 0 || pageSize <= 0) return 0;
         int last = (total - 1) / pageSize * pageSize;
-        return Math.clamp(requested, 0, last) / pageSize * pageSize;
+        return JdkCompat.clamp(requested, 0, last) / pageSize * pageSize;
     }
 
     /** Each page contains whole columns of all three rows; short structures leave gaps in every row. */
@@ -108,7 +110,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             total = total.add(BigInteger.valueOf(Math.max(0, cell.totalBytes())));
         }
         if (total.signum() == 0) return 0;
-        return Math.clamp(new BigDecimal(used).divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue(), 0, 1);
+        return JdkCompat.clamp(new BigDecimal(used).divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue(), 0, 1);
     }
 
     private static BigInteger totalCapacity(List<CellEntry> cells) {
@@ -177,7 +179,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             CompoundTag cell = (CompoundTag) valueCell;
             cells.add(new CellEntry(cell.getInt("id"), cell.getInt("tier"), cell.getInt("kind"),
                 cell.getLong("ut"), cell.getLong("tt"), cell.getLong("ub"), cell.getLong("tb"), cell.getBoolean("infinite"),
-                CellState.values()[Math.clamp(cell.getInt("state"), 0, CellState.values().length - 1)], cell.getBoolean("online"),
+                CellState.values()[JdkCompat.clamp(cell.getInt("state"), 0, CellState.values().length - 1)], cell.getBoolean("online"),
                 cell.contains("position") ? BlockPos.of(cell.getLong("position")) : null,
                 ItemStack.parseOptional(registries, cell.getCompound("stack")),
                 cell.contains("locked") ? component(cell, "locked") : null,

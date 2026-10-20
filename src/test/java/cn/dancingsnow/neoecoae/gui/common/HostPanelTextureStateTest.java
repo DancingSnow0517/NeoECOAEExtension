@@ -14,7 +14,7 @@ class HostPanelTextureStateTest {
 
     @Test
     void capturesTheConfiguredHostBlockProviderWithoutSubclassingItsBlockEntity() {
-        var image = ResourceLocation.parse("addon:textures/gui/host.png");
+        var image = new ResourceLocation("addon:textures/gui/host.png");
         var block = org.mockito.Mockito.mock(net.minecraft.world.level.block.Block.class,
             org.mockito.Mockito.withSettings().extraInterfaces(cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.class));
         var state = org.mockito.Mockito.mock(net.minecraft.world.level.block.state.BlockState.class);
@@ -33,8 +33,8 @@ class HostPanelTextureStateTest {
 
     @Test
     void optionalHostImagesRoundTripWithoutTierRegistration() {
-        var state = new HostPanelTextureState(ResourceLocation.parse("addon:textures/gui/tier.png"),
-            ResourceLocation.parse("addon:textures/gui/marker.png"));
+        var state = new HostPanelTextureState(new ResourceLocation("addon:textures/gui/tier.png"),
+            new ResourceLocation("addon:textures/gui/marker.png"));
         CompoundTag tag = new CompoundTag();
         state.write(tag);
         assertEquals(state, HostPanelTextureState.read(tag));

@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.all;
 
 import com.tterrag.registrate.util.entry.FluidEntry;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.client.model.generators.loaders.DynamicFluidContainerModelBuilder;
-import net.neoforged.neoforge.fluids.BaseFlowingFluid;
+import net.minecraftforge.client.model.generators.loaders.DynamicFluidContainerModelBuilder;
+import net.minecraftforge.fluids.BaseFlowingFluid;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -17,7 +17,7 @@ public class NEFluids {
         .model((ctx, prov) -> {
             prov.withExistingParent(
                 ctx.getName(),
-                ResourceLocation.parse("neoforge:item/bucket_drip")
+                new ResourceLocation("neoforge:item/bucket_drip")
             ).customLoader((builder, helper) -> DynamicFluidContainerModelBuilder.begin(builder, helper).fluid(ctx.get().content));
         })
         .build()

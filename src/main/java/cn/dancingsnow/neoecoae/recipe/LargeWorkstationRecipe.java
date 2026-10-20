@@ -15,7 +15,7 @@ import java.util.List;
 /** Runtime-only recipe contract. Never registered in the single-block recipe type. */
 public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
                                      long energy, List<GenericStack> extraInputs, ResourceLocation sourceType) {
-    public static final ResourceLocation NATIVE_TYPE = ResourceLocation.parse("neoecoae:integrated_working_station");
+    public static final ResourceLocation NATIVE_TYPE = new ResourceLocation("neoecoae:integrated_working_station");
 
     public LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
                                   long energy, List<GenericStack> extraInputs) {

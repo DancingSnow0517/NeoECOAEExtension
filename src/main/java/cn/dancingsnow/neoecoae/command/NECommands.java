@@ -12,7 +12,7 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 
 public final class NECommands {

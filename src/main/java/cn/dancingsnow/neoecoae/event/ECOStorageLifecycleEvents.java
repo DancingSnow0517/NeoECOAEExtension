@@ -9,10 +9,10 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.neoforge.event.level.LevelEvent;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.event.level.LevelEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.tick.ServerTickEvent;
 
 public final class ECOStorageLifecycleEvents {
     private ECOStorageLifecycleEvents() {

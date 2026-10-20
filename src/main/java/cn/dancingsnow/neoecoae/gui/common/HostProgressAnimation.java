@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import java.util.function.LongSupplier;
 import net.minecraft.Util;
 
@@ -25,7 +27,7 @@ public final class HostProgressAnimation {
             startMs = now;
             started = true;
         }
-        double progress = Math.clamp((now - startMs) / (double) DURATION_MS, 0, 1);
+        double progress = JdkCompat.clamp((now - startMs) / (double) DURATION_MS, 0, 1);
         double eased = progress * progress * (3 - 2 * progress);
         return (float) (Math.min(1, target) * eased);
     }

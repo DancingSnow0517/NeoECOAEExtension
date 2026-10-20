@@ -12,11 +12,11 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.BlockSnapshot;
-import net.neoforged.neoforge.event.level.BlockEvent;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.util.BlockSnapshot;
+import net.minecraftforge.event.level.BlockEvent;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -168,7 +168,7 @@ public final class MultiBlockPlacementService {
         }
 
         int count = ItemStack.isSameItemSameComponents(stack, target) ? stack.getCount() : 0;
-        IItemHandler itemHandler = stack.getCapability(Capabilities.ItemHandler.ITEM);
+        IItemHandler itemHandler = stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
         if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
             return count;
         }
@@ -203,7 +203,7 @@ public final class MultiBlockPlacementService {
             }
         }
 
-        IItemHandler itemHandler = stack.getCapability(Capabilities.ItemHandler.ITEM);
+        IItemHandler itemHandler = stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
         if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
             return remaining;
         }
@@ -250,7 +250,7 @@ public final class MultiBlockPlacementService {
             return false;
         }
         BlockEvent.EntityPlaceEvent event = new BlockEvent.EntityPlaceEvent(snapshot, placedAgainst, player);
-        NeoForge.EVENT_BUS.post(event);
+        MinecraftForge.EVENT_BUS.post(event);
         if (event.isCanceled()) {
             snapshot.restore();
             return false;

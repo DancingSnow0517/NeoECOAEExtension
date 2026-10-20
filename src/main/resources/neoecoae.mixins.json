@@ -2,7 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
   "mixins": [
     "ae2.accessor.AECraftingPatternAccessor",
     "ae2.accessor.CraftingPlanSummaryAccessor",
@@ -18,7 +18,6 @@
     "ae2.crafting.CraftingServiceMixin",
     "ae2.crafting.CraftingTreeNodeMixin",
     "ae2.crafting.PatternProviderDiagnosticsMixin",
-    "ae2.menu.CellWorkbenchMenuMixin",
     "ae2.menu.CraftConfirmMenuMixin",
     "ae2.menu.CraftConfirmMenuForceStartMixin",
     "ae2.menu.CraftingCpuListEntryMixin",
@@ -27,8 +26,6 @@
     "ae2.menu.IOPortMenuMixin",
     "ae2.menu.PatternEncodingTermMenuMixin",
     "ae2.storage.AppEngInternalInventoryMixin",
-    "ae2.storage.CellWorkbenchBlockEntityMixin",
-    "ae2.storage.DigitalSingularityEnergyServiceMixin",
     "ae2.storage.IOPortBlockEntityMixin",
     "ae2.storage.NativeMEStorageCellFilterMixin",
     "ae2.storage.NetworkStorageMixin",
@@ -53,5 +50,6 @@
   },
   "mixinextras": {
     "minVersion": "0.5.3"
-  }
+  },
+  "refmap": "neoecoae.refmap.json"
 }

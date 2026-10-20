@@ -4,7 +4,7 @@ import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
-import net.neoforged.neoforge.client.model.IQuadTransformer;
+import net.minecraftforge.client.model.IQuadTransformer;
 
 import java.util.ArrayList;
 import java.util.List;

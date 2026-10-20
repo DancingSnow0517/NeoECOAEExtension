@@ -7,7 +7,7 @@ import com.extendedae_plus.compat.JeiRuntimeCompat;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeAll;

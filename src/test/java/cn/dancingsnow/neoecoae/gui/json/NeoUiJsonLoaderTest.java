@@ -14,7 +14,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.List;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +39,7 @@ class NeoUiJsonLoaderTest {
                           {"type":"button","id":"start","text":"Start","action":"start"}]}
             """).getAsJsonObject();
         AtomicBoolean configured = new AtomicBoolean();
-        UIElement result = NeoUiJsonLoader.load(root, ResourceLocation.withDefaultNamespace("test.json"),
+        UIElement result = NeoUiJsonLoader.load(root, new ResourceLocation("test.json"),
             new NeoUiJsonContext() {
                 @Override
                 public void configure(JsonObject node, UIElement element) {
@@ -61,9 +61,9 @@ class NeoUiJsonLoaderTest {
     void rejectsUnknownTypesAndUnregisteredCustomElements() {
         JsonObject unknown = JsonParser.parseString("{\"type\":\"eval\"}").getAsJsonObject();
         assertThrows(NeoUiJsonException.class, () -> NeoUiJsonLoader.load(unknown,
-            ResourceLocation.withDefaultNamespace("unknown.json"), NeoUiJsonContext.EMPTY));
+            new ResourceLocation("unknown.json"), NeoUiJsonContext.EMPTY));
         JsonObject custom = JsonParser.parseString("{\"type\":\"custom\",\"name\":\"missing\"}").getAsJsonObject();
         assertThrows(NeoUiJsonException.class, () -> NeoUiJsonLoader.load(custom,
-            ResourceLocation.withDefaultNamespace("custom.json"), NeoUiJsonContext.EMPTY));
+            new ResourceLocation("custom.json"), NeoUiJsonContext.EMPTY));
     }
 }

@@ -10,7 +10,7 @@ import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.menu.ISubMenu;
 import appeng.menu.MenuOpener;
-import appeng.menu.locator.MenuHostLocator;
+import appeng.menu.locator.MenuLocator;
 import appeng.util.inv.AppEngInternalInventory;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.AuxiliaryPatternHolder;
@@ -20,7 +20,6 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.PatternStorageHost;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
-import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
@@ -51,8 +50,6 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     private final LargeWorkstationPatternProvider workstationProvider;
     private transient boolean workstationProviderRefreshQueued;
-    /** The disk revision last handed to AE2; {@link #refreshDiskAdvertisement} polls against it. */
-    private long advertisedDiskRevision = Long.MIN_VALUE;
 
     public ECOLargeIntegratedWorkingStationInterfaceBlockEntity(
         BlockEntityType<?> type,
@@ -81,115 +78,6 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         return workstationProvider.getCapacityUpgrades();
     }
 
-    // ---- pattern disks (AE2 Pattern Disk, optional) -------------------------------------------------
-
-    /**
-     * The disk holder over this host's pattern slots, built on first use.
-     *
-     * <p>Not a field initialiser: the slots it reads belong to {@code workstationProvider}, which the
-     * constructor is what assigns. Asking before that would hold a holder over nothing.</p>
-     *
-     * <p>Returned methods all go through {@link PatternDiskSupport}, which answers "no disks" when the mod
-     * that provides them is absent or has not installed its backend yet.</p>
-     */
-    private AuxiliaryPatternHolder diskHolder;
-
-    private AuxiliaryPatternHolder diskHolder() {
-        AuxiliaryPatternHolder current = diskHolder;
-        if (current == null && PatternDiskSupport.available()) {
-            current = PatternDiskSupport.holderFor(
-                workstationProvider.getPatternInv(),
-                () -> getMainNode().getGrid(),
-                this::getLevel);
-            diskHolder = current;
-        }
-        return current;
-    }
-
-    @Override
-    public boolean ownsAuxiliary(ItemStack stack) {
-        AuxiliaryPatternHolder holder = diskHolder();
-        return holder != null && holder.ownsAuxiliary(stack);
-    }
-
-    @Override
-    public boolean hasAuxiliaryRoom() {
-        AuxiliaryPatternHolder holder = diskHolder();
-        return holder != null && holder.hasAuxiliaryRoom();
-    }
-
-    @Override
-    public List<ItemStack> getAuxiliaryEncodedPatterns() {
-        AuxiliaryPatternHolder holder = diskHolder();
-        if (holder == null) {
-            return List.of();
-        }
-        List<ItemStack> advertised = new ArrayList<>();
-        for (ItemStack pattern : holder.getAuxiliaryEncodedPatterns()) {
-            if (workstationProvider.advertises(pattern)) {
-                advertised.add(pattern);
-            }
-        }
-        return advertised;
-    }
-
-    @Override
-    public long getAuxiliaryRevision() {
-        long diskRevision = diskRevision();
-        int advertisementRevision = workstationProvider.getAdvertisementRevision();
-        if (lastAuxiliaryDiskRevision != diskRevision || lastAuxiliaryAdvertisementRevision != advertisementRevision) {
-            lastAuxiliaryDiskRevision = diskRevision;
-            lastAuxiliaryAdvertisementRevision = advertisementRevision;
-            auxiliaryRevision++;
-        }
-        return auxiliaryRevision;
-    }
-
-    private long lastAuxiliaryDiskRevision = Long.MIN_VALUE;
-    private int lastAuxiliaryAdvertisementRevision = Integer.MIN_VALUE;
-    private long auxiliaryRevision;
-
-    long diskRevision() {
-        AuxiliaryPatternHolder holder = diskHolder();
-        return holder == null ? 0L : holder.getAuxiliaryRevision();
-    }
-
-    @Override
-    public List<String> getAuxiliarySearchKeywords() {
-        AuxiliaryPatternHolder holder = diskHolder();
-        if (holder == null) {
-            return List.of();
-        }
-        // Answered for contract completeness: this machine has no pattern preview rows, so nothing reads this
-        // list today. The rows it would serve belong to the crafting interface, which is not what this
-        // working-station interface is - its disks are reached through the disk terminals instead, and those
-        // find a recipe by the terminal's own filter rather than by these keywords. Decoded on demand rather
-        // than cached, because a cache here would need its own revision for no current caller.
-        List<ItemStack> patterns = getAuxiliaryEncodedPatterns();
-        List<String> keywords = new ArrayList<>(patterns.size());
-        for (ItemStack pattern : patterns) {
-            keywords.add(PatternSearchKeywords.build(pattern, PatternDetailsHelper.decodePattern(pattern, getLevel())));
-        }
-        return keywords;
-    }
-
-    // ---- routing patterns into disks (IECOPatternStorage) ------------------------------------------
-
-    @Override
-    public boolean canAcceptIntoAuxiliary(ItemStack pattern) {
-        return workstationProvider.accepts(pattern)
-            && PatternDiskSupport.canAcceptAuxiliary(patternInventory(), pattern, getLevel());
-    }
-
-    @Override
-    public ECOPatternInsertionResult insertIntoAuxiliary(ItemStack pattern, @Nullable ECOPreparedPattern prepared) {
-        if (!workstationProvider.accepts(pattern)) {
-            return ECOPatternInsertionResult.INCOMPATIBLE;
-        }
-        boolean inserted = PatternDiskSupport.insertAuxiliary(patternInventory(), pattern, getLevel());
-        return inserted ? ECOPatternInsertionResult.INSERTED : ECOPatternInsertionResult.NO_TARGET;
-    }
-
     @Override
     public boolean insertPattern(ItemStack itemStack) {
         return insertPatternWithResult(itemStack) == ECOPatternInsertionResult.INSERTED;
@@ -197,14 +85,8 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     @Override
     public ECOPatternInsertionResult insertPatternWithResult(ItemStack itemStack) {
-        // A disk is the only place this host stores patterns itself; its slots belong to the provider, which
-        // the catalog falls back to on its own. NO_TARGET is what sends the pattern there.
-        //
-        // That split is also why this host reports slot capacity it never writes to: it implements
-        // IECOPatternStorage, so the catalog counts it as a slot storage, yet a pattern handed to it only ever
-        // lands on a disk. Accepted rather than tightened - refusing the pattern here would make a machine
-        // with empty slots look full, and writing the slots from here would bypass the provider's own filter.
-        return insertIntoAuxiliary(itemStack, null);
+        // The provider owns the actual slots and enforces workstation compatibility.
+        return ECOPatternInsertionResult.NO_TARGET;
     }
 
     private InternalInventory patternInventory() {
@@ -309,7 +191,6 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         super.tick();
         if (level instanceof ServerLevel) {
             workstationProvider.updateRedstoneState();
-            refreshDiskAdvertisement();
         }
     }
 
@@ -321,15 +202,6 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
      * - would otherwise stay invisible until the network is replugged. Polling the revision is what the bus
      * does for the same reason.</p>
      */
-    private void refreshDiskAdvertisement() {
-        long revision = diskRevision();
-        if (advertisedDiskRevision == revision) {
-            return;
-        }
-        advertisedDiskRevision = revision;
-        refreshWorkstationProviderLifecycle();
-    }
-
     @Override
     protected void onInterfaceTopologyChanged() {
         refreshWorkstationProviderLifecycle();
@@ -384,58 +256,9 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
      * <p>Ordinary slot patterns remain visible ahead of the disk rows. Occupied disk slots are hidden so the
      * terminal cannot take a disk as though it were an encoded pattern.</p>
      */
-    @Nullable
-    private PatternDiskSupport.TerminalView diskTerminalView;
-    private long diskTerminalViewRevision = Long.MIN_VALUE;
-    private InternalInventory terminalPatternInventory;
-    private long terminalPatternInventoryRevision = Long.MIN_VALUE;
-
     @Override
     public InternalInventory getTerminalPatternInventory() {
-        PatternDiskSupport.TerminalView view = diskTerminalView();
-        if (view == null) {
-            return PatternProviderLogicHost.super.getTerminalPatternInventory();
-        }
-        long revision = diskRevision();
-        if (terminalPatternInventory == null || terminalPatternInventoryRevision != revision) {
-            terminalPatternInventory = view.withHostRows(patternInventory());
-            terminalPatternInventoryRevision = revision;
-        }
-        return terminalPatternInventory;
-    }
-
-    /**
-     * @return the disk-aware view, or {@code null} on the client and when AEPD is absent - in both cases the
-     *         host shows AE2's plain slots, which is what it did before this integration existed
-     */
-    @Nullable
-    private PatternDiskSupport.TerminalView diskTerminalView() {
-        if (!(level instanceof ServerLevel)) {
-            // A grid is a server concept, and the view charges it; the client has nothing to attach to.
-            return null;
-        }
-        long revision = diskRevision();
-        PatternDiskSupport.TerminalView current = diskTerminalView;
-        if (current != null) {
-            if (diskTerminalViewRevision == revision) {
-                return current;
-            }
-            // The layout is cached on the view's side, so a change has to be pushed into it.
-            current.invalidate();
-            diskTerminalViewRevision = revision;
-            return current;
-        }
-        current = PatternDiskSupport.terminalView(
-            patternInventory(),
-            () -> getMainNode().getGrid(),
-            this,
-            this::saveChanges,
-            this::getLevel);
-        if (current != null) {
-            diskTerminalView = current;
-            diskTerminalViewRevision = revision;
-        }
-        return current;
+        return patternInventory();
     }
 
     /** Slot contents revision, bumped by the provider so the grid's catalog notices its patterns moved. */
@@ -495,7 +318,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     }
 
     @Override
-    public void openMenu(Player player, MenuHostLocator locator) {
+    public void openMenu(Player player, MenuLocator locator) {
         MenuOpener.open(LargeIntegratedWorkingStationPatternProviderMenu.TYPE, player, locator);
     }
 

@@ -14,12 +14,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.common.crafting.DataComponentIngredient;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.DataComponentFluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.common.crafting.DataComponentIngredient;
+import net.minecraftforge.common.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.crafting.DataComponentFluidIngredient;
+import net.minecraftforge.fluids.crafting.FluidIngredient;
+import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -35,49 +35,46 @@ class LargeWorkstationRecipeDeduplicationTest {
             {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":4}],
              "output":{"id":"minecraft:diamond","count":2}}
             """);
-        var science = decode("ae2cs:aggregator", "ae2cs:crystal_aggregator_recipe", """
-            {"input_a":{"item":"minecraft:iron_ingot","count":4},
-             "result":{"id":"minecraft:diamond","count":2},"energy_cost":1000}
-            """);
-        assertEquals(List.of(science), deduplicate(extended, science));
-        assertEquals(List.of(science), deduplicate(science, extended));
-        var label = assertInstanceOf(TranslatableContents.class, science.sourceTypeDescription().getContents());
+        var advanced = new LargeWorkstationRecipe(new ResourceLocation("advanced_ae:reaction"), extended.display(),
+            1000, List.of(), new ResourceLocation("advanced_ae:reaction"));
+        assertEquals(List.of(advanced), deduplicate(extended, advanced));
+        assertEquals(List.of(advanced), deduplicate(advanced, extended));
+        var label = assertInstanceOf(TranslatableContents.class, advanced.sourceTypeDescription().getContents());
         assertEquals("gui.neoecoae.large_integrated_working_station.recipe_type", label.getKey());
         var typeName = assertInstanceOf(Component.class, label.getArgs()[0]);
-        assertEquals("recipe_type.neoecoae.ae2cs.crystal_aggregator_recipe",
+        assertEquals("recipe_type.neoecoae.advanced_ae.reaction",
             assertInstanceOf(TranslatableContents.class, typeName.getContents()).getKey());
     }
 
     @Test void lockedRecipeFamiliesCannotHideUnlockedRecipesDuringDeduplication() {
         var regular = materialRecipe("test:regular", 100, List.of());
-        var advanced = new LargeWorkstationRecipe(ResourceLocation.parse("advanced_ae:cheaper"), regular.display(),
-            50, List.of(), ResourceLocation.parse("advanced_ae:reaction"));
-        var science = new LargeWorkstationRecipe(ResourceLocation.parse("ae2cs:cheapest"), regular.display(),
-            10, List.of(), ResourceLocation.parse("ae2cs:crystal_aggregator_recipe"));
+        var advanced = new LargeWorkstationRecipe(new ResourceLocation("advanced_ae:cheaper"), regular.display(),
+            50, List.of(), new ResourceLocation("advanced_ae:reaction"));
+        var extended = new LargeWorkstationRecipe(new ResourceLocation("expatternprovider:cheapest"), regular.display(),
+            10, List.of(), new ResourceLocation("expatternprovider:crystal_assembler"));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         var ops = registries.createSerializationContext(JsonOps.INSTANCE);
-        var recipes = List.of(science, regular, advanced);
+        var recipes = List.of(extended, regular, advanced);
         assertEquals(List.of(regular), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.REGULAR, ops));
         assertEquals(List.of(advanced), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.ADVANCED_AE, ops));
-        assertEquals(List.of(science), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.CRYSTAL_SCIENCE, ops));
-        assertEquals(List.of(regular), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.EXTENDED_AE, ops));
+        assertEquals(List.of(extended), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.EXTENDED_AE, ops));
     }
 
-    @Test void eachCardUnlocksOnlyItsFamilyAndRetainsRegularAndUncardedAdapters() {
+    @Test void fourCardsUnlockTheirFamilyAndRejectExcludedAndUnknownSources() {
         var sources = java.util.Map.of(
-            LargeWorkstationModule.ADVANCED_AE, ResourceLocation.parse("advanced_ae:reaction"),
-            LargeWorkstationModule.EXTENDED_AE, ResourceLocation.parse("extendedae_plus:crystal_assembler_plus"),
-            LargeWorkstationModule.CRYSTAL_SCIENCE, ResourceLocation.parse("ae2cs:circuit_etcher_recipe"),
-            LargeWorkstationModule.LIGHTNING_TECH, ResourceLocation.parse("ae2lt:lightning_assembly"),
-            LargeWorkstationModule.DATA_ENERGISTICS, ResourceLocation.parse("data_energistics:data_reassembler"),
-            LargeWorkstationModule.APPLIED_GENERATORS, ResourceLocation.parse("appgen:synthesizing"));
+            LargeWorkstationModule.ADVANCED_AE, new ResourceLocation("advanced_ae:reaction"),
+            LargeWorkstationModule.EXTENDED_AE, new ResourceLocation("expatternprovider:crystal_assembler"),
+            LargeWorkstationModule.LIGHTNING_TECH, new ResourceLocation("ae2lt:lightning_assembly"));
         for (var installed : LargeWorkstationModule.values()) {
             assertTrue(installed.unlocks(LargeWorkstationRecipe.NATIVE_TYPE));
-            assertTrue(installed.unlocks(ResourceLocation.parse("test:uncarded_adapter")));
+            for (String source : List.of("test:uncarded_adapter", "extendedae_plus:crystal_assembler_plus",
+                    "ae2cs:circuit_etcher_recipe", "data_energistics:data_reassembler", "appgen:synthesizing")) {
+                assertFalse(installed.unlocks(new ResourceLocation(source)));
+            }
             for (var entry : sources.entrySet()) assertEquals(installed == entry.getKey(), installed.unlocks(entry.getValue()));
         }
-        assertTrue(LargeWorkstationModule.EXTENDED_AE.unlocks(ResourceLocation.parse("extendedae:crystal_assembler")));
-        assertEquals(7, java.util.Arrays.stream(LargeWorkstationModule.values()).filter(LargeWorkstationModule::hasUpgradeCard).count());
+        assertTrue(LargeWorkstationModule.EXTENDED_AE.unlocks(new ResourceLocation("extendedae:crystal_assembler")));
+        assertEquals(4, java.util.Arrays.stream(LargeWorkstationModule.values()).filter(LargeWorkstationModule::hasUpgradeCard).count());
         assertFalse(LargeWorkstationModule.isUpgradeCard(new ItemStack(Items.PAPER)));
         assertEquals(LargeWorkstationModule.REGULAR, LargeWorkstationModule.fromUpgradeCard(ItemStack.EMPTY));
     }
@@ -182,7 +179,7 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     private static LargeWorkstationRecipe decode(String id, String type, String json) {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        return LargeWorkstationRecipes.decode(ResourceLocation.parse(id), type, JsonParser.parseString(json).getAsJsonObject(),
+        return LargeWorkstationRecipes.decode(new ResourceLocation(id), type, JsonParser.parseString(json).getAsJsonObject(),
             registries.createSerializationContext(JsonOps.INSTANCE));
     }
 
@@ -196,7 +193,7 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     private static LargeWorkstationRecipe recipe(String id, List<SizedIngredient> items, SizedFluidIngredient fluid,
         ItemStack output, FluidStack fluidOutput, long energy, List<GenericStack> extras) {
-        return new LargeWorkstationRecipe(ResourceLocation.parse(id), new IntegratedWorkingStationRecipe(items, fluid, output,
+        return new LargeWorkstationRecipe(new ResourceLocation(id), new IntegratedWorkingStationRecipe(items, fluid, output,
             fluidOutput, (int) Math.min(Integer.MAX_VALUE, energy)), energy, extras);
     }
 }

@@ -18,6 +18,8 @@
 
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import net.minecraft.nbt.CompoundTag;
 
 import java.util.LinkedHashMap;
@@ -138,7 +140,7 @@ public class ElapsedTimeTracker {
                 started = started.add(new java.math.BigDecimal(getExactStartedWork(type)).divide(unit, java.math.MathContext.DECIMAL128));
                 completed = completed.add(new java.math.BigDecimal(getExactCompletedWork(type)).divide(unit, java.math.MathContext.DECIMAL128));
             }
-            return started.signum() <= 0 ? 0 : Math.clamp(completed.divide(started, java.math.MathContext.DECIMAL128).floatValue(), 0, 1);
+            return started.signum() <= 0 ? 0 : JdkCompat.clamp(completed.divide(started, java.math.MathContext.DECIMAL128).floatValue(), 0, 1);
         }
         double startedUnits = 0;
         double completedUnits = 0;
@@ -152,7 +154,7 @@ public class ElapsedTimeTracker {
         // A newly-created tracker has no denominator yet. Returning zero keeps
         // progress a proper value for packet/UI consumers instead of propagating NaN.
         if (startedUnits <= 0.0) return 0.0F;
-        return Math.clamp((float) (completedUnits / startedUnits), 0, 1);
+        return JdkCompat.clamp((float) (completedUnits / startedUnits), 0, 1);
     }
 
     /** Returns the started work for one key type without exposing the mutable backing map. */

@@ -4,7 +4,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtUnboundedCells;
 import cn.dancingsnow.neoecoae.compat.extendedae.ECOExtendedAEUnboundedCells;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 
 import java.util.Set;
 

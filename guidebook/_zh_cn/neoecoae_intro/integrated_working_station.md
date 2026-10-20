@@ -19,6 +19,12 @@ item_ids:
 
 <RecipeFor id="neoecoae:integrated_working_station" />
 
+## 大型集成工作站的四类模块
+
+大型集成工作站仅保留常规、AdvancedAE、ExtendedAE、AE2LT 四类。AE2LT 的过载加工、闪电装配与闪电模拟三类配方共用同一台 AE2LT 大集成；ExtendedAE Plus 的其他联动保留，不额外提供 Plus 大集成配方。
+
+结构搭建使用[结构终端](multiblock_builder.md)，机器界面中不再放置自动搭建按钮。
+
 ## 让工作站开始加工
 
 放下工作站后，接入 ME 网络获取电力，或使用外部电源供能。加工消耗 FE；批量制作前，可以接上致密能量元件或高容量电源，保证供能连续。

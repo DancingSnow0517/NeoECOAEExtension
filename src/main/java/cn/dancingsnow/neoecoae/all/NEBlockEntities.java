@@ -59,6 +59,8 @@ public class NEBlockEntities {
             NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get().setBlockEntity(ECOCraftingNetworkSwitchBlockEntity.class, type, null, null);
             AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.CRAFTING_NETWORK_SWITCH.asItem());
             AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.asItem());
+            cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities.register(
+                appeng.capabilities.Capabilities.IN_WORLD_GRID_NODE_HOST, type, (be, side) -> be);
         })
         .register();
 
@@ -71,6 +73,8 @@ public class NEBlockEntities {
             NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get().setBlockEntity(ECOComputationNetworkSwitchBlockEntity.class, type, null, null);
             AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.COMPUTATION_NETWORK_SWITCH.asItem());
             AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.asItem());
+            cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities.register(
+                appeng.capabilities.Capabilities.IN_WORLD_GRID_NODE_HOST, type, (be, side) -> be);
         })
         .register();
 

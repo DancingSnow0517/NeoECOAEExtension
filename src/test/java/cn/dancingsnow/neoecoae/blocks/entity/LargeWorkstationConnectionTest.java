@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import appeng.api.config.Actionable;
-import appeng.api.config.PowerUnit;
+import appeng.api.config.PowerUnits;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.util.AECableType;
 import appeng.helpers.ForgeEnergyAdapter;
@@ -86,8 +86,8 @@ class LargeWorkstationConnectionTest {
         host.setFormed(true);
         assertEquals(0, adapter.receiveEnergy(1000, true));
         assertEquals(0, adapter.receiveEnergy(1000, false));
-        assertEquals(0.0, host.getExternalPowerDemand(PowerUnit.AE, 1000));
-        assertEquals(1000.0, host.injectExternalPower(PowerUnit.AE, 1000, Actionable.MODULATE));
+        assertEquals(0.0, host.getExternalPowerDemand(PowerUnits.AE, 1000));
+        assertEquals(1000.0, host.injectExternalPower(PowerUnits.AE, 1000, Actionable.MODULATE));
         assertEquals(stored, host.getAECurrentPower());
 
         // Refunds from the multiblock's own batch processing still use its internal AE buffer.

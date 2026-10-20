@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.IECOBulkMarkableCellItem;
 
@@ -12,7 +14,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -20,7 +22,7 @@ import java.util.List;
 /** Handles Mega bulk-cell selection, upgrades, marker validation and item-handler adapters. */
 final class ECOStorageMegaController {
     private static final ResourceLocation ECO_MEGA_UPGRADE_CARD_ID =
-        ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "eco_mega_upgrade_card");
+        new ResourceLocation(NeoECOAE.MOD_ID, "eco_mega_upgrade_card");
     private static final int ECO_MEGA_SLOTS_PER_PAGE = 25;
     private static final int ECO_MEGA_PAGE_COUNT = 2;
     private final IItemHandlerModifiable ecoMegaUpgradeItemHandler = new EcoMegaUpgradeItemHandler();
@@ -81,7 +83,7 @@ final class ECOStorageMegaController {
     }
 
     private void onSelectedEcoMegaUpgradeChanged() {
-        host.selectEcoMegaPage(Math.clamp(host.selectedEcoMegaPage(), 0, getEcoMegaPageCount() - 1));
+        host.selectEcoMegaPage(JdkCompat.clamp(host.selectedEcoMegaPage(), 0, getEcoMegaPageCount() - 1));
         List<ECODriveBlockEntity> drives = getEcoMegaBulkDrives();
         int driveIndex = getSelectedEcoMegaBulkCell();
         if (driveIndex >= 0 && driveIndex < drives.size()) {
@@ -102,7 +104,7 @@ final class ECOStorageMegaController {
 
     public int getSelectedEcoMegaBulkCell() {
         int count = getEcoMegaBulkCellCount();
-        host.selectEcoMegaBulkCell(count == 0 ? 0 : Math.clamp(host.selectedEcoMegaBulkCell(), 0, count - 1));
+        host.selectEcoMegaBulkCell(count == 0 ? 0 : JdkCompat.clamp(host.selectedEcoMegaBulkCell(), 0, count - 1));
         return host.selectedEcoMegaBulkCell();
     }
 
@@ -118,7 +120,7 @@ final class ECOStorageMegaController {
             || !(stack.getItem() instanceof IECOBulkMarkableCellItem cellItem)) {
             return 0;
         }
-        return Math.clamp(cellItem.getConfigInventory(stack).size(), 0,
+        return JdkCompat.clamp(cellItem.getConfigInventory(stack).size(), 0,
             ECO_MEGA_SLOTS_PER_PAGE * ECO_MEGA_PAGE_COUNT);
     }
 
@@ -133,7 +135,7 @@ final class ECOStorageMegaController {
     }
 
     public int getSelectedEcoMegaPage() {
-        host.selectEcoMegaPage(Math.clamp(host.selectedEcoMegaPage(), 0, getEcoMegaPageCount() - 1));
+        host.selectEcoMegaPage(JdkCompat.clamp(host.selectedEcoMegaPage(), 0, getEcoMegaPageCount() - 1));
         return host.selectedEcoMegaPage();
     }
 

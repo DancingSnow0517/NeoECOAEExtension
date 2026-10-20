@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuListEntry;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -46,11 +46,11 @@ public class CraftingCpuListEntryMixin implements IOverlayTextureHolder, ECOCraf
         method = "readFromPacket",
         at = @At("RETURN")
     )
-    private static void onReadFromPacket(RegistryFriendlyByteBuf buf, CallbackInfoReturnable<CraftingStatusMenu.CraftingCpuListEntry> cir) {
+    private static void onReadFromPacket(FriendlyByteBuf buf, CallbackInfoReturnable<CraftingStatusMenu.CraftingCpuListEntry> cir) {
         CraftingStatusMenu.CraftingCpuListEntry entry = cir.getReturnValue();
         String texture = buf.readUtf();
         if (!texture.isEmpty()) {
-            IOverlayTextureHolder.of(entry).neoecoae$setOverlay(ResourceLocation.parse(texture));
+            IOverlayTextureHolder.of(entry).neoecoae$setOverlay(new ResourceLocation(texture));
         } else {
             IOverlayTextureHolder.of(entry).neoecoae$setOverlay(null);
         }
@@ -61,7 +61,7 @@ public class CraftingCpuListEntryMixin implements IOverlayTextureHolder, ECOCraf
         method = "writeToPacket",
         at = @At("RETURN")
     )
-    private void onWriteToPacket(RegistryFriendlyByteBuf buf, CallbackInfo ci) {
+    private void onWriteToPacket(FriendlyByteBuf buf, CallbackInfo ci) {
         if (neoecoae$overlayTexture != null) {
             buf.writeUtf(neoecoae$overlayTexture.toString());
         } else {

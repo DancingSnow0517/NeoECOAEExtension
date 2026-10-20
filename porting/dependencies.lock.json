@@ -1,0 +1,66 @@
+{
+  "minecraft": "1.20.1",
+  "forge": "47.4.28",
+  "artifacts": [
+    {
+      "mod_id": "ae2lt",
+      "filename": "AE2LT20-release.jar",
+      "url": "https://cdn.modrinth.com/data/ArHeh5Fz/versions/eS1qyjYH/ae2lt-forge-1.20.1-2.1.2-beta2.jar",
+      "sha256": "654e9e8eb13249588b82e9e667f7d4fd18e6eceb8bd2eab821d4a539442b0695"
+    },
+    {
+      "mod_id": "thunderbolt",
+      "filename": "Thunderbolt20-release.jar",
+      "url": "https://cdn.modrinth.com/data/M5jhzZXH/versions/tqklE20T/thunderbolt-forge-1.20.1-2.0.3-beta2.jar",
+      "sha256": "f3b58a63ed6fad9149d8d85fba4cdd5036170369694aa8cec8f8785eb19bff51"
+    },
+    {
+      "mod_id": "advanced_ae",
+      "filename": "AdvancedAE20-release.jar",
+      "url": "https://cdn.modrinth.com/data/rxYaglEe/versions/d83Wdhdn/AdvancedAE-1.3.6-1.20.1.jar",
+      "sha256": "e216f95ac73eb4c1e8f3db22cc3d30f37f2612a7cb1762b9ebce148d0d5657b2"
+    },
+    {
+      "mod_id": "extendedae_plus",
+      "filename": "ExtendedAEPlus20-release.jar",
+      "url": "https://cdn.modrinth.com/data/xr109llC/versions/HNyEHPOp/extendedae_plus-1.6.3.jar",
+      "sha256": "d8634db4ca56fe725799084b3c2c67b17874db50377ea497670379221d374764"
+    },
+    {
+      "mod_id": "expatternprovider",
+      "filename": "ExtendedAE20-release.jar",
+      "url": "https://github.com/GlodBlock/ExtendedAE/releases/download/1.20-1.4.21-forge/ExtendedAE-1.20-1.4.21-forge.jar",
+      "sha256": "30fc8abe66d4b96919f0fd7b33badd0bb2013b31e2ee57f6aeaa63ffae37df4b"
+    },
+    {
+      "mod_id": "ae2",
+      "filename": "AE2-15-release.jar",
+      "url": "https://cdn.modrinth.com/data/XxWD5pD3/versions/jYgSnxye/appliedenergistics2-forge-15.4.11.jar",
+      "sha256": "f2ff9ee5122b037d4e93537425ab9fbe49860fc9c3977db13b20a50ca7d30f9e"
+    },
+    {
+      "mod_id": "guideme",
+      "filename": "GuideME20-release.jar",
+      "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/i7Tp1AHw/guideme-20.1.15.jar",
+      "sha256": "cf8052ab3da121012efc59a20e731c24bfe7488dfa556c9b88809f42dea3b24a"
+    },
+    {
+      "mod_id": "ldlib",
+      "filename": "LDLib1-release.jar",
+      "url": "https://cdn.modrinth.com/data/B1CBVXHX/versions/YSOP0G6O/ldlib-forge-1.20.1-1.0.52.a.jar",
+      "sha256": "a9b0827d264e0d15f90482de0d4783a28fc2dad9dfb477f344dc5e959168838d"
+    },
+    {
+      "mod_id": "glodium",
+      "filename": "Glodium20-release.jar",
+      "url": "https://cdn.modrinth.com/data/UhW5uCKw/versions/eoUaDkZf/Glodium-1.20-1.5-forge.jar",
+      "sha256": "fc419cb5bf511750c0a2da498b925f5122ac4f78617aca6630fe80abf0b6f460"
+    },
+    {
+      "mod_id": "geckolib",
+      "filename": "GeckoLib20-release.jar",
+      "url": "https://cdn.modrinth.com/data/8BmcQJ2H/versions/aC5KMoNg/geckolib-forge-1.20.1-4.8.4.jar",
+      "sha256": "4518779a31b6c2abb92c98b5ad17ef3d60177df68626bfc86c44de2764913c2b"
+    }
+  ]
+}

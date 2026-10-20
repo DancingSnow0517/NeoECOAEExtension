@@ -33,7 +33,7 @@ class ComputationControllerPanelStateTest {
 
     @Test
     void tierZeroMembersKeepPresenceTexturesAndMirroredPositionsThroughSync() {
-        var texture = net.minecraft.resources.ResourceLocation.parse("addon:textures/gui/core.png");
+        var texture = new net.minecraft.resources.ResourceLocation("addon:textures/gui/core.png");
         var zero = new ComputationControllerPanelState.Member(true, 0, texture);
         var fallback = new ComputationControllerPanelState.Member(true, 0, null);
         var state = ComputationControllerPanelState.ofMembers(0, List.of(zero), List.of(fallback),

@@ -35,12 +35,12 @@ import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.RPCMethod;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.rpc.RPCSender;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
+import com.lowdragmc.lowdraglib.syncdata.annotation.RPCMethod;
+import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
+import com.lowdragmc.lowdraglib.syncdata.rpc.RPCSender;
+import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -60,13 +60,13 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster, ECOStorageSystemBlockEntity>
-        implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host,
+        implements NEManagedBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host,
         IECOStoragePriorityHost {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
@@ -445,15 +445,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private StorageHostActionUI.Elements createActionUI(BlockUIMenuType.BlockUIHolder holder) {
         return StorageHostActionUI.create(new StorageHostActionUI.Config(
                 holder.player,
-                () -> selectedBuildLength,
-                () -> mirrorBuild,
-                mirror -> buildController.setMirrorBuild(holder.player, mirror),
-                () -> buildController.decreaseBuildLength(holder.player),
-                () -> buildController.increaseBuildLength(holder.player),
-                () -> buildController.autoBuild(holder.player),
-                () -> formed,
-                () -> buildInProgress,
-                buildController::createLocalPreviewPlan,
                 () -> storagePriority,
                 priority -> setStoragePriority(holder.player, priority),
                 delta -> changeStoragePriority(holder.player, delta)

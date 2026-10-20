@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -54,7 +56,7 @@ public record ComputationControllerPanelState(
         upperMembers = List.copyOf(upperMembers);
         coreMembers = List.copyOf(coreMembers);
         lowerMembers = List.copyOf(lowerMembers);
-        hostTier = Math.clamp(hostTier, 0, 3);
+        hostTier = JdkCompat.clamp(hostTier, 0, 3);
     }
 
     public boolean hasCell(int cell) {
@@ -114,9 +116,9 @@ public record ComputationControllerPanelState(
             Member above = memberAt(upper, slot), below = memberAt(lower, slot);
             cells |= 1 << cell;
             up.set(cell, above); mid.set(cell, center); low.set(cell, below);
-            upperBits |= Math.clamp(above.tier(), 0, 3) << cell * 2;
-            coreBits |= Math.clamp(center.tier(), 0, 3) << cell * 2;
-            lowerBits |= Math.clamp(below.tier(), 0, 3) << cell * 2;
+            upperBits |= JdkCompat.clamp(above.tier(), 0, 3) << cell * 2;
+            coreBits |= JdkCompat.clamp(center.tier(), 0, 3) << cell * 2;
+            lowerBits |= JdkCompat.clamp(below.tier(), 0, 3) << cell * 2;
         }
         return new ComputationControllerPanelState(true, hostTier, cells, upperBits, coreBits, lowerBits, up, mid, low);
     }
@@ -198,6 +200,6 @@ public record ComputationControllerPanelState(
     }
 
     private static int tierBits(List<Integer> tiers, int slot) {
-        return slot < tiers.size() ? Math.clamp(tiers.get(slot), 0, 3) : 0;
+        return slot < tiers.size() ? JdkCompat.clamp(tiers.get(slot), 0, 3) : 0;
     }
 }

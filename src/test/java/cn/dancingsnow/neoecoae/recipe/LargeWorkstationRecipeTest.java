@@ -21,10 +21,10 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.common.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.crafting.FluidIngredient;
+import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -122,7 +122,7 @@ class LargeWorkstationRecipeTest {
     }
 
     @Test void scaledOverlappingIngredientsAllowDifferentConcreteItemsPerRecipeOperation() {
-        var recipe = new LargeWorkstationRecipe(ResourceLocation.parse("test:mixed"), new IntegratedWorkingStationRecipe(
+        var recipe = new LargeWorkstationRecipe(new ResourceLocation("test:mixed"), new IntegratedWorkingStationRecipe(
             List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT, Items.GOLD_INGOT), 4),
                 new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 1)),
             new SizedFluidIngredient(FluidIngredient.empty(), 1), new ItemStack(Items.DIAMOND),
@@ -204,8 +204,8 @@ class LargeWorkstationRecipeTest {
              var internal = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class)) {
             internal.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
                 .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
-            keyTypes.when(() -> AEKeyTypes.get(ResourceLocation.parse("ae2:i"))).thenReturn(AEKeyType.items());
-            keyTypes.when(() -> AEKeyTypes.get(ResourceLocation.parse("ae2:f"))).thenReturn(AEKeyType.fluids());
+            keyTypes.when(() -> AEKeyTypes.get(new ResourceLocation("ae2:i"))).thenReturn(AEKeyType.items());
+            keyTypes.when(() -> AEKeyTypes.get(new ResourceLocation("ae2:f"))).thenReturn(AEKeyType.fluids());
             var recipe = decode(type, """
                 {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":64}],
                  "input_fluid":{"ingredient":{"fluid":"minecraft:water"},"amount":500},
@@ -242,7 +242,7 @@ class LargeWorkstationRecipeTest {
                 new com.moakiee.ae2lt.machine.lightningchamber.recipe.LightningSimulationRecipe.Serializer().codec().codec(), ops, json);
             default -> json;
         };
-        return LargeWorkstationRecipes.decode(ResourceLocation.parse("test:recipe"), type,
+        return LargeWorkstationRecipes.decode(new ResourceLocation("test:recipe"), type,
             json, ops);
     }
 
@@ -271,20 +271,20 @@ class LargeWorkstationRecipeTest {
         "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler"
     })
     void malformedSupportedRecipesAreRejectedWithoutRemovingNativeRecipes(String typeId) {
-        var type = net.minecraft.world.item.crafting.RecipeType.simple(ResourceLocation.parse(typeId));
+        var type = net.minecraft.world.item.crafting.RecipeType.simple(new ResourceLocation(typeId));
         var recipe = mock(net.minecraft.world.item.crafting.Recipe.class);
         doReturn(type).when(recipe).getType();
-        var holder = new net.minecraft.world.item.crafting.RecipeHolder<>(ResourceLocation.parse("test:unregistered"), recipe);
+        var holder = new net.minecraft.world.item.crafting.RecipeHolder<>(new ResourceLocation("test:unregistered"), recipe);
         var nativeRecipe = nativeRecipe(new ItemStack(Items.DIAMOND, 2));
         var nativeHolder = new net.minecraft.world.item.crafting.RecipeHolder<>(nativeRecipe.id(), nativeRecipe.display());
         var manager = mock(net.minecraft.world.item.crafting.RecipeManager.class);
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         when(manager.getRecipes()).thenReturn(List.of(holder, nativeHolder));
         when(recipe.getSerializer()).thenThrow(new IllegalArgumentException("Malformed adapter fixture"));
-        try (var mods = mockStatic(net.neoforged.fml.ModList.class)) {
-            var modList = mock(net.neoforged.fml.ModList.class);
+        try (var mods = mockStatic(net.minecraftforge.fml.ModList.class)) {
+            var modList = mock(net.minecraftforge.fml.ModList.class);
             when(modList.isLoaded(anyString())).thenReturn(true);
-            mods.when(net.neoforged.fml.ModList::get).thenReturn(modList);
+            mods.when(net.minecraftforge.fml.ModList::get).thenReturn(modList);
             var recipes = LargeWorkstationRecipes.getAll(manager, registries);
             assertEquals(List.of(nativeRecipe), recipes);
             verify(recipe).getType();
@@ -301,9 +301,9 @@ class LargeWorkstationRecipeTest {
             {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
              "totalEnergy":1000,"result":{"id":"minecraft:diamond","count":2}}
             """)).getOrThrow());
-        doReturn(RecipeType.simple(ResourceLocation.parse("ae2lt:lightning_assembly"))).when(optional).getType();
+        doReturn(RecipeType.simple(new ResourceLocation("ae2lt:lightning_assembly"))).when(optional).getType();
         doReturn(serializer).when(optional).getSerializer();
-        var optionalId = ResourceLocation.parse("test:compat");
+        var optionalId = new ResourceLocation("test:compat");
         var nativeRecipe = nativeRecipe(new ItemStack(Items.DIAMOND, 2));
         var manager = mock(RecipeManager.class);
         when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(optionalId, optional),
@@ -315,7 +315,7 @@ class LargeWorkstationRecipeTest {
         var adapted = enabled.stream().filter(recipe -> recipe.id().equals(optionalId)).findFirst().orElseThrow();
         assertTrue(adapted.matches(items(Items.IRON_INGOT, 4), items(Items.DIAMOND, 2)));
         assertEquals(4, adapted.extraInputs().getFirst().amount());
-        assertEquals(ResourceLocation.parse("ae2lt:lightning_assembly"), adapted.sourceType());
+        assertEquals(new ResourceLocation("ae2lt:lightning_assembly"), adapted.sourceType());
         assertSame(enabled, LargeWorkstationRecipes.getAll(manager, registries));
         assertEquals(nativeRecipe, LargeWorkstationRecipes.getById(manager, registries, nativeRecipe.id()));
         assertSame(adapted, LargeWorkstationRecipes.getById(manager, registries, optionalId));
@@ -356,10 +356,10 @@ class LargeWorkstationRecipeTest {
             {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":4}],
              "output":{"id":"minecraft:diamond","count":2}}
             """))).when(codec).encodeStart(any(), same(recipe));
-        doReturn(RecipeType.simple(ResourceLocation.parse("extendedae:crystal_assembler"))).when(recipe).getType();
+        doReturn(RecipeType.simple(new ResourceLocation("extendedae:crystal_assembler"))).when(recipe).getType();
         doReturn(serializer).when(recipe).getSerializer();
         var manager = mock(RecipeManager.class);
-        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(ResourceLocation.parse("extendedae:test_card"), recipe)));
+        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(new ResourceLocation("extendedae:test_card"), recipe)));
         var all = LargeWorkstationRecipes.getAll(manager, registries);
         assertEquals(1, all.size());
         assertEquals(2000, all.getFirst().energy());
@@ -371,9 +371,9 @@ class LargeWorkstationRecipeTest {
     void unrelatedRecipesNeverReadTheirSerializers(boolean ignoreUpgradeCards) {
         NEConfig.largeWorkstationIgnoreUpgradeCards = ignoreUpgradeCards;
         var recipe = mock(Recipe.class);
-        doReturn(RecipeType.simple(ResourceLocation.parse("test:unrelated"))).when(recipe).getType();
+        doReturn(RecipeType.simple(new ResourceLocation("test:unrelated"))).when(recipe).getType();
         var manager = mock(RecipeManager.class);
-        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(ResourceLocation.parse("test:unrelated"), recipe)));
+        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(new ResourceLocation("test:unrelated"), recipe)));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         assertTrue(LargeWorkstationRecipes.getAll(manager, registries).isEmpty());
         verify(recipe, never()).getSerializer();
@@ -391,13 +391,13 @@ class LargeWorkstationRecipeTest {
             {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
              "totalEnergy":1000,"lightningCost":4,"result":{"id":"minecraft:diamond"}}
             """)).getOrThrow());
-        var type = RecipeType.simple(ResourceLocation.parse("ae2lt:lightning_assembly"));
+        var type = RecipeType.simple(new ResourceLocation("ae2lt:lightning_assembly"));
         doReturn(type).when(expensive).getType();
         doReturn(serializer).when(expensive).getSerializer();
         doReturn(type).when(cheaper).getType();
         doReturn(serializer).when(cheaper).getSerializer();
-        var expensiveId = ResourceLocation.parse("ae2lt:expensive");
-        var cheaperId = ResourceLocation.parse("ae2lt:cheaper");
+        var expensiveId = new ResourceLocation("ae2lt:expensive");
+        var cheaperId = new ResourceLocation("ae2lt:cheaper");
         var manager = mock(RecipeManager.class);
         var cheaperHolder = new RecipeHolder<>(cheaperId, cheaper);
         when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(expensiveId, expensive), cheaperHolder));
@@ -433,7 +433,7 @@ class LargeWorkstationRecipeTest {
     }
 
     private static LargeWorkstationRecipe nativeRecipe(ItemStack output) {
-        return new LargeWorkstationRecipe(ResourceLocation.parse("test:recipe"), new IntegratedWorkingStationRecipe(
+        return new LargeWorkstationRecipe(new ResourceLocation("test:recipe"), new IntegratedWorkingStationRecipe(
             List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 4)),
             new SizedFluidIngredient(FluidIngredient.empty(), 1), output, FluidStack.EMPTY, 100), 100, List.of());
     }

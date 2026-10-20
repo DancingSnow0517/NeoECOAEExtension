@@ -343,7 +343,7 @@ final class ECOBigOrderController {
         var fuzzy = new HashSet<ResourceLocation>();
         var entries = tag.getList("fuzzy", 8);
         if (entries.size() > 10000) throw new IllegalArgumentException("Too many fuzzy items");
-        for (int i = 0; i < entries.size(); i++) fuzzy.add(ResourceLocation.parse(entries.getString(i)));
+        for (int i = 0; i < entries.size(); i++) fuzzy.add(new ResourceLocation(entries.getString(i)));
         options = new ECOPlannerOptions(tag.getBoolean("cycles"), tag.getBoolean("ignoreSubstitutions"), fuzzy);
         order = restored;
         var forecast = tag.getList("pendingPreview", 10);

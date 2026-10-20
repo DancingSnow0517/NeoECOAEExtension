@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
@@ -20,7 +22,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.integration.xei.IngredientIO;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
-import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
+import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -241,7 +243,7 @@ public class MultiBlockInfoWrapper {
         context.setFormed(formed);
         definition.createLevel(context);
         this.layerMax = context.getYMax();
-        layer = Math.clamp(layer, -1, layerMax);
+        layer = JdkCompat.clamp(layer, -1, layerMax);
         if (layer == -1) {
             scene.setRenderedCore(context.allBlocks());
         } else {

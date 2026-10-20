@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,7 +42,7 @@ public record CraftingGraphSnapshot(
 
     }
 
-    public CraftingGraphSnapshot(RegistryFriendlyByteBuf data) {
+    public CraftingGraphSnapshot(FriendlyByteBuf data) {
         this(readCompressed(data));
     }
 
@@ -52,8 +52,8 @@ public record CraftingGraphSnapshot(
     }
 
     @Override
-    public void writeToPacket(RegistryFriendlyByteBuf data) {
-        var raw = new RegistryFriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES), data.registryAccess());
+    public void writeToPacket(FriendlyByteBuf data) {
+        var raw = new FriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES));
         try {
             writeRaw(raw);
             int length = raw.readableBytes();
@@ -66,7 +66,7 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private void writeRaw(RegistryFriendlyByteBuf data) {
+    private void writeRaw(FriendlyByteBuf data) {
         data.writeVarInt(rootNodeId);
         writeList(data, nodes, MaterialNode::write);
         writeList(data, patterns, PatternNode::write);
@@ -76,18 +76,18 @@ public record CraftingGraphSnapshot(
         summary.write(data);
     }
 
-    private static Decoded readCompressed(RegistryFriendlyByteBuf data) {
+    private static Decoded readCompressed(FriendlyByteBuf data) {
         int expectedSize = data.readVarInt();
         if (expectedSize < 0 || expectedSize > MAX_UNCOMPRESSED_BYTES) {
             throw new IllegalArgumentException("Invalid uncompressed graph size: " + expectedSize);
         }
         byte[] compressed = data.readByteArray(MAX_COMPRESSED_BYTES);
         byte[] uncompressed = decompress(compressed, expectedSize);
-        var raw = new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(uncompressed), data.registryAccess());
+        var raw = new FriendlyByteBuf(Unpooled.wrappedBuffer(uncompressed));
         try {
             Decoded result = new Decoded(raw.readVarInt(), readList(raw, MaterialNode::read),
                 readList(raw, PatternNode::read), readList(raw, Edge::read), readList(raw, CycleGroup::read),
-                readList(raw, RegistryFriendlyByteBuf::readResourceLocation), Summary.read(raw));
+                readList(raw, FriendlyByteBuf::readResourceLocation), Summary.read(raw));
             if (raw.isReadable()) throw new IllegalArgumentException("Trailing bytes in crafting graph snapshot");
             return result;
         } finally {
@@ -95,7 +95,7 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private static byte[] compress(RegistryFriendlyByteBuf input) {
+    private static byte[] compress(FriendlyByteBuf input) {
         try {
             var output = new ByteArrayOutputStream(Math.max(64, input.readableBytes() / 4));
             var deflater = new Deflater(Deflater.BEST_SPEED);
@@ -158,13 +158,13 @@ public record CraftingGraphSnapshot(
         public BigInteger missingBigInteger() { return new BigInteger(exactMissing); }
         public BigInteger consumedBigInteger() { return new BigInteger(exactConsumed); }
         public BigInteger producedBigInteger() { return new BigInteger(exactProduced); }
-        private static MaterialNode read(RegistryFriendlyByteBuf data) {
+        private static MaterialNode read(FriendlyByteBuf data) {
             return new MaterialNode(data.readVarInt(), AEKey.readKey(data), data.readVarLong(), data.readVarLong(),
                 data.readVarLong(), data.readVarLong(), data.readEnum(MaterialStatus.class), data.readUtf(),
                 data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(FriendlyByteBuf data) {
             data.writeVarInt(nodeId);
             AEKey.writeKey(data, key);
             data.writeVarLong(requested);
@@ -182,11 +182,11 @@ public record CraftingGraphSnapshot(
     }
 
     public record Relationship(int materialNodeId, long amount) {
-        private static Relationship read(RegistryFriendlyByteBuf data) {
+        private static Relationship read(FriendlyByteBuf data) {
             return new Relationship(data.readVarInt(), data.readVarLong());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(FriendlyByteBuf data) {
             data.writeVarInt(materialNodeId);
             data.writeVarLong(amount);
         }
@@ -200,13 +200,13 @@ public record CraftingGraphSnapshot(
 
         }
 
-        private static PatternNode read(RegistryFriendlyByteBuf data) {
+        private static PatternNode read(FriendlyByteBuf data) {
             return new PatternNode(data.readVarInt(), data.readUtf(), readList(data, Relationship::read),
                 readList(data, Relationship::read), data.readVarLong(), data.readEnum(CandidateStatus.class),
                 readNullableString(data), data.readVarInt());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(FriendlyByteBuf data) {
             data.writeVarInt(patternNodeId);
             data.writeUtf(displayIdentity);
             writeList(data, inputs, Relationship::write);
@@ -220,12 +220,12 @@ public record CraftingGraphSnapshot(
 
     /** Edges use globally unique visual IDs: material IDs are non-negative and pattern IDs are encoded by clients. */
     public record Edge(int fromId, int toId, long amount, EdgeKind kind, boolean selected) {
-        private static Edge read(RegistryFriendlyByteBuf data) {
+        private static Edge read(FriendlyByteBuf data) {
             return new Edge(data.readVarInt(), data.readVarInt(), data.readVarLong(), data.readEnum(EdgeKind.class),
                 data.readBoolean());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(FriendlyByteBuf data) {
             data.writeVarInt(fromId);
             data.writeVarInt(toId);
             data.writeVarLong(amount);
@@ -235,22 +235,22 @@ public record CraftingGraphSnapshot(
     }
 
     public record KeyAmount(AEKey key, long amount) {
-        private static KeyAmount read(RegistryFriendlyByteBuf data) {
+        private static KeyAmount read(FriendlyByteBuf data) {
             return new KeyAmount(AEKey.readKey(data), data.readVarLong());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(FriendlyByteBuf data) {
             AEKey.writeKey(data, key);
             data.writeVarLong(amount);
         }
     }
 
     public record PatternAmount(int patternNodeId, long amount) {
-        private static PatternAmount read(RegistryFriendlyByteBuf data) {
+        private static PatternAmount read(FriendlyByteBuf data) {
             return new PatternAmount(data.readVarInt(), data.readVarLong());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(FriendlyByteBuf data) {
             data.writeVarInt(patternNodeId);
             data.writeVarLong(amount);
         }
@@ -297,7 +297,7 @@ public record CraftingGraphSnapshot(
 
         }
 
-        private static CycleGroup read(RegistryFriendlyByteBuf data) {
+        private static CycleGroup read(FriendlyByteBuf data) {
             return new CycleGroup(data.readVarInt(), readIntList(data), readList(data, Edge::read), data.readUtf(),
                 readList(data, KeyAmount::read), readList(data, KeyAmount::read), readList(data, KeyAmount::read),
                 readList(data, PatternAmount::read), readIntList(data), readList(data, KeyAmount::read),
@@ -306,7 +306,7 @@ public record CraftingGraphSnapshot(
                 data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class));
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(FriendlyByteBuf data) {
             data.writeVarInt(componentId);
             writeIntList(data, memberNodeIds);
             writeList(data, internalEdges, Edge::write);
@@ -333,12 +333,12 @@ public record CraftingGraphSnapshot(
 
     public record Summary(String planningStatus, int materialNodes, int patternNodes, int edges, int cycleGroups,
             long calculationNanos) {
-        private static Summary read(RegistryFriendlyByteBuf data) {
+        private static Summary read(FriendlyByteBuf data) {
             return new Summary(data.readUtf(), data.readVarInt(), data.readVarInt(), data.readVarInt(),
                 data.readVarInt(), data.readVarLong());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
+        private void write(FriendlyByteBuf data) {
             data.writeUtf(planningStatus);
             data.writeVarInt(materialNodes);
             data.writeVarInt(patternNodes);
@@ -348,10 +348,10 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private interface Reader<T> { T read(RegistryFriendlyByteBuf data); }
-    private interface Writer<T> { void write(T value, RegistryFriendlyByteBuf data); }
+    private interface Reader<T> { T read(FriendlyByteBuf data); }
+    private interface Writer<T> { void write(T value, FriendlyByteBuf data); }
 
-    private static <T> List<T> readList(RegistryFriendlyByteBuf data, Reader<T> reader) {
+    private static <T> List<T> readList(FriendlyByteBuf data, Reader<T> reader) {
         int size = data.readVarInt();
         if (size < 0 || size > 1_000_000) throw new IllegalArgumentException("Invalid graph list size: " + size);
         List<T> result = new ArrayList<>(size);
@@ -359,12 +359,12 @@ public record CraftingGraphSnapshot(
         return result;
     }
 
-    private static <T> void writeList(RegistryFriendlyByteBuf data, List<T> values, Writer<T> writer) {
+    private static <T> void writeList(FriendlyByteBuf data, List<T> values, Writer<T> writer) {
         data.writeVarInt(values.size());
         for (T value : values) writer.write(value, data);
     }
 
-    private static List<Integer> readIntList(RegistryFriendlyByteBuf data) {
+    private static List<Integer> readIntList(FriendlyByteBuf data) {
         int size = data.readVarInt();
         if (size < 0 || size > 1_000_000) throw new IllegalArgumentException("Invalid graph integer list size");
         List<Integer> result = new ArrayList<>(size);
@@ -372,16 +372,16 @@ public record CraftingGraphSnapshot(
         return result;
     }
 
-    private static void writeIntList(RegistryFriendlyByteBuf data, List<Integer> values) {
+    private static void writeIntList(FriendlyByteBuf data, List<Integer> values) {
         data.writeVarInt(values.size());
         for (int value : values) data.writeVarInt(value);
     }
 
-    private static @Nullable String readNullableString(RegistryFriendlyByteBuf data) {
+    private static @Nullable String readNullableString(FriendlyByteBuf data) {
         return data.readBoolean() ? data.readUtf() : null;
     }
 
-    private static void writeNullableString(RegistryFriendlyByteBuf data, @Nullable String value) {
+    private static void writeNullableString(FriendlyByteBuf data, @Nullable String value) {
         data.writeBoolean(value != null);
         if (value != null) data.writeUtf(value);
     }

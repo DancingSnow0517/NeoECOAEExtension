@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArraySet;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 /**
  * Additional fluids allowed to fund virtual crafting. Cryotheum Solution is always allowed.
@@ -15,7 +15,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
  * Execution and server-side diagnostics read the registry live, including already buffered coolant.</p>
  */
 public final class ECOVirtualCraftingCoolantRegistry {
-    public static final ResourceLocation CRYOTHEUM_SOLUTION = ResourceLocation.parse("neoecoae:cryotheum_solution");
+    public static final ResourceLocation CRYOTHEUM_SOLUTION = new ResourceLocation("neoecoae:cryotheum_solution");
     private static final CopyOnWriteArraySet<ResourceLocation> CUSTOM_COOLANTS = new CopyOnWriteArraySet<>();
 
     private ECOVirtualCraftingCoolantRegistry() {}

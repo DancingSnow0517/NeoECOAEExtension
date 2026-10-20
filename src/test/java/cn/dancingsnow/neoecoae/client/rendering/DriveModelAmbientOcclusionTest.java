@@ -5,7 +5,7 @@ import net.minecraft.client.renderer.block.model.BlockModel;
 import net.minecraft.client.renderer.block.model.FaceBakery;
 import net.minecraft.client.resources.model.BlockModelRotation;
 import net.minecraft.core.Direction;
-import net.neoforged.neoforge.client.textures.UnitTextureAtlasSprite;
+import net.minecraftforge.client.textures.UnitTextureAtlasSprite;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

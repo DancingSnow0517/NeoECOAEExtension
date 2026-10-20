@@ -26,7 +26,7 @@ import appeng.api.upgrades.UpgradeInventories;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
-import appeng.blockentity.grid.AENetworkedPoweredBlockEntity;
+import appeng.blockentity.grid.AENetworkPowerBlockEntity;
 import appeng.core.definitions.AEItems;
 import appeng.me.storage.CompositeStorage;
 import appeng.parts.automation.StackWorldBehaviors;
@@ -44,10 +44,10 @@ import cn.dancingsnow.neoecoae.gui.workstation.IntegratedWorkstationUI;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
+import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
+import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -73,19 +73,45 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.common.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 @Slf4j
-public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBlockEntity
-    implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
+public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
+    implements NEManagedBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities.revive(this);
+    }
+
+    @Override
+    public CompoundTag getUpdateTag() {
+        CompoundTag tag = super.getUpdateTag();
+        tag.put(getSyncTag(), cn.dancingsnow.neoecoae.platform.sync.ManagedInitialSync.write(this));
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        if (tag.contains(getSyncTag(), 10)) {
+            new com.lowdragmc.lowdraglib.networking.s2c.SPacketManagedPayload(tag.getCompound(getSyncTag()))
+                .processPacket(this);
+            CompoundTag aeTag = tag.copy();
+            aeTag.remove(getSyncTag());
+            super.handleUpdateTag(aeTag);
+        } else {
+            super.handleUpdateTag(tag);
+        }
+    }
 
     protected static final int MAX_INPUT_SLOTS = 9;
     protected static final int MAX_PROCESSING_STEPS = 200;
@@ -662,8 +688,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             },
             enabled -> shouldAutoExport = enabled,
             allowOutputs::contains, this::toggleOutputSide, this::syncOutputSide, this::getOutputNeighborItem,
-            () -> this instanceof ECOLargeIntegratedWorkingStationBlockEntity workstation
-                ? List.of(workstation.createAutoBuildButton(holder.player)) : List.of()), holder.player);
+            List::of), holder.player);
     }
 
     private void toggleOutputSide(RelativeSide side) {

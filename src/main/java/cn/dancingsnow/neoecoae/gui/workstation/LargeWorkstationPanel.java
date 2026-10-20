@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationOverclock;
@@ -33,7 +35,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 /** Fixed three-row viewport. Server snapshots contain only the requested page and machine telemetry. */
 final class LargeWorkstationPanel extends BindableValue<Tag> {
@@ -60,7 +62,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         this.player = player;
         layout(layout -> layout.width(253).height(214).paddingAll(0));
         setOverflowVisible(true);
-        pageRequest.bind(DataBindingBuilder.intValC2S(value -> serverOffset = Math.clamp(value, 0, 509)).build());
+        pageRequest.bind(DataBindingBuilder.intValC2S(value -> serverOffset = JdkCompat.clamp(value, 0, 509)).build());
         pageRequest.setDisplay(false);
         addChild(pageRequest);
         var returnTask = addRPCEvent(RPCEventBuilder.simple(UUID.class, id -> {
@@ -195,13 +197,13 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         absolute(track, 76, 37, 13, 77);
         track.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button != 0 || maxOffset() == 0) return;
-            scrollTo(Math.round(Math.clamp((event.y - track.getPositionY() - 7.5f) / 62, 0f, 1f) * maxOffset()));
+            scrollTo(Math.round(JdkCompat.clamp((event.y - track.getPositionY() - 7.5f) / 62, 0f, 1f) * maxOffset()));
             if (track.getModularUI() != null) track.getModularUI().getDragHandler().startDrag(0f, null, track);
             event.hasHandler = true;
             event.stopImmediatePropagation();
         });
         track.addEventListener(UIEvents.DRAG_SOURCE_UPDATE, event -> {
-            scrollTo(Math.round(Math.clamp((event.y - track.getPositionY() - 7.5f) / 62, 0f, 1f) * maxOffset()));
+            scrollTo(Math.round(JdkCompat.clamp((event.y - track.getPositionY() - 7.5f) / 62, 0f, 1f) * maxOffset()));
             event.stopImmediatePropagation();
         });
         track.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
@@ -216,7 +218,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private int maxOffset() { return Math.max(0, state.getInt("totalTasks") - PAGE_SIZE); }
 
     private void scrollTo(int offset) {
-        requestedOffset = Math.clamp(offset, 0, maxOffset());
+        requestedOffset = JdkCompat.clamp(offset, 0, maxOffset());
         pageRequest.setValue(requestedOffset);
     }
 
@@ -231,7 +233,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(tr("task_source", task.module().title()));
         lines.add(Component.translatable(task.status()).withStyle(task.problem() ? ChatFormatting.GOLD : ChatFormatting.GRAY));
         if (!task.detail().isEmpty()) lines.add(Component.translatable(task.detail()));
-        lines.add(tr("progress", Math.clamp(task.progress(), 0, 200) / 2));
+        lines.add(tr("progress", JdkCompat.clamp(task.progress(), 0, 200) / 2));
         if (task.returnable()) lines.add(hint("task_return_hint"));
         return lines;
     }
@@ -495,7 +497,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         context.pose.popPose();
     }
     private static double ratio(double value, double maximum) {
-        return Double.isFinite(value) && Double.isFinite(maximum) && maximum > 0 ? Math.clamp(value / maximum, 0, 1) : 0;
+        return Double.isFinite(value) && Double.isFinite(maximum) && maximum > 0 ? JdkCompat.clamp(value / maximum, 0, 1) : 0;
     }
     private static int displayTier(int tier) { return tier == 2 ? 4 : tier; }
     private static MutableComponent tr(String key, Object... args) { return Component.translatable(PREFIX + key, args); }

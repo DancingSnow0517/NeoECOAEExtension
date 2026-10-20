@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ldlib;
 
-import com.lowdragmc.lowdraglib2.async.AsyncThreadData;
+import com.lowdragmc.lowdraglib.async.AsyncThreadData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;

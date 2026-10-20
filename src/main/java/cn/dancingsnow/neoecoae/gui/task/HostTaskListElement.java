@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.task;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
@@ -374,7 +376,7 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
     }
 
     private int clampTaskScrollOffset(int value, int total) {
-        return Math.clamp(value, 0, Math.max(0, total - visibleTaskCardCount()));
+        return JdkCompat.clamp(value, 0, Math.max(0, total - visibleTaskCardCount()));
     }
 
     private record PreparedTasks(

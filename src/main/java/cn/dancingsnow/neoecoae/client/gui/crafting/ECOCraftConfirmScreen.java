@@ -30,7 +30,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.neoforge.network.PacketDistributor;
+import cn.dancingsnow.neoecoae.network.ECONetwork;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
@@ -372,11 +372,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             menu.containerId, forceStart, usesBigOrderSubmission(forceStart),
             (Object) menu instanceof ECOCraftConfirmMenuMode mode ? mode.neoecoae$getPlanningStatus() : null);
         if (usesBigOrderSubmission(forceStart)) {
-            PacketDistributor.sendToServer(new cn.dancingsnow.neoecoae.network.ECOBigOrderStartC2SPacket(
+            ECONetwork.sendToServer(new cn.dancingsnow.neoecoae.network.ECOBigOrderStartC2SPacket(
                 menu.containerId, forceStart));
             return;
         }
-        PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(menu.containerId, forceStart));
+        ECONetwork.sendToServer(new ECOForceCraftStartFlagC2SPacket(menu.containerId, forceStart));
     }
 
     private void openGraph() {

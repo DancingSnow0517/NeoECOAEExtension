@@ -7,7 +7,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 
 /** Compact physical-slot pages: shared contents and runs of consecutive slots, including empty capacity. */
 public final class PatternPreviewCodec {
@@ -16,7 +16,7 @@ public final class PatternPreviewCodec {
 
     private PatternPreviewCodec() {}
 
-    public static void write(RegistryFriendlyByteBuf buf, CompoundTag payload) {
+    public static void write(FriendlyByteBuf buf, CompoundTag payload) {
         buf.writeVarInt(payload.getInt("menu"));
         buf.writeVarInt(payload.getInt("revision"));
         buf.writeVarInt(payload.getInt("base"));
@@ -68,7 +68,7 @@ public final class PatternPreviewCodec {
         }
     }
 
-    public static CompoundTag read(RegistryFriendlyByteBuf buf) {
+    public static CompoundTag read(FriendlyByteBuf buf) {
         CompoundTag payload = new CompoundTag();
         payload.putInt("menu", buf.readVarInt());
         payload.putInt("revision", buf.readVarInt());

@@ -11,14 +11,14 @@ import com.mojang.serialization.JsonOps;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.registries.RegistryManager;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.registries.RegistryManager;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -134,7 +134,7 @@ class WorkstationUpgradeCardRecipeTest {
     @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics", "appgen"})
     void nativeLargeRecipesAreAvailableWithoutAnyCardAndKeepFullBatchCosts(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
-        var id = ResourceLocation.parse("test:card_" + variant);
+        var id = new ResourceLocation("test:card_" + variant);
         var holder = new RecipeHolder<>(id, recipe);
         var manager = mock(RecipeManager.class);
         when(manager.getRecipes()).thenReturn(List.of(holder));
@@ -198,7 +198,7 @@ class WorkstationUpgradeCardRecipeTest {
         assertEquals(recipe.display().inputItems().stream().map(input -> input.count()).toList(),
             restored.display().inputItems().stream().map(input -> input.count()).toList());
 
-        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries);
+        var buffer = new FriendlyByteBuf(Unpooled.buffer(), registries);
         try (var sync = mockStatic(RegistryManager.class)) {
             LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, restored);
             var synced = LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer);
@@ -227,7 +227,7 @@ class WorkstationUpgradeCardRecipeTest {
         var json = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow();
         var restored = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, json).getOrThrow();
 
-        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries);
+        var buffer = new FriendlyByteBuf(Unpooled.buffer(), registries);
         try (var sync = mockStatic(RegistryManager.class)) {
             LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, restored);
             var synced = LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer);

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
@@ -44,10 +46,10 @@ public final class CraftingInterfaceUI {
     private static final int SCROLLBAR_BORDER = 1;
     private static final int SCROLLBAR_THUMB_HEIGHT = 15;
     private static final int SCROLLBAR_TRAVEL = PREVIEW_HEIGHT - SCROLLBAR_BORDER * 2 - SCROLLBAR_THUMB_HEIGHT;
-    private static final ResourceLocation SCROLLBAR_ENABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller");
-    private static final ResourceLocation SCROLLBAR_DISABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller_disabled");
+    private static final ResourceLocation SCROLLBAR_ENABLED = new ResourceLocation("ae2", "big_scroller");
+    private static final ResourceLocation SCROLLBAR_DISABLED = new ResourceLocation("ae2", "big_scroller_disabled");
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_interface");
+        new ResourceLocation("neoecoae", "screens/crafting/crafting_interface");
     static final int PREVIEW_QUERY_MAX_LENGTH = 128;
 
     private CraftingInterfaceUI() { }
@@ -255,7 +257,7 @@ public final class CraftingInterfaceUI {
         UIElement scrollbar = new UIElement() {
             @Override public void drawBackgroundAdditional(GUIContext context) {
                 double max = state.getMaxScrollOffset();
-                float progress = max <= 0 ? 0F : (float) Math.clamp(state.getScrollOffset() / max, 0, 1);
+                float progress = max <= 0 ? 0F : (float) JdkCompat.clamp(state.getScrollOffset() / max, 0, 1);
                 int x = Math.round(getPositionX()) + SCROLLBAR_BORDER;
                 int y = Math.round(getPositionY()) + SCROLLBAR_BORDER;
                 // Flush LDLib's track texture before drawing AE2's native sprite on top of it.
@@ -406,7 +408,7 @@ public final class CraftingInterfaceUI {
         @Override public Integer getValue() { return state; }
 
         @Override public IDataSource<Integer> setValue(Integer value) {
-            state = value == null ? 0 : Math.clamp(value, 0, 2);
+            state = value == null ? 0 : JdkCompat.clamp(value, 0, 2);
             return this;
         }
 
@@ -422,7 +424,7 @@ public final class CraftingInterfaceUI {
         private float progress;
         @Override public Float getValue() { return progress; }
         @Override public IDataSource<Float> setValue(Float value) {
-            progress = value == null ? 0F : Math.clamp(value, 0F, 1F);
+            progress = value == null ? 0F : JdkCompat.clamp(value, 0F, 1F);
             return this;
         }
         @Override public void drawContents(GUIContext context) {

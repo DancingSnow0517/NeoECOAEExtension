@@ -13,8 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.items.ItemStackHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -54,7 +54,7 @@ class PhantomItemSlotSideTest {
             ldlib.when(LDLib2::isServer).thenReturn(!client);
             ldlib.when(LDLib2::isRemote).thenReturn(client);
             ldlib.when(() -> LDLib2.id(anyString())).thenAnswer(invocation ->
-                ResourceLocation.fromNamespaceAndPath("ldlib2", invocation.getArgument(0)));
+                new ResourceLocation("ldlib2", invocation.getArgument(0)));
             // Recipe-viewer mods can be present on a dedicated server too.
             ldlib.when(LDLib2::isJeiLoaded).thenReturn(true);
             ldlib.when(LDLib2::isEmiLoaded).thenReturn(true);

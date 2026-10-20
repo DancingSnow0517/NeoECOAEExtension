@@ -11,7 +11,7 @@ navigation:
 截图示例：已成型的 F9 主机，带 5 个 FX 工作核心。  
 数量、容量和耗时请以自己的界面为准。
 
-先阅读 [ECO 合成系统](crafting_system.md)，或使用 [自动搭建](multiblock_builder.md)。
+先阅读 [ECO 合成系统](crafting_system.md)，或使用[结构终端](multiblock_builder.md)预览并搭建。
 
 ## 先认识界面
 

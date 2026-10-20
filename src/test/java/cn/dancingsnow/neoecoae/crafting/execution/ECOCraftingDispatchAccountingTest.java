@@ -119,7 +119,7 @@ class ECOCraftingDispatchAccountingTest {
             stacks.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(output, 30));
             var job = newJob();
             job.batchedOutputs.addAll(Set.of(output, secondary));
-            job.fuzzyPlanningItemIds = Set.of(net.minecraft.resources.ResourceLocation.parse("minecraft:iron_pickaxe"));
+            job.fuzzyPlanningItemIds = Set.of(new net.minecraft.resources.ResourceLocation("minecraft:iron_pickaxe"));
             var saved = job.writeToNBT(registries);
             var restored = new ExecutingCraftingJob(saved, registries, ignored -> {}, logic);
             assertEquals(job.batchedOutputs, restored.batchedOutputs);

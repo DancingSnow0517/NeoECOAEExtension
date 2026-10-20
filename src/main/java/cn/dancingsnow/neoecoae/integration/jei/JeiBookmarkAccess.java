@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
 import appeng.api.stacks.AEKey;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 
 import java.util.List;
 

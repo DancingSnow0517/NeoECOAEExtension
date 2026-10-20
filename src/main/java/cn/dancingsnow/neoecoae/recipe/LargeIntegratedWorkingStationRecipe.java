@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.recipe;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
@@ -45,7 +45,7 @@ public record LargeIntegratedWorkingStationRecipe(IntegratedWorkingStationRecipe
         public static final MapCodec<LargeIntegratedWorkingStationRecipe> CODEC =
             IntegratedWorkingStationRecipe.Serializer.createCodec(MAX_ITEM_INPUTS)
                 .xmap(LargeIntegratedWorkingStationRecipe::new, LargeIntegratedWorkingStationRecipe::display);
-        public static final StreamCodec<RegistryFriendlyByteBuf, LargeIntegratedWorkingStationRecipe> STREAM_CODEC =
+        public static final StreamCodec<FriendlyByteBuf, LargeIntegratedWorkingStationRecipe> STREAM_CODEC =
             IntegratedWorkingStationRecipe.Serializer.createStreamCodec(MAX_ITEM_INPUTS)
                 .map(LargeIntegratedWorkingStationRecipe::new, LargeIntegratedWorkingStationRecipe::display);
 
@@ -53,6 +53,6 @@ public record LargeIntegratedWorkingStationRecipe(IntegratedWorkingStationRecipe
         public MapCodec<LargeIntegratedWorkingStationRecipe> codec() { return CODEC; }
 
         @Override
-        public StreamCodec<RegistryFriendlyByteBuf, LargeIntegratedWorkingStationRecipe> streamCodec() { return STREAM_CODEC; }
+        public StreamCodec<FriendlyByteBuf, LargeIntegratedWorkingStationRecipe> streamCodec() { return STREAM_CODEC; }
     }
 }

@@ -19,7 +19,6 @@ import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerPanelState;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerUI;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationDriveEntry;
-import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -29,10 +28,10 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
+import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
+import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -53,7 +52,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputationCluster, ECOComputationSystemBlockEntity>
-        implements ISyncPersistRPCBlockEntity, MultiBlockBuildController.Host {
+        implements NEManagedBlockEntity, MultiBlockBuildController.Host {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -123,13 +122,10 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement buildWindow = buildPanel(holder);
         ComputationControllerUI.Config panelConfig = createComputationPanelConfig(holder.player);
         UIElement root = ComputationControllerUI.create(panelConfig,
             this::getComputationControllerPanelState,
-            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
-            MultiblockBuilderUI.createInlineOpenButton(buildWindow),
-            buildWindow, this::getTier);
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"), this::getTier);
         return ECOModularUI.create(root, holder.player);
     }
 
@@ -496,21 +492,6 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             }
         }
         return inserted;
-    }
-
-    private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
-        return MultiblockBuilderUI.createFloatingPanel(new MultiblockBuilderUI.Config(
-                holder.player,
-                () -> selectedBuildLength,
-                () -> mirrorBuild,
-                mirror -> buildController.setMirrorBuild(holder.player, mirror),
-                () -> buildController.decreaseBuildLength(holder.player),
-                () -> buildController.increaseBuildLength(holder.player),
-                () -> buildController.autoBuild(holder.player),
-                () -> formed,
-                () -> buildInProgress,
-                buildController::createLocalPreviewPlan
-        ));
     }
 
     @Override

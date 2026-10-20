@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
 import appeng.client.gui.Icon;
@@ -127,7 +129,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     }
 
     private void scrollTo(int requested) {
-        offset = Math.clamp(requested, 0, Math.max(0, total - ROWS));
+        offset = JdkCompat.clamp(requested, 0, Math.max(0, total - ROWS));
         scrollbar.update(offset, total - ROWS, ROWS / 3);
         scrollRequest.setValue(offset);
     }
@@ -233,7 +235,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     }
 
     private static IGuiTexture sprite(int x, int y, int width, int height) {
-        return SpriteTexture.of(ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/cpu_selector.png")).setSprite(x, y, width, height);
+        return SpriteTexture.of(new ResourceLocation("neoecoae", "textures/guis/cpu_selector.png")).setSprite(x, y, width, height);
     }
 
     private static UIElement hitbox(int x, int y, int width, int height) {

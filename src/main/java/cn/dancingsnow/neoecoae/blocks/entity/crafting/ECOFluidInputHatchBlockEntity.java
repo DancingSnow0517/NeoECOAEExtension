@@ -1,8 +1,9 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -10,12 +11,12 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 
-public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidInputHatchBlockEntity> {
+public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidInputHatchBlockEntity> implements IUIHolder.BlockEntityUI {
 
     public FluidTank tank = new FluidTank(16000) {
         @Override
@@ -31,7 +32,7 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
 
     public void tick(Level level, BlockPos pos, BlockState state) {
         for (Direction face : Direction.values()) {
-            IFluidHandler sourceHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
+            IFluidHandler sourceHandler = cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities.find(level, pos.relative(face), ForgeCapabilities.FLUID_HANDLER, face.getOpposite());
             if (sourceHandler != null) {
                 if (!FluidUtil.tryFluidTransfer(tank, sourceHandler, tank.getCapacity(), true).isEmpty()) {
                     return;
@@ -40,19 +41,19 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
         }
     }
 
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        return FluidHatchUI.createFluidHatchUI(holder, tank, "block.neoecoae.input_hatch", true, true);
+    public ModularUI createUI(Player player) {
+        return FluidHatchUI.createFluidHatchUI(this, player, tank, "block.neoecoae.input_hatch", true, true);
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        tank.writeToNBT(registries, data);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        tank.writeToNBT(data);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        tank.readFromNBT(registries, data);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        tank.readFromNBT(data);
     }
 }

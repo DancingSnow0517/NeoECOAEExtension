@@ -37,14 +37,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.registries.RegistryManager;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.registries.RegistryManager;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -261,7 +261,7 @@ class StorageHostUiTest {
             var field = StorageCellGrid.class.getDeclaredField("extraction");
             field.setAccessible(true);
             var rpc = ((RPCEmitter) field.get(grid)).event();
-            var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries);
+            var buffer = new FriendlyByteBuf(Unpooled.buffer(), registries);
             try {
                 rpc.writeParametersToBuffer(buffer, new Object[] {position, interactionId, true});
                 Object[] request = rpc.readParametersFromBuffer(buffer);

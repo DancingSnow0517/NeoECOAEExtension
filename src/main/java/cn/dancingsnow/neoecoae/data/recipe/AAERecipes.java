@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.all.NETags;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.tags.FluidTags;
-import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
+import net.minecraftforge.common.conditions.ModLoadedCondition;
 import net.pedroksl.advanced_ae.recipes.ReactionChamberRecipeBuilder;
 
 public class AAERecipes {

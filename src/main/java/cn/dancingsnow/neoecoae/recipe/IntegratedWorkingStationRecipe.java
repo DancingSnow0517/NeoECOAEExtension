@@ -5,7 +5,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
@@ -14,10 +14,10 @@ import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.common.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.crafting.FluidIngredient;
+import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -112,7 +112,7 @@ public record IntegratedWorkingStationRecipe(
 
     public static class Serializer implements RecipeSerializer<IntegratedWorkingStationRecipe> {
         public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = createCodec(9);
-        public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = createStreamCodec(9);
+        public static final StreamCodec<FriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = createStreamCodec(9);
 
         static MapCodec<IntegratedWorkingStationRecipe> createCodec(int maxInputs) {
             return RecordCodecBuilder.mapCodec(ins -> ins.group(
@@ -124,7 +124,7 @@ public record IntegratedWorkingStationRecipe(
             ).apply(ins, IntegratedWorkingStationRecipe::new));
         }
 
-        static StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> createStreamCodec(int maxInputs) {
+        static StreamCodec<FriendlyByteBuf, IntegratedWorkingStationRecipe> createStreamCodec(int maxInputs) {
             return StreamCodec.composite(
                 SizedIngredient.STREAM_CODEC.apply(ByteBufCodecs.list(maxInputs)),
                 IntegratedWorkingStationRecipe::inputItems,
@@ -146,7 +146,7 @@ public record IntegratedWorkingStationRecipe(
         }
 
         @Override
-        public StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> streamCodec() {
+        public StreamCodec<FriendlyByteBuf, IntegratedWorkingStationRecipe> streamCodec() {
             return STREAM_CODEC;
         }
     }

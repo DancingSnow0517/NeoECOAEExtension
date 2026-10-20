@@ -2,10 +2,20 @@
   "required": false,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins.terminalbigamount",
-  "compatibilityLevel": "JAVA_21",
-  "mixins": ["MEStorageMenuExactAmountMixin"],
-  "client": ["client.MEStorageScreenExactAmountMixin", "client.RepoExactAmountMixin"],
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "MEStorageMenuExactAmountMixin"
+  ],
+  "client": [
+    "client.MEStorageScreenExactAmountMixin",
+    "client.RepoExactAmountMixin"
+  ],
   "server": [],
-  "injectors": { "defaultRequire": 0 },
-  "mixinextras": { "minVersion": "0.5.3" }
+  "injectors": {
+    "defaultRequire": 0
+  },
+  "mixinextras": {
+    "minVersion": "0.5.3"
+  },
+  "refmap": "neoecoae.refmap.json"
 }

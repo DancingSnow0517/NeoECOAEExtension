@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 import cn.dancingsnow.neoecoae.gui.common.CreativeStorageInputButton;
@@ -34,7 +36,7 @@ import net.minecraft.world.entity.player.Player;
 /** JSON owns the texture geometry; bindings and menu actions own the interface's state. */
 public final class StorageInterfaceUI {
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/storage/storage_interface");
+        new ResourceLocation("neoecoae", "screens/storage/storage_interface");
     private static final int TEXT = 0x3F3D52;
 
     private StorageInterfaceUI() {}
@@ -101,7 +103,7 @@ public final class StorageInterfaceUI {
         }
 
         private ECOStorageInterfaceMode currentMode() {
-            return ECOStorageInterfaceMode.values()[Math.clamp(mode.getValue(), 0, 2)];
+            return ECOStorageInterfaceMode.values()[JdkCompat.clamp(mode.getValue(), 0, 2)];
         }
 
         private Label modeCaption() {

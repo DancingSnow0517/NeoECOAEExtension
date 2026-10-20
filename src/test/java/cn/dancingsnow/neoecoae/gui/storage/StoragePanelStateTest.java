@@ -17,7 +17,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraftforge.items.ItemStackHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -225,15 +225,15 @@ class StoragePanelStateTest {
             "ae2omnicells:omni", "ae2omnicells:complex_omni", "ae2omnicells:quantum_omni", "ae2omnicells:spent_nuclear_waste_cell",
             "data_energistics:manifest_binary"};
         for (int i = 0; i < normal.length; i++) {
-            assertEquals(i, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:" + normal[i])));
-            assertEquals(i, StoragePanelTextures.swatchIndex(ResourceLocation.parse(infinite[i])));
+            assertEquals(i, StoragePanelTextures.swatchIndex(new ResourceLocation("neoecoae:" + normal[i])));
+            assertEquals(i, StoragePanelTextures.swatchIndex(new ResourceLocation(infinite[i])));
         }
-        assertEquals(2, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:bulk_item")));
-        assertEquals(9, StoragePanelTextures.swatchIndex(ResourceLocation.parse("neoecoae:mega_mana")));
-        assertEquals(13, StoragePanelTextures.swatchIndex(ResourceLocation.parse("mekanism:spent_nuclear_waste")));
+        assertEquals(2, StoragePanelTextures.swatchIndex(new ResourceLocation("neoecoae:bulk_item")));
+        assertEquals(9, StoragePanelTextures.swatchIndex(new ResourceLocation("neoecoae:mega_mana")));
+        assertEquals(13, StoragePanelTextures.swatchIndex(new ResourceLocation("mekanism:spent_nuclear_waste")));
         assertEquals(StoragePanelTextures.FALLBACK_SWATCH,
-            StoragePanelTextures.swatchIndex(ResourceLocation.parse("other:mana")));
-        assertEquals(14, StoragePanelTextures.swatchIndex(ResourceLocation.parse("data_energistics:digitalization")));
+            StoragePanelTextures.swatchIndex(new ResourceLocation("other:mana")));
+        assertEquals(14, StoragePanelTextures.swatchIndex(new ResourceLocation("data_energistics:digitalization")));
         var unknown = StoragePanelTextures.swatch(StoragePanelTextures.FALLBACK_SWATCH, 0x54E6F2);
         assertEquals(16, unknown.spritePosition.x);
         assertEquals(78, unknown.spritePosition.y);

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -58,7 +60,7 @@ public final class MultiBlockBuildController {
         if (!host.canPlayerInteract(player) || host.isBuildInProgress()) {
             return;
         }
-        host.setSelectedBuildLength(Math.clamp(
+        host.setSelectedBuildLength(JdkCompat.clamp(
             host.getSelectedBuildLength() + delta,
             host.getMinBuildLength(),
             host.getMaxBuildLength()
@@ -79,7 +81,7 @@ public final class MultiBlockBuildController {
         if (definition == null) {
             return;
         }
-        int buildLength = Math.clamp(
+        int buildLength = JdkCompat.clamp(
             host.getSelectedBuildLength(),
             definition.getExpandMin(),
             definition.getExpandMax()
@@ -139,7 +141,7 @@ public final class MultiBlockBuildController {
         if (definition == null) {
             return null;
         }
-        int buildLength = Math.clamp(
+        int buildLength = JdkCompat.clamp(
             host.getSelectedBuildLength(),
             definition.getExpandMin(),
             definition.getExpandMax()

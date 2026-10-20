@@ -10,9 +10,9 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
-import net.neoforged.neoforge.common.world.BiomeModifier;
-import net.neoforged.neoforge.common.world.BiomeModifiers;
-import net.neoforged.neoforge.registries.NeoForgeRegistries;
+import net.minecraftforge.common.world.BiomeModifier;
+import net.minecraftforge.common.world.BiomeModifiers;
+import net.minecraftforge.registries.ForgeRegistries;
 
 public class NEBiomeModifiers {
     public static final ResourceKey<BiomeModifier> ORE_END = key("ore_end");
@@ -40,6 +40,6 @@ public class NEBiomeModifiers {
     }
 
     private static ResourceKey<BiomeModifier> key(String id) {
-        return ResourceKey.create(NeoForgeRegistries.Keys.BIOME_MODIFIERS, NeoECOAE.id(id));
+        return ResourceKey.create(ForgeRegistries.Keys.BIOME_MODIFIERS, NeoECOAE.id(id));
     }
 }

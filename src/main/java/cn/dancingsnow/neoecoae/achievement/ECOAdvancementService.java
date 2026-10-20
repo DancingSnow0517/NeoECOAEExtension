@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.achievement;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import net.minecraft.advancements.AdvancementHolder;
+import net.minecraft.advancements.Advancement;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,7 +17,7 @@ public final class ECOAdvancementService {
             return;
         }
 
-        AdvancementHolder advancement = player.getServer().getAdvancements().get(NeoECOAE.id(advancementPath));
+        Advancement advancement = player.getServer().getAdvancements().getAdvancement(NeoECOAE.id(advancementPath));
         if (advancement != null) {
             player.getAdvancements().award(advancement, criterion);
         }

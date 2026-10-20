@@ -7,7 +7,7 @@ import java.math.BigInteger;
 import java.util.Map;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -33,12 +33,12 @@ class ExactMapSyncTest {
         var keys = java.util.List.of(a, b, c);
         try (var statics = mockStatic(AEKey.class)) {
             statics.when(() -> AEKey.writeKey(any(), any())).thenAnswer(call -> {
-                ((RegistryFriendlyByteBuf) call.getArgument(0)).writeVarInt(keys.indexOf(call.getArgument(1)));
+                ((FriendlyByteBuf) call.getArgument(0)).writeVarInt(keys.indexOf(call.getArgument(1)));
                 return null;
             });
             statics.when(() -> AEKey.readKey(any())).thenAnswer(call -> keys.get(
-                ((RegistryFriendlyByteBuf) call.getArgument(0)).readVarInt()));
-            var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+                ((FriendlyByteBuf) call.getArgument(0)).readVarInt()));
+            var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
             try {
                 ExactMapSync.write(buf, MapDelta.between(before, after));
                 assertTrue(buf.readableBytes() < 500, "1024 decimal digits should occupy roughly 426 binary bytes");

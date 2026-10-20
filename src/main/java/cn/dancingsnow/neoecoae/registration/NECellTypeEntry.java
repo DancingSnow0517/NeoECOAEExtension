@@ -3,10 +3,10 @@ package cn.dancingsnow.neoecoae.registration;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.util.entry.RegistryEntry;
-import net.neoforged.neoforge.registries.DeferredHolder;
+import net.minecraftforge.registries.RegistryObject;
 
-public class NECellTypeEntry extends RegistryEntry<ECOCellType, ECOCellType> {
-    public NECellTypeEntry(AbstractRegistrate<?> owner, DeferredHolder<ECOCellType, ECOCellType> key) {
+public class NECellTypeEntry extends RegistryEntry<ECOCellType> {
+    public NECellTypeEntry(AbstractRegistrate<?> owner, RegistryObject<ECOCellType> key) {
         super(owner, key);
     }
 }

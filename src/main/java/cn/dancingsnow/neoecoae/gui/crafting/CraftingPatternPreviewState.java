@@ -1,10 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
-import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
@@ -82,7 +83,7 @@ final class CraftingPatternPreviewState {
                 revision = snapshot.revision();
                 epoch = snapshot.epoch();
                 rows.reset(entries);
-                scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
+                scrollRow = JdkCompat.clamp(scrollRow, 0, getMaxScrollRow());
             }
             scrollOffset = scrollTarget = scrollRow * 18.0;
         }
@@ -175,7 +176,7 @@ final class CraftingPatternPreviewState {
 
     boolean hasCarriedPattern() {
         ItemStack carried = player.containerMenu.getCarried();
-        return PatternDetailsHelper.isEncodedPattern(carried) || PatternDiskSupport.isAuxiliaryContainer(carried);
+        return PatternDetailsHelper.isEncodedPattern(carried);
     }
 
     /** Inserts into an actual empty bus slot, including slots outside the current viewport and search. */
@@ -261,8 +262,7 @@ final class CraftingPatternPreviewState {
         // An encoded pattern or a pattern disk: a bus takes either in the same slot. Which host a stack would
         // go to is resolved on the server, so this only has to tell whether the move is worth sending - a stack
         // no bus takes simply finds no slot over there.
-        if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)
-                && !PatternDiskSupport.isAuxiliaryContainer(source.getItem())) return false;
+        if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)) return false;
         if (!player.level().isClientSide || revision < 0
                 || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return false;
         for (PatternPreviewEntry entry : entries) {
@@ -506,13 +506,13 @@ final class CraftingPatternPreviewState {
 
     void scroll(double rows) {
         if (!quickMoveDrag && Double.isFinite(rows)) {
-            scrollTarget = Math.clamp(scrollTarget + rows * 18, 0, getMaxScrollOffset());
+            scrollTarget = JdkCompat.clamp(scrollTarget + rows * 18, 0, getMaxScrollOffset());
         }
     }
 
     void setScrollOffset(double pixels) {
         if (!Double.isFinite(pixels)) return;
-        scrollTarget = Math.clamp(pixels, 0, getMaxScrollOffset());
+        scrollTarget = JdkCompat.clamp(pixels, 0, getMaxScrollOffset());
         moveScrollTo(scrollTarget);
     }
 
@@ -525,8 +525,8 @@ final class CraftingPatternPreviewState {
     }
 
     private void clampScroll() {
-        scrollOffset = Math.clamp(scrollOffset, 0, getMaxScrollOffset());
-        scrollTarget = Math.clamp(scrollTarget, 0, getMaxScrollOffset());
+        scrollOffset = JdkCompat.clamp(scrollOffset, 0, getMaxScrollOffset());
+        scrollTarget = JdkCompat.clamp(scrollTarget, 0, getMaxScrollOffset());
         scrollRow = (int) (scrollOffset / 18);
     }
 

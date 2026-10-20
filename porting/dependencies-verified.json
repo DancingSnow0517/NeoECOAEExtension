@@ -1,0 +1,70 @@
+{
+  "status": "sha256 verified",
+  "artifacts": [
+    {
+      "mod_id": "ae2lt",
+      "path": "libs/pinned/AE2LT20-release.jar",
+      "bytes": 6672167,
+      "sha256": "654e9e8eb13249588b82e9e667f7d4fd18e6eceb8bd2eab821d4a539442b0695"
+    },
+    {
+      "mod_id": "thunderbolt",
+      "path": "libs/pinned/Thunderbolt20-release.jar",
+      "bytes": 5343502,
+      "sha256": "f3b58a63ed6fad9149d8d85fba4cdd5036170369694aa8cec8f8785eb19bff51"
+    },
+    {
+      "mod_id": "advanced_ae",
+      "path": "libs/pinned/AdvancedAE20-release.jar",
+      "bytes": 2486306,
+      "sha256": "e216f95ac73eb4c1e8f3db22cc3d30f37f2612a7cb1762b9ebce148d0d5657b2"
+    },
+    {
+      "mod_id": "ae2addonlib_compile_only",
+      "sha256": "47bbd147a155c24aa58944a6b52eec7935cc4135bbf2e68f89208993c7538501",
+      "bytes": 195270
+    },
+    {
+      "mod_id": "extendedae_plus",
+      "path": "libs/pinned/ExtendedAEPlus20-release.jar",
+      "bytes": 2315478,
+      "sha256": "d8634db4ca56fe725799084b3c2c67b17874db50377ea497670379221d374764"
+    },
+    {
+      "mod_id": "expatternprovider",
+      "path": "libs/pinned/ExtendedAE20-release.jar",
+      "bytes": 2972843,
+      "sha256": "30fc8abe66d4b96919f0fd7b33badd0bb2013b31e2ee57f6aeaa63ffae37df4b"
+    },
+    {
+      "mod_id": "ae2",
+      "path": "libs/pinned/AE2-15-release.jar",
+      "bytes": 8501309,
+      "sha256": "f2ff9ee5122b037d4e93537425ab9fbe49860fc9c3977db13b20a50ca7d30f9e"
+    },
+    {
+      "mod_id": "guideme",
+      "path": "libs/pinned/GuideME20-release.jar",
+      "bytes": 9414827,
+      "sha256": "cf8052ab3da121012efc59a20e731c24bfe7488dfa556c9b88809f42dea3b24a"
+    },
+    {
+      "mod_id": "ldlib",
+      "path": "libs/pinned/LDLib1-release.jar",
+      "bytes": 3125867,
+      "sha256": "a9b0827d264e0d15f90482de0d4783a28fc2dad9dfb477f344dc5e959168838d"
+    },
+    {
+      "mod_id": "glodium",
+      "path": "libs/pinned/Glodium20-release.jar",
+      "bytes": 60550,
+      "sha256": "fc419cb5bf511750c0a2da498b925f5122ac4f78617aca6630fe80abf0b6f460"
+    },
+    {
+      "mod_id": "geckolib",
+      "path": "libs/pinned/GeckoLib20-release.jar",
+      "bytes": 1038209,
+      "sha256": "4518779a31b6c2abb92c98b5ad17ef3d60177df68626bfc86c44de2764913c2b"
+    }
+  ]
+}

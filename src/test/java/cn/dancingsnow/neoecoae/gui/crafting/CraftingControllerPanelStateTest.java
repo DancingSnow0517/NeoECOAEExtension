@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeAll;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;

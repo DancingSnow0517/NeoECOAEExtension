@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.compat.storage;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.cells.StorageCell;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;

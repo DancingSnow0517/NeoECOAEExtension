@@ -15,7 +15,6 @@ import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
 import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOProcessingExecutionPattern;
-import cn.dancingsnow.neoecoae.compat.mekenergistics.ECOMekEnergisticsBatchCapability;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
 import cn.dancingsnow.neoecoae.compat.advanced_ae.ECOAdvancedAEPatternScaling;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
@@ -75,67 +74,6 @@ final class ECOProcessingPatternDispatcher {
         byPattern.put(request.pattern(), new Eligibility(tick, supported));
         return supported;
     }
-    boolean supports(ICraftingProvider provider, @Nullable IPatternDetails pattern) {
-        return Contract.forProvider(provider) != null
-                && (pattern == null || isProcessingPattern(ECOProviderPatternIntrospection.unwrap(pattern)));
-    }
-
-    @Nullable ECOCraftingDispatchResult tryDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider,
-            double onePower, IEnergyService service, Consumer<ICraftingProvider> mark) {
-        if (ECOExternalProviderBlocking.isEnabled(provider)) return null;
-        Contract c = Contract.forProvider(provider);
-        if (c == null) return null;
-        IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
-        if (!isProcessingPattern(base)) return null;
-        var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
-                request.job().link.getCraftingID(),
-                request.job().finalOutput == null ? null : request.job().finalOutput.what(), request.job().waitingFor.list);
-        if (!overload.canDispatch()) return null;
-        long cap = c.inspect(request.pattern(), request.inputs(), request.allowedCrafts());
-        long budget = Math.max(0L, TICK_BUDGET - used);
-        var plan = ECOBatchDispatchPlanning.plan(request, provider, cap, budget, onePower, service, ECOBatchMode.LINEAR);
-        if (plan == null) return null;
-        ECOBatchAdmission admission;
-        try {
-            admission = ECOBatchExecutor.execute(plan, request.inputs(), request.outputs(), request.remainders(),
-                    request.inventory(), request.level(), request.job().link.getCraftingID(),
-                    () -> energy.reserve(service, onePower, plan.craftCount()), batch -> {
-                        mark.accept(provider);
-                        // Native APIs take one-copy counters plus a count; the materializer owns the total debit.
-                        var prototype = new KeyCounter[request.inputs().length];
-                        for (int i = 0; i < prototype.length; i++) {
-                            prototype[i] = new KeyCounter();
-                            prototype[i].addAll(request.inputs()[i]);
-                        }
-                        long leftover = c.push(batch.identity().originalPattern(), prototype, batch.craftCount());
-                        if (leftover < 0 || leftover > batch.craftCount()) return ECOBatchAdmission.indeterminate();
-                        long accepted = batch.craftCount() - leftover;
-                        return accepted == 0 ? ECOBatchAdmission.rejected()
-                                : ECOBatchAdmission.accepted(accepted, leftover == 0);
-                    });
-        } catch (ECOIndeterminateBatchException failure) {
-            request.job().failPermanently("AMBIGUOUS_PROCESSING_PROVIDER_OWNERSHIP");
-            return null;
-        } catch (RuntimeException failure) {
-            request.job().failPermanently("PROCESSING_BATCH_SETTLEMENT_FAILURE");
-            throw failure;
-        }
-        if (admission.status() != ECOBatchAdmission.Status.ACCEPTED) return null;
-        long totalAccepted = admission.acceptedCrafts();
-        used += totalAccepted;
-        var result = ECOCraftingDispatchResult.batch(totalAccepted,
-                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), totalAccepted),
-                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), totalAccepted));
-        try {
-            overload.registerAccepted(totalAccepted);
-            accounting.apply(request, result, () -> {}, provider);
-        } catch (RuntimeException failure) {
-            request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
-            throw failure;
-        }
-        return result;
-    }
-
     /** Learns from fully inserted chunks; target saturation ends a visit without erasing its successes. */
     @Nullable ECOCraftingDispatchResult tryScaledDispatch(ECOCraftingDispatchRequest request,
             ICraftingProvider provider, double onePower, IEnergyService service,
@@ -252,7 +190,6 @@ final class ECOProcessingPatternDispatcher {
     static boolean supportsScaledDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
         if (ECOExternalProviderBlocking.isEnabled(provider)) return false;
         if (provider instanceof ECOParallelCraftingProvider) return false;
-        if (Contract.forProvider(provider) != null) return false;
         // A successful push can still own overflow. Require a live observation of AE2's send buffer.
         if (ECOAe2LtDirectDispatch.isProvider(provider)) {
             return ECOAe2LtDirectDispatch.open(provider) != null
@@ -284,39 +221,6 @@ final class ECOProcessingPatternDispatcher {
         return true;
     }
 
-    private static final class Contract {
-        private final ECOMekEnergisticsBatchCapability.Session mek;
-
-        private Contract(ECOMekEnergisticsBatchCapability.Session mek) {
-            this.mek = mek;
-        }
-
-        static Contract forProvider(ICraftingProvider value) {
-            // Prefer Mek-E's persistent smart queue over its physical-capacity Thunderbolt bridge.
-            var mek = ECOMekEnergisticsBatchCapability.open(value);
-            if (mek != null) return new Contract(mek);
-            // Thunderbolt and AE2LT native batch contracts are deliberately not
-            // selected here. Their adaptive ramps must never become the ECO CPU's
-            // multiplier policy; eligible providers use the ECO-owned path below.
-            return null;
-        }
-
-        long inspect(IPatternDetails details, KeyCounter[] inputs, long requested) {
-            return mek.inspect(details, inputs, requested);
-        }
-
-        long push(IPatternDetails details, KeyCounter[] inputs, long copies) {
-            try {
-                return mek.submit(details, inputs, copies);
-            } catch (RuntimeException failure) {
-                throw new AmbiguousDispatchException(failure);
-            }
-        }
-
-    }
-    private static final class AmbiguousDispatchException extends RuntimeException {
-        private AmbiguousDispatchException(Throwable cause) { super(cause); }
-    }
     private record Eligibility(long tick, boolean supported) { }
     /** History survives visits; growth/recovery flags belong only to the current visit. */
     static final class ProbeState {

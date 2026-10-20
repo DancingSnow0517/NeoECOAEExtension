@@ -27,10 +27,10 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.material.WaterFluid;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.fluids.FluidType;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -65,7 +65,7 @@ class LargeWorkstationThermalControllerTest {
             recipeRegistry.freeze();
         }
         var fluids = (MappedRegistry<Fluid>) BuiltInRegistries.FLUID;
-        var id = ResourceLocation.parse("neoecoae:cryotheum_solution");
+        var id = new ResourceLocation("neoecoae:cryotheum_solution");
         fluids.unfreeze();
         // This registry entry is shared with diagnostics tests that resolve the coolant's display name.
         var cryotheumType = new FluidType(FluidType.Properties.create()
@@ -214,7 +214,7 @@ class LargeWorkstationThermalControllerTest {
         var produced = new KeyCounter();
         produced.add(AEItemKey.of(Items.DIAMOND), 100);
         Object batch = constructor.newInstance(100L, 1000L, 2, 1, owned, produced,
-            null, ResourceLocation.parse("test:thermal"), null, null, 0L);
+            null, new ResourceLocation("test:thermal"), null, null, 0L);
         field(batch, "progress", 50);
         var queue = new ArrayDeque<>();
         queue.add(batch);
@@ -237,7 +237,7 @@ class LargeWorkstationThermalControllerTest {
         var produced = new KeyCounter();
         produced.add(AEItemKey.of(Items.DIAMOND), 100);
         Object batch = constructor.newInstance(100L, 1000L, 9, 1, owned, produced,
-            null, ResourceLocation.parse("test:thermal"), null, null, 0L);
+            null, new ResourceLocation("test:thermal"), null, null, 0L);
         var queue = new ArrayDeque<>();
         queue.add(batch);
         field(host, "pendingBatches", queue);
@@ -474,7 +474,7 @@ class LargeWorkstationThermalControllerTest {
         var produced = new KeyCounter();
         produced.add(AEItemKey.of(Items.DIAMOND), 100);
         Object batch = constructor.newInstance(100L, 1000L, tier, 1, owned, produced,
-            null, ResourceLocation.parse("test:thermal"), null, null, 0L);
+            null, new ResourceLocation("test:thermal"), null, null, 0L);
         var queue = new ArrayDeque<>();
         queue.add(batch);
         field(host, "pendingBatches", queue);
@@ -534,7 +534,7 @@ class LargeWorkstationThermalControllerTest {
     private void coolant(Fluid fluid, int tier, FluidStack byproduct) {
         var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), byproduct, 1, tier);
         when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(
-            new RecipeHolder<>(ResourceLocation.parse("test:cooling"), recipe)));
+            new RecipeHolder<>(new ResourceLocation("test:cooling"), recipe)));
     }
 
     private void tick() { host.tickThermal(level, BlockPos.ZERO, Blocks.AIR.defaultBlockState()); }

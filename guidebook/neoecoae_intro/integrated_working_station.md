@@ -32,6 +32,12 @@ The Integrated Working Station is crafted using components from various AE2 mach
 
 <RecipeFor id="neoecoae:integrated_working_station" />
 
+## Large Workstation Modules
+
+The large workstation retains four variants: Regular, AdvancedAE, ExtendedAE and AE2LT. AE2LT's overload processing, lightning assembly and lightning simulation recipes share one AE2LT workstation. Other ExtendedAE Plus integrations remain; it adds no separate large-workstation recipe family.
+
+Use the [Structure Terminal](multiblock_builder.md) for construction. Machine screens have no automatic-building button.
+
 ## Usage
 
 1. **Place the station** and connect it to your ME Network

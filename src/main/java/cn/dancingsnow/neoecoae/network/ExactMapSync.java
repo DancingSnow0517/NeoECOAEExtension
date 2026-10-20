@@ -6,7 +6,7 @@ import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 
 /** Shared binary exact-amount delta codec. The enclosing stream provides atomic delivery. */
 public final class ExactMapSync {
@@ -14,7 +14,7 @@ public final class ExactMapSync {
     private static final int MAX_INTEGER_BYTES = 4096;
     private ExactMapSync() {}
 
-    public static void write(RegistryFriendlyByteBuf buf, MapDelta<AEKey, ExactAmount> delta) {
+    public static void write(FriendlyByteBuf buf, MapDelta<AEKey, ExactAmount> delta) {
         if (delta.updates().size() > MAX_ENTRIES || delta.removed().size() > MAX_ENTRIES)
             throw new IllegalArgumentException("Too many exact amount entries");
         buf.writeVarInt(delta.updates().size());
@@ -27,7 +27,7 @@ public final class ExactMapSync {
         delta.removed().forEach(key -> AEKey.writeKey(buf, key));
     }
 
-    public static MapDelta<AEKey, ExactAmount> read(RegistryFriendlyByteBuf buf) {
+    public static MapDelta<AEKey, ExactAmount> read(FriendlyByteBuf buf) {
         Map<AEKey, ExactAmount> updates = new HashMap<>();
         int size = readCount(buf);
         for (int i = 0; i < size; i++) {
@@ -69,7 +69,7 @@ public final class ExactMapSync {
         return result;
     }
 
-    private static int readCount(RegistryFriendlyByteBuf buf) {
+    private static int readCount(FriendlyByteBuf buf) {
         int size = buf.readVarInt();
         if (size < 0 || size > MAX_ENTRIES) throw new IllegalArgumentException("Invalid exact amount count");
         return size;

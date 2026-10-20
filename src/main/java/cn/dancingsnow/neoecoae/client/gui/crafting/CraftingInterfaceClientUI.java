@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.client.gui.widget.PatternItemSlotClient;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
@@ -16,11 +18,11 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.Slot;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.client.event.ScreenEvent;
 import org.lwjgl.glfw.GLFW;
 
 /** Bridges the shared crafting-interface UI tree to native Minecraft widgets for text-input focus/IME support. */
@@ -240,8 +242,8 @@ public final class CraftingInterfaceClientUI {
                 if (event.button != 0 && event.button != 1) return;
                 claimNativeFocus(Minecraft.getInstance().screen);
                 if (event.button == 1) editBox.setValue("");
-                else editBox.mouseClicked(Math.clamp(event.x, editBox.getX(), editBox.getX() + editBox.getWidth() - 1),
-                        Math.clamp(event.y, editBox.getY(), editBox.getY() + editBox.getHeight() - 1), 0);
+                else editBox.mouseClicked(JdkCompat.clamp(event.x, editBox.getX(), editBox.getX() + editBox.getWidth() - 1),
+                        JdkCompat.clamp(event.y, editBox.getY(), editBox.getY() + editBox.getHeight() - 1), 0);
                 event.hasHandler = true;
                 event.stopImmediatePropagation();
             });

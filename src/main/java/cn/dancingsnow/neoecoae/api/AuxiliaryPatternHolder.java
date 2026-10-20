@@ -28,21 +28,21 @@ public interface AuxiliaryPatternHolder {
      *         terminal view's writable prefix, so this has to be answerable without reading the container's
      *         contents.
      */
-    boolean ownsAuxiliary(ItemStack stack);
+    default boolean ownsAuxiliary(ItemStack stack) { return false; }
 
     /**
      * @return whether an auxiliary container here could take another pattern right now. A host whose slots are
      *         all occupied but whose disk still has room answers {@code true}, which is what keeps it in the
      *         catalog's writable set.
      */
-    boolean hasAuxiliaryRoom();
+    default boolean hasAuxiliaryRoom() { return false; }
 
     /**
      * @return every encoded pattern this host's auxiliary containers currently expose, in a stable order.
      *         Decoded details are derived from this list, so an unstable order would make the network
      *         advertise patterns in a different arrangement on each refresh.
      */
-    List<ItemStack> getAuxiliaryEncodedPatterns();
+    default List<ItemStack> getAuxiliaryEncodedPatterns() { return List.of(); }
 
     /**
      * @return search keywords for the patterns of {@link #getAuxiliaryEncodedPatterns()}, index-aligned with
@@ -56,6 +56,6 @@ public interface AuxiliaryPatternHolder {
      * @return a token that changes whenever {@link #getAuxiliaryEncodedPatterns()} or
      *         {@link #hasAuxiliaryRoom()} would answer differently. Polled, not pushed.
      */
-    long getAuxiliaryRevision();
+    default long getAuxiliaryRevision() { return 0L; }
 
 }

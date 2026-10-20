@@ -9,7 +9,47 @@ version = mod_version
 base.archivesName = mod_id
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
+def runtimeProfiles = [
+    base: [],
+    extended: ['expatternprovider', 'glodium'],
+    advanced: ['advanced_ae', 'geckolib'],
+    plus: ['expatternprovider', 'glodium', 'extendedae_plus'],
+    lightning: ['ae2lt', 'thunderbolt'],
+    combined: ['expatternprovider', 'glodium', 'advanced_ae', 'geckolib',
+               'extendedae_plus', 'ae2lt', 'thunderbolt']
+]
+def portingProfile = providers.gradleProperty('portingProfile').getOrElse('base')
+if (!runtimeProfiles.containsKey(portingProfile)) {
+    throw new GradleException("Unknown portingProfile '${portingProfile}'; choose ${runtimeProfiles.keySet()}")
+}
+def dependencyLock = new groovy.json.JsonSlurper().parse(file('porting/dependencies.lock.json'))
+def releaseJars = dependencyLock.artifacts.collectEntries { artifact ->
+    def artifactFile = file("libs/pinned/${artifact.filename}")
+    if (!artifactFile.isFile()) {
+        throw new GradleException('Run python tools/porting/prepare_dependencies.py before building.')
+    }
+    def actualHash = java.security.MessageDigest.getInstance('SHA-256')
+        .digest(artifactFile.bytes).encodeHex().toString()
+    if (actualHash != artifact.sha256) {
+        throw new GradleException("Pinned release checksum mismatch: ${artifact.mod_id}")
+    }
+    [(artifact.mod_id): artifactFile]
+}
+def releaseVersions = [ae2: ae2_version, guideme: guideme_version, ldlib: ldlib_version,
+    advanced_ae: '1.3.6-1.20.1', expatternprovider: '1.20-1.4.21-forge',
+    extendedae_plus: '1.6.3', ae2lt: '2.1.2-beta2', thunderbolt: '2.0.3-beta2',
+    glodium: '1.20-1.5-forge', geckolib: '4.8.4']
+def pinned = { String mod ->
+    "porting.pinned:${releaseJars[mod].name.take(releaseJars[mod].name.length() - 4)}:${releaseVersions[mod]}"
+}
 repositories {
+    ivy {
+        name = 'VerifiedReleaseJars'
+        url = uri('libs/pinned')
+        patternLayout { artifact '[artifact].[ext]' }
+        metadataSources { artifact() }
+        content { includeGroup 'porting.pinned' }
+    }
     mavenCentral()
     maven {
         url = 'https://modmaven.dev'
@@ -27,14 +67,22 @@ repositories {
         url = 'https://maven.minecraftforge.net/'
         content { includeGroup 'org.spongepowered' }
     }
+    maven {
+        url = 'https://maven.blamejared.com/'
+        content { includeGroup 'mezz.jei' }
+    }
+    maven {
+        url = 'https://maven.terraformersmc.com/'
+        content { includeGroup 'dev.emi' }
+    }
 }
 
 dependencies {
-    modImplementation("appeng:appliedenergistics2-forge:${ae2_version}") {
-        version { strictly ae2_version }
-    }
-    modImplementation "org.appliedenergistics:guideme:${guideme_version}"
-    modImplementation "com.lowdragmc.ldlib:ldlib-forge-${minecraft_version}:${ldlib_version}"
+    ['ae2', 'guideme', 'ldlib'].each { modImplementation pinned(it) }
+    ['advanced_ae', 'expatternprovider', 'extendedae_plus', 'ae2lt', 'thunderbolt',
+     'glodium', 'geckolib'].each { modCompileOnly pinned(it) }
+    modCompileOnly 'porting.pinned:AE2AddonLib20-embedded:1.0.4-1.20.1'
+    runtimeProfiles[portingProfile].each { modRuntimeOnly pinned(it) }
     modApi "com.tterrag.registrate:Registrate:${registrate_version}"
     jarJar "com.tterrag.registrate:Registrate:${registrate_version}"
     implementation "io.github.llamalad7:mixinextras-forge:${mixinextras_version}"
@@ -44,7 +92,11 @@ dependencies {
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core:5.15.2'
+    testImplementation 'org.slf4j:slf4j-api:2.0.16'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    modCompileOnly 'mezz.jei:jei-1.20.1-forge-api:15.48.0.177'
+    modCompileOnly 'dev.emi:emi-forge:1.1.24+1.20.1:api'
 }
 
 legacyForge {
@@ -63,7 +115,7 @@ legacyForge {
                 '--existing', file('src/main/resources').absolutePath
         }
         configureEach {
-            gameDirectory = project.file("run/base/${name}")
+            gameDirectory = project.file("run/${portingProfile}/${name}")
             logLevel = org.slf4j.event.Level.INFO
             systemProperty 'neoecoae.bootstrapSmoke', providers.gradleProperty('bootstrapSmoke').getOrElse('false')
         }
@@ -77,9 +129,59 @@ sourceSets.main.resources.srcDir 'src/generated/resources'
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 
+// Compile a small, explicitly named set of real platform-independent production contracts.
+// This does not exclude any main sources or imply that the full port currently compiles.
+sourceSets {
+    portingContracts {
+        java.srcDir 'src/main/java'
+        java.include 'cn/dancingsnow/neoecoae/platform/JdkCompat.java'
+    }
+    portingContractsTest {
+        compileClasspath += sourceSets.portingContracts.output
+        runtimeClasspath += sourceSets.portingContracts.output
+    }
+    portingPlatform {
+        java.srcDir 'src/main/java'
+        java.include 'cn/dancingsnow/neoecoae/platform/sync/**'
+        java.include 'cn/dancingsnow/neoecoae/platform/ForgeBlockCapabilities.java'
+        java.include 'cn/dancingsnow/neoecoae/platform/ui/**'
+        java.include 'cn/dancingsnow/neoecoae/platform/network/**'
+        java.include 'cn/dancingsnow/neoecoae/gui/common/FluidHatchUI.java'
+        compileClasspath += sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.compileClasspath
+        resources.srcDir 'src/main/resources'
+        resources.include 'assets/neoecoae/screens/fluid_hatch.json'
+    }
+    portingPlatformTest {
+        compileClasspath += sourceSets.portingPlatform.output + sourceSets.portingPlatform.compileClasspath
+        runtimeClasspath += sourceSets.portingPlatform.output + sourceSets.portingPlatform.runtimeClasspath
+        runtimeClasspath += files("build/moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar")
+    }
+}
+configurations.portingContractsTestImplementation.extendsFrom configurations.testImplementation
+configurations.portingContractsTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
+configurations.portingPlatformTestImplementation.extendsFrom configurations.testImplementation
+configurations.portingPlatformTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
+tasks.register('portingContractsTest', Test) {
+    description = 'Tests isolated Java 17 production contracts; full main compilation is a separate gate.'
+    group = 'verification'
+    testClassesDirs = sourceSets.portingContractsTest.output.classesDirs
+    classpath = sourceSets.portingContractsTest.runtimeClasspath
+    useJUnitPlatform()
+}
+
+tasks.register('portingPlatformTest', Test) {
+    description = 'Validates real Forge/LDLib1 platform adapters independently of unfinished business-source migration.'
+    group = 'verification'
+    testClassesDirs = sourceSets.portingPlatformTest.output.classesDirs
+    classpath = sourceSets.portingPlatformTest.runtimeClasspath
+    useJUnitPlatform()
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17
+    options.compilerArgs += ['-Xmaxerrs', providers.gradleProperty('portingMaxErrors').getOrElse('1000')]
 }
 
 tasks.named('test', Test) {

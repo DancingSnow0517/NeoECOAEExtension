@@ -26,7 +26,7 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.neoforged.neoforge.common.IOUtilities;
+import net.minecraftforge.common.IOUtilities;
 import org.slf4j.LoggerFactory;
 
 /**

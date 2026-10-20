@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.network;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import java.util.List;
@@ -34,7 +36,7 @@ public record CraftingCapabilitySnapshot(
 
     public CraftingCapabilitySnapshot {
         physicalFxCount = Math.max(0, physicalFxCount);
-        activeFxCount = Math.clamp(activeFxCount, 0, physicalFxCount);
+        activeFxCount = JdkCompat.clamp(activeFxCount, 0, physicalFxCount);
         normalSwitchHosts = Math.max(0, normalSwitchHosts);
         highEnergySwitchHosts = Math.max(0, highEnergySwitchHosts);
         networkMultiplier = Math.max(0, networkMultiplier);
@@ -42,8 +44,8 @@ public record CraftingCapabilitySnapshot(
         totalBatchCapacity = java.util.Objects.requireNonNull(totalBatchCapacity, "totalBatchCapacity");
         ftParallelCapacity = Math.max(0L, ftParallelCapacity);
         runningBatchCount = Math.max(0, runningBatchCount);
-        theoreticalOverclock = Math.clamp(theoreticalOverclock, 0, MAX_OVERCLOCK);
-        effectiveOverclock = Math.clamp(effectiveOverclock, 0, theoreticalOverclock);
+        theoreticalOverclock = JdkCompat.clamp(theoreticalOverclock, 0, MAX_OVERCLOCK);
+        effectiveOverclock = JdkCompat.clamp(effectiveOverclock, 0, theoreticalOverclock);
         energyUsage = Math.max(0L, energyUsage);
         coolantState = java.util.Objects.requireNonNull(coolantState, "coolantState");
     }
@@ -127,7 +129,7 @@ public record CraftingCapabilitySnapshot(
         if (ft <= 0L || overflow <= 0L) {
             return 0;
         }
-        return (int) Math.clamp(Math.round(((double) overflow / (double) ft) / 0.05D), 0L, MAX_OVERCLOCK);
+        return (int) JdkCompat.clamp(Math.round(((double) overflow / (double) ft) / 0.05D), 0L, MAX_OVERCLOCK);
     }
 
     public static boolean isVirtualTopologyEligible(List<VirtualHost> hosts) {

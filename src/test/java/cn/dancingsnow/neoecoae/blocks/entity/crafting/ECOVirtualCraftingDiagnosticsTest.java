@@ -91,7 +91,7 @@ class ECOVirtualCraftingDiagnosticsTest {
 
     @Test
     void tooltipListsRegisteredCustomCoolantsAndAcceptsThemImmediately() {
-        var id = ResourceLocation.parse("test:supercoolant");
+        var id = new ResourceLocation("test:supercoolant");
         doAnswer(call -> ECOVirtualCraftingCoolantRegistry.registeredFluidIds().contains(id))
             .when(host).hasLocalVirtualCraftingCoolant();
         assertNotice(host, "coolant_type");

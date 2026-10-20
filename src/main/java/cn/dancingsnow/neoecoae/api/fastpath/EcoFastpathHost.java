@@ -10,7 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 /** Optional server-side ECO/F-series execution capability. It does not accept foreign task objects. */
 public interface EcoFastpathHost {
     int API_VERSION = 1;
-    ResourceLocation CAPABILITY_ID = ResourceLocation.fromNamespaceAndPath("neoecoae", "eco_fastpath");
+    ResourceLocation CAPABILITY_ID = new ResourceLocation("neoecoae", "eco_fastpath");
 
     FastpathCapability inspect(FastpathRequest request);
 

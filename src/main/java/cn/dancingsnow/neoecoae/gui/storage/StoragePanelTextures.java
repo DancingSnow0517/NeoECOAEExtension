@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.VanillaSpriteTexture;
@@ -13,7 +15,7 @@ final class StoragePanelTextures {
     // Let the GUI atlas consume .mcmeta. GeckoLib replaces raw animated textures with a
     // single uploaded frame, so sampling that texture as a 12x120 sheet breaks the UVs.
     static final VanillaSpriteTexture INFINITE_ANIMATION = VanillaSpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "storage/infinity"));
+        new ResourceLocation("neoecoae", "storage/infinity"));
     // The infinite-capacity artwork is a 24x7 repeating crop in the widget atlas:
     // two pink infinity glyphs followed by two light separator strokes. Repeat the
     // crop horizontally so the atlas pixels keep their intended size in the 160px bar.
@@ -46,7 +48,7 @@ final class StoragePanelTextures {
     private StoragePanelTextures() {}
 
     private static ResourceLocation id(String file) {
-        return ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/storage/" + file);
+        return new ResourceLocation("neoecoae", "textures/guis/storage/" + file);
     }
 
     static SpriteTexture sprite(int x, int y, int width, int height) {
@@ -54,7 +56,7 @@ final class StoragePanelTextures {
     }
 
     static SpriteTexture tier(int tier) {
-        return sprite((Math.clamp(tier, 1, 3) - 1) * 13, 0, 13, 18);
+        return sprite((JdkCompat.clamp(tier, 1, 3) - 1) * 13, 0, 13, 18);
     }
 
     static SpriteTexture tier(int tier, ResourceLocation custom) {
@@ -68,12 +70,12 @@ final class StoragePanelTextures {
 
     /** Upper row: inactive symbol; lower row: selected symbol. Blue background is hover/press. */
     static SpriteTexture interfaceMode(int mode, boolean selected, boolean hover) {
-        return sprite((Math.clamp(mode, 0, 2) + (hover ? 3 : 0)) * 16,
+        return sprite((JdkCompat.clamp(mode, 0, 2) + (hover ? 3 : 0)) * 16,
             selected ? 159 : 140, 16, selected ? 17 : 18);
     }
 
     static SpriteTexture hostMarker(int tier, boolean bottom) {
-        return sprite(18 + (Math.clamp(tier, 1, 3) - 1) * 16, bottom ? 43 : 19, 13, 8);
+        return sprite(18 + (JdkCompat.clamp(tier, 1, 3) - 1) * 16, bottom ? 43 : 19, 13, 8);
     }
 
     /** Two 18px rows and a final 16px slot; the panel artwork supplies the closing border. */

@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 /** Optional public AE2LT accounting API; no foreign CPU fields or mixin targets are inspected. */
 public final class ECOOverloadCpuAccountingBridge {
     private static final String API = "com.moakiee.ae2lt.api.crafting.Ae2LtCraftingIntegration";
-    private static final ResourceLocation ATTACHMENT = ResourceLocation.fromNamespaceAndPath("ae2lt", "overload_outputs");
+    private static final ResourceLocation ATTACHMENT = new ResourceLocation("ae2lt", "overload_outputs");
     private static final Registration ORDINARY = new Registration() {
         public boolean canDispatch() { return true; }
         public void registerAccepted(long amount) { }

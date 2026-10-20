@@ -90,9 +90,9 @@ public final class NeoUiJsonLoader {
             throw new IllegalArgumentException("UI root cannot be null");
         }
         JsonObject definition = rootNode(root, source == null
-            ? ResourceLocation.withDefaultNamespace("ui.json") : source);
+            ? new ResourceLocation("ui.json") : source);
         return createNode(definition, context == null ? NeoUiJsonContext.EMPTY : context,
-            source == null ? ResourceLocation.withDefaultNamespace("ui.json") : source);
+            source == null ? new ResourceLocation("ui.json") : source);
     }
 
     private static JsonObject rootNode(JsonObject document, ResourceLocation source) {
@@ -412,13 +412,13 @@ public final class NeoUiJsonLoader {
 
     private static ResourceLocation withJsonSuffix(ResourceLocation location) {
         return location.getPath().endsWith(".json") ? location
-            : ResourceLocation.fromNamespaceAndPath(location.getNamespace(), location.getPath() + ".json");
+            : new ResourceLocation(location.getNamespace(), location.getPath() + ".json");
     }
 
     private static ResourceLocation parseLocation(String value, String defaultNamespace, ResourceLocation source) {
         try {
-            return value.indexOf(':') >= 0 ? ResourceLocation.parse(value)
-                : ResourceLocation.fromNamespaceAndPath(defaultNamespace, value);
+            return value.indexOf(':') >= 0 ? new ResourceLocation(value)
+                : new ResourceLocation(defaultNamespace, value);
         } catch (RuntimeException e) {
             throw error(source, "invalid texture resource location: " + value, e);
         }

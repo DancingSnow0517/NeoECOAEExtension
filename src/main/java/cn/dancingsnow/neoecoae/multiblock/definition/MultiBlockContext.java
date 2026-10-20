@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
-import com.lowdragmc.lowdraglib2.utils.data.BlockInfo;
-import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
+import com.lowdragmc.lowdraglib.utils.BlockInfo;
+import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;

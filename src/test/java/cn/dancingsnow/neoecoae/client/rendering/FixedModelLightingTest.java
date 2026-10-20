@@ -13,10 +13,10 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.client.model.IQuadTransformer;
-import net.neoforged.neoforge.client.model.lighting.QuadLighter;
-import net.neoforged.neoforge.client.model.pipeline.QuadBakingVertexConsumer;
-import net.neoforged.neoforge.client.model.pipeline.VertexConsumerWrapper;
+import net.minecraftforge.client.model.IQuadTransformer;
+import net.minecraftforge.client.model.lighting.QuadLighter;
+import net.minecraftforge.client.model.pipeline.QuadBakingVertexConsumer;
+import net.minecraftforge.client.model.pipeline.VertexConsumerWrapper;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

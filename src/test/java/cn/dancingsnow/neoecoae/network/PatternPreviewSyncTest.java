@@ -13,7 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -48,8 +48,8 @@ class PatternPreviewSyncTest {
                 .thenAnswer(call -> busy.get());
             transport.when(() -> MenuDataTransport.send(eq(player), eq(MenuDataTransport.Channel.PATTERNS), any()))
                 .thenAnswer(call -> {
-                    Consumer<RegistryFriendlyByteBuf> encoder = call.getArgument(2);
-                    var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+                    Consumer<FriendlyByteBuf> encoder = call.getArgument(2);
+                    var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
                     try {
                         encoder.accept(buf);
                         assertEquals(BlockPos.ZERO, buf.readBlockPos());
@@ -209,8 +209,8 @@ class PatternPreviewSyncTest {
             List<CompoundTag> secondPackets = new ArrayList<>();
             f.transport.when(() -> MenuDataTransport.send(eq(second), eq(MenuDataTransport.Channel.PATTERNS), any()))
                     .thenAnswer(call -> {
-                        Consumer<RegistryFriendlyByteBuf> encoder = call.getArgument(2);
-                        var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+                        Consumer<FriendlyByteBuf> encoder = call.getArgument(2);
+                        var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
                         try {
                             encoder.accept(buf);
                             buf.readBlockPos();
@@ -283,8 +283,8 @@ class PatternPreviewSyncTest {
             doReturn(true).when(sync).isViewer(player);
             transport.when(() -> MenuDataTransport.send(eq(player), eq(MenuDataTransport.Channel.PATTERNS), any()))
                     .thenAnswer(call -> {
-                        Consumer<RegistryFriendlyByteBuf> encoder = call.getArgument(2);
-                        var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+                        Consumer<FriendlyByteBuf> encoder = call.getArgument(2);
+                        var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
                         try {
                             encoder.accept(buf);
                             buf.readBlockPos();

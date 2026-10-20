@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
@@ -43,7 +45,7 @@ public final class ECOCraftingFastPathCache {
     }
 
     public ECOCraftingFastPathCache(int limit) {
-        this.limit = Math.clamp(limit, MIN_CACHE_SIZE, MAX_CACHE_SIZE);
+        this.limit = JdkCompat.clamp(limit, MIN_CACHE_SIZE, MAX_CACHE_SIZE);
         int initialCapacity = Math.min(this.limit, 1_024);
         this.entries = new Object2ObjectLinkedOpenHashMap<>(initialCapacity);
         this.patternEntries = new Object2ObjectLinkedOpenHashMap<>(initialCapacity);

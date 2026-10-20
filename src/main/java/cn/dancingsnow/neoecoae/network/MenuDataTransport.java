@@ -8,13 +8,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.Consumer;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.server.ServerLifecycleHooks;
+import cn.dancingsnow.neoecoae.network.ECONetwork;
 
 /** Main-thread, menu-scoped transport. All bulk channels share one player's tick budget. */
 public final class MenuDataTransport {
@@ -40,10 +41,10 @@ public final class MenuDataTransport {
         if (queue != null) queue.removeIf(t -> t.channel == channel);
     }
 
-    public static void send(ServerPlayer player, Channel channel, Consumer<RegistryFriendlyByteBuf> encoder) {
+    public static void send(ServerPlayer player, Channel channel, Consumer<FriendlyByteBuf> encoder) {
         if (busy(player, channel)) throw new IllegalStateException("Menu stream is still in flight: " + channel);
         long start = System.nanoTime();
-        var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(256, MenuStreamAssembler.MAX_BYTES), player.registryAccess());
+        var buf = new FriendlyByteBuf(Unpooled.buffer(256, MenuStreamAssembler.MAX_BYTES));
         try {
             encoder.accept(buf);
             byte[] bytes = new byte[buf.readableBytes()];
@@ -59,12 +60,13 @@ public final class MenuDataTransport {
         }
     }
 
-    public static void tick(ServerTickEvent.Post event) {
+    public static void tick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         var it = OUTGOING.entrySet().iterator();
         while (it.hasNext()) {
             var entry = it.next();
             var player = entry.getKey();
-            if (player.getServer() != event.getServer()) continue;
+            if (player.getServer() != ServerLifecycleHooks.getCurrentServer()) continue;
             var queue = entry.getValue();
             queue.removeIf(t -> player.hasDisconnected() || t.menu != player.containerMenu);
             int budget = TICK_BYTES;
@@ -72,7 +74,7 @@ public final class MenuDataTransport {
                 var transfer = queue.removeFirst();
                 int length = Math.min(Math.min(ECOMenuChunkS2CPacket.CHUNK_BYTES, budget - FRAME_ALLOWANCE),
                     transfer.bytes.length - transfer.offset);
-                PacketDistributor.sendToPlayer(player, new ECOMenuChunkS2CPacket(transfer.menu.containerId,
+                ECONetwork.sendToPlayer(player, new ECOMenuChunkS2CPacket(transfer.menu.containerId,
                     transfer.channel, transfer.id, transfer.bytes.length, transfer.offset,
                     Arrays.copyOfRange(transfer.bytes, transfer.offset, transfer.offset + length)));
                 transfer.offset += length;
@@ -95,7 +97,7 @@ public final class MenuDataTransport {
         byte[] complete = streams.computeIfAbsent(packet.channel(), ignored -> new MenuStreamAssembler())
             .accept(packet.transfer(), packet.total(), packet.offset(), packet.bytes());
         if (complete == null) return;
-        var buf = new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(complete), player.registryAccess());
+        var buf = new FriendlyByteBuf(Unpooled.wrappedBuffer(complete));
         try {
             MenuDataCodecs.receive(player, packet.channel(), buf);
             if (buf.isReadable()) throw new IllegalArgumentException("Trailing menu stream data");

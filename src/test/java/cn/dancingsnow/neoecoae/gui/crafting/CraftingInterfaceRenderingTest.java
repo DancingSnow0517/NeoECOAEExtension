@@ -29,7 +29,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -227,13 +227,13 @@ class CraftingInterfaceRenderingTest {
 
         // Empty and single-page lists still draw AE2's disabled handle.
         scrollbar.drawBackgroundAdditional(context);
-        verify(context.graphics).blitSprite(ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller_disabled"),
+        verify(context.graphics).blitSprite(new ResourceLocation("ae2", "big_scroller_disabled"),
                 1, 1, 12, 15);
 
         when(state.getMaxScrollOffset()).thenReturn(54.0);
         when(state.getScrollOffset()).thenReturn(54.0);
         scrollbar.drawBackgroundAdditional(context);
-        verify(context.graphics).blitSprite(ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller"),
+        verify(context.graphics).blitSprite(new ResourceLocation("ae2", "big_scroller"),
                 1, 1, 12, 15);
         verify(context.pose).translate(0F, 91F, 0F);
 

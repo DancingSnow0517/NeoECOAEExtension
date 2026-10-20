@@ -1,11 +1,13 @@
 package cn.dancingsnow.neoecoae.config;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.event.config.ModConfigEvent;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEConfig {
@@ -16,7 +18,7 @@ public class NEConfig {
     /** Temporary ordinary-path parallel dispatch ceiling until adaptive scheduling is wired in. */
     public static final int MAX_ECO_CPU_PUSH_TICK_LIMIT = 393_216;
 
-    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
+    private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
     static {
         BUILDER
@@ -27,7 +29,7 @@ public class NEConfig {
             .push("structure");
     }
 
-    private static final ModConfigSpec.IntValue CRAFTING_SYSTEM_MAX_LENGTH = BUILDER
+    private static final ForgeConfigSpec.IntValue CRAFTING_SYSTEM_MAX_LENGTH = BUILDER
         .comment(
             "合成系统多方块结构允许的最大长度（以方块计）。",
             "更高的值允许更长的扩展，但可能增加结构检查开销。",
@@ -36,7 +38,7 @@ public class NEConfig {
         .translation("neoecoae.configuration.craftingSystemMaxLength")
         .defineInRange("craftingSystemMaxLength", 15, 5, Integer.MAX_VALUE);
 
-    private static final ModConfigSpec.IntValue COMPUTATION_SYSTEM_MAX_LENGTH = BUILDER
+    private static final ForgeConfigSpec.IntValue COMPUTATION_SYSTEM_MAX_LENGTH = BUILDER
         .comment(
             "运算系统多方块结构允许的最大长度（以方块计）。",
             "更高的值允许更长的扩展，但可能增加结构检查开销。",
@@ -45,7 +47,7 @@ public class NEConfig {
         .translation("neoecoae.configuration.computationSystemMaxLength")
         .defineInRange("computationSystemMaxLength", 15, 5, Integer.MAX_VALUE);
 
-    private static final ModConfigSpec.IntValue STORAGE_SYSTEM_MAX_LENGTH = BUILDER
+    private static final ForgeConfigSpec.IntValue STORAGE_SYSTEM_MAX_LENGTH = BUILDER
         .comment(
             "存储系统多方块结构允许的最大长度（以方块计）。",
             "更高的值允许更长的扩展，但可能增加结构检查开销。",
@@ -67,7 +69,7 @@ public class NEConfig {
             .push("storage");
     }
 
-    private static final ModConfigSpec.LongValue MEGA_BULK_AUTO_MARK_THRESHOLD = BUILDER
+    private static final ForgeConfigSpec.LongValue MEGA_BULK_AUTO_MARK_THRESHOLD = BUILDER
         .comment(
             "ECO 存储主机自动标记可压缩物品时使用的数量阈值；只有数量严格大于此值的物品才会被标记。",
             "Amount threshold used when an ECO storage host automatically marks compressible items; only amounts strictly greater than this value are marked.")
@@ -78,7 +80,7 @@ public class NEConfig {
         BUILDER.pop();
     }
 
-    private static final ModConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER
+    private static final ForgeConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER
         .comment(
             "合成系统完成配方时发送原版合成事件（ItemCraftedEvent）。",
             "可能引入额外的事件/监听器开销；安装 Balm 等模组时可能会有较明显影响。",
@@ -87,7 +89,7 @@ public class NEConfig {
         .translation("neoecoae.configuration.postCraftingEvent")
         .define("postCraftingEvent", false);
 
-    private static final ModConfigSpec.BooleanValue LARGE_WORKSTATION_TEMPERATURE_ENABLED = BUILDER
+    private static final ForgeConfigSpec.BooleanValue LARGE_WORKSTATION_TEMPERATURE_ENABLED = BUILDER
         .comment(
             "启用大型集成工作站的温度、预热和过热恢复机制，默认开启。",
             "关闭后使用冷却液模式：同时开启超频与主动冷却，水/钠/凛冰分别提供 16384/65536/262144 并行，常规为 256。",
@@ -101,7 +103,7 @@ public class NEConfig {
         .translation("neoecoae.configuration.largeWorkstationTemperatureEnabled")
         .define("largeWorkstationTemperatureEnabled", true);
 
-    private static final ModConfigSpec.BooleanValue LARGE_WORKSTATION_IGNORE_UPGRADE_CARDS = BUILDER
+    private static final ForgeConfigSpec.BooleanValue LARGE_WORKSTATION_IGNORE_UPGRADE_CARDS = BUILDER
         .comment(
             "忽略大型集成工作站的升级卡限制，直接解锁所有受支持的兼容配方，默认关闭。",
             "兼容配方默认加载；关闭此选项时，高级 AE、扩展 AE、水晶科技和闪电科技的配方由对应升级卡解锁。",
@@ -115,7 +117,7 @@ public class NEConfig {
         .translation("neoecoae.configuration.largeWorkstationIgnoreUpgradeCards")
         .define("largeWorkstationIgnoreUpgradeCards", false);
 
-    private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
+    private static final ForgeConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
         .comment(
             "一个 ECO 智能样板总线提供的样板页数。",
             "每页可存储 63 个编码样板。",
@@ -135,7 +137,7 @@ public class NEConfig {
             .push("fastPath");
     }
 
-    private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
+    private static final ForgeConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
             "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
             "普通回退路径每 CPU 每 tick 最多 64 次；可配置更低额度，不受协处理器数和历史 tick 限制。",
@@ -147,7 +149,7 @@ public class NEConfig {
         .translation("neoecoae.configuration.ecoCpuPushTickLimit")
         .defineInRange("ecoCpuPushTickLimit", 200_000, 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
 
-    private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
+    private static final ForgeConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment(
             "每个 ECO 快速路径缓存最多保留的配方条目数量。",
             "Maximum number of recipe entries retained by each ECO fast-path cache.")
@@ -160,19 +162,19 @@ public class NEConfig {
             ECOCraftingFastPathCache.MAX_CACHE_SIZE
         );
 
-    private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_MILLIS = BUILDER
+    private static final ForgeConfigSpec.IntValue ECO_PLANNING_MAX_MILLIS = BUILDER
         .comment("一次 ECO 规划会话的总耗时预算（毫秒），路线、种子和 CRAFT_LESS 探测共享；超限显示未解。",
             "Shared cooperative time budget for one ECO planning session, including routes, seeds and CRAFT_LESS probes.")
         .translation("neoecoae.configuration.ecoPlanningMaxMillis")
         .defineInRange("ecoPlanningMaxMillis", 120_000, 1, 600_000);
 
-    private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_WORK = BUILDER
+    private static final ForgeConfigSpec.IntValue ECO_PLANNING_MAX_WORK = BUILDER
         .comment("一次 ECO 规划会话的检查点总预算；切换路线和种子不会重置预算。",
             "Shared checkpoint work budget; changing routes or startup seeds does not reset it.")
         .translation("neoecoae.configuration.ecoPlanningMaxWork")
         .defineInRange("ecoPlanningMaxWork", 50_000_000, 1, Integer.MAX_VALUE);
 
-    private static final ModConfigSpec.IntValue ECO_PLANNING_MAX_MEMORY_MIB = BUILDER
+    private static final ForgeConfigSpec.IntValue ECO_PLANNING_MAX_MEMORY_MIB = BUILDER
         .comment("循环求解保留数据的估算内存预算（MiB），覆盖矩阵和搜索状态；超限显示未解。",
             "Estimated retained memory budget in MiB for cycle matrices and search states; exhaustion remains unknown.")
         .translation("neoecoae.configuration.ecoPlanningMaxMemoryMiB")
@@ -200,7 +202,7 @@ public class NEConfig {
             .push("calculating");
     }
 
-    private static final ModConfigSpec.BooleanValue ECO_PLANNING_STAGE_DEBUG = BUILDER
+    private static final ForgeConfigSpec.BooleanValue ECO_PLANNING_STAGE_DEBUG = BUILDER
         .comment(
             "记录 ECO 快速规划的每个计算阶段，包括非循环规划与循环规划。",
             "同时记录每次规划请求实际选择 ECO 快速规划还是 AE2 原版规划及原因。",
@@ -211,7 +213,7 @@ public class NEConfig {
         .translation("neoecoae.configuration.ecoPlanningStageDebug")
         .define("ecoPlanningStageDebug", false);
 
-    private static final ModConfigSpec.BooleanValue ECO_CRAFT_SUBMISSION_DEBUG = BUILDER
+    private static final ForgeConfigSpec.BooleanValue ECO_CRAFT_SUBMISSION_DEBUG = BUILDER
         .comment(
             "诊断合成确认界面的开始按钮无法启用或提交延迟/失败的问题。",
             "记录开始按钮状态、计划与 CPU 选择、提交路由和提交耗时。",
@@ -220,7 +222,7 @@ public class NEConfig {
         .translation("neoecoae.configuration.ecoCraftSubmissionDebug")
         .define("ecoCraftSubmissionDebug", false);
 
-    private static final ModConfigSpec.BooleanValue ECO_DISPATCH_WATCHDOG_DEBUG = BUILDER
+    private static final ForgeConfigSpec.BooleanValue ECO_DISPATCH_WATCHDOG_DEBUG = BUILDER
         .comment(
             "记录 ECO 发配候选原因及发配前后的任务记账状态。",
             "连续 200 tick 没有实际进展时记录汇总诊断，之后每 1200 tick 再次记录。",
@@ -235,7 +237,7 @@ public class NEConfig {
         BUILDER.pop();
     }
 
-    private static final ModConfigSpec.BooleanValue ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG = BUILDER
+    private static final ForgeConfigSpec.BooleanValue ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG = BUILDER
         .comment(
             "启用 ECO 合成产物交付等待诊断日志。",
             "同一任务的 Worker 连续 200 tick 无法交付产物后记录首条汇总警告，之后每 1200 tick 再次记录。",
@@ -250,7 +252,7 @@ public class NEConfig {
         BUILDER.pop();
     }
 
-    public static final ModConfigSpec SPEC = BUILDER.build();
+    public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static int craftingSystemMaxLength;
     public static int computationSystemMaxLength;
@@ -289,7 +291,7 @@ public class NEConfig {
         largeWorkstationIgnoreUpgradeCards = LARGE_WORKSTATION_IGNORE_UPGRADE_CARDS.get();
         largeWorkstationTemperatureEnabled = LARGE_WORKSTATION_TEMPERATURE_ENABLED.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
-        ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
+        ecoCpuPushTickLimit = JdkCompat.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         ecoPlanningMaxMillis = ECO_PLANNING_MAX_MILLIS.get();
         ecoPlanningMaxWork = ECO_PLANNING_MAX_WORK.get();
@@ -301,7 +303,7 @@ public class NEConfig {
     }
 
     public static int getCraftingPatternBusPages() {
-        return Math.clamp(craftingPatternBusPages, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
+        return JdkCompat.clamp(craftingPatternBusPages, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
     }
 
     public static int getCraftingPatternBusSlotCount() {

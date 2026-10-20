@@ -1,0 +1,78 @@
+{
+  "commit": "a6b3d776d677c3093954081d40d4871592864c3b",
+  "status": "terminal files imported; required contracts/UI registration pending adaptation",
+  "files": [
+    {
+      "path": "src/generated/resources/assets/neoecoae/models/item/structure_terminal.json",
+      "sha256": "1be067ad58859b588a5a7881d8964bd0cbb7308ae232db3066637e2d384adb66"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/structure_terminal.json",
+      "sha256": "9a518687783a9c05657cf6b75b0798a2b15c12d1b517011760952447a26bc330"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/recipes/structure_terminal.json",
+      "sha256": "ba83d253ee8ab64f3ef4332b0ee3942896e4af22f3380947101741639a496edd"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/support/NEStructureTerminalConfigState.java",
+      "sha256": "461d2c9e068392a1234b6c4d16bfc637c740030ea40615cafa88dc2aad9a15ed"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/support/StructureTerminalActions.java",
+      "sha256": "975a96bc4f78bce50b5a13abd51bc97750e670e05758ebc4ce6421e6473b7b46"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NEStructureTerminalButtonPanel.java",
+      "sha256": "e953d18bb0e642d7483338c46d6639e51b4448655c4349d2b4dba1488fd44f01"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NEStructureTerminalInfoPanel.java",
+      "sha256": "def5910a1b0640c0bf959e2021f168746d0f1c3fd5a27a3dbb9615cd6fe807b3"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NEStructureTerminalLayout.java",
+      "sha256": "6616c074014023533afa005a4a6d53cde24fc2b26d9d398f3c6404161fffcd48"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NEStructureTerminalMaterialPanel.java",
+      "sha256": "32f8f1b17a81872cda7f2c847873a700c4632c83b1047107ebefe818e79ddbf7"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NEStructureTerminalRenderContext.java",
+      "sha256": "a8970f995751d1b0bc0374fd0e140699de11f7de53071367a54c56127c40fa07"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NEStructureTerminalWidget.java",
+      "sha256": "25dffb47513dae4c983028e4c2e56bc6aaae88e48d1355eeebeacad8aca4112d"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/items/StructureTerminalItem.java",
+      "sha256": "c896106714137a2df5b0ebd092924586051b94531f849baad66ef33c399f22e8"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/multiblock/NEStructureTerminalUiState.java",
+      "sha256": "9ec5faeb711f6b7cf75656845fcd9d84feb77f0f59ee9f4d6ff71c332c389757"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/multiblock/StructureTerminalHostType.java",
+      "sha256": "fec75504a32b25d3730651a51491dc1bc153753ff33030e0afc12b4ec26b3914"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/multiblock/StructureTerminalMaterialRequirements.java",
+      "sha256": "2f33f9987cdec781860d693f84fc6e29d2df4902c5b4428c25339cee68e8dcd5"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/multiblock/StructureTerminalMode.java",
+      "sha256": "020dc0b36682faa8d647e104871d8f504f593a9985e8cc6a602c02a29369209a"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/item/structure_terminal.json",
+      "sha256": "84a1e49f99da2dad06570e4443a604ff3e7d5cc92bbeed424dcfdfb05db30b8f"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/item/structure_terminal.png",
+      "sha256": "d74112dcbabe3cf0b1629264f73332d991b74e2311608b286a3868f556d5e1e9"
+    }
+  ]
+}

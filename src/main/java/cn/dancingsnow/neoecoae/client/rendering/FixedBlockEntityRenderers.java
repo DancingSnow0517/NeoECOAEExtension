@@ -9,7 +9,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
+import net.minecraftforge.client.event.AddSectionGeometryEvent;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -54,7 +56,7 @@ final class CpuSelectionState<T> {
     }
 
     void scroll(int offset) {
-        this.offset = Math.clamp(offset, 0, Math.max(0, entries.size() - rows));
+        this.offset = JdkCompat.clamp(offset, 0, Math.max(0, entries.size() - rows));
     }
 
     int serial(T cpu) {

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
@@ -47,7 +49,7 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
             : logic.hasJob() ? "running" : "idle";
         return new ComputationCpuEntry(serial, cpu.getName() == null ? "" : cpu.getName().getString(),
             output == null ? null : output.what(), requested.max(BigInteger.ZERO), remaining.max(BigInteger.ZERO),
-            Float.isFinite(progress) ? Math.clamp(progress, 0, 1) : 0, Math.max(0, view.elapsedTimeNanos()),
+            Float.isFinite(progress) ? JdkCompat.clamp(progress, 0, 1) : 0, Math.max(0, view.elapsedTimeNanos()),
             cpu.getAvailableStorage(), cpu.getCoProcessors(), cpu.getSelectionMode(), cpu.getTier().getCPUOverlayTexture(), status);
     }
 
@@ -73,7 +75,7 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
             tag.contains("output") ? AEKey.fromTagGeneric(registries, tag.getCompound("output")) : null,
             new BigInteger(tag.getByteArray("requested")), new BigInteger(tag.getByteArray("remaining")),
             tag.getFloat("progress"), tag.getLong("elapsed"), tag.getLong("storage"), tag.getInt("parallel"),
-            CpuSelectionMode.values()[Math.clamp(tag.getInt("mode"), 0, CpuSelectionMode.values().length - 1)],
-            ResourceLocation.parse(tag.getString("overlay")), tag.getString("status"));
+            CpuSelectionMode.values()[JdkCompat.clamp(tag.getInt("mode"), 0, CpuSelectionMode.values().length - 1)],
+            new ResourceLocation(tag.getString("overlay")), tag.getString("status"));
     }
 }

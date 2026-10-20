@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.neoforged.neoforge.network.PacketDistributor;
+import cn.dancingsnow.neoecoae.network.ECONetwork;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 
 /** Formats ECO CPU status in AE2's native confirmation screen. */
@@ -46,7 +46,7 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
     private void neoecoae$submitWithForceIntent(CallbackInfo ci) {
         if (start.active) {
             var plan = getMenu().getPlan();
-            PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(getMenu().containerId,
+            ECONetwork.sendToServer(new ECOForceCraftStartFlagC2SPacket(getMenu().containerId,
                 Screen.hasShiftDown() && plan != null && plan.isSimulation()));
         }
         ci.cancel();

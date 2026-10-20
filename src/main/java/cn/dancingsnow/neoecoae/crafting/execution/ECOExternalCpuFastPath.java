@@ -12,7 +12,6 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
-import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
@@ -77,8 +76,6 @@ public final class ECOExternalCpuFastPath {
                     : ECOFastPathFacade.prepare(provider, task.getKey(), inputs, outputs, remainders,
                         inventory, limit, singlePower, power, level, access.neoecoae$link().getCraftingID());
                 if (batch == null || batch.craftCount() < 2 || !fitsWaiting(access, batch)) continue;
-                var registration = ECOUselessDynamicOutputBridge.prepare(owner, task.getKey(), batch.craftCount());
-                if (registration == null) continue;
                 try {
                     if (!batch.submit(amount -> energy.reserve(power, amount))) continue;
                 } catch (ECOIndeterminateBatchException failure) {
@@ -98,8 +95,6 @@ public final class ECOExternalCpuFastPath {
                         access.neoecoae$waitingFor().insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
                         access.neoecoae$addRemainderItems(remainder.amount(), remainder.what().getType());
                     }
-                    registration.commit(access.neoecoae$link().getCraftingID(),
-                        access.neoecoae$finalOutput() == null ? null : access.neoecoae$finalOutput().what());
                     if (progress.neoecoae$value() <= 0) iterator.remove();
                     markDirty.run();
                     return 1;

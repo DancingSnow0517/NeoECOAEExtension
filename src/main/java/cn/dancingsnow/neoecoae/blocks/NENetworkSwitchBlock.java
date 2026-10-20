@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks;
 
 import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.grid.AENetworkedBlockEntity;
+import appeng.blockentity.grid.AENetworkBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -17,7 +17,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public abstract class NENetworkSwitchBlock<T extends AENetworkedBlockEntity> extends AEBaseEntityBlock<T> {
+public abstract class NENetworkSwitchBlock<T extends AENetworkBlockEntity> extends AEBaseEntityBlock<T> {
     // Independent from NEBlock.FORMED: network switches are not in the NEBlock inheritance tree.
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
 

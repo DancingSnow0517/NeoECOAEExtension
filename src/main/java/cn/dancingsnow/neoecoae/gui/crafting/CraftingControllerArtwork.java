@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -25,7 +27,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 final class CraftingControllerArtwork extends UIElement {
     private static final int[] PLUS_X = {1, 13, 25};
@@ -371,7 +373,7 @@ final class CraftingControllerArtwork extends UIElement {
 
     private void drawFluidGauge(GUIContext context, int x, FluidStack fluid, int amount, int capacity, int tickX) {
         int safeCapacity = Math.max(0, capacity);
-        int safeAmount = Math.clamp(amount, 0, safeCapacity);
+        int safeAmount = JdkCompat.clamp(amount, 0, safeCapacity);
         int height = safeCapacity <= 0 ? 0 : Math.round(GAUGE_INTERIOR_HEIGHT
             * opening.value(safeAmount / (double) safeCapacity));
         if (height > 0 && fluid != null && !fluid.isEmpty()) {

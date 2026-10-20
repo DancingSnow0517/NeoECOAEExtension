@@ -5,7 +5,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOForcedCraftingPlan;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 
 /** Optional EAEP protocol bridge. No EAEP classes are linked when the mod is absent. */
 public final class EAEPForcedCrafting {

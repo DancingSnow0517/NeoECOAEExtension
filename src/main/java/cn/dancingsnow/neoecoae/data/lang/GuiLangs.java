@@ -4,6 +4,7 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        StructureTerminalLangs.accept(provider);
         provider.add("category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
         provider.add("emi.category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.lightning_missing", "Paused: Missing additional resources");
@@ -15,17 +16,8 @@ public class GuiLangs {
         provider.add("recipe_type.neoecoae.ae2lt.overload_processing", "AE2LT: Overload Processing");
         provider.add("recipe_type.neoecoae.ae2lt.lightning_assembly", "AE2LT: Lightning Assembly");
         provider.add("recipe_type.neoecoae.ae2lt.lightning_simulation", "AE2LT: Lightning Simulation");
-        provider.add("recipe_type.neoecoae.ae2cs.circuit_etcher_recipe", "AE2CS: Circuit Etching");
-        provider.add("recipe_type.neoecoae.ae2cs.crystal_aggregator_recipe", "AE2CS: Crystal Aggregation");
-        provider.add("recipe_type.neoecoae.appgen.synthesizing", "Applied Generators: Synthesizing");
         provider.add("recipe_type.neoecoae.advanced_ae.reaction", "AdvancedAE: Reaction Chamber");
-        provider.add("recipe_type.neoecoae.extendedae_plus.crystal_assembler_plus", "ExtendedAE Plus: Crystal Assembling");
         provider.add("recipe_type.neoecoae.extendedae.crystal_assembler", "ExtendedAE: Crystal Assembling");
-        provider.add("recipe_type.neoecoae.data_energistics.data_reassembler", "Data Energistics: Data Reassembling");
-        provider.add("recipe_type.neoecoae.data_energistics.data_charger", "Data Energistics: Data Charging");
-        provider.add("recipe_type.neoecoae.data_energistics.data_integrated_charger", "Data Energistics: Integrated Charging / Inscribing");
-        provider.add("recipe_type.neoecoae.data_energistics.data_charge_press", "Data Energistics: Crystal Growth");
-        provider.add("gui.neoecoae.large_integrated_working_station.auto_build", "Auto-build Large Integrated Working Station");
         provider.add("gui.neoecoae.large_integrated_working_station.return_inputs", "Return Stored Inputs");
         // integrated working station
         provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");
@@ -76,12 +68,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.input_return", " (return owned inputs failed: ME storage accepted only part of the inputs)");
         provider.add("gui.neoecoae.workstation.module.regular", "Regular");
         provider.add("gui.neoecoae.workstation.module.advanced_ae", "Advanced AE");
-        provider.add("gui.neoecoae.workstation.module.extendedae", "Extended AE (including EAEP)");
-        provider.add("gui.neoecoae.workstation.module.ae2cs", "Crystal Science");
+        provider.add("gui.neoecoae.workstation.module.extendedae", "Extended AE");
         provider.add("gui.neoecoae.workstation.module.aelt", "Lightning Tech");
-        provider.add("gui.neoecoae.workstation.module.data_energistics", "Data Energistics");
-        provider.add("gui.neoecoae.workstation.module.appgen", "Applied Generators");
-        provider.add("gui.neoecoae.workstation.module.other", "Other compatible recipes");
         provider.add("gui.neoecoae.workstation.return_task", "Return task inputs");
         provider.add("gui.neoecoae.workstation.parallel", "Batch parallel");
         provider.add("gui.neoecoae.workstation.parallel_value", "Parallel: %s / %s");
@@ -113,11 +101,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.module_short.regular", "Regular");
         provider.add("gui.neoecoae.workstation.module_short.advanced_ae", "Advanced AE");
         provider.add("gui.neoecoae.workstation.module_short.extendedae", "Extended AE");
-        provider.add("gui.neoecoae.workstation.module_short.ae2cs", "Crystal Sci.");
         provider.add("gui.neoecoae.workstation.module_short.aelt", "Lightning");
-        provider.add("gui.neoecoae.workstation.module_short.data_energistics", "Data");
-        provider.add("gui.neoecoae.workstation.module_short.appgen", "Generators");
-        provider.add("gui.neoecoae.workstation.module_short.other", "Other");
         provider.add("gui.neoecoae.workstation.module_slot", "Upgrade module");
         provider.add("gui.neoecoae.workstation.module_installed", "Installed");
         provider.add("gui.neoecoae.workstation.module_empty", "No card");

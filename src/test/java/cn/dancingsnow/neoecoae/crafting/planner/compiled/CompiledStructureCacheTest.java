@@ -74,7 +74,7 @@ class CompiledStructureCacheTest {
         var session = planner.createSession(service, goal, stock(5));
         assertEquals(PlanningStatus.SUCCESS, session.plan(1, false, ECOCancellation.NONE).status());
         IPatternDetails physical = service.getCraftingFor(goal).iterator().next();
-        var id = ResourceLocation.fromNamespaceAndPath("eco_cache_test", "special");
+        var id = new ResourceLocation("eco_cache_test", "special");
         ECOPatternSemanticsRegistry.register(id, 1000, new ECOPatternSemanticAdapter() {
             @Override public boolean supports(IPatternDetails pattern) { return pattern == physical; }
             @Override public ECOPatternSemantics analyze(IPatternDetails pattern, ECOPatternSemantics base) {

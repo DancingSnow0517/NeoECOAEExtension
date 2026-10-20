@@ -75,6 +75,6 @@ class ECOExecutionOptimizationRegistryTest {
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath("eco_execution_test", path);
+        return new ResourceLocation("eco_execution_test", path);
     }
 }

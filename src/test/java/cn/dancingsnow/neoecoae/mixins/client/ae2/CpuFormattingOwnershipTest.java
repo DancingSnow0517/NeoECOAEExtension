@@ -22,7 +22,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -84,23 +84,23 @@ class CpuFormattingOwnershipTest {
     void ownershipSurvivesPacketRoundTripIndependentlyOfOverlay(boolean eco, boolean overlay) throws Exception {
         var sender = new CraftingCpuListEntryMixin();
         sender.neoecoae$setEcoCpu(eco);
-        var texture = overlay ? ResourceLocation.parse("addon:textures/cpu.png") : null;
+        var texture = overlay ? new ResourceLocation("addon:textures/cpu.png") : null;
         sender.neoecoae$setOverlay(texture);
         var receiver = new CraftingCpuListEntryMixin();
         // Ensure reading a foreign CPU also clears stale ECO state.
         receiver.neoecoae$setEcoCpu(!eco);
         var cpu = entry();
-        var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         try (var overlays = mockStatic(IOverlayTextureHolder.class);
              var ownership = mockStatic(ECOCraftingCpuListEntry.class)) {
             overlays.when(() -> IOverlayTextureHolder.of(cpu)).thenReturn(receiver);
             ownership.when(() -> ECOCraftingCpuListEntry.of(cpu)).thenReturn(receiver);
             Method write = CraftingCpuListEntryMixin.class.getDeclaredMethod("onWriteToPacket",
-                RegistryFriendlyByteBuf.class, CallbackInfo.class);
+                FriendlyByteBuf.class, CallbackInfo.class);
             write.setAccessible(true);
             write.invoke(sender, buf, new CallbackInfo("writeToPacket", false));
             Method read = CraftingCpuListEntryMixin.class.getDeclaredMethod("onReadFromPacket",
-                RegistryFriendlyByteBuf.class, CallbackInfoReturnable.class);
+                FriendlyByteBuf.class, CallbackInfoReturnable.class);
             read.setAccessible(true);
             read.invoke(null, buf, new CallbackInfoReturnable<>("readFromPacket", false, cpu));
             assertEquals(eco, receiver.neoecoae$isEcoCpu());

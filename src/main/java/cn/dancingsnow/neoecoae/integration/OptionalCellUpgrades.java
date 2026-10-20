@@ -5,8 +5,8 @@ import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 
 import java.util.List;
 

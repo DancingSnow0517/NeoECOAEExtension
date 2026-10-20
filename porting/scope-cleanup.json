@@ -1,0 +1,935 @@
+{
+  "status": "scope applied; terminal integration, EAE recipe completion, API migration and full verification remain",
+  "removed_files": [
+    {
+      "path": "src/generated/resources/assets/neoecoae/models/item/integrated_working_station_module_ae2cs.json",
+      "sha256": "79b30366a16d14a179822a11ac03d93f73d979a6086065082de7be2356be512e",
+      "reason": "excluded workstation upgrade-card resource/recipe"
+    },
+    {
+      "path": "src/generated/resources/assets/neoecoae/models/item/integrated_working_station_module_appgen.json",
+      "sha256": "6bcc42c5d7f8fff02afb3bc87685dc143f5c70f7e22f134d58baeb914a8ff3eb",
+      "reason": "excluded workstation upgrade-card resource/recipe"
+    },
+    {
+      "path": "src/generated/resources/assets/neoecoae/models/item/integrated_working_station_module_data_energistics.json",
+      "sha256": "08817c19c1d6eced6a6535cac990f6a8d8b38ebce6e2273200898a210baf032f",
+      "reason": "excluded workstation upgrade-card resource/recipe"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/dataenergistics/ECODataEnergisticsCountedBridge.java",
+      "sha256": "234b07e37fd8ded9ace223daefeb568b13930a404c80c7d33fe61a0fc4e16c86",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/mekenergistics/ECOMekEnergisticsBatchCapability.java",
+      "sha256": "3724f4a4afcdb5386cc351fe862c985718c41a22e6dd9af37c4b0e429f78bd8e",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/omnisequence/ECOOmniSequenceBatchAdapter.java",
+      "sha256": "9a05e907704cbd95bc517ffe229fa8a667390e6b6c6a7154ebbfa0e974207d59",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/omnisequence/ECOOmniSequenceDirectDispatch.java",
+      "sha256": "13c4a465402f47c7cae768492e4d769a4781c99df2ab7e02216892f595631923",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/useless/ECOUselessBatchProviderBridge.java",
+      "sha256": "193e28b1f5e7ee8d25cf9a0099b1a4b147bf53c6ae79343986802274b80b6d9b",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/useless/ECOUselessDynamicOutputBridge.java",
+      "sha256": "e85c6fc6efba376961b79684217756a81864e32c6caffe48f6fa3f18941f530e",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/useless/ECOUselessExactCraftingDispatch.java",
+      "sha256": "c2d18ae9578ff6b06802f82de1f49e17ff3e3a26cebcaac09f7741fb93caa579",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/useless/ECOUselessScaledBatchDispatch.java",
+      "sha256": "656a0472acd3c3b60df1dc7bc9f18d6969f0ad2299a383f6bf113e973b5d18e1",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/useless/UselessDynamicPatternView.java",
+      "sha256": "a0b7277730f5c1bd44042c666ff4f72ccccaff1aed1f3c264cd09380202cae5b",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/useless/UselessPatternApi.java",
+      "sha256": "7c9a4546c243332ccbf509236df07221441a4361977f2e4b3785c68109bfcd77",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/useless/UselessPatternSemanticAdapter.java",
+      "sha256": "8eb9e3bb3d95027e1cd0ed50c29c711fae81e8142fec372f6c53dad0cec32b87",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/useless/UselessScaledPatternView.java",
+      "sha256": "47a400105e7d70ddc5d3915d9612a9b53a3924368f076cbee865c91a59641faf",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/data/recipe/MekanismRecipes.java",
+      "sha256": "b36d6232922746a4e65c2f07ae26695c03dfd12f55984df40b475771d24cdfe7",
+      "reason": "excluded recipe or integration scenario"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/multiblock/MultiblockBuilderUI.java",
+      "sha256": "20320cc55b8305b9a06ed68f3b8774bff10530ec6156362a8d51329eee624355",
+      "reason": "removed machine-only auto-build UI; shared placement backend remains"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/AE2OmniCellsIntegration.java",
+      "sha256": "c57e5baf428ad972edf2f080ce8cce05ff83b783dbecea4afc933644abf26234",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/ECOUniversalCellHandler.java",
+      "sha256": "f1db60d5770d6d2a97f429e31d780fea463903fd3e50f1bd64fa54554e380c16",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/ECOUniversalStorageCell.java",
+      "sha256": "fee87e9307f1e43b880a582b10d397c6f70057ca8b8001d53f644f3dbc1e0e0e",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/NEOmniCellTypes.java",
+      "sha256": "f0322f65b75da05a8cbdf5d51422ac85fef73f37eec23bb97f23a0652e2703f6",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/NEOmniItems.java",
+      "sha256": "f6dd00c0e4ee45d824fa225d308d5c52ef8580a1031a7b02aeb27754120ef7d0",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/NEOmniWasteCells.java",
+      "sha256": "0b236c95efb913f38f89b1f971af03972ac72a8c9fba5cdaca8641ff87f9a394",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/OmniLongCapacityProvider.java",
+      "sha256": "639dc67657e0eb5eaa89b2f924259e4be63c6fc799ce2626c9d0cdf54f6e8cf1",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/item/ECOSpentNuclearWasteCellItem.java",
+      "sha256": "9952c1f16fcdca923d59fa1cfa6a7ccdeca459b3ebc2710039d51aa83fc75e0b",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2omnicells/item/ECOUniversalStorageCellItem.java",
+      "sha256": "57e34342f2d91206bd47a0e0be72251bdbf6280c2506446f41a53b1eafc46523",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2pattern/AepdPatternDiskBackend.java",
+      "sha256": "5d2b319227c465f064468c1cf1ab3cbd667d9bd094fcf8d7daa6e9c07497c9f3",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2pattern/MachineDiskHostAdapter.java",
+      "sha256": "ceb7c77860d868ec7ca5f3c2b9b483713ec5cd1f806d8faa44fa62b23fedb8b3",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2pattern/PatternDiskIntegration.java",
+      "sha256": "0af1c9f02b59d42ae9607eac9278dd02d7f32f3cc4ae0b3e3971f7c36de1f9bd",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/ae2pattern/PatternDiskSupport.java",
+      "sha256": "e0a423acaf99d185b3c2de1a1a1e5f3ef6b7a4d222bf3bc6500b6e74a12049cd",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appbot/AppBotaniaIntegration.java",
+      "sha256": "9abd503c1834ae6a87369b8ae46af8a60a4c724baf6a448420351d094aa016c6",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appbot/NEAppBotCellTypes.java",
+      "sha256": "19882c3932bbeb72f5662ed1481c2f3c75e3ef8c70bfe7dcffef6c3bc84959b1",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appbot/NEAppBotItems.java",
+      "sha256": "8e6e0130617ed4f11ecdafabf3ec330a08eacb9416168a699d9578ef8ae51740",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appex/AppliedExperiencedIntegration.java",
+      "sha256": "1d68774867a458e6cddc2713b3d573ae7d484d4dba668db9667f84383c0b3934",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appex/NEAppliedExperiencedCellTypes.java",
+      "sha256": "a336e0da84ae521a96bfdacbdc305faa4bf9bc3a497315503f28f2143b60ee5c",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appex/NEAppliedExperiencedItems.java",
+      "sha256": "eb15b38a82518f4efba8a739b0ad7291b37d5f4d49bceddba18cb1f951ec9db7",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appflux/AppFluxIntegration.java",
+      "sha256": "cbbf8ebc328253ac8cca96f776f1045bc0714a8cf000fe40e6df40bfdd9fe3f9",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appflux/NEAppFluxCellTypes.java",
+      "sha256": "8bb5134c9f6854e30a26b7b2cecf708817957b38cab495a42982cc34b742c3dd",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appflux/NEAppFluxItems.java",
+      "sha256": "8107a8adc393a01776b0a7d453932082ab5abb47a06d67efbc9ca87502e78b30",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appflux/item/ECOFeStorageCellItem.java",
+      "sha256": "0e129972d74c6acb6d06dc659b36d1d53d8530f90dcd11af758f0cc950c11ac1",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appliedcreate/AppliedCreateIntegration.java",
+      "sha256": "fcf363f2d5b779dacb17fdd653c19c89c302648bbd532d8d49a269871dbdc2bd",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appliedcreate/NEStressCellTypes.java",
+      "sha256": "dba179b28723dd5aeededcfea9ef2e9ebfba01cb18980e7af81c21433322077f",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appliedcreate/NEStressItems.java",
+      "sha256": "88c880f415b44752b81c76c39e774a76e5afcc9ed8dc570a592d3a6f33883840",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appliedpneumatics/AppliedPneumaticsIntegration.java",
+      "sha256": "4cf8669b761736ae9d36c3a36814e1a4d928197aaa7fe37444a9a00a4b557188",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appliedpneumatics/NEAppliedPneumaticsCellTypes.java",
+      "sha256": "cbd034c700f9509651d7ee8fee7a991af9f1d99d55c92a22b6ceaac44f98be65",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appliedpneumatics/NEAppliedPneumaticsItems.java",
+      "sha256": "9ff76b589f2f89220b092683780f4a2994633581030f37e5d5e151ac3bff372a",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appliedsoul/AppliedSoulIntegration.java",
+      "sha256": "ca6cd9520aeac813fe1146ec55c255f0689b8c1b89b184bf91800d3f2b492e56",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appliedsoul/NEAppliedSoulCellTypes.java",
+      "sha256": "d66c13cc2cfb362908c46a1fa27f99698bdf2291a59ae1089de0fbaaa4f005c9",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appliedsoul/NEAppliedSoulItems.java",
+      "sha256": "2de0bbdef1dd09b963e0acccefce7ddbf35c73fe4dbeb453f7a240683ca0c793",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appmek/AppMekIntegration.java",
+      "sha256": "2599e6add9097b6ea15663941ffb89560d878e32357c9cbc74a739585adbd812",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appmek/NEAppMekCellTypes.java",
+      "sha256": "b05c0f589ec333c582103d93f3048c757430614d102e33325aee03164eb418e7",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appmek/NEAppMekItems.java",
+      "sha256": "af125f962ee3b2ad4828c84b4933ed140166f94298a1d8cb546d54e3e540ca5f",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/appmek/item/ECOChemicalStorageCellItem.java",
+      "sha256": "451c0945bc01d7a6eb8ca0aa7a60035dcdbc5cd4f9e4cfee0e5dcd195c72cc96",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/apprep/AppliedReplicaticsIntegration.java",
+      "sha256": "9a15e007f6b87e202283a06c579107700e84862629c401714a0afd493814a828",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/apprep/NEAppRepCellTypes.java",
+      "sha256": "7b1bd54205d75e792fe15af48766a2bc2e93a52adbc19de6768a83a1b6161baa",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/apprep/NEAppRepItems.java",
+      "sha256": "2d5e64e1472b4844c906cd3e4100ac6be171f3b70581df1659a1cfb050750ff5",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/arsenergistique/ArsEnergistiqueIntegration.java",
+      "sha256": "efa0ee34e8e62d6d1202333cab72dfb426cedd699f01e4b47a8d096a66b8a740",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/arsenergistique/NEArsEnergistiqueCellTypes.java",
+      "sha256": "c2aafc1a87e5d8fe0a8a5b399ae7e39720903112849dcd6cc685a61dd6389023",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/arsenergistique/NEArsEnergistiqueItems.java",
+      "sha256": "d1ec1e7d6298571a0c39490fd7d0c3fd47be2298483868b0a665dcc26b96318c",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2Channel.java",
+      "sha256": "16f445ca083b842191baa035f57a7156da332dadcdb50329fb0642d8200b6451",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2ChemicalValidation.java",
+      "sha256": "bd26aa9f1ad5ca7560b7d292944312d82a5a6116f331aa712683ce3e691677f1",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2Integration.java",
+      "sha256": "a39118083c8d6eacbc65e83e919314d5bbcd9b0917198c834fde339bbdd36eca",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2SingularityContents.java",
+      "sha256": "f1a3594bcfca64913d31ccebb268a923dd9ff090174cfbb3af42286d233c2e58",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2SingularityPowerService.java",
+      "sha256": "37098efd6c4c4aeb47c6099d91af4528bf739a2fba678cae69bb9aa04bbb60d3",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2SingularityStorageCell.java",
+      "sha256": "6eec488e5bd28bc3fda015422b5a5e68347750a826c42d51e8173c6da6f3ce59",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2StorageCellItem.java",
+      "sha256": "da146bc86b517f03af2940b21c34324f006b391b3a04c71e7b06b4f463681b93",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/dataenergistics/DataEnergisticsIntegration.java",
+      "sha256": "48172a11ec2dd9ddcfa2d6599b4ffbdead9e05ce0b912977dca2634a974097c4",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/dataenergistics/ECODataStorageCellItem.java",
+      "sha256": "72f0fbb4d5f8d4d02d2a26c01d2e6c611d511b38ca369d38a9ab5622a9d550ed",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/dataenergistics/NEDataCellTypes.java",
+      "sha256": "f4beba151d6d90edcce01ab7c630759359f17ddba32d6587f097cb18da1a75b4",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/dataenergistics/NEDataItems.java",
+      "sha256": "ba0917951e907ed08fb1c323cce044197cf853a83b0d9ddb359a21eb7755c462",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/jade/NEJadePlugin.java",
+      "sha256": "9379602e1dff8b6f32504acffe03bfb297d932296ea3adc4e3c4e0ed3ba53676",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/jade/provider/ECOComputationDriveProvider.java",
+      "sha256": "c179c2d147b35b7a55c14c0e007874c0e1dd4443b272845603b973f89d7d6a60",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/jade/provider/ECOComputationSystemProvider.java",
+      "sha256": "b7daf42d24abcde8085090b0927325e38f6cb3855db5f1eabd0e448a504024f0",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/jade/provider/ECOCraftingSystemProvider.java",
+      "sha256": "c4059518c6f998e4a40773120c942dbb9ebdac778c195656c50b1a208b326b38",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/jade/provider/ECOCraftingWorkerProvider.java",
+      "sha256": "73b17d60198f1caece3ea2b63ae681940636ebe66dbf6f4e80b4c9b519d31427",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/jade/provider/ECODriveProvider.java",
+      "sha256": "6134cf1c5515342e19914cd60410dfe3899e6d969f20e9e4afc5cc9db29b5152",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/jade/provider/ECOLargeWorkstationInputsProvider.java",
+      "sha256": "c733476a0f093ab243a389b200de5d7079a9de75171ec990f76bc32c5e84eca6",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/jade/provider/ECOStorageInterfaceProvider.java",
+      "sha256": "c7e8c489ad78d7b7f11186199197ec3174aeb2e8abccaf8016a0e6061cf26a3c",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/jade/provider/ECOStorageSystemProvider.java",
+      "sha256": "b7d5e7ce863e9818b88ac43f31f5d064b28b953458589efa8d6fd2052ed311d6",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/kubejs/NEKubeJSPlugin.java",
+      "sha256": "c1fbf3cfe72262787b92ec988f9787b680affb8d8c4ad540db59dc7850a95bb8",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/kubejs/recipe/CoolingRecipeSchema.java",
+      "sha256": "d6f4cfaf6c2ead94badfed077ff2797790a392aea128dd350efb4c925fef3a10",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/kubejs/recipe/IntegratedWorkingStationSchema.java",
+      "sha256": "628bc9a3fdc01668be2c83a3d13cee7373e5da07eb05d7ccd1f8d841e0a12f76",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/MegaCellCapacities.java",
+      "sha256": "effb9b807dd00bd84308e20c2f551ee5925c857ab9212064ffeca24928c887c3",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/MegaCellsIntegration.java",
+      "sha256": "6c7a3f94bf25dfdbe5a528c4f1a554054ee5f114922e17fbe9b300e25e180cba",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaBaseItems.java",
+      "sha256": "9bd8c3e5d2b2cf867c6bb8e7cc8b14f64da8a8fbead561f752490f63a8c48ee1",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaCellTypes.java",
+      "sha256": "ecfcfc88d769904ff9a570949d3e37632ff91a9fe73032053ef9908e8f6372fe",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaChemicalCellType.java",
+      "sha256": "dc36cb01b7ba1c4fc728509422cef0a053124cde980a75819291d6a44ffb3ff0",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaChemicalItems.java",
+      "sha256": "29111e9b8d8aa617863fa77b46f7726721d343e8aec677d344f10cf9b7df3056",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaEnergyCellType.java",
+      "sha256": "76fa97061c6b74eb9167050f315ffa41cb2df613738a31a23e24b96c23acea54",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaEnergyItems.java",
+      "sha256": "1fe3f2e8fab503375bf50ca3bbb5bec1bd25267bf305dc896a925606fdbf279d",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaExternalCellTypes.java",
+      "sha256": "66750690fee724afb359d4123f692dfe4bcb31ae30eae870291ac0ddbc14c457",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaExternalItems.java",
+      "sha256": "c85db47fc94d954fe1dd1a6d61808d10cfac14626fb2a7c13f1682aea8dbd20d",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaItems.java",
+      "sha256": "9dc4fba8b84ccbd97dd25d554263251adedfe75da89b7e9c06f45b161c4cae01",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/NEMegaRadioactiveItems.java",
+      "sha256": "58e88b54e4afb4b89e5ce1569bcb1e103156d7137108787004dae15f34169f6d",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/backend/ECOMegaDecompressionService.java",
+      "sha256": "62f179879c7b7e98d9bc53b844120dd1ad681e025c632c9db805ef01d04cbc1f",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/backend/ECOMegaLongBulkStorageCell.java",
+      "sha256": "f796412d122478bff8a4bdfb534aebf200333ca211818a1dfdc82e7e911046ac",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/backend/MegaBulkMarkingService.java",
+      "sha256": "d9f5dfdfd98af3bb5df0d284ae31205b467a0f9e228679ea1a4f291b8d5865c4",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/backend/MegaBulkUnits.java",
+      "sha256": "7772ab4cacdcee03f347f6feaed9d86422b215ece24bcdcb5ba5b13a423152ee",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/backend/MegaCellsBackend.java",
+      "sha256": "2f7e869a5b67d5d9eb0c66c86ed3b5fb80e5efc3716a9daf8bdc818cb102b7ea",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/item/ECOMegaChemicalStorageCellItem.java",
+      "sha256": "2727d88def084dfc0a4cba8d886525ee980e447c4d6c115eef59964f7cf918fa",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/item/ECOMegaEnergyStorageCellItem.java",
+      "sha256": "2bbd1e8dcdfddca5059ccf6f535f1d9fb1810c982e6745e9ecd2fd783453885c",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/item/ECOMegaFluidStorageCellItem.java",
+      "sha256": "56aafa36b6ed6573ec4cbeeedff7fb32f0353a74ea6e8427e4d42bd4146aa3e1",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/item/ECOMegaItemStorageCellItem.java",
+      "sha256": "ecf0cef2249217270592bb453ce0a2d7a5ab90959965b064ef4ce6ffec2c11f7",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/item/ECOMegaLongBulkStorageCellItem.java",
+      "sha256": "d7ee6f182c1ce0fb3f607f02b447d6550f1d3ce9290debf47774b11e07cef12d",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/item/ECORadioactiveChemicalStorageCellItem.java",
+      "sha256": "0714406da45148f44e6e9936040d88a0667f67b0787e5494c8d22c2144187029",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/integration/megacells/item/MegaCellHousingItem.java",
+      "sha256": "6a9c7ef4d1159bc0fc1010cf89aeb2f3b87d2145bbdd2d63d228fb9dee94aa62",
+      "reason": "excluded addon implementation"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CellWorkbenchMenuMixin.java",
+      "sha256": "364507e40d1f4099cffaa0b377d8b44bd3a07056871a0c3dac43ff3924ce0000",
+      "reason": "excluded Mega Cells-only Mixin"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/CellWorkbenchBlockEntityMixin.java",
+      "sha256": "7f274c67901ffc08f50b9ce49e999b73b64ffc9d507c7e2bd63654221601038b",
+      "reason": "excluded Mega Cells-only Mixin"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/DigitalSingularityEnergyServiceMixin.java",
+      "sha256": "c0b5044ec3fdc9ce18a7b611e5db83717d6ca560ba22683172effd41b9641231",
+      "reason": "Mixin outside retained core/four-addon audit"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/ae2omnicells/AEUniversalCellInventoryMixin.java",
+      "sha256": "eac25866c223f4787c5924101278113aefc7dd65d9e1c4c2dabfa6a647bc2743",
+      "reason": "Mixin outside retained core/four-addon audit"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/ae2omnicells/IAEUniversalCellMixin.java",
+      "sha256": "993a3d2215d8de2d1ab61adff46d99ff01b024a8afacc2c67a647bc868997705",
+      "reason": "Mixin outside retained core/four-addon audit"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/ae2omnicells/OmniWasteCellRecognitionMixin.java",
+      "sha256": "429cdec18bf9126b9014b81ec84212cb552cf83387d6cc467480e89b575a5318",
+      "reason": "Mixin outside retained core/four-addon audit"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/appbot/BotaniaForgeCapabilitiesMixin.java",
+      "sha256": "5bc1914042b2887f8732bb79102e3175288a7aac90a5ddda2e06b341307d9b20",
+      "reason": "Mixin outside retained core/four-addon audit"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/fluxnetworks/ServerFluxNetworkMixin.java",
+      "sha256": "d48c9c42c0888723d2ec73def2fcd67db0e98f740d06e86e260fa1d98dc2a62b",
+      "reason": "Mixin outside retained core/four-addon audit"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/omnisequence/ECOOmniSequenceMixinPlugin.java",
+      "sha256": "f1cf499da46c42b0fe093e1fcd277f34403f2b223312bd5acac249adf74328dc",
+      "reason": "excluded addon Mixin plugin"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/omnisequence/ECOOmniSequenceProviderMixin.java",
+      "sha256": "50804c3710278256e283166c8ecf01486afb3c404fc6f04f67b9da478d1ac048",
+      "reason": "Mixin outside retained core/four-addon audit"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/thunderbolt/ECOThunderboltProviderMixin.java",
+      "sha256": "a9f4dc5968fe9abe45453fc714f47ccccfb1276f1591132fe9238c3cf9299d0e",
+      "reason": "Mixin outside retained core/four-addon audit"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/useless/ECOUselessMixinPlugin.java",
+      "sha256": "b879f73d3a2ff075843ab90234152440153aee2b19d5aca4b4d33b2c77056838",
+      "reason": "excluded addon Mixin plugin"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/useless/UselessDynamicPatternAccessor.java",
+      "sha256": "882d9e5fbc878802664cfa6d012617834a2c2dfb1d94f552c3cb1b7df25fafe8",
+      "reason": "excluded recipe or integration scenario"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/useless/UselessScaledPatternAccessor.java",
+      "sha256": "0448453c3ad34c74b07b1b5b047f11807510a1b3213c713aa70c1a50d26875cb",
+      "reason": "excluded recipe or integration scenario"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/useless/UselessSmartDoublingPlansMixin.java",
+      "sha256": "9d34f6eeacd5ceb69e643d622b3c34f4ba8904a0522515cf6540ff48f4c94fa0",
+      "reason": "excluded recipe or integration scenario"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/recipe/AppliedGeneratorsWorkstationRecipes.java",
+      "sha256": "08eba657467e68cf52e6c4b892dbebfc696764536d0e65f1e1a554e130421b05",
+      "reason": "excluded recipe or integration scenario"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/recipe/DataWorkstationRecipes.java",
+      "sha256": "212fc7fc4e428bfadc09f017ffac793af721d0813beca2f07f7ab80a44201f1b",
+      "reason": "excluded recipe or integration scenario"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/ae2cs_off.json",
+      "sha256": "27ba624209acda5c613e339de704ed4767e096ddad37a002fc238301aeb8d325",
+      "reason": "excluded workstation formed-model resource"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/ae2cs_on.json",
+      "sha256": "cd99f339bac04da6c5abccf9e3096b71b828c127c1840a72e409021f013b44a5",
+      "reason": "excluded workstation formed-model resource"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/appgen_off.json",
+      "sha256": "7c8f227a6b013fe5c308f9054e0c02819e58af2529dc3128176677f39c7520d6",
+      "reason": "excluded workstation formed-model resource"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/appgen_on.json",
+      "sha256": "a96215dd5f5d888a73bf9a5799b5d4759f6c2c85fa431ab296999c75a32a57e9",
+      "reason": "excluded workstation formed-model resource"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/data_energistics_off.json",
+      "sha256": "2a5d6f5217f1551de7fe30854ad66dc1f4dec0388d3786c1c2f246f7dd06b99e",
+      "reason": "excluded workstation formed-model resource"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/data_energistics_on.json",
+      "sha256": "4172f964d2773eae1e6c5a34517ebeaa32a3907fc70882d9b46e24894175eea1",
+      "reason": "excluded workstation formed-model resource"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/other_off.json",
+      "sha256": "97b43c6e7092b1c683d3607561a8b5e1bc2da0e6f760159958755ffc1599b5a0",
+      "reason": "excluded workstation formed-model resource"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/other_on.json",
+      "sha256": "6631030a3b41920590eb4319b37344b5d7ff6c37b4fe3e2b211d740bdeac8ec4",
+      "reason": "excluded workstation formed-model resource"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/item/structure_terminal.json",
+      "sha256": "84a1e49f99da2dad06570e4443a604ff3e7d5cc92bbeed424dcfdfb05db30b8f",
+      "reason": "duplicate structure-terminal model; the identical generated model and datagen registration remain"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/screens/multiblock_builder.json",
+      "sha256": "703f85a18075f9e071f3ec9fd966c472f0601dec4707fe2824c3cee4d7b6ee63",
+      "reason": "removed machine-only auto-build window"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/ae2cs.png",
+      "sha256": "fbedd209f1c73fbb3f54042a1d256cdc005e5df781c96593372ac015df3a027b",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/ae2cs_on.png",
+      "sha256": "3061f7a9ea6748752de33a8d1abcc9549cc23ec4026b8645a5d9102e2a085dc8",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/ae2cs_on.png.mcmeta",
+      "sha256": "e48650ce7bd361c54d60f6ecd9f7aba9a3006c01f2b034b2a61156a8d1cc422c",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/appgen.png",
+      "sha256": "7c8d303d5bd21db19e940ef2a5c41c13f88e558623b08facd4419e765b2590bc",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/appgen_on.png",
+      "sha256": "6fbd2fbd34960e105dc06f6923c340d031f374ec668f58cad45e44f7040f3ca6",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/appgen_on.png.mcmeta",
+      "sha256": "ddb055cecbe849c90ba7bc105d62f768a626f8bb829da5339b5922ddf8078162",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/data_energistics.png",
+      "sha256": "7832d3455fe9a3aebb4197b361cbcaf3a54fba5f988abc9b58cd6dc541122edd",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/data_energistics_on.png",
+      "sha256": "65eb169fee0017071c818e9a2c241db5642e3ec004303decf686ab8120c75b77",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/data_energistics_on.png.mcmeta",
+      "sha256": "e48650ce7bd361c54d60f6ecd9f7aba9a3006c01f2b034b2a61156a8d1cc422c",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/other.png",
+      "sha256": "be0cfc57a46450f21b665e3aac8266a1a1445e1220d4586287917889390555b6",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/other_on.png",
+      "sha256": "44cfb1c2be1a7a75aed38d562c16dd2fdda4cbcd30bf3ec6bdb4bb54ad9b64bb",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/other_on.png.mcmeta",
+      "sha256": "e48650ce7bd361c54d60f6ecd9f7aba9a3006c01f2b034b2a61156a8d1cc422c",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/ae2cs_on.png",
+      "sha256": "ca768a25a61deb44849207f91f9f1ca739045b89dfeab6691ca1b82dd52f0a7d",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/ae2cs_on.png.mcmeta",
+      "sha256": "8c981625013bdadda08bee64022861690c56324affc4dd282eda0aaeb267ab79",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/appgen_on.png",
+      "sha256": "b9a497ccb109a85ea4dbe103a99560d4b6e308f873a02fdb10825d9c1420204b",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/appgen_on.png.mcmeta",
+      "sha256": "1e2a5d1c6b3806186d24e8371d1ae410eb5ec5cd4eb0e08159e9b9b625df8ac4",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/data_energistics_on.png",
+      "sha256": "28fcf0c5c015bde38d720b3c89501483fecf296a13bd63e81cb3be3f2957043d",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/data_energistics_on.png.mcmeta",
+      "sha256": "8c981625013bdadda08bee64022861690c56324affc4dd282eda0aaeb267ab79",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/other_on.png",
+      "sha256": "e92cfb2c93546d0e9e6be4991df5a5f6f20ea8a2248d2f15b7aa26d8a3c73e61",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/other_on.png.mcmeta",
+      "sha256": "8c981625013bdadda08bee64022861690c56324affc4dd282eda0aaeb267ab79",
+      "reason": "excluded workstation-specific formed artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/item/integrated_working_station_modules/ae2cs.png",
+      "sha256": "b869bde12058dfe770d8d8589dee0c1d9302dbc899b030b01ce1c6853210e8e7",
+      "reason": "excluded workstation module artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/item/integrated_working_station_modules/appgen.png",
+      "sha256": "4b80680112dcd738453a46bc0bc2e44a96421a02877bd86a4cfe0e340741cf24",
+      "reason": "excluded workstation module artwork"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/textures/item/integrated_working_station_modules/data_energistics.png",
+      "sha256": "e37abc2fbeaf474713b1b75fa732639c0367353cb488895529901fc60a6123f3",
+      "reason": "excluded workstation module artwork"
+    },
+    {
+      "path": "src/main/resources/data/neoecoae/recipe/large_integrated_working_station/integrated_working_station_module_ae2cs.json",
+      "sha256": "0449ade37e1b1eefacd3c57ae949e39748e185c548a4c1384fb709c1dcd8e19a",
+      "reason": "excluded workstation upgrade-card resource/recipe"
+    },
+    {
+      "path": "src/main/resources/data/neoecoae/recipe/large_integrated_working_station/integrated_working_station_module_appgen.json",
+      "sha256": "84f4a2a60d7ebb19b81f35c6a4b97b4156d7435d43096e5627a826ab95157367",
+      "reason": "excluded workstation upgrade-card resource/recipe"
+    },
+    {
+      "path": "src/main/resources/data/neoecoae/recipe/large_integrated_working_station/integrated_working_station_module_data_energistics.json",
+      "sha256": "d799ead25ff8127570fb81558e0f70d8b74383caed8958fa031f8e038a2d0b6b",
+      "reason": "excluded workstation upgrade-card resource/recipe"
+    },
+    {
+      "path": "src/main/resources/neoecoae.compat.ae2omnicells.mixins.json",
+      "sha256": "2e05b34e6d8e3893d9b8282eb9860d5d6db7502d7a009c981547936e1feb6f75",
+      "reason": "excluded addon Mixin config"
+    },
+    {
+      "path": "src/main/resources/neoecoae.compat.appbot.mixins.json",
+      "sha256": "ee965707979673d63cdd6b773c4abdea8158c75f042da013e4af2f187150123e",
+      "reason": "excluded addon Mixin config"
+    },
+    {
+      "path": "src/main/resources/neoecoae.compat.fluxnetworks.mixins.json",
+      "sha256": "9b93f2d3c216077f38cfd8efe7f58e3aaa9fd73498c3b59c0291ba7700df9f28",
+      "reason": "excluded addon Mixin config"
+    },
+    {
+      "path": "src/main/resources/neoecoae.compat.omnisequence.mixins.json",
+      "sha256": "b2894205b20c9a9a86a2a2b62f73150ed379f6b9f20319e34e72906fb4f3dc5f",
+      "reason": "excluded addon Mixin config"
+    },
+    {
+      "path": "src/main/resources/neoecoae.compat.useless_mod.mixins.json",
+      "sha256": "8e25605279b1f53ebd533f5acfce87822ac2258ba7c8b5229b8277839392c845",
+      "reason": "excluded addon Mixin config"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/compat/mekenergistics/ECOMekEnergisticsBatchCapabilityTest.java",
+      "sha256": "e8cf621e6622dee8d5d9e056be35170cce16b139c0c8e02055fa1c559621a555",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/compat/omnisequence/ECOOmniSequenceBatchAdapterTest.java",
+      "sha256": "2a0de49061d27bff08a04b3a78c86d91cd95adc74f43b44f224c2fe634260d3e",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/compat/omnisequence/ECOOmniSequenceDirectDispatchTest.java",
+      "sha256": "140421f96c2dce125b6828332c2dad4552c9ba3c2b67277b55296204ae33c84a",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/compat/useless/ECOUselessBigIntegerDispatchTest.java",
+      "sha256": "cf321af99bef940f56c4daaaba6d75a731c4cb96b5fef8f4e8d53ecf6c2a5c5e",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/compat/useless/ECOUselessExactCraftingDispatchTest.java",
+      "sha256": "6bec5c3c4bc4263ddcbbf6bb20aaad97490dbaa5dbff7449e0c8172898ea29b2",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/compat/useless/NeoEcoLegacyCpuCompatibilityTest.java",
+      "sha256": "481bcb9cd618f32b7a67d9eb49e744f4e679fbf5b5294f9123cf9118dc75813a",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/compat/useless/UselessPatternPlanningTest.java",
+      "sha256": "ae32b558a9f1680a9d2b33ba72973f6daf39efb08095097c6ad5ab7ae00971ce",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2ResourcesTest.java",
+      "sha256": "35a96d88a2a688641a59cfd4877839194ae1e62af64e8281d64c4be2e380175a",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2SingularityPowerServiceTest.java",
+      "sha256": "b439d08954f5514c37401af5e21272ecfa042369bde1145ff9fc986d40b7c2bd",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/integration/biggerae2/BiggerAE2StorageTest.java",
+      "sha256": "e4ebdc149f02e800beed9b50dbaa418c72b6675008da95445881a8f854d30a70",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/integration/biggerae2/DigitalSingularityEnergyServiceMixinTest.java",
+      "sha256": "adcacb4eb3509474bb87fb9795eeb2050abe79a7310a8e731bc8d24d4c2339a9",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/integration/dataenergistics/ECODataStorageCellTest.java",
+      "sha256": "0e7d78562c4701034636fbc2098c9d317743d942dd31f901eb6fa2c625da450e",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/integration/megacells/backend/ECOMegaLongBulkStorageCellTest.java",
+      "sha256": "0523c54069d348e38583d6d57ed0814c96b38aa60a1a54950b9e90796df1fa6b",
+      "reason": "excluded addon implementation or focused test"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/mixins/compat/useless/UselessSmartDoublingPlansMixinTest.java",
+      "sha256": "bd47e05ab5e7ac3d26267e57c234c1e2f33c225416de633f55c9c82f03b8ba19",
+      "reason": "excluded recipe or integration scenario"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/recipe/AppliedGeneratorsWorkstationRecipeTest.java",
+      "sha256": "1484f6f76b5b62588fd13354810aec040a31148ca33caf53379bb852ba48d1ff",
+      "reason": "excluded recipe or integration scenario"
+    },
+    {
+      "path": "src/test/java/cn/dancingsnow/neoecoae/recipe/DataWorkstationRecipeTest.java",
+      "sha256": "ee2a967a9e08f1a0f1083489b1265d12bcf71ca42a15fec9e41a2920ed6d5b48",
+      "reason": "excluded recipe or integration scenario"
+    },
+    {
+      "path": "src/test/java/com/beipuo/mekenergistics/blockentity/api/MeAeSupportOwner.java",
+      "sha256": "de10eac81c91fcb779e83e91d5814a5e4802fb15b981ddbf5fd47037b2dc2b3c",
+      "reason": "excluded addon test fixture"
+    },
+    {
+      "path": "src/test/java/com/beipuo/mekenergistics/blockentity/support/AbstractMeAeSupport.java",
+      "sha256": "7e2ca82182fcc63192e99d5a068adaafb9cb16ad5794f44e0ba2c213f790f531",
+      "reason": "excluded addon test fixture"
+    }
+  ],
+  "retained_preview_infrastructure": [
+    "integration/emi/",
+    "integration/jei/",
+    "integration/xei/",
+    "integration/ldlib/"
+  ],
+  "pending_source_boundaries": [],
+  "post_review_removed_mixins": [
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CellWorkbenchMenuMixin.java",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/CellWorkbenchBlockEntityMixin.java"
+  ],
+  "resource_followup_complete": true,
+  "resource_rewrites": [
+    {
+      "path": "src/generated/resources/assets/neoecoae/blockstates/integrated_working_station.json",
+      "before_sha256": "3e5ff107930d22fcd14dc6f5a70edcf6a35b34e109cc8b086fbdccb5806ca72c",
+      "after_sha256": "4dad2247e16cfbf9f7fa897af92eddf07958162f4ab8a4aeffbbaed602c99f54",
+      "removed_variants": 64
+    }
+  ]
+}

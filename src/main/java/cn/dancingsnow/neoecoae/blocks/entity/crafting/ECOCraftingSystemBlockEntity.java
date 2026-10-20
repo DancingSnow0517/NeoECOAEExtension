@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
@@ -29,7 +31,6 @@ import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingControllerPanelState;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
-import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -43,10 +44,10 @@ import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
+import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
+import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -69,13 +70,13 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluster, ECOCraftingSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IGridTickable, MultiBlockBuildController.Host {
+    implements NEManagedBlockEntity, IGridTickable, MultiBlockBuildController.Host {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
@@ -376,7 +377,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             return 0;
         }
         double overflowRatio = (double) overflow / (double) threadCount;
-        return (int) Math.clamp(Math.round(overflowRatio / 0.05D), 0L, MAX_OVERCLOCK_TIMES);
+        return (int) JdkCompat.clamp(Math.round(overflowRatio / 0.05D), 0L, MAX_OVERCLOCK_TIMES);
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
@@ -864,12 +865,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement buildWindow = buildPanel(holder);
-
         CraftingHostPanelUI.Config panelConfig = createCraftingPanelConfig(holder.player);
         UIElement root = CraftingHostPanelUI.create(panelConfig,
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/crafting_system.md"),
-            MultiblockBuilderUI.createInlineOpenButton(buildWindow), buildWindow, this::getMaintenanceStatusTooltip, this::getTier);
+            this::getMaintenanceStatusTooltip, this::getTier);
         return ECOModularUI.create(root, holder.player);
     }
 
@@ -1192,7 +1191,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         if (level != null) {
             return level.registryAccess();
         }
-        return net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer()
+        return net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer()
             .getServerResources()
             .managers()
             .fullRegistries()
@@ -1217,21 +1216,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         }
         var network = cluster.getNetworkCluster();
         return network != null ? network.collectCandidateWorkers() : cluster.getWorkers();
-    }
-
-    private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
-        return MultiblockBuilderUI.createFloatingPanel(new MultiblockBuilderUI.Config(
-            holder.player,
-            () -> selectedBuildLength,
-            () -> mirrorBuild,
-            mirror -> buildController.setMirrorBuild(holder.player, mirror),
-            () -> buildController.decreaseBuildLength(holder.player),
-            () -> buildController.increaseBuildLength(holder.player),
-            () -> buildController.autoBuild(holder.player),
-            () -> formed,
-            () -> buildInProgress,
-            buildController::createLocalPreviewPlan
-        ));
     }
 
     @Override

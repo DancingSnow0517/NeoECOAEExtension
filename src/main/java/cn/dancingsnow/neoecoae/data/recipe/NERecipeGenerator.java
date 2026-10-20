@@ -7,7 +7,6 @@ public class NERecipeGenerator {
         EcoMachineRecipes.init(provider);
         CoolingRecipes.init(provider);
 
-        MekanismRecipes.init(provider);
         EAERecipes.init(provider);
         AAERecipes.init(provider);
     }

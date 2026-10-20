@@ -44,7 +44,7 @@ import net.minecraft.world.item.SmithingTemplateItem;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.neoforged.neoforge.common.Tags;
+import net.minecraftforge.common.Tags;
 
 import java.util.List;
 
@@ -55,20 +55,20 @@ public class NEItems {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
 
+    public static final ItemEntry<cn.dancingsnow.neoecoae.items.StructureTerminalItem> STRUCTURE_TERMINAL = REGISTRATE
+        .item("structure_terminal", cn.dancingsnow.neoecoae.items.StructureTerminalItem::new)
+        .lang("Structure Terminal")
+        .model((ctx, provider) -> provider.generated(ctx::get, provider.modLoc("item/structure_terminal")))
+        .register();
+
     public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_EMPTY = workstationModule(
         "empty", "Blank Integrated Working Station Upgrade Card");
     public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_ADVANCED_AE = workstationModule(
         "advanced_ae", "AdvancedAE Integrated Working Station Upgrade Card");
     public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_EXTENDEDAE = workstationModule(
         "extendedae", "ExtendedAE Integrated Working Station Upgrade Card");
-    public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_AE2CS = workstationModule(
-        "ae2cs", "AE2 Crystal Science Integrated Working Station Upgrade Card");
     public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_AELT = workstationModule(
         "aelt", "AE2 Lightning Tech Integrated Working Station Upgrade Card");
-    public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_DATA_ENERGISTICS = workstationModule(
-        "data_energistics", "Data Energistics Integrated Working Station Upgrade Card");
-    public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_APPGEN = workstationModule(
-        "appgen", "Applied Generators Integrated Working Station Upgrade Card");
 
     private static ItemEntry<Item> workstationModule(String variant, String name) {
         return REGISTRATE.item("integrated_working_station_module_" + variant, Upgrades::createUpgradeCardItem)
@@ -246,14 +246,14 @@ public class NEItems {
             REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.base_slot_description"), "Add Aluminum weapon, or tool"),
             REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.additions_slot_description"), "Add Aluminum Alloy Ingot"),
             List.of(
-                ResourceLocation.withDefaultNamespace("item/empty_slot_hoe"),
-                ResourceLocation.withDefaultNamespace("item/empty_slot_axe"),
-                ResourceLocation.withDefaultNamespace("item/empty_slot_sword"),
-                ResourceLocation.withDefaultNamespace("item/empty_slot_shovel"),
-                ResourceLocation.withDefaultNamespace("item/empty_slot_pickaxe")
+                new ResourceLocation("item/empty_slot_hoe"),
+                new ResourceLocation("item/empty_slot_axe"),
+                new ResourceLocation("item/empty_slot_sword"),
+                new ResourceLocation("item/empty_slot_shovel"),
+                new ResourceLocation("item/empty_slot_pickaxe")
             ),
             List.of(
-                ResourceLocation.withDefaultNamespace("item/empty_slot_ingot")
+                new ResourceLocation("item/empty_slot_ingot")
             )
         ))
         .recipe((ctx, prov) -> {
@@ -358,14 +358,14 @@ public class NEItems {
             REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.base_slot_description"), "Add Tungsten weapon, or tool"),
             REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.additions_slot_description"), "Add Black Tungsten Alloy Ingot"),
             List.of(
-                ResourceLocation.withDefaultNamespace("item/empty_slot_hoe"),
-                ResourceLocation.withDefaultNamespace("item/empty_slot_axe"),
-                ResourceLocation.withDefaultNamespace("item/empty_slot_sword"),
-                ResourceLocation.withDefaultNamespace("item/empty_slot_shovel"),
-                ResourceLocation.withDefaultNamespace("item/empty_slot_pickaxe")
+                new ResourceLocation("item/empty_slot_hoe"),
+                new ResourceLocation("item/empty_slot_axe"),
+                new ResourceLocation("item/empty_slot_sword"),
+                new ResourceLocation("item/empty_slot_shovel"),
+                new ResourceLocation("item/empty_slot_pickaxe")
             ),
             List.of(
-                ResourceLocation.withDefaultNamespace("item/empty_slot_ingot")
+                new ResourceLocation("item/empty_slot_ingot")
             )
         ))
         .recipe((ctx, prov) -> {

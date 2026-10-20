@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEnti
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import appeng.hooks.ticking.TickHandler;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.Collections;

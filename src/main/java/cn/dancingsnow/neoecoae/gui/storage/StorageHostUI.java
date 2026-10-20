@@ -26,7 +26,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 /** The existing JSON loader owns the host's geometry and element tree. */
@@ -34,7 +34,7 @@ public final class StorageHostUI {
     public static final int ROOT_WIDTH = 253;
     public static final int ROOT_HEIGHT = 231;
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/storage/storage_controller");
+        new ResourceLocation("neoecoae", "screens/storage/storage_controller");
 
     private StorageHostUI() {}
 

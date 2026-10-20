@@ -7,7 +7,7 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.orientation.BlockOrientation;
-import appeng.blockentity.grid.AENetworkedBlockEntity;
+import appeng.blockentity.grid.AENetworkBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.helpers.BlockEntityNodeListener;
 import appeng.me.helpers.IGridConnectedBlockEntity;
@@ -16,7 +16,8 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
-import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
+import com.lowdragmc.lowdraglib.networking.s2c.SPacketManagedPayload;
+import com.lowdragmc.lowdraglib.syncdata.blockentity.IAutoSyncBlockEntity;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -39,7 +40,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
-    extends AENetworkedBlockEntity implements IAEMultiBlock<C> {
+    extends AENetworkBlockEntity implements IAEMultiBlock<C> {
 
     private static final IGridNodeListener<NEBlockEntity<?, ?>> NODE_LISTENER =
         new BlockEntityNodeListener<>() {
@@ -205,12 +206,31 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
      * here so clients receive cell, multiblock and orientation data before section geometry is built.
      */
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        CompoundTag tag = super.getUpdateTag(registries);
-        if (this instanceof ISyncMangedHolder syncManagedHolder) {
-            tag.put(syncManagedHolder.getSyncTag(), syncManagedHolder.serializeInitialData(registries));
+    public CompoundTag getUpdateTag() {
+        CompoundTag tag = super.getUpdateTag();
+        if (this instanceof IAutoSyncBlockEntity managed) {
+            tag.put(managed.getSyncTag(), cn.dancingsnow.neoecoae.platform.sync.ManagedInitialSync.write(managed));
         }
         return tag;
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities.revive(this);
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        // AE2 15 only reads its stream tag when #upd is the sole entry. Decode both protocols explicitly.
+        if (this instanceof IAutoSyncBlockEntity managed && tag.contains(managed.getSyncTag(), 10)) {
+            new SPacketManagedPayload(tag.getCompound(managed.getSyncTag())).processPacket(managed);
+            CompoundTag aeTag = tag.copy();
+            aeTag.remove(managed.getSyncTag());
+            super.handleUpdateTag(aeTag);
+        } else {
+            super.handleUpdateTag(tag);
+        }
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {

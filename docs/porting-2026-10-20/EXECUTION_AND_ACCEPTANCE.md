@@ -1,5 +1,7 @@
 # 分阶段实施、工作量与验收计划
 
+> 实施已经开始。本文保留 2026-10-20 初始调查时的计划与验收要求；文中的“没有实施”“尚无任务”等描述只反映调查快照，当前实施与验证状态以 [IMPLEMENTATION_PROGRESS.md](IMPLEMENTATION_PROGRESS.md) 为准。`evidence/` 不随实施重写。
+
 调查日期：**2026-10-20（Asia/Shanghai）**。移植主体源为远端 main `dc8344f48ee866e57e02c285fdda5e0fb5da9421`，另保留用户明确要求的 **1.20.1 结构终端**。范围为 **核心 + ExtendedAE + AdvancedAE + ExtendedAE Plus + AE2LT**；前置库随对应附属进入环境。大集成仅常规、AAE、EAE、AE2LT 四种，机器 UI 移除自动搭建按钮。本文件是未来实施清单，**本次没有实施移植、编译目标 Mod 或启动目标游戏**。
 
 ## 1. 输入、目录和范围冻结

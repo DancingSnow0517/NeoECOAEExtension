@@ -9,13 +9,13 @@ import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountClientCache;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
 
 final class MenuDataCodecs {
     private MenuDataCodecs() {}
 
-    static void receive(Player player, MenuDataTransport.Channel channel, RegistryFriendlyByteBuf buf) {
+    static void receive(Player player, MenuDataTransport.Channel channel, FriendlyByteBuf buf) {
         var menu = player.containerMenu;
         switch (channel) {
             case TERMINAL -> {

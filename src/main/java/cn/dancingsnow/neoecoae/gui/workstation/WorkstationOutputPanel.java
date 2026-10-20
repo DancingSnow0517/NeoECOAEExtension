@@ -36,7 +36,7 @@ import net.minecraft.world.item.ItemStack;
 final class WorkstationOutputPanel {
     private WorkstationOutputPanel() {}
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/output_panel");
+        new ResourceLocation("neoecoae", "screens/workstation/output_panel");
     static Button createOpenButton(UIElement allowOutputWindow) {
         Button button = HostSideButtonBar.createButton()
             .noText()

@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.util;
 
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
-import net.neoforged.fml.loading.LoadingModList;
+import net.minecraftforge.fml.loading.LoadingModList;
 
 import java.util.List;
 

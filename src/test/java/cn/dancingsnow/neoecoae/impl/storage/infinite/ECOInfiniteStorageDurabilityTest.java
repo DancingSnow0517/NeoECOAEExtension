@@ -25,7 +25,7 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.common.IOUtilities;
+import net.minecraftforge.common.IOUtilities;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,7 +42,7 @@ class ECOInfiniteStorageDurabilityTest {
 
         @Override
         public AEKey decode(CompoundTag tag) {
-            return BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(tag.getString("item")))
+            return BuiltInRegistries.ITEM.getOptional(new ResourceLocation(tag.getString("item")))
                     .map(AEItemKey::of).orElse(null);
         }
     };

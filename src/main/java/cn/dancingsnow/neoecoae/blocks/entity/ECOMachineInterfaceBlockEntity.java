@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.orientation.BlockOrientation;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.inventories.InternalInventory;
@@ -40,12 +42,12 @@ import cn.dancingsnow.neoecoae.gui.storage.StorageInterfaceUI;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.RPCMethod;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.rpc.RPCSender;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
+import com.lowdragmc.lowdraglib.syncdata.annotation.RPCMethod;
+import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
+import com.lowdragmc.lowdraglib.syncdata.rpc.RPCSender;
+import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -62,7 +64,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
@@ -79,7 +81,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost {
+    implements NEManagedBlockEntity, InternalInventoryHost {
     private static final int PATTERN_TRANSFER_SAFETY_LIMIT_PER_TICK = 256;
     private static final int PATTERN_ORGANIZE_SAFETY_LIMIT_PER_TICK = 256;
     public static final int FUZZY_PLANNING_SLOT_COUNT = 63;
@@ -155,7 +157,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     @Override
-    public synchronized void writeCustomSyncData(HolderLookup.Provider provider, CompoundTag tag) {
+    public synchronized void writeCustomSyncData(CompoundTag tag) {
         // LDLib2's DirectArrayRef can expose a partially rebuilt element-ref array while a dynamically sized
         // primitive array is replaced. Serialize both mapping arrays as one custom snapshot instead.
         tag.putLongArray(PATTERN_BUS_POSITIONS_SYNC_KEY, patternBusPositions);
@@ -163,7 +165,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     @Override
-    public synchronized void readCustomSyncData(HolderLookup.Provider provider, CompoundTag tag) {
+    public synchronized void readCustomSyncData(CompoundTag tag) {
         long[] positions = tag.getLongArray(PATTERN_BUS_POSITIONS_SYNC_KEY);
         int[] slotCounts = tag.getIntArray(PATTERN_BUS_SLOT_COUNTS_SYNC_KEY);
         if (positions.length != slotCounts.length) {
@@ -652,7 +654,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (patternOrganizeTotalSlots <= 0) {
                 return 1.0F;
             }
-            return Math.clamp(
+            return JdkCompat.clamp(
                     (float) patternOrganizeScannedSlots / patternOrganizeTotalSlots,
                     0.0F,
                     1.0F);
@@ -660,7 +662,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (patternTransferTotalSlots <= 0) {
             return patternTransferInProgress ? 0.0F : 1.0F;
         }
-        return Math.clamp((float) patternTransferScannedSlots / patternTransferTotalSlots, 0.0F, 1.0F);
+        return JdkCompat.clamp((float) patternTransferScannedSlots / patternTransferTotalSlots, 0.0F, 1.0F);
     }
 
     private int getPatternTransferProgressPercent() {

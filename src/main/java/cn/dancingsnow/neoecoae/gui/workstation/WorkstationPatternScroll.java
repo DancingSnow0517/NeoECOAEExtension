@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 /** Pixel offsets for the workstation's pattern viewport, independent of frame rate and row boundaries. */
 public final class WorkstationPatternScroll {
     public static final int COLUMNS = 9;
@@ -59,6 +61,6 @@ public final class WorkstationPatternScroll {
     }
 
     private double clamp(double pixels) {
-        return Double.isFinite(pixels) ? Math.clamp(pixels, 0, maximum) : 0;
+        return Double.isFinite(pixels) ? JdkCompat.clamp(pixels, 0, maximum) : 0;
     }
 }

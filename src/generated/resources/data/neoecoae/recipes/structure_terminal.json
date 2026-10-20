@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "C": {
+      "item": "neoecoae:crystal_matrix"
+    },
+    "E": {
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    "I": {
+      "tag": "forge:ingots/iron"
+    },
+    "R": {
+      "tag": "forge:dusts/redstone"
+    }
+  },
+  "pattern": [
+    " R ",
+    "ICI",
+    " E "
+  ],
+  "result": {
+    "item": "neoecoae:structure_terminal"
+  },
+  "show_notification": true
+}

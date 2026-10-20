@@ -41,7 +41,7 @@ class LargeWorkstationPatternInventoryTest {
         var itemField = ItemDefinition.class.getDeclaredField("item");
         itemField.setAccessible(true);
         originalCapacityItem = itemField.get(AEItems.CAPACITY_CARD);
-        var deferred = mock(net.neoforged.neoforge.registries.DeferredItem.class);
+        var deferred = mock(net.minecraftforge.registries.DeferredItem.class);
         when(deferred.get()).thenReturn(Items.PAPER);
         when(deferred.asItem()).thenReturn(Items.PAPER);
         itemField.set(AEItems.CAPACITY_CARD, deferred);

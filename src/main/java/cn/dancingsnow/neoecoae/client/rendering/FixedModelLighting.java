@@ -12,12 +12,12 @@ import net.minecraft.client.renderer.block.model.FaceBakery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.QuadTransformers;
-import net.neoforged.neoforge.client.model.IQuadTransformer;
-import net.neoforged.neoforge.client.model.lighting.FlatQuadLighter;
-import net.neoforged.neoforge.client.model.lighting.QuadLighter;
-import net.neoforged.neoforge.client.model.lighting.SmoothQuadLighter;
-import net.neoforged.neoforge.client.model.pipeline.VertexConsumerWrapper;
+import net.minecraftforge.client.model.QuadTransformers;
+import net.minecraftforge.client.model.IQuadTransformer;
+import net.minecraftforge.client.model.lighting.FlatQuadLighter;
+import net.minecraftforge.client.model.lighting.QuadLighter;
+import net.minecraftforge.client.model.lighting.SmoothQuadLighter;
+import net.minecraftforge.client.model.pipeline.VertexConsumerWrapper;
 import org.joml.Matrix4f;
 
 import java.util.IdentityHashMap;

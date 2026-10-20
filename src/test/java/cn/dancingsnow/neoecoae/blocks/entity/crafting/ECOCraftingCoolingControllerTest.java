@@ -6,8 +6,8 @@ import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -169,7 +169,7 @@ class ECOCraftingCoolingControllerTest {
 
     @Test
     void registeredCustomCoolantCanRefillAndFundVirtualExecution() {
-        var id = ResourceLocation.parse("minecraft:water");
+        var id = new ResourceLocation("minecraft:water");
         ECOVirtualCraftingCoolantRegistry.register(id);
         try {
             when(host.usesTickBasedCoolant()).thenReturn(true);
@@ -192,7 +192,7 @@ class ECOCraftingCoolingControllerTest {
 
     @Test
     void registrationChangesApplyToBufferedCoolantWithoutMixingDifferentFluids() {
-        var id = ResourceLocation.parse("minecraft:water");
+        var id = new ResourceLocation("minecraft:water");
         when(host.usesTickBasedCoolant()).thenReturn(true);
         when(host.isLocallyActiveCooling()).thenReturn(true);
         amount = 20000;

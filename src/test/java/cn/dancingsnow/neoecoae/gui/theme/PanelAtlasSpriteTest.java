@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -67,7 +67,7 @@ class PanelAtlasSpriteTest {
                 var cached = assertInstanceOf(PanelAtlasSprite.class, NETextures.panelSprite(original)
                     .setSprite(7, 11, 29, 4).setBorder(1, 0, 1, 0).setColor(0xFFAABBCC).copy());
                 assertEquals(original, cached.resolve().getImageLocation());
-                var replacement = ResourceLocation.fromNamespaceAndPath("addon", "textures/gui/" + atlas.getValue());
+                var replacement = new ResourceLocation("addon", "textures/gui/" + atlas.getValue());
                 assertTrue(provider.get().addResource(atlas.getKey(), SpriteTexture.of(replacement)));
                 SpriteTexture resolved = cached.resolve();
                 assertEquals(replacement, resolved.getImageLocation());

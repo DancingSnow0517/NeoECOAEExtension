@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
@@ -22,7 +24,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 /** Assembles the controller UI; drawing, transport and events have dedicated components. */
 public final class CraftingHostPanelUI {
@@ -30,7 +32,7 @@ public final class CraftingHostPanelUI {
     public static final int UI_HEIGHT = 214;
     /** Static geometry and element order for the controller panel. */
     private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_controller");
+        new ResourceLocation("neoecoae", "screens/crafting/crafting_controller");
     private CraftingHostPanelUI() {}
 
     public record Config(
@@ -148,21 +150,18 @@ public final class CraftingHostPanelUI {
         }
     }
 
-    public static UIElement create(Config config, UIElement guide, UIElement buildButton,
-                                   UIElement buildWindow, Supplier<Component> maintenanceStatus) {
-        return create(config, guide, buildButton, buildWindow, maintenanceStatus, () -> null);
+    public static UIElement create(Config config, UIElement guide, Supplier<Component> maintenanceStatus) {
+        return create(config, guide, maintenanceStatus, () -> null);
     }
 
-    public static UIElement create(Config config, UIElement guide, UIElement buildButton,
-        UIElement buildWindow, Supplier<Component> maintenanceStatus, Supplier<IECOTier> panelTier) {
+    public static UIElement create(Config config, UIElement guide,
+        Supplier<Component> maintenanceStatus, Supplier<IECOTier> panelTier) {
         UIElement root = create(config, panelTier);
         List<UIElement> buttons = new ArrayList<>();
         buttons.add(guide);
-        buttons.add(buildButton);
         buttons.addAll(createToolbarButtons(config));
         root.addChild(HostSideButtonBar.grayLeft(buttons.toArray(UIElement[]::new)));
         root.addChild(createMaintenanceStatusIcon(maintenanceStatus));
-        root.addChild(buildWindow);
         return root;
     }
 
@@ -179,6 +178,6 @@ public final class CraftingHostPanelUI {
     }
 
     public static int formatRecipeTimeTicks(int effectiveOverclockTimes) {
-        return (int) Math.ceil(10.0D / (Math.clamp(effectiveOverclockTimes, 0, 9) + 1));
+        return (int) Math.ceil(10.0D / (JdkCompat.clamp(effectiveOverclockTimes, 0, 9) + 1));
     }
 }

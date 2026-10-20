@@ -18,7 +18,7 @@ public final class AE2PatternOptimizationIntegration {
     public static synchronized void init() {
         if (initialized) return;
         ECOExecutionOptimizationRegistry.register(
-            ResourceLocation.fromNamespaceAndPath("neoecoae", "ae2_assembler"), 0,
+            new ResourceLocation("neoecoae", "ae2_assembler"), 0,
             new ECOExecutionOptimizationAdapter() {
                 @Override
                 public boolean supports(IPatternDetails pattern) {

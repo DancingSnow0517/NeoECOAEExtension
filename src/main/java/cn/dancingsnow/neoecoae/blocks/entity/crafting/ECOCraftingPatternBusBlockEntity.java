@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
@@ -37,16 +39,15 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRe
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternBusUI;
-import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
+import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
+import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,13 +63,13 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
+    implements NEManagedBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
     AuxiliaryPatternHolder, PatternStorageHost, ECOFastPathDispatchProvider, EcoFastpathHost,
     ECOJobAwareCraftingProvider {
 
@@ -100,181 +101,13 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @DescSynced
     private int patternContentRevision;
 
-    // ---- auxiliary pattern containers (pattern disks and the like) ------------------------------------
-
-    /**
-     * The disk holder over this bus's pattern slots, built on first use.
-     *
-     * <p>Not a field initialiser: the slots it reads belong to this block entity, and asking before it is ready
-     * would hold a holder over nothing. Every method on it goes through {@link PatternDiskSupport}, which
-     * answers "no disks" when the mod that provides them is absent or has not installed its backend yet -
-     * which is the answer this bus gave before it knew about disks at all.</p>
-     */
-    @Nullable
-    private AuxiliaryPatternHolder diskHolder;
-
-    @Nullable
-    private AuxiliaryPatternHolder diskHolder() {
-        AuxiliaryPatternHolder current = diskHolder;
-        if (current == null && PatternDiskSupport.available()) {
-            current = PatternDiskSupport.holderFor(
-                    getPatternSlotInventory(),
-                    () -> getMainNode().getGrid(),
-                    this::getLevel);
-            diskHolder = current;
-        }
-        return current;
-    }
-
-    /**
-     * Change token for the auxiliary containers' contents.
-     *
-     * <p>Kept separate from {@link #getPatternContentRevision()} on purpose. That value drives the
-     * catalog's per-slot delta, and a disk rewriting its contents does not change which item occupies
-     * the slot. Folding one into the other would let a slot delta stamp a revision that already covers
-     * patterns the catalog has not indexed yet, and the index would then never catch up.</p>
-     */
-    public long getAuxiliaryRevision() {
-        AuxiliaryPatternHolder holder = diskHolder();
-        return holder == null ? 0L : holder.getAuxiliaryRevision();
-    }
-
-    /** Whether the bus can still take a pattern without spending a slot. */
-    public boolean hasAuxiliaryRoom() {
-        AuxiliaryPatternHolder holder = diskHolder();
-        return holder != null && holder.hasAuxiliaryRoom();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>This is what lets the catalog prefer a disk somewhere on the grid over a free slot on some
-     * other bus.</p>
-     */
-    @Override
-    public boolean canAcceptIntoAuxiliary(ItemStack pattern) {
-        return PatternDiskSupport.canAcceptAuxiliary(getPatternSlotInventory(), pattern, level);
-    }
-
-    @Override
-    public ECOPatternInsertionResult insertIntoAuxiliary(ItemStack pattern, @Nullable ECOPreparedPattern prepared) {
-        if (diskHolder() == null) {
-            return ECOPatternInsertionResult.NO_TARGET;
-        }
-        // The acceptance probe is deliberately not repeated here: callers only reach this after
-        // canAcceptIntoAuxiliary said yes for the same pattern, and probing again would re-decode every
-        // pattern on every disk a second time. A disk that changes its mind answers through the boolean
-        // below, which the caller already treats as "keep looking".
-        ECOPreparedPattern toStore = prepared != null ? prepared : preparePattern(pattern);
-        if (toStore == null) {
-            return ECOPatternInsertionResult.INCOMPATIBLE;
-        }
-        return PatternDiskSupport.insertAuxiliary(getPatternSlotInventory(), pattern, level)
-                ? ECOPatternInsertionResult.INSERTED
-                : ECOPatternInsertionResult.NO_TARGET;
-    }
-
-    /** Whether the pattern-disk support recognises {@code stack} as one of its containers. */
-    public boolean ownsAuxiliary(ItemStack stack) {
-        AuxiliaryPatternHolder holder = diskHolder();
-        return holder != null && holder.ownsAuxiliary(stack);
-    }
-
-    /** Store revision the cached auxiliary lists were derived from. */
-    private long auxiliaryDecodeRevision = Long.MIN_VALUE;
-
-    private List<IPatternDetails> auxiliaryPatternDetails = List.of();
-
-    private List<ItemStack> auxiliaryEncodedPatterns = List.of();
-
-    /**
-     * Derives the patterns the auxiliary containers contribute, cached against their revision.
-     *
-     * <p>A disk holds whatever the encoding terminal wrote to it, processing patterns included, but an
-     * ECO worker only runs molecular-assembler patterns. Advertising the rest would aim a crafting job at
-     * a route {@code pushPattern} then refuses. The filter also keeps the catalog's counts and the bus's
-     * advertised list over exactly the same set, so a pattern can never be counted as present yet be
-     * unusable.</p>
-     */
-    private void refreshAuxiliaryPatterns() {
-        AuxiliaryPatternHolder holder = diskHolder();
-        if (holder == null) {
-            auxiliaryPatternDetails = List.of();
-            auxiliaryEncodedPatterns = List.of();
-            return;
-        }
-        long revision = holder.getAuxiliaryRevision();
-        if (revision == auxiliaryDecodeRevision) {
-            return;
-        }
-        // One decode pass feeds both views, and the two lists stay index-aligned: the keyword list is built
-        // from the pairing, and the advertisement and the network index are read off the same pair.
-        //
-        // The filter is kept here rather than left to the decode: a disk holds whatever the encoding terminal
-        // wrote to it, processing patterns included, but an ECO worker only runs molecular-assembler patterns.
-        // Advertising the rest would aim a crafting job at a route pushPattern then refuses, and would also
-        // let a pattern be counted as present yet be unusable.
-        List<ItemStack> encoded = new ArrayList<>();
-        List<IPatternDetails> details = new ArrayList<>();
-        for (ItemStack pattern : holder.getAuxiliaryEncodedPatterns()) {
-            IPatternDetails decoded = PatternDetailsHelper.decodePattern(pattern, level);
-            if (decoded instanceof IMolecularAssemblerSupportedPattern) {
-                encoded.add(pattern);
-                details.add(decoded);
-            }
-        }
-        auxiliaryEncodedPatterns = encoded;
-        auxiliaryPatternDetails = details;
-        // Stamped last on purpose: a decoder that throws would otherwise leave the revision marked as
-        // already decoded, freezing the cache on the previous contents until the revision happens to move
-        // again.
-        auxiliaryDecodeRevision = revision;
-    }
-
-    /** Encoded patterns the auxiliary containers contribute to the network. */
-    public List<ItemStack> getAuxiliaryEncodedPatterns() {
-        refreshAuxiliaryPatterns();
-        return auxiliaryEncodedPatterns;
-    }
-
-    /**
-     * Search keywords for the auxiliary patterns, index-aligned with {@link #getAuxiliaryEncodedPatterns()}.
-     *
-     * <p>A terminal only finds a recipe through its keywords, so a pattern that reaches the list without them is
-     * visible under the unfiltered view and invisible to every search. The slot index keeps these per slot; the
-     * auxiliary list needs the same pairing, which is why the decode pass that produces both lists also feeds
-     * this one.</p>
-     */
-    public List<String> getAuxiliarySearchKeywords() {
-        refreshAuxiliaryPatterns();
-        List<String> keywords = new ArrayList<>(auxiliaryEncodedPatterns.size());
-        for (int index = 0; index < auxiliaryEncodedPatterns.size(); index++) {
-            IPatternDetails details = index < auxiliaryPatternDetails.size()
-                    ? auxiliaryPatternDetails.get(index)
-                    : null;
-            keywords.add(PatternSearchKeywords.build(
-                    auxiliaryEncodedPatterns.get(index), details));
-        }
-        return keywords;
-    }
-
-    /** Directional preview terms, built from the same revision-cached details as the advertised recipes. */
-    public List<PatternSearchKeywords.Directions> getAuxiliaryPatternSearchDirections() {
-        refreshAuxiliaryPatterns();
-        return auxiliaryPatternDetails.stream().map(PatternSearchKeywords::directions).toList();
-    }
-
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
-        refreshAuxiliaryPatterns();
-        if (auxiliaryPatternDetails.isEmpty()) {
-            return catalog.availablePatterns();
-        }
-        List<IPatternDetails> merged = new ArrayList<>(
-            catalog.availablePatterns().size() + auxiliaryPatternDetails.size());
-        merged.addAll(catalog.availablePatterns());
-        merged.addAll(auxiliaryPatternDetails);
-        return merged;
+        return catalog.availablePatterns();
+    }
+
+    public List<PatternSearchKeywords.Directions> getAuxiliaryPatternSearchDirections() {
+        return List.of();
     }
 
     @Override
@@ -538,55 +371,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
      */
     @Override
     public InternalInventory getTerminalPatternInventory() {
-        long revision = getAuxiliaryRevision();
-        PatternDiskSupport.TerminalView disks = diskTerminalView(revision);
-        if (terminalPatternInventory == null || revision != terminalViewRevision || terminalViewSource != disks) {
-            // A fresh view per revision, the same trade the disk-backed provider makes: a session already open
-            // keeps the instance it was handed and its row count stays frozen against it, while the next
-            // session gets one built for the disks as they are now. Handing out one long-lived view instead
-            // would freeze the row count for the whole life of the block entity, so a recipe written to a disk
-            // would not show up until the chunk was reloaded.
-            terminalViewRevision = revision;
-            terminalViewSource = disks;
-            terminalPatternInventory = new TerminalPatternInventory(disks);
-        }
-        return terminalPatternInventory;
-    }
-
-    /**
-     * The disk mod's view over this bus's disks, or {@code null} on the client and when it is absent.
-     *
-     * <p>The same call the workstation interface makes, over the same physical slots - so a recipe taken from
-     * one of these rows costs the player exactly what it costs there, and the mod's own take protocol (a guard
-     * that refuses to hand out a pattern the network cannot pay for) applies unchanged.</p>
-     */
-    @Nullable
-    private PatternDiskSupport.TerminalView diskTerminalView(long revision) {
-        if (!(level instanceof ServerLevel)) {
-            // A grid is a server concept, and the view charges it; the client has nothing to attach to.
-            return null;
-        }
-        PatternDiskSupport.TerminalView current = diskTerminalView;
-        if (current != null) {
-            if (diskTerminalViewRevision == revision) {
-                return current;
-            }
-            // The row layout is cached on the view's side, so a change has to be pushed into it.
-            current.invalidate();
-            diskTerminalViewRevision = revision;
-            return current;
-        }
-        current = PatternDiskSupport.terminalView(
-                getPatternSlotInventory(),
-                () -> getMainNode().getGrid(),
-                this,
-                this::saveChanges,
-                this::getLevel);
-        if (current != null) {
-            diskTerminalView = current;
-            diskTerminalViewRevision = revision;
-        }
-        return current;
+        return getPatternSlotInventory();
     }
 
     @Override
@@ -667,17 +452,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         ItemStack itemStack = prepared.stack();
         if (!knownUnique && containsPatternInCluster(itemStack)) {
             return ECOPatternInsertionResult.ALREADY_PRESENT;
-        }
-        // A pattern disk takes precedence over slot storage: the pattern is already being carried by the bus,
-        // and spending a slot on it would consume capacity for nothing.
-        if (PatternDiskSupport.canAcceptAuxiliary(getPatternSlotInventory(), itemStack, level)) {
-            if (PatternDiskSupport.insertAuxiliary(getPatternSlotInventory(), itemStack, level)) {
-                // No revision bump here: a disk is one of this bus's own slots, so writing to it notifies the
-                // inventory's host, and the catalog picks the change up from getAuxiliaryRevision().
-                return ECOPatternInsertionResult.INSERTED;
-            }
-            // The disk refused it after all; the slot inventory stays the fallback, exactly as if it had never
-            // been consulted.
         }
         return insertPreparedStack(prepared);
     }
@@ -965,7 +739,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (activePages != pages) {
             activePages = pages;
         }
-        currentPage = Math.clamp(currentPage, 0, activePages - 1);
+        currentPage = JdkCompat.clamp(currentPage, 0, activePages - 1);
         return activePages;
     }
 
@@ -976,7 +750,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
      * same physical slot on either side.</p>
      */
     private int visiblePage() {
-        return Math.clamp(currentPage, 0, getPageCount() - 1);
+        return JdkCompat.clamp(currentPage, 0, getPageCount() - 1);
     }
 
     public int getPatternSlotCount() {
@@ -985,7 +759,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     private void changePage(int targetPage) {
         int pageCount = getPageCount();
-        int clamped = Math.clamp(targetPage, 0, pageCount - 1);
+        int clamped = JdkCompat.clamp(targetPage, 0, pageCount - 1);
         if (clamped == visiblePage()) {
             return;
         }
@@ -995,184 +769,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     private static int clampPages(int pages) {
-        return Math.clamp(pages, NEConfig.PATTERN_BUS_MIN_PAGES, NEConfig.PATTERN_BUS_MAX_PAGES);
-    }
-
-    protected long terminalViewRevision = Long.MIN_VALUE;
-
-    /** The disk view handed to the terminal, kept until the disks move. */
-    @Nullable
-    private PatternDiskSupport.TerminalView diskTerminalView;
-
-    private long diskTerminalViewRevision = Long.MIN_VALUE;
-
-    /**
-     * 由取值器按 revision 懒建（见 {@code getTerminalPatternInventory}）。不能在字段初始化器里建：这份视图的
-     * 槽位数来自 {@code getPatternSlotCount()}，它经 {@code getPageCount()} 读 {@code catalog}，而 {@code catalog}
-     * 是构造器体里赋的——字段初始化器先于构造器体执行，于是拿到 null 直接 NPE（ECO 的 {@code onCommonSetup} 会
-     * 在 setup 期构造一次块实体，所以这是必崩路径）。懒建也让「槽位数冻在视图被建的那一刻」这句注释真正成立。
-     */
-    private TerminalPatternInventory terminalPatternInventory;
-
-    /** The disk view the current terminal inventory was built around; {@code null} when there is none. */
-    @Nullable
-    private PatternDiskSupport.TerminalView terminalViewSource;
-
-    protected final class TerminalPatternInventory extends BaseInternalInventory {
-
-        /**
-         * The slot count as it was when this view was built.
-         *
-         * <p>Fixed for the same reason the appended rows are: a pattern access terminal sizes its mirror from
-         * whatever the container reported when the session opened and then keeps indexing it against the
-         * container's current size, so a bus that grows a page mid-session walks off the end of that mirror. The
-         * page shows up from the next session on.</p>
-         */
-        private final int slotCount = getPatternSlotCount();
-
-        /**
-         * The disk rows, straight from the disk mod's own view, or {@code null} when it is absent.
-         *
-         * <p>Delegated rather than copied: taking one of these rows has to draw a blank pattern from the
-         * network and remove the recipe from its disk, and that accounting is the mod's. Handing out a copy
-         * instead would leave the mod's removal entry unmatched on the next rebuild - the player would keep the
-         * copy and the disk would keep the recipe - so a row is taken through the mod's own take path, which is
-         * the one that pays for it.
-         */
-        private final InternalInventory diskRows;
-
-        /** Display-only rows, for when there is no disk mod to serve them; frozen when first asked for. */
-        private List<ItemStack> appendedRows;
-
-        TerminalPatternInventory(@Nullable PatternDiskSupport.TerminalView disks) {
-            this.diskRows = disks == null ? null : disks.view();
-        }
-
-        private List<ItemStack> rows() {
-            if (appendedRows == null) {
-                // A subclass may return null to mean "append nothing", which is a reasonable thing to want and
-                // would otherwise fail here while a screen is being drawn.
-                List<ItemStack> fromSubclass = terminalAppendedRows();
-                appendedRows = fromSubclass == null ? List.of() : fromSubclass;
-            }
-            return appendedRows;
-        }
-
-        @Override
-        public int size() {
-            return slotCount + (diskRows == null ? rows().size() : diskRows.size());
-        }
-
-        @Override
-        public int getSlotLimit(int slot) {
-            return 1;
-        }
-
-        @Override
-        public ItemStack getStackInSlot(int slot) {
-            if (slot < 0) {
-                return ItemStack.EMPTY;
-            }
-            if (slot < slotCount) {
-                ItemStack stack = inventory.getStackInSlot(slot);
-                return ownsAuxiliary(stack) ? ItemStack.EMPTY : stack;
-            }
-            int index = slot - slotCount;
-            if (diskRows != null) {
-                // The mod's row answers the take path's pre-check itself: it reports empty while the network
-                // cannot pay the blank pattern, which is what aborts a take before anything is handed out.
-                return diskRows.getStackInSlot(index);
-            }
-            List<ItemStack> exposed = rows();
-            // A copy: the frozen list outlives this call, and handing out the live stack lets a caller writing to
-            // it corrupt every later read.
-            return index < exposed.size() ? exposed.get(index).copy() : ItemStack.EMPTY;
-        }
-
-        /**
-         * Whether a row is one the terminal shows but must not act on: a disk's slot, or an appended disk
-         * recipe. A hidden row reads as empty, so a write aimed at it replaces whatever is really there -
-         * clicking the blank row where a disk sits would delete the disk and every recipe on it.
-         */
-        private boolean hidden(int slot) {
-            return slot < 0 || slot >= slotCount || ownsAuxiliary(inventory.getStackInSlot(slot));
-        }
-
-        /**
-         * Extraction reaches the terminal through the slot view while display goes through
-         * {@link #getStackInSlot}. Nothing here can be taken out: a disk's own contents would have to draw a
-         * blank pattern and delete the entry from the disk, and taking a disk out stays a bus-GUI action.
-         */
-        @Override
-        public InternalInventory getSlotInv(int slot) {
-            if (slot >= slotCount) {
-                int index = slot - slotCount;
-                return diskRows != null && index < diskRows.size()
-                        ? diskRows.getSlotInv(index)
-                        : InternalInventory.empty();
-            }
-            return hidden(slot) ? InternalInventory.empty() : super.getSlotInv(slot);
-        }
-
-        @Override
-        public void setItemDirect(int slot, ItemStack stack) {
-            if (slot >= slotCount) {
-                // A disk row is not a slot: writing one empty means taking that recipe out, which draws a blank
-                // pattern from the network and removes the recipe from its disk, and a write that is not that
-                // swap is refused.
-                if (diskRows != null) {
-                    diskRows.setItemDirect(slot - slotCount, stack);
-                }
-                return;
-            }
-            if (!hidden(slot)) {
-                inventory.setItemDirect(slot, stack);
-            }
-        }
-
-        /**
-         * The default extraction reads through {@link #getStackInSlot} and clears through
-         * {@link #setItemDirect} - on a hidden row that hands the stack out and then fails to remove it, i.e. it
-         * duplicates. Nothing here is extractable, so the row answers before the default can run.
-         */
-        @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot >= slotCount) {
-                return diskRows == null
-                        ? ItemStack.EMPTY
-                        : diskRows.extractItem(slot - slotCount, amount, simulate);
-            }
-            return hidden(slot) ? ItemStack.EMPTY : super.extractItem(slot, amount, simulate);
-        }
-
-        /**
-         * Writes into a row the terminal offered, handing disk rows to the mod that owns them.
-         *
-         * <p>Overridden because the inherited implementation reports a write as done once
-         * {@link #setItemDirect} returns, and a disk row does not take a write that way: the mod only lets one be
-         * cleared as part of a take, and refuses every other write. Left on the inherited path, a caller that
-         * asked first - which the terminal does - would be told the pattern was stored while nothing moved, and
-         * the pattern would be gone. Going through the mod's own write path means it either reaches a disk or the
-         * caller gets it back.</p>
-         */
-        @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (slot >= slotCount) {
-                int index = slot - slotCount;
-                return diskRows != null && index < diskRows.size()
-                        ? diskRows.insertItem(index, stack, simulate)
-                        : stack;
-            }
-            return hidden(slot) ? stack : super.insertItem(slot, stack, simulate);
-        }
-
-        @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            if (slot >= slotCount) {
-                return diskRows != null && diskRows.isItemValid(slot - slotCount, stack);
-            }
-            return !hidden(slot) && inventory.isItemValid(slot, stack);
-        }
+        return JdkCompat.clamp(pages, NEConfig.PATTERN_BUS_MIN_PAGES, NEConfig.PATTERN_BUS_MAX_PAGES);
     }
 
     private final class EffectivePatternInventory extends BaseInternalInventory {

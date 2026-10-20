@@ -4,32 +4,31 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.menu.implementations.CellWorkbenchMenu;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
+import cn.dancingsnow.neoecoae.platform.network.NEStreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import cn.dancingsnow.neoecoae.platform.network.NEPacketContext;
 
 import java.util.List;
 
-public record ECOImportJeiBookmarksC2SPacket(int containerId, List<AEKey> keys) implements CustomPacketPayload {
-    public static final Type<ECOImportJeiBookmarksC2SPacket> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "import_jei_bookmarks"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, ECOImportJeiBookmarksC2SPacket> STREAM_CODEC = StreamCodec.of(
+public record ECOImportJeiBookmarksC2SPacket(int containerId, List<AEKey> keys) {
+
+    public static final NEStreamCodec<FriendlyByteBuf, ECOImportJeiBookmarksC2SPacket> STREAM_CODEC = NEStreamCodec.of(
         (buf, packet) -> {
             buf.writeVarInt(packet.containerId);
             buf.writeVarInt(Math.min(packet.keys.size(), 256));
             packet.keys.stream().limit(256).forEach(key -> AEKey.writeKey(buf, key));
         }, buf -> {
             int containerId = buf.readVarInt();
-            int count = Math.min(buf.readVarInt(), 256);
+            int count = buf.readVarInt();
+            if (count < 0 || count > 256) throw new IllegalArgumentException("Invalid bookmark count");
             var keys = new java.util.ArrayList<AEKey>(count);
             for (int i = 0; i < count; i++) keys.add(AEKey.readKey(buf));
             return new ECOImportJeiBookmarksC2SPacket(containerId, keys);
         });
 
-    public static void handle(ECOImportJeiBookmarksC2SPacket packet, IPayloadContext context) {
+    public static void handle(ECOImportJeiBookmarksC2SPacket packet, NEPacketContext context) {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)
                     || !(player.containerMenu instanceof CellWorkbenchMenu menu)
@@ -50,5 +49,4 @@ public record ECOImportJeiBookmarksC2SPacket(int containerId, List<AEKey> keys) 
         });
     }
 
-    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }

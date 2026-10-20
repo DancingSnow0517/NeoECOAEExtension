@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import java.util.List;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 /** Values received for a single open controller menu; contains no widgets or renderer. */
 final class CraftingControllerViewState {

@@ -1,9 +1,11 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
-import appeng.api.config.PowerUnit;
+import appeng.api.config.PowerUnits;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IAEPowerStorage;
 import appeng.api.networking.events.GridPowerStorageStateChanged;
@@ -16,20 +18,20 @@ import appeng.util.Platform;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import com.lowdragmc.lowdraglib2.syncdata.storage.IManagedStorage;
+import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
+import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
+import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
+import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.ChunkStatus;
 
 public class ECOEnergyCellBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster, ECOEnergyCellBlockEntity>
-    implements IExternalPowerSink, IGridTickable, ISyncPersistRPCBlockEntity {
+    implements IExternalPowerSink, IGridTickable, NEManagedBlockEntity {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -145,13 +147,13 @@ public class ECOEnergyCellBlockEntity extends cn.dancingsnow.neoecoae.blocks.ent
     }
 
     @Override
-    public double injectExternalPower(PowerUnit externalUnit, double amount, Actionable mode) {
-        return PowerUnit.AE.convertTo(externalUnit, injectAEPower(PowerUnit.AE.convertTo(externalUnit, amount), mode));
+    public double injectExternalPower(PowerUnits externalUnit, double amount, Actionable mode) {
+        return PowerUnits.AE.convertTo(externalUnit, injectAEPower(PowerUnits.AE.convertTo(externalUnit, amount), mode));
     }
 
     @Override
-    public double getExternalPowerDemand(PowerUnit externalUnit, double maxPowerRequired) {
-        return PowerUnit.AE.convertTo(externalUnit, Math.max(0.0, getAEMaxPower() - getAECurrentPower()));
+    public double getExternalPowerDemand(PowerUnits externalUnit, double maxPowerRequired) {
+        return PowerUnits.AE.convertTo(externalUnit, Math.max(0.0, getAEMaxPower() - getAECurrentPower()));
     }
 
     private void setChangedNoTicketUpdate() {
@@ -197,7 +199,7 @@ public class ECOEnergyCellBlockEntity extends cn.dancingsnow.neoecoae.blocks.ent
     }
 
     public static int getStorageLevelFromFillFactor(double fillFactor) {
-        return (int) Math.floor(4 * Math.clamp(fillFactor + 0.01, 0, 1));
+        return (int) Math.floor(4 * JdkCompat.clamp(fillFactor + 0.01, 0, 1));
     }
 
     private void updateStateForPowerLevel() {
