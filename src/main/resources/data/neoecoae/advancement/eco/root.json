@@ -9,7 +9,7 @@
     "description": {
       "text": "从盈能水晶到无限存储，构建你的 ECO 网络"
     },
-    "background": "neoecoae:textures/block/black_tungsten_alloy_casing.png",
+    "background": "neoecoae:textures/gui/advancements/background.png",
     "frame": "task",
     "show_toast": false,
     "announce_to_chat": false,
