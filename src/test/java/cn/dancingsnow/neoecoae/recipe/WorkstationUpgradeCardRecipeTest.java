@@ -37,7 +37,7 @@ class WorkstationUpgradeCardRecipeTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @ParameterizedTest
-    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt"})
+    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics"})
     void recipesKeepApprovedCostsAndOptionalModConditions(String variant) throws IOException {
         JsonObject json = resource(variant);
         assertEquals("neoecoae:large_integrated_working_station", json.get("type").getAsString());
@@ -91,6 +91,12 @@ class WorkstationUpgradeCardRecipeTest {
                     expected.put("ae2lt:overload_alloy", 128);
                     expected.put("ae2lt:overload_processor", 128);
                 }
+                case "data_energistics" -> {
+                    expected.put("data_energistics:data_reassembler", 4);
+                    expected.put("data_energistics:data_integrated_charger", 4);
+                    expected.put("data_energistics:digisidian_memorize_ingot", 64);
+                    expected.put("data_energistics:data_processor", 128);
+                }
                 default -> fail("Unexpected card: " + variant);
             }
         }
@@ -103,7 +109,7 @@ class WorkstationUpgradeCardRecipeTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt"})
+    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics"})
     void nativeLargeRecipesAreAvailableWithoutAnyCardAndKeepFullBatchCosts(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
         var id = ResourceLocation.parse("test:card_" + variant);

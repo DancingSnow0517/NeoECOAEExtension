@@ -20,11 +20,20 @@ public final class WorkstationTextures {
     }
 
     public static SpriteTexture module(LargeWorkstationModule module) {
-        return widget(module.ordinal() * 15, 17, 15, 15);
+        return widget(moduleColumn(module) * 15, 17, 15, 15);
     }
 
     public static SpriteTexture circuit(LargeWorkstationModule module) {
-        return widget(module.ordinal() * 28, 34, 28, 28);
+        return widget(moduleColumn(module) * 28, 34, 28, 28);
+    }
+
+    /** The supplied atlas places Data before Other; enum order stays stable for existing state values. */
+    private static int moduleColumn(LargeWorkstationModule module) {
+        return switch (module) {
+            case DATA_ENERGISTICS -> 5;
+            case OTHER -> 6;
+            default -> module.ordinal();
+        };
     }
 
     public static SpriteTexture toggle(boolean on, boolean hover) {

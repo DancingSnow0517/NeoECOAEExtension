@@ -359,6 +359,66 @@
     "facing=west,formed=true,module=other,working=true": {
       "model": "neoecoae:block/large_integrated_working_station_compat/other_on",
       "y": 270
+    },
+    "facing=east,formed=false,module=data_energistics,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 90
+    },
+    "facing=east,formed=false,module=data_energistics,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 90
+    },
+    "facing=east,formed=true,module=data_energistics,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off",
+      "y": 90
+    },
+    "facing=east,formed=true,module=data_energistics,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on",
+      "y": 90
+    },
+    "facing=north,formed=false,module=data_energistics,working=false": {
+      "model": "neoecoae:block/integrated_working_station"
+    },
+    "facing=north,formed=false,module=data_energistics,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on"
+    },
+    "facing=north,formed=true,module=data_energistics,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off"
+    },
+    "facing=north,formed=true,module=data_energistics,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on"
+    },
+    "facing=south,formed=false,module=data_energistics,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 180
+    },
+    "facing=south,formed=false,module=data_energistics,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 180
+    },
+    "facing=south,formed=true,module=data_energistics,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off",
+      "y": 180
+    },
+    "facing=south,formed=true,module=data_energistics,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on",
+      "y": 180
+    },
+    "facing=west,formed=false,module=data_energistics,working=false": {
+      "model": "neoecoae:block/integrated_working_station",
+      "y": 270
+    },
+    "facing=west,formed=false,module=data_energistics,working=true": {
+      "model": "neoecoae:block/integrated_working_station_on",
+      "y": 270
+    },
+    "facing=west,formed=true,module=data_energistics,working=false": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off",
+      "y": 270
+    },
+    "facing=west,formed=true,module=data_energistics,working=true": {
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on",
+      "y": 270
     }
   }
 }

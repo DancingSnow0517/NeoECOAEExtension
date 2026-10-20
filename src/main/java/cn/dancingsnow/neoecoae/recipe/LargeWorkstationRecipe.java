@@ -82,7 +82,7 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
         remaining.addAll(inputs);
         for (var extra : extraInputs) {
             long supplied = remaining.get(extra.what());
-            // Upstream processing patterns omit lightning; missing costs are acquired from ME.
+            // Processing patterns may omit network resources; missing costs are acquired from ME.
             long required = Math.multiplyExact(extra.amount(), multiplier);
             if (supplied != 0 && supplied != required) return false;
             remaining.remove(extra.what(), supplied);

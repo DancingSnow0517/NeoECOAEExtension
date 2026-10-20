@@ -6,9 +6,9 @@ public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
         provider.add("category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
         provider.add("emi.category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
-        provider.add("gui.neoecoae.large_integrated_working_station.pause.lightning_missing", "Paused: Missing lightning");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.lightning_missing", "Paused: Missing additional resources");
         provider.add("gui.neoecoae.large_integrated_working_station.lightning_cost", "ME: %s \u00d7 %s");
-        provider.add("gui.neoecoae.large_integrated_working_station.lightning_amount", "Lightning from ME: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.lightning_amount", "Additional resource from ME: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy", "Energy: %s AE");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_type", "Source recipe type: %s");
         provider.add("recipe_type.neoecoae.neoecoae.integrated_working_station", "ECO: Integrated Working Station");
@@ -21,6 +21,10 @@ public class GuiLangs {
         provider.add("recipe_type.neoecoae.advanced_ae.reaction", "AdvancedAE: Reaction Chamber");
         provider.add("recipe_type.neoecoae.extendedae_plus.crystal_assembler_plus", "ExtendedAE Plus: Crystal Assembling");
         provider.add("recipe_type.neoecoae.extendedae.crystal_assembler", "ExtendedAE: Crystal Assembling");
+        provider.add("recipe_type.neoecoae.data_energistics.data_reassembler", "Data Energistics: Data Reassembling");
+        provider.add("recipe_type.neoecoae.data_energistics.data_charger", "Data Energistics: Data Charging");
+        provider.add("recipe_type.neoecoae.data_energistics.data_integrated_charger", "Data Energistics: Integrated Charging / Inscribing");
+        provider.add("recipe_type.neoecoae.data_energistics.data_charge_press", "Data Energistics: Crystal Growth");
         provider.add("gui.neoecoae.large_integrated_working_station.auto_build", "Auto-build Large Integrated Working Station");
         provider.add("gui.neoecoae.large_integrated_working_station.return_inputs", "Return Stored Inputs");
         // integrated working station
@@ -75,6 +79,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.module.extendedae", "Extended AE (including EAEP)");
         provider.add("gui.neoecoae.workstation.module.ae2cs", "Crystal Science");
         provider.add("gui.neoecoae.workstation.module.aelt", "Lightning Tech");
+        provider.add("gui.neoecoae.workstation.module.data_energistics", "Data Energistics");
         provider.add("gui.neoecoae.workstation.module.other", "Other compatible recipes");
         provider.add("gui.neoecoae.workstation.return_task", "Return task inputs");
         provider.add("gui.neoecoae.workstation.parallel", "Batch parallel");
@@ -109,6 +114,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.module_short.extendedae", "Extended AE");
         provider.add("gui.neoecoae.workstation.module_short.ae2cs", "Crystal Sci.");
         provider.add("gui.neoecoae.workstation.module_short.aelt", "Lightning");
+        provider.add("gui.neoecoae.workstation.module_short.data_energistics", "Data");
         provider.add("gui.neoecoae.workstation.module_short.other", "Other");
         provider.add("gui.neoecoae.workstation.module_slot", "Upgrade module");
         provider.add("gui.neoecoae.workstation.module_installed", "Installed");

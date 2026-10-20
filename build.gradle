@@ -166,6 +166,8 @@ dependencies {
     devMods("maven.modrinth:applied-create:2bWngfNH") { transitive = false } // 1.1.7
     createDevMod("maven.modrinth:create:UjX6dr61") { transitive = false } // 6.0.10, embeds Flywheel/Ponder
     devMods("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
+    // Exercise optional workstation adapters against the released key and recipe codecs.
+    testRuntimeOnly("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
     // Data Energistics embeds Configuration 3.1.1; do not install a second standalone copy.
     testImplementation(platform('org.junit:junit-bom:5.11.4'))
     testImplementation('org.junit.jupiter:junit-jupiter')

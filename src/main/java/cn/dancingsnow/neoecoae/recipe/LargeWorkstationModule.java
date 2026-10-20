@@ -6,14 +6,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.ItemStack;
 
-/** Recipe provenance shared by the workstation screen and its formed block model. */
+/** Recipe provenance shared by the workstation screen and its formed block model. Atlas columns are mapped by WorkstationTextures. */
 public enum LargeWorkstationModule implements StringRepresentable {
     REGULAR("regular", 0x878FA5, ""),
     ADVANCED_AE("advanced_ae", 0xB668D0, "advanced_ae"),
     EXTENDED_AE("extendedae", 0x45D9A0, "extendedae"),
     CRYSTAL_SCIENCE("ae2cs", 0x7DCBE8, "ae2cs"),
     LIGHTNING_TECH("aelt", 0xED7CCC, "aelt"),
-    OTHER("other", 0x3D8FEA, "other");
+    OTHER("other", 0x3D8FEA, "other"),
+    DATA_ENERGISTICS("data_energistics", 0x49CDBF, "data_energistics");
 
     private final String name;
     private final int color;
@@ -78,6 +79,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
             case "extendedae", "extendedae_plus" -> EXTENDED_AE;
             case "ae2cs" -> CRYSTAL_SCIENCE;
             case "ae2lt" -> LIGHTNING_TECH;
+            case "data_energistics" -> DATA_ENERGISTICS;
             default -> OTHER;
         };
     }

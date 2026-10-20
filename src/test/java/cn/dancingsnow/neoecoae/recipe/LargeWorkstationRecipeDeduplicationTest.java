@@ -68,14 +68,15 @@ class LargeWorkstationRecipeDeduplicationTest {
             LargeWorkstationModule.ADVANCED_AE, ResourceLocation.parse("advanced_ae:reaction"),
             LargeWorkstationModule.EXTENDED_AE, ResourceLocation.parse("extendedae_plus:crystal_assembler_plus"),
             LargeWorkstationModule.CRYSTAL_SCIENCE, ResourceLocation.parse("ae2cs:circuit_etcher_recipe"),
-            LargeWorkstationModule.LIGHTNING_TECH, ResourceLocation.parse("ae2lt:lightning_assembly"));
+            LargeWorkstationModule.LIGHTNING_TECH, ResourceLocation.parse("ae2lt:lightning_assembly"),
+            LargeWorkstationModule.DATA_ENERGISTICS, ResourceLocation.parse("data_energistics:data_reassembler"));
         for (var installed : LargeWorkstationModule.values()) {
             assertTrue(installed.unlocks(LargeWorkstationRecipe.NATIVE_TYPE));
             assertTrue(installed.unlocks(ResourceLocation.parse("appgen:synthesizing")));
             for (var entry : sources.entrySet()) assertEquals(installed == entry.getKey(), installed.unlocks(entry.getValue()));
         }
         assertTrue(LargeWorkstationModule.EXTENDED_AE.unlocks(ResourceLocation.parse("extendedae:crystal_assembler")));
-        assertEquals(5, java.util.Arrays.stream(LargeWorkstationModule.values()).filter(LargeWorkstationModule::hasUpgradeCard).count());
+        assertEquals(6, java.util.Arrays.stream(LargeWorkstationModule.values()).filter(LargeWorkstationModule::hasUpgradeCard).count());
         assertFalse(LargeWorkstationModule.isUpgradeCard(new ItemStack(Items.PAPER)));
         assertEquals(LargeWorkstationModule.REGULAR, LargeWorkstationModule.fromUpgradeCard(ItemStack.EMPTY));
     }

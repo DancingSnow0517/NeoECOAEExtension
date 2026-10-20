@@ -522,7 +522,7 @@
   "gui.neoecoae.large_integrated_working_station.enabled": "On",
   "gui.neoecoae.large_integrated_working_station.energy": "AE Energy: %s / %s AE",
   "gui.neoecoae.large_integrated_working_station.input_fluid": "Input Fluid",
-  "gui.neoecoae.large_integrated_working_station.lightning_amount": "Lightning from ME: %s",
+  "gui.neoecoae.large_integrated_working_station.lightning_amount": "Additional resource from ME: %s",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "ME: %s × %s",
   "gui.neoecoae.large_integrated_working_station.no_task": "Task: Idle",
   "gui.neoecoae.large_integrated_working_station.output_fluid": "Output Fluid",
@@ -533,7 +533,7 @@
   "gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked": "Cooling: Coolant output blocked",
   "gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low": "Cooling: Unsupported coolant tier",
   "gui.neoecoae.large_integrated_working_station.pause.cooling_disabled": "Paused: Cooling off",
-  "gui.neoecoae.large_integrated_working_station.pause.lightning_missing": "Paused: Missing lightning",
+  "gui.neoecoae.large_integrated_working_station.pause.lightning_missing": "Paused: Missing additional resources",
   "gui.neoecoae.large_integrated_working_station.pause.none": "Status: OK",
   "gui.neoecoae.large_integrated_working_station.pause.output_blocked": "Paused: Output blocked",
   "gui.neoecoae.large_integrated_working_station.pause.input_return_blocked": "Paused: Input return blocked",
@@ -1209,5 +1209,12 @@
   "neoecoae.configuration.largeWorkstationIgnoreUpgradeCards.tooltip": "Compatible recipes are loaded by default. Leave this disabled to require the matching upgrade card.\nEnable to unlock all supported compatible recipes without installing a card.\nNative recipes and adapters without a dedicated card remain available. The blank card adds no recipe family.\nReopen the world or restart the server after changing this option.",
   "gui.neoecoae.workstation.current_band": "Current band: %s",
   "gui.neoecoae.workstation.temperature_automatic_hint": "Bands follow current temperature automatically; they cannot be selected.",
-  "gui.neoecoae.workstation.temperature_idle_loss": "Idle heat loss: %s percentage points/s."
+  "gui.neoecoae.workstation.temperature_idle_loss": "Idle heat loss: %s percentage points/s.",
+  "item.neoecoae.integrated_working_station_module_data_energistics": "Data Energistics Integrated Working Station Upgrade Card",
+  "gui.neoecoae.workstation.module.data_energistics": "Data Energistics",
+  "gui.neoecoae.workstation.module_short.data_energistics": "Data",
+  "recipe_type.neoecoae.data_energistics.data_reassembler": "Data Energistics: Data Reassembling",
+  "recipe_type.neoecoae.data_energistics.data_charger": "Data Energistics: Data Charging",
+  "recipe_type.neoecoae.data_energistics.data_integrated_charger": "Data Energistics: Integrated Charging / Inscribing",
+  "recipe_type.neoecoae.data_energistics.data_charge_press": "Data Energistics: Crystal Growth"
 }

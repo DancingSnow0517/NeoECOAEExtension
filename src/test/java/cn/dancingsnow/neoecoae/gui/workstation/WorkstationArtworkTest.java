@@ -32,8 +32,9 @@ class WorkstationArtworkTest {
         for (int y = 0; y < 28; y++) {
             for (int x = 0; x < 28; x++) {
                 int baked = background.getRGB(WorkstationTextures.CIRCUIT_X + x, WorkstationTextures.CIRCUIT_Y + y);
-                assertEquals(baked, atlas.getRGB(x, 34 + y), "The neutral circuit must share the exact baked origin");
                 boolean wire = baked == 0xFF696D88;
+                if (wire) assertEquals(baked, atlas.getRGB(x, 34 + y),
+                    "The neutral circuit wires must share the baked origin; chip artwork may be replaced");
                 if (wire) coveredWires++;
                 for (LargeWorkstationModule module : LargeWorkstationModule.values()) {
                     if (module == LargeWorkstationModule.REGULAR) continue;
@@ -45,6 +46,15 @@ class WorkstationArtworkTest {
             }
         }
         assertTrue(coveredWires > 0);
+    }
+
+    @Test
+    void artistAtlasPlacesDataBeforeOtherWithoutChangingTheExistingFamilies() {
+        assertEquals(75, WorkstationTextures.module(LargeWorkstationModule.DATA_ENERGISTICS).spritePosition.getX());
+        assertEquals(140, WorkstationTextures.circuit(LargeWorkstationModule.DATA_ENERGISTICS).spritePosition.getX());
+        assertEquals(90, WorkstationTextures.module(LargeWorkstationModule.OTHER).spritePosition.getX());
+        assertEquals(168, WorkstationTextures.circuit(LargeWorkstationModule.OTHER).spritePosition.getX());
+        assertEquals(60, WorkstationTextures.module(LargeWorkstationModule.LIGHTNING_TECH).spritePosition.getX());
     }
 
     @Test

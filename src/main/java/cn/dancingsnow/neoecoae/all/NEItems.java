@@ -65,6 +65,8 @@ public class NEItems {
         "ae2cs", "AE2 Crystal Science Integrated Working Station Upgrade Card");
     public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_AELT = workstationModule(
         "aelt", "AE2 Lightning Tech Integrated Working Station Upgrade Card");
+    public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_DATA_ENERGISTICS = workstationModule(
+        "data_energistics", "Data Energistics Integrated Working Station Upgrade Card");
 
     private static ItemEntry<Item> workstationModule(String variant, String name) {
         return REGISTRATE.item("integrated_working_station_module_" + variant, Upgrades::createUpgradeCardItem)

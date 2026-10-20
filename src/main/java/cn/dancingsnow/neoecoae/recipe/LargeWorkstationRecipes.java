@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.recipe;
 import appeng.api.config.PowerUnit;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -50,11 +51,13 @@ public final class LargeWorkstationRecipes {
     private static final Set<String> COMPAT_TYPES = Set.of(
         "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation",
         "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing",
-        "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler");
+        "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler",
+        "data_energistics:data_reassembler", "data_energistics:data_charger",
+        "data_energistics:data_integrated_charger", "data_energistics:data_charge_press");
     private static final Map<RecipeManager, Cache> CACHE = new WeakHashMap<>();
     // Lightning recipes have explicit priority. AE cost, lightning amount and ID break ties.
     private static final Comparator<LargeWorkstationRecipe> COST_ORDER = Comparator
-        .comparing((LargeWorkstationRecipe recipe) -> recipe.extraInputs().isEmpty())
+        .comparing((LargeWorkstationRecipe recipe) -> recipe.extraInputs().stream().noneMatch(LargeWorkstationRecipes::isLightning))
         .thenComparingLong(LargeWorkstationRecipe::energy)
         .thenComparingLong(recipe -> recipe.extraInputs().stream().mapToLong(GenericStack::amount).sum())
         .thenComparing(recipe -> recipe.id().toString());
@@ -142,8 +145,13 @@ public final class LargeWorkstationRecipes {
                     items.merge(predicate, (long) input.count(), Math::addExact);
                 }
                 var fluid = display.inputFluid();
+                Map<AEKey, Long> resources = new HashMap<>();
+                for (var extra : recipe.extraInputs()) {
+                    if (!isLightning(extra)) resources.merge(extra.what(), extra.amount(), Math::addExact);
+                }
                 var contract = new MaterialContract(Map.copyOf(items), fluid.ingredient().isEmpty() ? null
                     : new FluidInput(fluidPredicate(fluid.ingredient(), ops), fluid.amount()),
+                    Map.copyOf(resources),
                     display.hasItemOutput() ? new GenericStack(AEItemKey.of(display.itemOutput()), display.itemOutput().getCount()) : null,
                     display.hasFluidOutput() ? new GenericStack(AEFluidKey.of(display.fluidOutput()), display.fluidOutput().getAmount()) : null);
                 unique.merge(contract, recipe, (first, second) -> COST_ORDER.compare(first, second) <= 0 ? first : second);
@@ -185,8 +193,12 @@ public final class LargeWorkstationRecipes {
 
     private record FluidInput(Object predicate, long amount) {}
     private record ComponentPredicate(Set<ResourceLocation> alternatives, DataComponentPredicate components, boolean strict) {}
-    private record MaterialContract(Map<Object, Long> items, @Nullable FluidInput fluid,
+    private record MaterialContract(Map<Object, Long> items, @Nullable FluidInput fluid, Map<AEKey, Long> resources,
                                     @Nullable GenericStack itemOutput, @Nullable GenericStack fluidOutput) {}
+
+    private static boolean isLightning(GenericStack stack) {
+        return stack.what().getType().getId().getNamespace().equals("ae2lt");
+    }
 
     @Nullable
     public static LargeWorkstationRecipe find(Level level, KeyCounter inputs, KeyCounter outputs) {
@@ -245,6 +257,7 @@ public final class LargeWorkstationRecipes {
     }
 
     static LargeWorkstationRecipe decode(ResourceLocation id, String type, JsonObject data, DynamicOps<JsonElement> ops) {
+        if (type.startsWith("data_energistics:")) return DataWorkstationRecipes.decode(id, type, data, ops);
         List<SizedIngredient> items = new ArrayList<>();
         SizedFluidIngredient fluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
         ItemStack result = ItemStack.EMPTY;

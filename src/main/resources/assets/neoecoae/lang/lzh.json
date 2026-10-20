@@ -949,5 +949,12 @@
   "neoecoae.configuration.largeWorkstationIgnoreUpgradeCards.tooltip": "兼容配方默認加載。本選項默認關閉，需要安裝對應升級卡解鎖相應類別。\n開啓後忽略升級卡限制，無需插卡即可使用所有受支持的兼容配方。\n常規配方及沒有專用卡的兼容配方始終可用，空白卡不增加配方類別。\n修改後重新進入世界或重啓服務器。",
   "gui.neoecoae.workstation.current_band": "当前温区：%s",
   "gui.neoecoae.workstation.temperature_automatic_hint": "温区由当前温度自动决定，无法手动选择。",
-  "gui.neoecoae.workstation.temperature_idle_loss": "无超频加工或电预热时，自然降温 %s 个百分点/秒。"
+  "gui.neoecoae.workstation.temperature_idle_loss": "无超频加工或电预热时，自然降温 %s 个百分点/秒。",
+  "item.neoecoae.integrated_working_station_module_data_energistics": "數據能源集成工作站升級卡",
+  "gui.neoecoae.workstation.module.data_energistics": "數據能源",
+  "gui.neoecoae.workstation.module_short.data_energistics": "數據能源",
+  "recipe_type.neoecoae.data_energistics.data_reassembler": "數據能源：數據重組",
+  "recipe_type.neoecoae.data_energistics.data_charger": "數據能源：數據充能",
+  "recipe_type.neoecoae.data_energistics.data_integrated_charger": "數據能源：充壓一體機",
+  "recipe_type.neoecoae.data_energistics.data_charge_press": "數據能源：水晶增產"
 }

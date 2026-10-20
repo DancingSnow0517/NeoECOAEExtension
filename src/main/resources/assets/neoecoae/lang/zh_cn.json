@@ -1003,9 +1003,9 @@
   "gui.neoecoae.large_integrated_working_station.return_inputs": "返还已存储输入",
   "category.neoecoae.large_integrated_working_station": "大型集成工作站",
   "emi.category.neoecoae.large_integrated_working_station": "大型集成工作站",
-  "gui.neoecoae.large_integrated_working_station.pause.lightning_missing": "暂停：闪电不足",
+  "gui.neoecoae.large_integrated_working_station.pause.lightning_missing": "暂停：缺少额外资源",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "ME 提取：%s × %s",
-  "gui.neoecoae.large_integrated_working_station.lightning_amount": "从 ME 提取闪电：%s",
+  "gui.neoecoae.large_integrated_working_station.lightning_amount": "ME 额外资源：%s",
   "gui.neoecoae.large_integrated_working_station.recipe_energy": "耗能：%s AE",
   "gui.neoecoae.crafting_interface.preview.source": "来源：%s, %s, %s · 槽位 %s",
   "gui.neoecoae.crafting_interface.preview.read_only": "磁盘内容 · 只读；请在样板管理终端编辑",
@@ -1211,5 +1211,12 @@
   "neoecoae.configuration.largeWorkstationIgnoreUpgradeCards.tooltip": "兼容配方默认加载。本选项默认关闭，需要安装对应升级卡解锁相应类别。\n开启后忽略升级卡限制，无需插卡即可使用所有受支持的兼容配方。\n常规配方及没有专用卡的兼容配方始终可用，空白卡不增加配方类别。\n修改后重新进入世界或重启服务器。",
   "gui.neoecoae.workstation.current_band": "当前温区：%s",
   "gui.neoecoae.workstation.temperature_automatic_hint": "温区由当前温度自动决定，无法手动选择。",
-  "gui.neoecoae.workstation.temperature_idle_loss": "无超频加工或电预热时，自然降温 %s 个百分点/秒。"
+  "gui.neoecoae.workstation.temperature_idle_loss": "无超频加工或电预热时，自然降温 %s 个百分点/秒。",
+  "item.neoecoae.integrated_working_station_module_data_energistics": "数据能源集成工作站升级卡",
+  "gui.neoecoae.workstation.module.data_energistics": "数据能源",
+  "gui.neoecoae.workstation.module_short.data_energistics": "数据能源",
+  "recipe_type.neoecoae.data_energistics.data_reassembler": "数据能源：数据重组",
+  "recipe_type.neoecoae.data_energistics.data_charger": "数据能源：数据充能",
+  "recipe_type.neoecoae.data_energistics.data_integrated_charger": "数据能源：充压一体机",
+  "recipe_type.neoecoae.data_energistics.data_charge_press": "数据能源：水晶增产"
 }
