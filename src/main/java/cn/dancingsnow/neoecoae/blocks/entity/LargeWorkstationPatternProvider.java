@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.upgrades.IUpgradeInventory;
@@ -211,6 +212,11 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     @Nullable
     private ECOLargeIntegratedWorkingStationBlockEntity controller() {
         return host.getCluster() instanceof NEIntegratedWorkingStationCluster cluster ? cluster.getController() : null;
+    }
+
+    @Override
+    public PatternContainerGroup getTerminalGroup() {
+        return host.getTerminalGroup();
     }
 
     @Override
