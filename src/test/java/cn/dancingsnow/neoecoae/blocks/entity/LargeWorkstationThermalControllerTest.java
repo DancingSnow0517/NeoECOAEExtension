@@ -50,6 +50,7 @@ class LargeWorkstationThermalControllerTest {
     private FluidTank input;
     private FluidTank output;
     private boolean previousTemperatureEnabled;
+    private long gameTime;
 
     @BeforeAll
     static void bootstrap() throws Exception {
@@ -94,6 +95,8 @@ class LargeWorkstationThermalControllerTest {
         doReturn(16_000_000.0).when(host).getAEMaxPower();
         doReturn(0.0).when(host).extractAEPower(anyDouble(), any(), any());
         level = mock(Level.class);
+        gameTime = 0;
+        when(level.getGameTime()).thenAnswer(call -> gameTime);
         recipes = mock(RecipeManager.class);
         when(level.getRecipeManager()).thenReturn(recipes);
         input = new FluidTank(100_000);
@@ -108,6 +111,7 @@ class LargeWorkstationThermalControllerTest {
         field(host, "pendingBatches", new ArrayDeque<>());
         field(host, "coolingOutput", new LargeWorkstationCoolingOutput());
         field(host, "uiEnergyUsage", new LargeWorkstationEnergyUsage());
+        field(host, "uiThermalUsage", new LargeWorkstationThermalUsage());
         field(host, "moduleInventory", new LargeWorkstationModuleInventory(() -> {}));
     }
 
@@ -196,7 +200,8 @@ class LargeWorkstationThermalControllerTest {
         tick();
         assertEquals(target, host.getTemperature(), 1e-10);
         assertFalse((boolean) value(host, "preheating"));
-        verify(host).extractAEPower(doubleThat(amount -> Math.abs(amount - 500) < 1e-8), eq(Actionable.MODULATE), any());
+        double finalTickPayment = 1000 * (target - start) * 20 / LargeWorkstationThermal.preheatPerSecond(start);
+        verify(host).extractAEPower(doubleThat(amount -> Math.abs(amount - finalTickPayment) < 1e-8), eq(Actionable.MODULATE), any());
         field(host, "temperature", 19.0);
         clearInvocations(host);
         tick();
@@ -421,20 +426,20 @@ class LargeWorkstationThermalControllerTest {
         field(host, "temperature", 40.0);
         field(host, "activeCooling", true);
         coolant(Fluids.WATER, tier, FluidStack.EMPTY);
-        input.setFluid(new FluidStack(Fluids.WATER, 1000));
-        tick();
-        assertEquals(speed, value(host, "uiCoolingPerSecond"));
+        input.setFluid(new FluidStack(Fluids.WATER, 10_000));
+        for (int i = 0; i < 20; i++) tick();
         var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
         snapshot.setAccessible(true);
-        assertEquals(speed, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"));
+        assertEquals(speed, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"), 1e-12);
         field(host, "activeCooling", false);
+        assertEquals(speed, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"), 1e-12,
+            "Switching cooling off must not erase the actual previous second");
+        for (int i = 0; i < 20; i++) tick();
         assertEquals(0, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"));
-        tick();
-        assertEquals(0.0, value(host, "uiCoolingPerSecond"));
         field(host, "activeCooling", true);
         input.setFluid(FluidStack.EMPTY);
-        tick();
-        assertEquals(0.0, value(host, "uiCoolingPerSecond"));
+        for (int i = 0; i < 20; i++) tick();
+        assertEquals(0, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"));
     }
 
     @ParameterizedTest
@@ -490,7 +495,7 @@ class LargeWorkstationThermalControllerTest {
         doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
         host.tickingRequest(mock(IGridNode.class), 1);
         tick();
-        double expected = enabled ? 10 + 0.208 * 100 / 256 / 20 : 9.995;
+        double expected = enabled ? 10 + 3.3635 * 100 / 256 / 20 : 9.995;
         assertEquals(expected, host.getTemperature(), 1e-10);
         tick();
         assertEquals(expected - 0.005, host.getTemperature(), 1e-10, "Paid work is never heated twice");
@@ -527,8 +532,73 @@ class LargeWorkstationThermalControllerTest {
         assertFalse((boolean) value(host, "preheating"));
         clearInvocations(host);
         tick();
-        assertEquals(10 + 0.208 * 100 / 256 / 20, host.getTemperature(), 1e-10);
+        assertEquals(10 + 3.3635 * 100 / 256 / 20, host.getTemperature(), 1e-10);
         verify(host, never()).extractAEPower(anyDouble(), any(), any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"20,3", "50,10.4", "80,24.7"})
+    void fullyPaidPreheatUsesTheDesignedCurveAndStopsAtEveryThreshold(double target, double seconds) throws Exception {
+        var charged = new java.util.ArrayList<Double>();
+        doAnswer(call -> {
+            double amount = call.getArgument(0);
+            if (call.getArgument(1) == Actionable.MODULATE) charged.add(amount);
+            return amount;
+        }).when(host).extractAEPower(anyDouble(), any(), any());
+        host.togglePreheating();
+        int ticks = 0;
+        while (host.getTemperature() < target && ticks < 600) {
+            tick();
+            ticks++;
+            if (!(boolean) value(host, "preheating")) {
+                assertTrue(host.getTemperature() == 20 || host.getTemperature() == 50 || host.getTemperature() == 80);
+                if (host.getTemperature() < target) host.togglePreheating();
+            }
+        }
+        assertEquals(target, host.getTemperature(), 1e-10);
+        assertFalse((boolean) value(host, "preheating"));
+        assertEquals(seconds, ticks / 20.0, 0.15);
+        assertTrue(charged.stream().allMatch(amount -> amount > 0 && amount <= 1000));
+        assertTrue(charged.getLast() < 1000, "The final tick only charges for heat needed to reach the threshold");
+    }
+
+    @Test
+    void insufficientPreheatPowerScalesHeatAndDoesNotInventProcessingHeat() throws Exception {
+        field(host, "temperature", 10.0);
+        host.togglePreheating();
+        doAnswer(call -> 250.0).when(host).extractAEPower(anyDouble(), any(), any());
+        tick();
+        assertEquals(10 + 6.727 * 0.25 / 20, host.getTemperature(), 1e-12);
+        doReturn(0.0).when(host).extractAEPower(anyDouble(), any(), any());
+        tick();
+        assertEquals(10 + 6.727 * 0.25 / 20 - 0.005, host.getTemperature(), 1e-12);
+        var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
+        snapshot.setAccessible(true);
+        var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
+        assertEquals(0, tag.getDouble("processingHeatPerSecond"));
+        assertEquals(6.727 * 0.25 / 20, tag.getDouble("preheatPerSecond"), 1e-12);
+        assertEquals(0.005, tag.getDouble("naturalCoolingPerSecond"), 1e-12);
+        assertEquals(host.getTemperature() - 10, tag.getDouble("temperatureChangePerSecond"), 1e-12);
+    }
+
+    @Test
+    void thermalSnapshotUsesActualWorkAndExposesTheTemperatureBandWhileOverclockIsOff() throws Exception {
+        field(host, "temperature", 50.0);
+        field(host, "overclocked", false);
+        for (int i = 0; i < 20; i++) tick();
+        field(host, "temperature", 50.0);
+        var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
+        snapshot.setAccessible(true);
+        var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
+        assertEquals(6, tag.getInt("currentTier"));
+        assertEquals(256, tag.getLong("parallelCapacity"));
+        assertEquals(0, tag.getDouble("processingHeatPerSecond"));
+        assertEquals(-0.1, tag.getDouble("temperatureChangePerSecond"), 1e-10);
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        tick();
+        tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
+        for (String key : List.of("processingHeatPerSecond", "preheatPerSecond", "coolingPerSecond",
+            "naturalCoolingPerSecond", "temperatureChangePerSecond")) assertEquals(0, tag.getDouble(key), key);
     }
 
     private void coolant(Fluid fluid, int tier, FluidStack byproduct) {
@@ -537,7 +607,10 @@ class LargeWorkstationThermalControllerTest {
             new RecipeHolder<>(ResourceLocation.parse("test:cooling"), recipe)));
     }
 
-    private void tick() { host.tickThermal(level, BlockPos.ZERO, Blocks.AIR.defaultBlockState()); }
+    private void tick() {
+        gameTime++;
+        host.tickThermal(level, BlockPos.ZERO, Blocks.AIR.defaultBlockState());
+    }
 
     private static void field(Object object, String name, Object value) throws Exception {
         var field = findField(object, name);

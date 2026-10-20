@@ -82,13 +82,15 @@ The three lower rows show temperature tier and temperature, coolant and actual t
 
 The control area retains the overclock switch. Temperature bands are read-only and follow current temperature automatically: **20% / 50% / 80%** unlock bands **4 / 6 / 9**. Enabling overclocking alone generates no heat; recipes must actually advance.
 
-Independent electric preheating uses **1,000 AE/t** at full power and adds **2 percentage points/s**, scaled by actual payment. Manual preheating stops at the next threshold (20%, 50% or 80%), or when processing advances. It never restarts automatically to counter cooling.
+**Right-click the Overclock button** to start or stop electric preheating; left-click still toggles overclocking. Full power costs **1,000 AE/t** and heats at **twice the current full-load processing heat rate**, slowing as temperature rises. Partial power scales heat by actual payment, and the final tick charges only for heat needed to reach the target. Preheating stops at the next threshold (20%, 50% or 80%), or when processing advances. It never restarts automatically to counter cooling. With full power, cumulative active preheating from 0% to 20% / 50% / 80% takes about **3 / 10 / 25 seconds**; right-click again at each threshold to continue.
 
 New batches use the highest temperature-ready tier. Temperature requirements are checked throughout processing. Low temperature or disabled overclocking pauses the batch while retaining inputs and progress. Processing resumes when conditions recover. Temperature changes do not rewrite accepted batch tiers.
 
 ## Heating and coolant selection
 
-Temperature ranges from **0% to 100%**. While overclocking is enabled and recipes actually advance, full-load heat generation is `0.2 + 0.8 × (temperature / 100)²` percentage points/s, scaled by actual base-recipe work including multiplied patterns. Normal batches below the first threshold can also warm up an overclocked machine. **Higher temperatures generate heat faster.** Disabled overclocking, idle, unpowered, paused and output-blocked machines generate no processing heat.
+Temperature ranges from **0% to 100%**. While overclocking is enabled and recipes actually advance, full-load heat generation is `0.65 + 3.35 × (1 − temperature / 100)²` percentage points/s, scaled by actual base-recipe work including multiplied patterns. Normal batches below the first threshold can also warm up an overclocked machine. **Heating starts quickly and slows as temperature rises.** Disabled overclocking, idle, unpowered, paused and output-blocked machines generate no processing heat.
+
+At 20 TPS with continuous standard full load and no cooling, 0% → 20% takes about 6 seconds, 20% → 50% about 15 seconds, 50% → 80% about 29 seconds, and 80% → 100% about 29 seconds. Actual times depend on load, power and processing scheduling. Hover over temperature to see actual processing heat, preheating, cooling and net changes over the last second, all in temperature percentage points/s.
 
 Without overclocked processing or independent electric preheating, temperature naturally falls by **0.1 percentage points/s**, requiring no coolant or power and stopping at 0%. Processing uses net heat generation minus active cooling. Latched overheat still requires cryotheum recovery.
 
@@ -100,7 +102,7 @@ Active cooling works independently of the overclock switch and consumes **100 mB
 | Sodium | 0.3 percentage points | Superheated sodium (Mekanism) |
 | Cryotheum Solution | 0.6 percentage points | None |
 
-Stronger coolant can lower temperature. At 20% temperature, full-load heating adds **0.232 percentage points/s**, but Cryotheum Solution removes 0.6, giving approximately **−0.368 percentage points/s**. Temperature then falls below tier 2's requirement. Lower workloads produce less heat and are even easier to overcool.
+Stronger coolant can lower temperature. At 80%, full-load heating adds **0.784 percentage points/s**; Cryotheum Solution removes 0.6, leaving a net gain of **0.184 percentage points/s**. Continuous full load with Cryotheum takes about **4 minutes 10 seconds** to go from 80% to 100%. At half load, heating drops to **0.392 percentage points/s**, producing a net loss of **0.208 percentage points/s** with the same cooling and pausing the highest-tier batch below its temperature requirement. Reduce cooling or preheat again when the workload is too low.
 
 Keep temperature within the desired operating range and below 100%; there is no automatic thermostat. Enabled active cooling continues while paused or idle, provided temperature is above 0 and coolant is available. Consumption stops at 0. Insufficient coolant or blocked byproducts provide no cooling and do not consume an unprocessable coolant transaction.
 

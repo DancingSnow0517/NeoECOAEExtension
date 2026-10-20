@@ -283,6 +283,69 @@ class WorkstationUIInteractionTest {
     }
 
     @Test
+    void overclockButtonSeparatesLeftClickFromRightClickPreheat() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            var overclock = new java.util.concurrent.atomic.AtomicInteger();
+            var preheat = new java.util.concurrent.atomic.AtomicInteger();
+            var cooling = new java.util.concurrent.atomic.AtomicInteger();
+            var panel = new LargeWorkstationPanel(new LargeWorkstationUI.Config(new FluidTank(1000),
+                offset -> new CompoundTag(), () -> null, ignored -> {}, overclock::incrementAndGet,
+                cooling::incrementAndGet, preheat::incrementAndGet, new ItemStackHandler(1)), mock(Player.class));
+            Button control = collect(panel, Button.class).stream()
+                .filter(button -> "large-workstation-overclock".equals(button.getId())).findFirst().orElseThrow();
+            for (int button : List.of(0, 1, 2)) {
+                UIEvent event = UIEvent.create(UIEvents.MOUSE_DOWN);
+                event.button = button;
+                control.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {event});
+            }
+            assertEquals(1, overclock.get());
+            assertEquals(1, preheat.get());
+            assertEquals(0, cooling.get());
+        }
+    }
+
+    @Test
+    void temperatureHoverShowsActualSignedRatesAndHidesThemInCoolantMode() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            var snapshot = new CompoundTag();
+            snapshot.putDouble("temperature", 15.5);
+            snapshot.putDouble("temperatureChangePerSecond", 0.123);
+            snapshot.putDouble("naturalCoolingPerSecond", 0.1);
+            var panel = new LargeWorkstationPanel(new LargeWorkstationUI.Config(new FluidTank(1000),
+                offset -> snapshot.copy(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {},
+                new ItemStackHandler(1)), mock(Player.class));
+            UIElement region = collect(panel, UIElement.class).stream()
+                .filter(element -> "large-workstation-temperature-info".equals(element.getId())).findFirst().orElseThrow();
+            UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            hover.target = region;
+            UIEventDispatcher.dispatchEvent(hover, false, false, false);
+            var lines = hover.hoverTooltips.tooltipTexts();
+            var temperature = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(1).getContents());
+            assertEquals("15.50", temperature.getArgs()[0]);
+            var net = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(3).getContents());
+            assertEquals("gui.neoecoae.workstation.temperature_net_rate", net.getKey());
+            assertEquals("+0.12", net.getArgs()[0]);
+            var processing = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(4).getContents());
+            assertEquals("gui.neoecoae.workstation.temperature_processing_rate", processing.getKey());
+            assertEquals("0.00", processing.getArgs()[0], "Idle telemetry must not substitute theoretical full-load heating");
+            assertFalse(lines.stream().anyMatch(line -> line.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text
+                && "gui.neoecoae.workstation.temperature_preheat_rate".equals(text.getKey())));
+            snapshot.putBoolean("temperatureEnabled", false);
+            panel.setValue(snapshot.copy());
+            hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            hover.target = region;
+            UIEventDispatcher.dispatchEvent(hover, false, false, false);
+            assertEquals(3, hover.hoverTooltips.tooltipTexts().size());
+            assertTrue(hover.hoverTooltips.tooltipTexts().stream().noneMatch(line -> line.getContents()
+                instanceof net.minecraft.network.chat.contents.TranslatableContents text && text.getKey().endsWith("_rate")));
+        }
+    }
+
+    @Test
     void fluidSlotsKeepSeparateHandlersForContainerTransfers() throws ReflectiveOperationException {
         try (var ldlib = mockStatic(LDLib2.class); var factory = mockStatic(ECOModularUI.class);
                 var tools = mockStatic(NetworkToolItem.class)) {

@@ -89,6 +89,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.current_band", "Current band: %s");
         provider.add("gui.neoecoae.workstation.temperature_automatic_hint", "Bands follow current temperature automatically; they cannot be selected.");
         provider.add("gui.neoecoae.workstation.temperature_idle_loss", "Idle heat loss: %s percentage points/s.");
+        provider.add("gui.neoecoae.workstation.temperature_band_value", "%s · %s parallel");
+        provider.add("gui.neoecoae.workstation.temperature_net_rate", "Net temperature change: %s percentage points/s");
+        provider.add("gui.neoecoae.workstation.temperature_processing_rate", "Processing heat: +%s percentage points/s");
+        provider.add("gui.neoecoae.workstation.temperature_preheat_rate", "Electric preheating: +%s percentage points/s");
+        provider.add("gui.neoecoae.workstation.temperature_cooling_rate", "Active cooling: -%s percentage points/s");
+        provider.add("gui.neoecoae.workstation.temperature_natural_rate", "Natural cooling: -%s percentage points/s");
+        provider.add("gui.neoecoae.workstation.temperature_slowing_hint", "Heating slows as temperature rises; rates show the last second of actual changes.");
+        provider.add("gui.neoecoae.workstation.preheat_right_click_hint", "Right-click Overclock to start or stop preheating to the next band.");
         provider.add("gui.neoecoae.workstation.temperature_ranges", "Temperature bands: 4 / 6 / 9");
         provider.add("gui.neoecoae.workstation.energy_value", "Power: %s AE/t");
         provider.add("gui.neoecoae.workstation.energy_stored", "Stored: %s / %s AE");
@@ -191,8 +199,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.cooling_sodium", "Liquid sodium");
         provider.add("gui.neoecoae.workstation.cooling_cryotheum", "Cryotheum");
         provider.add("gui.neoecoae.workstation.cooling_rate_short", "-%s%%/s");
-        provider.add("gui.neoecoae.workstation.cooling_rate", "Actual cooling: %s%%/s");
-        provider.add("gui.neoecoae.workstation.cooling_capacity", "Coolant cooling rate: %s%%/s");
+        provider.add("gui.neoecoae.workstation.cooling_rate", "Actual cooling: %s percentage points/s");
+        provider.add("gui.neoecoae.workstation.cooling_capacity", "Coolant cooling rate: %s percentage points/s");
         provider.add("gui.neoecoae.workstation.overclock_on", "Overclock: on");
         provider.add("gui.neoecoae.workstation.overclock_off", "Overclock: off");
         provider.add("gui.neoecoae.workstation.parallel_short", "Limit %s");

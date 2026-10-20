@@ -1201,8 +1201,8 @@
   "gui.neoecoae.workstation.cooling_sodium": "液态钠",
   "gui.neoecoae.workstation.cooling_cryotheum": "凛冰",
   "gui.neoecoae.workstation.cooling_rate_short": "-%s%%/s",
-  "gui.neoecoae.workstation.cooling_rate": "实际降温速度：%s%%/s",
-  "gui.neoecoae.workstation.cooling_capacity": "当前冷却液降温能力：%s%%/s",
+  "gui.neoecoae.workstation.cooling_rate": "实际主动降温：%s 个百分点/秒",
+  "gui.neoecoae.workstation.cooling_capacity": "冷却液散热能力：%s 个百分点/秒",
   "gui.neoecoae.workstation.overclock_on": "超频：开启",
   "gui.neoecoae.workstation.overclock_off": "超频：关闭",
   "gui.neoecoae.workstation.parallel_short": "上限 %s 并行",
@@ -1221,5 +1221,13 @@
   "recipe_type.neoecoae.data_energistics.data_charge_press": "数据能源：水晶增产",
   "item.neoecoae.integrated_working_station_module_appgen": "应用发电集成工作站升级卡",
   "gui.neoecoae.workstation.module.appgen": "应用发电",
-  "gui.neoecoae.workstation.module_short.appgen": "应用发电"
+  "gui.neoecoae.workstation.module_short.appgen": "应用发电",
+  "gui.neoecoae.workstation.temperature_band_value": "%s · %s 并行",
+  "gui.neoecoae.workstation.temperature_net_rate": "当前净变化：%s 个百分点/秒",
+  "gui.neoecoae.workstation.temperature_processing_rate": "加工产热：+%s 个百分点/秒",
+  "gui.neoecoae.workstation.temperature_preheat_rate": "电预热：+%s 个百分点/秒",
+  "gui.neoecoae.workstation.temperature_cooling_rate": "主动冷却：-%s 个百分点/秒",
+  "gui.neoecoae.workstation.temperature_natural_rate": "自然降温：-%s 个百分点/秒",
+  "gui.neoecoae.workstation.temperature_slowing_hint": "升温前快后慢，速率按最近一秒实际结算统计。",
+  "gui.neoecoae.workstation.preheat_right_click_hint": "右键超频按钮：启动或停止预热至下一温区。"
 }

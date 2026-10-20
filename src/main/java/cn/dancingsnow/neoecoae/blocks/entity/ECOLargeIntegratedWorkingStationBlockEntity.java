@@ -133,8 +133,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private int outputBlockedReasonId;
     private double pendingPowerRefund;
     private LargeWorkstationEnergyUsage uiEnergyUsage = new LargeWorkstationEnergyUsage();
-    /** Gross cooling actually applied in the last thermal tick, in temperature percentage points per second. */
-    private double uiCoolingPerSecond;
+    private LargeWorkstationThermalUsage uiThermalUsage = new LargeWorkstationThermalUsage();
 
     public ECOLargeIntegratedWorkingStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -655,10 +654,17 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putBoolean("overheated", isTemperatureEnabled() && overheated);
         snapshot.putInt("recoveryTicks", isTemperatureEnabled() ? recoveryTicks : 0);
         snapshot.putBoolean("ignoreUpgradeCards", NEConfig.largeWorkstationIgnoreUpgradeCards);
-        snapshot.putInt("currentTier", getCurrentBatchProfile().coolingTier());
+        snapshot.putInt("currentTier", isTemperatureEnabled()
+            ? LargeWorkstationOverclock.forTemperature(true, temperature).coolingTier() : getCurrentBatchProfile().coolingTier());
         snapshot.putInt("coolantTier", getCoolingTierId());
         snapshot.putDouble("temperature", isTemperatureEnabled() ? temperature : 0);
-        snapshot.putDouble("coolingPerSecond", isTemperatureEnabled() && activeCooling ? uiCoolingPerSecond : 0);
+        var thermalRates = isTemperatureEnabled()
+            ? uiThermalUsage.rates(level == null ? 0 : level.getGameTime()) : LargeWorkstationThermalUsage.Rates.ZERO;
+        snapshot.putDouble("processingHeatPerSecond", thermalRates.processing());
+        snapshot.putDouble("preheatPerSecond", thermalRates.preheat());
+        snapshot.putDouble("coolingPerSecond", thermalRates.cooling());
+        snapshot.putDouble("naturalCoolingPerSecond", thermalRates.naturalCooling());
+        snapshot.putDouble("temperatureChangePerSecond", thermalRates.net());
         snapshot.putDouble("energyUsage", uiEnergyUsage.average(level == null ? 0 : level.getGameTime()));
         snapshot.putDouble("energyStored", getAECurrentPower());
         snapshot.putDouble("energyCapacity", getAEMaxPower());
@@ -814,6 +820,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Override
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
+        uiThermalUsage = new LargeWorkstationThermalUsage();
         moduleInventory.deserializeNBT(registries, data.getCompound("workstationModule"));
         var thermal = LargeWorkstationThermal.load(data.getCompound("largeWorkstationThermal"));
         temperature = thermal.temperature();
@@ -1168,8 +1175,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (tickLevel.isClientSide) return;
         double processingLoad = pendingThermalLoad;
         pendingThermalLoad = 0;
-        uiCoolingPerSecond = 0;
         if (!isTemperatureEnabled()) {
+            uiThermalUsage.clear();
             // Freeze saved thermal state while disabled; it applies again when temperature mode is enabled.
             if (preheating || recoveryTicks > 0) {
                 preheating = false;
@@ -1182,7 +1189,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return;
         }
         if (!formed) {
-            applyThermalState(LargeWorkstationThermal.tick(thermalState(), 0, 0, false));
+            settleThermalTick(tickLevel.getGameTime(), 0, 0, 0, false);
             return;
         }
         double preheatFraction = 0;
@@ -1194,7 +1201,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 setChanged();
             } else {
                 double fraction = Math.min(1, (target - temperature)
-                    * LargeWorkstationThermal.TICKS_PER_SECOND / LargeWorkstationThermal.PREHEAT_PER_SECOND);
+                    * LargeWorkstationThermal.TICKS_PER_SECOND / LargeWorkstationThermal.preheatPerSecond(temperature));
                 double required = LargeWorkstationThermal.PREHEAT_AE_PER_TICK * fraction;
                 IEnergySource source = this;
                 IGrid grid = getMainNode().getGrid();
@@ -1223,12 +1230,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 }
             }
         }
-        if (consumed) {
-            double rate = overheated ? 100.0 * LargeWorkstationThermal.TICKS_PER_SECOND / LargeWorkstationThermal.RECOVERY_TICKS
-                : LargeWorkstationThermal.coolingPerSecond(coolingTier);
-            uiCoolingPerSecond = Math.min(temperature * LargeWorkstationThermal.TICKS_PER_SECOND, rate);
-        }
-        applyThermalState(LargeWorkstationThermal.tick(thermalState(), processingLoad, preheatFraction, coolingTier, consumed));
+        settleThermalTick(tickLevel.getGameTime(), processingLoad, preheatFraction, coolingTier, consumed);
         if (preheating) {
             LargeWorkstationOverclock selected = LargeWorkstationOverclock.forCoolingTier(preheatTargetTier);
             if (selected != null && temperature >= selected.minimumTemperature()) {
@@ -1237,6 +1239,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             }
         }
         if (tickLevel.getGameTime() % 20 == 0) markForUpdate();
+    }
+
+    private void settleThermalTick(long tick, double processingLoad, double preheatFraction, int coolingTier, boolean consumed) {
+        var before = thermalState();
+        var result = LargeWorkstationThermal.step(before, processingLoad, preheatFraction, coolingTier, consumed);
+        uiThermalUsage.record(tick, before, result);
+        applyThermalState(result.state());
     }
 
     @Nullable

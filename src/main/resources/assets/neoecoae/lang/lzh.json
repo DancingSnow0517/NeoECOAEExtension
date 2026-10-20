@@ -939,8 +939,8 @@
   "gui.neoecoae.workstation.cooling_sodium": "液態鈉",
   "gui.neoecoae.workstation.cooling_cryotheum": "凜冰",
   "gui.neoecoae.workstation.cooling_rate_short": "-%s%%/s",
-  "gui.neoecoae.workstation.cooling_rate": "實際降溫速度：%s%%/s",
-  "gui.neoecoae.workstation.cooling_capacity": "當前冷卻液降溫能力：%s%%/s",
+  "gui.neoecoae.workstation.cooling_rate": "實際主動降溫：%s 個百分點/秒",
+  "gui.neoecoae.workstation.cooling_capacity": "冷卻液散熱能力：%s 個百分點/秒",
   "gui.neoecoae.workstation.overclock_on": "超頻：開啓",
   "gui.neoecoae.workstation.overclock_off": "超頻：關閉",
   "gui.neoecoae.workstation.parallel_short": "上限 %s 並行",
@@ -959,5 +959,13 @@
   "recipe_type.neoecoae.data_energistics.data_charge_press": "數據能源：水晶增產",
   "item.neoecoae.integrated_working_station_module_appgen": "應用發電集成工作站升級卡",
   "gui.neoecoae.workstation.module.appgen": "應用發電",
-  "gui.neoecoae.workstation.module_short.appgen": "應用發電"
+  "gui.neoecoae.workstation.module_short.appgen": "應用發電",
+  "gui.neoecoae.workstation.temperature_band_value": "%s · %s 並行",
+  "gui.neoecoae.workstation.temperature_net_rate": "目前淨變化：%s 個百分點/秒",
+  "gui.neoecoae.workstation.temperature_processing_rate": "加工產熱：+%s 個百分點/秒",
+  "gui.neoecoae.workstation.temperature_preheat_rate": "電預熱：+%s 個百分點/秒",
+  "gui.neoecoae.workstation.temperature_cooling_rate": "主動冷卻：-%s 個百分點/秒",
+  "gui.neoecoae.workstation.temperature_natural_rate": "自然降溫：-%s 個百分點/秒",
+  "gui.neoecoae.workstation.temperature_slowing_hint": "升溫先快後慢，速率依最近一秒實際結算統計。",
+  "gui.neoecoae.workstation.preheat_right_click_hint": "右鍵超頻按鈕：啟動或停止預熱至下一溫區。"
 }

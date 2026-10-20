@@ -1199,8 +1199,8 @@
   "gui.neoecoae.workstation.cooling_sodium": "Liquid sodium",
   "gui.neoecoae.workstation.cooling_cryotheum": "Cryotheum",
   "gui.neoecoae.workstation.cooling_rate_short": "-%s%%/s",
-  "gui.neoecoae.workstation.cooling_rate": "Actual cooling: %s%%/s",
-  "gui.neoecoae.workstation.cooling_capacity": "Coolant cooling rate: %s%%/s",
+  "gui.neoecoae.workstation.cooling_rate": "Actual cooling: %s percentage points/s",
+  "gui.neoecoae.workstation.cooling_capacity": "Coolant cooling rate: %s percentage points/s",
   "gui.neoecoae.workstation.overclock_on": "Overclock: on",
   "gui.neoecoae.workstation.overclock_off": "Overclock: off",
   "gui.neoecoae.workstation.parallel_short": "Limit %s",
@@ -1219,5 +1219,13 @@
   "recipe_type.neoecoae.data_energistics.data_charge_press": "Data Energistics: Crystal Growth",
   "item.neoecoae.integrated_working_station_module_appgen": "Applied Generators Integrated Working Station Upgrade Card",
   "gui.neoecoae.workstation.module.appgen": "Applied Generators",
-  "gui.neoecoae.workstation.module_short.appgen": "Generators"
+  "gui.neoecoae.workstation.module_short.appgen": "Generators",
+  "gui.neoecoae.workstation.temperature_band_value": "%s · %s parallel",
+  "gui.neoecoae.workstation.temperature_net_rate": "Net temperature change: %s percentage points/s",
+  "gui.neoecoae.workstation.temperature_processing_rate": "Processing heat: +%s percentage points/s",
+  "gui.neoecoae.workstation.temperature_preheat_rate": "Electric preheating: +%s percentage points/s",
+  "gui.neoecoae.workstation.temperature_cooling_rate": "Active cooling: -%s percentage points/s",
+  "gui.neoecoae.workstation.temperature_natural_rate": "Natural cooling: -%s percentage points/s",
+  "gui.neoecoae.workstation.temperature_slowing_hint": "Heating slows as temperature rises; rates show the last second of actual changes.",
+  "gui.neoecoae.workstation.preheat_right_click_hint": "Right-click Overclock to start or stop preheating to the next band."
 }

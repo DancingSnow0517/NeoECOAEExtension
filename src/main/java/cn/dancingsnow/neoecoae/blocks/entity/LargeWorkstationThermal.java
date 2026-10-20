@@ -7,7 +7,7 @@ public final class LargeWorkstationThermal {
     public static final int TICKS_PER_SECOND = 20;
     public static final int RECOVERY_TICKS = 15 * TICKS_PER_SECOND;
     public static final int COOLANT_PER_TICK = 100;
-    public static final double PREHEAT_PER_SECOND = 2;
+    public static final double PREHEAT_HEAT_MULTIPLIER = 2;
     public static final double PREHEAT_AE_PER_TICK = 1_000;
     public static final double IDLE_COOLING_PER_SECOND = 0.1;
 
@@ -24,8 +24,12 @@ public final class LargeWorkstationThermal {
     }
 
     public static double heatingPerSecond(double temperature) {
-        double fraction = Math.clamp(temperature, 0, 100) / 100;
-        return 0.2 + 0.8 * fraction * fraction;
+        double remaining = 1 - Math.clamp(temperature, 0, 100) / 100;
+        return 0.65 + 3.35 * remaining * remaining;
+    }
+
+    public static double preheatPerSecond(double temperature) {
+        return PREHEAT_HEAT_MULTIPLIER * heatingPerSecond(temperature);
     }
 
     public static double coolingPerSecond(int tier) {
@@ -45,18 +49,30 @@ public final class LargeWorkstationThermal {
 
     /** Settle processing heat and cooling together, so only the net change can trigger overheating. */
     public static State tick(State state, double processingLoad, double preheatFraction, int coolantTier, boolean consumedCoolant) {
+        return step(state, processingLoad, preheatFraction, coolantTier, consumedCoolant).state;
+    }
+
+    /** Applied heat and cooling in percentage points for one server tick, before averaging for the UI. */
+    public record TickResult(State state, double processingHeat, double preheatHeat, double cooling, double naturalCooling) {}
+
+    public static TickResult step(State state, double processingLoad, double preheatFraction, int coolantTier, boolean consumedCoolant) {
         if (state.overheated) {
-            if (!consumedCoolant || coolantTier != 9) return new State(100, true, 0);
+            if (!consumedCoolant || coolantTier != 9) return new TickResult(new State(100, true, 0), 0, 0, 0, 0);
             int next = state.recoveryTicks + 1;
-            return next >= RECOVERY_TICKS ? new State(0, false, 0)
+            State recovered = next >= RECOVERY_TICKS ? new State(0, false, 0)
                 : new State(100.0 * (RECOVERY_TICKS - next) / RECOVERY_TICKS, true, next);
+            return new TickResult(recovered, 0, 0, state.temperature - recovered.temperature, 0);
         }
-        double heating = Double.isFinite(preheatFraction) ? PREHEAT_PER_SECOND * Math.clamp(preheatFraction, 0, 1) : 0;
+        double preheat = Double.isFinite(preheatFraction)
+            ? preheatPerSecond(state.temperature) * Math.clamp(preheatFraction, 0, 1) / TICKS_PER_SECOND : 0;
         double load = Double.isFinite(processingLoad) ? Math.max(0, processingLoad) : 0;
-        heating += heatingPerSecond(state.temperature) * load;
-        double cooling = consumedCoolant ? coolingPerSecond(coolantTier) : 0;
-        if (load == 0 && heating == 0) cooling += IDLE_COOLING_PER_SECOND;
-        return new State(state.temperature + (heating - cooling) / TICKS_PER_SECOND, false, 0);
+        double processing = heatingPerSecond(state.temperature) * load / TICKS_PER_SECOND;
+        double availableHeat = state.temperature + processing + preheat;
+        double cooling = consumedCoolant ? Math.min(availableHeat, coolingPerSecond(coolantTier) / TICKS_PER_SECOND) : 0;
+        double naturalCooling = load == 0 && preheat == 0
+            ? Math.min(availableHeat - cooling, IDLE_COOLING_PER_SECOND / TICKS_PER_SECOND) : 0;
+        State next = new State(availableHeat - cooling - naturalCooling, false, 0);
+        return new TickResult(next, processing, preheat, cooling, naturalCooling);
     }
 
     public static void save(State state, CompoundTag tag) {

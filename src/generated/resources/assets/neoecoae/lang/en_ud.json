@@ -830,12 +830,20 @@
   "gui.neoecoae.workstation.cooling_sodium": "ɯnıpos pınbıꞀ",
   "gui.neoecoae.workstation.cooling_cryotheum": "ɯnǝɥʇoʎɹƆ",
   "gui.neoecoae.workstation.cooling_rate_short": "s\\%%%1$s-",
-  "gui.neoecoae.workstation.cooling_rate": "s\\%%%1$s :buıןooɔ ןɐnʇɔⱯ",
-  "gui.neoecoae.workstation.cooling_capacity": "s\\%%%1$s :ǝʇɐɹ buıןooɔ ʇuɐןooƆ",
+  "gui.neoecoae.workstation.cooling_rate": "s\\sʇuıod ǝbɐʇuǝɔɹǝd %1$s :buıןooɔ ןɐnʇɔⱯ",
+  "gui.neoecoae.workstation.cooling_capacity": "s\\sʇuıod ǝbɐʇuǝɔɹǝd %1$s :ǝʇɐɹ buıןooɔ ʇuɐןooƆ",
   "gui.neoecoae.workstation.overclock_on": "uo :ʞɔoןɔɹǝʌO",
   "gui.neoecoae.workstation.overclock_off": "ɟɟo :ʞɔoןɔɹǝʌO",
   "gui.neoecoae.workstation.parallel_short": "%1$s ʇıɯıꞀ",
   "gui.neoecoae.workstation.compat_all_unlocked": "˙pǝʞɔoןun ǝɹɐ sǝdıɔǝɹ pǝʇɹoddns ןןɐ ؛spɹɐɔ ǝpɐɹbdn sǝɹoubı bıɟuoɔ ɹǝʌɹǝS",
   "neoecoae.configuration.largeWorkstationIgnoreUpgradeCards": "spɹɐƆ ǝpɐɹbd∩ uoıʇɐʇsʞɹoM ǝbɹɐꞀ ǝɹoubI",
-  "neoecoae.configuration.largeWorkstationIgnoreUpgradeCards.tooltip": "˙uoıʇdo sıɥʇ buıbuɐɥɔ ɹǝʇɟɐ ɹǝʌɹǝs ǝɥʇ ʇɹɐʇsǝɹ ɹo pןɹoʍ ǝɥʇ uǝdoǝᴚ\n˙ʎןıɯɐɟ ǝdıɔǝɹ ou sppɐ pɹɐɔ ʞuɐןq ǝɥ⟘ ˙ǝןqɐןıɐʌɐ uıɐɯǝɹ pɹɐɔ pǝʇɐɔıpǝp ɐ ʇnoɥʇıʍ sɹǝʇdɐpɐ puɐ sǝdıɔǝɹ ǝʌıʇɐN\n˙pɹɐɔ ɐ buıןןɐʇsuı ʇnoɥʇıʍ sǝdıɔǝɹ ǝןqıʇɐdɯoɔ pǝʇɹoddns ןןɐ ʞɔoןun oʇ ǝןqɐuƎ\n˙pɹɐɔ ǝpɐɹbdn buıɥɔʇɐɯ ǝɥʇ ǝɹınbǝɹ oʇ pǝןqɐsıp sıɥʇ ǝʌɐǝꞀ ˙ʇןnɐɟǝp ʎq pǝpɐoן ǝɹɐ sǝdıɔǝɹ ǝןqıʇɐdɯoƆ"
+  "neoecoae.configuration.largeWorkstationIgnoreUpgradeCards.tooltip": "˙uoıʇdo sıɥʇ buıbuɐɥɔ ɹǝʇɟɐ ɹǝʌɹǝs ǝɥʇ ʇɹɐʇsǝɹ ɹo pןɹoʍ ǝɥʇ uǝdoǝᴚ\n˙ʎןıɯɐɟ ǝdıɔǝɹ ou sppɐ pɹɐɔ ʞuɐןq ǝɥ⟘ ˙ǝןqɐןıɐʌɐ uıɐɯǝɹ pɹɐɔ pǝʇɐɔıpǝp ɐ ʇnoɥʇıʍ sɹǝʇdɐpɐ puɐ sǝdıɔǝɹ ǝʌıʇɐN\n˙pɹɐɔ ɐ buıןןɐʇsuı ʇnoɥʇıʍ sǝdıɔǝɹ ǝןqıʇɐdɯoɔ pǝʇɹoddns ןןɐ ʞɔoןun oʇ ǝןqɐuƎ\n˙pɹɐɔ ǝpɐɹbdn buıɥɔʇɐɯ ǝɥʇ ǝɹınbǝɹ oʇ pǝןqɐsıp sıɥʇ ǝʌɐǝꞀ ˙ʇןnɐɟǝp ʎq pǝpɐoן ǝɹɐ sǝdıɔǝɹ ǝןqıʇɐdɯoƆ",
+  "gui.neoecoae.workstation.temperature_band_value": "ןǝןןɐɹɐd %2$s · %1$s",
+  "gui.neoecoae.workstation.temperature_net_rate": "s\\sʇuıod ǝbɐʇuǝɔɹǝd %1$s :ǝbuɐɥɔ ǝɹnʇɐɹǝdɯǝʇ ʇǝN",
+  "gui.neoecoae.workstation.temperature_processing_rate": "s\\sʇuıod ǝbɐʇuǝɔɹǝd %1$s+ :ʇɐǝɥ buıssǝɔoɹԀ",
+  "gui.neoecoae.workstation.temperature_preheat_rate": "s\\sʇuıod ǝbɐʇuǝɔɹǝd %1$s+ :buıʇɐǝɥǝɹd ɔıɹʇɔǝןƎ",
+  "gui.neoecoae.workstation.temperature_cooling_rate": "s\\sʇuıod ǝbɐʇuǝɔɹǝd %1$s- :buıןooɔ ǝʌıʇɔⱯ",
+  "gui.neoecoae.workstation.temperature_natural_rate": "s\\sʇuıod ǝbɐʇuǝɔɹǝd %1$s- :buıןooɔ ןɐɹnʇɐN",
+  "gui.neoecoae.workstation.temperature_slowing_hint": "˙sǝbuɐɥɔ ןɐnʇɔɐ ɟo puoɔǝs ʇsɐן ǝɥʇ ʍoɥs sǝʇɐɹ ؛sǝsıɹ ǝɹnʇɐɹǝdɯǝʇ sɐ sʍoןs buıʇɐǝH",
+  "gui.neoecoae.workstation.preheat_right_click_hint": "˙puɐq ʇxǝu ǝɥʇ oʇ buıʇɐǝɥǝɹd doʇs ɹo ʇɹɐʇs oʇ ʞɔoןɔɹǝʌO ʞɔıןɔ-ʇɥbıᴚ"
 }

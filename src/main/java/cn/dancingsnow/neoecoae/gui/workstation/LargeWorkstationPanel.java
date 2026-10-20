@@ -94,9 +94,9 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             }
         }, true);
         addChild(scrollbar());
-        overclock = toggle("overclock", 102, config.toggleOverclocked(), () -> controlTooltip(this::overclockTooltip));
+        overclock = toggle("overclock", 102, config.toggleOverclocked(), config.togglePreheating(), () -> controlTooltip(this::overclockTooltip));
         addChild(overclock);
-        cooling = toggle("cooling", 146, config.toggleActiveCooling(), () -> controlTooltip(this::coolingTooltip));
+        cooling = toggle("cooling", 146, config.toggleActiveCooling(), null, () -> controlTooltip(this::coolingTooltip));
         addChild(cooling);
         addChild(region("module-logo", 6, 6, 15, 15, this::moduleTooltip));
         addChild(region("machine-title", 25, 6, 115, 14, () -> List.of(
@@ -115,9 +115,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         bind(DataBindingBuilder.tagS2C(() -> config.snapshot().apply(serverOffset)).build());
     }
 
-    private Button toggle(String name, int x, Runnable action, Supplier<List<Component>> tooltip) {
+    private Button toggle(String name, int x, Runnable action, Runnable secondaryAction, Supplier<List<Component>> tooltip) {
         Button button = new Button().noText().setOnServerClick(event -> {
             if (event.button == 0) action.run();
+            else if (event.button == 1 && secondaryAction != null) secondaryAction.run();
         });
         button.setId("large-workstation-" + name);
         absolute(button, x, 89, 15, 26);
@@ -282,6 +283,12 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(tr("parallel_capacity", HostText.expandedNumber(state.getLong("parallelCapacity"))));
         lines.add(hint(temperatureEnabled() ? "overclock_thermal_hint" : "overclock_coolant_hint"));
         lines.add(hint("overclock_energy_hint"));
+        if (temperatureEnabled()) {
+            lines.add(hint("preheat_right_click_hint"));
+            lines.add(tr(state.getBoolean("preheating") ? "preheat_on" : "preheat_off"));
+            lines.add(tr("preheat_energy", HostText.expandedNumber((long) LargeWorkstationThermal.PREHEAT_AE_PER_TICK)));
+            lines.add(hint("preheat_stop_hint"));
+        }
         return lines;
     }
 
@@ -295,14 +302,25 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         if (!temperatureEnabled()) return List.of(title("thermal"), coolantModeText(), hint("thermal_disabled_hint"));
         List<Component> lines = new ArrayList<>();
         lines.add(title("temperature_setting"));
-        lines.add(tr("temperature_value", decimal(state.getDouble("temperature"))));
-        lines.add(tr("current_band", displayTier(state.getInt("currentTier"))));
+        lines.add(tr("temperature_value", precise(state.getDouble("temperature"))));
+        var profile = LargeWorkstationOverclock.forTemperature(true, state.getDouble("temperature"));
+        long limit = state.getBoolean("overheated") ? 0 : profile.maxParallelism();
+        lines.add(tr("current_band", tr("temperature_band_value", temperatureBandName(), HostText.expandedNumber(limit))));
+        lines.add(tr("temperature_net_rate", signedRate(state.getDouble("temperatureChangePerSecond"))));
+        lines.add(tr("temperature_processing_rate", precise(state.getDouble("processingHeatPerSecond"))));
+        if (state.getDouble("preheatPerSecond") > 0) {
+            lines.add(tr("temperature_preheat_rate", precise(state.getDouble("preheatPerSecond"))));
+        }
+        lines.add(tr("temperature_cooling_rate", precise(state.getDouble("coolingPerSecond"))));
+        if (state.getDouble("naturalCoolingPerSecond") > 0) {
+            lines.add(tr("temperature_natural_rate", precise(state.getDouble("naturalCoolingPerSecond"))));
+        }
         lines.add(hint("temperature_automatic_hint"));
-        lines.add(tr("temperature_idle_loss", decimal(LargeWorkstationThermal.IDLE_COOLING_PER_SECOND)).withStyle(ChatFormatting.GRAY));
+        lines.add(hint("temperature_slowing_hint"));
         for (int tier : new int[] {2, 6, 9}) {
-            var profile = LargeWorkstationOverclock.forCoolingTier(tier);
-            lines.add(tr("temperature_band_limits", displayTier(tier), (int) profile.minimumTemperature(),
-                HostText.expandedNumber(profile.maxParallelism())).withStyle(ChatFormatting.GRAY));
+            var threshold = LargeWorkstationOverclock.forCoolingTier(tier);
+            lines.add(tr("temperature_band_limits", displayTier(tier), (int) threshold.minimumTemperature(),
+                HostText.expandedNumber(threshold.maxParallelism())).withStyle(ChatFormatting.GRAY));
         }
         if (state.getBoolean("overheated")) {
             lines.add(pauseText());
@@ -318,7 +336,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(settingState(state.getBoolean("activeCooling")));
         lines.add(tr("coolant_value", coolantTitle()));
         if (temperatureEnabled()) {
-            lines.add(tr("cooling_rate", decimal(state.getDouble("coolingPerSecond"))));
+            lines.add(tr("cooling_rate", precise(state.getDouble("coolingPerSecond"))));
             lines.add(tr("cooling_capacity", decimal(LargeWorkstationThermal.coolingPerSecond(state.getInt("coolantTier"))))
                 .withStyle(ChatFormatting.GRAY));
         }
@@ -334,6 +352,11 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private LargeWorkstationModule module() { return LargeWorkstationModule.byName(state.getString("module")); }
     private boolean temperatureEnabled() {
         return !state.contains("temperatureEnabled") || state.getBoolean("temperatureEnabled");
+    }
+    private Component temperatureBandName() {
+        if (state.getBoolean("overheated")) return tr("status_overheated");
+        int tier = LargeWorkstationOverclock.forTemperature(true, state.getDouble("temperature")).coolingTier();
+        return tier == 0 ? tr("band_regular") : tr("band", displayTier(tier));
     }
     private static Component coolantModeText() {
         return Component.translatable("gui.neoecoae.large_integrated_working_station.temperature_disabled");
@@ -401,7 +424,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         text(context, tr(state.getBoolean("overclocked") ? "enabled" : "disabled"), 120, 91, 25, 0.6f,
             state.getBoolean("overclocked") ? SUCCESS : MUTED);
         text(context, tr(temperatureEnabled() ? "thermal_mode" : "coolant_mode"), 120, 103, 25, 0.55f, MUTED);
-        centeredText(context, temperatureEnabled() ? tr("current_band", displayTier(state.getInt("currentTier")))
+        centeredText(context, temperatureEnabled() ? tr("current_band", temperatureBandName())
             : tr("coolant_mode"), 99, 119, 64, 0.65f, MUTED);
         centeredText(context, tr("thermal_short"), 172, 70, 15, 0.65f, TEXT);
         centeredText(context, tr("energy_short"), 189, 70, 12, 0.65f, TEXT);
@@ -422,7 +445,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         text(context, temperatureEnabled() ? tr("temperature_short", decimal(state.getDouble("temperature"))) : tr("thermal_disabled_short"),
             198, 144, 44, 0.65f, MUTED);
         text(context, coolingName(), 198, 159, 44, 0.75f, TEXT);
-        text(context, temperatureEnabled() ? tr("cooling_rate_short", decimal(state.getDouble("coolingPerSecond")))
+        text(context, temperatureEnabled() ? tr("cooling_rate_short", precise(state.getDouble("coolingPerSecond")))
             : tr("thermal_disabled_short"), 198, 169, 44, 0.65f, state.getDouble("coolingPerSecond") > 0 ? SUCCESS : MUTED);
         text(context, tr(state.getBoolean("overclocked") ? "overclock_on" : "overclock_off"),
             198, 184, 44, 0.75f, state.getBoolean("overclocked") ? SUCCESS : TEXT);
@@ -505,6 +528,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         return tr(enabled ? "enabled" : "disabled").withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.GRAY);
     }
     private static String decimal(double value) { return String.format(Locale.ROOT, "%.1f", Double.isFinite(value) ? value : 0); }
+    private static String precise(double value) { return String.format(Locale.ROOT, "%.2f", Double.isFinite(value) ? value : 0); }
+    private static String signedRate(double value) {
+        return String.format(Locale.ROOT, "%+.2f", Double.isFinite(value) && Math.abs(value) >= 0.005 ? value : 0);
+    }
     private static String number(double value) {
         if (!Double.isFinite(value) || value <= 0) return "0";
         if (value < 1_000) return Long.toString((long) value);
