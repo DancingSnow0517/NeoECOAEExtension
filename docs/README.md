@@ -2,25 +2,25 @@
 
 English | 简体中文
 
-This documentation describes the **Minecraft 1.21.1 / NeoForge** source tree reviewed on **2026-10-10**. The checked-in build declares NeoECOAE `21.2.1`, NeoForge `21.1.251`, AE2 `19.2.18`, and Java `21`. It includes the current working-tree planner changes; the version in `gradle.properties` does not establish that every documented behavior is in a published JAR. Use the matching source/build when integrating.
+These guides cover the Minecraft 1.21.1 / NeoForge source tree. Build versions are defined in [`gradle.properties`](../gradle.properties), with dependencies and the Java toolchain in [`build.gradle`](../build.gradle). Use documentation from the same revision as your source or JAR.
 
-本文依据 **2026-10-10** 的 **Minecraft 1.21.1 / NeoForge** 当前源码编写。构建声明版本为 NeoECOAE `21.2.1`、NeoForge `21.1.251`、AE2 `19.2.18`、Java `21`。文档包含当前工作区的规划器改动；`gradle.properties` 中的版本号不代表这里描述的所有行为已经发布。接入时请使用对应源码构建的版本。
+本文档适用于 Minecraft 1.21.1 / NeoForge。构建版本见 [`gradle.properties`](../gradle.properties)，依赖与 Java 工具链见 [`build.gradle`](../build.gradle)。接入时请使用与源码或 JAR 对应版本的文档。
 
 | Read about / 内容 | English | 简体中文 |
 | --- | --- | --- |
 | API calls and integration contracts / API 调用与接入约定 | [API guide](API.md) | [API 调用指南](API_ZH_CN.md) |
-| ECO planner behavior and implementation / ECO 规划器行为与实现 | [ECO planner](ECO_PLANNER.md) | [ECO 规划器说明](ECO_PLANNER_ZH_CN.md) |
-| Reproducible tech-mod planner challenges / 科技配方规划挑战 | — | [2026-10-19 挑战报告](PLANNER_CHALLENGE_REPORT_2026_10_19_ZH_CN.md) |
-| Planner challenge fixes and regression evidence / 规划挑战修复与回归证据 | — | [2026-10-19 修复报告](PLANNER_CHALLENGE_FIX_REPORT_2026_10_19_ZH_CN.md) |
+| ECO planner behavior and diagnostics / ECO 规划器行为与诊断 | [ECO planner](ECO_PLANNER.md) | [ECO 规划器说明](ECO_PLANNER_ZH_CN.md) |
+| Host panel appearance extensions / 主机面板外观扩展 | — | [主机面板 API](HOST_PANEL_API_ZH_CN.md) |
+| JSON UI resources / JSON 界面资源 | — | [UI JSON](UI_JSON_ZH_CN.md) |
+| AE2LT and Thunderbolt crafting integration / 天枢与闪电合成互通 | — | [合成互通约定](AE2LT_THUNDERBOLT_INTEROP_ZH_CN.md) |
+| Bigger AE2 storage cells / Bigger AE2 存储矩阵 | — | [存储矩阵联动](BIGGER_AE2_INTEGRATION_ZH_CN.md) |
 
-Dated challenge reports pin their own source versions and budgets. 带日期的挑战报告按各自记录的源码版本与预算复现。
+Start with the API guide to request a calculation, submit a job, or integrate a provider/storage cell. Read the planner guide for routes, byproducts, seeds, reusable inputs, cycles, exact amounts, and diagnostics. Java examples are integration skeletons; provide machine transactions and permission checks, register integrations once, and mutate gameplay state on the owning server thread.
 
-Start with the API guide to request a calculation, inspect its result, submit a job, or integrate a provider/storage cell. Read the planner guide to understand route selection, byproducts, seeds, reusable inputs, cycles, exact amounts, execution phases, and diagnostic results. Each guide links to the implementation that defines its contract.
+调用规划器、提交任务或接入供应器与存储盘，请先读 API 指南。路线、副产物、种子、可复用输入、循环、精确数量及诊断结果见规划器说明。Java 示例用于说明接入方法；机器事务与权限检查由接入方提供，注册操作只做一次，游戏状态修改在所属服务器线程执行。
 
-调用规划器、查询结果、提交任务或接入供应器与存储盘，请先读 API 指南。路线选择、副产物、种子、可复用输入、循环配方、精确数量、执行阶段及诊断结果，请读规划器说明。两份指南都附有相应源码链接。
+Gameplay instructions live in the [English guidebook](../guidebook/neoecoae_intro/index.md) and [Chinese guidebook](../guidebook/_zh_cn/neoecoae_intro/index.md). For workstation cards, parallelism, coolant, temperature, and overheating, see the [large workstation guide](../guidebook/neoecoae_intro/large_integrated_working_station.md).
 
-The Java examples are integration skeletons. Supply your own machine transactions and permission checks, register integrations once, and keep gameplay mutations on the owning server thread. The old investigation notes and subsystem snapshots are intentionally not part of this rebuilt documentation.
-
-Java 示例用于说明接入方法；机器事务与权限检查由接入方提供。注册操作只做一次，游戏状态修改在所属服务器线程执行。本次重建集中维护上述中英文指南，不恢复已删除的历史调查记录和旧子系统快照。
+玩法说明统一维护在[中文游戏指南](../guidebook/_zh_cn/neoecoae_intro/index.md)中。升级卡、并行、冷却液、温度和过热恢复见[大型集成工作站](../guidebook/_zh_cn/neoecoae_intro/large_integrated_working_station.md)。
 
 Project introduction / 项目介绍：[English](../README.md) · [简体中文](../README_ZH_CN.md)

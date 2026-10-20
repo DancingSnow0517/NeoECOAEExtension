@@ -2,7 +2,7 @@
 
 [English](API.md) · [文档目录](README.md) · [ECO 规划器说明](ECO_PLANNER_ZH_CN.md)
 
-适用范围：**Minecraft 1.21.1 / NeoForge**，源码核对日期 **2026-10-10**。构建版本以及当前工作区与已发布产物的区别，见[文档目录](README.md)。
+适用范围：**Minecraft 1.21.1 / NeoForge**。请使用与源码或 JAR 对应版本的指南；构建与依赖配置见[文档目录](README.md)。
 
 ## 1. 依赖配置与 API 边界
 

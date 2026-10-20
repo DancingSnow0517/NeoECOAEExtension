@@ -2,7 +2,7 @@
 
 [简体中文](API_ZH_CN.md) · [Documentation index](README.md) · [ECO planner](ECO_PLANNER.md)
 
-Scope: **Minecraft 1.21.1 / NeoForge**, current source reviewed **2026-10-10**. Read the [index](README.md) for build versions and the distinction between working-tree behavior and released artifacts.
+Scope: **Minecraft 1.21.1 / NeoForge**. Use the guide from the same revision as your source or JAR; build and dependency configuration are linked in the [index](README.md).
 
 ## 1. Dependency setup and API boundaries
 
