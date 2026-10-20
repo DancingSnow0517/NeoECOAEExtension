@@ -2,6 +2,8 @@
 
 更新日期：2026-10-20。状态：生产代码与全量单元测试验证完成；游戏内验收尚未进行。
 
+当前安装版本：ECO `21.2.9-beta`、AE2LT `2.1.2-beta4`、Thunderbolt `2.0.3-beta3`。这是对同一轮互通修复的版本元数据调整；AE2LT 的 Thunderbolt 最低依赖同步为 `2.0.3-beta3`。
+
 ## 1. 既有互通与审查基线
 
 四条基础互通原本就有生产调用链。专用批量接口没有被使用，不能据此判定普通互通不存在。
@@ -106,7 +108,7 @@ CPU 向 ECO 存储返回时也优先 long：超过 long 才使用精确存储能
 
 三仓库使用相互配对的当前本地 JAR 验证。临时依赖覆盖位于各仓库被 Git 忽略的 `build/interop-review-20261020.init.gradle`：Thunderbolt 使用当前 ECO JAR；AE2LT 使用当前 Thunderbolt JAR；ECO 另用 `-Pae2lt_local_jar` 指向当前 AE2LT JAR。这不是对远端同名旧制品的验证，也没有发布新的 Mod 版本。
 
-完整单元测试结果（合计 4382 项通过、8 项跳过，0 失败、0 错误）：
+完整单元测试结果（版本调整前的修复制品，合计 4382 项通过、8 项跳过，0 失败、0 错误；本次版本调整没有改动运行逻辑，不重复运行完整机制测试）：
 
 | 仓库 | 总数 | 通过 | 跳过 | 失败 / 错误 |
 | --- | --- | --- | --- | --- |
@@ -116,13 +118,21 @@ CPU 向 ECO 存储返回时也优先 long：超过 long 才使用精确存储能
 
 Thunderbolt 在全量测试后另验证了兼容旧可选 API 的测试写法，`compat.neoeco.*` 17 项全部通过，不与上表重复相加。三个项目的编译和 JAR 打包通过；全量测试后另执行 `build -x test` 检查打包与其余构建任务，没有重复计数测试，也没有把这些结果记作游戏内验收。
 
-配对验证制品 SHA-256：
+版本调整前的配对验证制品 SHA-256（保留原测试证据；当前安装制品另见下表）：
 
 | 制品 | SHA-256 |
 | --- | --- |
 | `neoecoae-21.2.8.jar` | `32D00FC144A78BCB01D5F9A0D0536B97EDFF974E9EE69BB825E5AC3F5E3C20C2` |
 | `ae2lt-2.1.2-beta3.jar` | `6FE9EB54D5156027C88726B853AFF4AF569BE7C45C3CD588FE597E9929C42702` |
 | `thunderbolt-2.0.3-beta2.jar` | `1D45EB138DB8CD0E1DA95C4B341323AFF169CD6735DFD0C995680EDA31DEC4B0` |
+
+版本调整后的当前安装制品（重新 `build -x test`，已核对 JAR 内嵌版本及 AE2LT 的 Thunderbolt 依赖约束）：
+
+| 制品 | SHA-256 |
+| --- | --- |
+| `neoecoae-21.2.9-beta.jar` | `A7D1DA7D35C5BD5EC862555A6B72E5714905B5FBE2F4A9DB6733066CCD88E27E` |
+| `ae2lt-2.1.2-beta4.jar` | `8824FBAD5D1E61D1254A721F33FB20619A0285DBBEA2D6EADEFEF076FEF5F4BD` |
+| `thunderbolt-2.0.3-beta3.jar` | `9F834FE60B0A5401CFD6A7748A90E974C865CBDE2B93F581D63334080FBDC3D8` |
 
 新增回归包括：
 
