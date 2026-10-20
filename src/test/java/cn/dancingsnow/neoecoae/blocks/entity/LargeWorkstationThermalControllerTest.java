@@ -210,7 +210,7 @@ class LargeWorkstationThermalControllerTest {
     }
 
     @Test
-    void coldAcceptedBatchKeepsItsInputsAndProgressWithoutChargingProcessingEnergy() throws Exception {
+    void coldAcceptedBatchKeepsItsInputsAndPaidProgressWhenProcessingPowerIsUnavailable() throws Exception {
         var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
         var constructor = type.getDeclaredConstructors()[0];
         constructor.setAccessible(true);
@@ -229,7 +229,8 @@ class LargeWorkstationThermalControllerTest {
         assertSame(batch, queue.getFirst());
         assertEquals(50, value(batch, "progress"));
         assertEquals(400, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
-        verify(host, never()).extractAEPower(anyDouble(), any(), any());
+        assertTrue((boolean) value(batch, "segmented"));
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
     }
 
     @Test
@@ -345,7 +346,7 @@ class LargeWorkstationThermalControllerTest {
     }
 
     @Test
-    void reEnablingTemperatureChecksTheSameBatchWithoutLosingOwnedInputs() throws Exception {
+    void reEnablingTemperatureContinuesAColdBatchAtBaseParallelismWithoutChargingPaidWorkAgain() throws Exception {
         NEConfig.largeWorkstationTemperatureEnabled = false;
         field(host, "activeCooling", true);
         field(host, "temperature", 10.0);
@@ -358,8 +359,11 @@ class LargeWorkstationThermalControllerTest {
         assertEquals(100, value(batch, "progress"));
         NEConfig.largeWorkstationTemperatureEnabled = true;
         host.tickingRequest(mock(IGridNode.class), 1);
-        assertEquals(100, value(batch, "progress"));
-        assertEquals(400, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        assertEquals(200, value(batch, "progress"));
+        assertTrue((boolean) value(batch, "segmented"));
+        assertTrue(((KeyCounter) value(batch, "inputTotal")).isEmpty());
+        assertEquals(100, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        verify(host, times(2)).extractAEPower(eq(50_000.0), eq(Actionable.MODULATE), any());
         assertEquals(900, input.getFluidAmount());
     }
 
@@ -666,6 +670,266 @@ class LargeWorkstationThermalControllerTest {
     }
 
     @ParameterizedTest
+    @ValueSource(doubles = {0, 19.9, 49.9, 79.9})
+    void temperatureDowngradeCompletesOnly256CraftsAndKeepsTheRemainingTaskInOneQueueSlot(double temperature) throws Exception {
+        field(host, "temperature", temperature);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(262_144, 9, 0, null);
+        queue.add(batch);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertEquals(1, queue.size());
+        assertSame(batch, queue.getFirst());
+        assertEquals(261_888L, value(batch, "craftCount"));
+        assertTrue((boolean) value(batch, "segmented"));
+        assertEquals(261_888L * 4, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        assertEquals(261_888L, ((KeyCounter) value(batch, "outputTotal")).get(AEItemKey.of(Items.DIAMOND)));
+        assertEquals(256L, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        verify(host).extractAEPower(eq(256_000.0), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
+    void downgradedPortionsKeepEveryPaidCraftStepAndDeliverEachOutputExactlyOnce() throws Exception {
+        var storage = networkStorage();
+        var delivered = new java.util.ArrayList<Long>();
+        when(storage.insert(any(), anyLong(), eq(Actionable.MODULATE), any())).thenAnswer(call -> {
+            assertEquals(AEItemKey.of(Items.DIAMOND), call.getArgument(0));
+            long amount = call.getArgument(1);
+            assertTrue(amount > 0 && amount <= 256);
+            delivered.add(amount);
+            return amount;
+        });
+        var charged = new java.util.ArrayList<Double>();
+        doAnswer(call -> {
+            double amount = call.getArgument(0);
+            if (call.getArgument(1) == Actionable.MODULATE) charged.add(amount);
+            return amount;
+        }).when(host).extractAEPower(anyDouble(), any(), any());
+        field(host, "temperature", 79.9);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(262_143, 9, 7, null);
+        field(batch, "progressRemainder", 196_601L);
+        queue.add(batch);
+        long paidWork = 262_143L * 7 + 196_601;
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+        long remainingCount = (long) value(batch, "craftCount");
+        assertEquals(paidWork - 256L * 200,
+            (int) value(batch, "progress") * remainingCount + (long) value(batch, "progressRemainder"));
+        assertTrue(charged.isEmpty(), "The first portion is covered by already-paid work");
+
+        // A later temperature increase must not merge the remaining downgraded portions back together.
+        field(host, "temperature", 80.0);
+        assertEquals(262_144, host.getMaxBatchParallelism(), "New tasks retain the high-tier capacity");
+        for (int i = 0; !queue.isEmpty() && i < 1_024; i++) host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertTrue(queue.isEmpty());
+        assertEquals(262_143L, delivered.stream().mapToLong(Long::longValue).sum());
+        assertEquals(1_024, delivered.size());
+        assertEquals(255L, delivered.getLast());
+        assertEquals(1_000.0 * (262_143 - paidWork / 200.0), charged.stream().mapToDouble(Double::doubleValue).sum(), 1e-6);
+        assertTrue(((KeyCounter) value(batch, "inputTotal")).isEmpty());
+        assertEquals(0, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+    }
+
+    @Test
+    void downgradedPortionPreservesPartialPaymentAndWaitsForItsOutputBeforeStartingTheNext() throws Exception {
+        field(host, "temperature", 10.0);
+        Object batch = sizedBatch(1_024, 9, 0, null);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        queue.add(batch);
+        doAnswer(call -> Math.min((double) call.getArgument(0), 128_000.0))
+            .when(host).extractAEPower(anyDouble(), any(), any());
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(25, value(batch, "progress"));
+        assertEquals(0L, value(batch, "progressRemainder"));
+        assertEquals(4_096, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        assertTrue(((KeyCounter) value(batch, "pendingOutput")).isEmpty());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(768L, value(batch, "craftCount"));
+        assertEquals(0, value(batch, "progress"));
+        assertEquals(256, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        clearInvocations(host);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+        assertEquals(768L, value(batch, "craftCount"));
+
+        var storage = networkStorage();
+        when(storage.insert(any(), anyLong(), eq(Actionable.MODULATE), any())).thenAnswer(call -> call.getArgument(1));
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertSame(batch, queue.getFirst(), "Delivering a portion cannot discard the remaining task");
+        assertEquals(0, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(128_000L / 5, (int) value(batch, "progress") * 768L + (long) value(batch, "progressRemainder"));
+    }
+
+    @Test
+    void returningADowngradedTaskDeliversItsCompletedPortionAndRefundsOnlyUnprocessedInputs() throws Exception {
+        field(host, "temperature", 10.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(1_024, 9, 0, null);
+        queue.add(batch);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        var action = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("returnTaskInputs", java.util.UUID.class);
+        action.setAccessible(true);
+        var id = (java.util.UUID) value(batch, "interactionId");
+
+        action.invoke(host, id);
+        assertSame(batch, queue.getFirst(), "Unavailable output storage must not discard completed products");
+        assertEquals(256, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        var storage = networkStorage();
+        var returned = new KeyCounter();
+        when(storage.insert(any(), anyLong(), eq(Actionable.MODULATE), any())).thenAnswer(call -> {
+            returned.add(call.getArgument(0), call.getArgument(1));
+            return call.getArgument(1);
+        });
+        action.invoke(host, id);
+
+        assertTrue(queue.isEmpty());
+        assertEquals(256, returned.get(AEItemKey.of(Items.DIAMOND)));
+        assertEquals(3_072, returned.get(AEItemKey.of(Items.IRON_INGOT)));
+    }
+
+    @Test
+    void downgradedTaskAcquiresCompatibilityInputsForOnlyItsCurrent256CraftPortion() throws Exception {
+        field(host, "temperature", 10.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(1_024, 9, 0, null);
+        ((KeyCounter) value(batch, "missingExtras")).add(AEItemKey.of(Items.GOLD_INGOT), 1_024);
+        queue.add(batch);
+        var storage = networkStorage();
+        when(storage.extract(any(), anyLong(), eq(Actionable.MODULATE), any())).thenAnswer(call -> call.getArgument(1));
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        verify(storage).extract(eq(AEItemKey.of(Items.GOLD_INGOT)), eq(256L), eq(Actionable.MODULATE), any());
+        assertEquals(768, ((KeyCounter) value(batch, "missingExtras")).get(AEItemKey.of(Items.GOLD_INGOT)));
+        assertEquals(0, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.GOLD_INGOT)));
+        assertEquals(768L, value(batch, "craftCount"));
+    }
+
+    @Test
+    void downgradeDoesNotExpandAFullQueueOrBypassOverheatProtection() throws Exception {
+        field(host, "temperature", 10.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object first = sizedBatch(262_144, 9, 0, null);
+        queue.add(first);
+        for (int i = 1; i < 512; i++) queue.add(sizedBatch(262_144, 9, 0, null));
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(512, queue.size());
+        assertTrue((boolean) value(first, "segmented"));
+        assertEquals(262_144L, value(first, "craftCount"), "Missing power cannot consume a portion");
+        field(host, "overheated", true);
+        field(host, "temperature", 100.0);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        clearInvocations(host);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+        assertEquals(262_144L, value(first, "craftCount"));
+    }
+
+    @Test
+    void cancelledDowngradedTaskDeliversItsBlockedPortionAndReturnsTheUnprocessedInputs() throws Exception {
+        field(host, "temperature", 10.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        var job = java.util.UUID.randomUUID();
+        Object batch = sizedBatch(1_024, 9, 0, job);
+        queue.add(batch);
+        var storage = networkStorage();
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        try (var lifecycle = mockStatic(cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle.class)) {
+            host.tickingRequest(mock(IGridNode.class), 1);
+            assertEquals(256, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+            lifecycle.when(() -> cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle.isTerminated(level, job))
+                .thenReturn(true);
+            var returned = new KeyCounter();
+            when(storage.insert(any(), anyLong(), eq(Actionable.MODULATE), any())).thenAnswer(call -> {
+                returned.add(call.getArgument(0), call.getArgument(1));
+                return call.getArgument(1);
+            });
+            clearInvocations(host);
+
+            host.tickingRequest(mock(IGridNode.class), 1);
+
+            assertTrue(queue.isEmpty());
+            assertEquals(256, returned.get(AEItemKey.of(Items.DIAMOND)));
+            assertEquals(3_072, returned.get(AEItemKey.of(Items.IRON_INGOT)));
+            verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+        }
+    }
+
+    @Test
+    void downgradedTaskMenuShows256ActiveCraftsWhileNewTaskCapacityStillFollowsTemperature() throws Exception {
+        field(host, "temperature", 79.9);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(262_144, 9, 0, null);
+        field(batch, "recipeId", null);
+        queue.add(batch);
+        when(level.registryAccess()).thenReturn(net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
+        host.tickingRequest(mock(IGridNode.class), 1);
+        var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
+        snapshot.setAccessible(true);
+
+        var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
+
+        assertEquals(256, tag.getLong("parallelUsed"));
+        assertEquals(65_536, tag.getLong("parallelCapacity"));
+        assertEquals(1, tag.getInt("totalTasks"));
+        assertEquals("gui.neoecoae.large_integrated_working_station.pause.power_missing", tag.getString("pause"));
+        var settings = (net.minecraft.network.chat.contents.TranslatableContents) host.getBatchSettingsText().getContents();
+        assertEquals(256, settings.getArgs()[0]);
+    }
+
+    @Test
+    void refillingCannotAbsorbADowngradedTaskIntoAHighTierBatch() throws Exception {
+        field(host, "temperature", 80.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object first = sizedBatch(65_536, 6, 0, null);
+        Object next = sizedBatch(262_144, 9, 0, null);
+        field(next, "segmented", true);
+        queue.add(first);
+        queue.add(next);
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertEquals(2, queue.size());
+        assertEquals(65_536L, value(first, "craftCount"));
+        assertEquals(262_144L, value(next, "craftCount"));
+    }
+
+    @Test
+    void breakingADowngradedWorkstationDropsCompletedProductsAndUnprocessedInputs() throws Exception {
+        field(host, "temperature", 10.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object batch = sizedBatch(1_024, 9, 0, null);
+        queue.add(batch);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        doReturn(new appeng.util.inv.AppEngInternalInventory(0)).when(host).getInternalInventory();
+        var upgrades = mock(appeng.api.upgrades.IUpgradeInventory.class);
+        when(upgrades.iterator()).thenAnswer(call -> java.util.Collections.emptyIterator());
+        field(host, "upgrades", upgrades);
+        var drops = new java.util.ArrayList<net.minecraft.world.item.ItemStack>();
+
+        host.addAdditionalDrops(level, BlockPos.ZERO, drops);
+
+        assertEquals(256, drops.stream().filter(stack -> stack.is(Items.DIAMOND)).mapToInt(net.minecraft.world.item.ItemStack::getCount).sum());
+        assertEquals(3_072, drops.stream().filter(stack -> stack.is(Items.IRON_INGOT)).mapToInt(net.minecraft.world.item.ItemStack::getCount).sum());
+        assertTrue(queue.isEmpty());
+    }
+
+    private appeng.api.storage.MEStorage networkStorage() {
+        var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
+        when(host.getMainNode().getGrid()).thenReturn(grid);
+        return grid.getStorageService().getInventory();
+    }
+
+    @ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
     void coldNormalBatchGeneratesHeatOnlyWhileOverclockingAndActuallyAdvancing(boolean enabled) throws Exception {
         field(host, "temperature", 10.0);
@@ -684,7 +948,7 @@ class LargeWorkstationThermalControllerTest {
     }
 
     @Test
-    void overclockSwitchAloneAndUnpaidOrColdPausedBatchesCannotGenerateHeat() throws Exception {
+    void overclockSwitchAloneAndUnpaidBatchesCannotGenerateHeatWhileColdBatchesResumeAtBaseParallelism() throws Exception {
         field(host, "temperature", 10.0);
         tick();
         assertEquals(9.995, host.getTemperature(), 1e-10);
@@ -695,10 +959,11 @@ class LargeWorkstationThermalControllerTest {
         assertEquals(0, value(batch, "progress"));
         field(batch, "coolingTier", 9);
         doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        double before = host.getTemperature();
         host.tickingRequest(mock(IGridNode.class), 1);
         tick();
-        assertEquals(9.985, host.getTemperature(), 1e-10);
-        assertEquals(0, value(batch, "progress"));
+        assertEquals(before + LargeWorkstationThermal.heatingPerSecond(before) * 100 / 256 / 20, host.getTemperature(), 1e-10);
+        assertEquals(200, value(batch, "progress"));
     }
 
     @Test

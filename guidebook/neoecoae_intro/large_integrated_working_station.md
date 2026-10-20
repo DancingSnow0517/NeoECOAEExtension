@@ -86,7 +86,9 @@ The control area retains the overclock switch. Temperature bands are read-only a
 
 New batches use the highest temperature-ready tier. When parallelism becomes available, the running batch immediately fills its free slots from consecutive queued tasks belonging to the same crafting job and recipe with identical per-craft inputs and outputs. Any part that does not fit stays queued. This works in temperature and coolant modes without draining the old queue first. Paid work and fractional progress survive refilling and save/reload without charging twice; additional compatibility inputs must actually be acquired before joining progressed work. Different recipes, crafting jobs, already-progressed tasks and tasks awaiting output are not combined.
 
-Temperature requirements are checked throughout processing using the refilled batch's tier. Low temperature or disabled overclocking pauses the batch while retaining inputs and progress. Processing resumes when conditions recover; batches are not automatically split into lower tiers.
+Temperature requirements are checked throughout processing. **Falling below the batch requirement switches its remaining work to portions of at most 256 crafts**, with a smaller final portion when needed. No further preheating is required to finish it. Already-paid work, including fractional progress, is credited toward the earliest portions without charging twice. Each portion consumes only its inputs, acquires only its required compatibility inputs and delivers its own products. Blocked products wait for delivery before another portion starts; returning a task first delivers completed products, then returns its unprocessed inputs.
+
+The task keeps one queue entry, and its portion mode and remaining work survive save/reload. It stays limited to 256 crafts per portion even after reheating; **new batches still use the original limits for the current temperature band**. Disabling overclocking still pauses high-tier tasks that have not fallen back; downgraded tasks can continue at the normal portion size.
 
 ## Heating and coolant selection
 
@@ -104,7 +106,7 @@ Active cooling works independently of the overclock switch and consumes **100 mB
 | Sodium | 0.3 percentage points | Superheated sodium (Mekanism) |
 | Cryotheum Solution | 0.6 percentage points | None |
 
-Stronger coolant can lower temperature. At 80%, full-load heating adds **0.784 percentage points/s**; Cryotheum Solution removes 0.6, leaving a net gain of **0.184 percentage points/s**. Continuous full load with Cryotheum takes about **4 minutes 10 seconds** to go from 80% to 100%. At half load, heating drops to **0.392 percentage points/s**, producing a net loss of **0.208 percentage points/s** with the same cooling and pausing the highest-tier batch below its temperature requirement. Reduce cooling or preheat again when the workload is too low.
+Stronger coolant can lower temperature. At 80%, full-load heating adds **0.784 percentage points/s**; Cryotheum Solution removes 0.6, leaving a net gain of **0.184 percentage points/s**. Continuous full load with Cryotheum takes about **4 minutes 10 seconds** to go from 80% to 100%. At half load, heating drops to **0.392 percentage points/s**, producing a net loss of **0.208 percentage points/s** with the same cooling. Falling below the highest-tier requirement switches the existing task to 256-craft portions, while new batches follow the current temperature band.
 
 Keep temperature within the desired operating range and below 100%; there is no automatic thermostat. Enabled active cooling continues while paused or idle, provided temperature is above 0 and coolant is available. Consumption stops at 0. Insufficient coolant or blocked byproducts provide no cooling and do not consume an unprocessable coolant transaction.
 
@@ -114,7 +116,7 @@ Each hatch holds **1,024,000 mB**. Keep the output hatch clear when using a cool
 
 At **100%**, the machine locks processing and new batch admission, stops preheating and retains accepted inputs and progress.
 
-Recovery requires active cooling to be enabled, **Cryotheum Solution** in the input hatch, continuous coolant delivery and unobstructed byproduct output. A full recovery consumes **30,000 mB (30 B)** over **15 seconds (300 server ticks)** of uninterrupted cooling. Hover over the information button to check recovery status. Forced recovery brings temperature to **0%**; the machine stays locked until it finishes. Higher-parallelism batches still require their operating temperature after recovery.
+Recovery requires active cooling to be enabled, **Cryotheum Solution** in the input hatch, continuous coolant delivery and unobstructed byproduct output. A full recovery consumes **30,000 mB (30 B)** over **15 seconds (300 server ticks)** of uninterrupted cooling. Hover over the information button to check recovery status. Forced recovery brings temperature to **0%**; the machine stays locked until it finishes. Existing high-tier tasks can then finish in 256-craft portions.
 
 Recovery requires **uninterrupted successful Cryotheum Solution consumption**. Disabled cooling, interrupted delivery, blocked output, disassembly or reloading clears progress and returns temperature to 100%, requiring a fresh 15 seconds. Water, sodium, custom high-tier coolants, toggling overclocking and simply waiting cannot clear the latch.
 
@@ -123,7 +125,7 @@ Recovery requires **uninterrupted successful Cryotheum Solution consumption**. D
 | Symptom | Action |
 | --- | --- |
 | Overclocking is enabled but capacity is still 256 | Current temperature is below 20%; advance recipes or use independent preheating to warm up |
-| A batch pauses due to low temperature | Temperature is below the batch requirement; inputs and progress are retained until conditions recover |
+| A task uses only 256 parallelism after cooling | Its remaining work has fallen back to 256-craft portions, preserving inputs and paid work; new batches still follow the current temperature band |
 | Stronger coolant lowers temperature | Cooling exceeds actual heating; a weaker coolant may be suitable |
 | Temperature still rises with cooling enabled | Cooling only slows the rise when heating exceeds cooling; hover over cooling information to check its state, amount, recipe and byproduct output capacity |
 | Recovery does not advance or resets | Supply real Cryotheum Solution continuously, allow successful cooling every tick and avoid interruptions or reloading |
