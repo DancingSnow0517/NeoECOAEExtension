@@ -84,7 +84,9 @@ The control area retains the overclock switch. Temperature bands are read-only a
 
 **Right-click the Overclock button** to start or stop electric preheating; left-click still toggles overclocking. Full power costs **1,000 AE/t** and heats at **twice the current full-load processing heat rate**, slowing as temperature rises. Partial power scales heat by actual payment, and the final tick charges only for heat needed to reach the target. Preheating stops at the next threshold (20%, 50% or 80%), or when processing advances. It never restarts automatically to counter cooling. With full power, cumulative active preheating from 0% to 20% / 50% / 80% takes about **3 / 10 / 25 seconds**; right-click again at each threshold to continue.
 
-New batches use the highest temperature-ready tier. Temperature requirements are checked throughout processing. Low temperature or disabled overclocking pauses the batch while retaining inputs and progress. Processing resumes when conditions recover. Temperature changes do not rewrite accepted batch tiers.
+New batches use the highest temperature-ready tier. When parallelism becomes available, the running batch immediately fills its free slots from consecutive queued tasks belonging to the same crafting job and recipe with identical per-craft inputs and outputs. Any part that does not fit stays queued. This works in temperature and coolant modes without draining the old queue first. Paid work and fractional progress survive refilling and save/reload without charging twice; additional compatibility inputs must actually be acquired before joining progressed work. Different recipes, crafting jobs, already-progressed tasks and tasks awaiting output are not combined.
+
+Temperature requirements are checked throughout processing using the refilled batch's tier. Low temperature or disabled overclocking pauses the batch while retaining inputs and progress. Processing resumes when conditions recover; batches are not automatically split into lower tiers.
 
 ## Heating and coolant selection
 

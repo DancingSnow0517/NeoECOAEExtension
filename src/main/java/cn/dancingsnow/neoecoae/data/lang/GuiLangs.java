@@ -150,8 +150,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.task_return_hint", "Use the arrow on this row to return its inputs.");
         provider.add("gui.neoecoae.workstation.return_task_hint", "Cancel this task after returning its owned inputs to ME storage.");
         provider.add("gui.neoecoae.workstation.parallel_used", "Current batch: %s");
-        provider.add("gui.neoecoae.workstation.parallel_capacity", "New batch limit: %s");
-        provider.add("gui.neoecoae.workstation.parallel_hint", "Accepted batches keep their original tier when settings change.");
+        provider.add("gui.neoecoae.workstation.parallel_capacity", "Parallel limit: %s");
+        provider.add("gui.neoecoae.workstation.parallel_hint", "Available parallelism refills the current batch from matching queued tasks; paid work is retained.");
         provider.add("gui.neoecoae.workstation.temperature_short", "Heat %s%%");
         provider.add("gui.neoecoae.workstation.temperature_setting", "Temperature and automatic bands");
         provider.add("gui.neoecoae.workstation.temperature_band_limits", "Band %s: at least %s%% · %s parallel");

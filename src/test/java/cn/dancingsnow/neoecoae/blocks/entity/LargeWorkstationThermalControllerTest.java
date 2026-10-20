@@ -486,6 +486,185 @@ class LargeWorkstationThermalControllerTest {
         return batch;
     }
 
+    @Test
+    void temperatureUpgradeImmediatelyRefillsTheRunningBatchFromItsExistingQueue() throws Exception {
+        field(host, "temperature", 80.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object first = sizedBatch(65_536, 6, 50, null);
+        queue.add(first);
+        for (int i = 0; i < 3; i++) queue.add(sizedBatch(65_536, 6, 0, null));
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertEquals(1, queue.size());
+        assertSame(first, queue.getFirst(), "The running task keeps its interaction identity");
+        assertEquals(262_144L, value(first, "craftCount"));
+        assertEquals(9, value(first, "coolingTier"));
+        assertEquals(12, value(first, "progress"));
+        assertEquals(131_072L, value(first, "progressRemainder"));
+        assertEquals(1_048_576, ((KeyCounter) value(first, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        assertEquals(262_144, ((KeyCounter) value(first, "outputTotal")).get(AEItemKey.of(Items.DIAMOND)));
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
+    void refillingOnlyTakesThePartOfTheNextBatchThatFits() throws Exception {
+        field(host, "temperature", 80.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object first = sizedBatch(65_536, 6, 0, null);
+        Object next = sizedBatch(262_144, 9, 0, null);
+        queue.add(first);
+        queue.add(next);
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertEquals(2, queue.size());
+        assertEquals(262_144L, value(first, "craftCount"));
+        assertEquals(65_536L, value(next, "craftCount"));
+        assertEquals(262_144, ((KeyCounter) value(next, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        assertEquals(65_536, ((KeyCounter) value(next, "outputTotal")).get(AEItemKey.of(Items.DIAMOND)));
+    }
+
+    @Test
+    void refillingPreservesEveryPaidCraftStepEvenWhenTheNewProgressDoesNotDivideExactly() throws Exception {
+        field(host, "temperature", 80.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object first = sizedBatch(65_535, 6, 7, null);
+        queue.add(first);
+        queue.add(sizedBatch(196_609, 9, 0, null));
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(1, value(first, "progress"));
+        assertEquals(196_601L, value(first, "progressRemainder"));
+
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        double remainingEnergy = 1_000.0 * (262_144 - 65_535 * 7.0 / 200);
+        verify(host).extractAEPower(eq(remainingEnergy), eq(Actionable.MODULATE), any());
+        assertEquals(200, value(first, "progress"));
+        assertEquals(0L, value(first, "progressRemainder"));
+        assertEquals(262_144, ((KeyCounter) value(first, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"job", "recipe", "output", "progress"})
+    void refillingDoesNotCombineUnrelatedOrAlreadyProcessingTasks(String difference) throws Exception {
+        field(host, "temperature", 80.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        var job = java.util.UUID.randomUUID();
+        Object first = sizedBatch(65_536, 6, 0, job);
+        Object next = sizedBatch(65_536, 6, 0, difference.equals("job") ? java.util.UUID.randomUUID() : job);
+        if (difference.equals("recipe")) field(next, "recipeId", ResourceLocation.parse("test:different"));
+        if (difference.equals("progress")) field(next, "progress", 1);
+        if (difference.equals("output")) ((KeyCounter) value(next, "outputTotal")).add(AEItemKey.of(Items.DIAMOND), 65_536);
+        queue.add(first);
+        queue.add(next);
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertEquals(2, queue.size());
+        assertEquals(65_536L, value(first, "craftCount"));
+        assertEquals(65_536L, value(next, "craftCount"));
+    }
+
+    @Test
+    void coolantUpgradeRefillsExistingBatchesAndConsumesOnlyOneProcessingTicksCoolant() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "activeCooling", true);
+        coolant(cryotheum, 9, FluidStack.EMPTY);
+        input.fill(new FluidStack(cryotheum, 1_000), net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object first = sizedBatch(65_536, 6, 0, null);
+        queue.add(first);
+        for (int i = 0; i < 3; i++) queue.add(sizedBatch(65_536, 6, 0, null));
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertEquals(1, queue.size(), "Unavailable output delivery retains the combined output ledger");
+        assertEquals(262_144L, value(first, "craftCount"));
+        assertEquals(200, value(first, "progress"));
+        assertEquals(900, input.getFluidAmount());
+        verify(host).extractAEPower(eq(262_144_000.0), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
+    void limitedPowerPaysOnlyTheUnpaidPartOfTheNextProgressStepAfterRefilling() throws Exception {
+        field(host, "temperature", 80.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object first = sizedBatch(65_535, 6, 7, null);
+        queue.add(first);
+        queue.add(sizedBatch(196_609, 9, 0, null));
+        host.tickingRequest(mock(IGridNode.class), 1);
+        double nextStepEnergy = (262_144 - 196_601) * 1_000.0 / 200;
+        doAnswer(call -> Math.min(call.<Double>getArgument(0), nextStepEnergy))
+            .when(host).extractAEPower(anyDouble(), any(), any());
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertEquals(2, value(first, "progress"));
+        assertEquals(0L, value(first, "progressRemainder"));
+        verify(host).extractAEPower(eq(nextStepEnergy), eq(Actionable.MODULATE), any());
+        assertTrue(((KeyCounter) value(first, "pendingOutput")).isEmpty());
+    }
+
+    @Test
+    void refillingCannotOverflowAnOwnedInputOrOutputCounter() throws Exception {
+        field(host, "temperature", 80.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object first = sizedBatch(1, 6, 0, null);
+        Object next = sizedBatch(1, 6, 0, null);
+        for (Object task : List.of(first, next)) {
+            KeyCounter owned = (KeyCounter) value(task, "inputTotal");
+            owned.clear();
+            owned.add(AEItemKey.of(Items.IRON_INGOT), Long.MAX_VALUE);
+        }
+        queue.add(first);
+        queue.add(next);
+
+        assertDoesNotThrow(() -> host.tickingRequest(mock(IGridNode.class), 1));
+
+        assertEquals(2, queue.size());
+        for (Object task : queue) {
+            assertEquals(1L, value(task, "craftCount"));
+            assertEquals(Long.MAX_VALUE, ((KeyCounter) value(task, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        }
+    }
+
+    @Test
+    void refillingWaitsForTheNextTasksCompatibilityInputsWithoutBorrowingItsUnpaidWork() throws Exception {
+        field(host, "temperature", 80.0);
+        var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+        Object first = sizedBatch(65_536, 6, 7, null);
+        Object next = sizedBatch(65_536, 6, 0, null);
+        ((KeyCounter) value(first, "inputTotal")).add(AEItemKey.of(Items.GOLD_INGOT), 65_536);
+        ((KeyCounter) value(next, "missingExtras")).add(AEItemKey.of(Items.GOLD_INGOT), 65_536);
+        queue.add(first);
+        queue.add(next);
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+
+        assertEquals(2, queue.size());
+        assertEquals(65_536L, value(first, "craftCount"));
+        assertEquals(7, value(first, "progress"));
+        assertEquals(65_536, ((KeyCounter) value(next, "missingExtras")).get(AEItemKey.of(Items.GOLD_INGOT)));
+        assertEquals(0, ((KeyCounter) value(next, "inputTotal")).get(AEItemKey.of(Items.GOLD_INGOT)));
+    }
+
+    private Object sizedBatch(long count, int tier, int progress, java.util.UUID job) throws Exception {
+        var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
+        var constructor = type.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        var owned = new KeyCounter();
+        owned.add(AEItemKey.of(Items.IRON_INGOT), count * 4);
+        var produced = new KeyCounter();
+        produced.add(AEItemKey.of(Items.DIAMOND), count);
+        Object batch = constructor.newInstance(count, 1_000L, tier, 1, owned, produced,
+            job, ResourceLocation.parse("test:thermal"), null, null, 0L);
+        field(batch, "progress", progress);
+        return batch;
+    }
+
     @ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
     void coldNormalBatchGeneratesHeatOnlyWhileOverclockingAndActuallyAdvancing(boolean enabled) throws Exception {

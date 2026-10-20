@@ -22,6 +22,48 @@ import static org.mockito.Mockito.*;
 class LargeWorkstationBatchPersistenceTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @Test void rebatchedFractionalProgressSurvivesReloadAndRejectsInvalidRemainders() throws Exception {
+        try (var keys = mockStatic(AEKeyTypes.class);
+             var internal = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class)) {
+            internal.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
+                .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
+            keys.when(() -> AEKeyTypes.get(AEKeyType.fluids().getId())).thenReturn(AEKeyType.fluids());
+            var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
+            var constructor = type.getDeclaredConstructors()[0];
+            constructor.setAccessible(true);
+            var owned = new KeyCounter();
+            owned.add(AEFluidKey.of(Fluids.WATER), 1_048_576);
+            var output = new KeyCounter();
+            output.add(AEFluidKey.of(Fluids.LAVA), 262_144);
+            Object batch = constructor.newInstance(262_144L, 1_000L, 9, 1, owned, output,
+                null, ResourceLocation.parse("test:rebatched"), null, null, 123L);
+            var progress = type.getDeclaredField("progress");
+            progress.setAccessible(true);
+            progress.set(batch, 1);
+            var remainder = type.getDeclaredField("progressRemainder");
+            remainder.setAccessible(true);
+            remainder.set(batch, 196_601L);
+            var save = type.getDeclaredMethod("save", HolderLookup.Provider.class);
+            save.setAccessible(true);
+            var load = type.getDeclaredMethod("load", CompoundTag.class, HolderLookup.Provider.class, long.class);
+            load.setAccessible(true);
+            var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+            CompoundTag tag = (CompoundTag) save.invoke(batch, registries);
+            var restored = load.invoke(null, tag, registries, 234L);
+            assertNotNull(restored);
+            assertEquals(tag, save.invoke(restored, registries));
+            assertEquals(65_535L * 7, (long) progress.getInt(restored) * 262_144 + remainder.getLong(restored));
+
+            tag.putLong("progressRemainder", -1);
+            assertNull(load.invoke(null, tag, registries, 234L));
+            tag.putLong("progressRemainder", 262_144);
+            assertNull(load.invoke(null, tag, registries, 234L));
+            tag.putInt("progress", 200);
+            tag.putLong("progressRemainder", 1);
+            assertNull(load.invoke(null, tag, registries, 234L));
+        }
+    }
+
     @Test void partialLightningAndLongEnergySurviveSaveReload() throws Exception {
         try (var keys = mockStatic(AEKeyTypes.class);
              var internal = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class)) {
