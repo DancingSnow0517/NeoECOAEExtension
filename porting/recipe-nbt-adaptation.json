@@ -1,0 +1,54 @@
+{
+  "main_input": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "working_tree_parent": "6bcdd5a",
+  "status": "recipe and owned item-NBT boundary implemented; main compilation and business runtime remain incomplete",
+  "dependency_artifacts": "porting/dependencies.lock.json",
+  "upstream_references_fetched_before_read": [
+    {"repo": "AdvancedAE-1.21.1", "ref": "origin/forge/1.20.1", "commit": "3137d63403dd35211c886744f094886b6a81e76a"},
+    {"repo": "ExtendedAE", "ref": "origin/1.20.1-forge", "commit": "827a5368dd48a43aab5a5d3c8c3d0914df3bf816"},
+    {"repo": "AE2-Lightning-Tech-Reborn", "ref": "origin/1.20.1", "commit": "2228757ba75c6b3e7c6ae1cce098501cd1459316"},
+    {"repo": "Applied-Energistics-2", "ref": "origin/forge/1.20.1", "commit": "1c2f96e70ca6b61e8120482923e9775d772fd9e7"},
+    {"repo": "Applied-Energistics-2", "ref": "origin/1.21.1", "commit": "db17504a86128fdf3dae31f5fb7a112a646e0b93"},
+    {"repo": "LDLib-MultiLoader", "ref": "origin/1.20.1", "commit": "1d4e4390ae58d16038845c651e122185c29f334b"}
+  ],
+  "verified_binary_api": "actual pinned release JARs inspected with javap; recipe objects used in isolated tests",
+  "recipe_types": [
+    "neoecoae:cooling", "neoecoae:integrated_working_station", "neoecoae:large_integrated_working_station",
+    "neoecoae:extended_crystal_assembler", "neoecoae:storage_cell_disassembly"
+  ],
+  "eae": {
+    "loader_id": "expatternprovider",
+    "owned_recipe_type": "neoecoae:extended_crystal_assembler",
+    "runtime_source_type": "expatternprovider:crystal_assembler",
+    "assembler_energy_ae": 2000,
+    "upgrade_card_energy_ae": 16384000,
+    "upgrade_card_substitutions": [
+      {"source": "extendedae:crystal_assembler", "target": "expatternprovider:ex_molecular_assembler", "count": 8},
+      {"source": "extendedae:entro_ingot", "target": "neoecoae:energized_superconductive_ingot", "count": 256},
+      {"source": "extendedae:concurrent_processor", "target": "neoecoae:superconducting_processor", "count": 128}
+    ],
+    "business_machine_execution": "not yet verified; full main does not compile"
+  },
+  "owned_cell_nbt": {"key": "neoecoae_cell_contents", "format": 1, "stacks": "native AE2 GenericStack list with long quantities"},
+  "validation": {
+    "isolated_java_tests": 50,
+    "isolated_java_failures": 0,
+    "isolated_java_skipped": 0,
+    "python_resource_tests": 8,
+    "retained_data_files": 428,
+    "removed_data_files": 193,
+    "static_disassembly_contracts_checked": 9,
+    "main_compile_errors": 1505,
+    "main_compile_warnings": 12,
+    "details": "porting/validation-state.json",
+    "resource_details": "porting/data-resource-validation.json"
+  },
+  "remaining": [
+    "remaining LDLib2 GUI callers and real LDLib1 interactions",
+    "AE2 15 crafting/menu/execution and block-entity persistence APIs",
+    "FastPath item-component semantics and business storage failure/recovery states",
+    "structure-terminal shared backend and complete UI",
+    "complete datagen including existing Bulk Item generation, datapack reload and unused scope resources",
+    "actual EAE/AAE/AE2LT machine execution, client/server/multiplayer and ordinary Forge installation"
+  ]
+}

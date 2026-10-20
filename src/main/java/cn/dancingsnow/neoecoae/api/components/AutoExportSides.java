@@ -1,47 +1,35 @@
 package cn.dancingsnow.neoecoae.api.components;
 
 import appeng.api.orientation.RelativeSide;
-import cn.dancingsnow.neoecoae.util.CodecUtils;
-import com.mojang.serialization.Codec;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 public record AutoExportSides(Set<RelativeSide> sides) {
 
-    public static final Codec<AutoExportSides> CODEC = Codec.list(CodecUtils.RELATIVE_SIDE_CODEC, 0, 6)
-        .xmap(
-            from -> new AutoExportSides(toEnumSet(from)),
-            to -> to.sides.stream().toList()
-        );
+    public static final String NBT_KEY = "neoecoae_auto_export_sides";
 
-    private static EnumSet<RelativeSide> toEnumSet(List<RelativeSide> sides) {
-        if (sides.isEmpty()) {
-            return EnumSet.noneOf(RelativeSide.class);
-        }
-        return EnumSet.copyOf(sides);
+    public AutoExportSides { sides = Set.copyOf(sides); }
+
+    public void write(CompoundTag tag) {
+        tag.putIntArray(NBT_KEY, sides.stream().mapToInt(Enum::ordinal).sorted().toArray());
     }
 
-    public static final StreamCodec<FriendlyByteBuf, AutoExportSides> STREAM_CODEC = StreamCodec.of(
-        (buf, autoExportSides) -> {
-            for (RelativeSide side : RelativeSide.values()) {
-                buf.writeBoolean(autoExportSides.sides.contains(side));
-            }
-        },
-        buf -> {
-            EnumSet<RelativeSide> sides = EnumSet.noneOf(RelativeSide.class);
-            for (RelativeSide side : RelativeSide.values()) {
-                if (buf.readBoolean()) {
-                    sides.add(side);
-                }
-            }
-            return new AutoExportSides(sides);
+    public static AutoExportSides read(CompoundTag tag) {
+        if (!tag.contains(NBT_KEY)) return null;
+        if (!tag.contains(NBT_KEY, Tag.TAG_INT_ARRAY)) throw new IllegalArgumentException("Invalid auto-export side list");
+        int[] entries = tag.getIntArray(NBT_KEY);
+        if (entries.length > RelativeSide.values().length) throw new IllegalArgumentException("Too many auto-export sides");
+        EnumSet<RelativeSide> sides = EnumSet.noneOf(RelativeSide.class);
+        for (int entry : entries) {
+            if (entry < 0 || entry >= RelativeSide.values().length) throw new IllegalArgumentException("Invalid auto-export side");
+            sides.add(RelativeSide.values()[entry]);
         }
-    );
+        return new AutoExportSides(sides);
+    }
 
     @Override
     public boolean equals(Object o) {

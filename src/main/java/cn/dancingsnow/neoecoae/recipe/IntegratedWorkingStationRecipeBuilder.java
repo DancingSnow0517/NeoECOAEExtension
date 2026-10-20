@@ -1,35 +1,39 @@
 package cn.dancingsnow.neoecoae.recipe;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
-import lombok.Setter;
-import lombok.experimental.Accessors;
-import net.minecraft.advancements.Criterion;
+import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.platform.recipe.NEFinishedRecipe;
+import net.minecraft.advancements.CriterionTriggerInstance;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.recipes.RecipeBuilder;
-import net.minecraft.data.recipes.RecipeOutput;
+import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraftforge.common.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedIngredient;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.crafting.FluidIngredient;
-import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.FluidIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
-@Accessors(fluent = true, chain = true)
 public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     List<SizedIngredient> inputItems = new ArrayList<>();
     SizedFluidIngredient inputFluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
     ItemStack itemOutput = ItemStack.EMPTY;
     FluidStack fluidOutput = FluidStack.EMPTY;
-    @Setter
     int energy = 1000;
+
+    public IntegratedWorkingStationRecipeBuilder energy(int energy) {
+        this.energy = energy;
+        return this;
+    }
 
     public IntegratedWorkingStationRecipeBuilder require(SizedIngredient ingredient) {
         inputItems.add(ingredient);
@@ -109,7 +113,7 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public RecipeBuilder unlockedBy(String name, Criterion<?> criterion) {
+    public RecipeBuilder unlockedBy(String name, CriterionTriggerInstance criterion) {
         return this;
     }
 
@@ -124,12 +128,16 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput) {
-        save(recipeOutput, NeoECOAE.id(BuiltInRegistries.ITEM.getKey(itemOutput.getItem()).getPath()));
+    public void save(Consumer<FinishedRecipe> recipeOutput) {
+        save(recipeOutput, new ResourceLocation("neoecoae", BuiltInRegistries.ITEM.getKey(itemOutput.getItem()).getPath()));
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput, ResourceLocation id) {
+    public void save(Consumer<FinishedRecipe> recipeOutput, ResourceLocation id) {
+        saveWithSerializer(recipeOutput, id, NERecipeTypes.INTEGRATED_WORKING_STATION_SERIALIZER.get());
+    }
+
+    public void saveWithSerializer(Consumer<FinishedRecipe> recipeOutput, ResourceLocation id, RecipeSerializer<?> serializer) {
         // check
         if (itemOutput.isEmpty() && fluidOutput.isEmpty()) {
             throw new IllegalStateException("Recipe must have at least one output");
@@ -138,7 +146,7 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
             throw new IllegalStateException("Recipe must have at least one input");
         }
 
-        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy);
-        recipeOutput.accept(id, recipe, null);
+        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy, id);
+        recipeOutput.accept(new NEFinishedRecipe(id, serializer, IntegratedWorkingStationRecipe.Serializer.toJson(recipe)));
     }
 }

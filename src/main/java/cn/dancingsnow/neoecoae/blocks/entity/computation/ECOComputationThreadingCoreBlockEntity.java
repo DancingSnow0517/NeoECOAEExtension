@@ -220,14 +220,12 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             packedExactInventories.set(i);
         }
         if (!recovery.isEmpty()) {
-            net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
-                drop, data -> data.put("ecoExactCpuRecovery", recovery));
+            cn.dancingsnow.neoecoae.platform.nbt.NEItemData.update(drop, data -> data.put("ecoExactCpuRecovery", recovery));
         }
     }
 
     public void restoreExactInventories(ItemStack stack) {
-        var data = stack.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
-            net.minecraft.world.item.component.CustomData.EMPTY).copyTag().getCompound("ecoExactCpuRecovery");
+        var data = cn.dancingsnow.neoecoae.platform.nbt.NEItemData.read(stack).getCompound("ecoExactCpuRecovery");
         for (int i = 0; i < deferredInit.length; i++) {
             if (data.contains("CPU" + i) && cpus[i] == null && deferredInit[i] == null) {
                 deferredInit[i] = data.getCompound("CPU" + i).copy();

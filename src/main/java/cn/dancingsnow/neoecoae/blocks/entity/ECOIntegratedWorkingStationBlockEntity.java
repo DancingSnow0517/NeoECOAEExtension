@@ -36,7 +36,6 @@ import appeng.util.inv.CombinedInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
 import appeng.util.inv.filter.AEItemFilters;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.all.NEDataComponents;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.components.AutoExportSides;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
@@ -61,19 +60,17 @@ import lombok.extern.slf4j.Slf4j;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedIngredient;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
@@ -395,7 +392,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
             new IntegratedWorkingStationRecipe.Input(inputs, this.getInputTank().getFluid()),
             level
-        ).map(RecipeHolder::value).orElse(null);
+        ).orElse(null);
     }
 
     @Override
@@ -642,18 +639,18 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     @Override
-    public void exportSettings(SettingsFrom mode, DataComponentMap.Builder builder, @Nullable Player player) {
+    public void exportSettings(SettingsFrom mode, CompoundTag builder, @Nullable Player player) {
         super.exportSettings(mode, builder, player);
         if (mode == SettingsFrom.MEMORY_CARD) {
-            builder.set(NEDataComponents.AUTO_EXPORT_SIDES, new AutoExportSides(allowOutputs));
+            new AutoExportSides(allowOutputs).write(builder);
         }
     }
 
     @Override
-    public void importSettings(SettingsFrom mode, DataComponentMap input, @Nullable Player player) {
+    public void importSettings(SettingsFrom mode, CompoundTag input, @Nullable Player player) {
         super.importSettings(mode, input, player);
         if (mode == SettingsFrom.MEMORY_CARD) {
-            AutoExportSides autoExportSides = input.get(NEDataComponents.AUTO_EXPORT_SIDES);
+            AutoExportSides autoExportSides = AutoExportSides.read(input);
             if (autoExportSides != null) {
                 this.allowOutputs.clear();
                 this.allowOutputs.addAll(autoExportSides.sides());

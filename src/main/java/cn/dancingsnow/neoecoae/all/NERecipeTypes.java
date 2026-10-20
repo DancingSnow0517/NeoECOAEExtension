@@ -1,10 +1,11 @@
 package cn.dancingsnow.neoecoae.all;
 
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeIntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.ExtendedCrystalAssemblerRecipe;
+import cn.dancingsnow.neoecoae.recipe.StorageCellDisassemblyRecipe;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
@@ -14,8 +15,9 @@ import net.minecraftforge.registries.RegistryObject;
 import net.minecraftforge.registries.DeferredRegister;
 
 public class NERecipeTypes {
-    private static final DeferredRegister<RecipeType<?>> RECIPE_TYPE = DeferredRegister.create(Registries.RECIPE_TYPE, NeoECOAE.MOD_ID);
-    private static final DeferredRegister<RecipeSerializer<?>> RECIPE_SERIALIZER = DeferredRegister.create(Registries.RECIPE_SERIALIZER, NeoECOAE.MOD_ID);
+    private static final String MOD_ID = "neoecoae";
+    private static final DeferredRegister<RecipeType<?>> RECIPE_TYPE = DeferredRegister.create(Registries.RECIPE_TYPE, MOD_ID);
+    private static final DeferredRegister<RecipeSerializer<?>> RECIPE_SERIALIZER = DeferredRegister.create(Registries.RECIPE_SERIALIZER, MOD_ID);
 
     public static final RegistryObject<RecipeType<CoolingRecipe>> COOLING = registerRecipe("cooling");
     public static final RegistryObject<RecipeSerializer<CoolingRecipe>> COOLING_SERIALIZER = RECIPE_SERIALIZER.register(
@@ -35,11 +37,19 @@ public class NERecipeTypes {
         LargeIntegratedWorkingStationRecipe.Serializer::new
     );
 
+    public static final RegistryObject<RecipeType<ExtendedCrystalAssemblerRecipe>> EXTENDED_CRYSTAL_ASSEMBLER = registerRecipe("extended_crystal_assembler");
+    public static final RegistryObject<RecipeSerializer<ExtendedCrystalAssemblerRecipe>> EXTENDED_CRYSTAL_ASSEMBLER_SERIALIZER = RECIPE_SERIALIZER.register(
+        "extended_crystal_assembler", ExtendedCrystalAssemblerRecipe.Serializer::new);
+
+    public static final RegistryObject<RecipeType<StorageCellDisassemblyRecipe>> CELL_DISASSEMBLY = registerRecipe("storage_cell_disassembly");
+    public static final RegistryObject<RecipeSerializer<StorageCellDisassemblyRecipe>> CELL_DISASSEMBLY_SERIALIZER = RECIPE_SERIALIZER.register(
+        "storage_cell_disassembly", StorageCellDisassemblyRecipe.Serializer::new);
+
     private static <T extends Recipe<?>> RegistryObject<RecipeType<T>> registerRecipe(String name) {
         return RECIPE_TYPE.register(name, () -> new RecipeType<>() {
             @Override
             public String toString() {
-                return NeoECOAE.MOD_ID + ":" + name;
+                return MOD_ID + ":" + name;
             }
         });
     }

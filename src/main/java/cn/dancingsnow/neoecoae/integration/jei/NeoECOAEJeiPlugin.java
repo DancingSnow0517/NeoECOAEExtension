@@ -24,13 +24,12 @@ import mezz.jei.api.registration.IRecipeTransferRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
 
 @JeiPlugin
 public class NeoECOAEJeiPlugin implements IModPlugin {
     private static volatile IJeiRuntime runtime;
-    public static final RecipeType<RecipeHolder<CoolingRecipe>> COOLING_TYPE = createRecipeHolderType("cooling");
-    public static final RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_TYPE = createRecipeHolderType("integrated_working_station");
+    public static final RecipeType<CoolingRecipe> COOLING_TYPE = new RecipeType<>(NeoECOAE.id("cooling"), CoolingRecipe.class);
+    public static final RecipeType<IntegratedWorkingStationRecipe> INTEGRATED_WORKING_STATION_TYPE = new RecipeType<>(NeoECOAE.id("integrated_working_station"), IntegratedWorkingStationRecipe.class);
     public static final RecipeType<LargeWorkstationRecipe> LARGE_WORKING_STATION_TYPE = new RecipeType<>(
         NeoECOAE.id("large_integrated_working_station"), LargeWorkstationRecipe.class);
 
@@ -88,7 +87,4 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
         registration.addRecipeTransferHandler(new MultiBlockRecipeTransferHandler(), MULTIBLOCK_TYPE);
     }
 
-    public static <R extends Recipe<?>> RecipeType<RecipeHolder<R>> createRecipeHolderType(String name) {
-        return RecipeType.createRecipeHolderType(NeoECOAE.id(name));
-    }
 }

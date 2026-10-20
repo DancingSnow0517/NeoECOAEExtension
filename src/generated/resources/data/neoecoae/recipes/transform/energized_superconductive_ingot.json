@@ -1,0 +1,24 @@
+{
+  "type": "ae2:transform",
+  "circumstance": {
+    "type": "explosion"
+  },
+  "ingredients": [
+    {
+      "tag": "forge:dusts/energized_fluix_crystal"
+    },
+    {
+      "tag": "forge:dusts/aluminum"
+    },
+    {
+      "tag": "forge:silicon"
+    },
+    {
+      "tag": "neoecoae:superconductive_ingot_base"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "item": "neoecoae:energized_superconductive_ingot"
+  }
+}

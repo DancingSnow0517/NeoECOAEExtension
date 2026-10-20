@@ -1,0 +1,43 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_aluminum_alloy_casing": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:aluminum_alloy_casing"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_superconducting_processor": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:superconducting_processor"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:integrated_working_station"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_superconducting_processor",
+      "has_aluminum_alloy_casing"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:integrated_working_station"
+    ]
+  }
+}

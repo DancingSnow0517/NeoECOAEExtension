@@ -25,9 +25,8 @@ import dev.emi.emi.api.neoforge.NeoForgeEmiStack;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraftforge.common.crafting.SizedIngredient;
-import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedFluidIngredient;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
@@ -70,7 +69,7 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         // integrated working station
         registry.addCategory(INTEGRATED_WORKING_STATION);
         registry.addWorkstation(INTEGRATED_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
-        for (RecipeHolder<IntegratedWorkingStationRecipe> holder : registry.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
+        for (IntegratedWorkingStationRecipe holder : registry.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
             registry.addRecipe(new IntegrationWorkingStationEmiRecipe(holder));
         }
 
@@ -90,7 +89,7 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L4));
         registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L6));
         registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
-        for (RecipeHolder<CoolingRecipe> holder : registry.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
+        for (CoolingRecipe holder : registry.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
             registry.addRecipe(new CoolingEmiRecipe(holder));
         }
     }

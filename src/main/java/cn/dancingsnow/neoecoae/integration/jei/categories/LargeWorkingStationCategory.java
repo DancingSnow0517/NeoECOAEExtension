@@ -13,7 +13,6 @@ import mezz.jei.api.recipe.category.IRecipeCategory;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
-import net.minecraft.world.item.crafting.RecipeHolder;
 
 import java.util.ArrayList;
 
@@ -34,12 +33,12 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
 
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, LargeWorkstationRecipe recipe, IFocusGroup focuses) {
-        layout.setRecipe(builder, new RecipeHolder<>(recipe.id(), recipe.display()), focuses);
+        layout.setRecipe(builder, recipe.display(), focuses);
     }
 
     @Override
     public void draw(LargeWorkstationRecipe recipe, IRecipeSlotsView slots, GuiGraphics graphics, double x, double y) {
-        layout.draw(new RecipeHolder<>(recipe.id(), recipe.display()), slots, graphics, x, y);
+        layout.draw(recipe.display(), slots, graphics, x, y);
     }
 
     @Override

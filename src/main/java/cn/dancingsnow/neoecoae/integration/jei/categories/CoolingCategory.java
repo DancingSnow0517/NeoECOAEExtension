@@ -20,12 +20,11 @@ import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 
-public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingRecipe>> {
+public class CoolingCategory implements IRecipeCategory<CoolingRecipe> {
     private final IDrawable icon;
     private final Component title;
     private final IDrawableAnimated progress;
@@ -48,7 +47,7 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
     }
 
     @Override
-    public RecipeType<RecipeHolder<CoolingRecipe>> getRecipeType() {
+    public RecipeType<CoolingRecipe> getRecipeType() {
         return NeoECOAEJeiPlugin.COOLING_TYPE;
     }
 
@@ -73,8 +72,8 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
     }
 
     @Override
-    public void setRecipe(IRecipeLayoutBuilder builder, RecipeHolder<CoolingRecipe> recipeHolder, IFocusGroup focuses) {
-        CoolingRecipe recipe = recipeHolder.value();
+    public void setRecipe(IRecipeLayoutBuilder builder, CoolingRecipe recipeHolder, IFocusGroup focuses) {
+        CoolingRecipe recipe = recipeHolder;
         builder.addInputSlot(10, 11)
             .addIngredients(NeoForgeTypes.FLUID_STACK, Arrays.asList(recipe.input().getFluids()))
             .setStandardSlotBackground()
@@ -86,7 +85,7 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
     }
 
     @Override
-    public void draw(RecipeHolder<CoolingRecipe> recipe, IRecipeSlotsView recipeSlotsView, GuiGraphics guiGraphics, double mouseX, double mouseY) {
+    public void draw(CoolingRecipe recipe, IRecipeSlotsView recipeSlotsView, GuiGraphics guiGraphics, double mouseX, double mouseY) {
         progessEmpty.draw(guiGraphics, 35, 5);
         progress.draw(guiGraphics, 35, 5);
 
@@ -96,7 +95,7 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
         poseStack.scale(0.75f, 0.75f, 0.75f);
         guiGraphics.drawString(
             Minecraft.getInstance().font,
-            Component.translatable("category.neoecoae.cooling.coolant", recipe.value().coolant()),
+            Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()),
             0,
             0,
             0,
@@ -104,7 +103,7 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
         );
         guiGraphics.drawString(
             Minecraft.getInstance().font,
-            Component.translatable("category.neoecoae.cooling.max_overclock", recipe.value().maxOverclock()),
+            Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()),
             0,
             10,
             0,

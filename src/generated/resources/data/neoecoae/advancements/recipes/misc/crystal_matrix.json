@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_crystal_ingot": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:crystal_ingot"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:crystal_matrix"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_crystal_ingot"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:crystal_matrix"
+    ]
+  }
+}

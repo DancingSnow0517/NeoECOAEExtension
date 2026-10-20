@@ -1,114 +1,77 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.core.HolderLookup;
+import cn.dancingsnow.neoecoae.platform.recipe.NERecipeInput;
+import cn.dancingsnow.neoecoae.platform.recipe.RecipeJson;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedFluidIngredient;
+import com.google.gson.JsonObject;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.GsonHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
-import org.jetbrains.annotations.Contract;
 
-public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock) implements Recipe<CoolingRecipe.Input> {
-
-    @Contract("-> new")
-    public static CoolingRecipeBuilder builder() {
-        return new CoolingRecipeBuilder();
+public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock,
+                            ResourceLocation id) implements Recipe<CoolingRecipe.Input> {
+    public CoolingRecipe(SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock) {
+        this(input, output, coolant, maxOverclock, new ResourceLocation("neoecoae", "runtime_cooling"));
     }
 
-    @Override
-    public boolean matches(Input i, Level l) {
-        return input.test(i.input) && (i.output.isEmpty() || output.is(i.output.getFluid()));
+    public CoolingRecipe {
+        if (input.ingredient().isEmpty()) throw new IllegalArgumentException("Coolant input cannot be empty");
+        if (coolant <= 0 || maxOverclock < 0) throw new IllegalArgumentException("Invalid coolant or overclock value");
+        output = output.copy();
     }
 
-    @Override
-    public ItemStack assemble(Input input, HolderLookup.Provider registries) {
-        return ItemStack.EMPTY;
+    public static CoolingRecipeBuilder builder() { return new CoolingRecipeBuilder(); }
+    @Override public boolean matches(Input i, Level level) {
+        return input.test(i.input()) && (i.output().isEmpty() || output.isFluidEqual(i.output()));
     }
-
-    @Override
-    public boolean canCraftInDimensions(int width, int height) {
-        return true;
-    }
-
-    @Override
-    public ItemStack getResultItem(HolderLookup.Provider registries) {
-        return ItemStack.EMPTY;
-    }
-
-    @Override
-    public RecipeSerializer<?> getSerializer() {
-        return NERecipeTypes.COOLING_SERIALIZER.get();
-    }
-
-    @Override
-    public RecipeType<?> getType() {
-        return NERecipeTypes.COOLING.get();
-    }
-
-    public int inputAmount() {
-        return input.amount();
-    }
-
-    public int outputAmount() {
-        return output.getAmount();
-    }
+    @Override public ItemStack assemble(Input input, RegistryAccess registries) { return ItemStack.EMPTY; }
+    @Override public boolean canCraftInDimensions(int width, int height) { return true; }
+    @Override public ItemStack getResultItem(RegistryAccess registries) { return ItemStack.EMPTY; }
+    @Override public ResourceLocation getId() { return id; }
+    @Override public RecipeSerializer<?> getSerializer() { return NERecipeTypes.COOLING_SERIALIZER.get(); }
+    @Override public RecipeType<?> getType() { return NERecipeTypes.COOLING.get(); }
+    public int inputAmount() { return input.amount(); }
+    public int outputAmount() { return output.getAmount(); }
 
     public static class Serializer implements RecipeSerializer<CoolingRecipe> {
-        private static final MapCodec<CoolingRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
-            SizedFluidIngredient.FLAT_CODEC.fieldOf("input").forGetter(CoolingRecipe::input),
-            FluidStack.OPTIONAL_CODEC.fieldOf("output").forGetter(CoolingRecipe::output),
-            Codec.INT.fieldOf("coolant").forGetter(CoolingRecipe::coolant),
-            Codec.INT.optionalFieldOf("max_overclock", 0).forGetter(CoolingRecipe::maxOverclock)
-        ).apply(ins, CoolingRecipe::new));
-
-        private static final StreamCodec<FriendlyByteBuf, CoolingRecipe> STREAM_CODEC = StreamCodec.composite(
-            SizedFluidIngredient.STREAM_CODEC,
-            CoolingRecipe::input,
-            FluidStack.OPTIONAL_STREAM_CODEC,
-            CoolingRecipe::output,
-            ByteBufCodecs.VAR_INT,
-            CoolingRecipe::coolant,
-            ByteBufCodecs.VAR_INT,
-            CoolingRecipe::maxOverclock,
-            CoolingRecipe::new
-        );
-
-        @Override
-        public MapCodec<CoolingRecipe> codec() {
-            return CODEC;
+        @Override public CoolingRecipe fromJson(ResourceLocation id, JsonObject json) {
+            return new CoolingRecipe(SizedFluidIngredient.fromJson(json.get("input")), RecipeJson.fluid(json.get("output")),
+                GsonHelper.getAsInt(json, "coolant"), GsonHelper.getAsInt(json, "max_overclock", 0), id);
         }
 
-        @Override
-        public StreamCodec<FriendlyByteBuf, CoolingRecipe> streamCodec() {
-            return STREAM_CODEC;
+        public static JsonObject toJson(CoolingRecipe recipe) {
+            JsonObject json = new JsonObject();
+            json.add("input", recipe.input().toJson());
+            json.add("output", RecipeJson.fluid(recipe.output()));
+            json.addProperty("coolant", recipe.coolant());
+            json.addProperty("max_overclock", recipe.maxOverclock());
+            return json;
+        }
+
+        @Override public CoolingRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
+            return new CoolingRecipe(SizedFluidIngredient.read(buffer), buffer.readFluidStack(),
+                buffer.readVarInt(), buffer.readVarInt(), id);
+        }
+
+        @Override public void toNetwork(FriendlyByteBuf buffer, CoolingRecipe recipe) {
+            recipe.input().write(buffer);
+            buffer.writeFluidStack(recipe.output());
+            buffer.writeVarInt(recipe.coolant());
+            buffer.writeVarInt(recipe.maxOverclock());
         }
     }
 
-    public record Input(FluidStack input, FluidStack output) implements RecipeInput {
-
-        @Override
-        public ItemStack getItem(int index) {
-            return ItemStack.EMPTY;
-        }
-
-        @Override
-        public int size() {
-            return 1;
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return input.isEmpty();
-        }
+    public record Input(FluidStack input, FluidStack output) implements NERecipeInput {
+        @Override public ItemStack getItem(int index) { return ItemStack.EMPTY; }
+        @Override public int size() { return 0; }
+        @Override public boolean isEmpty() { return input.isEmpty(); }
     }
 }

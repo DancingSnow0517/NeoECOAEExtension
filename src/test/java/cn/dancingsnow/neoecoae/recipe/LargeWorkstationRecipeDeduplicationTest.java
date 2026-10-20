@@ -15,11 +15,11 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.common.crafting.DataComponentIngredient;
-import net.minecraftforge.common.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedIngredient;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.crafting.DataComponentFluidIngredient;
-import net.minecraftforge.fluids.crafting.FluidIngredient;
-import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.FluidIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedFluidIngredient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

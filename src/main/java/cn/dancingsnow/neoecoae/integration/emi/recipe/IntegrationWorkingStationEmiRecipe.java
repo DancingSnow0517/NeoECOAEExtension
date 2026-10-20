@@ -13,10 +13,9 @@ import dev.emi.emi.api.widget.WidgetHolder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraftforge.common.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedIngredient;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedFluidIngredient;
 
 import java.util.List;
 
@@ -27,13 +26,13 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
     private final List<GenericStack> extraInputs;
     private final Component sourceType;
 
-    public IntegrationWorkingStationEmiRecipe(RecipeHolder<IntegratedWorkingStationRecipe> holder) {
-        this(NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION, holder.id(), holder.value(), holder.value().energy(), List.of(), null);
+    public IntegrationWorkingStationEmiRecipe(IntegratedWorkingStationRecipe holder) {
+        this(NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION, holder.getId(), holder, holder.energy(), List.of(), null);
     }
 
     public IntegrationWorkingStationEmiRecipe(LargeWorkstationRecipe recipe) {
         this(NeoECOAEEmiPlugin.LARGE_WORKING_STATION,
-            NeoECOAE.id("/large_workstation/" + recipe.id().getNamespace() + "/" + recipe.id().getPath()),
+            NeoECOAE.id("/large_workstation/" + recipe.getId().getNamespace() + "/" + recipe.getId().getPath()),
             recipe.display(), recipe.energy(), recipe.extraInputs(), recipe.sourceTypeDescription());
     }
 

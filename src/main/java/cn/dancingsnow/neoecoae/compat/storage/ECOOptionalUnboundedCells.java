@@ -16,6 +16,6 @@ public final class ECOOptionalUnboundedCells {
         var mods = ModList.get();
         if (mods == null) return;
         if (mods.isLoaded("ae2lt")) ECOAe2LtUnboundedCells.collect(cell, target);
-        if (mods.isLoaded("extendedae")) ECOExtendedAEUnboundedCells.collect(cell, target);
+        if (mods.isLoaded("expatternprovider")) ECOExtendedAEUnboundedCells.collect(cell, target);
     }
 }

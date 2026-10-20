@@ -259,7 +259,7 @@ class WorkstationUpgradeCardRecipeTest {
     }
 
     private static JsonObject resource(String variant) throws IOException {
-        var path = Path.of("src/main/resources/data/neoecoae/recipe/large_integrated_working_station/"
+        var path = Path.of("src/main/resources/data/neoecoae/recipes/large_integrated_working_station/"
             + "integrated_working_station_module_" + variant + ".json");
         return JsonParser.parseString(Files.readString(path)).getAsJsonObject();
     }

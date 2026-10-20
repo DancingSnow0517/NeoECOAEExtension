@@ -49,13 +49,12 @@ import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponents;
+import cn.dancingsnow.neoecoae.platform.nbt.NEItemData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -531,16 +530,16 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (infiniteDomainId == null || drop.isEmpty()) {
             return;
         }
-        CompoundTag tag = drop.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag tag = NEItemData.copy(drop);
         rememberInfiniteMembers();
         saveInfiniteMembers(tag);
         tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
         tag.putString(CONTROLLER_MODE_TAG, hostMode.id());
-        drop.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        NEItemData.write(drop, tag);
     }
 
     public void restoreInfiniteDomainFromItem(ItemStack stack) {
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag tag = NEItemData.copy(stack);
         if (!tag.hasUUID(CONTROLLER_DOMAIN_TAG)) {
             return;
         }

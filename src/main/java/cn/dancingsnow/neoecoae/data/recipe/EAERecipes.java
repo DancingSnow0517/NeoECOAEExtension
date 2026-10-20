@@ -4,44 +4,28 @@ import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEItems;
-import cn.dancingsnow.neoecoae.all.NETags;
+import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.platform.recipe.ForgeRecipeOutputs;
+import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.glodblock.github.extendedae.recipe.CircuitCutterRecipeBuilder;
-import com.glodblock.github.extendedae.recipe.CrystalAssemblerRecipeBuilder;
-import com.glodblock.github.extendedae.recipe.CrystalFixerRecipeBuilder;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
-import net.minecraft.data.recipes.RecipeOutput;
-import net.minecraftforge.common.conditions.ModLoadedCondition;
+import net.minecraftforge.common.crafting.conditions.ModLoadedCondition;
 
 public class EAERecipes {
     public static void init(RegistrateRecipeProvider provider) {
-        RecipeOutput extendedaeInstalled = provider.withConditions(new ModLoadedCondition("extendedae"));
+        var extended = ForgeRecipeOutputs.withConditions(provider, new ModLoadedCondition("expatternprovider"));
+        // ExtendedAE 1.20.1 has no crystal assembler. Keep main's exact contract in an ECO recipe type.
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT, 4)
+            .require(NEItems.CRYSTAL_MATRIX, 4)
+            .require(AEItems.SILICON_PRINT, 4)
+            .itemOutput(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
+            .energy(2000)
+            .saveWithSerializer(extended, NeoECOAE.id("crystal_assembler/superconducting_processor"),
+                NERecipeTypes.EXTENDED_CRYSTAL_ASSEMBLER_SERIALIZER.get());
 
-        // 水晶修复
-        CrystalFixerRecipeBuilder.fixer(NEBlocks.ENERGIZED_CRYSTAL_BLOCK.get(), NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL.get())
-            .chance(0.8)
-            .fuel(NETags.Items.ENERGIZED_CRYSTAL)
-            .save(extendedaeInstalled, NeoECOAE.id("crystal_fixer/damaged_budding_energized_crystal"));
-
-        CrystalFixerRecipeBuilder.fixer(NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL.get(), NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL.get())
-            .chance(0.8)
-            .fuel(NETags.Items.ENERGIZED_CRYSTAL)
-            .save(extendedaeInstalled, NeoECOAE.id("crystal_fixer/chipped_budding_energized_crystal"));
-
-        CrystalFixerRecipeBuilder.fixer(NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL.get(), NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL.get())
-            .chance(0.05)
-            .fuel(NETags.Items.ENERGIZED_CRYSTAL)
-            .save(extendedaeInstalled, NeoECOAE.id("crystal_fixer/flawed_budding_energized_crystal"));
-
-        // 水晶装配器
-        CrystalAssemblerRecipeBuilder.assemble(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
-            .input(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT, 4)
-            .input(NEItems.CRYSTAL_MATRIX, 4)
-            .input(AEItems.SILICON_PRINT, 4)
-            .save(extendedaeInstalled, NeoECOAE.id("crystal_assembler/superconducting_processor"));
-
-        // 电路切片机
         CircuitCutterRecipeBuilder.cut(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT, 9)
             .input(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK)
-            .save(extendedaeInstalled, NeoECOAE.id("circuit_cutter/superconducting_processor_print"));
+            .save(extended, NeoECOAE.id("circuit_cutter/superconducting_processor_print"));
     }
 }

@@ -1,0 +1,28 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "expatternprovider"
+    }
+  ],
+  "type": "neoecoae:extended_crystal_assembler",
+  "inputItems": [
+    {
+      "item": "neoecoae:superconducting_processor_print",
+      "count": 4
+    },
+    {
+      "item": "neoecoae:crystal_matrix",
+      "count": 4
+    },
+    {
+      "item": "ae2:printed_silicon",
+      "count": 4
+    }
+  ],
+  "itemOutput": {
+    "count": 4,
+    "item": "neoecoae:superconducting_processor"
+  },
+  "energy": 2000
+}

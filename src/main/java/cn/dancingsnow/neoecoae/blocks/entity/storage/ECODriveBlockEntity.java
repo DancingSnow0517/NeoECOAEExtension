@@ -24,8 +24,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.item.component.CustomData;
+import cn.dancingsnow.neoecoae.platform.nbt.NEItemData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -339,26 +338,26 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     public long getRestoreReceipt(UUID transactionId) {
         if (cellStack == null || cellStack.isEmpty()) return 0L;
-        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag custom = NEItemData.copy(cellStack);
         return custom.getCompound(RESTORE_RECEIPTS_TAG).getLong(transactionId.toString());
     }
 
     public void putRestoreReceipt(UUID transactionId, long amount) {
         if (cellStack == null || cellStack.isEmpty() || amount <= 0L) return;
-        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag custom = NEItemData.copy(cellStack);
         CompoundTag receipts = custom.getCompound(RESTORE_RECEIPTS_TAG);
         receipts.putLong(transactionId.toString(), amount);
         custom.put(RESTORE_RECEIPTS_TAG, receipts);
-        cellStack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
+        NEItemData.write(cellStack, custom);
         setChanged();
     }
 
     public void clearRestoreReceipts() {
         if (cellStack == null || cellStack.isEmpty()) return;
-        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag custom = NEItemData.copy(cellStack);
         custom.remove(RESTORE_RECEIPTS_TAG);
-        if (custom.isEmpty()) cellStack.remove(DataComponents.CUSTOM_DATA);
-        else cellStack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
+        if (custom.isEmpty()) cellStack.setTag(null);
+        else NEItemData.write(cellStack, custom);
         setChanged();
     }
 }

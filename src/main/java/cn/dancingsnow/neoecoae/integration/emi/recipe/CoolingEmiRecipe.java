@@ -7,15 +7,14 @@ import dev.emi.emi.api.recipe.BasicEmiRecipe;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.WidgetHolder;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraftforge.fluids.FluidStack;
 
 public class CoolingEmiRecipe extends BasicEmiRecipe {
     private final CoolingRecipe recipe;
 
-    public CoolingEmiRecipe(RecipeHolder<CoolingRecipe> holder) {
-        super(NeoECOAEEmiPlugin.COOLING, holder.id(), 100, 60);
-        this.recipe = holder.value();
+    public CoolingEmiRecipe(CoolingRecipe holder) {
+        super(NeoECOAEEmiPlugin.COOLING, holder.getId(), 100, 60);
+        this.recipe = holder;
 
         inputs.add(NeoECOAEEmiPlugin.of(recipe.input()));
 

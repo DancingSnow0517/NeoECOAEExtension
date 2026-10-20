@@ -1,0 +1,15 @@
+{
+  "type": "ae2:transform",
+  "ingredients": [
+    {
+      "item": "neoecoae:damaged_budding_energized_crystal"
+    },
+    {
+      "tag": "forge:gems/energized_crystal"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "item": "neoecoae:chipped_budding_energized_crystal"
+  }
+}

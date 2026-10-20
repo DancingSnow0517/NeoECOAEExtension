@@ -72,7 +72,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -347,16 +346,16 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Nullable
-    private RecipeHolder<CoolingRecipe> getCoolingRecipeForInput() {
+    private CoolingRecipe getCoolingRecipeForInput() {
         if (level == null) return null;
         FluidStack input = getInputTank().getFluid();
         if (input.isEmpty()) return null;
 
-        RecipeHolder<CoolingRecipe> best = null;
-        for (RecipeHolder<CoolingRecipe> holder : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
-            CoolingRecipe recipe = holder.value();
+        CoolingRecipe best = null;
+        for (CoolingRecipe holder : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
+            CoolingRecipe recipe = holder;
             if (recipe.input().ingredient().test(input)
-                && (best == null || recipe.maxOverclock() > best.value().maxOverclock())) {
+                && (best == null || recipe.maxOverclock() > best.maxOverclock())) {
                 best = holder;
             }
         }
@@ -365,9 +364,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private LargeWorkstationOverclock getCurrentBatchProfile() {
         if (!isTemperatureEnabled()) {
-            RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
+            CoolingRecipe holder = getCoolingRecipeForInput();
             return LargeWorkstationOverclock.forCoolant(overclocked, activeCooling,
-                holder == null ? 0 : holder.value().maxOverclock());
+                holder == null ? 0 : holder.maxOverclock());
         }
         return LargeWorkstationOverclock.forTemperature(overclocked, temperature);
     }
@@ -468,8 +467,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public Component getCoolingTierText() {
-        RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
-        CoolingRecipe recipe = holder == null ? null : holder.value();
+        CoolingRecipe holder = getCoolingRecipeForInput();
+        CoolingRecipe recipe = holder == null ? null : holder;
         LargeWorkstationOverclock profile = recipe == null
             ? null : LargeWorkstationOverclock.forCoolingTier(recipe.maxOverclock());
         String tier = profile == null ? "none" : switch (profile.coolingTier()) {
@@ -732,8 +731,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private int getCoolingTierId() {
-        RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
-        return holder == null ? 0 : holder.value().maxOverclock();
+        CoolingRecipe holder = getCoolingRecipeForInput();
+        return holder == null ? 0 : holder.maxOverclock();
     }
 
     @Nullable
@@ -754,7 +753,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 return batch.recipe;
             }
             var holder = level.getRecipeManager().byKey(batch.recipeId).orElse(null);
-            if (holder != null && holder.value() instanceof IntegratedWorkingStationRecipe recipe) {
+            if (holder != null && holder instanceof IntegratedWorkingStationRecipe recipe) {
                 batch.recipe = recipe;
                 return recipe;
             }
@@ -762,7 +761,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
         // Saves written before recipeId was persisted still contain the exact owned input ledger.
         // Rebuild one craft's inputs from it so already-running jobs become visible again after updating.
-        RecipeHolder<IntegratedWorkingStationRecipe> holder = null;
+        IntegratedWorkingStationRecipe holder = null;
         KeyCounter perCraftInputs = divideCounter(batch.inputTotal, batch.craftCount);
         if (perCraftInputs != null) {
             IntegratedWorkingStationRecipe.Input input = createRecipeInput(perCraftInputs);
@@ -774,18 +773,18 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         // A completed legacy batch has already exchanged inputTotal for pendingOutput. Its saved primary
         // pattern result plus energy still identifies the recipe well enough to restore the status display.
         if (holder == null && batch.unlockStack != null) {
-            for (RecipeHolder<IntegratedWorkingStationRecipe> candidate
+            for (IntegratedWorkingStationRecipe candidate
                 : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
-                if (candidate.value().energy() == batch.energyPerCraft
-                    && recipeOutputMatches(candidate.value(), batch.unlockStack)) {
+                if (candidate.energy() == batch.energyPerCraft
+                    && recipeOutputMatches(candidate, batch.unlockStack)) {
                     holder = candidate;
                     break;
                 }
             }
         }
         if (holder == null) return null;
-        batch.recipeId = holder.id();
-        batch.recipe = holder.value();
+        batch.recipeId = holder.getId();
+        batch.recipe = holder;
         if (!level.isClientSide) setChanged();
         return batch.recipe;
     }
@@ -1213,14 +1212,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         boolean consumed = false;
         coolingProblemId = 0;
         if (activeCooling && !preheating && temperature > 0) {
-            RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
+            CoolingRecipe holder = getCoolingRecipeForInput();
             // Only the real cryotheum fluid can clear the safety latch, even with custom cooling recipes.
             boolean recoveryFluid = new ResourceLocation("neoecoae", "cryotheum_solution")
                 .equals(BuiltInRegistries.FLUID.getKey(getInputTank().getFluid().getFluid()));
             if (!overheated || recoveryFluid) {
                 CoolingTickPlan plan = prepareCoolingTick(holder);
                 if (plan != null && consumeCoolingTick(plan)) {
-                    coolingTier = overheated ? 9 : holder.value().maxOverclock();
+                    coolingTier = overheated ? 9 : holder.maxOverclock();
                     consumed = true;
                 }
             }
@@ -1247,8 +1246,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             setPauseReason(PauseReason.COOLING_DISABLED);
             return null;
         }
-        RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
-        if (holder != null && holder.value().maxOverclock() < requiredTier) {
+        CoolingRecipe holder = getCoolingRecipeForInput();
+        if (holder != null && holder.maxOverclock() < requiredTier) {
             setPauseReason(PauseReason.COOLANT_TIER_LOW);
             return null;
         }
@@ -1260,12 +1259,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Nullable
-    private CoolingTickPlan prepareCoolingTick(@Nullable RecipeHolder<CoolingRecipe> holder) {
+    private CoolingTickPlan prepareCoolingTick(@Nullable CoolingRecipe holder) {
         if (holder == null) {
             coolingProblemId = PauseReason.COOLANT_MISSING.ordinal();
             return null;
         }
-        CoolingRecipe recipe = holder.value();
+        CoolingRecipe recipe = holder;
         LargeWorkstationOverclock current = LargeWorkstationOverclock.forCoolingTier(recipe.maxOverclock());
         if (current == null) {
             coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
@@ -1277,7 +1276,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
 
         LargeWorkstationCoolingOutput.Plan output = coolingOutput.plan(
-            holder.id(), recipe.output(), recipe.inputAmount(), recipe.outputAmount(), COOLANT_PER_PROCESSING_TICK);
+            holder.getId(), recipe.output(), recipe.inputAmount(), recipe.outputAmount(), COOLANT_PER_PROCESSING_TICK);
         if (output == null) {
             coolingProblemId = PauseReason.COOLANT_OUTPUT_BLOCKED.ordinal();
             return null;

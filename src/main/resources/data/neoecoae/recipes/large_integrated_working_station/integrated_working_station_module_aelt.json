@@ -1,0 +1,52 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2lt"
+    }
+  ],
+  "type": "neoecoae:large_integrated_working_station",
+  "inputItems": [
+    {
+      "item": "neoecoae:integrated_working_station_module_empty",
+      "count": 1
+    },
+    {
+      "item": "ae2lt:ultimate_overload_core",
+      "count": 16
+    },
+    {
+      "item": "ae2lt:overload_alloy_plate",
+      "count": 64
+    },
+    {
+      "item": "ae2lt:lightning_collapse_matrix",
+      "count": 16
+    },
+    {
+      "item": "ae2lt:overload_singularity",
+      "count": 16
+    },
+    {
+      "item": "ae2lt:overload_processing_factory",
+      "count": 4
+    },
+    {
+      "item": "ae2lt:lightning_assembly_chamber",
+      "count": 4
+    },
+    {
+      "item": "ae2lt:overload_alloy",
+      "count": 128
+    },
+    {
+      "item": "ae2lt:overload_processor",
+      "count": 128
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:integrated_working_station_module_aelt"
+  },
+  "energy": 16384000
+}

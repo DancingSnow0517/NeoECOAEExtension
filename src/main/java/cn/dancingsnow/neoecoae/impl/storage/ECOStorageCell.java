@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.impl.storage;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.IncludeExclude;
-import appeng.api.ids.AEComponents;
+import cn.dancingsnow.neoecoae.platform.nbt.NECellNbt;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -177,7 +177,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     private List<GenericStack> getStoredStacks() {
-        return cellStack.getOrDefault(AEComponents.STORAGE_CELL_INV, List.of());
+        return NECellNbt.readStacks(cellStack);
     }
 
     public static boolean canStoreKeyInsideStorageCell(AEKey what) {
@@ -233,11 +233,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
             }
         }
 
-        if (stacks.isEmpty()) {
-            cellStack.remove(AEComponents.STORAGE_CELL_INV);
-        } else {
-            cellStack.set(AEComponents.STORAGE_CELL_INV, stacks);
-        }
+        NECellNbt.writeStacks(cellStack, stacks);
 
         int actualTypes = this.storedAmounts.size();
         if (actualTypes > this.maxItemTypes) {

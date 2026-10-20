@@ -18,6 +18,7 @@ public class GuiLangs {
         provider.add("recipe_type.neoecoae.ae2lt.lightning_simulation", "AE2LT: Lightning Simulation");
         provider.add("recipe_type.neoecoae.advanced_ae.reaction", "AdvancedAE: Reaction Chamber");
         provider.add("recipe_type.neoecoae.extendedae.crystal_assembler", "ExtendedAE: Crystal Assembling");
+        provider.add("recipe_type.neoecoae.expatternprovider.crystal_assembler", "ExtendedAE: Crystal Assembling");
         provider.add("gui.neoecoae.large_integrated_working_station.return_inputs", "Return Stored Inputs");
         // integrated working station
         provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");

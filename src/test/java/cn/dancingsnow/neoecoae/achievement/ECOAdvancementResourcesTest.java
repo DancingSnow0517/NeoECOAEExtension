@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ECOAdvancementResourcesTest {
-    private static final String DIRECTORY = "data/neoecoae/advancement/eco/";
+    private static final String DIRECTORY = "data/neoecoae/advancements/eco/";
     private static final String ROOT = "neoecoae:eco/root";
     private static final Set<String> NAMES = Set.of(
         "root", "energized_crystal_lightning", "host_l4", "host_l6", "host_l9",

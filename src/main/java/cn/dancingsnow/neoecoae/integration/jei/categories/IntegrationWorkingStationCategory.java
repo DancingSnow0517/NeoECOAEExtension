@@ -22,15 +22,14 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraftforge.common.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedIngredient;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedFluidIngredient;
 
 import java.util.Arrays;
 import java.util.List;
 
-public class IntegrationWorkingStationCategory implements IRecipeCategory<RecipeHolder<IntegratedWorkingStationRecipe>> {
+public class IntegrationWorkingStationCategory implements IRecipeCategory<IntegratedWorkingStationRecipe> {
     private final IDrawable icon;
     private final Component title;
     private final IDrawable background;
@@ -56,7 +55,7 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     }
 
     @Override
-    public RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> getRecipeType() {
+    public RecipeType<IntegratedWorkingStationRecipe> getRecipeType() {
         return NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE;
     }
 
@@ -81,8 +80,8 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     }
 
     @Override
-    public void setRecipe(IRecipeLayoutBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder, IFocusGroup focuses) {
-        IntegratedWorkingStationRecipe recipe = holder.value();
+    public void setRecipe(IRecipeLayoutBuilder builder, IntegratedWorkingStationRecipe holder, IFocusGroup focuses) {
+        IntegratedWorkingStationRecipe recipe = holder;
 
         // input fluid
         SizedFluidIngredient inputFluid = recipe.inputFluid();
@@ -120,14 +119,14 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     }
 
     @Override
-    public void draw(RecipeHolder<IntegratedWorkingStationRecipe> recipe, IRecipeSlotsView recipeSlotsView, GuiGraphics guiGraphics, double mouseX, double mouseY) {
+    public void draw(IntegratedWorkingStationRecipe recipe, IRecipeSlotsView recipeSlotsView, GuiGraphics guiGraphics, double mouseX, double mouseY) {
         background.draw(guiGraphics);
         progress.draw(guiGraphics, 136, 30);
     }
 
     @Override
-    public void createRecipeExtras(IRecipeExtrasBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder, IFocusGroup focuses) {
-        IntegratedWorkingStationRecipe recipe = holder.value();
+    public void createRecipeExtras(IRecipeExtrasBuilder builder, IntegratedWorkingStationRecipe holder, IFocusGroup focuses) {
+        IntegratedWorkingStationRecipe recipe = holder;
         Component text = Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
         builder.addText(text, 120, 12).setPosition(24, 66).setColor(0x403e53);
     }

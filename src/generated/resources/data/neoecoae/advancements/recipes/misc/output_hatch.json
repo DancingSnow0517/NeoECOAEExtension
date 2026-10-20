@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_crafting_casing": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:crafting_casing"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:output_hatch"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_crafting_casing"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:output_hatch"
+    ]
+  }
+}

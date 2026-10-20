@@ -1,32 +1,33 @@
 package cn.dancingsnow.neoecoae.recipe;
 
-import lombok.Setter;
-import lombok.experimental.Accessors;
-import net.minecraft.advancements.Criterion;
+import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.platform.recipe.NEFinishedRecipe;
+import net.minecraft.advancements.CriterionTriggerInstance;
 import net.minecraft.core.Holder;
 import net.minecraft.data.recipes.RecipeBuilder;
-import net.minecraft.data.recipes.RecipeOutput;
+import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.platform.recipe.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 
-@Accessors(fluent = true, chain = true)
 public class CoolingRecipeBuilder implements RecipeBuilder {
 
     private SizedFluidIngredient input = null;
-    @Setter
     private FluidStack output = FluidStack.EMPTY;
-    @Setter
     private int coolant = 0;
-    @Setter
     private int maxOverclock = 9;
+
+    public CoolingRecipeBuilder output(FluidStack output) { this.output = output.copy(); return this; }
+    public CoolingRecipeBuilder coolant(int coolant) { this.coolant = coolant; return this; }
+    public CoolingRecipeBuilder maxOverclock(int maxOverclock) { this.maxOverclock = maxOverclock; return this; }
 
     public CoolingRecipeBuilder input(SizedFluidIngredient ingredient) {
         this.input = ingredient;
@@ -54,7 +55,7 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public CoolingRecipeBuilder unlockedBy(String name, Criterion<?> criterion) {
+    public CoolingRecipeBuilder unlockedBy(String name, CriterionTriggerInstance criterion) {
         return this;
     }
 
@@ -69,12 +70,12 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput) {
+    public void save(Consumer<FinishedRecipe> recipeOutput) {
         throw new IllegalArgumentException("id must not be null");
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput, ResourceLocation id) {
+    public void save(Consumer<FinishedRecipe> recipeOutput, ResourceLocation id) {
         Objects.requireNonNull(input, "input must not be null");
         if (coolant <= 0) {
             throw new IllegalStateException("coolant must be greater than 0");
@@ -82,7 +83,7 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
         if (maxOverclock < 0) {
             throw new IllegalStateException("maxOverclock must not be negative");
         }
-        CoolingRecipe recipe = new CoolingRecipe(input, output, coolant, maxOverclock);
-        recipeOutput.accept(id, recipe, null);
+        CoolingRecipe recipe = new CoolingRecipe(input, output, coolant, maxOverclock, id);
+        recipeOutput.accept(new NEFinishedRecipe(id, NERecipeTypes.COOLING_SERIALIZER.get(), CoolingRecipe.Serializer.toJson(recipe)));
     }
 }

@@ -869,5 +869,6 @@
   "gui.neoecoae.structure_terminal.target.storage.tooltip": "ɯǝʇsʎsqnS ǝbɐɹoʇS",
   "gui.neoecoae.structure_terminal.unknown_material": "ןɐıɹǝʇɐɯ uʍouʞu∩",
   "gui.neoecoae.structure_terminal.variable_sections": "]%s-%s[ %s :suoıʇɔǝS ǝןqɐıɹɐΛ",
-  "item.neoecoae.structure_terminal": "ןɐuıɯɹǝ⟘ ǝɹnʇɔnɹʇS"
+  "item.neoecoae.structure_terminal": "ןɐuıɯɹǝ⟘ ǝɹnʇɔnɹʇS",
+  "recipe_type.neoecoae.expatternprovider.crystal_assembler": "buıןqɯǝssⱯ ןɐʇsʎɹƆ :ƎⱯpǝpuǝʇxƎ"
 }

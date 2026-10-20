@@ -1,0 +1,48 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "expatternprovider"
+    }
+  ],
+  "type": "neoecoae:large_integrated_working_station",
+  "inputItems": [
+    {
+      "item": "neoecoae:integrated_working_station_module_empty",
+      "count": 1
+    },
+    {
+      "item": "neoecoae:superconducting_processor",
+      "count": 16
+    },
+    {
+      "item": "neoecoae:energized_superconductive_ingot",
+      "count": 64
+    },
+    {
+      "item": "neoecoae:crystal_matrix",
+      "count": 16
+    },
+    {
+      "item": "ae2:singularity",
+      "count": 16
+    },
+    {
+      "item": "expatternprovider:ex_molecular_assembler",
+      "count": 8
+    },
+    {
+      "item": "neoecoae:energized_superconductive_ingot",
+      "count": 256
+    },
+    {
+      "item": "neoecoae:superconducting_processor",
+      "count": 128
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:integrated_working_station_module_extendedae"
+  },
+  "energy": 16384000
+}

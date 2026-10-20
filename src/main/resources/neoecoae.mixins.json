@@ -31,7 +31,8 @@
     "ae2.storage.NetworkStorageMixin",
     "ae2.storage.StoredEnergyAmountMixin",
     "ldlib.AsyncThreadDataMixin",
-    "minecraft.LightningBoltMixin"
+    "minecraft.LightningBoltMixin",
+    "minecraft.RecipeManagerAccessor"
   ],
   "client": [
     "client.accessor.MenuScreensAccessor",

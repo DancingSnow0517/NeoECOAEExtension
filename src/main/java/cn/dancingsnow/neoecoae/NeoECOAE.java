@@ -9,7 +9,6 @@ import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
-import cn.dancingsnow.neoecoae.all.NEDataComponents;
 import cn.dancingsnow.neoecoae.all.NEEcoTiers;
 import cn.dancingsnow.neoecoae.all.NEFluids;
 import cn.dancingsnow.neoecoae.all.NEGridServices;
@@ -86,7 +85,7 @@ public class NeoECOAE {
         NEEcoTiers.register();
         NECellTypes.register();
         NERecipeTypes.register(modBus);
-        NEDataComponents.register(modBus);
+        cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes.configure(() -> NEConfig.largeWorkstationIgnoreUpgradeCards);
 
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();

@@ -20,15 +20,12 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -630,18 +627,19 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             recoveryCarrier = new ItemStack(getBlockState().getBlock());
             drops.add(recoveryCarrier);
         }
-        saveToItem(recoveryCarrier, level.registryAccess());
+        saveToItem(recoveryCarrier);
+        portableRecoveryExported = true;
     }
 
     @Override
-    public void exportSettings(SettingsFrom mode, DataComponentMap.Builder builder, @Nullable Player player) {
+    public void exportSettings(SettingsFrom mode, CompoundTag builder, @Nullable Player player) {
         super.exportSettings(mode, builder, player);
         if (mode != SettingsFrom.DISMANTLE_ITEM || level == null || !preparePortableRecoveryThreads()) {
             return;
         }
-        CompoundTag blockEntityData = saveCustomOnly(level.registryAccess());
+        CompoundTag blockEntityData = saveWithoutMetadata();
         net.minecraft.world.level.block.entity.BlockEntity.addEntityType(blockEntityData, getType());
-        builder.set(DataComponents.BLOCK_ENTITY_DATA, CustomData.of(blockEntityData));
+        builder.put("BlockEntityTag", blockEntityData);
         portableRecoveryExported = true;
     }
 

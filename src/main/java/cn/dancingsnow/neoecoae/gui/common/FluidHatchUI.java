@@ -4,11 +4,11 @@ import cn.dancingsnow.neoecoae.platform.ui.NEPlayerInventory;
 import cn.dancingsnow.neoecoae.platform.ui.NEUiElement;
 import cn.dancingsnow.neoecoae.platform.ui.NEUiJsonBridge;
 import cn.dancingsnow.neoecoae.platform.ui.UiLayout;
+import cn.dancingsnow.neoecoae.platform.ui.NEHoverTextWidget;
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
-import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TankWidget;
 import com.lowdragmc.lowdraglib.side.fluid.forge.FluidTransferWrapper;
 import net.minecraft.resources.ResourceLocation;
@@ -28,7 +28,7 @@ public final class FluidHatchUI {
                     NEUiElement wrapper = new NEUiElement();
                     wrapper.layoutNode().style.direction = UiLayout.Direction.ROW;
                     switch (definition.get("custom").getAsString()) {
-                        case "title" -> wrapper.addChild(new NEUiElement(new LabelWidget(0, 0, titleKey), 162, 10));
+                        case "title" -> wrapper.addChild(new NEUiElement(new NEHoverTextWidget(titleKey, 162, 10), 162, 10));
                         case "fluid_slot" -> wrapper.addChild(new NEUiElement(new TankWidget(new FluidTransferWrapper(tank), 0,
                             0, 0, 18, 18, allowClickFilled, allowClickDrained)
                             .setShowAmount(true).setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP), 18, 18));

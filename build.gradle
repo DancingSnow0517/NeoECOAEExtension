@@ -86,6 +86,7 @@ dependencies {
     modApi "com.tterrag.registrate:Registrate:${registrate_version}"
     jarJar "com.tterrag.registrate:Registrate:${registrate_version}"
     implementation "io.github.llamalad7:mixinextras-forge:${mixinextras_version}"
+    compileOnly "io.github.llamalad7:mixinextras-common:${mixinextras_version}"
     jarJar "io.github.llamalad7:mixinextras-forge:${mixinextras_version}"
     compileOnly 'org.projectlombok:lombok:1.18.36'
     annotationProcessor 'org.projectlombok:lombok:1.18.36'
@@ -96,6 +97,7 @@ dependencies {
     testImplementation 'org.slf4j:slf4j-api:2.0.16'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     modCompileOnly 'mezz.jei:jei-1.20.1-forge-api:15.48.0.177'
+    modCompileOnly 'mezz.jei:jei-1.20.1-common-api:15.48.0.177'
     modCompileOnly 'dev.emi:emi-forge:1.1.24+1.20.1:api'
 }
 
@@ -146,6 +148,22 @@ sourceSets {
         java.include 'cn/dancingsnow/neoecoae/platform/ForgeBlockCapabilities.java'
         java.include 'cn/dancingsnow/neoecoae/platform/ui/**'
         java.include 'cn/dancingsnow/neoecoae/platform/network/**'
+        java.include 'cn/dancingsnow/neoecoae/platform/recipe/**'
+        java.include 'cn/dancingsnow/neoecoae/platform/nbt/**'
+        java.include 'cn/dancingsnow/neoecoae/api/components/AutoExportSides.java'
+        java.include 'cn/dancingsnow/neoecoae/all/NERecipeTypes.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/IntegratedWorkingStationRecipe.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/IntegratedWorkingStationRecipeBuilder.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/CoolingRecipe.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/CoolingRecipeBuilder.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/LargeIntegratedWorkingStationRecipe.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/ExtendedCrystalAssemblerRecipe.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/StorageCellDisassemblyRecipe.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipe.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationModule.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipes.java'
+        java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipeAdapters.java'
+        java.include 'cn/dancingsnow/neoecoae/mixins/minecraft/RecipeManagerAccessor.java'
         java.include 'cn/dancingsnow/neoecoae/gui/common/FluidHatchUI.java'
         compileClasspath += sourceSets.main.compileClasspath
         runtimeClasspath += sourceSets.main.compileClasspath

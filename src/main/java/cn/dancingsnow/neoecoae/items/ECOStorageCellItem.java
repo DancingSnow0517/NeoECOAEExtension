@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.items;
 
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.IncludeExclude;
-import appeng.api.ids.AEComponents;
+import cn.dancingsnow.neoecoae.platform.nbt.NECellNbt;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.ISaveProvider;
@@ -14,7 +14,7 @@ import appeng.core.localization.PlayerMessages;
 import appeng.core.localization.Tooltips;
 import appeng.items.contents.CellConfig;
 import appeng.items.storage.StorageCellTooltipComponent;
-import appeng.recipes.game.StorageCellDisassemblyRecipe;
+import cn.dancingsnow.neoecoae.recipe.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -256,12 +256,12 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
-        return is.getOrDefault(AEComponents.STORAGE_CELL_FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        return NECellNbt.fuzzyMode(is);
     }
 
     @Override
     public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
-        is.set(AEComponents.STORAGE_CELL_FUZZY_MODE, fzMode);
+        NECellNbt.fuzzyMode(is, fzMode);
     }
 
 

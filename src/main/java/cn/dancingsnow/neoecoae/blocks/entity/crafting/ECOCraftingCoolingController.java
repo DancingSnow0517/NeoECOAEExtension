@@ -128,7 +128,7 @@ final class ECOCraftingCoolingController {
             NERecipeTypes.COOLING.get(),
             new CoolingRecipe.Input(inputHatch.getFluid(), outputHatch.getFluid()),
             host.getLevel()
-        ).map(net.minecraft.world.item.crafting.RecipeHolder::value).orElse(null);
+        ).orElse(null);
     }
 
     private boolean canRefillWith(int maxOverclock) {
