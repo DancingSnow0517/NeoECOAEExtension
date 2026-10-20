@@ -213,15 +213,13 @@ def family_sheet(family, posters, dest):
     text(d, (100, 130), COPY[family]["line"] + "  L4 / L6 / L9", 31, fill=(168, 187, 212))
     for i, tier in enumerate(TIERS):
         thumb = Image.open(posters / f"{family}-{tier}.png").convert("RGBA")
-        thumb = thumb.resize((2400, 1350), Image.Resampling.LANCZOS)
-        # Three complete posters in a tall, lossless overview for this family.
-        thumb = thumb.resize((824, 464), Image.Resampling.LANCZOS)
-        image.alpha_composite(thumb, (100 + i * 824, 234))
+        thumb = thumb.resize((784, 441), Image.Resampling.LANCZOS)
+        image.alpha_composite(thumb, (96 + i * 816, 234))
     # A large tier comparison and readable component values below the mini-posters.
     d = ImageDraw.Draw(image)
     tracked(d, (104, 780), "DEFAULT COMPONENT SPECIFICATIONS", 27, COPY[family]["accent"], 3)
     for i, tier in enumerate(TIERS):
-        x = 112 + i * 824
+        x = 112 + i * 816
         text(d, (x, 868), tier.upper(), 80, COPY[family]["accent"], "bold")
         for j, (number, label) in enumerate(COPY[family]["metrics"][i]):
             text(d, (x, 1000 + j * 165), number, 58, weight="bold")

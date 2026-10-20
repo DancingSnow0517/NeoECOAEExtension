@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.dev;
 
 import cn.dancingsnow.neoecoae.client.rendering.FixedBlockEntityRenderers;
+import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerScreen;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
@@ -54,6 +55,9 @@ public final class MachinePromoCapture {
             }
         } else if (phase == 3) {
             MachinePromoScene.closeUi = true;
+            phase = 6;
+            age = 0;
+        } else if (phase == 6 && ++age > 10) {
             mc.setScreen(new HeroScreen(index));
             frames = 0;
             phase = 4;
@@ -66,11 +70,16 @@ public final class MachinePromoCapture {
     }
 
     @SubscribeEvent
-    public static void background(ScreenEvent.BackgroundRendered event) {
-        if (MachinePromoScene.ready && index < 9 && phase >= 1 && phase <= 2) {
+    public static void background(ScreenEvent.Render.Pre event) {
+        if (MachinePromoScene.ready && index < 9 && phase >= 1 && phase <= 2
+            && event.getScreen() instanceof ModularUIContainerScreen screen) {
             var mc = Minecraft.getInstance();
             event.getGuiGraphics().fill(0, 0, mc.getWindow().getGuiScaledWidth(),
                 mc.getWindow().getGuiScaledHeight(), BACKGROUND);
+            // Render the actual synchronized widget tree directly onto the studio backdrop.
+            screen.getMenu().getModularUI().getWidget().render(event.getGuiGraphics(), -1000, -1000,
+                event.getPartialTick());
+            event.setCanceled(true);
         }
     }
 
