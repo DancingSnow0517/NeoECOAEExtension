@@ -646,16 +646,15 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             boolean finished = exactVirtual.drainExact(true, (key, amount) -> {
                 if (!completedJobOutputsReleased && craftingJobId != null) {
                     if (!(craftingService instanceof ECOCraftingOutputRouter router)) return java.math.BigInteger.ZERO;
-                    long offered = amount.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
-                    long inserted = router.neoecoae$insertIntoCpuForJob(
-                            craftingJobId, key, offered, Actionable.MODULATE);
-                    if (inserted == 0 && !completedJobOutputsReleased)
+                    var inserted = router.neoecoae$insertExactIntoCpuForJob(
+                            craftingJobId, key, amount, Actionable.MODULATE);
+                    if (inserted.signum() == 0 && !completedJobOutputsReleased)
                         recoveryState = RecoveryState.WAITING_FOR_OWNER;
-                    if (inserted > 0) {
+                    if (inserted.signum() > 0) {
                         recoveryState = RecoveryState.ACTIVE;
                         owningCpuMissingSinceGameTime = Long.MIN_VALUE;
                     }
-                    return java.math.BigInteger.valueOf(inserted);
+                    return inserted;
                 }
                 return ECOBigIntegerStorage.insert(storage, key, amount, Actionable.MODULATE, actionSource);
             }, this::setChanged);

@@ -89,7 +89,7 @@ final class ECOProcessingPatternDispatcher {
         if (!isProcessingPattern(base)) return null;
         var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
                 request.job().link.getCraftingID(),
-                request.job().finalOutput == null ? null : request.job().finalOutput.what());
+                request.job().finalOutput == null ? null : request.job().finalOutput.what(), request.job().waitingFor.list);
         if (!overload.canDispatch()) return null;
         long cap = c.inspect(request.pattern(), request.inputs(), request.allowedCrafts());
         long budget = Math.max(0L, TICK_BUDGET - used);
@@ -149,7 +149,7 @@ final class ECOProcessingPatternDispatcher {
         long transportLimit = direct == null ? Long.MAX_VALUE : direct.maxBatchSize(request.pattern());
         var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
                 request.job().link.getCraftingID(),
-                request.job().finalOutput == null ? null : request.job().finalOutput.what());
+                request.job().finalOutput == null ? null : request.job().finalOutput.what(), request.job().waitingFor.list);
         if (!overload.canDispatch()) return null;
         long budget = TICK_BUDGET - used;
         if (budget <= 0) return null;

@@ -526,6 +526,29 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         return 0L;
     }
 
+    @Override
+    public java.math.BigInteger neoecoae$insertExactIntoCpuForJob(UUID jobId, AEKey key,
+            java.math.BigInteger amount, Actionable mode) {
+        if (jobId == null || key == null || amount.signum() <= 0) return java.math.BigInteger.ZERO;
+        if (amount.bitLength() <= 63)
+            return ECOCraftingOutputRouter.super.neoecoae$insertExactIntoCpuForJob(jobId, key, amount, mode);
+        if (neoecoae$computationClusters != null) {
+            for (var cluster : neoecoae$computationClusters) {
+                if (cluster == null) continue;
+                for (var cpu : cluster.getActiveCPUs()) {
+                    if (cpu.getLogic().hasCraftingJob(jobId))
+                        return cpu.getLogic().insertExactForJob(jobId, key, amount, mode);
+                }
+            }
+        }
+        for (var cpu : getCpus()) {
+            var accepted = cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCraftingAdapter
+                    .insertExactCpuOutput(cpu, jobId, key, amount, mode);
+            if (accepted.signum() > 0) return accepted;
+        }
+        return ECOCraftingOutputRouter.super.neoecoae$insertExactIntoCpuForJob(jobId, key, amount, mode);
+    }
+
     @Unique
     private long neoecoae$insertIntoCachedCpuForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {

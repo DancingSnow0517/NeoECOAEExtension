@@ -13,14 +13,11 @@ import net.minecraft.world.level.Level;
  * <p>The time-wheel logic owns a private job type and does not expose a stable
  * cancellation callback. Keeping those details here lets the optional mixin
  * remain inert when AE2LT is absent or changes its private implementation.</p>
- *
- * <p><b>Fixed for AE2LT Reborn 2.1.0+</b>: BigCraftingJob directly contains a public
- * UUID id field instead of a separate link object. This bridge now accesses job.id directly.</p>
  */
 public final class ECOAe2LtCancellationBridge {
     private static final String JOB_FIELD = "job";
     private static final String CPU_FIELD = "cpu";
-    private static final String JOB_ID_FIELD = "id";
+    private static final String LINK_FIELD = "link";
 
     private static final ClassValue<Optional<Access>> ACCESS = new ClassValue<>() {
         @Override
@@ -52,15 +49,15 @@ public final class ECOAe2LtCancellationBridge {
             if (job == null) {
                 return;
             }
-            // AE2LT Reborn 2.1.0+: BigCraftingJob has "public final UUID id" field
-            UUID jobId = (UUID) access.jobId.get(job);
+            Object link = access.link.get(job);
+            UUID jobId = link == null ? null : (UUID) access.craftingId.invoke(link);
             if (jobId == null) {
                 return;
             }
             Object cpu = access.cpu.get(logic);
             Level level = cpu == null ? null : (Level) access.level.invoke(cpu);
             // The live CPU normally always supplies a server level; otherwise let cancellation proceed quietly.
-            ECOCraftingJobLifecycle.finish(level, jobId, false);
+            ECOCraftingJobLifecycle.cancelAndRecover(level, jobId);
         } catch (ReflectiveOperationException | ClassCastException ignored) {
             // Private AE2LT details are optional and version-sensitive. A failed bridge must not cancel the CPU.
         }
@@ -69,14 +66,15 @@ public final class ECOAe2LtCancellationBridge {
     private static final class Access {
         private final Field job;
         private final Field cpu;
-        private final Field jobId;
+        private final Field link;
+        private final Method craftingId;
         private final Method level;
 
         private Access(Class<?> logicType) throws ReflectiveOperationException {
             this.job = field(logicType, JOB_FIELD);
             this.cpu = field(logicType, CPU_FIELD);
-            // BigCraftingJob.id is a public final field, but we still need reflection to access it
-            this.jobId = field(job.getType(), JOB_ID_FIELD);
+            this.link = field(job.getType(), LINK_FIELD);
+            this.craftingId = method(link.getType(), "getCraftingID");
             this.level = method(cpu.getType(), "getLevel");
         }
     }

@@ -7,6 +7,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
@@ -33,6 +34,22 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class ECOFastPathFacade {
     private ECOFastPathFacade() {}
+
+    /**
+     * Ordinary fallback for an already allocated copy. True transfers its inputs; false guarantees
+     * rejection. This does not extract, refund, scale inputs, or change the caller's budget.
+     */
+    public static boolean pushPatternForJob(ICraftingProvider provider, IPatternDetails pattern,
+            KeyCounter[] inputs, @Nullable UUID craftingJobId) {
+        return provider instanceof ECOJobAwareCraftingProvider aware
+                ? aware.pushPattern(pattern, inputs, craftingJobId) : provider.pushPattern(pattern, inputs);
+    }
+
+    /** Publish cancellation and recover loaded workers before the external CPU discards its job. */
+    public static void cancelJob(@Nullable Level level, UUID craftingJobId) {
+        cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle
+                .cancelAndRecover(level, craftingJobId);
+    }
 
     public static boolean supports(ICraftingProvider provider) {
         return provider instanceof ECOFastPathDispatchProvider
@@ -118,6 +135,48 @@ public final class ECOFastPathFacade {
         for (var stack : execution.expectedOutputs()) outputs.add(stack.what(), stack.amount());
         return prepare(provider, pattern, oneCopy, outputs, new KeyCounter(), allocated, bounded,
             0, null, level, jobId);
+    }
+
+    /**
+     * Exact allocated admission for FX virtual lanes. Counts and totals are never narrowed to long.
+     * The caller reserves its exact inputs and waiting outputs before submit, then settles acceptance
+     * and energy once. A null preparation or false submit transfers no ownership.
+     */
+    public static @Nullable PreparedExactBatch prepareExactAllocated(ICraftingProvider provider,
+            IPatternDetails pattern, KeyCounter[] oneCopy, java.math.BigInteger allocatedCopies,
+            Level level, UUID jobId) {
+        if (!(provider instanceof ECOFastPathDispatchProvider target) || allocatedCopies.signum() <= 0
+                || jobId == null || ECOExternalProviderBlocking.isEnabled(provider)) return null;
+        var execution = ECOExtractedPatternExecution.fromProviderPush(pattern, oneCopy, level);
+        if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()
+                || execution.fastPathType() != cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL)
+            return null;
+        var outputs = new KeyCounter();
+        for (var stack : execution.expectedOutputs()) outputs.add(stack.what(), stack.amount());
+        var context = cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext.create(
+                pattern, oneCopy, outputs, new KeyCounter(), level, jobId);
+        var admission = target.eco$prepareExactFastPath(context, allocatedCopies);
+        if (admission == null) return null;
+        if (admission.craftCount().compareTo(allocatedCopies) > 0)
+            throw new IllegalArgumentException("Exact provider exceeded allocated copies");
+        return new PreparedExactBatch(admission);
+    }
+
+    public static final class PreparedExactBatch {
+        private final ECOFastPathDispatchProvider.ExactPreparation admission;
+        private boolean submitted;
+
+        private PreparedExactBatch(ECOFastPathDispatchProvider.ExactPreparation admission) {
+            this.admission = admission;
+        }
+
+        public java.math.BigInteger craftCount() { return admission.craftCount(); }
+
+        public boolean submit() {
+            if (submitted) throw new IllegalStateException("Exact batch already submitted");
+            submitted = true;
+            return admission.dispatch().getAsBoolean();
+        }
     }
 
     public static final class PreparedBatch {

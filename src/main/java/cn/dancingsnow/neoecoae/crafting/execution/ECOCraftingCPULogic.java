@@ -95,6 +95,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
      */
     @Getter
     private boolean cantStoreItems = false;
+    private boolean returningItemsToNetwork;
 
     @Getter
     private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
@@ -306,9 +307,14 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         // AE2 Utility 通过此方法中的真实调用点重定向带 NBT 物品的等待库存匹配；
         // 结果继续交给输出交付组件，避免破坏当前的任务校验、记账和完成流程。
         long accepted = current.waitingFor.extract(what, amount, Actionable.SIMULATE);
+        accepted = cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
+                .strictMatch(this, what, accepted, current.waitingFor.list.get(what));
         // AE2 Utility 还会重定向此方法中的真实 matches 调用，用于判断最终产物交付阶段。
         boolean matchesFinalOutput = current.finalOutput != null && what.matches(current.finalOutput);
-        return outputDelivery.insert(what, amount, type, accepted, matchesFinalOutput);
+        long strict = outputDelivery.insert(what, amount, type, accepted, matchesFinalOutput);
+        if (job != current || strict >= amount) return strict;
+        return strict + cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
+                .claim(this, current.link.getCraftingID(), what, amount - strict, type);
     }
 
     /**
@@ -319,6 +325,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
      */
     public long insertForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
         return outputDelivery.insertForJob(craftingJobId, what, amount, type);
+    }
+
+    public java.math.BigInteger insertExactForJob(UUID jobId, AEKey key,
+            java.math.BigInteger amount, Actionable mode) {
+        return outputDelivery.insertExactForJob(jobId, key, amount, mode);
     }
 
     /**
@@ -418,6 +429,16 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
      */
     public void storeItems() {
         Preconditions.checkState(job == null, "CPU should not have a job to prevent re-insertion when dumping items");
+        if (returningItemsToNetwork) return;
+        returningItemsToNetwork = true;
+        try {
+            returnItemsToNetwork();
+        } finally {
+            returningItemsToNetwork = false;
+        }
+    }
+
+    private void returnItemsToNetwork() {
         if (this.inventory.list.isEmpty())
             return;
 
@@ -427,19 +448,25 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
         var storage = g.getStorageService().getInventory();
 
-        boolean exact = exactInventory().isEnabled();
-        var storedWindow = this.inventory.list;
-        if (exact) {
-            storedWindow = new KeyCounter();
-            storedWindow.addAll(this.inventory.list);
+        if (exactInventory().isEnabled()) {
+            for (var entry : exactInventory().snapshot().entrySet()) {
+                this.postChange(entry.getKey());
+                var inserted = cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage.insert(
+                        storage, entry.getKey(), entry.getValue(), Actionable.MODULATE, cpu.getActionSource());
+                if (inserted.signum() > 0) {
+                    if (!exactInventory().debit(Map.of(entry.getKey(), inserted)))
+                        throw new IllegalStateException("CPU exact return exceeded retained inventory");
+                    markCpuDirty();
+                }
+            }
+            return;
         }
-        for (var entry : storedWindow) {
+        for (var entry : this.inventory.list) {
             this.postChange(entry.getKey());
             var inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE,
                     cpu.getActionSource());
 
-            if (exact) this.inventory.extract(entry.getKey(), inserted, Actionable.MODULATE);
-            else entry.setValue(entry.getLongValue() - inserted);
+            entry.setValue(entry.getLongValue() - inserted);
         }
         this.inventory.list.removeZeros();
 

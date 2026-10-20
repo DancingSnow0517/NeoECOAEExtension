@@ -35,6 +35,7 @@ final class ECOCraftingOutputDelivery {
     private final ECOCraftingCPULogic host;
     private final Object2LongLinkedOpenHashMap<AEKey> pendingFinalOutputs = new Object2LongLinkedOpenHashMap<>();
     private boolean deliveringFinalOutput;
+    private boolean receivingExactOutput;
 
     ECOCraftingOutputDelivery(ECOCraftingCPULogic host) {
         this.host = host;
@@ -145,7 +146,7 @@ final class ECOCraftingOutputDelivery {
                 || ECOCraftingJobLifecycle.isTerminated(host.cpu.getLevel(), craftingJobId)) {
             return 0L;
         }
-        long accepted = insert(what, amount, type);
+        long accepted = host.insert(what, amount, type);
         if (accepted < 0L || accepted > amount) {
             throw new IllegalStateException("Invalid CPU insertion amount: " + accepted + " for " + amount);
         }
@@ -156,6 +157,46 @@ final class ECOCraftingOutputDelivery {
             host.markCpuDirty();
         }
         return amount;
+    }
+
+    java.math.BigInteger insertExactForJob(UUID jobId, AEKey key,
+            java.math.BigInteger amount, Actionable mode) {
+        var current = host.getJob();
+        if (receivingExactOutput || jobId == null || key == null || amount.signum() <= 0
+                || current == null || !jobId.equals(current.link.getCraftingID())
+                || ECOCraftingJobLifecycle.isTerminated(host.cpu.getLevel(), jobId))
+            return java.math.BigInteger.ZERO;
+        var max = java.math.BigInteger.valueOf(Long.MAX_VALUE);
+        if (amount.bitLength() <= 63 || !current.exactOrder
+                || !(current.waitingFor instanceof cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory waiting)
+                || waiting.amount(key).compareTo(max) <= 0
+                || cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
+                        .strictMatch(host, key, Long.MAX_VALUE, Long.MAX_VALUE) != Long.MAX_VALUE) {
+            return java.math.BigInteger.valueOf(insertForJob(jobId, key, amount.min(max).longValueExact(), mode));
+        }
+        if (mode == Actionable.SIMULATE) return amount;
+        receivingExactOutput = true;
+        try {
+            var claimed = waiting.amount(key).min(amount);
+            if (!waiting.debit(Map.of(key, claimed))) return java.math.BigInteger.ZERO;
+            // ExactInventory commits all keys before notifying listeners. Even if a listener fails,
+            // the physical receipt is retained and must not be replayed by its worker.
+            try {
+                host.exactInventory().setEnabled(true);
+                host.exactInventory().restore(Map.of(key, amount));
+            } catch (RuntimeException listenerFailure) {
+                LOGGER.warn("ECO exact output retained after an inventory listener failed", listenerFailure);
+            }
+            if (host.getJob() == current) {
+                host.recordCompletedCraftingWork(claimed.min(max).longValueExact(), key.getType());
+                host.taskSchedulerForOutput().recordPhysicalInsert(key);
+                host.taskSchedulerForOutput().progress(appeng.hooks.ticking.TickHandler.instance().getCurrentTick());
+            }
+            host.markCpuDirty();
+            return amount;
+        } finally {
+            receivingExactOutput = false;
+        }
     }
 
     ECOCraftingOutputClaimResult claimCraftingOutput(ECOCraftingOutputClaimRequest request) {

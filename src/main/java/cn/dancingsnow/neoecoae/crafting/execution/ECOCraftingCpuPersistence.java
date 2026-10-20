@@ -16,6 +16,7 @@ final class ECOCraftingCpuPersistence {
     }
 
     void read(CompoundTag data, HolderLookup.Provider registries) {
+        cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge.clear(host);
         host.taskSchedulerForPersistence().reset();
         host.dispatchStrategyForPersistence().reset();
         host.jobAttachmentsForPersistence().reset();

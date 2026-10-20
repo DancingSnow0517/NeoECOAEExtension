@@ -27,6 +27,7 @@ import cn.dancingsnow.neoecoae.api.fastpath.EcoFastpathHost;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingRequest;
@@ -68,7 +69,8 @@ import org.slf4j.LoggerFactory;
 
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
-    AuxiliaryPatternHolder, PatternStorageHost, ECOFastPathDispatchProvider, EcoFastpathHost {
+    AuxiliaryPatternHolder, PatternStorageHost, ECOFastPathDispatchProvider, EcoFastpathHost,
+    ECOJobAwareCraftingProvider {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
@@ -280,6 +282,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return pushPattern(patternDetails, inputHolder, null);
     }
 
+    @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder, @Nullable UUID craftingJobId) {
         return dispatcher.pushPattern(patternDetails, inputHolder, craftingJobId);
     }

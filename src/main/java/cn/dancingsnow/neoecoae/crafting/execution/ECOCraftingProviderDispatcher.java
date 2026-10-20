@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
  */
 final class ECOCraftingProviderDispatcher {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
+    private final ECOCraftingCPULogic owner;
     private final ECOCraftingFastPathDispatcher fastPath;
     private final ECOProcessingPatternDispatcher processing;
     private final ECOCraftingEnergyTransaction energyTransaction;
@@ -40,6 +41,7 @@ final class ECOCraftingProviderDispatcher {
 
     ECOCraftingProviderDispatcher(ECOCraftingCPULogic owner, ECOCraftingFastPathDispatcher fastPath,
             ECOCraftingEnergyTransaction energyTransaction, ECOCraftingDispatchAccounting accounting) {
+        this.owner = owner;
         this.fastPath = fastPath;
         this.processing = new ECOProcessingPatternDispatcher(owner, energyTransaction, accounting);
         this.energyTransaction = energyTransaction;
@@ -147,6 +149,11 @@ final class ECOCraftingProviderDispatcher {
             var plan = ECOBatchDispatchPlanning.plan(request, provider, 1, 1, singlePower,
                     energyService, ECOBatchMode.SINGLE);
             if (plan == null) continue;
+            var overload = cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge.prepare(
+                    owner, request.pattern(), request.job().link.getCraftingID(),
+                    request.job().finalOutput == null ? null : request.job().finalOutput.what(),
+                    request.job().waitingFor.list);
+            if (!overload.canDispatch()) continue;
             if (scaledProvider && !processing.claimFallbackAttempt()) continue;
             ECOBatchAdmission admission;
             try {
@@ -176,6 +183,7 @@ final class ECOCraftingProviderDispatcher {
                 continue;
             }
             try {
+                overload.registerAccepted(1L);
                 accounting.apply(request, ECOCraftingDispatchResult.single(request.outputs(), request.remainders()),
                         budget::recordAcceptedNormalPush, provider);
             } catch (RuntimeException failure) {
