@@ -27,11 +27,12 @@ public final class WorkstationTextures {
         return widget(moduleColumn(module) * 28, 34, 28, 28);
     }
 
-    /** The supplied atlas places Data before Other; enum order stays stable for existing state values. */
+    /** Explicit columns preserve the supplied artwork and existing serialized module values. */
     private static int moduleColumn(LargeWorkstationModule module) {
         return switch (module) {
             case DATA_ENERGISTICS -> 5;
             case OTHER -> 6;
+            case APPLIED_GENERATORS -> 7;
             default -> module.ordinal();
         };
     }

@@ -956,5 +956,8 @@
   "recipe_type.neoecoae.data_energistics.data_reassembler": "數據能源：數據重組",
   "recipe_type.neoecoae.data_energistics.data_charger": "數據能源：數據充能",
   "recipe_type.neoecoae.data_energistics.data_integrated_charger": "數據能源：充壓一體機",
-  "recipe_type.neoecoae.data_energistics.data_charge_press": "數據能源：水晶增產"
+  "recipe_type.neoecoae.data_energistics.data_charge_press": "數據能源：水晶增產",
+  "item.neoecoae.integrated_working_station_module_appgen": "應用發電集成工作站升級卡",
+  "gui.neoecoae.workstation.module.appgen": "應用發電",
+  "gui.neoecoae.workstation.module_short.appgen": "應用發電"
 }

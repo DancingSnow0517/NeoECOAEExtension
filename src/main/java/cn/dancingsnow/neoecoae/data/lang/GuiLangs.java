@@ -80,6 +80,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.module.ae2cs", "Crystal Science");
         provider.add("gui.neoecoae.workstation.module.aelt", "Lightning Tech");
         provider.add("gui.neoecoae.workstation.module.data_energistics", "Data Energistics");
+        provider.add("gui.neoecoae.workstation.module.appgen", "Applied Generators");
         provider.add("gui.neoecoae.workstation.module.other", "Other compatible recipes");
         provider.add("gui.neoecoae.workstation.return_task", "Return task inputs");
         provider.add("gui.neoecoae.workstation.parallel", "Batch parallel");
@@ -115,6 +116,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.module_short.ae2cs", "Crystal Sci.");
         provider.add("gui.neoecoae.workstation.module_short.aelt", "Lightning");
         provider.add("gui.neoecoae.workstation.module_short.data_energistics", "Data");
+        provider.add("gui.neoecoae.workstation.module_short.appgen", "Generators");
         provider.add("gui.neoecoae.workstation.module_short.other", "Other");
         provider.add("gui.neoecoae.workstation.module_slot", "Upgrade module");
         provider.add("gui.neoecoae.workstation.module_installed", "Installed");

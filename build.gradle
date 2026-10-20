@@ -168,6 +168,8 @@ dependencies {
     devMods("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
     // Exercise optional workstation adapters against the released key and recipe codecs.
     testRuntimeOnly("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
+    testRuntimeOnly("maven.modrinth:applied-generators:InEKowoU") { transitive = false } // 0.3.0+1.21.1
+    devMods("maven.modrinth:applied-generators:InEKowoU") { transitive = false }
     // Data Energistics embeds Configuration 3.1.1; do not install a second standalone copy.
     testImplementation(platform('org.junit:junit-bom:5.11.4'))
     testImplementation('org.junit.jupiter:junit-jupiter')

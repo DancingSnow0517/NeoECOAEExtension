@@ -258,6 +258,7 @@ public final class LargeWorkstationRecipes {
 
     static LargeWorkstationRecipe decode(ResourceLocation id, String type, JsonObject data, DynamicOps<JsonElement> ops) {
         if (type.startsWith("data_energistics:")) return DataWorkstationRecipes.decode(id, type, data, ops);
+        if (type.equals("appgen:synthesizing")) return AppliedGeneratorsWorkstationRecipes.decode(id, data, ops);
         List<SizedIngredient> items = new ArrayList<>();
         SizedFluidIngredient fluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
         ItemStack result = ItemStack.EMPTY;
@@ -300,7 +301,7 @@ public final class LargeWorkstationRecipes {
                 energy = data.has("energy_cost") ? data.get("energy_cost").getAsLong()
                     : type.equals("ae2cs:circuit_etcher_recipe") ? 3200 : 200;
             }
-            case "appgen:synthesizing", "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler" -> {
+            case "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler" -> {
                 for (var input : data.getAsJsonArray("input_items")) {
                     var entry = input.getAsJsonObject();
                     var ingredient = parse(Ingredient.CODEC, ops, entry.get("ingredient"));
@@ -313,7 +314,7 @@ public final class LargeWorkstationRecipes {
                     int amount = entry.has("amount") ? entry.get("amount").getAsInt() : 1;
                     if (!ingredient.isEmpty() && amount > 0) fluid = new SizedFluidIngredient(ingredient, amount);
                 }
-                if (type.equals("appgen:synthesizing") || type.equals("advanced_ae:reaction")) {
+                if (type.equals("advanced_ae:reaction")) {
                     var output = parse(GenericStack.CODEC, ops, data.get("output"));
                     int count = Math.toIntExact(output.amount());
                     if (output.what() instanceof AEItemKey item) result = item.toStack(count);

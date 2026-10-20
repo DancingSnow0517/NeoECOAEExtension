@@ -1216,5 +1216,8 @@
   "recipe_type.neoecoae.data_energistics.data_reassembler": "Data Energistics: Data Reassembling",
   "recipe_type.neoecoae.data_energistics.data_charger": "Data Energistics: Data Charging",
   "recipe_type.neoecoae.data_energistics.data_integrated_charger": "Data Energistics: Integrated Charging / Inscribing",
-  "recipe_type.neoecoae.data_energistics.data_charge_press": "Data Energistics: Crystal Growth"
+  "recipe_type.neoecoae.data_energistics.data_charge_press": "Data Energistics: Crystal Growth",
+  "item.neoecoae.integrated_working_station_module_appgen": "Applied Generators Integrated Working Station Upgrade Card",
+  "gui.neoecoae.workstation.module.appgen": "Applied Generators",
+  "gui.neoecoae.workstation.module_short.appgen": "Generators"
 }

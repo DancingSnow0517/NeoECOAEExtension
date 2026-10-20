@@ -40,7 +40,7 @@ class WorkstationUpgradeCardRecipeTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @ParameterizedTest
-    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics"})
+    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics", "appgen"})
     void recipesKeepApprovedCostsAndOptionalModConditions(String variant) throws IOException {
         JsonObject json = resource(variant);
         assertEquals("neoecoae:large_integrated_working_station", json.get("type").getAsString());
@@ -50,6 +50,7 @@ class WorkstationUpgradeCardRecipeTest {
         String expectedFluid = switch (variant) {
             case "advanced_ae" -> "advanced_ae:quantum_infusion_source";
             case "data_energistics" -> "data_energistics:data_corrosion_liquid";
+            case "appgen" -> "minecraft:lava";
             default -> null;
         };
         if (expectedFluid == null) {
@@ -112,6 +113,12 @@ class WorkstationUpgradeCardRecipeTest {
                     expected.put("data_energistics:digisidian_memorize_ingot", 64);
                     expected.put("data_energistics:data_processor", 128);
                 }
+                case "appgen" -> {
+                    expected.put("appgen:genesis_synthesizer", 8);
+                    expected.put("appgen:budding_ember_flawless", 4);
+                    expected.put("appgen:ember_crystal_charged", 256);
+                    expected.put("appgen:origination_processor", 128);
+                }
                 default -> fail("Unexpected card: " + variant);
             }
         }
@@ -124,7 +131,7 @@ class WorkstationUpgradeCardRecipeTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics"})
+    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics", "appgen"})
     void nativeLargeRecipesAreAvailableWithoutAnyCardAndKeepFullBatchCosts(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
         var id = ResourceLocation.parse("test:card_" + variant);
@@ -212,7 +219,7 @@ class WorkstationUpgradeCardRecipeTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"advanced_ae", "data_energistics"})
+    @ValueSource(strings = {"advanced_ae", "data_energistics", "appgen"})
     void fluidCostsSurviveJsonAndNetworkRoundTrips(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);

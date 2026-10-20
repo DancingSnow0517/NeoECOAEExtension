@@ -14,7 +14,8 @@ public enum LargeWorkstationModule implements StringRepresentable {
     CRYSTAL_SCIENCE("ae2cs", 0x7DCBE8, "ae2cs"),
     LIGHTNING_TECH("aelt", 0xED7CCC, "aelt"),
     OTHER("other", 0x3D8FEA, "other"),
-    DATA_ENERGISTICS("data_energistics", 0x49CDBF, "data_energistics");
+    DATA_ENERGISTICS("data_energistics", 0x49CDBF, "data_energistics"),
+    APPLIED_GENERATORS("appgen", 0xF5A23C, "appgen");
 
     private final String name;
     private final int color;
@@ -80,6 +81,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
             case "ae2cs" -> CRYSTAL_SCIENCE;
             case "ae2lt" -> LIGHTNING_TECH;
             case "data_energistics" -> DATA_ENERGISTICS;
+            case "appgen" -> APPLIED_GENERATORS;
             default -> OTHER;
         };
     }
