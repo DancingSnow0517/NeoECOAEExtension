@@ -137,7 +137,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         graphics.pose().pushPose();
         try {
             graphics.pose().translate(offsetX, offsetY - fractionalOffset(), 0);
-            // Keep the complete five-row AE2-style grid visible even when capacity cards have not
+            // Keep the complete seven-row AE2-style grid visible even when capacity cards have not
             // unlocked every row yet. Locked rows remain visual placeholders because their slots stay
             // inactive in updatePatternSlots(), but the fixed viewport must not collapse into a blank area.
             int pixels = (int) Math.floor(patternScroll.offset());
@@ -231,13 +231,22 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         }
 
         @Override
+        public Rect2i getBounds() {
+            var bounds = super.getBounds();
+            // The supplied track has one more inner pixel to the left than AE2's small thumb.
+            return new Rect2i(bounds.getX(), bounds.getY(), bounds.getWidth() + 1, bounds.getHeight());
+        }
+
+        @Override
         public void drawForegroundLayer(GuiGraphics graphics, Rect2i bounds, Point mouse) {
             graphics.pose().pushPose();
             try {
                 graphics.pose().translate(0, scrollbarThumbOffset(), 0);
                 var sprite = patternScroll.maximum() == 0
                     ? Scrollbar.SMALL.disabledSprite() : Scrollbar.SMALL.enabledSprite();
-                Blitter.guiSprite(sprite).dest(getBounds().getX(), getBounds().getY()).blit(graphics);
+                var track = getBounds();
+                Blitter.guiSprite(sprite).dest(track.getX(), track.getY(), track.getWidth(),
+                    Scrollbar.SMALL.handleHeight()).blit(graphics);
             } finally {
                 graphics.pose().popPose();
             }

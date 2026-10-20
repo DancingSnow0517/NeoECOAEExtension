@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.client.gui.workstation;
 
 import appeng.menu.SlotSemantics;
 import appeng.menu.slot.AppEngSlot;
+import appeng.client.Point;
+import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.util.inv.AppEngInternalInventory;
 import cn.dancingsnow.neoecoae.gui.workstation.WorkstationPatternScroll;
@@ -11,7 +13,9 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
@@ -36,16 +40,16 @@ class WorkstationPatternViewportTest {
     void partiallyVisibleSlotsOnlyAcceptPointerHitsInsideTheClippedViewport() throws Exception {
         var fixture = fixture(9.5);
         Slot first = fixture.slots.getFirst();
-        Slot entering = fixture.slots.get(45);
+        Slot entering = fixture.slots.get(63);
         assertTrue(first.isActive());
         assertTrue(entering.isActive());
-        assertFalse(fixture.slots.get(54).isActive());
+        assertTrue(fixture.slots.get(62).isActive());
         assertTrue(fixture.screen.isHovering(first, 110, 73));
         assertFalse(fixture.screen.isHovering(first, 110, 71), "Clipped pixels above the viewport cannot be clicked");
-        assertTrue(fixture.screen.isHovering(entering, 110, 154));
-        assertFalse(fixture.screen.isHovering(entering, 110, 162), "Clipped pixels below the viewport cannot be clicked");
-        assertFalse(fixture.screen.isHovering(entering, 99, 154));
-        assertFalse(fixture.screen.isHovering(entering, 270, 154));
+        assertTrue(fixture.screen.isHovering(entering, 110, 190));
+        assertFalse(fixture.screen.isHovering(entering, 110, 198), "Clipped pixels below the viewport cannot be clicked");
+        assertFalse(fixture.screen.isHovering(entering, 99, 190));
+        assertFalse(fixture.screen.isHovering(entering, 270, 190));
     }
 
     @Test
@@ -61,14 +65,14 @@ class WorkstationPatternViewportTest {
 
     @Test
     void slotIdentitiesStayFixedAsTheViewportMovesToTheFinalRow() throws Exception {
-        var fixture = fixture(54);
-        assertFalse(fixture.slots.get(26).isActive());
-        assertTrue(fixture.slots.get(27).isActive());
+        var fixture = fixture(18);
+        assertFalse(fixture.slots.get(8).isActive());
+        assertTrue(fixture.slots.get(9).isActive());
         assertTrue(fixture.slots.get(71).isActive());
-        assertEquals(8, fixture.slots.get(27).x);
-        assertEquals(23, fixture.slots.get(27).y);
+        assertEquals(8, fixture.slots.get(9).x);
+        assertEquals(23, fixture.slots.get(9).y);
         assertEquals(152, fixture.slots.get(71).x);
-        assertEquals(95, fixture.slots.get(71).y);
+        assertEquals(131, fixture.slots.get(71).y);
         assertEquals(71, fixture.slots.get(71).getSlotIndex());
     }
 
@@ -79,7 +83,7 @@ class WorkstationPatternViewportTest {
         PoseStack pose = new PoseStack();
         when(graphics.pose()).thenReturn(pose);
         fixture.screen.renderSlot(graphics, fixture.slots.getFirst());
-        verify(graphics).enableScissor(108, 73, 268, 161);
+        verify(graphics).enableScissor(108, 73, 268, 197);
         verify(graphics).disableScissor();
         assertEquals(0, pose.last().pose().m31());
         clearInvocations(graphics);
@@ -88,10 +92,43 @@ class WorkstationPatternViewportTest {
         verify(graphics, never()).disableScissor();
         assertEquals(0, pose.last().pose().m31());
         clearInvocations(graphics);
-        fixture.screen.renderSlotHighlight(graphics, fixture.slots.get(45), 110, 154, 0);
-        verify(graphics).enableScissor(108, 73, 268, 161);
+        fixture.screen.renderSlotHighlight(graphics, fixture.slots.get(63), 110, 190, 0);
+        verify(graphics).enableScissor(108, 73, 268, 197);
         verify(graphics).disableScissor();
         assertEquals(0, pose.last().pose().m31());
+    }
+
+    @Test
+    void scrollbarDrawsAndAcceptsDraggingInTheExtraPixelOnItsLeftEdge() throws Exception {
+        var fixture = fixture(0);
+        var constructor = Class.forName(LargeIntegratedWorkingStationPatternProviderScreen.class.getName()
+            + "$PatternScrollbar").getDeclaredConstructor(LargeIntegratedWorkingStationPatternProviderScreen.class);
+        constructor.setAccessible(true);
+        var scrollbar = (Scrollbar) constructor.newInstance(fixture.screen);
+        scrollbar.setPosition(new Point(174, 23));
+        scrollbar.setSize(8, 124);
+        set(LargeIntegratedWorkingStationPatternProviderScreen.class, fixture.screen, "patternScrollbar", scrollbar);
+        set(LargeIntegratedWorkingStationPatternProviderScreen.class, fixture.screen, "shiftDraggedSlots", new HashSet<>());
+        var minecraft = mock(Minecraft.class, RETURNS_DEEP_STUBS);
+        when(minecraft.getGuiSprites().getSprite(Scrollbar.SMALL.enabledSprite()).contents().width()).thenReturn(7);
+        when(minecraft.getGuiSprites().getSprite(Scrollbar.SMALL.enabledSprite()).contents().height()).thenReturn(15);
+        try (var client = mockStatic(Minecraft.class); var blitters = mockStatic(Blitter.class)) {
+            client.when(Minecraft::getInstance).thenReturn(minecraft);
+            assertEquals(174, scrollbar.getBounds().getX());
+            assertEquals(8, scrollbar.getBounds().getWidth());
+            assertEquals(182, scrollbar.getBounds().getX() + scrollbar.getBounds().getWidth(),
+                "Expanding to the left must retain the original right edge");
+            var blitter = mock(Blitter.class, RETURNS_SELF);
+            blitters.when(() -> Blitter.guiSprite(Scrollbar.SMALL.enabledSprite())).thenReturn(blitter);
+            var graphics = mock(GuiGraphics.class);
+            when(graphics.pose()).thenReturn(new PoseStack());
+            scrollbar.drawForegroundLayer(graphics, scrollbar.getBounds(), Point.ZERO);
+            verify(blitter).dest(174, 23, 8, 15);
+            assertTrue(fixture.screen.mouseClicked(274, 73, 0), "The newly visible left pixel must start dragging");
+            assertTrue(fixture.screen.mouseDragged(274, 182, 0, 0, 109));
+            assertFalse(fixture.slots.getFirst().isActive());
+            assertEquals(23, fixture.slots.get(9).y, "Dragging from the extra pixel must reach the final row");
+        }
     }
 
     private static Fixture fixture(double offset) throws Exception {

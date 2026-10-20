@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.menu;
 
 import appeng.api.inventories.InternalInventory;
 import appeng.api.upgrades.IUpgradeInventory;
+import appeng.api.upgrades.Upgrades;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.menu.SlotSemantic;
 import appeng.menu.SlotSemantics;
@@ -53,9 +54,22 @@ public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternPro
         return ((LargeWorkstationPatternProvider) logic).getCapacityUpgrades();
     }
 
+    @Override
+    protected boolean isValidQuickMoveDestination(Slot slot, ItemStack stack, boolean fromPlayerSide) {
+        if (fromPlayerSide) {
+            SlotSemantic target = Upgrades.isUpgradeCardItem(stack)
+                ? SlotSemantics.UPGRADE : SlotSemantics.ENCODED_PATTERN;
+            if (getSlotSemantic(slot) != target) return false;
+        }
+        return super.isValidQuickMoveDestination(slot, stack, fromPlayerSide);
+    }
+
     /** Build our fixed physical slots after the superclass, so both sides use identical slot indices. */
     @Override
     protected Slot addSlot(Slot slot, SlotSemantic semantic) {
+        // The seven-row artwork replaces the old return-inventory area. Keep the provider's persisted
+        // return buffer intact, but do not expose it as an input destination or overlap it with patterns.
+        if (semantic == SlotSemantics.STORAGE) return slot;
         // Addons can inject upgrades before the superclass assigns logic. This menu always owns
         // its physical pattern and upgrade slots, which are added explicitly after super returns.
         if (semantic == SlotSemantics.UPGRADE || semantic == SlotSemantics.ENCODED_PATTERN) {
