@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreenIntegrat
 import cn.dancingsnow.neoecoae.client.gui.workstation.LargeIntegratedWorkingStationPatternProviderScreen;
 import cn.dancingsnow.neoecoae.client.rendering.FixedBlockEntityRenderers;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
+import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationCoolingControllerRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
@@ -62,6 +63,10 @@ public class NeoECOAEClient {
             NEBlockEntities.ECO_DRIVE.get(),
             new ECODriveRenderer()
         );
+        var coolingRenderer = new ECOComputationCoolingControllerRenderer();
+        FixedBlockEntityRenderers.register(NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L4.get(), coolingRenderer);
+        FixedBlockEntityRenderers.register(NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L6.get(), coolingRenderer);
+        FixedBlockEntityRenderers.register(NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L9.get(), coolingRenderer);
     }
 
     @SubscribeEvent

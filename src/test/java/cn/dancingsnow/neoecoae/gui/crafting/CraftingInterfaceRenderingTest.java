@@ -73,16 +73,18 @@ class CraftingInterfaceRenderingTest {
         context.graphics = mock(GuiGraphics.class);
         context.elementColor = -1;
         preview.drawContents(context);
-        assertEquals(54, slots.size());
+        assertEquals(63, slots.size());
         for (var slot : slots) {
             verify(slot).drawInBackground(context);
             slot.getStyleBag().compute(0);
             assertSame(IGuiTexture.EMPTY, slot.getStyle().backgroundTexture());
-            assertSame(NETextures.PATTERN_MANAGER_SLOT, slot.getSlotStyle().slotOverlay());
-            assertFalse(slot.getSlotStyle().showSlotOverlayOnlyEmpty());
+            assertSame(IGuiTexture.EMPTY, slot.getSlotStyle().slotOverlay());
         }
-        verify(context).enableScissor(anyFloat(), anyFloat(), anyFloat(), anyFloat());
-        verify(context).disableScissor();
+        verify(context, times(2)).enableScissor(anyFloat(), anyFloat(), anyFloat(), anyFloat());
+        verify(context, times(2)).disableScissor();
+        for (int row = 0; row <= 6; row++) {
+            verify(context).drawTexture(NETextures.PATTERN_MANAGER_ROW, 0F, row * 18F, 162F, 18F);
+        }
     }
 
     @Test void heldPatternLeftClickFindsAnOffscreenEmptySlotWhileSearching() throws Exception {
@@ -220,17 +222,24 @@ class CraftingInterfaceRenderingTest {
         var scrollbar = CraftingInterfaceUI.patternPreviewScrollbar(state);
         var context = mock(GUIContext.class);
         context.graphics = mock(GuiGraphics.class);
+        context.pose = mock(EnhancedPoseStack.class);
+        context.pose = mock(EnhancedPoseStack.class);
 
         // Empty and single-page lists still draw AE2's disabled handle.
         scrollbar.drawBackgroundAdditional(context);
         verify(context.graphics).blitSprite(ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller_disabled"),
                 1, 1, 12, 15);
 
-        when(state.getMaxScrollRow()).thenReturn(3);
-        when(state.getScrollRow()).thenReturn(3);
+        when(state.getMaxScrollOffset()).thenReturn(54.0);
+        when(state.getScrollOffset()).thenReturn(54.0);
         scrollbar.drawBackgroundAdditional(context);
         verify(context.graphics).blitSprite(ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller"),
-                1, 92, 12, 15);
+                1, 1, 12, 15);
+        verify(context.pose).translate(0F, 91F, 0F);
+
+        when(state.getScrollOffset()).thenReturn(9.5);
+        scrollbar.drawBackgroundAdditional(context);
+        verify(context.pose).translate(0F, 91F * (float) (9.5 / 54), 0F);
     }
 
     @Test void operationIndicatorDistinguishesServerOperationsAndRendersTheHoverRowWithoutStretching() throws Exception {
@@ -271,7 +280,7 @@ class CraftingInterfaceRenderingTest {
         assertEquals(0, indicator.getValue(), "completion returns the synchronized lamp to green");
     }
 
-    @Test void occupiedPreviewDrawsTheNativeSizeBackdropBeforeItsItem() {
+    @Test void occupiedPreviewUsesTheContinuousRowInsteadOfCoveringItsGridWithAnotherSprite() {
         var state = mock(CraftingPatternPreviewState.class);
         when(state.createSlot(anyInt())).thenAnswer(call -> new PatternItemSlot());
         var preview = CraftingInterfaceUI.patternPreview(state);
@@ -293,7 +302,19 @@ class CraftingInterfaceRenderingTest {
             drawer.when(() -> DrawerHelper.drawItemStack(context.graphics, item, 0, 0, -1, null))
                 .thenAnswer(call -> { order.add("item"); return null; });
             slot.drawBackgroundAdditional(context);
-            assertEquals(List.of("backdrop", "item"), order);
+            assertEquals(List.of("item"), order);
+        }
+    }
+
+    @Test void gridRowsFillEmptyCellsAndMoveWithTheFractionalOffset() {
+        var state = mock(CraftingPatternPreviewState.class);
+        when(state.getRowOffset()).thenReturn(9.5);
+        when(state.createSlot(anyInt())).thenAnswer(call -> new PatternItemSlot());
+        var preview = CraftingInterfaceUI.patternPreview(state);
+        var context = mock(GUIContext.class);
+        preview.drawBackgroundAdditional(context);
+        for (int row = 0; row <= 6; row++) {
+            verify(context).drawTexture(NETextures.PATTERN_MANAGER_ROW, 0F, row * 18F - 9.5F, 162F, 18F);
         }
     }
 }

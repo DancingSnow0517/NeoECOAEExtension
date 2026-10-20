@@ -37,6 +37,7 @@ import net.minecraft.world.entity.player.Player;
 public final class CraftingInterfaceUI {
     public static final int PREVIEW_COLUMNS = 9;
     public static final int PREVIEW_ROWS = 6;
+    static final int PREVIEW_BUFFER_SLOTS = (PREVIEW_ROWS + 1) * PREVIEW_COLUMNS;
     private static final int PREVIEW_WIDTH = PREVIEW_COLUMNS * 18;
     private static final int PREVIEW_HEIGHT = PREVIEW_ROWS * 18;
     private static final int SCROLLBAR_WIDTH = 12;
@@ -178,11 +179,44 @@ public final class CraftingInterfaceUI {
     }
 
     /** Identifies the insertion surface when the client draws tooltips while carrying an item. */
-    public static final class PatternPreview extends UIElement { }
+    public static final class PatternPreview extends UIElement {
+        private final CraftingPatternPreviewState state;
+        private long lastFrame;
+
+        PatternPreview(CraftingPatternPreviewState state) { this.state = state; }
+
+        public void advanceFrame() {
+            long now = System.nanoTime();
+            if (lastFrame != 0) state.advanceScroll((now - lastFrame) / 1_000_000_000.0);
+            lastFrame = now;
+        }
+
+        @Override
+        public void drawContents(GUIContext context) {
+            // Preserve the texture's fixed outer border, then let UIElement draw and clip the children normally.
+            context.graphics.flush();
+            context.enableScissor(getPositionX() + 1, getPositionY() + 1,
+                getSizeWidth() - 2, getSizeHeight() - 2);
+            try {
+                super.drawContents(context);
+            } finally {
+                context.graphics.flush();
+                context.disableScissor();
+            }
+        }
+
+        @Override
+        public void drawBackgroundAdditional(GUIContext context) {
+            float x = getPositionX();
+            float y = getPositionY() - (float) state.getRowOffset();
+            for (int row = 0; row <= PREVIEW_ROWS; row++) {
+                context.drawTexture(NETextures.PATTERN_MANAGER_ROW, x, y + row * 18, PREVIEW_WIDTH, 18);
+            }
+        }
+    }
 
     static UIElement patternPreview(CraftingPatternPreviewState state) {
-        // UIElement owns child rendering and clipping. Overriding drawContents here hides the pattern items.
-        UIElement preview = new PatternPreview().setOverflowVisible(false);
+        UIElement preview = new PatternPreview(state).setOverflowVisible(false);
         preview.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             if (state.hasCarriedPattern()) {
                 event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
@@ -190,6 +224,7 @@ public final class CraftingInterfaceUI {
             }
         });
         preview.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            state.stopScrolling();
             if ((event.button == 0 || event.button == 1) && state.hasCarriedPattern()
                     && (event.button == 0 || event.target == preview)) {
                 // Capture left clicks before an occupied slot can swap or quick-move its pattern.
@@ -201,16 +236,15 @@ public final class CraftingInterfaceUI {
         }, true);
         preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY != 0 && !event.isShiftDown()) {
-                state.scroll(event.deltaY < 0 ? 1 : -1);
+                state.scroll(-event.deltaY);
                 event.stopImmediatePropagation();
             }
         });
-        for (int visual = 0; visual < ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS; visual++) {
+        for (int visual = 0; visual < PREVIEW_BUFFER_SLOTS; visual++) {
             PatternItemSlot slot = state.createSlot(visual);
             slot.getStyle().backgroundTexture(IGuiTexture.EMPTY);
-            // Draw the 16px sprite in the padded item area, before the pattern output icon.
-            slot.slotStyle(style -> style.slotOverlay(NETextures.PATTERN_MANAGER_SLOT)
-                .showSlotOverlayOnlyEmpty(false));
+            // The continuous row behind the children supplies every cell, including unoccupied cells.
+            slot.slotStyle(style -> style.slotOverlay(IGuiTexture.EMPTY));
             preview.addChild(HostElements.absolute(slot, visual % PREVIEW_COLUMNS * 18,
                     visual / PREVIEW_COLUMNS * 18, 18, 18));
         }
@@ -220,36 +254,44 @@ public final class CraftingInterfaceUI {
     static UIElement patternPreviewScrollbar(CraftingPatternPreviewState state) {
         UIElement scrollbar = new UIElement() {
             @Override public void drawBackgroundAdditional(GUIContext context) {
-                int max = state.getMaxScrollRow();
-                float progress = max <= 0 ? 0F : Math.clamp(state.getScrollRow() / (float) max, 0F, 1F);
-                int thumbY = Math.round(SCROLLBAR_TRAVEL * progress);
+                double max = state.getMaxScrollOffset();
+                float progress = max <= 0 ? 0F : (float) Math.clamp(state.getScrollOffset() / max, 0, 1);
                 int x = Math.round(getPositionX()) + SCROLLBAR_BORDER;
-                int y = Math.round(getPositionY()) + SCROLLBAR_BORDER + thumbY;
+                int y = Math.round(getPositionY()) + SCROLLBAR_BORDER;
                 // Flush LDLib's track texture before drawing AE2's native sprite on top of it.
                 context.graphics.flush();
-                context.graphics.blitSprite(max > 0 ? SCROLLBAR_ENABLED : SCROLLBAR_DISABLED,
-                        x, y, SCROLLBAR_WIDTH, SCROLLBAR_THUMB_HEIGHT);
+                context.pose.pushPose();
+                try {
+                    context.pose.translate(0, SCROLLBAR_TRAVEL * progress, 0);
+                    context.graphics.blitSprite(max > 0 ? SCROLLBAR_ENABLED : SCROLLBAR_DISABLED,
+                            x, y, SCROLLBAR_WIDTH, SCROLLBAR_THUMB_HEIGHT);
+                } finally {
+                    context.pose.popPose();
+                }
             }
         };
         scrollbar.style(style -> style.backgroundTexture(NETextures.PATTERN_MANAGER_SCROLLBAR_TRACK));
         scrollbar.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            int max = state.getMaxScrollRow();
+            double max = state.getMaxScrollOffset();
             if (event.button != 0 || max <= 0) return;
-            float progress = Math.clamp((getLocalY(scrollbar, event.x, event.y)
-                    - SCROLLBAR_BORDER - SCROLLBAR_THUMB_HEIGHT / 2F) / SCROLLBAR_TRAVEL, 0F, 1F);
-            state.setScrollRow(Math.round(progress * max));
-            scrollbar.getModularUI().getDragHandler().startDrag((float) state.getScrollRow(), null, scrollbar);
+            float localY = getLocalY(scrollbar, event.x, event.y) - SCROLLBAR_BORDER;
+            double thumbY = state.getScrollOffset() / max * SCROLLBAR_TRAVEL;
+            // A press on the handle retains its grab point; a track press centers it under the pointer.
+            if (localY < thumbY || localY >= thumbY + SCROLLBAR_THUMB_HEIGHT) {
+                state.setScrollOffset((localY - SCROLLBAR_THUMB_HEIGHT / 2.0) / SCROLLBAR_TRAVEL * max);
+            } else state.stopScrolling();
+            scrollbar.getModularUI().getDragHandler().startDrag((float) state.getScrollOffset(), null, scrollbar);
             event.stopImmediatePropagation();
         });
         scrollbar.addEventListener(UIEvents.DRAG_SOURCE_UPDATE, event -> {
             if (event.dragHandler == null || !(event.dragHandler.draggingObject instanceof Float initial)) return;
             float delta = getLocalY(scrollbar, event.x, event.y) - getLocalY(scrollbar, event.dragStartX, event.dragStartY);
-            state.setScrollRow(Math.round(initial + delta / SCROLLBAR_TRAVEL * state.getMaxScrollRow()));
+            state.setScrollOffset(initial + delta / SCROLLBAR_TRAVEL * state.getMaxScrollOffset());
             event.stopImmediatePropagation();
         });
         scrollbar.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY == 0) return;
-            state.scroll(event.deltaY < 0 ? 1 : -1);
+            state.scroll(-event.deltaY);
             event.stopImmediatePropagation();
         });
         return scrollbar;

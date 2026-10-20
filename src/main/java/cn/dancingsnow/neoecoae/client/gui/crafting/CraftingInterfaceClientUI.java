@@ -45,6 +45,13 @@ public final class CraftingInterfaceClientUI {
     @SubscribeEvent
     public static void onScreenRender(ScreenEvent.Render.Pre event) {
         prepareSearchFields(event.getScreen());
+        if (event.getScreen() instanceof AbstractContainerScreen<?> container
+                && container.getMenu() instanceof IModularUIHolder holder
+                && holder.getModularUI() != null) {
+            for (var preview : holder.getModularUI().getElementsByType(CraftingInterfaceUI.PatternPreview.class)) {
+                preview.advanceFrame();
+            }
+        }
     }
 
     @SubscribeEvent

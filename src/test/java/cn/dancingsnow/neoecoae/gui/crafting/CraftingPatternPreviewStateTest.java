@@ -2,8 +2,15 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -16,13 +23,27 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.neoforged.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class CraftingPatternPreviewStateTest {
-    @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    @BeforeAll static void bootstrap() throws ClassNotFoundException {
+        InventoryTestBootstrap.initialize();
+        try (var mods = mockStatic(ModList.class);
+             var registrate = mockStatic(NERegistrate.class)) {
+            var modList = mock(ModList.class);
+            when(modList.getAllScanData()).thenReturn(List.of());
+            mods.when(ModList::get).thenReturn(modList);
+            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
+            Class.forName("com.lowdragmc.lowdraglib2.gui.ui.UIElement");
+            Class.forName("cn.dancingsnow.neoecoae.gui.theme.NETextures");
+            AccessorRegistries.init();
+        }
+    }
 
     @Test void firstPageIsBrowsableWithoutSearchingAndFinalPageEndsLoading() throws Exception {
         var f = new Fixture();
@@ -92,6 +113,85 @@ class CraftingPatternPreviewStateTest {
         assertEquals(PatternPreviewSync.ClientView.EMPTY, other.sync.clientView());
     }
 
+    @Test void wheelAnimationRetainsFractionalOffsetsAndBothPartialEdgeRows() throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
+        var preview = CraftingInterfaceUI.patternPreview(state);
+        state.scroll(1);
+        state.advanceScroll(1.0 / 60);
+        assertTrue(state.getScrollOffset() > 0 && state.getScrollOffset() < 18);
+        assertNotEquals(Math.rint(state.getScrollOffset()), state.getScrollOffset());
+        assertEquals(63, preview.getChildren().size());
+        assertTrue(preview.getChildren().getFirst().isVisible());
+        assertTrue(preview.getChildren().get(54).isVisible());
+        var first = preview.getChildren().getFirst();
+        first.getStyleBag().compute(0);
+        double[] point = {0, 0};
+        first.getStyle().transform2D().inversePoint(first, point);
+        assertEquals(state.getScrollOffset(), point[1], 1e-5);
+
+        state.stopScrolling();
+        double clickedAt = state.getScrollOffset();
+        state.advanceScroll(1);
+        assertEquals(clickedAt, state.getScrollOffset());
+    }
+
+    @Test void pixelDraggingChangesTheFirstPhysicalAddressOnlyAfterCrossingARow() throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
+        var preview = CraftingInterfaceUI.patternPreview(state);
+        state.setScrollOffset(17.5);
+        assertEquals(0, state.getScrollRow());
+        assertEquals(17.5, state.getRowOffset());
+        state.setScrollOffset(18.5);
+        assertEquals(1, state.getScrollRow());
+        assertEquals(0.5, state.getRowOffset());
+        var first = (PatternItemSlot) preview.getChildren().getFirst();
+        var event = UIEvent.create(UIEvents.MOUSE_DOWN);
+        event.target = first;
+        event.button = 0;
+        try (var ui = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
+            ui.when(UIElement::isShiftDown).thenReturn(false);
+            UIEventDispatcher.dispatchEvent(event, true, true, false);
+        }
+        var action = ArgumentCaptor.forClass(CompoundTag.class);
+        verify(f.host).rpcToServer(eq("actOnPatternPreview"), action.capture());
+        assertEquals(9, action.getValue().getInt("slot"));
+
+        state.setScrollOffset(100_000);
+        assertEquals(72, state.getScrollOffset());
+        assertEquals(4, state.getScrollRow());
+        assertFalse(preview.getChildren().get(54).isVisible());
+        state.setInputSearch("missing");
+        assertEquals(0, state.getScrollOffset());
+        assertEquals(0, state.getMaxScrollOffset());
+        assertTrue(preview.getChildren().stream().noneMatch(child -> child.isVisible()));
+    }
+
+    @Test void wheelSpeedIsIndependentOfFrameRateAndFractionalWheelInputsAccumulate() throws Exception {
+        double expected = animate(30);
+        assertEquals(expected, animate(60), 1e-9);
+        assertEquals(expected, animate(144), 1e-9);
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
+        state.scroll(.25);
+        state.scroll(.25);
+        state.advanceScroll(1);
+        assertEquals(9, state.getScrollOffset());
+    }
+
+    private static double animate(int fps) throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
+        state.scroll(3);
+        for (int i = 0; i < fps / 6; i++) state.advanceScroll(1.0 / fps);
+        return state.getScrollOffset();
+    }
+
     private static String statusKey(CraftingPatternPreviewState state) {
         return ((TranslatableContents) state.status().getContents()).getKey();
     }
@@ -122,6 +222,7 @@ class CraftingPatternPreviewStateTest {
             when(level.registryAccess()).thenReturn(RegistryAccess.EMPTY);
             when(player.level()).thenReturn(level);
             player.containerMenu = mock(AbstractContainerMenu.class);
+            when(player.containerMenu.getCarried()).thenReturn(ItemStack.EMPTY);
             when(host.getLevel()).thenReturn(level);
             when(host.getBlockPos()).thenReturn(BlockPos.ZERO);
             sync = new PatternPreviewSync(host);

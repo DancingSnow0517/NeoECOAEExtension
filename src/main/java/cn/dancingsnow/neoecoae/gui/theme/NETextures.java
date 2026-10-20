@@ -58,6 +58,8 @@ public class NETextures {
     public static IGuiTexture PATTERN_MANAGER = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
         .setSprite(0, 0, 195, 237);
     public static IGuiTexture PATTERN_MANAGER_SLOT = Crafting.widget(38, 129, 16, 16);
+    public static IGuiTexture PATTERN_MANAGER_ROW = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
+        .setSprite(7, 170, 162, 18);
     public static IGuiTexture PATTERN_MANAGER_SCROLLBAR_TRACK = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
         .setSprite(178, 31, 6, 108).setBorder(1);
 

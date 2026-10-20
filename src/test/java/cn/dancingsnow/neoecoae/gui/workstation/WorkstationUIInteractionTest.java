@@ -230,9 +230,9 @@ class WorkstationUIInteractionTest {
                 }
                 UIElement scrollbar = collect(root, UIElement.class).stream()
                     .filter(element -> "large-workstation-scrollbar".equals(element.getId())).findFirst().orElseThrow();
-                assertEquals(root.getPositionX() + 80, scrollbar.getPositionX());
+                assertEquals(root.getPositionX() + 76, scrollbar.getPositionX());
                 assertEquals(root.getPositionY() + 37, scrollbar.getPositionY());
-                assertEquals(6, scrollbar.getSizeWidth());
+                assertEquals(13, scrollbar.getSizeWidth());
                 assertEquals(77, scrollbar.getSizeHeight());
                 for (String id : List.of("overclock", "cooling", "temperature-setting",
                     "parallel", "temperature", "energy", "module-logo", "module-info", "task-0", "scrollbar", "status",

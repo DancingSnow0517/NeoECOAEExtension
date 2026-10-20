@@ -187,12 +187,12 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             public void drawBackgroundAdditional(GUIContext context) {
                 int max = maxOffset();
                 int y = max == 0 ? 0 : Math.round(62f * state.getInt("offset") / max);
-                context.drawTexture(WorkstationTextures.widget(max == 0 ? 75 : 69, 62, 6, 15),
-                    getPositionX(), getPositionY() + y, 6, 15);
+                context.drawTexture(WorkstationTextures.widget(max == 0 ? 75 : 69, 62, 6, 15).setBorder(2, 0, 2, 0),
+                    getPositionX(), getPositionY() + y, getSizeWidth(), 15);
             }
         };
         track.setId("large-workstation-scrollbar");
-        absolute(track, 80, 37, 6, 77);
+        absolute(track, 76, 37, 13, 77);
         track.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button != 0 || maxOffset() == 0) return;
             scrollTo(Math.round(Math.clamp((event.y - track.getPositionY() - 7.5f) / 62, 0f, 1f) * maxOffset()));
@@ -414,7 +414,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             192, 124 - energyHeight, 8, energyHeight);
         sprite(context, WorkstationTextures.temperatureIcon(temperatureEnabled() ? state.getDouble("temperature") : 0), 180, 136, 12, 12);
         if (state.getInt("coolantTier") > 0) sprite(context, WorkstationTextures.coolingIcon(state.getInt("coolantTier")), 180, 161, 12, 12);
-        sprite(context, WorkstationTextures.widget(24, 87, 12, 12), 180, 186, 12, 12);
+        if (state.getBoolean("overclocked")) sprite(context, WorkstationTextures.widget(24, 87, 12, 12), 180, 186, 12, 12);
         int band = WorkstationTextures.temperatureBand(state.getDouble("temperature"));
         text(context, temperatureEnabled() ? state.getBoolean("overheated") ? tr("status_overheated")
             : band == 0 ? tr("band_regular") : tr("band", band) : tr("coolant_mode"),

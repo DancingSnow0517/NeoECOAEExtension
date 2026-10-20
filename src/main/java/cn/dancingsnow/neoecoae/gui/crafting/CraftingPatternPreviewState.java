@@ -32,7 +32,8 @@ import net.minecraft.world.item.ItemStack;
 final class CraftingPatternPreviewState {
     private final ECOMachineInterfaceBlockEntity<?> craftingInterface;
     private final Player player;
-    private final PatternItemSlot[] slots = new PatternItemSlot[ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS];
+    // One extra row keeps both partially visible edges populated while the viewport moves between rows.
+    private final PatternItemSlot[] slots = new PatternItemSlot[CraftingInterfaceUI.PREVIEW_BUFFER_SLOTS];
     private final int[] displayed = new int[slots.length];
     /** Which disk recipe the row currently shows, or {@code -1} when it shows the entry itself. */
     private final int[] displayedSubs = new int[slots.length];
@@ -51,6 +52,8 @@ final class CraftingPatternPreviewState {
     private int requestedMenuId = -1;
     private String inputSearch = "", outputSearch = "";
     private int scrollRow;
+    private double scrollOffset;
+    private double scrollTarget;
     private int receivedEntries;
     private final Map<AEItemKey, PatternSearchKeywords.Directions> localKeywords = new LinkedHashMap<>(256, 0.75F, true) {
         @Override protected boolean removeEldestEntry(Map.Entry<AEItemKey, PatternSearchKeywords.Directions> entry) { return size() > 4096; }
@@ -81,6 +84,7 @@ final class CraftingPatternPreviewState {
                 rows.reset(entries);
                 scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
             }
+            scrollOffset = scrollTarget = scrollRow * 18.0;
         }
     }
 
@@ -117,6 +121,7 @@ final class CraftingPatternPreviewState {
                     "gui.neoecoae.crafting_interface.preview.read_only"));
         });
         slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            stopScrolling();
             if (event.button == 0 && event.isShiftDown()) {
                 beginQuickMoveDrag(visualSlot);
                 event.hasHandler = true;
@@ -381,7 +386,7 @@ final class CraftingPatternPreviewState {
             rebuildFilter();
         }
         else {
-            scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
+            clampScroll();
             updateSlots();
         }
     }
@@ -438,12 +443,13 @@ final class CraftingPatternPreviewState {
 
     private void resetFilter() {
         scrollRow = 0;
+        scrollOffset = scrollTarget = 0;
         rebuildFilter();
     }
 
     private void rebuildFilter() {
         rows.filter(inputSearch, outputSearch);
-        scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
+        clampScroll();
         updateSlots();
     }
 
@@ -452,7 +458,8 @@ final class CraftingPatternPreviewState {
                 "gui.neoecoae.crafting_interface.preview.loading", receivedEntries);
         if (rows.size() == 0) return Component.translatable("gui.neoecoae.crafting_interface.preview.no_results");
         return Component.translatable("gui.neoecoae.crafting_interface.preview.rows",
-                scrollRow + 1, Math.min(scrollRow + CraftingInterfaceUI.PREVIEW_ROWS, rows.size()), rows.size());
+                scrollRow + 1, Math.min((int) Math.ceil(scrollOffset / 18) + CraftingInterfaceUI.PREVIEW_ROWS,
+                    rows.size()), rows.size());
     }
 
     private void updateSlots() {
@@ -475,12 +482,13 @@ final class CraftingPatternPreviewState {
             if (slots[visual] != null && !ItemStack.matches(slots[visual].getSlot().getItem(), shown))
                 slots[visual].setItem(shown.copy(), false);
             if (slots[visual] != null) {
-                // Preserve each widget's fixed 18px position, but suppress its texture, overlay and hitbox.
-                boolean occupied = !shown.isEmpty();
+                double y = visual / CraftingInterfaceUI.PREVIEW_COLUMNS * 18 - getRowOffset();
+                boolean occupied = !shown.isEmpty() && y < CraftingInterfaceUI.PREVIEW_ROWS * 18 && y + 18 > 0;
                 slots[visual].setVisible(occupied);
                 slots[visual].setActive(occupied);
             }
         }
+        updateSlotTransforms();
         craftingInterface.getPatternPreviewSync().cacheClientView(inputSearch, outputSearch, scrollRow);
     }
 
@@ -489,12 +497,50 @@ final class CraftingPatternPreviewState {
     int getScrollRow() { return scrollRow; }
 
     void setScrollRow(int value) {
-        int next = Math.clamp(value, 0, getMaxScrollRow());
-        if (next != scrollRow) {
-            scrollRow = next;
-            updateSlots();
+        setScrollOffset(value * 18.0);
+    }
+
+    double getScrollOffset() { return scrollOffset; }
+    double getMaxScrollOffset() { return getMaxScrollRow() * 18.0; }
+    double getRowOffset() { return scrollOffset - scrollRow * 18.0; }
+
+    void scroll(double rows) {
+        if (!quickMoveDrag && Double.isFinite(rows)) {
+            scrollTarget = Math.clamp(scrollTarget + rows * 18, 0, getMaxScrollOffset());
         }
     }
 
-    void scroll(int delta) { setScrollRow(scrollRow + delta); }
+    void setScrollOffset(double pixels) {
+        if (!Double.isFinite(pixels)) return;
+        scrollTarget = Math.clamp(pixels, 0, getMaxScrollOffset());
+        moveScrollTo(scrollTarget);
+    }
+
+    void stopScrolling() { scrollTarget = scrollOffset; }
+
+    void advanceScroll(double seconds) {
+        if (quickMoveDrag || seconds <= 0 || !Double.isFinite(seconds) || scrollOffset == scrollTarget) return;
+        double next = scrollOffset + (scrollTarget - scrollOffset) * -Math.expm1(-20 * seconds);
+        moveScrollTo(Math.abs(next - scrollTarget) < 0.01 ? scrollTarget : next);
+    }
+
+    private void clampScroll() {
+        scrollOffset = Math.clamp(scrollOffset, 0, getMaxScrollOffset());
+        scrollTarget = Math.clamp(scrollTarget, 0, getMaxScrollOffset());
+        scrollRow = (int) (scrollOffset / 18);
+    }
+
+    private void moveScrollTo(double pixels) {
+        if (scrollOffset == pixels) return;
+        scrollOffset = pixels;
+        scrollRow = (int) (pixels / 18);
+        updateSlots();
+    }
+
+    private void updateSlotTransforms() {
+        float offset = (float) -getRowOffset();
+        for (PatternItemSlot slot : slots) {
+            if (slot != null) slot.transform(transform -> transform.translate(0, offset));
+        }
+    }
 }
