@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:computation_threading_core_l6"
+            "items": [
+              "neoecoae:computation_threading_core_l6"
+            ]
           }
         ]
       },

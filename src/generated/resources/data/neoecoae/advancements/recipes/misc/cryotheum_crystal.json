@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:cryotheum"
+            "items": [
+              "neoecoae:cryotheum"
+            ]
           }
         ]
       },

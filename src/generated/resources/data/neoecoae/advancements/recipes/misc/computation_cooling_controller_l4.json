@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:computation_casing"
+            "items": [
+              "neoecoae:computation_casing"
+            ]
           }
         ]
       },

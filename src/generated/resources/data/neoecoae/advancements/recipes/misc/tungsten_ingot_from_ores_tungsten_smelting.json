@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:ores/tungsten"
+            "tag": "forge:ores/tungsten"
           }
         ]
       },

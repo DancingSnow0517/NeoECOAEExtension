@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:ingots/aluminum_alloy"
+            "tag": "forge:ingots/aluminum_alloy"
           }
         ]
       },
@@ -15,7 +15,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:crystal_ingot"
+            "items": [
+              "neoecoae:crystal_ingot"
+            ]
           }
         ]
       },
@@ -25,7 +27,9 @@
       "conditions": {
         "items": [
           {
-            "items": "ae2:quartz_vibrant_glass"
+            "items": [
+              "ae2:quartz_vibrant_glass"
+            ]
           }
         ]
       },

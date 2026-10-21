@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:aluminum_alloy_casing"
+            "items": [
+              "neoecoae:aluminum_alloy_casing"
+            ]
           }
         ]
       },
@@ -15,7 +17,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:superconducting_processor"
+            "items": [
+              "neoecoae:superconducting_processor"
+            ]
           }
         ]
       },

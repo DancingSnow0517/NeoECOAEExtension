@@ -41,7 +41,7 @@
   ],
   "result": {
     "count": 1,
-    "item": "neoecoae:eco_lightning_cell_64m"
+    "id": "neoecoae:eco_lightning_cell_64m"
   },
   "totalEnergy": 4000000,
   "lightningCost": 64,

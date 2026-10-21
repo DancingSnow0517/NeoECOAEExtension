@@ -4,6 +4,25 @@ import convert_data_resources as migration
 
 
 class ResourceConversionTest(unittest.TestCase):
+    def test_custom_recipe_serializers_keep_their_native_stack_schema(self):
+        cutter, _ = migration.transform(Path("test.json"), {"type": "extendedae:circuit_cutter",
+            "input": {"ingredient": {"item": "minecraft:iron_block"}},
+            "output": {"id": "minecraft:iron_ingot", "count": 9}})
+        self.assertEqual(1, cutter["item_input"]["amount"])
+        self.assertEqual({"item": "minecraft:iron_ingot", "count": 9}, cutter["output"])
+        overload, _ = migration.transform(Path("test.json"), {"type": "ae2lt:overload_processing",
+            "results": [{"id": "minecraft:diamond", "count": 3}],
+            "inputFluid": {"id": "minecraft:water", "amount": 16000}})
+        self.assertEqual([{"id": "minecraft:diamond", "count": 3}], overload["results"])
+        self.assertEqual({"id": "minecraft:water", "amount": 16000}, overload["inputFluid"])
+
+    def test_advancement_item_and_tag_predicates_use_120_schema(self):
+        original = {"conditions": {"items": [{"items": "neoecoae:crafting_casing"},
+                                               {"items": "#c:ingots/tungsten"}]}}
+        self.assertEqual({"conditions": {"items": [{"items": ["neoecoae:crafting_casing"]},
+                                                    {"tag": "forge:ingots/tungsten"}]}},
+                         migration.convert_tree(original))
+
     def test_live_lightning_disassembly_cannot_multiply_components_or_return_new_consumables(self):
         import json
         for size, amount in (("16m", 1), ("64m", 2), ("256m", 4)):
@@ -37,7 +56,7 @@ class ResourceConversionTest(unittest.TestCase):
         self.assertEqual("forge:mod_loaded", converted["conditions"][0]["type"])
         self.assertEqual("expatternprovider", converted["conditions"][0]["modid"])
         self.assertEqual({"item": "minecraft:diamond", "count": 1024}, converted["result"])
-        self.assertEqual(original["generic"], converted["generic"])
+        self.assertEqual({"id": "minecraft:diamond", "#c": "ae2:i", "#": 1024}, converted["generic"])
         self.assertEqual("#forge:dusts/iron", converted["tag"])
         self.assertIn("neoforge:conditions", original)
 
@@ -56,7 +75,7 @@ class ResourceConversionTest(unittest.TestCase):
                     "input_fluid": {"ingredient": {"tag": "minecraft:water"}, "amount": 500}}
         converted, _ = migration.transform(Path("test.json"), original)
         self.assertEqual(500000, converted["energy"])
-        self.assertEqual({"fluid": "minecraft:water", "amount": 500}, converted["fluid"])
+        self.assertEqual({"fluidStack": {"FluidName": "minecraft:water", "Amount": 500}}, converted["fluid"])
         self.assertNotIn("input_energy", converted)
 
     def test_excluded_recipes_are_removed_and_unknown_components_rejected(self):

@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:dusts/aluminum_alloy"
+            "tag": "forge:dusts/aluminum_alloy"
           }
         ]
       },

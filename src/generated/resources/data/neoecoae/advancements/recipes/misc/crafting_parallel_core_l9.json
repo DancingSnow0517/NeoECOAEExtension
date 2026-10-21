@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:crafting_parallel_core_l6"
+            "items": [
+              "neoecoae:crafting_parallel_core_l6"
+            ]
           }
         ]
       },

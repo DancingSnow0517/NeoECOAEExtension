@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:ingots/aluminum"
+            "tag": "forge:ingots/aluminum"
           }
         ]
       },
@@ -15,7 +15,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:crystal_matrix"
+            "items": [
+              "neoecoae:crystal_matrix"
+            ]
           }
         ]
       },
@@ -25,7 +27,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:dusts/redstone"
+            "tag": "forge:dusts/redstone"
           }
         ]
       },

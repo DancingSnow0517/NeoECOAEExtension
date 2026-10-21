@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:dusts/energized_crystal"
+            "tag": "forge:dusts/energized_crystal"
           }
         ]
       },

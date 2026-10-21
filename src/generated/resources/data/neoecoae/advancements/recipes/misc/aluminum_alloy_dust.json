@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:dusts/aluminum"
+            "tag": "forge:dusts/aluminum"
           }
         ]
       },
@@ -15,7 +15,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:dusts/certus_quartz"
+            "tag": "forge:dusts/certus_quartz"
           }
         ]
       },
@@ -25,7 +25,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:dusts/iron"
+            "tag": "forge:dusts/iron"
           }
         ]
       },

@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:eco_cell_component_256m"
+            "items": [
+              "neoecoae:eco_cell_component_256m"
+            ]
           }
         ]
       },

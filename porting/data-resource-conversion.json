@@ -123,22 +123,43 @@
       "source": "src/main/resources/data/neoecoae/recipe/compat/ae2lt/eco_lightning_cell_16m.json",
       "source_sha256": "088cee0e17d46b796e4bd1e7bf4a6053677a119034d471e6d4e802d674f989a5",
       "target": "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_16m.json",
-      "target_sha256": "1ff0e796e96093f1c35d6802ca4860e7929e67d2e8e6a76f8f847041899502a4",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "8aa601ba0cfff03e6715945a845d7ae3b0b67c502777a9e77029e2f9221203a2",
+      "reason": "Native 1.20 recipe serializer fields and AE2 key channel; quantities and energy retained",
+      "revisions": [
+        {
+          "target": "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_16m.json",
+          "sha256": "1ff0e796e96093f1c35d6802ca4860e7929e67d2e8e6a76f8f847041899502a4",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/main/resources/data/neoecoae/recipe/compat/ae2lt/eco_lightning_cell_256m.json",
       "source_sha256": "b491b8700eac1eb0cfc01c28a23fb1f5b55a9413b35ef829b1b67b17106b005e",
       "target": "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_256m.json",
-      "target_sha256": "91103da47dfee688d9f52d57ea3b998cf8c3af9cabfe2a3ca3db474e37535b90",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "877b8a86de22110264ec93bcd38088ce85900572a56b67ab353fbf80d1a16f90",
+      "reason": "Native 1.20 recipe serializer fields and AE2 key channel; quantities and energy retained",
+      "revisions": [
+        {
+          "target": "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_256m.json",
+          "sha256": "91103da47dfee688d9f52d57ea3b998cf8c3af9cabfe2a3ca3db474e37535b90",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/main/resources/data/neoecoae/recipe/compat/ae2lt/eco_lightning_cell_64m.json",
       "source_sha256": "09abf54bd2e24f834aa6584e851e09e64c033604bd24609d7ff689cd43513e37",
       "target": "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_64m.json",
-      "target_sha256": "feadb58c598fbb3f0d99b8a983b120c2993ebe69348fff92cd89ccdbd66ecb39",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "939bcb9285f24b8352601a6d28042c8c30db404c613dd86574c9f552168fcc8c",
+      "reason": "Native 1.20 recipe serializer fields and AE2 key channel; quantities and energy retained",
+      "revisions": [
+        {
+          "target": "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_64m.json",
+          "sha256": "feadb58c598fbb3f0d99b8a983b120c2993ebe69348fff92cd89ccdbd66ecb39",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/main/resources/data/neoecoae/recipe/compat/ae2lt/eco_lightning_cell_housing.json",
@@ -2286,323 +2307,645 @@
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_alloy_block.json",
       "source_sha256": "bd042746e102b1650edbe1597e5dc230cc751907768fb852ddff76a87ec0c8e0",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_block.json",
-      "target_sha256": "1dcf4f941679e16df390da69f6d61c8e3fd58800cd1e062b1bfd07e08d1844c4",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "3c5ecef1049debca8b2cf84187a29cf4bf25dd61232a66a5b0735e397fd30482",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_block.json",
+          "sha256": "1dcf4f941679e16df390da69f6d61c8e3fd58800cd1e062b1bfd07e08d1844c4",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_alloy_casing.json",
       "source_sha256": "8c228bc6c6d05fe00f575b30ac0caf0bab31f06c4a45c7cf80532d960a52ec25",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_casing.json",
-      "target_sha256": "e03540a65eb4c06b6d02afff3a2679a73e8c03a2ff8011559a2fa26f43354fd5",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "f824f3bdf48fa2f5219ef29888047a8a4c24c43d7768f87f7cf4e557024b4a3b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_casing.json",
+          "sha256": "e03540a65eb4c06b6d02afff3a2679a73e8c03a2ff8011559a2fa26f43354fd5",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_alloy_dust.json",
       "source_sha256": "1a24e5f8bff93b7dc3649ab0009facc2390243d13e3785aa75185858eeec5aa2",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_dust.json",
-      "target_sha256": "ae77d4d52e607d8ee79e3663dcf7de2ed94f5d361e361ef6bc55a5a4be70f942",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "1d7b81f50ed13bdb18d443e9c10436cb8ea528ca90dbfb7f03a029d818702a9c",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_dust.json",
+          "sha256": "ae77d4d52e607d8ee79e3663dcf7de2ed94f5d361e361ef6bc55a5a4be70f942",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_alloy_ingot.json",
       "source_sha256": "10d5cf0bf41df99b3b7c8bac080183dc0dd7a0c3e8c4b8d2481c775cd37aca9e",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_ingot.json",
-      "target_sha256": "3529c03dcc65842459a31150f58ac973d1c855d95175f2d9bca9d55c269eee77",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "6b36490b7230c6af3cefbbeefd3d0ae9d88a25246a02acf718f344f62be6bcb3",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_ingot.json",
+          "sha256": "3529c03dcc65842459a31150f58ac973d1c855d95175f2d9bca9d55c269eee77",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_alloy_ingot_from_dusts_aluminum_alloy_blasting.json",
       "source_sha256": "7d245a4359e8c075e91a5eb601f186a5c51d2f086f231e86fb946db45b3013b5",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_ingot_from_dusts_aluminum_alloy_blasting.json",
-      "target_sha256": "3dbf8978c144e42ff622410168b6068c3fdafadfc0753cf2b669f583624f0363",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "93a84d12fd92e67e0f4a12a58e9b58e4085e6de23f9059ee48f7f38c9e834ada",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_ingot_from_dusts_aluminum_alloy_blasting.json",
+          "sha256": "3dbf8978c144e42ff622410168b6068c3fdafadfc0753cf2b669f583624f0363",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_alloy_ingot_from_dusts_aluminum_alloy_smelting.json",
       "source_sha256": "c25f1e7ef29b4d8234c20f11911210ffd4b875ed04678b63fb8421cd05d2583e",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_ingot_from_dusts_aluminum_alloy_smelting.json",
-      "target_sha256": "aac3192603d08f862e833ed5df3daacb61218b30eb0e5c837d1becb7e4eb8249",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "f0f0dbcf90c9f3be93faeeb54559e5e16d070c8ba962d9803aece5b5a0faa7f3",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_ingot_from_dusts_aluminum_alloy_smelting.json",
+          "sha256": "aac3192603d08f862e833ed5df3daacb61218b30eb0e5c837d1becb7e4eb8249",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_alloy_upgrade_smithing_template.json",
       "source_sha256": "4d1ec0733db814eea13b0980e51b30e8cf78e82b14d574b9eea12e40d145a0a2",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_upgrade_smithing_template.json",
-      "target_sha256": "6fd012603ad000f72e2121d0d56078d4eb5e7763a7b16dcc61a703ddaa85f762",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "8d3476502007a65acff5334210cff927b6175b10232a55aef71d8d482a8e40bb",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_upgrade_smithing_template.json",
+          "sha256": "6fd012603ad000f72e2121d0d56078d4eb5e7763a7b16dcc61a703ddaa85f762",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_block.json",
       "source_sha256": "00469402f86ab70f07859377af7b46dfe9c6156a10e46d54ea8967a9d05b7a1f",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_block.json",
-      "target_sha256": "b255911d4ecafbe350118831d6c66e0d1a93984aa541a49eb0c222148ebc30ff",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "aa255e7869a49ec7b9a059812d3831b35f73febd40a29e4e3294bcd1fd014448",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_block.json",
+          "sha256": "b255911d4ecafbe350118831d6c66e0d1a93984aa541a49eb0c222148ebc30ff",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_ingot.json",
       "source_sha256": "d7dd7cec6a5d9a9ef83f1d8afd27594d1a8e05b637cc0d82762a4fb51cd026ea",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot.json",
-      "target_sha256": "21e00d685ff39cef624dc38a1a66ca57511f463ccffcd73e3cd7866dc96fd7f5",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "15beea4547898faa472faf41c457caf99b61ba35ce1a9cb93721f9500f19c995",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot.json",
+          "sha256": "21e00d685ff39cef624dc38a1a66ca57511f463ccffcd73e3cd7866dc96fd7f5",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_ingot_from_dusts_aluminum_blasting.json",
       "source_sha256": "11c7de6da02b83f88289e95a8d5ea25e30d0893e33f0ce7e9613326096b6f5ad",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_dusts_aluminum_blasting.json",
-      "target_sha256": "5b7f4ea984c3a9a01201c30197cc80975d414abc514eaf25b5929bcae3eae2e9",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "b7fc2e63eb59a1b6091c0b6b2ec4f79b663f010064b207b441e0fe365b0579dc",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_dusts_aluminum_blasting.json",
+          "sha256": "5b7f4ea984c3a9a01201c30197cc80975d414abc514eaf25b5929bcae3eae2e9",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_ingot_from_dusts_aluminum_smelting.json",
       "source_sha256": "cf1c933403d64ea1faa438687670c3244a725f1c0677abc852d5c9d921a98917",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_dusts_aluminum_smelting.json",
-      "target_sha256": "53bfb8543ba02d4d8b44aa178506602936d2ae93809e6046611425d066b0cc1e",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "24f6dce56dd0f884a9eb3c8e80119e65d4ac8e5cb764a3fd3c1caf7a7a95772c",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_dusts_aluminum_smelting.json",
+          "sha256": "53bfb8543ba02d4d8b44aa178506602936d2ae93809e6046611425d066b0cc1e",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_ingot_from_ores_aluminum_blasting.json",
       "source_sha256": "8ccccf76ccb9e47001275e1cae44c9a5075282367daf054c0d3bb3b7b21fdb20",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_ores_aluminum_blasting.json",
-      "target_sha256": "37a858e955d277e735b5b20902b86b5b797ee0b3d716870cf07887919d7b61d8",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "3adc8b1474afce41dab8b0f31157c6f2e1b1fc94f456326c8724da23cc4b7b31",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_ores_aluminum_blasting.json",
+          "sha256": "37a858e955d277e735b5b20902b86b5b797ee0b3d716870cf07887919d7b61d8",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_ingot_from_ores_aluminum_smelting.json",
       "source_sha256": "1345db2a1b5109d687d9f190c943e0181ad9284ba70387571a0d7540386dd181",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_ores_aluminum_smelting.json",
-      "target_sha256": "bcf7b81b0e8c5230aefeadaa181444cc082a626c819fecd1d933aaf282724159",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "9c5fc95d2ec3c6446ea5426f55393dba8a67a0e74f24d87f89ddf711bc6db328",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_ores_aluminum_smelting.json",
+          "sha256": "bcf7b81b0e8c5230aefeadaa181444cc082a626c819fecd1d933aaf282724159",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_ingot_from_raw_materials_aluminum_blasting.json",
       "source_sha256": "5b4ac5ced74cb9087ddc06071d2f1e0068391a4b5ff1ca5445d9288798bec8d4",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_raw_materials_aluminum_blasting.json",
-      "target_sha256": "35caacf0a2c604222b91b8db89b86acbbbbf7f59c8b67cb9e51c960946773532",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "08e58c817360391f890e26d848b85d162be7c7ba243e4200ebe1188b6f00fae9",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_raw_materials_aluminum_blasting.json",
+          "sha256": "35caacf0a2c604222b91b8db89b86acbbbbf7f59c8b67cb9e51c960946773532",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/aluminum_ingot_from_raw_materials_aluminum_smelting.json",
       "source_sha256": "442f474edbc3e5002183be9d1ad467423992f4b2e28d0f9a38f1fb98af6f182a",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_raw_materials_aluminum_smelting.json",
-      "target_sha256": "ff0e2201d677b2c5090cc93e0183c3aa71b2f0ad39fc84abcc3d588a39ac7ae4",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "53d060ba950a4e775c3b4d84d8582b4263d40a75f0f24537b6472ee7505bf531",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_raw_materials_aluminum_smelting.json",
+          "sha256": "ff0e2201d677b2c5090cc93e0183c3aa71b2f0ad39fc84abcc3d588a39ac7ae4",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/black_tungsten_alloy_block.json",
       "source_sha256": "c08e68f9cc49d0ad5eb4623cb9738c955fb6d51c352b604732d6b972fdc25c85",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_block.json",
-      "target_sha256": "e942e833feff1ab0e32f149d9aa72c73514b74969e3842f5e5af69ac1305b2ff",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "bde337df5def8e6bbce940735c1bec244b9840ea9013f99faced5400c4f897ad",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_block.json",
+          "sha256": "e942e833feff1ab0e32f149d9aa72c73514b74969e3842f5e5af69ac1305b2ff",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/black_tungsten_alloy_casing.json",
       "source_sha256": "31efb09d214c56949b8280d9a047db861f92080606739f81fe0c0883e7476993",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_casing.json",
-      "target_sha256": "9d49af178decd5580c7c279b8dc1f47599b39fa72341d2828f3265343d287627",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "b448d35b8b6931a3a33b35f4e00f1d99ac94495e97a15275a9d7fa0e6b44949a",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_casing.json",
+          "sha256": "9d49af178decd5580c7c279b8dc1f47599b39fa72341d2828f3265343d287627",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/black_tungsten_alloy_dust.json",
       "source_sha256": "a33b64d55378685af7cac41d44b16ff83fe407da64bbc2e60ec017ed5372b6c2",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_dust.json",
-      "target_sha256": "39c9fdd2a94b0f478a5e2a159c64f1ea7e89486342e4d6e7844a5d38235e86c4",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "5655e7fa780486865609c1c3373a8cadb91689b0f44c0619d81c67082a7842b4",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_dust.json",
+          "sha256": "39c9fdd2a94b0f478a5e2a159c64f1ea7e89486342e4d6e7844a5d38235e86c4",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/black_tungsten_alloy_ingot.json",
       "source_sha256": "9b6c3343173bdf3286ee0e9d0136475a44dc3030932157ff07a2053c338f7b26",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_ingot.json",
-      "target_sha256": "7a263c64d7df2ba5704a521df9d38064068407b6883c2fcab40fbd7f5e4bd08a",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "f11a342cd1c95f0bcd6bbfc19a098a23ab0ca7234b77e4f5984271d770cd9b0f",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_ingot.json",
+          "sha256": "7a263c64d7df2ba5704a521df9d38064068407b6883c2fcab40fbd7f5e4bd08a",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_blasting.json",
       "source_sha256": "82ed15996cf5a0ce26cd82cdb671b9fb37c86b235bb9f25d3d520bfd787cb9dc",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_blasting.json",
-      "target_sha256": "df139fcdb36965bd225162b103af95e6e5a0257defb3900bafb90a60ea3163e3",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "fd0651d5a1263f76c4a0238fbe618d2b336422c879b6695665294196cf378815",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_blasting.json",
+          "sha256": "df139fcdb36965bd225162b103af95e6e5a0257defb3900bafb90a60ea3163e3",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_smelting.json",
       "source_sha256": "c258e95bd00a66e90fd6f5c85eab08a5631c31e16b9056b2413431c6678515ae",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_smelting.json",
-      "target_sha256": "4141296f0448dba963d26bfacf8f346acc4f4240f8b919bf20c7aa26566a3584",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "850380677f9b1d833a28cad5715afef76f3cef65450ffe636c2f3e4361e849cf",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_smelting.json",
+          "sha256": "4141296f0448dba963d26bfacf8f346acc4f4240f8b919bf20c7aa26566a3584",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/black_tungsten_alloy_upgrade_smithing_template.json",
       "source_sha256": "4587a73e146d1605b73d00b1d3337f690d5a81ab2ab002cd52cdabe27da07a01",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_upgrade_smithing_template.json",
-      "target_sha256": "d9ac068d636318b146504f3b78302c6738aa7bba3467f8b65cdaaa566b3edfae",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "25574eb2315eac25b96b4ce7c04a60f76338204d3b96bb5281ea3ac943d8de54",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_upgrade_smithing_template.json",
+          "sha256": "d9ac068d636318b146504f3b78302c6738aa7bba3467f8b65cdaaa566b3edfae",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_casing.json",
       "source_sha256": "34859f635302a7caacd7c5ead699735a1d232f5aea4eefe172f4d6cc14f7b389",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_casing.json",
-      "target_sha256": "934169c4095c1059e04317730b94a84cb71ebd39474eb193972eef1d01b785ee",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "1aeb3817d56ea1b21d87a232a64c7234f1b084f61763a47e25cd2ccbfdf32ae2",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_casing.json",
+          "sha256": "934169c4095c1059e04317730b94a84cb71ebd39474eb193972eef1d01b785ee",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_cooling_controller_l4.json",
       "source_sha256": "a56d3d7d2b43c7bbcbf53915ecaad0c447a88284577c33a240a5e4deca409be3",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_cooling_controller_l4.json",
-      "target_sha256": "fd67ec0ca05f5649fc1e12a15815d4cdaaa50e11d6d2f97f4eb1e9fe61b0cbb5",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "dcb12ba774583678738d63d0951ceb732d50c29e9665e46ad7113999647c25d1",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_cooling_controller_l4.json",
+          "sha256": "fd67ec0ca05f5649fc1e12a15815d4cdaaa50e11d6d2f97f4eb1e9fe61b0cbb5",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_cooling_controller_l6.json",
       "source_sha256": "e188198ae052624ae0003a4d11556f34c2cabf875a029212b84f96cd673b04b5",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_cooling_controller_l6.json",
-      "target_sha256": "42c5a43e33cb906036d3949600397a8894ee68815fb403d4b9ea6b00862cacc4",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "0f34ce2ff6af50e5940cde031d4c227f08ee856cbca533ff4dd5f45c13297c84",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_cooling_controller_l6.json",
+          "sha256": "42c5a43e33cb906036d3949600397a8894ee68815fb403d4b9ea6b00862cacc4",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_cooling_controller_l9.json",
       "source_sha256": "f8c04a9cb7719b90a5835cf4a5008d2c286ceba5abd6985f4eae3b649593cce4",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_cooling_controller_l9.json",
-      "target_sha256": "fe9aae0fa91a98a56f3cf86b0ec0681478b260be4c2f165dedea9ffa22baa7ff",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "4b8b6eedaac7145628568275b10fd0b00b2b1957ff151744af2ab840643eca77",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_cooling_controller_l9.json",
+          "sha256": "fe9aae0fa91a98a56f3cf86b0ec0681478b260be4c2f165dedea9ffa22baa7ff",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_drive.json",
       "source_sha256": "06c63066e5cab7f9b0eb1ff2f0856c82b177d3a93d42d616d158c29f3326edb4",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_drive.json",
-      "target_sha256": "0e9e574f2e64623789fa8f81dc521387e954bc4c7a763d89dffb87f0224d7c0e",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "7fce3596300e960bae9675e7ca161cfba678f2a86054e7921a96ba1b7861c73f",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_drive.json",
+          "sha256": "0e9e574f2e64623789fa8f81dc521387e954bc4c7a763d89dffb87f0224d7c0e",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_interface.json",
       "source_sha256": "5b05e119df58e93b2b5de6cf3f781309f3498aa682fb65cf6fd432e531890111",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_interface.json",
-      "target_sha256": "d40a0f42b2dab5de9220981fb335a55d5e14fafde1b89176b6466e0ac3682a97",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "6721ee4e00496ab3fc9e96df777f3b65e574c625c21286bf6eeba0587e47065b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_interface.json",
+          "sha256": "d40a0f42b2dab5de9220981fb335a55d5e14fafde1b89176b6466e0ac3682a97",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_parallel_core_l4.json",
       "source_sha256": "20e075727a99d9574f9b2731bde387cade9e04b06041ca3601db2db6fab0f104",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_parallel_core_l4.json",
-      "target_sha256": "c2721dfc2bac3ed696de2d54058d8b01fbc48555f39d2ef1fa13dc3db147bbb4",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "247e676c5b8ee48c90028b6a00cbf4c1d5b78ab0df8456c7b8354ade5d2b81cd",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_parallel_core_l4.json",
+          "sha256": "c2721dfc2bac3ed696de2d54058d8b01fbc48555f39d2ef1fa13dc3db147bbb4",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_parallel_core_l6.json",
       "source_sha256": "e76dcb05f18e472554858a11c82f953acc970280e5334645d37d2bfbcf56204e",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_parallel_core_l6.json",
-      "target_sha256": "f95fcb6d9430b4b9370bc821bfac1ba081a16d925736c09ecb916eb9a3d88df0",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "e27f1c3375acddfb4ffd6e020fa9b8b2375f5c13e01c424cb33a5010f7698e88",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_parallel_core_l6.json",
+          "sha256": "f95fcb6d9430b4b9370bc821bfac1ba081a16d925736c09ecb916eb9a3d88df0",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_parallel_core_l9.json",
       "source_sha256": "209035154089c6670f56491823d39037225e8005f4a266bb4287bb0964506c20",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_parallel_core_l9.json",
-      "target_sha256": "eb017b245b5c7480a1b87fe7f10e2133fefab829993fcc8fd4908da4444cc31c",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "48923d6d027cf0f8feb3265dc02feef6e665945e780249a4992f2d602790d06d",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_parallel_core_l9.json",
+          "sha256": "eb017b245b5c7480a1b87fe7f10e2133fefab829993fcc8fd4908da4444cc31c",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_threading_core_l4.json",
       "source_sha256": "f0e1e3787359472994d5ba866ec57f89d100421ae6d1caa0bbd9957c46786de4",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_threading_core_l4.json",
-      "target_sha256": "13637811d1b1ffeff43bf3dbbd1f3f5b030a82299669e09191d2e17ad19fae90",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "b53f861f6d0a364facf6b38c7105e0bccd858a6abe1d63d9490e2de9eabc413e",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_threading_core_l4.json",
+          "sha256": "13637811d1b1ffeff43bf3dbbd1f3f5b030a82299669e09191d2e17ad19fae90",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_threading_core_l6.json",
       "source_sha256": "120f7b3ada0f0dae73e805c094aa9ea11367009efa0aeb14640b25cf261d397b",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_threading_core_l6.json",
-      "target_sha256": "d5534a1afea4e91a20c8a5286be6dbf970d688e3b0baa08ff339613f081c96ef",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "a4a576887608fa64944a9a5f2cb4dcb393db403b4a223ffa4846b2a5697197c0",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_threading_core_l6.json",
+          "sha256": "d5534a1afea4e91a20c8a5286be6dbf970d688e3b0baa08ff339613f081c96ef",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_threading_core_l9.json",
       "source_sha256": "bcefc99e1f7bc100b67926a45d4fc1dfb1e7427eca2a176bfe886f77ae9df310",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_threading_core_l9.json",
-      "target_sha256": "9cd832c65082c9822b8d97f83255a88e9019db8efc282bab53f986d67ec3e437",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "235bb6d069834c9701ab0a330f61466215bf914221c66157ee0ba486705dd9a9",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_threading_core_l9.json",
+          "sha256": "9cd832c65082c9822b8d97f83255a88e9019db8efc282bab53f986d67ec3e437",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/computation_transmitter.json",
       "source_sha256": "1f5a9440b8a6f790bace236ddeede03b3222161a5cfb7b064522a927f15de48d",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_transmitter.json",
-      "target_sha256": "8a7cee217377241e83d7debb9053601e7479e85a92a91bf0d2b9d38b1bcead66",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "db21dc3cb00e3342e0a206bb91fadf2d8c71d467b0700be510ab43c3a765bba1",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_transmitter.json",
+          "sha256": "8a7cee217377241e83d7debb9053601e7479e85a92a91bf0d2b9d38b1bcead66",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/crafting_casing.json",
       "source_sha256": "7d9dfcecc23ae1cc4c85db9d03f785650fe90be7d1a35cfe04e8bce71087c57e",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_casing.json",
-      "target_sha256": "be3f21c788dba81c274a357e33b4f43a453b02ecd48c2e77128ec16470c8cd81",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "eca5bca78bd92ebac43e0e8329a6eb47dd3432a873a562ac0a899ecc2d02ffd0",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_casing.json",
+          "sha256": "be3f21c788dba81c274a357e33b4f43a453b02ecd48c2e77128ec16470c8cd81",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/crafting_interface.json",
       "source_sha256": "e1dc79b4e2072ea1f3f0de4594126fd21eb970405bfca6b7c75424732f197948",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_interface.json",
-      "target_sha256": "ce47481f1512eb125792b040b4de335dfcc7e96c85a01ab8c6a651103f0a6d7a",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "07d1c37ce5a23c2abbde8370134fd00e82f62b739b8ed126bcb7cabf716f9f41",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_interface.json",
+          "sha256": "ce47481f1512eb125792b040b4de335dfcc7e96c85a01ab8c6a651103f0a6d7a",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/crafting_parallel_core_l4.json",
       "source_sha256": "740146b5d937a9ff1e38428e2016d8170d796134a48d3fc4c26f41d3bf350e2a",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_parallel_core_l4.json",
-      "target_sha256": "a44cab60723dbbffe76344a707b9244d49dad9fea3da23b59002b53a60443799",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "a02beb082e52200334ce78d81809cfa0a09873b87fbda2fa20bfe07d73a9b815",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_parallel_core_l4.json",
+          "sha256": "a44cab60723dbbffe76344a707b9244d49dad9fea3da23b59002b53a60443799",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/crafting_parallel_core_l6.json",
       "source_sha256": "1422cec91dafbcae829b9dc3c604382d1eb3102f75a79619b972b908862cd69e",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_parallel_core_l6.json",
-      "target_sha256": "433666ca78c9fd91d8568adb5d8ac960d6d03f9933816faafd785eb8a9b30145",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "9a634b378f89086c04a944203a8f1a877a372aab680636640c1de82a806b1c60",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_parallel_core_l6.json",
+          "sha256": "433666ca78c9fd91d8568adb5d8ac960d6d03f9933816faafd785eb8a9b30145",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/crafting_parallel_core_l9.json",
       "source_sha256": "41cd574e0a26bd5158a5d822913b6ceef0c21a2f9019e85c251f62eb5793945f",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_parallel_core_l9.json",
-      "target_sha256": "1033fba8281d4495c98e879ea3e5aba19ecfb8a02a1fa0a005395650a24c60eb",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "1a9fb0ec56ed5583c05982c23a50ed1fbff089984fe5f99ee12747f2e71ef227",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_parallel_core_l9.json",
+          "sha256": "1033fba8281d4495c98e879ea3e5aba19ecfb8a02a1fa0a005395650a24c60eb",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/crafting_pattern_bus.json",
       "source_sha256": "de9feda745267332b0e1a6d66d1201820f3867e487524c1f80efad9deddce518",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_pattern_bus.json",
-      "target_sha256": "962e5de7c7232135c65b8a5039c885729342b9bae75ecd3fa93470c0e50d2746",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "d0f086ed2b63485dcb93ed91c7bb303be19aa8499389adfee108e6f9e84b80b7",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_pattern_bus.json",
+          "sha256": "962e5de7c7232135c65b8a5039c885729342b9bae75ecd3fa93470c0e50d2746",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/crafting_vent.json",
       "source_sha256": "646383b180fd57dc6239bf22ce84d873db8a728f8b40e8ec69fcf5ce86f35c01",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_vent.json",
-      "target_sha256": "055dfe486c7107d99e58d5211c26bc324626190af9acf1be965a64d0b45bf5d3",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "26d2c4e8859cec482b4d917eaa94e0700909800ac780dd9c2f6733fef3eb662d",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_vent.json",
+          "sha256": "055dfe486c7107d99e58d5211c26bc324626190af9acf1be965a64d0b45bf5d3",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/crafting_worker.json",
       "source_sha256": "87a9f273c3e5fbf9409b0890104cb20481314ef22336a4fc5130e86a8f74cd49",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_worker.json",
-      "target_sha256": "11a7f708171089a76e705f4c22dd4ce7c5703f73e72113c84b2b47247b90f9d3",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "2bf54458db5ae673754aee9f0ed06bcd1900274f291ebc0ebc86522a3ed06f68",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_worker.json",
+          "sha256": "11a7f708171089a76e705f4c22dd4ce7c5703f73e72113c84b2b47247b90f9d3",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/cryotheum.json",
       "source_sha256": "e8d4c7856265bf05b44335a33fb0fb501341bd09879321dbd2531cc8da9733de",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/cryotheum.json",
-      "target_sha256": "2f4774f13255297278d921f1ef3aeab649035f15cd4ccf78d94b73c4a66bc375",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "fbfdd25324da5b58841c6917a8d76485728f9fe54ba42ade17620837e0a683f4",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/cryotheum.json",
+          "sha256": "2f4774f13255297278d921f1ef3aeab649035f15cd4ccf78d94b73c4a66bc375",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/cryotheum_crystal.json",
       "source_sha256": "4e3b54d8cf9c2abf12aa88de5ec43ead89ece71a7cf282fde395f1dc6c4aefda",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/cryotheum_crystal.json",
-      "target_sha256": "7421ef30ac215d15835d05970e4e39cc400902d7afdb13fe6c213eda573acef9",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "f206ea9c7e1918ea84ca50b0a22439055989a69724aef2a398ba253ea5e2923b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/cryotheum_crystal.json",
+          "sha256": "7421ef30ac215d15835d05970e4e39cc400902d7afdb13fe6c213eda573acef9",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/crystal_matrix.json",
       "source_sha256": "2835d9b8115bbf048e5eaab1d3669f0bab1b70f290fd590a663b1a1973841324",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crystal_matrix.json",
-      "target_sha256": "b445d6bf0479f99423a9ec6293c614ee7509ed91a2149b66284c4d362aa4fc4c",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "21d74dc28969c113b294dd7f7a636ee730f222058f26d0e5080b22361d2d26e4",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crystal_matrix.json",
+          "sha256": "b445d6bf0479f99423a9ec6293c614ee7509ed91a2149b66284c4d362aa4fc4c",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_chemical_cell_housing.json",
@@ -2720,8 +3063,15 @@
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_drive.json",
       "source_sha256": "d3d0efd8e7dfd7dc35fe3391ac7e34febbe54cf697bece339b3eb9f47974e2dd",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_drive.json",
-      "target_sha256": "c9c9e2f7fc73df1d9748d0f92ba84ce92c854dd1971e8326cd5c16e857c185a8",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "dc791d9dcc0e957cb8b8733004fc6df00dab324a48cb41e31d27a44b8a9b3fb7",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_drive.json",
+          "sha256": "c9c9e2f7fc73df1d9748d0f92ba84ce92c854dd1971e8326cd5c16e857c185a8",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_fe_cell_housing.json",
@@ -2783,57 +3133,113 @@
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_fluid_cell_housing.json",
       "source_sha256": "4f3a99f9d4bacb54d5a95f20f2d50fe5d1623deedcd6a0bee5d2acd74df11824",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_cell_housing.json",
-      "target_sha256": "cac256a1bcab7c0789222416974b9d81893d88091bd29fc118546e0c0b0d1465",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "eaf9596d8fc224a97362148c97421c90dd09a6370fb6f454972b6e44f586e220",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_cell_housing.json",
+          "sha256": "cac256a1bcab7c0789222416974b9d81893d88091bd29fc118546e0c0b0d1465",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_fluid_storage_cell_16m.json",
       "source_sha256": "13f1d372805bab0ccded76478ca145607864000deaaabc82fff94df77a2a3d29",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_storage_cell_16m.json",
-      "target_sha256": "e3063d894f8953fe48ad20ab3d597243e1113fb71c64fe27eb6316a271ca8291",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "7deedde2c6838eb5af78e5d52eb57529cf0b1f5ce99d90b320c67dfeadec7ba5",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_storage_cell_16m.json",
+          "sha256": "e3063d894f8953fe48ad20ab3d597243e1113fb71c64fe27eb6316a271ca8291",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_fluid_storage_cell_256m.json",
       "source_sha256": "9e918b35ae839adbd2cd93065bd7d217703c8b32886142840fe651d3f1a11e57",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_storage_cell_256m.json",
-      "target_sha256": "50ea12e1d832cbb0d7a6c08c98835085d8e9a2c51f6f2e4d036f17fcdb987fbd",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "e21ddadcd2ff9cbc8bc3f019126ac54e64288f70abc96b46999ccbe4979211e6",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_storage_cell_256m.json",
+          "sha256": "50ea12e1d832cbb0d7a6c08c98835085d8e9a2c51f6f2e4d036f17fcdb987fbd",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_fluid_storage_cell_64m.json",
       "source_sha256": "0708319cd76104ce1b941b1831fe19c15c6f121bcca7d61e5d4730ad9b295559",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_storage_cell_64m.json",
-      "target_sha256": "4eeffb9178437af6dad39e1f0afbb5319948ab017428ec5037f6a3c832eaf461",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "ee6296335a93d8aac1441e28fd51288a75c6c615ee292e6b26ca2405470139aa",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_storage_cell_64m.json",
+          "sha256": "4eeffb9178437af6dad39e1f0afbb5319948ab017428ec5037f6a3c832eaf461",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_item_cell_housing.json",
       "source_sha256": "1fba760d2b928a93a75aa957c26ff0132747e3fb5399291272550b8aff9b2990",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_cell_housing.json",
-      "target_sha256": "badd5287ef2e26ef45bc0521e10f9241dc3f4aa034c3623ce309749ac49d8002",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "0932bcf38906a05809b5fe4170eea7e48d262b23278f9030f4f54d79c19c201b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_cell_housing.json",
+          "sha256": "badd5287ef2e26ef45bc0521e10f9241dc3f4aa034c3623ce309749ac49d8002",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_item_storage_cell_16m.json",
       "source_sha256": "d098bc7f7967bd75b88c8b050e221ad3cafba62c73e71f58596d2e8d20d5251d",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_storage_cell_16m.json",
-      "target_sha256": "84c3508b9b689c8c0cc9d1cc9511776507819cd38054a139a6fd6e724f4a3a27",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "348f3d3ed8a2f60ef84981d93277e33a1e90d96f8f64d235870923de0dcd7015",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_storage_cell_16m.json",
+          "sha256": "84c3508b9b689c8c0cc9d1cc9511776507819cd38054a139a6fd6e724f4a3a27",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_item_storage_cell_256m.json",
       "source_sha256": "8d5a32992883f1249bf8a3df8c8d1a5e0b7c94f907f9269a8bdbf8850184bf9b",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_storage_cell_256m.json",
-      "target_sha256": "97fede85a570d253d3a6d728cdbadc58984b4fed25e1af4c94afd91758c86265",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "b7ef1490184e995d5a48343726e114557fd6c204b5a3cae84a4c6265458916da",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_storage_cell_256m.json",
+          "sha256": "97fede85a570d253d3a6d728cdbadc58984b4fed25e1af4c94afd91758c86265",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_item_storage_cell_64m.json",
       "source_sha256": "e11df8e1cb11828be35af6f8242251186da93cea5e7e21e773ff725891db8f07",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_storage_cell_64m.json",
-      "target_sha256": "1c5c3f83e9c9e347da703c7d72ad237d604e9eb0226ca6fd5cb4950be80d5bfd",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "c5fd59f76ee4d454265eaee15d45808473dd5f338139b4cd0db7e84cf1c6e962",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_storage_cell_64m.json",
+          "sha256": "1c5c3f83e9c9e347da703c7d72ad237d604e9eb0226ca6fd5cb4950be80d5bfd",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/eco_source_storage_cell_16m.json",
@@ -2881,344 +3287,687 @@
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/energized_crystal.json",
       "source_sha256": "4bbce3cdd886f5208c149885bf5f66d9b7f65568eae135bee477cfa7e06c1ab0",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_crystal.json",
-      "target_sha256": "dc8251e589567ed90842da2e7a049337d601b9b66d28da67448300e97c8429e6",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "ecc34b29d02988e47bf52b19cb6639cfc1f8e2fc98ba52fc56a2b61df662118b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_crystal.json",
+          "sha256": "dc8251e589567ed90842da2e7a049337d601b9b66d28da67448300e97c8429e6",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/energized_crystal_block.json",
       "source_sha256": "61056eadda9bde993ce59fb9b80566e4e11f35817211cb202b600b75a46077c0",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_crystal_block.json",
-      "target_sha256": "51c5fbd73bfd4b1cd5a8b6fea173ce1cda774289926414c0018a74fb23e014af",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "84fa022dafb0235af6652f0d6280c6a3c212ee1b300c8ca7d73f829190d2f73f",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_crystal_block.json",
+          "sha256": "51c5fbd73bfd4b1cd5a8b6fea173ce1cda774289926414c0018a74fb23e014af",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/energized_fluix_crystal_block.json",
       "source_sha256": "e574483b45d648ae294e088d6856c572611edc3261409ff0024a46e485a19806",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_fluix_crystal_block.json",
-      "target_sha256": "cba0a6c00e0326749a898cdfda177081a695d6385936f78f8c7e8f9fb761bfe6",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "732ebd88678df7a4aea496ab5c0d2e9c7068951cba6b2b5a801d805f04d73b82",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_fluix_crystal_block.json",
+          "sha256": "cba0a6c00e0326749a898cdfda177081a695d6385936f78f8c7e8f9fb761bfe6",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/energized_fluix_crystal_from_block.json",
       "source_sha256": "c04b215b6452ad4cfead258d1542a38ece94b3222ad2527e48ae0bc101f92c25",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_fluix_crystal_from_block.json",
-      "target_sha256": "67bd92ca19d287e5a586d75ef539bfb31b9b57c4f0127b3e1d4daedf547da0f2",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "d5ac8c7a6ab89877f4e5b82b4f2d44af37a15323414c70a7558326f4d4b67326",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_fluix_crystal_from_block.json",
+          "sha256": "67bd92ca19d287e5a586d75ef539bfb31b9b57c4f0127b3e1d4daedf547da0f2",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/energized_superconductive_block.json",
       "source_sha256": "fb1f12509833d9e99891e686828a8fe5ac977ee10713c1e47d813760a1f85273",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_superconductive_block.json",
-      "target_sha256": "f03bfa7aeaeca877a4992096f97860310face853a0f11566337ec755fcc79f8b",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "15e2d1c7e9a16fb6df910e5568b91108b8a25fc94b138442c0a58b3dd3e619d2",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_superconductive_block.json",
+          "sha256": "f03bfa7aeaeca877a4992096f97860310face853a0f11566337ec755fcc79f8b",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/energized_superconductive_ingot.json",
       "source_sha256": "8de03f7b4fd56914e6205351673b466f9c219b933316ef93d6b715a1b50e743c",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_superconductive_ingot.json",
-      "target_sha256": "66d0f7c5a6d309a3c4ec65c4c06a77b46657739c997ad2d3aa19121ea9b6e742",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "539364a02bf3f27c786c742755b71d7efdd1383d7c9601206f82a7c844c0a816",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_superconductive_ingot.json",
+          "sha256": "66d0f7c5a6d309a3c4ec65c4c06a77b46657739c997ad2d3aa19121ea9b6e742",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/energy_cell_l4.json",
       "source_sha256": "e3788d7dd97521db1c266afe8f2c76d714993b9516c4f4f7c2a35bb724531370",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energy_cell_l4.json",
-      "target_sha256": "4967aacab3e988e6ade84db2e8c71312048fc654c1e73f43707a63ac13787ffb",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "a5351568d2b23731b8c158330e48248e9ec513e5714285cfd57fdd09c6221e03",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energy_cell_l4.json",
+          "sha256": "4967aacab3e988e6ade84db2e8c71312048fc654c1e73f43707a63ac13787ffb",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/energy_cell_l6.json",
       "source_sha256": "8a9aa4c91b5ff9aeed272e1d022034e219957c00700a7e1471789dea18ed6060",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energy_cell_l6.json",
-      "target_sha256": "3d255f166c1371d0498373c01e64ae2948e34961acd959e72c97120918401a87",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "28579379375206863b77426db34593a744dca774190d8e4cfbf570900652fdb3",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energy_cell_l6.json",
+          "sha256": "3d255f166c1371d0498373c01e64ae2948e34961acd959e72c97120918401a87",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/energy_cell_l9.json",
       "source_sha256": "997b54be2e5ae9f938f491dafa544979e74ad85966a10480581144eb5a0bcf52",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energy_cell_l9.json",
-      "target_sha256": "191eb9841f1ec64e800d0ab649d92638a8335f313efaf8a675d2e337875d3769",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "d3616fe10b9e64f11dea51a274a8a4b17f4e38f63ff434c447d2786848e1e46a",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energy_cell_l9.json",
+          "sha256": "191eb9841f1ec64e800d0ab649d92638a8335f313efaf8a675d2e337875d3769",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/fx_monitor_core.json",
       "source_sha256": "7b305681b0291fda2396096ba774d97d761c45bfeff049e3c85530fa9847935e",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/fx_monitor_core.json",
-      "target_sha256": "e307ef6b4a38d4a383b9a3b6a4b43972abf835185db0423f7b3046fdb18a6d73",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "6a0024b416621e8db38d3006f3d7da4588983b612a24558e856f7c775fd2db9c",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/fx_monitor_core.json",
+          "sha256": "e307ef6b4a38d4a383b9a3b6a4b43972abf835185db0423f7b3046fdb18a6d73",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/input_hatch.json",
       "source_sha256": "0e4072e3c86a16da7cdfbd0b6b8369d24c73c5235b5c0732bc0d1f0acb1b3243",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/input_hatch.json",
-      "target_sha256": "926d62433fa9ab95525be7bff3584364ac46bf8a93cdc7f8d3332fd806af1c96",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "df1a699aeb9993bae85b0f9c9897d3b050026b2928f22e54c9887d647b94a3eb",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/input_hatch.json",
+          "sha256": "926d62433fa9ab95525be7bff3584364ac46bf8a93cdc7f8d3332fd806af1c96",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/integrated_working_station.json",
       "source_sha256": "717c3a709b75331a13a1838b5a650d8e0809d4e176390e589de8749e3ccf8181",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/integrated_working_station.json",
-      "target_sha256": "9ba372f66044c00f9d0461be9be535a09e46f34f906397dda5414abace45284c",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "73fcaf4001430f684ddbf4dc060c3ed90843136067406fee9dd560c06b77280c",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/integrated_working_station.json",
+          "sha256": "9ba372f66044c00f9d0461be9be535a09e46f34f906397dda5414abace45284c",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/output_hatch.json",
       "source_sha256": "b29f4b167dee429fb9efb851fc3e459d1258e45bf4fa441c64299903dd76f0fd",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/output_hatch.json",
-      "target_sha256": "02306db5d50833b0279728a781d8b25194543db839221e1b45843ff895cba348",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "470c090c4f4e59597b307cd5f54cbfc36127d7d326ffad463477599e1cf2f135",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/output_hatch.json",
+          "sha256": "02306db5d50833b0279728a781d8b25194543db839221e1b45843ff895cba348",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/raw_aluminum_block.json",
       "source_sha256": "7a2633cf056f74091a7ea621aa44510337f5a4a954085b493198c7003f571643",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_aluminum_block.json",
-      "target_sha256": "940b45e9e0038f8de22c8e7a35743df44af200ac5c0abba614e9d95b100f9f26",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "a72d84b902eba51146a87adb6b79c653eb62bc81b97c08aebf95d272574f22e5",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_aluminum_block.json",
+          "sha256": "940b45e9e0038f8de22c8e7a35743df44af200ac5c0abba614e9d95b100f9f26",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/raw_aluminum_ore.json",
       "source_sha256": "3bfe79a870e7d59299fd7ee7f805930bf45e0cb40a9c0b492cdaa3187f2ae0d2",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_aluminum_ore.json",
-      "target_sha256": "f9c97399d62beff3f89544638a245bec11582a942fdc6f716765b425e70856a6",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "2b3f567b58bbe1c19671fd50d67d7e5e04b982a2551ca66a85480aacb8b4b931",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_aluminum_ore.json",
+          "sha256": "f9c97399d62beff3f89544638a245bec11582a942fdc6f716765b425e70856a6",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/raw_tungsten_block.json",
       "source_sha256": "72a147d122db7715a8af24a6f53f6996bb4d01803837a3cab13dcf61cfc91225",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_tungsten_block.json",
-      "target_sha256": "8d1c9fbc5d41464cd87ae07ad8e5f984c179866ea11d001b320a2285d7bb2eb0",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "3056d9ce8deb3e965d660ef3eb874088d701183fb32dc59e24130d9e21c96fef",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_tungsten_block.json",
+          "sha256": "8d1c9fbc5d41464cd87ae07ad8e5f984c179866ea11d001b320a2285d7bb2eb0",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/raw_tungsten_ore.json",
       "source_sha256": "5ec234d12f0f90666c12bfb5d58462644665c6082f3c8f6b9b492c4615997f8d",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_tungsten_ore.json",
-      "target_sha256": "a250b259fd380ffd102f6c0f5118f421489a9f4911c868ee0de36faa9790a600",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "9cabb23309f0745a69a282969c6703e554cd87b2a96742e75f2a9437d7940333",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_tungsten_ore.json",
+          "sha256": "a250b259fd380ffd102f6c0f5118f421489a9f4911c868ee0de36faa9790a600",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/storage_casing.json",
       "source_sha256": "03e29e11b8f039b150ba5df1784bf2209758d350e14df9d83fb6043efe8f00e1",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/storage_casing.json",
-      "target_sha256": "71546f3f22bd87caf193b808c373dfee38b674675c65e7850663659b523ca342",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "1eda4d3ef2156086edcea771fe47c21f27516ba8dde87736ee3918e699e3813b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/storage_casing.json",
+          "sha256": "71546f3f22bd87caf193b808c373dfee38b674675c65e7850663659b523ca342",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/storage_interface.json",
       "source_sha256": "30e3ec9a25e79c123349f899939bbf926a6c552c4dcce7c8e54b8d606f168d34",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/storage_interface.json",
-      "target_sha256": "893c98992635473fdadc442f53e99224e40e2c847d9a3529515ef4a4378d23d1",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "241aca0c79ea01c68dac93c775f036f6d461154dc3500c6ebe0b232186ea3d75",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/storage_interface.json",
+          "sha256": "893c98992635473fdadc442f53e99224e40e2c847d9a3529515ef4a4378d23d1",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/storage_vent.json",
       "source_sha256": "9a537af9842f5efba09de5b12012984e6a62a7bda6dd270bc8300dd143cd129a",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/storage_vent.json",
-      "target_sha256": "784bcebdcbbfe36a8d1ab1848c65382071062be9619c6d44ace7ac9f53a3c56b",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "76358ff5bb383dbadb99a1b8e9fa62815025eee3d98b77977f46c4be262b52f0",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/storage_vent.json",
+          "sha256": "784bcebdcbbfe36a8d1ab1848c65382071062be9619c6d44ace7ac9f53a3c56b",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/superconducting_processor_press.json",
       "source_sha256": "02e24981a76057c94188da7052234530bcc7a20d86edd3acbf62c5e016045016",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/superconducting_processor_press.json",
-      "target_sha256": "6d30d7e89ec00f3e6bbe1781b7843195f356bc9355a67b60dc543b943901d152",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "9e7d0a3f09c012427a27d364f1245d3be897a8c2cd57ac0d106ff410072ebc4b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/superconducting_processor_press.json",
+          "sha256": "6d30d7e89ec00f3e6bbe1781b7843195f356bc9355a67b60dc543b943901d152",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/tungsten_block.json",
       "source_sha256": "761e4a8d14dfb6cbed8637faa67008649e3cb31c2629fc0890c5963c5164b94f",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_block.json",
-      "target_sha256": "808532c94ea3411c09dd58827591432db8eabe89644fd078dea2ca7cc6ed87e4",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "8d21619c68ff2bf44c62a343b93d4bdc0151051b4661510fd334d457524038ed",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_block.json",
+          "sha256": "808532c94ea3411c09dd58827591432db8eabe89644fd078dea2ca7cc6ed87e4",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/tungsten_ingot.json",
       "source_sha256": "bfc8601b1959b5529994a993d7e9fa176f84609c2a599473e2af14eaba9d51dc",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot.json",
-      "target_sha256": "490b20705abb648ccd5ffedf8c750a9ef6c7fc0c2bcce8facc4d97b9343abbbe",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "97f519fda2b8ba4146076ea3b4028ca11d4391cc090f1d88298a02ae7c7e7661",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot.json",
+          "sha256": "490b20705abb648ccd5ffedf8c750a9ef6c7fc0c2bcce8facc4d97b9343abbbe",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/tungsten_ingot_from_dusts_tungsten_blasting.json",
       "source_sha256": "b9f5a51c97a679c74e9bc909e054a6fa317fac249b8c7f55a12d0bd577c8e5af",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_dusts_tungsten_blasting.json",
-      "target_sha256": "bea96b06b27bbe7322f86e217e290b63e6942269ff70d9ec819137b09501776e",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "78b22f10ac67580995221a4d03465c5f18087dc2bfac89d539d51f114b4be709",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_dusts_tungsten_blasting.json",
+          "sha256": "bea96b06b27bbe7322f86e217e290b63e6942269ff70d9ec819137b09501776e",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/tungsten_ingot_from_dusts_tungsten_smelting.json",
       "source_sha256": "5258b4c86d8113706c61978bb90e61c7d4fb2e94f34ed98367d6adfa3bb83521",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_dusts_tungsten_smelting.json",
-      "target_sha256": "2a6cb12ac05f0726254c4915b1423d4531b7cfd9bfd61e100b2b5404ac8bc047",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "86deee80ffb237642a7567974aebafe4eed4c440b202dfd47c1b60fc344583fa",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_dusts_tungsten_smelting.json",
+          "sha256": "2a6cb12ac05f0726254c4915b1423d4531b7cfd9bfd61e100b2b5404ac8bc047",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/tungsten_ingot_from_ores_tungsten_blasting.json",
       "source_sha256": "cdb28dbd782367647a5aad82187fc52811739d5db1f0b7584f1c540818f3b6ea",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_ores_tungsten_blasting.json",
-      "target_sha256": "da78453b62b4326b6e22cb1ae5b70242b5ff256b5d1468b139e5f040bd005492",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "830aec7f129a04a877f8a6defbed5991bbb3d6cf213a6fbfe24400626396022f",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_ores_tungsten_blasting.json",
+          "sha256": "da78453b62b4326b6e22cb1ae5b70242b5ff256b5d1468b139e5f040bd005492",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/tungsten_ingot_from_ores_tungsten_smelting.json",
       "source_sha256": "bdb990fce82f853e2e1f0484fa4aea4be743b54598ff5aa6ea11c83d2664d648",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_ores_tungsten_smelting.json",
-      "target_sha256": "74cdd86453daf82c721fbeafbe31ee000167fa0868a7c6d62e6a363404027ed8",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "756c69a98b3d57f0266a5a37259ee7b905d1cf659d6309661a7bbdfe1797d5e9",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_ores_tungsten_smelting.json",
+          "sha256": "74cdd86453daf82c721fbeafbe31ee000167fa0868a7c6d62e6a363404027ed8",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/tungsten_ingot_from_raw_materials_tungsten_blasting.json",
       "source_sha256": "bdb5d869e7d2f1afb2da88a8b83e6976dcd90b3ef61982933e8fbf28fdd8d538",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_raw_materials_tungsten_blasting.json",
-      "target_sha256": "0875c3f38924a6bcdfb2dd3efbf4cc01256d208ea28e5a297cbceccfeeb968a4",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "f76d33bdbd25a8f7bea3218dfe6b2b0a793a28aa1e66304aac493cbbeeed5a0b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_raw_materials_tungsten_blasting.json",
+          "sha256": "0875c3f38924a6bcdfb2dd3efbf4cc01256d208ea28e5a297cbceccfeeb968a4",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/misc/tungsten_ingot_from_raw_materials_tungsten_smelting.json",
       "source_sha256": "d0050ef71a61c35ab5ad72312736a5374bae19221db768940524979a38cb187f",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_raw_materials_tungsten_smelting.json",
-      "target_sha256": "93621827dd241062fba43dac75f7bcbd984efa6a178970122aa8e6aa66683efa",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "de31e7d82488bbff6d8617d2ac0321dacb883f672e0d3f0297c6ab86555719da",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_raw_materials_tungsten_smelting.json",
+          "sha256": "93621827dd241062fba43dac75f7bcbd984efa6a178970122aa8e6aa66683efa",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_alloy_axe_smithing.json",
       "source_sha256": "1c07a876027c9762236d01c12f2392f14e0e1874e47f04082ea673d04e81f66a",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_axe_smithing.json",
-      "target_sha256": "8e93a71de42864ee40dd67ec19b4a631f7ac99049a0884c30eb35f7393a9bf3c",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "02c40c526e33e69f2998644f8c60e44c629b58fc3b6374334703b59927bc45b8",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_axe_smithing.json",
+          "sha256": "8e93a71de42864ee40dd67ec19b4a631f7ac99049a0884c30eb35f7393a9bf3c",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_alloy_hoe_smithing.json",
       "source_sha256": "3645fb88cdd63344cab15b27d8af4bae8ceb5bce26c78d121b3eadf0ebcf58a6",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_hoe_smithing.json",
-      "target_sha256": "62a1f9af3b7128e9ed4f474c9f5e52ae4334086e02aa62098b974744554844f9",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "35a82c4a53e437cf719887f6257b28a77705567c85ce817dbe5c3978ddf778e5",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_hoe_smithing.json",
+          "sha256": "62a1f9af3b7128e9ed4f474c9f5e52ae4334086e02aa62098b974744554844f9",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_alloy_pickaxe_smithing.json",
       "source_sha256": "ad65a61a704ca91a9fd86f87e93502eacf16cef58bb7a0b65ae0ac66bfdf8f18",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_pickaxe_smithing.json",
-      "target_sha256": "8e7e925f092f1ff37120e38ad12f09592cd874cf578476f9acdd2234aee937c3",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "685a783c026b7d366eabf4aa4a1ce0f0d9e5485a6ddbb951b30162de5bc84b63",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_pickaxe_smithing.json",
+          "sha256": "8e7e925f092f1ff37120e38ad12f09592cd874cf578476f9acdd2234aee937c3",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_alloy_shovel_smithing.json",
       "source_sha256": "7e4ab66d84a615b88b518d222dd78d2b4636d60c660943090d4361b12ccc9f0c",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_shovel_smithing.json",
-      "target_sha256": "4946c76b73e630039b3770860b81f4cfb3d18c015adb7b71dcb9863b83238d71",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "a9fc4bc884a7031c96df2c980e02a2386d2ce8ce111910b966b92d1138e6800c",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_shovel_smithing.json",
+          "sha256": "4946c76b73e630039b3770860b81f4cfb3d18c015adb7b71dcb9863b83238d71",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_alloy_sword_smithing.json",
       "source_sha256": "2a75056bb2bd9f942cd42386b51dde1158570e5ad3ead1e94582f7897067e1b3",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_sword_smithing.json",
-      "target_sha256": "b380c1966eed2f93fb3bb81d7ec15db2595f29d7acd63f998a44e1c72b281c52",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "4fbd48fc428621fe7a1f8d02b7eaff871c8e9f924d677bbc86db781a0eedfdf8",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_sword_smithing.json",
+          "sha256": "b380c1966eed2f93fb3bb81d7ec15db2595f29d7acd63f998a44e1c72b281c52",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_axe.json",
       "source_sha256": "014a2097763b1a3fcd9e5a23f17c7f328db1cb47f675ceaf2871742e7f26d3aa",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_axe.json",
-      "target_sha256": "4b091ffa182803b5c1d4260a7f5542b3c28aa32ab519b3406003eed1ea6ff804",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "9a7719251b0fa87b9facc25e5974041f7048fc5f0a4d11ec93e2c41221f18412",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_axe.json",
+          "sha256": "4b091ffa182803b5c1d4260a7f5542b3c28aa32ab519b3406003eed1ea6ff804",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_hoe.json",
       "source_sha256": "38982d24ce8b448a474e18cec1eb0e787050e66413e9d6046c7fb1a1603e809c",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_hoe.json",
-      "target_sha256": "f4fc7bd2f4b1cee2c18b39400e1a477e4ad956d305de78aca19fd635fe26c255",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "0369dcd830a9ea8c5d9be0b06d6a13817f8f649ea779b891fcc62ae070941421",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_hoe.json",
+          "sha256": "f4fc7bd2f4b1cee2c18b39400e1a477e4ad956d305de78aca19fd635fe26c255",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_pickaxe.json",
       "source_sha256": "612f8a7dd7db2c63b701d6574ce6c261674d30d52c4e70f8d37d49765f1b9668",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_pickaxe.json",
-      "target_sha256": "44cfa4febf57f87b7b94c199f6ec5d8bdc882b0bd8292e0e43158fba81fe1694",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "3fb0e5052345158be822598552aa286c1428754eee3b42ec28d3d5871005aeed",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_pickaxe.json",
+          "sha256": "44cfa4febf57f87b7b94c199f6ec5d8bdc882b0bd8292e0e43158fba81fe1694",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_shovel.json",
       "source_sha256": "11b3d5c446705c620159d28f2c572d33e0bc44c40f64aa2f4eccb7ac55ecfba0",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_shovel.json",
-      "target_sha256": "f12f979896afc8fd35ae30beb10df451a1adc002f3ffedbbe4257542047cf905",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "a6ca12205bd69eb1716edcffb83b4ff2f54ca4cb63dfa72a1b0177df6993384b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_shovel.json",
+          "sha256": "f12f979896afc8fd35ae30beb10df451a1adc002f3ffedbbe4257542047cf905",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/aluminum_sword.json",
       "source_sha256": "6b3f8494bf6f056a23dc3893826fd70e1f4e36b890362d5d9511d92f18577d64",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_sword.json",
-      "target_sha256": "3b8fe8120ebcc15ffd64d12026a4a5483c40bef727f20a17e3468884bbfb1741",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "974c860cc8fe7979f8afed51158ec9f72651e6b4d3c29b1c5d73ea514f610d1e",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_sword.json",
+          "sha256": "3b8fe8120ebcc15ffd64d12026a4a5483c40bef727f20a17e3468884bbfb1741",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/black_tungsten_alloy_axe_smithing.json",
       "source_sha256": "0a5891c908612ba5d6fd607d7736ba93b79aadc9778fbfa126f180417038e1db",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_axe_smithing.json",
-      "target_sha256": "1c390a17b80a6b28e9ab6b54c41e8f77f9226c7e846519e22abd540ca8ed06c2",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "ae8102feab6d3fe4519b5d8767f148aae73def23ced729783f1ab30a67f1b995",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_axe_smithing.json",
+          "sha256": "1c390a17b80a6b28e9ab6b54c41e8f77f9226c7e846519e22abd540ca8ed06c2",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/black_tungsten_alloy_hoe_smithing.json",
       "source_sha256": "04a832149aebab52eb2f51f4ce4ca47645654c5232701285f323fa11ed3a6e34",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_hoe_smithing.json",
-      "target_sha256": "c7692e3bbb96b6a1a45b8a114a27b7ed19c38c5dd0613fe67394276e1baf86ea",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "f0822dd8723887b967e16acc07afd13e38ddccc84847d5c8a1829f9baa555586",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_hoe_smithing.json",
+          "sha256": "c7692e3bbb96b6a1a45b8a114a27b7ed19c38c5dd0613fe67394276e1baf86ea",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/black_tungsten_alloy_pickaxe_smithing.json",
       "source_sha256": "5003765d2ca321b3d5fa12bbfe025bd15d9ab4579378efbf1b179ec5919e71b3",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_pickaxe_smithing.json",
-      "target_sha256": "460183d6692f3b9231d2018fc3bd6bb548d66a2e129140bcd05cd30b9b47bafb",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "9b9ee676610b77eaf1a2cdc9035a465a115059881f9592f08f3dc7beda57cce5",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_pickaxe_smithing.json",
+          "sha256": "460183d6692f3b9231d2018fc3bd6bb548d66a2e129140bcd05cd30b9b47bafb",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/black_tungsten_alloy_shovel_smithing.json",
       "source_sha256": "24d34fd8c4318c9ee3dd2ff77b388b6f6b19512616f9051eb22ea464b7a36de4",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_shovel_smithing.json",
-      "target_sha256": "790006cdacfbe955fb98694665519d634b375cff97da3fec60e10178510321b7",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "af66a322bcc783f5063243dceabca5f6ab057124862b5c7a1152ba3dfa310052",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_shovel_smithing.json",
+          "sha256": "790006cdacfbe955fb98694665519d634b375cff97da3fec60e10178510321b7",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/black_tungsten_alloy_sword_smithing.json",
       "source_sha256": "14d74f762788f60a6e59d340fdf858a7b04c8fdafcddac713dcdec819c6ebb32",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_sword_smithing.json",
-      "target_sha256": "c03fb9205118771c28a4719541b177397327ce6f6ea172210683e9a66d00631d",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "7ae14f06aa42ba280cbf63f454f1c586c8b48f3459546754ceb476d9f79a1543",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_sword_smithing.json",
+          "sha256": "c03fb9205118771c28a4719541b177397327ce6f6ea172210683e9a66d00631d",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/tungsten_axe.json",
       "source_sha256": "2e16f2064043c11092d12db7b88d6812021bab8a267b7676fd724ea64605fbfa",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_axe.json",
-      "target_sha256": "bb0d13ac08522bb6fe67bb164007836ef4ccab18066b315be1e1c54475679842",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "42f6eee492af8ac2301d0f9a29d714f8f431036cbf7e6595488abd18c6b3ce58",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_axe.json",
+          "sha256": "bb0d13ac08522bb6fe67bb164007836ef4ccab18066b315be1e1c54475679842",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/tungsten_hoe.json",
       "source_sha256": "9ad73491748d9b70fd57f7dd65aae9dca87257f6ce976fe46ac18e3dc102bb2b",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_hoe.json",
-      "target_sha256": "72fdea87e58d90a9936a36222afd459a5e283f07e242f18099e719b62e5d24d9",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "64442502976d22f3e2e24aae7ace1d6bc6323f7177e8b76ffa1429bed9e07810",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_hoe.json",
+          "sha256": "72fdea87e58d90a9936a36222afd459a5e283f07e242f18099e719b62e5d24d9",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/tungsten_pickaxe.json",
       "source_sha256": "ecbbd06dba51f17294202d3522491c0c9fc07be31c53f0f67ae6db9fa756fd8b",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_pickaxe.json",
-      "target_sha256": "16f5940fddac411387a730ffc3315434d6e4d532a1b5935f5a76ac72a2db3945",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "fd0dbfc4ae5e5d271feee27db5389cd9a0e302e2af8f538290cb4d2b9b9c2604",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_pickaxe.json",
+          "sha256": "16f5940fddac411387a730ffc3315434d6e4d532a1b5935f5a76ac72a2db3945",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/tungsten_shovel.json",
       "source_sha256": "c43aad29eff46602e2ddbe80b7a15c167c3c6a755162cdf1b32fba9ec35e9e22",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_shovel.json",
-      "target_sha256": "118d9a6c05f010afda26942b5c71f2b57b98218d91fa9873975bef18d3ec5f00",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "e6598085a03955684a956448835d15038f2edafc3eab5e038ced98dab936663b",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_shovel.json",
+          "sha256": "118d9a6c05f010afda26942b5c71f2b57b98218d91fa9873975bef18d3ec5f00",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancement/recipes/tools/tungsten_sword.json",
       "source_sha256": "37b8570f65af2595c701dbfdf14d212fc45d0d16a1e79944a761877a4d026967",
       "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_sword.json",
-      "target_sha256": "e712b9c51f822bcab13e3b31a4c2cba890b87fc0107c4a3a2a304235cc00a738",
-      "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+      "target_sha256": "4824eb96ad3004a6a3daa845c6ca74106df856ed604d6e0503f7b10f84fd7c79",
+      "reason": "1.20 advancement item arrays and separate tag predicates; criteria retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_sword.json",
+          "sha256": "e712b9c51f822bcab13e3b31a4c2cba890b87fc0107c4a3a2a304235cc00a738",
+          "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/advancements/recipes/tools/structure_terminal.json",
@@ -3987,8 +4736,15 @@
       "source": "src/generated/resources/data/neoecoae/recipe/circuit_cutter/superconducting_processor_print.json",
       "source_sha256": "c200f3e5ac592a0a596c633a7fea5ec095a28bab3256d174059ad9576130506e",
       "target": "src/generated/resources/data/neoecoae/recipes/circuit_cutter/superconducting_processor_print.json",
-      "target_sha256": "29e2e1e6a124eb4b4381428faefb02200697331251c050f945f412f4a9a33451",
-      "reason": "actual ExtendedAE 1.20 circuit-cutter serializer fields"
+      "target_sha256": "c7e9d10cab8ba02636ff2f20c61bab2c74ec0668c25a7c28ae49af42c76d7736",
+      "reason": "Native 1.20 recipe serializer fields and AE2 key channel; quantities and energy retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/recipes/circuit_cutter/superconducting_processor_print.json",
+          "sha256": "29e2e1e6a124eb4b4381428faefb02200697331251c050f945f412f4a9a33451",
+          "reason": "actual ExtendedAE 1.20 circuit-cutter serializer fields"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/computation_casing.json",
@@ -5380,15 +6136,29 @@
       "source": "src/generated/resources/data/neoecoae/recipe/reaction_chamber/energized_crystal.json",
       "source_sha256": "16620e2f67e98a063dc6261ccdcfebb092a2ea7db2e587080d20d501a855e6fc",
       "target": "src/generated/resources/data/neoecoae/recipes/reaction_chamber/energized_crystal.json",
-      "target_sha256": "0c85f0fc7c0ef192037b07f666782fd8efd27eb50be28a629161fd2cdc8226b4",
-      "reason": "actual AdvancedAE 1.20 fluid/energy serializer fields"
+      "target_sha256": "8ad82485cf381c9c87781b92434f72f7fb0a726b1b21882c12c961d7581f6e87",
+      "reason": "AAE 1.20 uses AE2 #c key channel and AE2AddonLib fluidStack NBT; quantities retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/recipes/reaction_chamber/energized_crystal.json",
+          "sha256": "0c85f0fc7c0ef192037b07f666782fd8efd27eb50be28a629161fd2cdc8226b4",
+          "reason": "actual AdvancedAE 1.20 fluid/energy serializer fields"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/reaction_chamber/energized_fluix_crystal.json",
       "source_sha256": "155a05e2c3b4fb164194210a6c0bffe9e759208d0941634156c5d0db98e1f9a3",
       "target": "src/generated/resources/data/neoecoae/recipes/reaction_chamber/energized_fluix_crystal.json",
-      "target_sha256": "0269aefccb3fd43d91f311e7977089191e267dfbc73f0f29ed0abe02ba761784",
-      "reason": "actual AdvancedAE 1.20 fluid/energy serializer fields"
+      "target_sha256": "023c8b4148a78e0c413dbd471e39147090c9a0fb77e0ca8b673b0c6a3b3c9dc5",
+      "reason": "AAE 1.20 uses AE2 #c key channel and AE2AddonLib fluidStack NBT; quantities retained",
+      "revisions": [
+        {
+          "target": "src/generated/resources/data/neoecoae/recipes/reaction_chamber/energized_fluix_crystal.json",
+          "sha256": "0269aefccb3fd43d91f311e7977089191e267dfbc73f0f29ed0abe02ba761784",
+          "reason": "actual AdvancedAE 1.20 fluid/energy serializer fields"
+        }
+      ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/storage_casing.json",

@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:storage_blocks/energized_crystal"
+            "tag": "forge:storage_blocks/energized_crystal"
           }
         ]
       },

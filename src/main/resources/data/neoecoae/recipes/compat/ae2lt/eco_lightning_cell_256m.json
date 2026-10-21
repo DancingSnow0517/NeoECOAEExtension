@@ -59,12 +59,12 @@
   ],
   "inputFluid": {
     "amount": 16000,
-    "fluid": "neoecoae:cryotheum_solution"
+    "id": "neoecoae:cryotheum_solution"
   },
   "results": [
     {
       "count": 1,
-      "item": "neoecoae:eco_lightning_cell_256m"
+      "id": "neoecoae:eco_lightning_cell_256m"
     }
   ],
   "totalEnergy": 16000000,

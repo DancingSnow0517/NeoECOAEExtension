@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:ores/aluminum"
+            "tag": "forge:ores/aluminum"
           }
         ]
       },

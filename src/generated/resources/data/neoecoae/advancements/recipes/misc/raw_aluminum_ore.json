@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:storage_blocks/raw_aluminum"
+            "tag": "forge:storage_blocks/raw_aluminum"
           }
         ]
       },

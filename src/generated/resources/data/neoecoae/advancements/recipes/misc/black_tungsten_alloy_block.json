@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:ingots/black_tungsten_alloy"
+            "tag": "forge:ingots/black_tungsten_alloy"
           }
         ]
       },

@@ -68,10 +68,11 @@ def verify(fix_disassembly: bool = False) -> dict:
             continue
         outputs = recipe.get("results", [recipe.get("result", recipe.get("itemOutput"))])
         for output in outputs:
-            if isinstance(output, dict) and output.get("item", "").startswith("neoecoae:eco_"):
+            output_id = output.get("item", output.get("id", "")) if isinstance(output, dict) else ""
+            if output_id.startswith("neoecoae:eco_"):
                 ledger = inputs(recipe)
                 if ledger is not None and output.get("count", 1) == 1:
-                    assembly.setdefault(output["item"], []).append((relative, ledger))
+                    assembly.setdefault(output_id, []).append((relative, ledger))
     disassembly_count = 0
     fixed = []
     for relative, recipe in documents.items():

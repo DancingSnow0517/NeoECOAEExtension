@@ -1,0 +1,678 @@
+{
+  "changes": [
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_block.json",
+      "before_sha256": "1dcf4f941679e16df390da69f6d61c8e3fd58800cd1e062b1bfd07e08d1844c4",
+      "after_sha256": "3c5ecef1049debca8b2cf84187a29cf4bf25dd61232a66a5b0735e397fd30482"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_casing.json",
+      "before_sha256": "e03540a65eb4c06b6d02afff3a2679a73e8c03a2ff8011559a2fa26f43354fd5",
+      "after_sha256": "f824f3bdf48fa2f5219ef29888047a8a4c24c43d7768f87f7cf4e557024b4a3b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_dust.json",
+      "before_sha256": "ae77d4d52e607d8ee79e3663dcf7de2ed94f5d361e361ef6bc55a5a4be70f942",
+      "after_sha256": "1d7b81f50ed13bdb18d443e9c10436cb8ea528ca90dbfb7f03a029d818702a9c"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_ingot.json",
+      "before_sha256": "3529c03dcc65842459a31150f58ac973d1c855d95175f2d9bca9d55c269eee77",
+      "after_sha256": "6b36490b7230c6af3cefbbeefd3d0ae9d88a25246a02acf718f344f62be6bcb3"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_ingot_from_dusts_aluminum_alloy_blasting.json",
+      "before_sha256": "3dbf8978c144e42ff622410168b6068c3fdafadfc0753cf2b669f583624f0363",
+      "after_sha256": "93a84d12fd92e67e0f4a12a58e9b58e4085e6de23f9059ee48f7f38c9e834ada"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_ingot_from_dusts_aluminum_alloy_smelting.json",
+      "before_sha256": "aac3192603d08f862e833ed5df3daacb61218b30eb0e5c837d1becb7e4eb8249",
+      "after_sha256": "f0f0dbcf90c9f3be93faeeb54559e5e16d070c8ba962d9803aece5b5a0faa7f3"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_alloy_upgrade_smithing_template.json",
+      "before_sha256": "6fd012603ad000f72e2121d0d56078d4eb5e7763a7b16dcc61a703ddaa85f762",
+      "after_sha256": "8d3476502007a65acff5334210cff927b6175b10232a55aef71d8d482a8e40bb"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_block.json",
+      "before_sha256": "b255911d4ecafbe350118831d6c66e0d1a93984aa541a49eb0c222148ebc30ff",
+      "after_sha256": "aa255e7869a49ec7b9a059812d3831b35f73febd40a29e4e3294bcd1fd014448"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot.json",
+      "before_sha256": "21e00d685ff39cef624dc38a1a66ca57511f463ccffcd73e3cd7866dc96fd7f5",
+      "after_sha256": "15beea4547898faa472faf41c457caf99b61ba35ce1a9cb93721f9500f19c995"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_dusts_aluminum_blasting.json",
+      "before_sha256": "5b7f4ea984c3a9a01201c30197cc80975d414abc514eaf25b5929bcae3eae2e9",
+      "after_sha256": "b7fc2e63eb59a1b6091c0b6b2ec4f79b663f010064b207b441e0fe365b0579dc"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_dusts_aluminum_smelting.json",
+      "before_sha256": "53bfb8543ba02d4d8b44aa178506602936d2ae93809e6046611425d066b0cc1e",
+      "after_sha256": "24f6dce56dd0f884a9eb3c8e80119e65d4ac8e5cb764a3fd3c1caf7a7a95772c"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_ores_aluminum_blasting.json",
+      "before_sha256": "37a858e955d277e735b5b20902b86b5b797ee0b3d716870cf07887919d7b61d8",
+      "after_sha256": "3adc8b1474afce41dab8b0f31157c6f2e1b1fc94f456326c8724da23cc4b7b31"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_ores_aluminum_smelting.json",
+      "before_sha256": "bcf7b81b0e8c5230aefeadaa181444cc082a626c819fecd1d933aaf282724159",
+      "after_sha256": "9c5fc95d2ec3c6446ea5426f55393dba8a67a0e74f24d87f89ddf711bc6db328"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_raw_materials_aluminum_blasting.json",
+      "before_sha256": "35caacf0a2c604222b91b8db89b86acbbbbf7f59c8b67cb9e51c960946773532",
+      "after_sha256": "08e58c817360391f890e26d848b85d162be7c7ba243e4200ebe1188b6f00fae9"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/aluminum_ingot_from_raw_materials_aluminum_smelting.json",
+      "before_sha256": "ff0e2201d677b2c5090cc93e0183c3aa71b2f0ad39fc84abcc3d588a39ac7ae4",
+      "after_sha256": "53d060ba950a4e775c3b4d84d8582b4263d40a75f0f24537b6472ee7505bf531"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_block.json",
+      "before_sha256": "e942e833feff1ab0e32f149d9aa72c73514b74969e3842f5e5af69ac1305b2ff",
+      "after_sha256": "bde337df5def8e6bbce940735c1bec244b9840ea9013f99faced5400c4f897ad"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_casing.json",
+      "before_sha256": "9d49af178decd5580c7c279b8dc1f47599b39fa72341d2828f3265343d287627",
+      "after_sha256": "b448d35b8b6931a3a33b35f4e00f1d99ac94495e97a15275a9d7fa0e6b44949a"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_dust.json",
+      "before_sha256": "39c9fdd2a94b0f478a5e2a159c64f1ea7e89486342e4d6e7844a5d38235e86c4",
+      "after_sha256": "5655e7fa780486865609c1c3373a8cadb91689b0f44c0619d81c67082a7842b4"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_ingot.json",
+      "before_sha256": "7a263c64d7df2ba5704a521df9d38064068407b6883c2fcab40fbd7f5e4bd08a",
+      "after_sha256": "f11a342cd1c95f0bcd6bbfc19a098a23ab0ca7234b77e4f5984271d770cd9b0f"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_blasting.json",
+      "before_sha256": "df139fcdb36965bd225162b103af95e6e5a0257defb3900bafb90a60ea3163e3",
+      "after_sha256": "fd0651d5a1263f76c4a0238fbe618d2b336422c879b6695665294196cf378815"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_smelting.json",
+      "before_sha256": "4141296f0448dba963d26bfacf8f346acc4f4240f8b919bf20c7aa26566a3584",
+      "after_sha256": "850380677f9b1d833a28cad5715afef76f3cef65450ffe636c2f3e4361e849cf"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/black_tungsten_alloy_upgrade_smithing_template.json",
+      "before_sha256": "d9ac068d636318b146504f3b78302c6738aa7bba3467f8b65cdaaa566b3edfae",
+      "after_sha256": "25574eb2315eac25b96b4ce7c04a60f76338204d3b96bb5281ea3ac943d8de54"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_casing.json",
+      "before_sha256": "934169c4095c1059e04317730b94a84cb71ebd39474eb193972eef1d01b785ee",
+      "after_sha256": "1aeb3817d56ea1b21d87a232a64c7234f1b084f61763a47e25cd2ccbfdf32ae2"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_cooling_controller_l4.json",
+      "before_sha256": "fd67ec0ca05f5649fc1e12a15815d4cdaaa50e11d6d2f97f4eb1e9fe61b0cbb5",
+      "after_sha256": "dcb12ba774583678738d63d0951ceb732d50c29e9665e46ad7113999647c25d1"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_cooling_controller_l6.json",
+      "before_sha256": "42c5a43e33cb906036d3949600397a8894ee68815fb403d4b9ea6b00862cacc4",
+      "after_sha256": "0f34ce2ff6af50e5940cde031d4c227f08ee856cbca533ff4dd5f45c13297c84"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_cooling_controller_l9.json",
+      "before_sha256": "fe9aae0fa91a98a56f3cf86b0ec0681478b260be4c2f165dedea9ffa22baa7ff",
+      "after_sha256": "4b8b6eedaac7145628568275b10fd0b00b2b1957ff151744af2ab840643eca77"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_drive.json",
+      "before_sha256": "0e9e574f2e64623789fa8f81dc521387e954bc4c7a763d89dffb87f0224d7c0e",
+      "after_sha256": "7fce3596300e960bae9675e7ca161cfba678f2a86054e7921a96ba1b7861c73f"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_interface.json",
+      "before_sha256": "d40a0f42b2dab5de9220981fb335a55d5e14fafde1b89176b6466e0ac3682a97",
+      "after_sha256": "6721ee4e00496ab3fc9e96df777f3b65e574c625c21286bf6eeba0587e47065b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_parallel_core_l4.json",
+      "before_sha256": "c2721dfc2bac3ed696de2d54058d8b01fbc48555f39d2ef1fa13dc3db147bbb4",
+      "after_sha256": "247e676c5b8ee48c90028b6a00cbf4c1d5b78ab0df8456c7b8354ade5d2b81cd"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_parallel_core_l6.json",
+      "before_sha256": "f95fcb6d9430b4b9370bc821bfac1ba081a16d925736c09ecb916eb9a3d88df0",
+      "after_sha256": "e27f1c3375acddfb4ffd6e020fa9b8b2375f5c13e01c424cb33a5010f7698e88"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_parallel_core_l9.json",
+      "before_sha256": "eb017b245b5c7480a1b87fe7f10e2133fefab829993fcc8fd4908da4444cc31c",
+      "after_sha256": "48923d6d027cf0f8feb3265dc02feef6e665945e780249a4992f2d602790d06d"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_threading_core_l4.json",
+      "before_sha256": "13637811d1b1ffeff43bf3dbbd1f3f5b030a82299669e09191d2e17ad19fae90",
+      "after_sha256": "b53f861f6d0a364facf6b38c7105e0bccd858a6abe1d63d9490e2de9eabc413e"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_threading_core_l6.json",
+      "before_sha256": "d5534a1afea4e91a20c8a5286be6dbf970d688e3b0baa08ff339613f081c96ef",
+      "after_sha256": "a4a576887608fa64944a9a5f2cb4dcb393db403b4a223ffa4846b2a5697197c0"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_threading_core_l9.json",
+      "before_sha256": "9cd832c65082c9822b8d97f83255a88e9019db8efc282bab53f986d67ec3e437",
+      "after_sha256": "235bb6d069834c9701ab0a330f61466215bf914221c66157ee0ba486705dd9a9"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/computation_transmitter.json",
+      "before_sha256": "8a7cee217377241e83d7debb9053601e7479e85a92a91bf0d2b9d38b1bcead66",
+      "after_sha256": "db21dc3cb00e3342e0a206bb91fadf2d8c71d467b0700be510ab43c3a765bba1"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_casing.json",
+      "before_sha256": "be3f21c788dba81c274a357e33b4f43a453b02ecd48c2e77128ec16470c8cd81",
+      "after_sha256": "eca5bca78bd92ebac43e0e8329a6eb47dd3432a873a562ac0a899ecc2d02ffd0"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_interface.json",
+      "before_sha256": "ce47481f1512eb125792b040b4de335dfcc7e96c85a01ab8c6a651103f0a6d7a",
+      "after_sha256": "07d1c37ce5a23c2abbde8370134fd00e82f62b739b8ed126bcb7cabf716f9f41"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_parallel_core_l4.json",
+      "before_sha256": "a44cab60723dbbffe76344a707b9244d49dad9fea3da23b59002b53a60443799",
+      "after_sha256": "a02beb082e52200334ce78d81809cfa0a09873b87fbda2fa20bfe07d73a9b815"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_parallel_core_l6.json",
+      "before_sha256": "433666ca78c9fd91d8568adb5d8ac960d6d03f9933816faafd785eb8a9b30145",
+      "after_sha256": "9a634b378f89086c04a944203a8f1a877a372aab680636640c1de82a806b1c60"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_parallel_core_l9.json",
+      "before_sha256": "1033fba8281d4495c98e879ea3e5aba19ecfb8a02a1fa0a005395650a24c60eb",
+      "after_sha256": "1a9fb0ec56ed5583c05982c23a50ed1fbff089984fe5f99ee12747f2e71ef227"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_pattern_bus.json",
+      "before_sha256": "962e5de7c7232135c65b8a5039c885729342b9bae75ecd3fa93470c0e50d2746",
+      "after_sha256": "d0f086ed2b63485dcb93ed91c7bb303be19aa8499389adfee108e6f9e84b80b7"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_vent.json",
+      "before_sha256": "055dfe486c7107d99e58d5211c26bc324626190af9acf1be965a64d0b45bf5d3",
+      "after_sha256": "26d2c4e8859cec482b4d917eaa94e0700909800ac780dd9c2f6733fef3eb662d"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crafting_worker.json",
+      "before_sha256": "11a7f708171089a76e705f4c22dd4ce7c5703f73e72113c84b2b47247b90f9d3",
+      "after_sha256": "2bf54458db5ae673754aee9f0ed06bcd1900274f291ebc0ebc86522a3ed06f68"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/cryotheum.json",
+      "before_sha256": "2f4774f13255297278d921f1ef3aeab649035f15cd4ccf78d94b73c4a66bc375",
+      "after_sha256": "fbfdd25324da5b58841c6917a8d76485728f9fe54ba42ade17620837e0a683f4"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/cryotheum_crystal.json",
+      "before_sha256": "7421ef30ac215d15835d05970e4e39cc400902d7afdb13fe6c213eda573acef9",
+      "after_sha256": "f206ea9c7e1918ea84ca50b0a22439055989a69724aef2a398ba253ea5e2923b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/crystal_matrix.json",
+      "before_sha256": "b445d6bf0479f99423a9ec6293c614ee7509ed91a2149b66284c4d362aa4fc4c",
+      "after_sha256": "21d74dc28969c113b294dd7f7a636ee730f222058f26d0e5080b22361d2d26e4"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_drive.json",
+      "before_sha256": "c9c9e2f7fc73df1d9748d0f92ba84ce92c854dd1971e8326cd5c16e857c185a8",
+      "after_sha256": "dc791d9dcc0e957cb8b8733004fc6df00dab324a48cb41e31d27a44b8a9b3fb7"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_cell_housing.json",
+      "before_sha256": "cac256a1bcab7c0789222416974b9d81893d88091bd29fc118546e0c0b0d1465",
+      "after_sha256": "eaf9596d8fc224a97362148c97421c90dd09a6370fb6f454972b6e44f586e220"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_storage_cell_16m.json",
+      "before_sha256": "e3063d894f8953fe48ad20ab3d597243e1113fb71c64fe27eb6316a271ca8291",
+      "after_sha256": "7deedde2c6838eb5af78e5d52eb57529cf0b1f5ce99d90b320c67dfeadec7ba5"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_storage_cell_256m.json",
+      "before_sha256": "50ea12e1d832cbb0d7a6c08c98835085d8e9a2c51f6f2e4d036f17fcdb987fbd",
+      "after_sha256": "e21ddadcd2ff9cbc8bc3f019126ac54e64288f70abc96b46999ccbe4979211e6"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_fluid_storage_cell_64m.json",
+      "before_sha256": "4eeffb9178437af6dad39e1f0afbb5319948ab017428ec5037f6a3c832eaf461",
+      "after_sha256": "ee6296335a93d8aac1441e28fd51288a75c6c615ee292e6b26ca2405470139aa"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_cell_housing.json",
+      "before_sha256": "badd5287ef2e26ef45bc0521e10f9241dc3f4aa034c3623ce309749ac49d8002",
+      "after_sha256": "0932bcf38906a05809b5fe4170eea7e48d262b23278f9030f4f54d79c19c201b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_storage_cell_16m.json",
+      "before_sha256": "84c3508b9b689c8c0cc9d1cc9511776507819cd38054a139a6fd6e724f4a3a27",
+      "after_sha256": "348f3d3ed8a2f60ef84981d93277e33a1e90d96f8f64d235870923de0dcd7015"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_storage_cell_256m.json",
+      "before_sha256": "97fede85a570d253d3a6d728cdbadc58984b4fed25e1af4c94afd91758c86265",
+      "after_sha256": "b7ef1490184e995d5a48343726e114557fd6c204b5a3cae84a4c6265458916da"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/eco_item_storage_cell_64m.json",
+      "before_sha256": "1c5c3f83e9c9e347da703c7d72ad237d604e9eb0226ca6fd5cb4950be80d5bfd",
+      "after_sha256": "c5fd59f76ee4d454265eaee15d45808473dd5f338139b4cd0db7e84cf1c6e962"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_crystal.json",
+      "before_sha256": "dc8251e589567ed90842da2e7a049337d601b9b66d28da67448300e97c8429e6",
+      "after_sha256": "ecc34b29d02988e47bf52b19cb6639cfc1f8e2fc98ba52fc56a2b61df662118b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_crystal_block.json",
+      "before_sha256": "51c5fbd73bfd4b1cd5a8b6fea173ce1cda774289926414c0018a74fb23e014af",
+      "after_sha256": "84fa022dafb0235af6652f0d6280c6a3c212ee1b300c8ca7d73f829190d2f73f"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_fluix_crystal_block.json",
+      "before_sha256": "cba0a6c00e0326749a898cdfda177081a695d6385936f78f8c7e8f9fb761bfe6",
+      "after_sha256": "732ebd88678df7a4aea496ab5c0d2e9c7068951cba6b2b5a801d805f04d73b82"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_fluix_crystal_from_block.json",
+      "before_sha256": "67bd92ca19d287e5a586d75ef539bfb31b9b57c4f0127b3e1d4daedf547da0f2",
+      "after_sha256": "d5ac8c7a6ab89877f4e5b82b4f2d44af37a15323414c70a7558326f4d4b67326"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_superconductive_block.json",
+      "before_sha256": "f03bfa7aeaeca877a4992096f97860310face853a0f11566337ec755fcc79f8b",
+      "after_sha256": "15e2d1c7e9a16fb6df910e5568b91108b8a25fc94b138442c0a58b3dd3e619d2"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energized_superconductive_ingot.json",
+      "before_sha256": "66d0f7c5a6d309a3c4ec65c4c06a77b46657739c997ad2d3aa19121ea9b6e742",
+      "after_sha256": "539364a02bf3f27c786c742755b71d7efdd1383d7c9601206f82a7c844c0a816"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energy_cell_l4.json",
+      "before_sha256": "4967aacab3e988e6ade84db2e8c71312048fc654c1e73f43707a63ac13787ffb",
+      "after_sha256": "a5351568d2b23731b8c158330e48248e9ec513e5714285cfd57fdd09c6221e03"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energy_cell_l6.json",
+      "before_sha256": "3d255f166c1371d0498373c01e64ae2948e34961acd959e72c97120918401a87",
+      "after_sha256": "28579379375206863b77426db34593a744dca774190d8e4cfbf570900652fdb3"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/energy_cell_l9.json",
+      "before_sha256": "191eb9841f1ec64e800d0ab649d92638a8335f313efaf8a675d2e337875d3769",
+      "after_sha256": "d3616fe10b9e64f11dea51a274a8a4b17f4e38f63ff434c447d2786848e1e46a"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/fx_monitor_core.json",
+      "before_sha256": "e307ef6b4a38d4a383b9a3b6a4b43972abf835185db0423f7b3046fdb18a6d73",
+      "after_sha256": "6a0024b416621e8db38d3006f3d7da4588983b612a24558e856f7c775fd2db9c"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/input_hatch.json",
+      "before_sha256": "926d62433fa9ab95525be7bff3584364ac46bf8a93cdc7f8d3332fd806af1c96",
+      "after_sha256": "df1a699aeb9993bae85b0f9c9897d3b050026b2928f22e54c9887d647b94a3eb"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/integrated_working_station.json",
+      "before_sha256": "9ba372f66044c00f9d0461be9be535a09e46f34f906397dda5414abace45284c",
+      "after_sha256": "73fcaf4001430f684ddbf4dc060c3ed90843136067406fee9dd560c06b77280c"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/output_hatch.json",
+      "before_sha256": "02306db5d50833b0279728a781d8b25194543db839221e1b45843ff895cba348",
+      "after_sha256": "470c090c4f4e59597b307cd5f54cbfc36127d7d326ffad463477599e1cf2f135"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_aluminum_block.json",
+      "before_sha256": "940b45e9e0038f8de22c8e7a35743df44af200ac5c0abba614e9d95b100f9f26",
+      "after_sha256": "a72d84b902eba51146a87adb6b79c653eb62bc81b97c08aebf95d272574f22e5"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_aluminum_ore.json",
+      "before_sha256": "f9c97399d62beff3f89544638a245bec11582a942fdc6f716765b425e70856a6",
+      "after_sha256": "2b3f567b58bbe1c19671fd50d67d7e5e04b982a2551ca66a85480aacb8b4b931"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_tungsten_block.json",
+      "before_sha256": "8d1c9fbc5d41464cd87ae07ad8e5f984c179866ea11d001b320a2285d7bb2eb0",
+      "after_sha256": "3056d9ce8deb3e965d660ef3eb874088d701183fb32dc59e24130d9e21c96fef"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/raw_tungsten_ore.json",
+      "before_sha256": "a250b259fd380ffd102f6c0f5118f421489a9f4911c868ee0de36faa9790a600",
+      "after_sha256": "9cabb23309f0745a69a282969c6703e554cd87b2a96742e75f2a9437d7940333"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/storage_casing.json",
+      "before_sha256": "71546f3f22bd87caf193b808c373dfee38b674675c65e7850663659b523ca342",
+      "after_sha256": "1eda4d3ef2156086edcea771fe47c21f27516ba8dde87736ee3918e699e3813b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/storage_interface.json",
+      "before_sha256": "893c98992635473fdadc442f53e99224e40e2c847d9a3529515ef4a4378d23d1",
+      "after_sha256": "241aca0c79ea01c68dac93c775f036f6d461154dc3500c6ebe0b232186ea3d75"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/storage_vent.json",
+      "before_sha256": "784bcebdcbbfe36a8d1ab1848c65382071062be9619c6d44ace7ac9f53a3c56b",
+      "after_sha256": "76358ff5bb383dbadb99a1b8e9fa62815025eee3d98b77977f46c4be262b52f0"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/superconducting_processor_press.json",
+      "before_sha256": "6d30d7e89ec00f3e6bbe1781b7843195f356bc9355a67b60dc543b943901d152",
+      "after_sha256": "9e7d0a3f09c012427a27d364f1245d3be897a8c2cd57ac0d106ff410072ebc4b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_block.json",
+      "before_sha256": "808532c94ea3411c09dd58827591432db8eabe89644fd078dea2ca7cc6ed87e4",
+      "after_sha256": "8d21619c68ff2bf44c62a343b93d4bdc0151051b4661510fd334d457524038ed"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot.json",
+      "before_sha256": "490b20705abb648ccd5ffedf8c750a9ef6c7fc0c2bcce8facc4d97b9343abbbe",
+      "after_sha256": "97f519fda2b8ba4146076ea3b4028ca11d4391cc090f1d88298a02ae7c7e7661"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_dusts_tungsten_blasting.json",
+      "before_sha256": "bea96b06b27bbe7322f86e217e290b63e6942269ff70d9ec819137b09501776e",
+      "after_sha256": "78b22f10ac67580995221a4d03465c5f18087dc2bfac89d539d51f114b4be709"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_dusts_tungsten_smelting.json",
+      "before_sha256": "2a6cb12ac05f0726254c4915b1423d4531b7cfd9bfd61e100b2b5404ac8bc047",
+      "after_sha256": "86deee80ffb237642a7567974aebafe4eed4c440b202dfd47c1b60fc344583fa"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_ores_tungsten_blasting.json",
+      "before_sha256": "da78453b62b4326b6e22cb1ae5b70242b5ff256b5d1468b139e5f040bd005492",
+      "after_sha256": "830aec7f129a04a877f8a6defbed5991bbb3d6cf213a6fbfe24400626396022f"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_ores_tungsten_smelting.json",
+      "before_sha256": "74cdd86453daf82c721fbeafbe31ee000167fa0868a7c6d62e6a363404027ed8",
+      "after_sha256": "756c69a98b3d57f0266a5a37259ee7b905d1cf659d6309661a7bbdfe1797d5e9"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_raw_materials_tungsten_blasting.json",
+      "before_sha256": "0875c3f38924a6bcdfb2dd3efbf4cc01256d208ea28e5a297cbceccfeeb968a4",
+      "after_sha256": "f76d33bdbd25a8f7bea3218dfe6b2b0a793a28aa1e66304aac493cbbeeed5a0b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/misc/tungsten_ingot_from_raw_materials_tungsten_smelting.json",
+      "before_sha256": "93621827dd241062fba43dac75f7bcbd984efa6a178970122aa8e6aa66683efa",
+      "after_sha256": "de31e7d82488bbff6d8617d2ac0321dacb883f672e0d3f0297c6ab86555719da"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_axe_smithing.json",
+      "before_sha256": "8e93a71de42864ee40dd67ec19b4a631f7ac99049a0884c30eb35f7393a9bf3c",
+      "after_sha256": "02c40c526e33e69f2998644f8c60e44c629b58fc3b6374334703b59927bc45b8"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_hoe_smithing.json",
+      "before_sha256": "62a1f9af3b7128e9ed4f474c9f5e52ae4334086e02aa62098b974744554844f9",
+      "after_sha256": "35a82c4a53e437cf719887f6257b28a77705567c85ce817dbe5c3978ddf778e5"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_pickaxe_smithing.json",
+      "before_sha256": "8e7e925f092f1ff37120e38ad12f09592cd874cf578476f9acdd2234aee937c3",
+      "after_sha256": "685a783c026b7d366eabf4aa4a1ce0f0d9e5485a6ddbb951b30162de5bc84b63"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_shovel_smithing.json",
+      "before_sha256": "4946c76b73e630039b3770860b81f4cfb3d18c015adb7b71dcb9863b83238d71",
+      "after_sha256": "a9fc4bc884a7031c96df2c980e02a2386d2ce8ce111910b966b92d1138e6800c"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_alloy_sword_smithing.json",
+      "before_sha256": "b380c1966eed2f93fb3bb81d7ec15db2595f29d7acd63f998a44e1c72b281c52",
+      "after_sha256": "4fbd48fc428621fe7a1f8d02b7eaff871c8e9f924d677bbc86db781a0eedfdf8"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_axe.json",
+      "before_sha256": "4b091ffa182803b5c1d4260a7f5542b3c28aa32ab519b3406003eed1ea6ff804",
+      "after_sha256": "9a7719251b0fa87b9facc25e5974041f7048fc5f0a4d11ec93e2c41221f18412"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_hoe.json",
+      "before_sha256": "f4fc7bd2f4b1cee2c18b39400e1a477e4ad956d305de78aca19fd635fe26c255",
+      "after_sha256": "0369dcd830a9ea8c5d9be0b06d6a13817f8f649ea779b891fcc62ae070941421"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_pickaxe.json",
+      "before_sha256": "44cfa4febf57f87b7b94c199f6ec5d8bdc882b0bd8292e0e43158fba81fe1694",
+      "after_sha256": "3fb0e5052345158be822598552aa286c1428754eee3b42ec28d3d5871005aeed"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_shovel.json",
+      "before_sha256": "f12f979896afc8fd35ae30beb10df451a1adc002f3ffedbbe4257542047cf905",
+      "after_sha256": "a6ca12205bd69eb1716edcffb83b4ff2f54ca4cb63dfa72a1b0177df6993384b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/aluminum_sword.json",
+      "before_sha256": "3b8fe8120ebcc15ffd64d12026a4a5483c40bef727f20a17e3468884bbfb1741",
+      "after_sha256": "974c860cc8fe7979f8afed51158ec9f72651e6b4d3c29b1c5d73ea514f610d1e"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_axe_smithing.json",
+      "before_sha256": "1c390a17b80a6b28e9ab6b54c41e8f77f9226c7e846519e22abd540ca8ed06c2",
+      "after_sha256": "ae8102feab6d3fe4519b5d8767f148aae73def23ced729783f1ab30a67f1b995"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_hoe_smithing.json",
+      "before_sha256": "c7692e3bbb96b6a1a45b8a114a27b7ed19c38c5dd0613fe67394276e1baf86ea",
+      "after_sha256": "f0822dd8723887b967e16acc07afd13e38ddccc84847d5c8a1829f9baa555586"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_pickaxe_smithing.json",
+      "before_sha256": "460183d6692f3b9231d2018fc3bd6bb548d66a2e129140bcd05cd30b9b47bafb",
+      "after_sha256": "9b9ee676610b77eaf1a2cdc9035a465a115059881f9592f08f3dc7beda57cce5"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_shovel_smithing.json",
+      "before_sha256": "790006cdacfbe955fb98694665519d634b375cff97da3fec60e10178510321b7",
+      "after_sha256": "af66a322bcc783f5063243dceabca5f6ab057124862b5c7a1152ba3dfa310052"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/black_tungsten_alloy_sword_smithing.json",
+      "before_sha256": "c03fb9205118771c28a4719541b177397327ce6f6ea172210683e9a66d00631d",
+      "after_sha256": "7ae14f06aa42ba280cbf63f454f1c586c8b48f3459546754ceb476d9f79a1543"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_axe.json",
+      "before_sha256": "bb0d13ac08522bb6fe67bb164007836ef4ccab18066b315be1e1c54475679842",
+      "after_sha256": "42f6eee492af8ac2301d0f9a29d714f8f431036cbf7e6595488abd18c6b3ce58"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_hoe.json",
+      "before_sha256": "72fdea87e58d90a9936a36222afd459a5e283f07e242f18099e719b62e5d24d9",
+      "after_sha256": "64442502976d22f3e2e24aae7ace1d6bc6323f7177e8b76ffa1429bed9e07810"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_pickaxe.json",
+      "before_sha256": "16f5940fddac411387a730ffc3315434d6e4d532a1b5935f5a76ac72a2db3945",
+      "after_sha256": "fd0dbfc4ae5e5d271feee27db5389cd9a0e302e2af8f538290cb4d2b9b9c2604"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_shovel.json",
+      "before_sha256": "118d9a6c05f010afda26942b5c71f2b57b98218d91fa9873975bef18d3ec5f00",
+      "after_sha256": "e6598085a03955684a956448835d15038f2edafc3eab5e038ced98dab936663b"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/advancements/recipes/tools/tungsten_sword.json",
+      "before_sha256": "e712b9c51f822bcab13e3b31a4c2cba890b87fc0107c4a3a2a304235cc00a738",
+      "after_sha256": "4824eb96ad3004a6a3daa845c6ca74106df856ed604d6e0503f7b10f84fd7c79"
+    },
+    {
+      "path": "src/generated/resources/assets/neoecoae/models/item/cryotheum_solution_bucket.json",
+      "before_sha256": "de98dcfa7e1ea51ffd21db5b2c239ae573e46f35ab4be30fd4c3f5523a9939ee",
+      "after_sha256": "16019d1a5f33afe6f61f14253be3bf46906cf48ecffb5ac1c01afadd7f8402a3"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l4_formed.json",
+      "before_sha256": "bc308080e22906fa1165e8a2faed44fb30a1439d89c4cff45c457fb5308adeb0",
+      "after_sha256": "34fa0362ddb674ff2cf2d7964dec4c18326159346e3c7618d1909b67bdf86975"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l4_formed_mirrored.json",
+      "before_sha256": "18a5f738682bfb23d3f7b65427748bd82fef3abef65ceea94046e52c0ee6ea98",
+      "after_sha256": "edf8983d9202bb04bb21a0ddc13088d994959b8636ec5cd28174688e0521ff72"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l6_formed.json",
+      "before_sha256": "ab5ddf39828b066ac9c5a6b29634ac535bc9a7a60579c512a97ebb0547bca171",
+      "after_sha256": "3ca6506769f620895cc0f82acb4610169e82d5d9b102d32295dd7dfecbd65204"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l6_formed_mirrored.json",
+      "before_sha256": "1cb2885b8fe7cd2a3b084ca17c0d0d739b6117d6bb2b1d5ff594d6beff3009a6",
+      "after_sha256": "ae372c198bf5162eb18799a6a36e4ada4e6f6bb289c124d01d906f5eee9324af"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l9_formed.json",
+      "before_sha256": "5a952b490f02fe5843be1fde18574407d0e31da4815a485d2dcd7f4ae500ff69",
+      "after_sha256": "7b85af7ee43d532d900e9c1c605b4778460ad64296233d351596bc6c0f5f2778"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l9_formed_mirrored.json",
+      "before_sha256": "7530dd44138d3c0001664c0d3735ff0c03d41d88b2977f82111f1263a45b2853",
+      "after_sha256": "dcc8df9bdca2b2301b503532782597aede4f44c88dc01363e2e93fea741c8c54"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l9_network_switch_formed.json",
+      "before_sha256": "420e81f19624b8a39bf38e27a0df2b5fd766ced1d5a0ccbdfe22fa8b5b6434d8",
+      "after_sha256": "639ca0691cfdfca74e9e507755f34e4d4271792508c86af7885de16ed3313cd3"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l9_network_switch_formed_mirrored.json",
+      "before_sha256": "6a6ba13c54649af012a16289d7af5f18817648f640174d51093574c6fec62cee",
+      "after_sha256": "5431165e8e0aedd72140618b0bbbffaaca5aa9361970966139df6a15daf5e398"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l9_power_network_switch_formed.json",
+      "before_sha256": "15b3e63a2f6e4906984325a5db9cabef667be2061c28b58237104c0bc93fb2bb",
+      "after_sha256": "dea63fb61a009c7a7a0d20e2ed147b6ef8e7ecca1566594a236083324aeebd53"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_controller/controller_l9_power_network_switch_formed_mirrored.json",
+      "before_sha256": "e91e1694851649c9454f5b00ec26ebd05cfbd323fa01fdf70ebe8ce49fd0ed1a",
+      "after_sha256": "1954e015c0871d150dcc4bc54b68f246576ec1652db1604c5d78ccd997f072b3"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_cooling_controller/controller_l4_formed.json",
+      "before_sha256": "39800c7e6b40ba2c9b11f2907b2fc1fb9719bfa3a540c51945945d018e4e46ba",
+      "after_sha256": "7cec380cf87e1e694bd0ab1e657c024da07b5ebaaef31091cc3f3a349bf793aa"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_cooling_controller/controller_l4_formed_mirrored.json",
+      "before_sha256": "7a61fd023fff414e207e193a91205cbf4998d14e6a802a74b0d67db17523d147",
+      "after_sha256": "95da10497d63e09545983d62cfda8bcba88109d49c0543db5f37057acf9e1cfe"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_cooling_controller/controller_l6_formed.json",
+      "before_sha256": "e5dec87e1878cdd8a82962d04dff91d54f3c3c690dcc1cb7c42553c12bd0e884",
+      "after_sha256": "aefd5f41a6fc9140601bf965fd77533bd9118ec13503f0a34393ba476a7d8c43"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_cooling_controller/controller_l6_formed_mirrored.json",
+      "before_sha256": "364d9579b0af7da9372a9e53d8511afb76695577dc7be61a16280e40f8b52d09",
+      "after_sha256": "008a054021b3908c3f1ec0b0e081399b59429f5287039bdd2c8901a6021a97c2"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_cooling_controller/controller_l9_formed.json",
+      "before_sha256": "d382f82b11571d9e91721f3c093f951c33488172efab7ea8a98bc0557b79bd29",
+      "after_sha256": "5692a9b624c5fcc1d28280e0cfd2de9d95c0b7b93cf174dfad2e67aff3885638"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_cooling_controller/controller_l9_formed_mirrored.json",
+      "before_sha256": "897d3f4a853628ba7605c3aeac5e57d10b98b4df21698b8a73c3039eba251664",
+      "after_sha256": "ffe5ab254fefcbbe372ebdc2dc7a288e6e4a5dc0b55a63ff11943458d2c4acfc"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_transmitter.json",
+      "before_sha256": "f410cd32c9eca506ca75be86debe0b573e119f2e33981a7d0727f70f5028ccb9",
+      "after_sha256": "1cebe3d46e6e1931aa0ab9aae027cb40c9642b5193a20d4f18013a197dce857e"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/computation_transmitter_formed.json",
+      "before_sha256": "1313d647affaedee990584be311c329050b386d8975decd6b73d0eae5ebf8722",
+      "after_sha256": "b5570457357db7683f439d95964cfc6d27f033875ed787eed28150909204c5ce"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/integrated_working_station.json",
+      "before_sha256": "f2680fe24410447dedb25a52cfc605fd85fab77d439f113ce45e23df54ef3764",
+      "after_sha256": "620fbab67dde1433957aadd82079212fe2cb65f4efa842419f6b52ba3953783a"
+    },
+    {
+      "path": "src/main/resources/assets/neoecoae/models/block/integrated_working_station_on.json",
+      "before_sha256": "91b74bb486fd8d28456968a9e3c4ccaec6fe29e9ff432af57f86a49b4d5f98ce",
+      "after_sha256": "1ebfe8fa81a5a4507f05f09ae7c96b4e5786bb798e055f6b05586b8db9b05160"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/recipes/reaction_chamber/energized_crystal.json",
+      "before_sha256": "0c85f0fc7c0ef192037b07f666782fd8efd27eb50be28a629161fd2cdc8226b4",
+      "after_sha256": "8ad82485cf381c9c87781b92434f72f7fb0a726b1b21882c12c961d7581f6e87"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/recipes/reaction_chamber/energized_fluix_crystal.json",
+      "before_sha256": "0269aefccb3fd43d91f311e7977089191e267dfbc73f0f29ed0abe02ba761784",
+      "after_sha256": "023c8b4148a78e0c413dbd471e39147090c9a0fb77e0ca8b673b0c6a3b3c9dc5"
+    },
+    {
+      "path": "src/generated/resources/data/neoecoae/recipes/circuit_cutter/superconducting_processor_print.json",
+      "before_sha256": "29e2e1e6a124eb4b4381428faefb02200697331251c050f945f412f4a9a33451",
+      "after_sha256": "c7e9d10cab8ba02636ff2f20c61bab2c74ec0668c25a7c28ae49af42c76d7736"
+    },
+    {
+      "path": "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_16m.json",
+      "before_sha256": "1ff0e796e96093f1c35d6802ca4860e7929e67d2e8e6a76f8f847041899502a4",
+      "after_sha256": "8aa601ba0cfff03e6715945a845d7ae3b0b67c502777a9e77029e2f9221203a2"
+    },
+    {
+      "path": "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_256m.json",
+      "before_sha256": "91103da47dfee688d9f52d57ea3b998cf8c3af9cabfe2a3ca3db474e37535b90",
+      "after_sha256": "877b8a86de22110264ec93bcd38088ce85900572a56b67ab353fbf80d1a16f90"
+    },
+    {
+      "path": "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_64m.json",
+      "before_sha256": "feadb58c598fbb3f0d99b8a983b120c2993ebe69348fff92cd89ccdbd66ecb39",
+      "after_sha256": "939bcb9285f24b8352601a6d28042c8c30db404c613dd86574c9f552168fcc8c"
+    }
+  ],
+  "ae2_artwork_source": "https://github.com/AppliedEnergistics/Applied-Energistics-2",
+  "ae2_artwork_commit": "db17504a86128fdf3dae31f5fb7a112a646e0b93",
+  "ae2_artwork_imports": [
+    {
+      "source": "src/main/resources/assets/ae2/textures/block/generics/back.png",
+      "target": "src/main/resources/assets/neoecoae/textures/block/workstation/generics/back.png",
+      "sha256": "8d035a9a9dec872ff8a5c6a46c46f422b365097d6422b440b23cb8c59883bd4e"
+    },
+    {
+      "source": "src/main/resources/assets/ae2/textures/block/generics/bottom.png",
+      "target": "src/main/resources/assets/neoecoae/textures/block/workstation/generics/bottom.png",
+      "sha256": "ecb2cee5ead9c1303a6ecd65adce2110974ac488b3eedcd30f370af7ebc6ac42"
+    },
+    {
+      "source": "src/main/resources/assets/ae2/textures/block/generics/side.png",
+      "target": "src/main/resources/assets/neoecoae/textures/block/workstation/generics/side.png",
+      "sha256": "ff1ba98262fe5722cd8a1015e7c026f1e902e7a42879e1f4309e854c27022812"
+    }
+  ]
+}

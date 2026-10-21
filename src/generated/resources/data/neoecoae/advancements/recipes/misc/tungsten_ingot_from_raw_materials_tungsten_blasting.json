@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#forge:raw_materials/tungsten"
+            "tag": "forge:raw_materials/tungsten"
           }
         ]
       },

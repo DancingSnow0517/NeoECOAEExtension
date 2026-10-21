@@ -13,6 +13,7 @@
   "item_input": {
     "ingredient": {
       "item": "neoecoae:energized_superconductive_block"
-    }
+    },
+    "amount": 1
   }
 }

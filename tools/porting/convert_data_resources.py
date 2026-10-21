@@ -50,12 +50,36 @@ def convert_tree(node):
         result[target_key] = convert_tree(value)
     if result.get("modid") == "extendedae":
         result["modid"] = "expatternprovider"
+    if "#t" in result:
+        result["#c"] = result.pop("#t")
+    # 1.21 item predicates accept a single holder or a #tag; 1.20 requires
+    # an item array or a separate tag property, including advancement predicates.
+    if isinstance(result.get("items"), str):
+        predicate = result.pop("items")
+        if predicate.startswith("#"):
+            result["tag"] = predicate[1:]
+        else:
+            result["items"] = [predicate]
     # 1.21 ItemStack's JSON field is id; generic AE2 key tags also use id and must retain it.
-    if "id" in result and "#t" not in result and ("count" in result or len(result) == 1):
+    if "id" in result and "#c" not in result and ("count" in result or len(result) == 1):
         result["item"] = result.pop("id")
     if "id" in result and "amount" in result:
         result["fluid"] = result.pop("id")
     return result
+
+
+def target_recipe_fields(data: dict) -> dict:
+    kind = data.get("type", "")
+    if kind == "expatternprovider:circuit_cutter":
+        data["item_input"].setdefault("amount", 1)
+    if kind in {"ae2lt:lightning_simulation", "ae2lt:lightning_assembly", "ae2lt:overload_processing"}:
+        outputs = data.get("results", [data.get("result")])
+        for output in outputs:
+            if isinstance(output, dict) and "item" in output:
+                output["id"] = output.pop("item")
+        if "inputFluid" in data and "fluid" in data["inputFluid"]:
+            data["inputFluid"]["id"] = data["inputFluid"].pop("fluid")
+    return data
 
 
 def transform(path: Path, original: dict) -> tuple[dict | None, str]:
@@ -84,7 +108,7 @@ def transform(path: Path, original: dict) -> tuple[dict | None, str]:
         predicate = fluid["ingredient"]
         if predicate != {"tag": "minecraft:water"}:
             raise ValueError("Review non-water AdvancedAE fluid conversion")
-        data["fluid"] = {"fluid": "minecraft:water", "amount": fluid["amount"]}
+        data["fluid"] = {"fluidStack": {"FluidName": "minecraft:water", "Amount": fluid["amount"]}}
         data["energy"] = data.pop("input_energy")
         reason = "actual AdvancedAE 1.20 fluid/energy serializer fields"
     if kind == "neoecoae:cooling" and path.stem == "water":
@@ -100,7 +124,7 @@ def transform(path: Path, original: dict) -> tuple[dict | None, str]:
             if entry.get("item") in substitutions:
                 entry["item"] = substitutions[entry["item"]]
         reason = "EAE card uses available 1.20 assembler and ECO materials; amounts and energy retained"
-    return data, reason
+    return target_recipe_fields(data), reason
 
 
 def destination(path: Path) -> Path:

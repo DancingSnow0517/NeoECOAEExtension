@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:aluminum_alloy_casing"
+            "items": [
+              "neoecoae:aluminum_alloy_casing"
+            ]
           }
         ]
       },

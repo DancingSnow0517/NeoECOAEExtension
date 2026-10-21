@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:computation_cooling_controller_l6"
+            "items": [
+              "neoecoae:computation_cooling_controller_l6"
+            ]
           }
         ]
       },

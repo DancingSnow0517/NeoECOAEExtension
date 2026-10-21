@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:crystal_ingot"
+            "items": [
+              "neoecoae:crystal_ingot"
+            ]
           }
         ]
       },

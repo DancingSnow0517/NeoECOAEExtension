@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:energized_superconductive_ingot"
+            "items": [
+              "neoecoae:energized_superconductive_ingot"
+            ]
           }
         ]
       },

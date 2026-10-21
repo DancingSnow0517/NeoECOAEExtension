@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:energy_cell_l4"
+            "items": [
+              "neoecoae:energy_cell_l4"
+            ]
           }
         ]
       },
