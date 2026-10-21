@@ -42,7 +42,8 @@ final class EAEPQuickSearch {
         if (hovered.isEmpty()) hovered = (Optional<?>) Jei.HOVERED.invoke(null);
         if (hovered.isEmpty()) return Optional.empty();
         Object typed = hovered.get();
-        if (Jei.VALUE.invoke(null, typed) instanceof ItemStack stack) return itemQuery(stack, modifiers);
+        if (typed instanceof mezz.jei.api.ingredients.ITypedIngredient<?> ingredient
+                && ingredient.getIngredient() instanceof ItemStack stack) return itemQuery(stack, modifiers);
         String name = (String) Jei.NAME.invoke(null, typed);
         return name == null || name.isEmpty() ? Optional.empty() : Optional.of(name);
     }
@@ -76,10 +77,9 @@ final class EAEPQuickSearch {
     }
 
     private static final class Jei {
-        private static final String HELPER = "com.extendedae_plus.compat.JeiRuntimeCompat";
+        private static final String HELPER = "com.extendedae_plus.integration.jei.JeiRuntimeProxy";
         static final Method HOVERED_AT = method(HELPER, "getIngredientUnderMouse", double.class, double.class);
         static final Method HOVERED = method(HELPER, "getIngredientUnderMouse");
-        static final Method VALUE = method(HELPER, "getTypedIngredientValue", Object.class);
-        static final Method NAME = method(HELPER, "getTypedIngredientDisplayName", Object.class);
+        static final Method NAME = method(HELPER, "getTypedIngredientDisplayName", mezz.jei.api.ingredients.ITypedIngredient.class);
     }
 }

@@ -44,11 +44,7 @@ public class PatternEncodingTermMenuMixin extends MEStorageMenu implements Patte
 
     @Inject(
         method = "<init>(Lnet/minecraft/world/inventory/MenuType;ILnet/minecraft/world/entity/player/Inventory;Lappeng/helpers/IPatternTerminalMenuHost;Z)V",
-        at = @At(
-            value = "INVOKE",
-            target = "Lappeng/menu/me/items/PatternEncodingTermMenu;registerClientAction(Ljava/lang/String;Ljava/lang/Runnable;)V",
-            ordinal = 0
-        )
+        at = @At("RETURN")
     )
     void onRegisterClientActions(
         MenuType<?> menuType,

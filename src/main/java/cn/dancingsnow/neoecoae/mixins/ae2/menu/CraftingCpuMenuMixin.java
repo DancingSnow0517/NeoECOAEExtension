@@ -35,7 +35,8 @@ import java.util.function.Consumer;
 
 @SuppressWarnings("removal")
 @Mixin(value = CraftingCPUMenu.class, remap = false)
-public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost {
+public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost,
+        cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuControl {
     @Unique private cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress neoecoae$bigProgress;
     @Unique private int neoecoae$bigSerial = -1;
     @Unique private cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress neoecoae$lastBigProgress;
@@ -232,12 +233,16 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
 
     }
 
-    @Inject(
-        method = "toggleScheduling",
-        at = @At("TAIL")
-    )
-    private void onToggleScheduling(CallbackInfo ci) {
-        if (!isClientSide() && this.neoecoae$cpu != null) {
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void neoecoae$registerControls(MenuType<?> type, int id, Inventory inventory, Object host, CallbackInfo ci) {
+        registerClientAction("neoecoae:toggle_suspended", this::neoecoae$toggleSuspended);
+    }
+
+    @Override
+    public void neoecoae$toggleSuspended() {
+        if (isClientSide()) {
+            sendClientAction("neoecoae:toggle_suspended");
+        } else if (this.neoecoae$cpu != null) {
             ECOCraftingCPULogic logic = neoecoae$cpu.getLogic();
             logic.setJobSuspended(!logic.isJobSuspended());
         }

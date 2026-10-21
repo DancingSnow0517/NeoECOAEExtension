@@ -18,6 +18,11 @@ public class ECODriveModel implements BasicUnbakedModel {
     public static final ResourceLocation DRIVE_FULL = NeoECOAE.id("block/eco_drive_full");
 
     @Override
+    public java.util.Collection<ResourceLocation> getDependencies() {
+        return java.util.List.of(DRIVE_EMPTY, DRIVE_FULL);
+    }
+
+    @Override
     public @Nullable BakedModel bake(
         ModelBaker modelBaker,
         Function<Material, TextureAtlasSprite> function,
