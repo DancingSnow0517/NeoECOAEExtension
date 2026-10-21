@@ -4,6 +4,12 @@
 
 ## 当前结论
 
+**2026-10-21 分批提交前复核：** 完整主源码、JAR 与 110 项专项 Java 测试强制重新执行通过，10 项 Python 检查通过。JAR 包含 934 个主源码对应类、1,536 个 Java 17 类；全量业务测试源码编译仍有 29 个文件、114 个错误。能源元件与成型模型的后续修复和历史运行证据一并分批保存；本轮未重新启动客户端或专服。详见 [BATCH_COMMIT_VALIDATION.md](BATCH_COMMIT_VALIDATION.md) 和 `porting/commit-batches-validation.json`。
+
+**2026-10-21 后续崩溃与 UI 修复：** 补齐 AE2 库存、Forge 流体字段及 AE2LT 持久化签名适配，修正文字重复绘制、图标层级、裁剪和小窗口定位。基础与四附属组合分别验证 10 个未成型方块菜单并复核截图，110 项专项 Java 测试通过。具体边界和证据见 [CLIENT_CRASH_AND_UI_FIXES.md](CLIENT_CRASH_AND_UI_FIXES.md)。以下保留更早检查点，不代表完整业务或普通安装已验收。
+
+**后续运行检查点（2026-10-21）：完整业务基础客户端与四附属组合均已实际进入单人世界；组合环境验证工作站菜单打开/显示/关闭、六条联动配方加载与世界正常保存退出。** 当前工件包含 928 个主源码对应类、1,526 个 Java 17 类；101 项专项 Java 测试与 10 项 Python 资源/账本检查通过。全量业务测试迁移尚未完成，上一次检查为 29 个文件、115 个测试编译错误。普通安装、独立业务专服、完整 datagen、真实手势与完整功能验收仍待完成。详见 [RUNTIME_STARTUP_STATUS.md](RUNTIME_STARTUP_STATUS.md) 和 `porting/runtime-startup-validation.json`。以下为此前零编译错误检查点的历史记录，不能据此覆盖后续运行结果。
+
 截至 2026-10-21，已恢复 **完整 main 源码编译，0 errors、82 warnings**，并完成 JAR 打包。最终命令通过 `build-local.ps1` 使用 Java 17 串行执行 `compileJava jar portingPlatformTest portingContractsTest --offline --rerun-tasks`，日志 `validation/compile-package-final.log`：34 秒、13 个任务全部重新执行成功。包内逐一找到 926 个非 package-info 主源码文件对应的类，共 1,524 个类，均为 Java 17 字节码；5 份 Mixin 配置、58 个已声明 Mixin、存在性插件、refmap、AT、嵌套依赖和必要界面资源检查通过。记录见 `porting/package-validation.json`。
 
 `portingPlatformTest` 的 95 项和 `portingContractsTest` 的 6 项共 **101 项隔离 Java 测试通过，0 失败、0 跳过**，另有 **8 项 Python 资源转换/账本检查通过**。本轮增加 18 项布局、事件、槽位、滚动、资源包样式、同步和 Java 17 集合语义验证。完整 `test` 已另行试跑，但原测试源码仍引用 1.21 API 及已裁剪联动，停在 `compileTestJava`，达到 1,000 条错误显示上限，尚无全业务测试运行结果。**这不是完整 `build`、业务客户端/专服、真实交互或普通安装验收通过。** 本轮细节见 [FULL_COMPILATION_STATUS.md](FULL_COMPILATION_STATUS.md)，机器记录见 `porting/full-compilation-adaptation.json`、`porting/validation-state.json`。此前 1,454 errors、83 项测试仅是历史检查点，保留在 [PERSISTENCE_AND_FASTPATH_STATUS.md](PERSISTENCE_AND_FASTPATH_STATUS.md)。
@@ -47,9 +53,9 @@
 ## 后续必做
 
 - 将原全量测试源码的新版 API、fixture 与范围断言迁至目标版本；不能通过删除有效断言或恢复未批准联动来制造测试通过。当前独立存储/状态测试不等同于整个 CPU/BE、未知数据只读状态及完整恢复链验收。
-- 在真实 Forge 加载器中验证 Mixin 注入、初始化、菜单注册、保存/恢复入口及四类附属；编译器和静态包检查不执行 Mixin 变换。
+- 基础与四附属组合客户端启动、工作站菜单和世界正常保存已有真实 Forge 证据；继续验证业务执行时才触发的 Mixin、CPU/BE 保存恢复和其余菜单。
 - 逐界面验证 LDLib1 桥接的实际布局、字体、槽位、同步、手势、缩放和多人行为。
 - 验证结构终端预览/搭建/拆除与大工作站支持；拆除须保护实际物品与库存。
 - 验证 EAE 配方在实际大集成中的消耗/产出、四附属独立 profile 和组合；不能用本轮适配测试代替机内运行证据。
 - 恢复完整 datagen 并重新生成装配/拆解资源（包括 main 中尚未生成的 Bulk Item 三等级），核对剩余未注册内容的外观/指南资源；检查 GuideME、Mixin AP/refmap、AT 与发布 JAR。
-- 重新验证业务客户端/专服、普通安装、真实功能交互、持久化恢复及数量守恒。验收清单见 `EXECUTION_AND_ACCEPTANCE.md`。
+- 补完独立业务专服、普通安装、真实功能交互、持久化恢复及数量守恒；当前客户端进入世界的证据不替代完整业务验收。验收清单见 `EXECUTION_AND_ACCEPTANCE.md`。

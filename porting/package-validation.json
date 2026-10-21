@@ -1,11 +1,11 @@
 {
   "jar": "build/libs/neoecoae-20.6.0-dev.jar",
-  "sha256": "919ca62c2edbddc8959e27211dd8eea20cd386536e1524ffd07fcf195c54871b",
-  "bytes": 6736567,
-  "source_files_checked": 926,
-  "packaged_classes": 1524,
+  "sha256": "dcd0671fc1b49e3cca042f99c452fe6f43b99caac4fd2e40ad38f6e901d2722b",
+  "bytes": 6747062,
+  "source_files_checked": 928,
+  "packaged_classes": 1526,
   "class_major_versions": {
-    "61": 1524
+    "61": 1526
   },
   "registered_mixins": 58,
   "registered_mixin_configs": [

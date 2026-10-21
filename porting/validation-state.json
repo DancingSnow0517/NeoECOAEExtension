@@ -1,8 +1,8 @@
 {
-  "working_tree_parent": "2e5d5ebdf1882af78221bcce8b9468be18d26f07",
+  "working_tree_parent": "b1285b2ae992c71cbfd67f223ec065c9f301b5cf",
   "compile": {
-    "log": "validation/compile-package-final.log",
-    "sha256": "a099cb3d044eaadaf5f6f9dc764ee4c9dd6cf5dc84ab6a14efaff39b322fcfc1",
+    "log": "validation/business-runtime-final.log",
+    "sha256": "5f3f00c9ba910412ed4b62d250c316471e98ca1494c817f2082e9b7c4eed974d",
     "result": "success",
     "reported_errors": 0,
     "parsed_error_locations": 0,
@@ -19,7 +19,7 @@
       "reports": [
         {
           "path": "build/test-results/portingContractsTest/TEST-cn.dancingsnow.neoecoae.platform.JdkCompatTest.xml",
-          "sha256": "52ae49aff86b585d2c342980ea4ce355c595b8736043179e7cdb1f3e4875d8b9"
+          "sha256": "9b2425c61eb37c10da13c30e11f178633c92e2bfb981ea0059eb9dfa5b841515"
         }
       ],
       "scope": "isolated production classes; not full main or Forge runtime acceptance"
@@ -32,71 +32,71 @@
       "reports": [
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.blocks.entity.ForgeCoolingRemainderPersistenceTest.xml",
-          "sha256": "395ca20c141dcb1b6f6689fd352b07c9c7ac032c9843dea4f401ffcf77462919"
+          "sha256": "025b3319bfd64ac17de70e8fecea3e0cd1ecf5a5938c64a2a5494408a6ab9b6b"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.fastpath.ForgeFastPathStateBoundaryTest.xml",
-          "sha256": "b8f5dd64fb291fc31a7afdbbd48d48649e9b7c69659049142ad7d0744ab57410"
+          "sha256": "74c173ea7617fe66f8bbd2639eb633aa71701fdb066df749f2003d57183bf8d4"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.worker.ForgeExactLedgerPersistenceTest.xml",
-          "sha256": "4f11826d7e462a21c1e6390aa89154e18c8c14609e829f1ebc7b1cdb6b1774e7"
+          "sha256": "5b9b0c5ed1f6f995a9c455b03e1b08531c27999dbb0330d061634508d034009e"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.ForgeStorageFilterTest.xml",
-          "sha256": "0fa32246c6739698e6ecb583b3b8bfb14906b48d911782fe8fb4968f876fefc5"
+          "sha256": "0ba3cc49f102df293054bcc49e7f91f2511afba9d84b36101843ef88bd8149cb"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.infinite.ForgeInfiniteStoragePersistenceTest.xml",
-          "sha256": "978d093932b0be1d7db95e7b1eca1af610d467d3d290d26add89f3828b3f7b19"
+          "sha256": "50dfb8f8d0471749e90c2e1d78a048aff6e53d014c01300bac0c55538dbaabe0"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilitiesTest.xml",
-          "sha256": "9d8543721fcd15138506496fd4fc6f9f18937e76e397b55c55367b33461e1ae1"
+          "sha256": "c2686816f93a2bef0773ef62e618d96e64425a0d1e4e52959222fb5269d97f8f"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.nbt.NEItemNbtTest.xml",
-          "sha256": "b6743e0255fab097e561d9de90cc6fc3ca42d662afed57008671ac81cb6de104"
+          "sha256": "f59a9fc2102619c82f62a3091ad0d7357b12e4d219b571193bccc536e63ec93f"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedBlockEntityFieldsTest.xml",
-          "sha256": "ba8c4e0a60dfd97e1adf79b85f8f2e3baa17e654b8bf14856fd6fb906878349d"
+          "sha256": "9a8b5d33986218c3dfeb837c89a1dea306e524e3d5a4cad4e328441ed2357ecf"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedInitialSyncTest.xml",
-          "sha256": "f746a4a205978ef74d5c4503022ba9c1f40a6b7f26a5144b3f860122c9207cd6"
+          "sha256": "b10b97e80c81615d7bd25aa2c1ea2ca6dff9115297b46a99e793c318c697f6be"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.NERegistryAccessorTest.xml",
-          "sha256": "a23e7afd38870300abec142eeee3634e06be168c81ca330007b9cb321e909269"
+          "sha256": "c1801f4372e49c4ec41948fb2345dfec9ca04f3137c57875cc1b19b6cc8d8db1"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.NEUiJsonBridgeTest.xml",
-          "sha256": "fd619253a109d2a8c61460b5c00d6a0963671476e2b2ac6c8cd7bee3825d4e1d"
+          "sha256": "ff61407d1ae539f36a3a39d35f4c8ab30d7c6d78c4487eb06bc26d106ffe655d"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.RetainedUiRuntimeTest.xml",
-          "sha256": "c5a547311c39538b31fec1cf9ce8a47e2509ab92ab7fc4aad15b0d9b9deceefe"
+          "sha256": "1aa968b6bd8542a5e880d0dbdbaed21668be46412ae7cea3e65930293cb0b41c"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.RetainedUiSyncTest.xml",
-          "sha256": "a2aa21635268c83416219d51f9ee7e7b6a0940a4bc5496ff1c556ddd322a2ce3"
+          "sha256": "8131e05439acaff7a2055c4fd1990df6311f1f9b24d4123445634bcf1bcf7ed9"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.UiLayoutTest.xml",
-          "sha256": "b38f69a61545d02cfdf3bbda216e00cc20710d11a4384105d307af17c55372ac"
+          "sha256": "a7ba99f7244bd1e1582fb231a9042b2ec1eacd3ddfe0523268c0b8116f2133a4"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.ForgeRecipeAdapterTest.xml",
-          "sha256": "22375edf6b09dd381077066099f7410b688ce272b599a2e6db2e1aaee290e141"
+          "sha256": "1df27337ebd8c8acda6889633971567b388c39a4f20d6a8f06abdd58067ad5d1"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.ForgeRecipeBoundaryTest.xml",
-          "sha256": "4faedb5756f16646caf9ddf5062cef827e893ef5c4cc33024c8c58fafc0a7d48"
+          "sha256": "dbea8c3df0a06d8a327ac6918b92e8a9332c9744e108ecbbc92f756b77999956"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.StorageCellDisassemblyBoundaryTest.xml",
-          "sha256": "9d96c7b3892a0d14fe3cc513b51d66a68e2ba91a9ef5c1efb16190b48585ab9e"
+          "sha256": "4eb9dabb7328e6d1a17f4c068a96f60a7969cb7419aee238d3144665c7837b7d"
         }
       ],
       "scope": "isolated production classes; not full main or Forge runtime acceptance"
@@ -107,11 +107,12 @@
     "unexpected_remaining_files": []
   },
   "json_syntax": {
-    "files": 1515,
+    "files": 1517,
     "invalid": []
   },
   "full_business_tests": "not covered by isolated platform/contract tasks; see full-compilation-adaptation.json",
-  "current_business_runtime": "not verified for the full business tree",
+  "current_business_runtime": "base and combined development clients entered worlds; see runtime-startup-validation.json",
   "minimal_environment_runtime": "historical checkpoint e24ea3b only; see environment-validation.json",
-  "ordinary_forge_installation": "not verified"
+  "ordinary_forge_installation": "not verified",
+  "dedicated_business_server": "not verified"
 }

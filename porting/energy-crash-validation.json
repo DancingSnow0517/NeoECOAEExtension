@@ -1,0 +1,156 @@
+{
+  "recorded_at": "2026-10-21T11:21:07.883881+00:00",
+  "main_baseline": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "cause": "StoredEnergyAmountMixin implemented Forge INBTSerializable but omitted LDLib 1 ITagSerializable; energyStored could not initialize when a neighboring casing triggered AE2 readiness.",
+  "fix": "Add ITagSerializable<DoubleTag>; preserve energyStored double NBT, native StoredEnergyAmount methods and capacity.",
+  "original_crash": {
+    "path": "validation/energy-crash-20261021/original-server-crash.txt",
+    "bytes": 15523,
+    "sha256": "b08895011e6752dd0eaffef5dd2773b86ffe63ab70b223bdb1780a8c95699e5b"
+  },
+  "main_compile_and_jar": {
+    "path": "validation/energy-crash-20261021/build.log",
+    "bytes": 56214,
+    "sha256": "62f43b28e8d1fd859da9833d3260fa1205ea7b9dc4ddbb7bdfe26bbe62ddcd43"
+  },
+  "main_final_compile_and_jar": {
+    "path": "validation/energy-crash-20261021/final-main-build.log",
+    "bytes": 566,
+    "sha256": "bb011ba02083124eecd7f46e3b227f26c33c457750199719d484898e6f0ad3be"
+  },
+  "main_jar": {
+    "path": "build/libs/neoecoae-20.6.0-dev.jar",
+    "bytes": 6783540,
+    "sha256": "173a4aa6e5bd291b848214c0efce4212ee7a15daa0237fb4083c06b656b7a3bc"
+  },
+  "main_compiled_fix_matches_live_validated_class": true,
+  "main_reobfuscated_fix_matches_validation_copy_package": true,
+  "isolated_validation_directory": ".porting/energy-runtime-20261021",
+  "sources_match_validation_copy": [
+    {
+      "path": "build.gradle",
+      "bytes": 13375,
+      "sha256": "295cd663ed12ff4a6edea0d7bc0fb03f17aae2506f1a00e631f618515e78176c"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/StoredEnergyAmountMixin.java",
+      "bytes": 1397,
+      "sha256": "655359c1578f19951bf8fbc9962a165004918071b97033fc934289370f9fef4d"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/client/diagnostics/ClientStartupProbe.java",
+      "bytes": 6936,
+      "sha256": "4e31de6d3c1ef2b1f4d3310afc72fed60c9488875136877951ca1b31c2c730de"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/client/diagnostics/ManagedEnergyClientProbe.java",
+      "bytes": 11354,
+      "sha256": "dcdb89ab41ea5d7d0aed6d9f7086da68c8210153e1c93c84d9237365d1af873b"
+    }
+  ],
+  "validated_jar": {
+    "path": ".porting/energy-runtime-20261021/build/libs/neoecoae-20.6.0-dev.jar",
+    "bytes": 6781499,
+    "sha256": "3713fb1ca7f726d4642a78b9ca349d7ba51f47440545d05079c1a6692fec344d"
+  },
+  "profiles": {
+    "base": {
+      "log": {
+        "path": "validation/energy-crash-20261021/base-energy-isolated.log",
+        "bytes": 76720,
+        "sha256": "f22216c277e3eff3e4368e422f61d5e469bdf884c0363fa365a32c2bc9a34180"
+      },
+      "checks": {
+        "predicted_client_placement": true,
+        "server_placement": true,
+        "charge_discharge_simulation_and_nbt": true,
+        "all_managed_fields_initialize": true,
+        "actual_world_reopened": true,
+        "two_server_starts": true,
+        "two_world_saves_complete": true,
+        "probe_completed": true,
+        "gradle_success": true,
+        "no_fatal_or_missing_payload": true
+      },
+      "managed_block_variants": 20,
+      "managed_field_references": 135,
+      "world": "neoecoae-startup-1792581384881",
+      "energy_round_trips": [
+        {
+          "tier_index": 0,
+          "stored_ae": 1200.25,
+          "capacity_ae": 10000000.0
+        },
+        {
+          "tier_index": 1,
+          "stored_ae": 2200.5,
+          "capacity_ae": 100000000.0
+        },
+        {
+          "tier_index": 2,
+          "stored_ae": 3200.75,
+          "capacity_ae": 1000000000.0
+        }
+      ]
+    },
+    "combined": {
+      "log": {
+        "path": "validation/energy-crash-20261021/combined-energy-isolated.log",
+        "bytes": 320464,
+        "sha256": "24ea089d5fc2d91f83e37dbd3f22b5797732d763889fa983a3a61136aef9da9a"
+      },
+      "checks": {
+        "predicted_client_placement": true,
+        "server_placement": true,
+        "charge_discharge_simulation_and_nbt": true,
+        "all_managed_fields_initialize": true,
+        "actual_world_reopened": true,
+        "two_server_starts": true,
+        "two_world_saves_complete": true,
+        "probe_completed": true,
+        "gradle_success": true,
+        "no_fatal_or_missing_payload": true,
+        "four_addons_loaded": true
+      },
+      "managed_block_variants": 20,
+      "managed_field_references": 135,
+      "world": "neoecoae-startup-1792581495880",
+      "energy_round_trips": [
+        {
+          "tier_index": 0,
+          "stored_ae": 1200.25,
+          "capacity_ae": 10000000.0
+        },
+        {
+          "tier_index": 1,
+          "stored_ae": 2200.5,
+          "capacity_ae": 100000000.0
+        },
+        {
+          "tier_index": 2,
+          "stored_ae": 3200.75,
+          "capacity_ae": 1000000000.0
+        }
+      ]
+    }
+  },
+  "intermediate_runs": [
+    {
+      "log": {
+        "path": "validation/energy-crash-20261021/base-energy-initial-probe.log",
+        "bytes": 162148,
+        "sha256": "4d61ce0207e9fc84baa54699874fbc07e79a2e7c32ae6cf882c4b4ecba8f2b68"
+      },
+      "result": "Three energy round trips passed; the probe incorrectly required an ordinary casing to implement NEManagedBlockEntity. Assertion corrected."
+    },
+    {
+      "log": {
+        "path": "validation/energy-crash-20261021/base-energy-shared-output-interruption.log",
+        "bytes": 168294,
+        "sha256": "52f1e9e2ea0db39a169125e2c1ecce4276641076bc0e56d189bc6fd0658e229d"
+      },
+      "result": "A concurrent original-checkout runClient rebuild changed shared class output and the client reported a missing ECOInfiniteStorageMember. Final runs use an isolated copy."
+    }
+  ],
+  "scope": "Real Forge development clients and integrated-server save/reopen with simulated client game input. Does not cover native mouse gestures, formed multiblock operation, full business tests, dedicated server or normal Forge installation."
+}

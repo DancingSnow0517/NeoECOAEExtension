@@ -1,0 +1,233 @@
+{
+  "checked_at": "2026-10-21T11:04:43.145146+00:00",
+  "main_baseline": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "environment": "Forge 47.4.28 / Minecraft 1.20.1 / Java 17 development client, 854x480 window",
+  "initial_crash": {
+    "path": "validation/inventory-crash-20261021/crash-2026-10-21_18.05.27-client.txt",
+    "sha256": "5384e55d5614845ab7e98c5be86396a19088c55f4d8e6a65163b2804774f2295",
+    "bytes": 21201
+  },
+  "runtimes": {
+    "base": {
+      "log": {
+        "path": "validation/ui-rendering-20261021/base-final.log",
+        "sha256": "e4529499c84dd36ad92ab761c5938999624e6bc031d1d14447d54b207c13cf07",
+        "bytes": 127564
+      },
+      "checks": {
+        "predicted_client_placement": true,
+        "server_placement_and_persistence": true,
+        "menus_displayed": true,
+        "snapshot_contents_and_dirty_notifications": true,
+        "registry_aware_persistence_delegation": true,
+        "scaled_last_filter_slot_reachable": true,
+        "all_dimensions_saved": true,
+        "gradle_success": true,
+        "no_managed_field_crash": true,
+        "no_fatal_error": true,
+        "probe_completed": true
+      },
+      "screenshots": [
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-storage_system_l4.png",
+          "sha256": "a0c97e1ce04fbfb2325f1a3fb6f91211b3490ec6ca1dbf82b6e02d51fc514853",
+          "bytes": 121120
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-storage_system_l6.png",
+          "sha256": "d4aba754c427bb60311623265dee717ce7ee58d255db773c735491b082de889b",
+          "bytes": 120249
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-storage_system_l9.png",
+          "sha256": "e8b1ed9664ea23f6668c571157b9da58d128d7419f05c592225e77eb64a78cff",
+          "bytes": 119531
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-storage_interface.png",
+          "sha256": "8140a17e41e81ae5b575abe05de07dc64719e45211c90ab9b0b7ef776294dec5",
+          "bytes": 154744
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-crafting_interface.png",
+          "sha256": "c98aa37b38383b0f1d8ed665ece1424745211828ad0be498d0e37732f5ce60ae",
+          "bytes": 144305
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-computation_interface.png",
+          "sha256": "e0b556d9db23ec34aa72fcbdf604a593f8650e6887ce21f68c6db1b87187b4eb",
+          "bytes": 159061
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-crafting_pattern_bus.png",
+          "sha256": "b46ef265027674d139936e94f5a9f7fccc4c959b7aeee14067bf4a3d5fdacbfe",
+          "bytes": 156000
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-integrated_working_station.png",
+          "sha256": "68e86df197f037a18a3c6075325905f4566693da9f47249762658be4311f19d6",
+          "bytes": 153338
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-computation_system_l4.png",
+          "sha256": "6b83bfdf2a401c63ec633791ab53061b375f0732622855d477b1eb7cba26fd10",
+          "bytes": 115865
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-base/neoecoae-inventory-crafting_system_l4.png",
+          "sha256": "aaf2f5c6a9012b134d9d670c19bbe6f5b541725470459f103cf9ff4b0561bcca",
+          "bytes": 121249
+        }
+      ]
+    },
+    "combined": {
+      "log": {
+        "path": "validation/ui-rendering-20261021/combined-final.log",
+        "sha256": "b5b5ee89b2d819d056f715d92ea797ed0c3c97d70ea2152efe79a3a65500550e",
+        "bytes": 227922
+      },
+      "checks": {
+        "predicted_client_placement": true,
+        "server_placement_and_persistence": true,
+        "menus_displayed": true,
+        "snapshot_contents_and_dirty_notifications": true,
+        "registry_aware_persistence_delegation": true,
+        "scaled_last_filter_slot_reachable": true,
+        "all_dimensions_saved": true,
+        "gradle_success": true,
+        "no_managed_field_crash": true,
+        "no_fatal_error": true,
+        "probe_completed": true,
+        "all_four_addons_loaded": true
+      },
+      "screenshots": [
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-storage_system_l4.png",
+          "sha256": "15465a387f93f673567bc36f36fad673699e09903d6a5b3dea35f0b34fbb9042",
+          "bytes": 95441
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-storage_system_l6.png",
+          "sha256": "a8360f9e21779fb655627e56b85f9716659345bd304db1e1f89cca2137f554dd",
+          "bytes": 94830
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-storage_system_l9.png",
+          "sha256": "7eaacf722a84496834ceab561f0e02dfb285f97db0a1a716ed056cac04b55fc3",
+          "bytes": 94011
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-storage_interface.png",
+          "sha256": "8096ac63cbacb35d7bf504ffdea44a7e4727f9bf4ba941ba41bc34de9c686470",
+          "bytes": 124944
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-crafting_interface.png",
+          "sha256": "0bd36bc16fdfd993a4b5298db1fb083dca90ab6a0e90b6e10a6f7b84c0959699",
+          "bytes": 115265
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-computation_interface.png",
+          "sha256": "5fd54912f8f805e524105644ff48f80b6c92c36da5804585e79a267931c4ec92",
+          "bytes": 127099
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-crafting_pattern_bus.png",
+          "sha256": "eb30a6c6c00d78704e836ff07dd2d0fced4470738b08b0e4fdc4c8cf8aabdaa4",
+          "bytes": 124340
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-integrated_working_station.png",
+          "sha256": "98d9518bd55da68d3dac36ad5d8b77712521f158f05a70439693537240537203",
+          "bytes": 119359
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-computation_system_l4.png",
+          "sha256": "925247a500873aeba012073eeccf41ab9d56b871f4b6417fdc176d3325389fbc",
+          "bytes": 90121
+        },
+        {
+          "path": "validation/ui-rendering-20261021/after-combined/neoecoae-inventory-crafting_system_l4.png",
+          "sha256": "12400634f8b3d1e2bd38f9b26000f040bf9a4ed0c443e0d934d6d5e106bde1ae",
+          "bytes": 94705
+        }
+      ]
+    }
+  },
+  "tests": {
+    "portingPlatformTest": {
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "portingContractsTest": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "package": {
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "e563878621c08464de9fda947568d64488be9952a230253954d17c7b616dc3dd",
+    "bytes": 6766466,
+    "source_files_checked": 932,
+    "packaged_classes": 1533,
+    "class_major_versions": {
+      "61": 1533
+    },
+    "registered_mixins": 59,
+    "registered_mixin_configs": [
+      "neoecoae.compat.advanced_ae.mixins.json",
+      "neoecoae.compat.extendedae.mixins.json",
+      "neoecoae.compat.thunderbolt.mixins.json",
+      "neoecoae.mixins.json",
+      "neoecoae.terminal_big_amount.mixins.json"
+    ],
+    "refmap_classes": 5,
+    "nested_jars": [
+      "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+      "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+    ],
+    "problems": {
+      "missing_source_classes": [],
+      "missing_required_resources": [],
+      "missing_registered_mixins": [],
+      "missing_mixin_plugins": [],
+      "unregistered_mixin_configs": [],
+      "missing_nested_jars": [],
+      "missing_translations": [],
+      "fake_upstream_classes": [],
+      "duplicate_entries": []
+    },
+    "result": "success",
+    "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+  },
+  "acceptance": [
+    "Real client predicted item use, server placement, managed inventory snapshots and menu packets",
+    "Ten unformed block menus in base and combined profiles; framebuffer screenshots visually inspected",
+    "Scaled last-row pointer hit test through the real screen input route"
+  ],
+  "limits": [
+    "No full formed-machine operation, multiplayer, native mouse gestures or ordinary Forge installation acceptance",
+    "Full business test migration remains a separate unfinished gate",
+    "The unchanged six portingContractsTest results were reused from the verified Gradle cache"
+  ],
+  "comparison": {
+    "path": "validation/ui-rendering-20261021/before-after.png",
+    "sha256": "d077c9ad26aca8e2d083d6fe9055c08582de8eeefa205c08d6b2eee315859aaf",
+    "bytes": 730130
+  },
+  "gallery": {
+    "path": "validation/ui-rendering-20261021/after-base-gallery.png",
+    "sha256": "b1aacdfde07a5c25e3bced813f9dcf619037d553ae9257d7543144386bd0dc85",
+    "bytes": 400382
+  },
+  "combined_gallery": {
+    "path": "validation/ui-rendering-20261021/after-combined-gallery.png",
+    "sha256": "5ec1acd071ad6da04906834232c002f0269e91a7d2b076c43cae5b606f2ed654",
+    "bytes": 374082
+  },
+  "result": "success"
+}
