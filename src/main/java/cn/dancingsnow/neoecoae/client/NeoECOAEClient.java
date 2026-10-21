@@ -42,6 +42,10 @@ import cn.dancingsnow.neoecoae.network.ECONetwork;
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
 public class NeoECOAEClient {
     public static void initialize(IEventBus modBus) {
+        if (!net.minecraftforge.fml.loading.FMLEnvironment.production && Boolean.getBoolean("neoecoae.clientSmoke")) {
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+                cn.dancingsnow.neoecoae.client.diagnostics.ClientStartupProbe::tick);
+        }
         NEExtraModels.register();
         modBus.addListener(NeoECOAEClient::onClientSetup);
         modBus.addListener((net.minecraftforge.client.event.RegisterClientReloadListenersEvent event) ->

@@ -130,16 +130,11 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
         }
 
         int visible = Math.min(visibleTaskCardCount(), syncedTasks.size() - scrollOffset);
-        guiContext.graphics.enableScissor(
-            Math.round(x + scissorLeft()),
-            Math.round(y + cardY),
-            Math.round(x + scissorRight()),
-            Math.round(y + listBottomY + 1)
-        );
+        guiContext.enableScissor(x+scissorLeft(),y+cardY,scissorRight()-scissorLeft(),listBottomY+1-cardY);
         for (int i = 0; i < visible; i++) {
             drawTaskCard(guiContext, font, syncedTasks.get(scrollOffset + i), x + cardX, y + cardY + i * cardStride);
         }
-        guiContext.graphics.disableScissor();
+        guiContext.disableScissor();
         drawScrollbar(guiContext, x + scrollbarX(), y + cardY, syncedTasks.size(), visibleTaskCardCount());
     }
 

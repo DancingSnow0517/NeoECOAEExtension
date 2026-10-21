@@ -8,6 +8,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 
@@ -17,8 +18,9 @@ import net.minecraft.world.level.Level;
  * <p>ExtendedAE Plus applies accessors to this exact class to inspect the active job and finish virtual
  * crafting. AE2LT 2.1 and AE2 Utility also target this legacy class with injections. The implementation remains in
  * {@code crafting.execution}; its subclass mirrors the legacy job reference so those accessors continue
- * to observe the live state. The no-op methods below retain the bytecode targets expected by already
- * released AE2LT and AE2 Utility builds; their guarded call sites are never executed by the current implementation.</p>
+ * to observe the live state. The guarded dispatch anchors retain the bytecode targets expected by already
+ * released AE2LT and AE2 Utility builds. Persistence keeps the original registry-aware ABI and delegates to
+ * the active platform implementation, so addon persistence injections surround the real save/load path.</p>
  */
 @Deprecated(forRemoval = false)
 public abstract class ECOCraftingCPULogic {
@@ -50,12 +52,18 @@ public abstract class ECOCraftingCPULogic {
         return 0;
     }
 
-    /** Legacy AE2LT persistence injection targets. */
-    public void readFromNBT(CompoundTag data) {
+    /** Registry-aware addon hook surrounding the real Forge persistence implementation. */
+    public final void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
+        readNativePersistentData(data);
     }
 
-    public void writeToNBT(CompoundTag data) {
+    public final void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
+        writeNativePersistentData(data);
     }
+
+    protected abstract void readNativePersistentData(CompoundTag data);
+
+    protected abstract void writeNativePersistentData(CompoundTag data);
 
     private static boolean ae2ltLegacyMixinAnchorEnabled() {
         return false;

@@ -28,7 +28,7 @@ public class UIElement extends WidgetGroup {
     private final List<RPCEventBuilder.Event> rpcEvents=new ArrayList<>();
     private final Map<Integer,Consumer<Object>> rpcCallbacks=new HashMap<>();
     private int nextRpc=1;
-    private boolean display=true,overflowVisible,layoutDirty=true,hover,allowHitTest=true,focusable;
+    private boolean display=true,layoutDirty=true,hover,allowHitTest=true,focusable;
     private final ElementTransform transform=new ElementTransform();
     private UIElement pressedTarget;
     private ModularUI modularUI;
@@ -93,8 +93,8 @@ public class UIElement extends WidgetGroup {
     public UIElement transform(Consumer<ElementTransform> action){action.accept(transform);markLayoutDirty();return this;}
     @Override public UIElement setVisible(boolean value){super.setVisible(value);return this;}
     @Override public UIElement setActive(boolean value){super.setActive(value);if(value)removeClass("__disabled__");else addClass("__disabled__");return this;}
-    public UIElement setOverflowVisible(boolean value){overflowVisible=value;return this;}
-    public boolean isOverflowVisible(){return overflowVisible||style.overflowVisible;}
+    public UIElement setOverflowVisible(boolean value){style.overflowVisible=value;return this;}
+    public boolean isOverflowVisible(){return style.overflowVisible;}
     public boolean isHover(){return hover;}
     public boolean isSelfOrChildHover(){return hover||children.stream().anyMatch(UIElement::isSelfOrChildHover);}
     public static boolean isShiftDown(){return net.minecraft.client.gui.screens.Screen.hasShiftDown();}
@@ -122,7 +122,8 @@ public class UIElement extends WidgetGroup {
     public UIElement hitTest(double x,double y){
         if(!isVisible()||!isActive()||!isDisplayed())return null;
         boolean inside=isMouseOverElement(x,y);if(!inside&&!isOverflowVisible())return null;
-        for(int i=children.size()-1;i>=0;i--){var found=children.get(i).hitTest(x,y);if(found!=null)return found;}
+        var ordered=children.stream().sorted(Comparator.comparingInt(child->child.style.z)).toList();
+        for(int i=ordered.size()-1;i>=0;i--){var found=ordered.get(i).hitTest(x,y);if(found!=null)return found;}
         return inside&&allowHitTest?this:null;
     }
     /** WidgetGroup also includes overflowing children; retained clipping uses the element's own box. */
@@ -188,20 +189,37 @@ public class UIElement extends WidgetGroup {
         super.setVisible(display&&effective);
     }
     public void drawBackgroundAdditional(GUIContext context){}
-    public void drawContents(GUIContext context){}
+    public void drawBackgroundTexture(GUIContext context){
+        if(style.background!=null)context.drawTexture(style.background,getPositionX(),getPositionY(),getSizeWidth(),getSizeHeight());
+    }
+    /** Matches the retained API: an override can clip/transform its additional background and children together. */
+    public void drawContents(GUIContext context){
+        boolean clipped=!isOverflowVisible();
+        if(clipped)context.enableScissor(getContentX(),getContentY(),getContentWidth(),getContentHeight());
+        try{drawBackgroundAdditional(context);drawChildren(context);}
+        finally{if(clipped)context.disableScissor();}
+    }
+    protected void drawChildren(GUIContext context){
+        List<Widget> ordered=widgets;
+        if(widgets.stream().anyMatch(widget->widget instanceof UIElement element&&element.style.z!=0)){
+            ordered=widgets.stream().sorted(Comparator.comparingInt(widget->widget instanceof UIElement element?element.style.z:0)).toList();
+        }
+        for(var widget:ordered)if(widget.isVisible()){
+            widget.drawInBackground(context.graphics,Math.round(context.mouseX),Math.round(context.mouseY),context.partialTicks);
+        }
+    }
     public void drawForegroundAdditional(GUIContext context){}
     public void drawBackgroundOverlay(GUIContext context){}
     @Override public void drawInBackground(GuiGraphics graphics,int mouseX,int mouseY,float partialTicks){
         boolean owner=GUIContext.beginPass();
         var context=new GUIContext(graphics,mouseX,mouseY,partialTicks);
+        graphics.pose().pushPose();
         try{
-        if(style.background!=null)context.drawTexture(style.background,getPositionX(),getPositionY(),getSizeWidth(),getSizeHeight());
-        drawBackgroundAdditional(context);drawContents(context);
-        if(!isOverflowVisible())graphics.enableScissor(getPositionX(),getPositionY(),getPositionX()+getSizeWidth(),getPositionY()+getSizeHeight());
-        try{super.drawInBackground(graphics,mouseX,mouseY,partialTicks);}finally{if(!isOverflowVisible())graphics.disableScissor();}
+        if(style.z!=0)graphics.pose().translate(0,0,style.z);
+        drawBackgroundTexture(context);drawContents(context);
         if(style.overlay!=null)context.drawTexture(style.overlay,getPositionX(),getPositionY(),getSizeWidth(),getSizeHeight());
         drawBackgroundOverlay(context);context.flushPostRendering();
-        }finally{GUIContext.endPass(owner,context);}
+        }finally{graphics.pose().popPose();GUIContext.endPass(owner,context);}
     }
     @Override public void drawInForeground(GuiGraphics graphics,int mouseX,int mouseY,float partialTicks){
         super.drawInForeground(graphics,mouseX,mouseY,partialTicks);

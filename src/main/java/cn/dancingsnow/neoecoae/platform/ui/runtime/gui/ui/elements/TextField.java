@@ -30,7 +30,6 @@ public class TextField extends UIElement implements IBindable<String> {
     @Override public String getValue(){return field.getCurrentString();}
     @Override public TextField setValue(String value){field.setCurrentString(value==null?"":value);return this;}
     public boolean isFocused(){return field.isFocus();}
-    public void drawBackgroundTexture(GUIContext context){if(getStyle().background!=null)context.drawTexture(getStyle().background,getPositionX(),getPositionY(),getSizeWidth(),getSizeHeight());}
-    @Override public void drawBackgroundAdditional(GUIContext context){drawBackgroundTexture(context);if(isFocused()&&textStyle.focus!=null)context.drawTexture(textStyle.focus,getPositionX(),getPositionY(),getSizeWidth(),getSizeHeight());}
+    @Override public void drawBackgroundAdditional(GUIContext context){if(isFocused()&&textStyle.focus!=null)context.drawTexture(textStyle.focus,getPositionX(),getPositionY(),getSizeWidth(),getSizeHeight());}
     @Override public void applyBounds(float x,float y,float w,float h){super.applyBounds(x,y,w,h);field.setSize(new Size(Math.round(w),Math.round(h)));}
 }

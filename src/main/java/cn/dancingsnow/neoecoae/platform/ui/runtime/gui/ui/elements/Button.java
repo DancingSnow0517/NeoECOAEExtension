@@ -25,7 +25,14 @@ public class Button extends UIElement{
     private boolean pressed;
     public enum State { DEFAULT, HOVERED, PRESSED }
     public State getState(){return pressed?State.PRESSED:isSelfOrChildHover()?State.HOVERED:State.DEFAULT;}
-    public Button(){layout(l->l.height(16));addChild(text);}
+    public Button(){
+        layout(l->l.height(16).flexDirection(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.FlexDirection.ROW)
+            .justifyContent(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.AlignContent.CENTER));
+        text.layout(l->l.heightPercent(100).marginLeft(2).marginRight(2));
+        text.textStyle(s->s.textAlignHorizontal(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.Horizontal.CENTER)
+            .textAlignVertical(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.Vertical.CENTER));
+        addChild(text);
+    }
     @Override public String getElementName(){return "button";}
     public Button setText(Component value){text.setText(value);return this;}
     public Button setText(String value){text.setText(value);return this;}

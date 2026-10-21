@@ -37,7 +37,7 @@ public class TextElement extends UIElement implements IBindable<Component>{
     public net.minecraft.client.gui.Font getFont(){return Minecraft.getInstance().font;}
     @Override public float intrinsicWidth(){return textStyle.adaptiveWidth?text.getString().codePointCount(0,text.getString().length())*6f*textStyle.size/9:0;}
     @Override public float intrinsicHeight(){return textStyle.adaptiveHeight?textStyle.size:0;}
-    @Override public void drawContents(GUIContext context){
+    @Override public void drawBackgroundAdditional(GUIContext context){
         var font=Minecraft.getInstance().font;float scale=textStyle.size/9,available=getSizeWidth()/scale;
         float textWidth=font.width(text),x=getPositionX(),y=getPositionY();
         int lines=textStyle.wrap==TextWrap.WRAP?font.split(text,Math.max(1,(int)available)).size():1;
@@ -50,9 +50,12 @@ public class TextElement extends UIElement implements IBindable<Component>{
             long millis=net.minecraft.Util.getMillis();float delta=textWidth-available;
             x-=((Math.sin(millis/1000.0)*.5+.5)*delta)*scale;
         }
-        context.graphics.pose().pushPose();context.graphics.pose().scale(scale,scale,1);
-        if(textStyle.wrap==TextWrap.WRAP){float ly=y/scale;for(var line:font.split(text,Math.max(1,(int)available))){context.graphics.drawString(font,line,x/scale,ly,textStyle.color,textStyle.shadow);ly+=font.lineHeight+textStyle.lineSpacing;}}
-        else context.graphics.drawString(font,text.getVisualOrderText(),x/scale,y/scale,textStyle.color,textStyle.shadow);
-        context.graphics.pose().popPose();
+        context.enableScissor(getContentX(),getContentY(),getContentWidth(),getContentHeight());
+        context.graphics.pose().pushPose();
+        try{
+            context.graphics.pose().scale(scale,scale,1);
+            if(textStyle.wrap==TextWrap.WRAP){float ly=y/scale;for(var line:font.split(text,Math.max(1,(int)available))){context.graphics.drawString(font,line,x/scale,ly,textStyle.color,textStyle.shadow);ly+=font.lineHeight+textStyle.lineSpacing;}}
+            else context.graphics.drawString(font,text.getVisualOrderText(),x/scale,y/scale,textStyle.color,textStyle.shadow);
+        }finally{context.graphics.pose().popPose();context.disableScissor();}
     }
 }

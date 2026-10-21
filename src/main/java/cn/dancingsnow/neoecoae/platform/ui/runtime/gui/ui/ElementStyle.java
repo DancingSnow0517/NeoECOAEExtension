@@ -6,7 +6,7 @@ public class ElementStyle {
     public IGuiTexture background, overlay;
     public boolean inlineBackground;
     public int z;
-    public boolean overflowVisible;
+    public boolean overflowVisible=true;
     public ElementStyle overflowVisible(boolean value){overflowVisible=value;return this;}
     public ElementStyle backgroundTexture(IGuiTexture texture) { background = texture;inlineBackground=true; return this; }
     public IGuiTexture backgroundTexture() { return background; }

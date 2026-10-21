@@ -38,6 +38,7 @@
     "ae2.menu.CraftingStatusSuspensionMixin"
   ],
   "client": [
+    "client.ldlib.UIFactoryMixin",
     "client.accessor.MenuScreensAccessor",
     "client.ae2.AEBaseScreenGrayToolbarMixin",
     "client.ae2.CellWorkbenchScreenMixin",

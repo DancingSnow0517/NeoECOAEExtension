@@ -581,11 +581,27 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     }
 
     public void readFromNBT(CompoundTag data) {
-        persistence.read(data);
+        readFromNBT(data,persistenceRegistries());
     }
 
     public void writeToNBT(CompoundTag data) {
+        writeToNBT(data,persistenceRegistries());
+    }
+
+    @Override
+    protected void readNativePersistentData(CompoundTag data) {
+        persistence.read(data);
+    }
+
+    @Override
+    protected void writeNativePersistentData(CompoundTag data) {
         persistence.write(data);
+    }
+
+    private net.minecraft.core.HolderLookup.Provider persistenceRegistries() {
+        var level=cpu.getLevel();
+        return level!=null?level.registryAccess():net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(
+            net.minecraft.core.registries.BuiltInRegistries.REGISTRY);
     }
 
     void loadJobAttachments(CompoundTag jobData) {

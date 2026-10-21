@@ -136,6 +136,8 @@ public final class NeoUiJsonLoader {
             object(node, "layout").flatMap(layout -> string(layout, "overflow")).orElse(""));
         if ("visible".equalsIgnoreCase(overflow)) {
             element.setOverflowVisible(true);
+        } else if ("hidden".equalsIgnoreCase(overflow)) {
+            element.setOverflowVisible(false);
         }
         applyTexture(element, node, source);
         addChildren(element, node, context, source);

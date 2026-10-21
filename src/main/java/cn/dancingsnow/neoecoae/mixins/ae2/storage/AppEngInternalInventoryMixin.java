@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.ae2.storage;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import com.lowdragmc.lowdraglib.syncdata.IContentChangeAware;
+import com.lowdragmc.lowdraglib.syncdata.ITagSerializable;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
@@ -21,7 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Mixin(value = AppEngInternalInventory.class, remap = false)
-public abstract class AppEngInternalInventoryMixin implements INBTSerializable<CompoundTag>, IContentChangeAware {
+public abstract class AppEngInternalInventoryMixin
+        implements INBTSerializable<CompoundTag>, ITagSerializable<CompoundTag>, IContentChangeAware {
     @Unique
     private Runnable neoECOAEExtension$onContentsChanged;
 

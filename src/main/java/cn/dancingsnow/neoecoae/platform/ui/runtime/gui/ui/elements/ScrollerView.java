@@ -5,7 +5,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.*;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.*;
 import java.util.function.Consumer;
 public class ScrollerView extends UIElement {
-    public final UIElement viewPort=new UIElement(),viewContainer=new UIElement();
+    public final UIElement viewPort=new UIElement().setOverflowVisible(false),viewContainer=new UIElement();
     public final Scroller verticalScroller=new Scroller(true),horizontalScroller=new Scroller(false);
     public static class ScrollerStyle {
         ScrollerMode mode=ScrollerMode.BOTH;ScrollDisplay horizontal=ScrollDisplay.AUTO,vertical=ScrollDisplay.AUTO;

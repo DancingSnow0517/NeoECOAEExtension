@@ -102,7 +102,7 @@ class RetainedUiRuntimeTest {
     }
 
     @Test void clippedAndCoveredElementsDoNotBecomeHovered(){
-        var root=new UIElement().layout(l->l.width(40).height(20));
+        var root=new UIElement().setOverflowVisible(false).layout(l->l.width(40).height(20));
         var clipped=new UIElement().layout(l->l.positionType(TaffyPosition.ABSOLUTE).left(50).width(20).height(20));
         var back=new UIElement().layout(l->l.positionType(TaffyPosition.ABSOLUTE).width(20).height(20));
         var front=new UIElement().layout(l->l.positionType(TaffyPosition.ABSOLUTE).width(20).height(20));

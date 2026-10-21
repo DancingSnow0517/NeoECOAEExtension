@@ -120,6 +120,9 @@ legacyForge {
             gameDirectory = project.file("run/${portingProfile}/${name}")
             logLevel = org.slf4j.event.Level.INFO
             systemProperty 'neoecoae.bootstrapSmoke', providers.gradleProperty('bootstrapSmoke').getOrElse('false')
+            systemProperty 'neoecoae.clientSmoke', providers.gradleProperty('clientSmoke').getOrElse('false')
+            systemProperty 'neoecoae.clientSmokeMenus', providers.gradleProperty('clientSmokeMenus').getOrElse('false')
+            systemProperty 'neoecoae.clientSmokeInventories', providers.gradleProperty('clientSmokeInventories').getOrElse('false')
         }
     }
     mods {
