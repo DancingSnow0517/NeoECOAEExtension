@@ -77,6 +77,10 @@ public final class ClientStartupProbe {
             ManagedEnergyClientProbe.tick(client);
         }
         if (captured && client.level != null && client.player != null
+                && !System.getProperty("neoecoae.workstationModelSmoke", "").isBlank()) {
+            WorkstationModelClientProbe.tick(client);
+        }
+        if (captured && client.level != null && client.player != null
                 && Boolean.getBoolean("neoecoae.clientSmokeInventories")) {
             ManagedInventoryClientProbe.tick(client);
         }

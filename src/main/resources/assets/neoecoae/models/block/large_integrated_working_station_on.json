@@ -45,7 +45,7 @@
             4
           ],
           "texture": "#light",
-          "neoforge_data": {
+          "forge_data": {
             "block_light": 15,
             "sky_light": 15,
             "ambient_occlusion": false
@@ -59,7 +59,7 @@
             8
           ],
           "texture": "#light",
-          "neoforge_data": {
+          "forge_data": {
             "block_light": 15,
             "sky_light": 15,
             "ambient_occlusion": false
@@ -73,7 +73,7 @@
             4
           ],
           "texture": "#light",
-          "neoforge_data": {
+          "forge_data": {
             "block_light": 15,
             "sky_light": 15,
             "ambient_occlusion": false
@@ -87,7 +87,7 @@
             4
           ],
           "texture": "#light",
-          "neoforge_data": {
+          "forge_data": {
             "block_light": 15,
             "sky_light": 15,
             "ambient_occlusion": false
@@ -101,7 +101,7 @@
             4
           ],
           "texture": "#light",
-          "neoforge_data": {
+          "forge_data": {
             "block_light": 15,
             "sky_light": 15,
             "ambient_occlusion": false
@@ -140,7 +140,7 @@
             16
           ],
           "texture": "#screen",
-          "neoforge_data": {
+          "forge_data": {
             "block_light": 15,
             "sky_light": 15,
             "ambient_occlusion": false
@@ -154,7 +154,7 @@
             16
           ],
           "texture": "#screen",
-          "neoforge_data": {
+          "forge_data": {
             "block_light": 15,
             "sky_light": 15,
             "ambient_occlusion": false
@@ -165,14 +165,14 @@
     {
       "name": "body_a",
       "from": [
+        -15.99,
         -16,
-        -16,
-        0
+        0.01
       ],
       "to": [
-        32,
+        31.99,
         0,
-        32
+        31.99
       ],
       "rotation": {
         "angle": 0,
@@ -236,12 +236,12 @@
       "from": [
         16,
         0,
-        0
+        0.01
       ],
       "to": [
-        32,
-        16,
-        32
+        31.99,
+        15.99,
+        31.99
       ],
       "rotation": {
         "angle": 0,
@@ -294,14 +294,14 @@
     {
       "name": "body_b",
       "from": [
-        -16,
+        -15.99,
         0,
-        0
+        0.01
       ],
       "to": [
         0,
-        16,
-        32
+        15.99,
+        31.99
       ],
       "rotation": {
         "angle": 0,
@@ -360,8 +360,8 @@
       ],
       "to": [
         16,
-        16,
-        32
+        15.99,
+        31.99
       ],
       "rotation": {
         "angle": 0,
@@ -398,7 +398,7 @@
       "from": [
         0,
         0,
-        0
+        0.01
       ],
       "to": [
         16,
@@ -435,7 +435,7 @@
       ],
       "to": [
         16,
-        16,
+        15.99,
         16
       ],
       "rotation": {
@@ -473,7 +473,7 @@
       "from": [
         0,
         1,
-        0
+        0.01
       ],
       "to": [
         1,
@@ -515,7 +515,7 @@
       "from": [
         15,
         1,
-        0
+        0.01
       ],
       "to": [
         16,
@@ -557,11 +557,11 @@
       "from": [
         0,
         15,
-        0
+        0.01
       ],
       "to": [
         1,
-        16,
+        15.99,
         15
       ],
       "rotation": {
@@ -609,11 +609,11 @@
       "from": [
         15,
         15,
-        0
+        0.01
       ],
       "to": [
         16,
-        16,
+        15.99,
         15
       ],
       "rotation": {

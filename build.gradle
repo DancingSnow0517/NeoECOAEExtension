@@ -123,6 +123,7 @@ legacyForge {
             systemProperty 'neoecoae.clientSmoke', providers.gradleProperty('clientSmoke').getOrElse('false')
             systemProperty 'neoecoae.clientSmokeMenus', providers.gradleProperty('clientSmokeMenus').getOrElse('false')
             systemProperty 'neoecoae.clientSmokeInventories', providers.gradleProperty('clientSmokeInventories').getOrElse('false')
+            systemProperty 'neoecoae.workstationModelSmoke', providers.gradleProperty('workstationModelSmoke').getOrElse('')
             systemProperty 'neoecoae.clientSmokeEnergy', providers.gradleProperty('clientSmokeEnergy').getOrElse('false')
         }
     }
