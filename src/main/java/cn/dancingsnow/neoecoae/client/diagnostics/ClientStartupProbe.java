@@ -73,6 +73,9 @@ public final class ClientStartupProbe {
             Screenshot.grab(client.gameDirectory, "neoecoae-startup-world.png", client.getMainRenderTarget(),
                 message -> LOG.info("CLIENT_SMOKE screenshot: {}", message.getString()));
         }
+        if (captured && Boolean.getBoolean("neoecoae.clientSmokeEnergy")) {
+            ManagedEnergyClientProbe.tick(client);
+        }
         if (captured && client.level != null && client.player != null
                 && Boolean.getBoolean("neoecoae.clientSmokeInventories")) {
             ManagedInventoryClientProbe.tick(client);
