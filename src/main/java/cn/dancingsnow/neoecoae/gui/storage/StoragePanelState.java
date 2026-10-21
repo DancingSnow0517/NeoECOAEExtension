@@ -20,7 +20,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ComponentSerialization;
+import cn.dancingsnow.neoecoae.platform.nbt.NEComponentSerialization;
 import net.minecraft.world.item.ItemStack;
 
 /** A server-authored display snapshot. Only the current cell page is sent to the client. */
@@ -150,7 +150,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             entry.putBoolean("infinite", cell.infinite());
             if (cell.position() != null) entry.putLong("position", cell.position().asLong());
             if (cell.interactionId() != null) entry.putUUID("interactionId", cell.interactionId());
-            if (!cell.stack().isEmpty()) entry.put("stack", cell.stack().save(registries));
+            if (!cell.stack().isEmpty()) entry.put("stack", cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(cell.stack(), registries));
             if (cell.extractionBlockReason() != null) putComponent(entry, "locked", cell.extractionBlockReason());
             entry.putInt("state", cell.state().ordinal()); entry.putBoolean("online", cell.online()); entries.add(entry);
         }
@@ -181,7 +181,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
                 cell.getLong("ut"), cell.getLong("tt"), cell.getLong("ub"), cell.getLong("tb"), cell.getBoolean("infinite"),
                 CellState.values()[JdkCompat.clamp(cell.getInt("state"), 0, CellState.values().length - 1)], cell.getBoolean("online"),
                 cell.contains("position") ? BlockPos.of(cell.getLong("position")) : null,
-                ItemStack.parseOptional(registries, cell.getCompound("stack")),
+                cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(registries, cell.getCompound("stack")),
                 cell.contains("locked") ? component(cell, "locked") : null,
                 cell.hasUUID("interactionId") ? cell.getUUID("interactionId") : null,
                 cell.contains("tierName") ? component(cell, "tierName") : null));
@@ -204,13 +204,13 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     }
 
     private static void putComponent(CompoundTag tag, String key, Component component) {
-        DataResult<Tag> encoded = ComponentSerialization.CODEC.encodeStart(NbtOps.INSTANCE, component);
-        tag.put(key, encoded.getOrThrow());
+        DataResult<Tag> encoded = NEComponentSerialization.CODEC.encodeStart(NbtOps.INSTANCE, component);
+        tag.put(key, encoded.getOrThrow(false, message -> {throw new IllegalArgumentException(message);}));
     }
 
     private static Component component(CompoundTag tag, String key) {
         Tag value = tag.get(key);
         return value == null ? Component.empty()
-            : ComponentSerialization.CODEC.parse(NbtOps.INSTANCE, value).result().orElse(Component.empty());
+            : NEComponentSerialization.CODEC.parse(NbtOps.INSTANCE, value).result().orElse(Component.empty());
     }
 }

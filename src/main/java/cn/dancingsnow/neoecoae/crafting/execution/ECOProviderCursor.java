@@ -40,7 +40,7 @@ final class ECOProviderCursor {
             Supplier<Iterable<ICraftingProvider>> providers, Predicate<ICraftingProvider> eligible) {
         var available = availableProviders(pattern, providers, eligible);
         if (available.isEmpty()) return null;
-        var selected = available.getFirst();
+        var selected = cn.dancingsnow.neoecoae.platform.JdkCompat.first(available);
         advanceAfter(pattern, selected);
         return selected;
     }

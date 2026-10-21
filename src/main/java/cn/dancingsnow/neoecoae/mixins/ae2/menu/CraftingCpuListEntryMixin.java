@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(CraftingStatusMenu.CraftingCpuListEntry.class)
+@Mixin(value = CraftingStatusMenu.CraftingCpuListEntry.class, remap = false)
 public class CraftingCpuListEntryMixin implements IOverlayTextureHolder, ECOCraftingCpuListEntry {
 
     @Unique

@@ -274,7 +274,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             }
             return null;
         }
-        if (!outputItems.isEmpty()) return AEItemKey.of(outputItems.getFirst());
+        if (!outputItems.isEmpty()) return AEItemKey.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(outputItems));
         for (var stack : batchOutputItems) {
             if (stack.what() instanceof AEItemKey key) return key;
         }

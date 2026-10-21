@@ -4,12 +4,12 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import it.unimi.dsi.fastutil.objects.Object2ObjectSortedMaps;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraftforge.client.event.AddSectionGeometryEvent;
+
 
 public class DelegatedBufferSource extends MultiBufferSource.BufferSource {
-    private final AddSectionGeometryEvent.SectionRenderingContext delegate;
+    private final NESectionGeometry.SectionRenderingContext delegate;
 
-    public DelegatedBufferSource(AddSectionGeometryEvent.SectionRenderingContext delegate) {
+    public DelegatedBufferSource(NESectionGeometry.SectionRenderingContext delegate) {
         super(null, Object2ObjectSortedMaps.emptyMap());
         this.delegate = delegate;
     }

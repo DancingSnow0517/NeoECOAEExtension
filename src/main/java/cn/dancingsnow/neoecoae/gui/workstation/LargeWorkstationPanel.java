@@ -9,18 +9,18 @@ import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationThermal;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.workstation.LargeWorkstationUI.Config;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEventBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -164,8 +164,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             CompoundTag entry = entries.getCompound(i);
             if (!entry.hasUUID("id")) continue;
             decoded.add(new Task(entry.getUUID("id"), registries == null ? ItemStack.EMPTY
-                : ItemStack.parseOptional(registries, entry.getCompound("item")), registries == null ? FluidStack.EMPTY
-                : FluidStack.parseOptional(registries, entry.getCompound("fluid")), entry.getLong("amount"),
+                : cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(registries, entry.getCompound("item")), registries == null ? FluidStack.EMPTY
+                : FluidStack.loadFluidStackFromNBT(entry.getCompound("fluid")), entry.getLong("amount"),
                 entry.getInt("progress"), entry.getString("status"), entry.getString("detail"), entry.getBoolean("returnable"),
                 entry.getBoolean("current"), LargeWorkstationModule.byName(entry.getString("module"))));
         }
@@ -253,14 +253,14 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         var selected = module();
         List<Component> lines = new ArrayList<>();
         lines.add(title("module_slot"));
-        lines.add(tr("module_current", selected.title()).withColor(selected.color()));
+        lines.add(tr("module_current", selected.title()).withStyle(neColor -> neColor.withColor(selected.color())));
         lines.add(tr("task_source", LargeWorkstationModule.byName(state.getString("recipeModule")).title()));
         lines.add(hint("module_slot_hint"));
         lines.add(hint("module_swap_hint"));
         lines.add(tr("module_cards"));
         for (var module : LargeWorkstationModule.values()) {
             if (module.hasUpgradeCard()) lines.add(Component.translatable("item.neoecoae." + module.upgradeCardId().getPath())
-                .withColor(module.color()));
+                .withStyle(neColor -> neColor.withColor(module.color())));
         }
         if (state.getBoolean("ignoreUpgradeCards")) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GREEN));
         return lines;
@@ -518,7 +518,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     private record Task(UUID id, ItemStack item, FluidStack fluid, long amount, int progress, String status, String detail,
                         boolean returnable, boolean current, LargeWorkstationModule module) {
-        Component title() { return !item.isEmpty() ? item.getHoverName() : !fluid.isEmpty() ? fluid.getHoverName() : tr("empty_task"); }
+        Component title() { return !item.isEmpty() ? item.getHoverName() : !fluid.isEmpty() ? fluid.getDisplayName() : tr("empty_task"); }
         boolean problem() { return current && !status.isEmpty() && !status.endsWith(".none") && !status.equals(PREFIX + "task_output"); }
     }
 }

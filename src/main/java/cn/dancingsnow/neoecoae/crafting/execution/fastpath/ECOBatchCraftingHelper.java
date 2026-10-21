@@ -112,6 +112,9 @@ public final class ECOBatchCraftingHelper {
     public static List<GenericStack> multiply(List<GenericStack> stacks, int multiplier) {
         return multiply(stacks, (long) multiplier);
     }
+    public static GenericStack[] multiply(GenericStack[] stacks,long multiplier){
+        return multiply(java.util.Arrays.asList(stacks),multiplier).toArray(GenericStack[]::new);
+    }
 
     /** Long-count multiplication used by explicit virtual batches and opt-in unknown-capacity batch commits. */
     public static List<GenericStack> multiply(List<GenericStack> stacks, long multiplier) {

@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -22,12 +23,29 @@ public final class MultiBlockBuildController {
     private final Host host;
     private MultiBlockBuildSession buildSession;
     private UUID buildPlayerId;
+    private final cn.dancingsnow.neoecoae.multiblock.BuildPreviewState terminalPreview=new cn.dancingsnow.neoecoae.multiblock.BuildPreviewState();
 
     public MultiBlockBuildController(Host host) {
         this.host = host;
     }
 
+    public void writeTerminalPreview(CompoundTag data) {
+        terminalPreview.selectedBuildLength = host.getSelectedBuildLength();
+        CompoundTag preview = new CompoundTag();
+        terminalPreview.writeToTag(preview);
+        data.put("structureTerminalPreview", preview);
+    }
+
+    public void readTerminalPreview(CompoundTag data) {
+        // Placement sessions are transient. Loading their status must not resume an unowned build.
+        terminalPreview.buildSession = null;
+        terminalPreview.buildPlayerId = null;
+        terminalPreview.readFromTag(data.getCompound("structureTerminalPreview"));
+        terminalPreview.selectedBuildLength = host.getSelectedBuildLength();
+    }
+
     public void tick(Level level) {
+        if(terminalPreview.buildInProgress){host.tickBuild(level);host.setBuildInProgress(terminalPreview.buildInProgress);return;}
         if (!(level instanceof ServerLevel serverLevel) || !host.isBuildInProgress() || buildSession == null) {
             return;
         }
@@ -166,7 +184,16 @@ public final class MultiBlockBuildController {
         host.buildStateChanged();
     }
 
-    public interface Host {
+    public interface Host extends cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost {
+        MultiBlockBuildController getBuildController();
+        @Override default BlockPos getHostPos(){return getBuildPosition();}
+        @Override default BlockState getHostBlockState(){return getBuildState();}
+        @Override default Level getHostLevel(){return getBuildLevel();}
+        @Override default cn.dancingsnow.neoecoae.multiblock.BuildPreviewState getBuildPreview(){
+            var preview=getBuildController().terminalPreview;preview.selectedBuildLength=getSelectedBuildLength();return preview;
+        }
+        @Override default void markPreviewDirty(){setBuildInProgress(getBuildPreview().buildInProgress);buildStateChanged();}
+        @Override default void rebuildMultiblock(){rebuildAfterBuild();}
         @Nullable Level getBuildLevel();
 
         BlockPos getBuildPosition();

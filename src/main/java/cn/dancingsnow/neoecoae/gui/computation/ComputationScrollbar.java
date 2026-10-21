@@ -3,10 +3,10 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import appeng.client.Point;
 import appeng.client.gui.widgets.Scrollbar;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import java.util.function.IntConsumer;
 import net.minecraft.client.renderer.Rect2i;
 
@@ -20,7 +20,7 @@ final class ComputationScrollbar extends UIElement {
     private boolean pressed;
 
     ComputationScrollbar(UIElement owner, int x, int y, int height, IntConsumer onScroll) {
-        this(owner, x, y, height, Scrollbar.BIG, WIDTH, onScroll);
+        this(owner, x, y, height, cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG, WIDTH, onScroll);
     }
 
     ComputationScrollbar(UIElement owner, int x, int y, int height, Scrollbar.Style style, int width,

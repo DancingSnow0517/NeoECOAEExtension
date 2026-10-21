@@ -6,9 +6,9 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.client.gui.widget.PatternItemSlotClient;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
-import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolder;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUIContainer;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
@@ -39,8 +39,8 @@ public final class CraftingInterfaceClientUI {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onScreenInit(ScreenEvent.Init.Post event) {
         if (event.getScreen() instanceof AbstractContainerScreen<?> container
-                && container.getMenu() instanceof IModularUIHolder holder) {
-            attachNativeSearchFields(event, holder.getModularUI());
+                && container.getMenu() instanceof ModularUIContainer holder) {
+            attachNativeSearchFields(event, ModularUI.from(holder));
         }
     }
 
@@ -48,9 +48,9 @@ public final class CraftingInterfaceClientUI {
     public static void onScreenRender(ScreenEvent.Render.Pre event) {
         prepareSearchFields(event.getScreen());
         if (event.getScreen() instanceof AbstractContainerScreen<?> container
-                && container.getMenu() instanceof IModularUIHolder holder
-                && holder.getModularUI() != null) {
-            for (var preview : holder.getModularUI().getElementsByType(CraftingInterfaceUI.PatternPreview.class)) {
+                && container.getMenu() instanceof ModularUIContainer holder
+                && ModularUI.from(holder) != null) {
+            for (var preview : ModularUI.from(holder).getElementsByType(CraftingInterfaceUI.PatternPreview.class)) {
                 preview.advanceFrame();
             }
         }
@@ -60,8 +60,8 @@ public final class CraftingInterfaceClientUI {
     public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
         if (!(event.getScreen() instanceof AbstractContainerScreen<?> container)
                 || container.getMenu().getCarried().isEmpty()
-                || !(container.getMenu() instanceof IModularUIHolder holder)) return;
-        var modularUI = holder.getModularUI();
+                || !(container.getMenu() instanceof ModularUIContainer holder)) return;
+        var modularUI = ModularUI.from(holder);
         if (modularUI == null || !modularUI.isDrawTooltips() || modularUI.getDragHandler().isDragging()) return;
         var hovered = modularUI.getLastHoveredElement();
         if (hovered == null) return;
@@ -70,7 +70,7 @@ public final class CraftingInterfaceClientUI {
         var tooltip = preview.collectHoverTooltips();
         if (tooltip == null || tooltip.tooltipTexts().isEmpty()) return;
         // LDLib suppresses its tooltip pass when the cursor carries an item; draw this insertion hint afterwards.
-        event.getGuiGraphics().renderTooltip(Minecraft.getInstance().font, tooltip.tooltipTexts().getFirst(),
+        event.getGuiGraphics().renderComponentTooltip(Minecraft.getInstance().font, cn.dancingsnow.neoecoae.platform.JdkCompat.first(tooltip.tooltipTexts()),
                 event.getMouseX(), event.getMouseY());
     }
 
@@ -109,7 +109,6 @@ public final class CraftingInterfaceClientUI {
             return;
         }
 
-        var widget = modularUI.getWidget();
         NativeSearchField first = null;
         for (CraftingInterfaceUI.SearchField field :
                 modularUI.getElementsByType(CraftingInterfaceUI.SearchField.class)) {
@@ -118,9 +117,7 @@ public final class CraftingInterfaceClientUI {
             }
             // Re-register on every init/resize. Screen.rebuildWidgets() clears children.
             event.removeListener(nativeField.editBox);
-            event.removeListener(widget);
             event.addListener(nativeField.editBox);
-            event.addListener(widget);
             if (first == null) {
                 first = nativeField;
             }
@@ -204,9 +201,9 @@ public final class CraftingInterfaceClientUI {
 
     private static List<CraftingInterfaceUI.SearchField> searchFields(Screen screen) {
         if (screen instanceof AbstractContainerScreen<?> container
-                && container.getMenu() instanceof IModularUIHolder holder
-                && holder.getModularUI() != null) {
-            return holder.getModularUI().getElementsByType(CraftingInterfaceUI.SearchField.class);
+                && container.getMenu() instanceof ModularUIContainer holder
+                && ModularUI.from(holder) != null) {
+            return ModularUI.from(holder).getElementsByType(CraftingInterfaceUI.SearchField.class);
         }
         return List.of();
     }
@@ -280,11 +277,11 @@ public final class CraftingInterfaceClientUI {
         }
 
         @Override
-        public void drawContents(com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext guiContext) {
+        public void drawContents(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext guiContext) {
             super.drawContents(guiContext);
             syncNativeBounds();
             if (isFocused()) claimNativeFocus(Minecraft.getInstance().screen);
-            editBox.renderNative(guiContext.graphics, guiContext.mouseX, guiContext.mouseY, guiContext.partialTick);
+            editBox.renderNative(guiContext.graphics, Math.round(guiContext.mouseX), Math.round(guiContext.mouseY), guiContext.partialTick);
         }
 
         private void syncNativeBounds() {
@@ -299,7 +296,10 @@ public final class CraftingInterfaceClientUI {
             if (height != nativeHeight) editBox.setHeight(nativeHeight = height);
         }
 
-        private final class PositionedEditBox extends EditBox {
+        private final class PositionedEditBox extends EditBox implements cn.dancingsnow.neoecoae.client.gui.widget.NEEditBoxStyle {
+            private boolean textShadow=true;
+            public void setTextShadow(boolean value){textShadow=value;}
+            public boolean neoecoae$textShadow(){return textShadow;}
             private PositionedEditBox() {
                 super(Minecraft.getInstance().font, 0, 0, 1, TOOL_BUTTON_SIZE,
                         Component.translatable("gui.neoecoae.crafting_interface.preview.search"));

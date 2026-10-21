@@ -3,8 +3,8 @@ package cn.dancingsnow.neoecoae.gui.storage;
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.VanillaSpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.VanillaSpriteTexture;
 import net.minecraft.resources.ResourceLocation;
 
 /** Pixel rectangles in the storage host artwork. */
@@ -81,7 +81,7 @@ final class StoragePanelTextures {
     /** Two 18px rows and a final 16px slot; the panel artwork supplies the closing border. */
     static SpriteTexture cellBackground(int row) {
         int offset = row * 18;
-        return sprite(CELL_COLUMN.spritePosition.x, CELL_COLUMN.spritePosition.y + offset,
+        return sprite(Math.round(CELL_COLUMN.spritePosition.x), Math.round(CELL_COLUMN.spritePosition.y + offset),
             CELL_COLUMN.spriteSize.width, row == 2 ? 16 : 18);
     }
 

@@ -154,7 +154,7 @@ final class ExternalDemandPlanner {
             Outcome one = solveDeficits(network, cycle, deficits, available,
                 base.stored.unboundedKeys(), ignorePatternSubstitutions, cancellation);
             if (!one.solved()) return one;
-            SolveState state = one.states().getFirst();
+            SolveState state = cn.dancingsnow.neoecoae.platform.JdkCompat.first(one.states());
             states.add(state);
             selected.addAll(one.selectedPatterns());
             for (var used : state.used) {

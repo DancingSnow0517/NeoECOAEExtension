@@ -11,7 +11,7 @@ import net.minecraft.world.entity.player.Inventory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-@Mixin(CellWorkbenchScreen.class)
+@Mixin(value = CellWorkbenchScreen.class, remap = false)
 public abstract class CellWorkbenchScreenMixin extends UpgradeableScreen<CellWorkbenchMenu> {
     @Unique
     private Button neoecoae$importJeiBookmarks;

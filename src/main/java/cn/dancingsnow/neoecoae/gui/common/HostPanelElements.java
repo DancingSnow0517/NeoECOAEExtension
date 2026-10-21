@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.TextWrap;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextElement;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;

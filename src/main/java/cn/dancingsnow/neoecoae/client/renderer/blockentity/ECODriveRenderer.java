@@ -37,7 +37,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
     public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
         ItemStack cellStack = blockEntity.getCellStack();
         if (ECOInfiniteStorageMember.isMember(cellStack)) {
-            renderLed(blockEntity, poseStack, bufferSource, FastColor.ARGB32.color(255, INFINITE_MEMBER_LED_COLOR));
+            renderLed(blockEntity, poseStack, bufferSource, (0xff000000|INFINITE_MEMBER_LED_COLOR));
             return;
         }
         if (!blockEntity.isMounted() || !blockEntity.isOnline()) {
@@ -45,7 +45,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
         }
         CellState cellState = blockEntity.getCellState();
         if (cellState != CellState.ABSENT) {
-            int stateColor = FastColor.ARGB32.color(255, cellState.getStateColor());
+            int stateColor = (0xff000000|cellState.getStateColor());
             renderLed(blockEntity, poseStack, bufferSource, stateColor);
         }
     }
@@ -75,10 +75,10 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
         VertexConsumer consumer = bufferSource.getBuffer(CellLedRenderer.RENDER_LAYER);
 
-        consumer.addVertex(matrix, xStart, 0, zStart).setColor(stateColor);
-        consumer.addVertex(matrix, xEnd, 0, zStart).setColor(stateColor);
-        consumer.addVertex(matrix, xEnd, 0, zEnd).setColor(stateColor);
-        consumer.addVertex(matrix, xStart, 0, zEnd).setColor(stateColor);
+        consumer.vertex(matrix, xStart, 0, zStart).color(stateColor).endVertex();
+        consumer.vertex(matrix, xEnd, 0, zStart).color(stateColor).endVertex();
+        consumer.vertex(matrix, xEnd, 0, zEnd).color(stateColor).endVertex();
+        consumer.vertex(matrix, xStart, 0, zEnd).color(stateColor).endVertex();
 
         poseStack.popPose();
     }

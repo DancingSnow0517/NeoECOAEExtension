@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import net.minecraft.resources.ResourceLocation;
 
 /** Pixel rectangles in the computation controller artwork. */

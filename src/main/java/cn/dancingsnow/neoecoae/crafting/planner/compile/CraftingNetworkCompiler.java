@@ -372,7 +372,7 @@ public final class CraftingNetworkCompiler {
 
     private static List<GenericStack> safeOutputs(IPatternDetails details) {
         try {
-            return details.getOutputs() == null ? List.of() : details.getOutputs();
+            return details.getOutputs() == null ? List.of() : java.util.Arrays.asList(details.getOutputs());
         } catch (RuntimeException ignored) {
             return List.of();
         }

@@ -13,7 +13,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 import net.pedroksl.advanced_ae.common.logic.AdvPatternProviderLogic;
 import net.pedroksl.advanced_ae.common.patterns.AdvProcessingPattern;
-import net.pedroksl.advanced_ae.common.patterns.IAdvPatternDetails;
+import net.pedroksl.advanced_ae.common.patterns.AdvPatternDetails;
 
 /** Optional AdvancedAE boundary for ECO's ordinary processing batch ramp. */
 public final class ECOAdvancedAEPatternScaling {
@@ -63,7 +63,7 @@ public final class ECOAdvancedAEPatternScaling {
         }
     }
 
-    private static final class ScaledAdvancedPattern implements IPatternDetails, IAdvPatternDetails {
+    private static final class ScaledAdvancedPattern implements IPatternDetails, AdvPatternDetails {
         private final AdvProcessingPattern original;
         private final long multiplier;
 
@@ -79,7 +79,7 @@ public final class ECOAdvancedAEPatternScaling {
             for (int i = 0; i < inputs.length; i++) scaled[i] = new ScaledInput(inputs[i], multiplier);
             return scaled;
         }
-        @Override public List<GenericStack> getOutputs() {
+        @Override public GenericStack[] getOutputs() {
             return ECOBatchCraftingHelper.multiply(original.getOutputs(), multiplier);
         }
         @Override public boolean supportsPushInputsToExternalInventory() { return true; }

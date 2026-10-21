@@ -2,10 +2,10 @@ package cn.dancingsnow.neoecoae.blocks;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.block.AEBaseEntityBlock;
+import cn.dancingsnow.neoecoae.platform.NEEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,7 +24,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class ECOLargeIntegratedWorkingStation
-    extends AEBaseEntityBlock<ECOLargeIntegratedWorkingStationBlockEntity>
+    extends NEEntityBlock<ECOLargeIntegratedWorkingStationBlockEntity>
     implements BlockUIMenuType.BlockUI {
     public static final Property<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty WORKING = BooleanProperty.create("working");
@@ -66,7 +66,7 @@ public class ECOLargeIntegratedWorkingStation
     }
 
     @Override
-    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return SHAPE;
     }
 
@@ -80,7 +80,7 @@ public class ECOLargeIntegratedWorkingStation
     }
 
     @Override
-    protected void neighborChanged(
+    public void neighborChanged(
         BlockState state,
         Level level,
         BlockPos pos,

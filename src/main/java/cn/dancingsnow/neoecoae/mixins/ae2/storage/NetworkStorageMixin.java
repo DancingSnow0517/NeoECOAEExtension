@@ -21,7 +21,7 @@ import java.util.NavigableMap;
 import java.util.Objects;
 
 /** Prevents storage totals from disappearing when an unbounded stack is combined with another inventory. */
-@Mixin(NetworkStorage.class)
+@Mixin(value = NetworkStorage.class, remap = false)
 public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
 

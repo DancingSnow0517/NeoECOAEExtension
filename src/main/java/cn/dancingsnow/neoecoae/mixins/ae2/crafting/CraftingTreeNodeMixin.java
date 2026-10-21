@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.List;
 
-@Mixin(CraftingTreeNode.class)
+@Mixin(value = CraftingTreeNode.class, remap = false)
 public abstract class CraftingTreeNodeMixin {
     @Shadow
     @Final

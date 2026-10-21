@@ -12,7 +12,7 @@ import net.minecraft.world.inventory.Slot;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(IOPortMenu.class)
+@Mixin(value = IOPortMenu.class, remap = false)
 public class IOPortMenuMixin {
 
     @WrapOperation(method = "setupConfig", at = @At(value = "INVOKE", target = "Lappeng/menu/implementations/IOPortMenu;addSlot(Lnet/minecraft/world/inventory/Slot;Lappeng/menu/SlotSemantic;)Lnet/minecraft/world/inventory/Slot;", ordinal = 0))

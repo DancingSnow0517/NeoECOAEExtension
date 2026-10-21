@@ -639,7 +639,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     public java.util.Map<AEKey, java.math.BigInteger> getExactPendingPreview() {
         if (job != null && job.exactOrder) {
             var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
-            job.tasks.forEach((pattern, progress) -> pattern.getOutputs().forEach(output ->
+            job.tasks.forEach((pattern, progress) -> java.util.Arrays.stream(pattern.getOutputs()).forEach(output ->
                 amounts.merge(output.what(), progress.remainingExact().multiply(
                     java.math.BigInteger.valueOf(output.amount())), java.math.BigInteger::add)));
             job.deferredEmitted.forEach((key, amount) -> amounts.merge(key, amount, java.math.BigInteger::add));

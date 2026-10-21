@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
@@ -38,10 +39,10 @@ public final class CoolingControllerBakedModel extends BakedModelWrapper<BakedMo
             && !(model instanceof CoolingControllerBakedModel) ? new CoolingControllerBakedModel(model) : model);
     }
 
-    static boolean isFormedController(ModelResourceLocation location) {
-        return location.id().getNamespace().equals(NeoECOAE.MOD_ID)
-            && CONTROLLERS.contains(location.id().getPath())
-            && List.of(location.variant().split(",")).contains("formed=true");
+    static boolean isFormedController(ResourceLocation location) {
+        return location instanceof ModelResourceLocation model && model.getNamespace().equals(NeoECOAE.MOD_ID)
+            && CONTROLLERS.contains(model.getPath())
+            && List.of(model.getVariant().split(",")).contains("formed=true");
     }
 
     @Override
@@ -60,15 +61,14 @@ public final class CoolingControllerBakedModel extends BakedModelWrapper<BakedMo
         RandomSource random = RandomSource.create(42);
         for (RenderType layer : originalModel.getRenderTypes(state, random, ModelData.EMPTY)) {
             var buffer = buffers.getBuffer(layer);
-            var setting = originalModel.useAmbientOcclusion(state, ModelData.EMPTY, layer);
-            boolean ao = setting.isTrue() || setting.isDefault() && originalModel.useAmbientOcclusion();
+            boolean ao=originalModel.useAmbientOcclusion(state);
             for (int side = 0; side <= DIRECTIONS.length; side++) {
                 random.setSeed(42);
                 Direction direction = side == DIRECTIONS.length ? null : DIRECTIONS[side];
                 for (BakedQuad quad : originalModel.getQuads(state, direction, random, ModelData.EMPTY, layer)) {
                     BakedQuad rendered = ao ? quad : new BakedQuad(quad.getVertices(), quad.getTintIndex(),
                         quad.getDirection(), quad.getSprite(), quad.isShade(), false);
-                    buffer.putBulkData(pose.last(), rendered, 1, 1, 1, 1, light, overlay);
+                    buffer.putBulkData(pose.last(), rendered, 1, 1, 1, 1, light, overlay, true);
                 }
             }
         }

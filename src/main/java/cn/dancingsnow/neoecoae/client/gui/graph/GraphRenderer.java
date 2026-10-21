@@ -525,7 +525,7 @@ public final class GraphRenderer {
     /** Draws a tangent-aligned triangle so curved cycle arrows do not snap to four directions. */
     private static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
             float cameraX, float cameraY, float zoom) {
-        var end = route.getLast();
+        var end = cn.dancingsnow.neoecoae.platform.JdkCompat.last(route);
         GraphLayoutSnapshot.Point previous = route.get(route.size() - 2);
         for (int i = route.size() - 2; i >= 0 && previous.equals(end); i--) previous = route.get(i);
         float tipX = cameraX + end.x() * zoom;

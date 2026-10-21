@@ -60,7 +60,7 @@ public final class ECOPlanningStageLogger {
 
     public static String resultReason(PlanningStatus status, ECOPlanTrace trace) {
         if (trace != null && !trace.diagnostics().isEmpty()) {
-            var diagnostic = trace.diagnostics().getLast();
+            var diagnostic = cn.dancingsnow.neoecoae.platform.JdkCompat.last(trace.diagnostics());
             return status + ":" + diagnostic.code() + ":" + diagnostic.message();
         }
         return status.name();

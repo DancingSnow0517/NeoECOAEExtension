@@ -25,9 +25,9 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
@@ -81,6 +81,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     private boolean cyclePlanningEnabled = true;
     @DescSynced
     private boolean buildInProgress;
+    @Getter
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
     // Transient derived state rebuilt by the calculator; the BlockState property is render-only persistence.
     @Setter
@@ -179,16 +180,16 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     Component getEndgameStatusTooltip() {
         List<String> blockers = cluster == null ? List.of("host_count") : cluster.getEndgameBlockers();
         if (blockers.isEmpty()) {
-            return Component.translatable("gui.neoecoae.computation.endgame.active").withColor(0xFF55FF8A);
+            return Component.translatable("gui.neoecoae.computation.endgame.active").withStyle(neColor -> neColor.withColor(0xFF55FF8A));
         }
         MutableComponent result = Component.translatable("gui.neoecoae.computation.endgame.title")
-            .withColor(0xFFD8B4FE);
+            .withStyle(neColor -> neColor.withColor(0xFFD8B4FE));
         int memberCount = cluster == null ? 1 : cluster.getNetworkMemberCount();
         for (String key : blockers) {
             MutableComponent reason = "host_count".equals(key)
                 ? Component.translatable("gui.neoecoae.computation.endgame.reason.host_count", memberCount, 8)
                 : Component.translatable("gui.neoecoae.computation.endgame.reason." + key);
-            result.append("\n").append(reason.withColor(0xFFFF5555));
+            result.append("\n").append(reason.withStyle(neColor -> neColor.withColor(0xFFFF5555)));
         }
         return result;
     }
@@ -575,5 +576,17 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     public void buildStateChanged() {
         setChanged();
         markForUpdate();
+    }
+
+    @Override
+    public void saveAdditional(net.minecraft.nbt.CompoundTag data) {
+        super.saveAdditional(data);
+        buildController.writeTerminalPreview(data);
+    }
+
+    @Override
+    public void loadTag(net.minecraft.nbt.CompoundTag data) {
+        super.loadTag(data);
+        buildController.readTerminalPreview(data);
     }
 }

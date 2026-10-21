@@ -11,13 +11,13 @@ import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.Config;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -155,7 +155,7 @@ final class CraftingControllerArtwork extends UIElement {
             statisticNumbers(INFO_TEXT_WIDTH, INFO_TEXT_SCALE, values -> Component.translatable(
                 "gui.neoecoae.crafting.ui.ft_short", values[0]), view.ftParallelCapacity), 130);
         Component coolantName = tooltips.coolantVisible()
-            ? view.coolantFluid.getHoverName() : Component.translatable("ldlib.fluid.empty");
+            ? view.coolantFluid.getDisplayName() : Component.translatable("ldlib.fluid.empty");
         drawInfoRow(context, coolantName,
             Component.translatable("gui.neoecoae.crafting.ui.coolant_overclock", Math.max(0, view.coolantMaxOverclock)), 155);
         if (view.normalSwitchCount == 0 && view.highEnergySwitchCount == 0) {
@@ -296,11 +296,11 @@ final class CraftingControllerArtwork extends UIElement {
                 values -> Component.translatable("gui.neoecoae.crafting.ui.queue_capacity_short",
                     view.batchCapacity == Long.MAX_VALUE ? "∞" : values[0]), view.batchCapacity),
             Component.translatable("gui.neoecoae.crafting.ui.queue_used_short",
-                Component.literal(tooltips.percent(view.state.queuePermille())).withColor(QUEUE_VALUE_COLOR))));
+                Component.literal(tooltips.percent(view.state.queuePermille())).withStyle(neColor -> neColor.withColor(QUEUE_VALUE_COLOR)))));
         drawStatisticLines(context, PARALLEL_COLUMN_X, List.of(
             statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
                 values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_count_short",
-                    Component.literal(values[0]).withColor(PARALLEL_VALUE_COLOR)),
+                    Component.literal(values[0]).withStyle(neColor -> neColor.withColor(PARALLEL_VALUE_COLOR))),
                 view.ftParallelCapacity),
             statisticNumbers(STAT_COLUMN_WIDTH, STAT_TEXT_SCALE,
                 values -> Component.translatable("gui.neoecoae.crafting.ui.parallel_limit_short", values[0]),
@@ -310,7 +310,7 @@ final class CraftingControllerArtwork extends UIElement {
                 view.overflowCapacity),
             Component.translatable("gui.neoecoae.crafting.ui.parallel_overflow_percent_short",
                 view.overflowCapacity > 0
-                    ? Component.literal(tooltips.overflowPercent()).withColor(OVERFLOW_VALUE_COLOR)
+                    ? Component.literal(tooltips.overflowPercent()).withStyle(neColor -> neColor.withColor(OVERFLOW_VALUE_COLOR))
                     : Component.literal(tooltips.overflowPercent()))));
     }
 
@@ -377,7 +377,7 @@ final class CraftingControllerArtwork extends UIElement {
         int height = safeCapacity <= 0 ? 0 : Math.round(GAUGE_INTERIOR_HEIGHT
             * opening.value(safeAmount / (double) safeCapacity));
         if (height > 0 && fluid != null && !fluid.isEmpty()) {
-            FluidStack renderStack = fluid.copyWithAmount(Math.max(1, safeAmount));
+            FluidStack renderStack = cn.dancingsnow.neoecoae.platform.nbt.NEStacks.withAmount(fluid, Math.max(1, safeAmount));
             context.graphics.flush();
             DrawerHelper.drawFluidForGui(context.graphics, renderStack,
                 Math.round(getPositionX()) + x + 1, Math.round(getPositionY()) + 124 - height,

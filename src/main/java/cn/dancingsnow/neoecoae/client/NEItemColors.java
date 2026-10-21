@@ -43,7 +43,7 @@ public final class NEItemColors {
         if (tintIndex != statusLightTintIndex) {
             return 0xFFFFFFFF;
         }
-        return FastColor.ARGB32.opaque(stateColor(stack));
+        return (0xff000000 | stateColor(stack));
     }
 
     private static int stateColor(ItemStack stack) {

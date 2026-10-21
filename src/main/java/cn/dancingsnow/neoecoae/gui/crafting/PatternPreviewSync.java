@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUIContainer;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerLevel;
@@ -177,8 +177,8 @@ public final class PatternPreviewSync {
     }
 
     public boolean isViewer(ServerPlayer player) {
-        return player.containerMenu instanceof ModularUIContainerMenu menu
-                && menu.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder
+        return player.containerMenu instanceof ModularUIContainer menu
+                && menu.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder
                 && holder.pos.equals(host.getBlockPos())
                 && player.level() == host.getLevel()
                 && player.blockPosition().distSqr(host.getBlockPos()) <= 64.0D;

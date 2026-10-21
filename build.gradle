@@ -128,6 +128,13 @@ legacyForge {
 }
 
 sourceSets.main.resources.srcDir 'src/generated/resources'
+def ecoMixinConfigs = ['neoecoae.mixins.json', 'neoecoae.compat.advanced_ae.mixins.json',
+    'neoecoae.compat.extendedae.mixins.json', 'neoecoae.compat.thunderbolt.mixins.json',
+    'neoecoae.terminal_big_amount.mixins.json']
+mixin {
+    add sourceSets.main, 'neoecoae.refmap.json'
+    ecoMixinConfigs.each { config it }
+}
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 
@@ -243,5 +250,6 @@ tasks.named('processResources', ProcessResources) {
 
 tasks.named('jar', Jar) {
     manifest.attributes('Implementation-Title': mod_name,
-                        'Implementation-Version': mod_version)
+                        'Implementation-Version': mod_version,
+                        'MixinConfigs': ecoMixinConfigs.join(','))
 }

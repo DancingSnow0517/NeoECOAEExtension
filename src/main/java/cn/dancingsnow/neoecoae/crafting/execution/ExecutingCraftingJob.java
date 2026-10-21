@@ -154,7 +154,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
             deferredStock.putAll(exact.deferredStock());
             deferredEmitted.putAll(exact.deferredEmitted());
             timeTracker.startExactWork();
-            exact.exactTasks().forEach((pattern, count) -> pattern.getOutputs().forEach(output ->
+            exact.exactTasks().forEach((pattern, count) -> java.util.Arrays.stream(pattern.getOutputs()).forEach(output ->
                 timeTracker.addMaxItems(count.multiply(java.math.BigInteger.valueOf(output.amount()))
                     .multiply(java.math.BigInteger.valueOf(output.what().getAmountPerUnit())), output.what().getType())));
             for (var entry : plan.emittedItems()) timeTracker.addMaxItems(

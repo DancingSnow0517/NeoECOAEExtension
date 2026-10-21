@@ -10,9 +10,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Prevents ECO storage cells from being inserted into AE2's native ME chest and drive. */
 @Mixin(targets = {
-        "appeng.blockentity.storage.MEChestBlockEntity$CellInventoryFilter",
+        "appeng.blockentity.storage.ChestBlockEntity$CellInventoryFilter",
         "appeng.blockentity.storage.DriveBlockEntity$CellValidInventoryFilter"
-})
+}, remap = false)
 public abstract class NativeMEStorageCellFilterMixin {
     @Inject(method = "allowInsert", at = @At("HEAD"), cancellable = true)
     private void neoecoae$rejectEcoStorageCells(InternalInventory inventory, int slot, ItemStack stack,

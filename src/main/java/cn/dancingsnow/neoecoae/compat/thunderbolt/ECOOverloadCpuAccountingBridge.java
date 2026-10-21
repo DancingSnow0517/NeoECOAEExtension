@@ -37,9 +37,9 @@ public final class ECOOverloadCpuAccountingBridge {
     private static final @Nullable Method CLAIM = method("claimOverloadOutput", Object.class,
             UUID.class, AEKey.class, long.class, Actionable.class, BiFunction.class);
     private static final @Nullable Method SAVE = method("saveOverloadState", Object.class,
-            UUID.class, HolderLookup.Provider.class);
+            UUID.class);
     private static final @Nullable Method LOAD = method("loadOverloadState", Object.class,
-            UUID.class, CompoundTag.class, HolderLookup.Provider.class);
+            UUID.class, CompoundTag.class);
     private static final @Nullable Method CLEAR = method("clearOverloadState", Object.class);
     private static boolean initialized;
 
@@ -104,11 +104,11 @@ public final class ECOOverloadCpuAccountingBridge {
 
     private record Attachment(ECOCraftingOutputClaimSink owner, UUID jobId) implements ECOCraftingJobAttachment {
         public ResourceLocation id() { return ATTACHMENT; }
-        public CompoundTag save(HolderLookup.Provider registries) {
-            return (CompoundTag) invoke(SAVE, null, owner, jobId, registries);
+        public CompoundTag save() {
+            return (CompoundTag) invoke(SAVE, null, owner, jobId);
         }
-        public void load(CompoundTag tag, HolderLookup.Provider registries) {
-            invoke(LOAD, null, owner, jobId, tag, registries);
+        public void load(CompoundTag tag) {
+            invoke(LOAD, null, owner, jobId, tag);
         }
         public void clear(ECOCraftingJobResult result) { ECOOverloadCpuAccountingBridge.clear(owner); }
     }

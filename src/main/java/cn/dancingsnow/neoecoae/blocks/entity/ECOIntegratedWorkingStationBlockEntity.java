@@ -41,8 +41,8 @@ import cn.dancingsnow.neoecoae.api.components.AutoExportSides;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.gui.workstation.IntegratedWorkstationUI;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
@@ -214,6 +214,10 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     @SuppressWarnings("UnstableApiUsage")
     private final HashMap<Direction, Map<AEKeyType, ExternalStorageStrategy>> exportStrategies = new HashMap<>();
+    private final net.minecraftforge.energy.IEnergyStorage externalEnergy=new appeng.helpers.ForgeEnergyAdapter(this);
+    public @Nullable net.minecraftforge.energy.IEnergyStorage getEnergyStorage(@Nullable Direction side){
+        return side==null||getPowerSides().contains(side)?externalEnergy:null;
+    }
 
     public ECOIntegratedWorkingStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -222,9 +226,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         this.setInternalMaxPower(MAX_POWER_STORAGE);
 
         this.upgrades = UpgradeInventories.forMachine(NEBlocks.INTEGRATED_WORKING_STATION, 4, this::saveChanges);
-        this.configManager = IConfigManager.builder(this::onConfigChanged)
-            .registerSetting(Settings.AUTO_EXPORT, YesNo.NO)
-            .build();
+        this.configManager = new appeng.util.ConfigManager(this::onConfigChanged);
+        this.configManager.registerSetting(Settings.AUTO_EXPORT, YesNo.NO);
 
         this.setPowerSides(getGridConnectableSides(getOrientation()));
     }
@@ -342,7 +345,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     @Override
-    public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+    public void onChangeInventory(appeng.api.inventories.InternalInventory inv, int slot) {
         onChangeInventory();
     }
 
@@ -396,7 +399,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     @Override
     public TickingRequest getTickingRequest(IGridNode iGridNode) {
-        return new TickingRequest(1, 20, !hasAutoExportWork() && !this.hasCraftWork());
+        return new TickingRequest(1, 20, !hasAutoExportWork() && !this.hasCraftWork(), true);
     }
 
     @Override
@@ -526,7 +529,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
                             FluidStack fluidStack = this.getInputTank().getFluid();
                             if (out.inputFluid().test(fluidStack)) {
-                                getInputTank().drain(fluidStack.copyWithAmount(out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
+                                getInputTank().drain(cn.dancingsnow.neoecoae.platform.nbt.NEStacks.withAmount(fluidStack, out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
                             }
 
                             this.setProcessingTime(0);
@@ -572,7 +575,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 if (fluid != null && fluid.what() != null) {
                     var extracted = this.getOutputTank().drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
                     var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);
-                    this.getOutputTank().fill(outFluid.copyWithAmount((int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
+                    this.getOutputTank().fill(cn.dancingsnow.neoecoae.platform.nbt.NEStacks.withAmount(outFluid, (int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
 
                     if (this.getOutputTank().getFluidAmount() == 0) clearFluidOut();
 
@@ -675,7 +678,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         return IntegratedWorkstationUI.create(new IntegratedWorkstationUI.Config(
-            getInputTank(), getOutputTank(), (IItemHandlerModifiable) getExposedItemHandler(null),
+            getInputTank(), getOutputTank(), (IItemHandlerModifiable) getInternalInventory().toItemHandler(),
             (IItemHandlerModifiable) upgrades.toItemHandler(), () -> processingTime, MAX_PROCESSING_STEPS,
             this::clearFluid, this::clearFluidOut, () -> shouldAutoExport,
             enabled -> {

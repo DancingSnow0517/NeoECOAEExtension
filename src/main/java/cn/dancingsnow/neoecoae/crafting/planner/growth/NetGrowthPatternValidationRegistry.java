@@ -77,7 +77,7 @@ public final class NetGrowthPatternValidationRegistry {
             PatternSemantics semantics = PatternSemanticAdapters.analyze(details);
             if (!semantics.completeForStaticPlanning() || !semantics.cycleSafeForStaticPlanning()
                     || semantics.consumedInputs().isEmpty() || semantics.producedOutputs().isEmpty()) return null;
-            var outputs = details.getOutputs();
+            var outputs = java.util.Arrays.asList(details.getOutputs());
             var inputs = details.getInputs();
             if (outputs == null || outputs.isEmpty() || inputs == null || inputs.length == 0) return null;
             for (var output : outputs) {

@@ -422,7 +422,7 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
     }
 
     private static void append(List<GraphLayoutSnapshot.Point> points, GraphLayoutSnapshot.Point point) {
-        if (points.isEmpty() || !points.getLast().equals(point)) points.add(point);
+        if (points.isEmpty() || !cn.dancingsnow.neoecoae.platform.JdkCompat.last(points).equals(point)) points.add(point);
     }
 
     private static double diameter(ClientCraftingGraph.Node node) {

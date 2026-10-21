@@ -46,7 +46,7 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
         var info = new ArrayList<FormattedText>();
         info.add(Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy", recipe.energy()));
         if (!recipe.extraInputs().isEmpty()) {
-            var extra = recipe.extraInputs().getFirst();
+            var extra = cn.dancingsnow.neoecoae.platform.JdkCompat.first(recipe.extraInputs());
             info.add(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_cost",
                 extra.amount(), extra.what().getDisplayName()));
         }

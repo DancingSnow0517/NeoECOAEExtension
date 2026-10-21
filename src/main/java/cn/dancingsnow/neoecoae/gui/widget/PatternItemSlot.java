@@ -1,17 +1,17 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
 import appeng.crafting.pattern.EncodedPatternItem;
-import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
-import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegister;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.slot.LocalSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib.gui.editor.annotation.LDLRegister;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.function.BooleanSupplier;
 
-@LDLRegister(name = "pattern-item-slot", group = "inventory", registry = "ldlib2:ui_element")
+@LDLRegister(name = "pattern-item-slot", group = "inventory")
 public class PatternItemSlot extends ItemSlot {
     private BooleanSupplier highlighted = () -> false;
     private BooleanSupplier dimmed = () -> false;
@@ -44,7 +44,7 @@ public class PatternItemSlot extends ItemSlot {
 
     @Override
     protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
-        if (itemStack.getItem() instanceof EncodedPatternItem<?> patternItem) {
+        if (itemStack.getItem() instanceof EncodedPatternItem patternItem) {
             if (!ItemStack.matches(cachedPattern, itemStack)) {
                 cachedPattern = itemStack.copy();
                 cachedOutput = patternItem.getOutput(itemStack);

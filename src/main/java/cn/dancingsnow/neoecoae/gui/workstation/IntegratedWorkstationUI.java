@@ -12,20 +12,20 @@ import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.slot.ItemHandlerSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.TextWrap;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import com.google.gson.JsonObject;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -107,7 +107,7 @@ public final class IntegratedWorkstationUI {
         var networkTool = NetworkToolItem.findNetworkToolInv(player);
         Integer networkToolSlot = null;
         if (networkTool != null) {
-            networkToolSlot = networkTool.getPlayerInventorySlot();
+            networkToolSlot = networkTool.getSlot();
         }
 
         List<UIElement> upgradeSlots = new ArrayList<>(4);
@@ -195,7 +195,7 @@ public final class IntegratedWorkstationUI {
             .noText()
             .addPostIcon(config.autoExport().getAsBoolean() ? AUTO_EXPORT_ON : AUTO_EXPORT_OFF)
             .setOnServerClick(e -> config.setAutoExport().accept(!config.autoExport().getAsBoolean()));
-        UIElement icon = button.getChildren().getLast();
+        UIElement icon = cn.dancingsnow.neoecoae.platform.JdkCompat.last(button.getChildren());
         BindableValue<Boolean> syncedState = new BindableValue<>(config.autoExport().getAsBoolean());
         syncedState.bind(DataBindingBuilder.boolS2C(() -> config.autoExport().getAsBoolean()).build());
         syncedState.registerValueListener(on -> {
@@ -206,7 +206,7 @@ public final class IntegratedWorkstationUI {
         button.addChild(syncedState);
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
             List.of(
-                ButtonToolTips.AutoExport.text().withColor(-1),
+                ButtonToolTips.AutoExport.text().withStyle(neColor -> neColor.withColor(-1)),
                 (config.autoExport().getAsBoolean() ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
             ),
             null,

@@ -1,11 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegister;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ScrollerView;
+import com.lowdragmc.lowdraglib.gui.editor.annotation.LDLRegister;
 
-@LDLRegister(name = "eco-host-channel-scroller-view", group = "neoecoae", registry = "ldlib2:ui_element")
+@LDLRegister(name = "eco-host-channel-scroller-view", group = "neoecoae")
 public class ECOHostChannelScrollerView extends ScrollerView {
     static final float THUMB_HEIGHT = 15;
     static final float THUMB_WIDTH = 12;

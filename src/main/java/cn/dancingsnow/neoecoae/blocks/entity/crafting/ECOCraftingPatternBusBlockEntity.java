@@ -41,9 +41,9 @@ import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidatio
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternBusUI;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UI;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
@@ -503,12 +503,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     private boolean containsPattern(ItemStack pattern) {
         for (ItemStack storedPattern : effectiveInventory) {
-            if (ItemStack.isSameItemSameComponents(storedPattern, pattern)) {
+            if (ItemStack.isSameItemSameTags(storedPattern, pattern)) {
                 return true;
             }
         }
         for (ItemStack storedPattern : getAuxiliaryEncodedPatterns()) {
-            if (ItemStack.isSameItemSameComponents(storedPattern, pattern)) {
+            if (ItemStack.isSameItemSameTags(storedPattern, pattern)) {
                 return true;
             }
         }
@@ -539,8 +539,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             .addService(IECOPatternStorage.class, this);
     }
 
-    @Override
-    public void saveChangedInventory(AppEngInternalInventory inv) {
+    public void saveChangedInventory(appeng.util.inv.AppEngInternalInventory inv) {
         if (catalog.isBatchActive()) {
             return;
         }
@@ -548,7 +547,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     @Override
-    public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+    public void onChangeInventory(appeng.api.inventories.InternalInventory inv, int slot) {
         catalog.onChangeInventory(slot);
     }
 

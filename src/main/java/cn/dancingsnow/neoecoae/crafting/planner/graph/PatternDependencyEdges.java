@@ -38,7 +38,7 @@ public final class PatternDependencyEdges {
                     || feedback.returnedKey().equals(candidate.key()))
                 .findFirst().orElse(pattern.inputs().isEmpty()
                     ? new CompiledInput(null, feedback.dependentOutput(), 1L, true, null)
-                    : pattern.inputs().getFirst());
+                    : cn.dancingsnow.neoecoae.platform.JdkCompat.first(pattern.inputs()));
             edges.add(new CraftingGraphEdge(feedback.returnedKey(), feedback.dependentOutput(), pattern, input));
         }
         return edges;

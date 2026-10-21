@@ -945,7 +945,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             budget--;
             var stack = inventory.getStackInSlot(slot);
             BitSet history = externalCraftingHistory.computeIfAbsent(source, ignored -> new BitSet());
-            history.set(slot, stack.has(appeng.api.ids.AEComponents.ENCODED_CRAFTING_PATTERN));
+            history.set(slot, appeng.core.definitions.AEItems.CRAFTING_PATTERN.isSameAs(stack));
             if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack)) {
                 externalPatternSlots.computeIfAbsent(source, ignored -> new BitSet()).set(slot);
                 ECOPatternSourceSlot candidate = new ECOPatternSourceSlot(source, slot);

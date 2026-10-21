@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -57,7 +57,7 @@ public final class HostNetworkStatusElement {
         return Component.translatable(connected
                 ? "gui.neoecoae.host.network.connected"
                 : "gui.neoecoae.host.network.disconnected")
-            .withColor(connected ? CONNECTED_COLOR : DISCONNECTED_COLOR);
+            .withStyle(neColor -> neColor.withColor(connected ? CONNECTED_COLOR : DISCONNECTED_COLOR));
     }
 
     private static String modeTranslationKey(int multiplier) {

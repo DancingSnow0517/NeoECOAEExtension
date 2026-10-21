@@ -18,7 +18,7 @@ public final class OptionalCellUpgrades {
         modBus.addListener((FMLCommonSetupEvent event) -> event.enqueueWork(() -> {
             String group = GuiText.StorageCells.getTranslationKey();
             for (ItemEntry<? extends ECOStorageCellItem> cell : cells) {
-                Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, group);
+                Upgrades.add(AEItems.FUZZY_CARD.asItem(), cell, 1, group);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, group);
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
             }

@@ -27,7 +27,7 @@ public final class ECOProcessingExecutionPattern implements IPatternDetails, ECO
         for (int i = 0; i < source.length; i++) result[i] = new Input(source[i], copies);
         return result;
     }
-    @Override public List<GenericStack> getOutputs() {
+    @Override public GenericStack[] getOutputs() {
         return ECOBatchCraftingHelper.multiply(original.getOutputs(), copies);
     }
     @Override public boolean supportsPushInputsToExternalInventory() { return true; }

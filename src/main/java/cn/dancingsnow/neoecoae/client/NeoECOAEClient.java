@@ -15,11 +15,9 @@ import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import appeng.init.client.InitScreens;
-import net.minecraftforge.client.event.RegisterMenuScreensEvent;
-import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
-import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
-import com.lowdragmc.lowdraglib2.editor.resource.TexturesResource;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.editor.resource.ResourceInstance;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.editor.resource.TexturesResource;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
@@ -30,7 +28,6 @@ import net.minecraftforge.fml.ModContainer;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.client.event.AddSectionGeometryEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import appeng.menu.implementations.CellWorkbenchMenu;
@@ -42,15 +39,25 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import cn.dancingsnow.neoecoae.network.ECONetwork;
 
-@Mod(value = NeoECOAE.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
 public class NeoECOAEClient {
-    public NeoECOAEClient(IEventBus modBus, ModContainer container) {
+    public static void initialize(IEventBus modBus) {
         NEExtraModels.register();
+        modBus.addListener(NeoECOAEClient::onClientSetup);
+        modBus.addListener((net.minecraftforge.client.event.RegisterClientReloadListenersEvent event) ->
+            event.registerReloadListener((net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> {
+                cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture.clearDimensionCache();
+                cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.style.StylesheetManager.INSTANCE.setResourceOpener(manager::open);
+            }));
+        modBus.addListener(NeoECOAEClient::onRegisterItemColors);
     }
 
-    @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
+        NETextures.init(TexturesResource.INSTANCE);
+        event.enqueueWork(() -> InitScreens.register(
+            LargeIntegratedWorkingStationPatternProviderMenu.TYPE,
+            LargeIntegratedWorkingStationPatternProviderScreen::new,
+            "/screens/large_integrated_working_station_interface.json"));
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();
         NEItemColors.clearCache();
         ECOCellModels.runDeferredRegistration();
@@ -70,7 +77,8 @@ public class NeoECOAEClient {
     }
 
     @SubscribeEvent
-    public static void onClientTick(net.minecraftforge.client.event.ClientTickEvent.Post event) {
+    public static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
         var player = net.minecraft.client.Minecraft.getInstance().player;
         cn.dancingsnow.neoecoae.network.MenuDataTransport.retainClientMenu(player == null ? null : player.containerMenu);
     }
@@ -122,24 +130,6 @@ public class NeoECOAEClient {
         ECOCraftConfirmScreenIntegration.onScreenRenderPost(event);
     }
 
-    @SubscribeEvent
-    public static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
-        InitScreens.register(
-            event,
-            LargeIntegratedWorkingStationPatternProviderMenu.TYPE,
-            LargeIntegratedWorkingStationPatternProviderScreen::new,
-            "/screens/large_integrated_working_station_interface.json"
-        );
-    }
-
-    @SubscribeEvent
-    public static void onAddChunkGeometry(AddSectionGeometryEvent event) {
-        // RenderSection reuses a mutable origin; snapshot it before the async rebuild runs.
-        BlockPos sectionOrigin = event.getSectionOrigin().immutable();
-        event.addRenderer(context -> FixedBlockEntityRenderers.render(context, sectionOrigin));
-    }
-
-    @SubscribeEvent
     public static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
         // Covers every ECO storage matrix icon that carries a status-light layer: the ECO item/fluid/
         // chemical/FE/mana/source families, plus Omni, MEGA and Lightning matrices. Standard cells
@@ -151,11 +141,4 @@ public class NeoECOAEClient {
         event.register(NEItemColors::getCellColor, cells);
     }
 
-    @SuppressWarnings("unchecked")
-    @SubscribeEvent
-    public static void onLoadBuiltinEditorResource(EditorResourceEvent.LoadBuiltin event) {
-        if (event.resourceInstance.resource == TexturesResource.INSTANCE) {
-            NETextures.init((ResourceInstance<IGuiTexture>) event.resourceInstance);
-        }
-    }
 }

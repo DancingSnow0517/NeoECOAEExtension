@@ -76,7 +76,7 @@ public final class CondensationGraph {
                 ? new CycleComponent(scc.componentId(), scc.members(), new ArrayList<>(patterns), scc.internalEdges(),
                     incoming.getOrDefault(scc.componentId(), List.of()),
                     outgoing.getOrDefault(scc.componentId(), List.of()))
-                : new AcyclicComponent(scc.componentId(), scc.members().getFirst(), new ArrayList<>(patterns));
+                : new AcyclicComponent(scc.componentId(), cn.dancingsnow.neoecoae.platform.JdkCompat.first(scc.members()), new ArrayList<>(patterns));
             components.put(scc.componentId(), component);
         }
 
@@ -112,7 +112,7 @@ public final class CondensationGraph {
     public List<PlanningComponent> topologicalOrder() { return topologicalOrder; }
     /** Execution order follows supplier -> consumer, opposite of producer->required-input edges. */
     public List<PlanningComponent> executionOrder() {
-        return topologicalOrder.reversed();
+        return cn.dancingsnow.neoecoae.platform.JdkCompat.reversed(topologicalOrder);
     }
     public List<CycleComponent> cycles() {
         return topologicalOrder.stream().filter(CycleComponent.class::isInstance).map(CycleComponent.class::cast)

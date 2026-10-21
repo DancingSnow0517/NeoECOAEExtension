@@ -36,7 +36,7 @@ public final class ECORecipeClassifier {
 
         try {
             var inputs = pattern.getInputs();
-            var outputs = pattern.getOutputs();
+            var outputs = java.util.Arrays.asList(pattern.getOutputs());
             if (inputs == null || inputs.length == 0) return unsupported("NO_INPUTS");
             if (outputs == null || outputs.isEmpty()) return unsupported("NO_OUTPUTS");
             for (GenericStack output : outputs) {

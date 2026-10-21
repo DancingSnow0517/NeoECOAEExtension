@@ -21,6 +21,6 @@ public record ECOPreparedPattern(ItemStack stack, IPatternDetails details, @Null
         if (key != null) {
             return key.equals(AEItemKey.of(candidate));
         }
-        return ItemStack.isSameItemSameComponents(stack, candidate);
+        return ItemStack.isSameItemSameTags(stack, candidate);
     }
 }

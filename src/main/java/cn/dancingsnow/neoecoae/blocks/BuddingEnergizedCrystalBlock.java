@@ -33,7 +33,7 @@ public class BuddingEnergizedCrystalBlock extends AEBaseBlock {
     }
 
     @Override
-    protected void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+    public void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         if (random.nextInt(GROWTH_CHANCE) != 0) {
             return;
         }
@@ -45,13 +45,13 @@ public class BuddingEnergizedCrystalBlock extends AEBaseBlock {
         Block newCluster = null;
         if (canClusterGrowAtState(targetState)) {
             newCluster = NEBlocks.SMALL_ENERGIZED_CRYSTAL_BUD.get();
-        } else if (targetState.is(NEBlocks.SMALL_ENERGIZED_CRYSTAL_BUD)
+        } else if (targetState.is(NEBlocks.SMALL_ENERGIZED_CRYSTAL_BUD.get())
             && targetState.getValue(AmethystClusterBlock.FACING) == direction) {
             newCluster = NEBlocks.MEDIUM_ENERGIZED_CRYSTAL_BUD.get();
-        } else if (targetState.is(NEBlocks.MEDIUM_ENERGIZED_CRYSTAL_BUD)
+        } else if (targetState.is(NEBlocks.MEDIUM_ENERGIZED_CRYSTAL_BUD.get())
             && targetState.getValue(AmethystClusterBlock.FACING) == direction) {
             newCluster = NEBlocks.LARGE_ENERGIZED_CRYSTAL_BUD.get();
-        } else if (targetState.is(NEBlocks.LARGE_ENERGIZED_CRYSTAL_BUD)
+        } else if (targetState.is(NEBlocks.LARGE_ENERGIZED_CRYSTAL_BUD.get())
             && targetState.getValue(AmethystClusterBlock.FACING) == direction) {
             newCluster = NEBlocks.ENERGIZED_CRYSTAL_CLUSTER.get();
         }

@@ -23,8 +23,9 @@ import cn.dancingsnow.neoecoae.network.ECONetwork;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 
 /** Formats ECO CPU status in AE2's native confirmation screen. */
-@Mixin(value = CraftConfirmScreen.class, priority = 1100)
-public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmMenu> {
+@Mixin(value = CraftConfirmScreen.class, priority = 1100, remap = false)
+public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmMenu>
+        implements cn.dancingsnow.neoecoae.platform.mixin.CraftConfirmForceStartBridge {
     @Shadow private Button start;
     @Shadow private Button selectCPU;
 
@@ -42,8 +43,9 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
 
     // Carry the intent and submission together, before EAEP sends its separate flag packet.
     // The server selects EAEP's implementation when installed, including from the ECO report screen.
-    @Inject(method = "start", at = @At("HEAD"), cancellable = true, order = 500)
-    private void neoecoae$submitWithForceIntent(CallbackInfo ci) {
+    @Override
+    @org.spongepowered.asm.mixin.Unique
+    public void neoecoae$submitWithForceIntent(CallbackInfo ci) {
         if (start.active) {
             var plan = getMenu().getPlan();
             ECONetwork.sendToServer(new ECOForceCraftStartFlagC2SPacket(getMenu().containerId,

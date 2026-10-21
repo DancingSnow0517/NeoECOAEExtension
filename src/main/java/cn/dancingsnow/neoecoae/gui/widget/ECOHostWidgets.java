@@ -1,13 +1,13 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
-import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Scroller;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.ScrollDisplay;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.ScrollerMode;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Scroller;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ScrollerView;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 
 public final class ECOHostWidgets {
     private ECOHostWidgets() {
@@ -19,8 +19,8 @@ public final class ECOHostWidgets {
                 .mode(ScrollerMode.VERTICAL)
                 .horizontalScrollDisplay(ScrollDisplay.NEVER))
             .viewContainer(view -> {
-                view.getLayout().gapAll(gap);
-                view.getLayout().paddingAll(padding);
+                view.getLayoutStyle().gapAll(gap);
+                view.getLayoutStyle().paddingAll(padding);
             })
             .viewPort(view -> view.style(style -> style.backgroundTexture(NETextures.HOST_PANEL_BORDER)))
             .verticalScroller(scroller -> styleStorageScrollbar(scroller, scrollbarOffset));

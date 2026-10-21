@@ -2,16 +2,16 @@ package cn.dancingsnow.neoecoae.gui.task;
 
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IBindable;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IDataSource;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.SyncStrategy;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;

@@ -6,7 +6,7 @@ import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import com.lowdragmc.lowdraglib2.integration.xei.emi.ModularUIEMIRecipe;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.integration.xei.emi.ModularUIEMIRecipe;
 import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;

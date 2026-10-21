@@ -7,11 +7,11 @@ import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
-import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.slot.LocalSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUIContainer;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -91,8 +91,8 @@ final class CraftingPatternPreviewState {
 
     void tick() {
         // UI construction precedes assigning player.containerMenu. Probe only once the actual menu is ready.
-        if (!player.level().isClientSide || !(player.containerMenu instanceof ModularUIContainerMenu menu)
-                || !(menu.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder)
+        if (!player.level().isClientSide || !(player.containerMenu instanceof ModularUIContainer menu)
+                || !(menu.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder)
                 || !holder.pos.equals(craftingInterface.getBlockPos()) || requestedMenuId == menu.containerId) return;
         menuId = menu.containerId;
         requestedMenuId = menu.containerId;
@@ -168,7 +168,7 @@ final class CraftingPatternPreviewState {
         payload.putInt("revision", revision);
         payload.putLong("bus", entry.busPosition());
         payload.putInt("slot", entry.physicalSlot());
-        payload.put("stack", entry.stack().saveOptional(player.level().registryAccess()));
+        payload.put("stack", cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(entry.stack(), player.level().registryAccess()));
         payload.putInt("action", action);
         payload.putInt("button", button);
         craftingInterface.rpcToServer("actOnPatternPreview", payload);
@@ -250,7 +250,7 @@ final class CraftingPatternPreviewState {
             CompoundTag target = new CompoundTag();
             target.putLong("bus", entry.busPosition());
             target.putInt("slot", entry.physicalSlot());
-            target.put("stack", entry.stack().saveOptional(player.level().registryAccess()));
+            target.put("stack", cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(entry.stack(), player.level().registryAccess()));
             targets.add(target);
         }
         payload.put("targets", targets);
@@ -262,7 +262,7 @@ final class CraftingPatternPreviewState {
         // An encoded pattern or a pattern disk: a bus takes either in the same slot. Which host a stack would
         // go to is resolved on the server, so this only has to tell whether the move is worth sending - a stack
         // no bus takes simply finds no slot over there.
-        if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)) return false;
+        if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem)) return false;
         if (!player.level().isClientSide || revision < 0
                 || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return false;
         for (PatternPreviewEntry entry : entries) {
@@ -275,11 +275,11 @@ final class CraftingPatternPreviewState {
             payload.putInt("revision", revision);
             payload.putLong("bus", entry.busPosition());
             payload.putInt("slot", entry.physicalSlot());
-            payload.put("stack", entry.stack().saveOptional(player.level().registryAccess()));
+            payload.put("stack", cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(entry.stack(), player.level().registryAccess()));
             payload.putInt("action", 2);
             payload.putInt("button", 0);
             payload.putInt("sourceSlot", source.getContainerSlot());
-            payload.put("sourceStack", source.getItem().saveOptional(player.level().registryAccess()));
+            payload.put("sourceStack", cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(source.getItem(), player.level().registryAccess()));
             craftingInterface.rpcToServer("actOnPatternPreview", payload);
             return true;
         }

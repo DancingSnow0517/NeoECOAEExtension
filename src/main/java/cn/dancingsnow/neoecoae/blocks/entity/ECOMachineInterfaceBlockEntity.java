@@ -39,9 +39,9 @@ import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageInterfaceUI;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUIContainer;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.annotation.RPCMethod;
@@ -260,7 +260,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             || slot < 0 || slot >= fuzzyPlanningInventory.size() || !supportsComputationInterfaceUi()) {
             return;
         }
-        ServerPlayer player = sender.asPlayer();
+        ServerPlayer player = cn.dancingsnow.neoecoae.platform.sync.NERpcSenders.asPlayer(sender);
         if (player == null || player.level() != serverLevel
             || player.blockPosition().distSqr(worldPosition) > 64.0D) {
             return;
@@ -519,7 +519,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 || !formed || !supportsPatternPreview()) {
             return;
         }
-        ServerPlayer player = sender.asPlayer();
+        ServerPlayer player = cn.dancingsnow.neoecoae.platform.sync.NERpcSenders.asPlayer(sender);
         if (player == null) {
             return;
         }
@@ -535,7 +535,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public void actOnPatternPreview(RPCSender sender, CompoundTag payload) {
         if (sender.isServer() || !(level instanceof ServerLevel) || !formed
                 || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked() || payload == null) return;
-        ServerPlayer player = sender.asPlayer();
+        ServerPlayer player = cn.dancingsnow.neoecoae.platform.sync.NERpcSenders.asPlayer(sender);
         if (player == null || !patternPreviewSync.isViewer(player)
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
         ensurePatternInterfaceMapping();
@@ -549,7 +549,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         ItemStack existing = inventory.getStackInSlot(physicalSlot);
         if (target.bus().ownsAuxiliary(existing) || !payload.contains("stack", Tag.TAG_COMPOUND)) return;
         // Unrelated automation must not invalidate a click or force a full catalogue resend.
-        ItemStack expectedTarget = ItemStack.parseOptional(level.registryAccess(), payload.getCompound("stack"));
+        ItemStack expectedTarget = cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(level.registryAccess(), payload.getCompound("stack"));
         if (!ItemStack.matches(existing, expectedTarget)) return;
         ItemStack carried = player.containerMenu.getCarried();
         int action = payload.getInt("action");
@@ -559,7 +559,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             int sourceSlot = payload.getInt("sourceSlot");
             if (sourceSlot < 0 || sourceSlot >= 36 || !carried.isEmpty()) return;
             ItemStack source = player.getInventory().getItem(sourceSlot);
-            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), payload.getCompound("sourceStack"));
+            ItemStack expected = cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(level.registryAccess(), payload.getCompound("sourceStack"));
             if (source.isEmpty() || !ItemStack.matches(source, expected) || !existing.isEmpty()
                     || !inventory.isItemValid(physicalSlot, source) || hasDuplicatePattern(target, source)) return;
             ItemStack remainder = inventory.insertItem(physicalSlot, source.copy(), false);
@@ -575,7 +575,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (carried.isEmpty()) {
                 int amount = button == 1 ? (existing.getCount() + 1) / 2 : existing.getCount();
                 player.containerMenu.setCarried(inventory.extractItem(physicalSlot, amount, false));
-            } else if (existing.isEmpty() || ItemStack.isSameItemSameComponents(existing, carried)) {
+            } else if (existing.isEmpty() || ItemStack.isSameItemSameTags(existing, carried)) {
                 if (inventory.isItemValid(physicalSlot, carried) && !hasDuplicatePattern(target, carried)) {
                     int amount = button == 1 ? 1 : carried.getCount();
                     ItemStack remainder = inventory.insertItem(physicalSlot, carried.copyWithCount(amount), false);
@@ -597,7 +597,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public void quickMovePatternPreview(RPCSender sender, CompoundTag payload) {
         if (sender.isServer() || !(level instanceof ServerLevel) || !formed
                 || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked() || payload == null) return;
-        ServerPlayer player = sender.asPlayer();
+        ServerPlayer player = cn.dancingsnow.neoecoae.platform.sync.NERpcSenders.asPlayer(sender);
         if (player == null || !patternPreviewSync.isViewer(player)
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
         ensurePatternInterfaceMapping();
@@ -615,7 +615,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (physicalSlot < 0 || physicalSlot >= inventory.size()) continue;
             ItemStack existing = inventory.getStackInSlot(physicalSlot);
             if (target.bus().ownsAuxiliary(existing)) continue;
-            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), targetTag.getCompound("stack"));
+            ItemStack expected = cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(level.registryAccess(), targetTag.getCompound("stack"));
             if (existing.isEmpty() || !ItemStack.matches(existing, expected)) continue;
             ItemStack available = inventory.extractItem(physicalSlot, Integer.MAX_VALUE, true);
             if (available.isEmpty() || !canStoreInPlayerInventory(player, available)) continue;
@@ -897,8 +897,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return;
         }
         for (ServerPlayer player : serverLevel.players()) {
-            if (!(player.containerMenu instanceof ModularUIContainerMenu menu)
-                    || !(menu.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder)
+            if (!(player.containerMenu instanceof ModularUIContainer menu)
+                    || !(menu.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder)
                     || !holder.pos.equals(worldPosition)) {
                 continue;
             }
@@ -1017,7 +1017,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 || inventorySlot < 0 || inventorySlot >= 36 || !formed || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi())) {
             return;
         }
-        ServerPlayer player = sender.asPlayer();
+        ServerPlayer player = cn.dancingsnow.neoecoae.platform.sync.NERpcSenders.asPlayer(sender);
         if (!isPatternInterfacePlayer(player, serverLevel)) {
             return;
         }
@@ -1521,7 +1521,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             ItemStack existing = player.getInventory().getItem(slot);
             if (existing.isEmpty()) {
                 remaining -= stackLimit;
-            } else if (ItemStack.isSameItemSameComponents(existing, stack)) {
+            } else if (ItemStack.isSameItemSameTags(existing, stack)) {
                 remaining -= Math.max(0, Math.min(stackLimit, existing.getMaxStackSize()) - existing.getCount());
             }
         }
@@ -1776,7 +1776,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         private boolean isSourceUnchanged(PatternTransferStep step) {
             ItemStack current = step.inventory().getStackInSlot(step.slot());
             return current.getCount() == step.snapshot().getCount()
-                    && ItemStack.isSameItemSameComponents(current, step.snapshot());
+                    && ItemStack.isSameItemSameTags(current, step.snapshot());
         }
 
         @Nullable
@@ -1843,12 +1843,16 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return null;
     }
 
-    @Override
-    public void saveChangedInventory(AppEngInternalInventory inventory) {
+    public void saveChangedInventory(appeng.util.inv.AppEngInternalInventory inventory) {
         setChanged();
         if (inventory != fuzzyPlanningInventory) {
             markForUpdate();
         }
+    }
+
+    @Override
+    public void onChangeInventory(appeng.api.inventories.InternalInventory inventory,int slot){
+        setChanged();if(inventory!=fuzzyPlanningInventory)markForUpdate();
     }
 
     @Override

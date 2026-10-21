@@ -77,11 +77,11 @@ public final class ComputationTaskCards {
     public static Component fastPathStatus(String reasons) {
         if (reasons == null || reasons.isBlank()) {
             return Component.translatable("gui.neoecoae.crafting.fast_path_reason.not_recorded")
-                .withColor(0xFFAA00);
+                .withStyle(neColor -> neColor.withColor(0xFFAA00));
         }
         var codes = java.util.Arrays.stream(reasons.split("\n")).distinct().toList();
-        if (codes.size() == 1 && codes.getFirst().equals("FAST_PATH_HIT")) {
-            return Component.translatable("gui.neoecoae.crafting.fast_path_hit").withColor(0x55FF55);
+        if (codes.size() == 1 && cn.dancingsnow.neoecoae.platform.JdkCompat.first(codes).equals("FAST_PATH_HIT")) {
+            return Component.translatable("gui.neoecoae.crafting.fast_path_hit").withStyle(neColor -> neColor.withColor(0x55FF55));
         }
         var misses = Component.empty();
         for (String code : codes) {
@@ -91,7 +91,7 @@ public final class ComputationTaskCards {
         }
         return Component.translatable(codes.contains("FAST_PATH_HIT")
                 ? "gui.neoecoae.crafting.fast_path_partial_hit" : "gui.neoecoae.crafting.fast_path_reason", misses)
-            .withColor(0xFFAA00);
+            .withStyle(neColor -> neColor.withColor(0xFFAA00));
     }
 
     public static Component fastPathReason(String reason) {

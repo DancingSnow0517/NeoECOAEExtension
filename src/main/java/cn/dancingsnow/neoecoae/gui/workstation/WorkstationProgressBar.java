@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IBindable;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IDataSource;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
 

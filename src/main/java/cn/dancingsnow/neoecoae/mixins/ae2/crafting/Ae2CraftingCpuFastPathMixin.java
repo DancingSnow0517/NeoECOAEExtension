@@ -8,7 +8,6 @@ import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Final;
@@ -40,6 +39,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
         // Thunderbolt's outer batch loop falls back here for ECO providers, which
         // deliberately do not implement its foreign batch-provider interface.
         if (net.minecraftforge.fml.ModList.get().isLoaded("molecularmanipulator")) return;
+        if (job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob paused && paused.neoecoae$suspended()) { cir.setReturnValue(0); return; }
         try {
             int consumed = neoecoae$fastPath().execute(this, job, inventory, maxPatterns, crafting, energy, level);
             if (consumed > 0) cir.setReturnValue(consumed);
@@ -93,12 +93,12 @@ public abstract class Ae2CraftingCpuFastPathMixin {
     }
 
     @Inject(method = "readFromNBT", at = @At("TAIL"))
-    private void neoecoae$read(CompoundTag tag, HolderLookup.Provider registries, CallbackInfo ci) {
+    private void neoecoae$read(CompoundTag tag, CallbackInfo ci) {
         neoecoae$fastPath().read(tag.getCompound("neoecoaeFastPath"));
     }
 
     @Inject(method = "writeToNBT", at = @At("TAIL"))
-    private void neoecoae$write(CompoundTag tag, HolderLookup.Provider registries, CallbackInfo ci) {
+    private void neoecoae$write(CompoundTag tag, CallbackInfo ci) {
         if (neoecoae$fastPath == null) return;
         var ledger = new CompoundTag();
         neoecoae$fastPath.write(ledger);

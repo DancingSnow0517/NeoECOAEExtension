@@ -35,7 +35,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     }
 
     @Override
-    protected Holder<Block> casing() {
+    protected java.util.function.Supplier<? extends Block> casing() {
         return NEBlocks.CRAFTING_CASING;
     }
 
@@ -221,7 +221,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             return false;
         }
 
-        return validateBlocks(level, endCasing, BlockState::is, NEBlocks.CRAFTING_CASING);
+        return validateBlocks(level, endCasing, (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.CRAFTING_CASING);
     }
 
     @Override
@@ -244,8 +244,8 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     private static void syncNetworkSwitchState(ServerLevel level, BlockPos controllerPos, BlockState controllerState, boolean mirrored) {
         BlockPos switchPos = NENetworkSwitchUtil.switchPosition(controllerPos, controllerState, mirrored);
         BlockState switchState = level.getBlockState(switchPos);
-        boolean normal = switchState.is(NEBlocks.CRAFTING_NETWORK_SWITCH);
-        boolean highEnergy = switchState.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH);
+        boolean normal = switchState.is(NEBlocks.CRAFTING_NETWORK_SWITCH.get());
+        boolean highEnergy = switchState.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get());
         NENetworkSwitchUtil.syncFormed(level, controllerPos, controllerState, mirrored);
         level.setBlock(controllerPos, level.getBlockState(controllerPos)
             .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.NETWORK_SWITCH, normal)
@@ -263,21 +263,21 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     private boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
         BlockPos center = controllerPos.relative(side);
         BlockState state = level.getBlockState(center);
-        boolean sw = state.is(NEBlocks.CRAFTING_NETWORK_SWITCH) || state.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH);
-        if (!state.is(NEBlocks.CRAFTING_CASING) && !sw) return false;
+        boolean sw = state.is(NEBlocks.CRAFTING_NETWORK_SWITCH.get()) || state.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get());
+        if (!state.is(NEBlocks.CRAFTING_CASING.get()) && !sw) return false;
         if (sw && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) return false;
-        return validateBlock(level, center.relative(top), BlockState::is, NEBlocks.CRAFTING_CASING)
-            && validateBlock(level, center.relative(down), BlockState::is, NEBlocks.CRAFTING_CASING);
+        return validateBlock(level, center.relative(top), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.CRAFTING_CASING)
+            && validateBlock(level, center.relative(down), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.CRAFTING_CASING);
     }
 
     private static boolean validateHatchAndInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down) {
-        if (!validateBlock(level, interfacePos, BlockState::is, NEBlocks.CRAFTING_INTERFACE)) {
+        if (!validateBlock(level, interfacePos, (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.CRAFTING_INTERFACE)) {
             return false;
         }
-        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, NEBlocks.INPUT_HATCH)) {
+        if (!validateBlock(level, interfacePos.relative(top), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.INPUT_HATCH)) {
             return false;
         }
-        return validateBlock(level, interfacePos.relative(down), BlockState::is, NEBlocks.OUTPUT_HATCH);
+        return validateBlock(level, interfacePos.relative(down), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.OUTPUT_HATCH);
     }
 
     private BiPredicate<BlockState, BlockPos> matchingParallelCore(

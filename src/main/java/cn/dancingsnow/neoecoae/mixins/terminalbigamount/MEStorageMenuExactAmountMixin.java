@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(MEStorageMenu.class)
+@Mixin(value = MEStorageMenu.class, remap = false)
 public abstract class MEStorageMenuExactAmountMixin {
     @Unique private final TerminalExactAmountSync neoecoae$exactAmountSync = new TerminalExactAmountSync();
 

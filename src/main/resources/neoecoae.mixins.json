@@ -9,6 +9,7 @@
     "ae2.accessor.DelegatingMEInventoryAccessor",
     "ae2.accessor.PatternProviderLogicAccessor",
     "ae2.crafting.CraftingCalculationMixin",
+    "ae2.crafting.CraftingCalculationDiagnosticsMixin",
     "ae2.crafting.AEProcessingPatternComponentMixin",
     "ae2.crafting.Ae2CpuJobAccessor",
     "ae2.crafting.Ae2CpuTaskAccessor",
@@ -16,6 +17,7 @@
     "ae2.crafting.Ae2CraftingCpuFastPathMixin",
     "ae2.crafting.CraftingPlanMixin",
     "ae2.crafting.CraftingServiceMixin",
+    "ae2.crafting.CraftingServiceEarlyMixin",
     "ae2.crafting.CraftingTreeNodeMixin",
     "ae2.crafting.PatternProviderDiagnosticsMixin",
     "ae2.menu.CraftConfirmMenuMixin",
@@ -32,7 +34,8 @@
     "ae2.storage.StoredEnergyAmountMixin",
     "ldlib.AsyncThreadDataMixin",
     "minecraft.LightningBoltMixin",
-    "minecraft.RecipeManagerAccessor"
+    "minecraft.RecipeManagerAccessor",
+    "ae2.menu.CraftingStatusSuspensionMixin"
   ],
   "client": [
     "client.accessor.MenuScreensAccessor",
@@ -40,10 +43,13 @@
     "client.ae2.CellWorkbenchScreenMixin",
     "client.ae2.CpuSelectionListMixin",
     "client.ae2.CraftConfirmScreenMixin",
+    "client.ae2.CraftConfirmForceStartMixin",
     "client.ae2.CraftingCpuScreenMixin",
     "client.ae2.CraftingStatusTableMixin",
     "client.ae2.PatternEncodingTermScreenMixin",
-    "client.minecraft.ModelBakeryMixin"
+    "client.minecraft.ModelBakeryMixin",
+    "client.minecraft.ChunkRebuildTaskMixin",
+    "client.minecraft.EditBoxShadowMixin"
   ],
   "server": [],
   "injectors": {

@@ -2,10 +2,10 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IBindable;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IDataSource;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import org.jetbrains.annotations.Nullable;
 
 /** Percentage thermometer with the actual 20/50/80 percent operating thresholds. */

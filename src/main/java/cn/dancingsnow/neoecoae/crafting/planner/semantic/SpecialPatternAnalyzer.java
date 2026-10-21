@@ -49,7 +49,7 @@ public final class SpecialPatternAnalyzer {
         int damagePerUse = 0;
         int maxDamage = 0;
         if (ItemStack.isSameItem(source, returned)) {
-            if (ItemStack.isSameItemSameComponents(source, returned)) {
+            if (ItemStack.isSameItemSameTags(source, returned)) {
                 type = SpecialPatternAnalysis.Type.REUSABLE;
             } else if (source.isDamageableItem() && returned.isDamageableItem()) {
                 damagePerUse = returned.getDamageValue() - source.getDamageValue();

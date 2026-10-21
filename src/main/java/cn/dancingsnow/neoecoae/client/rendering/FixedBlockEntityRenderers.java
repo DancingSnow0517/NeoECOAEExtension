@@ -9,7 +9,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraftforge.client.event.AddSectionGeometryEvent;
+
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -20,7 +20,7 @@ public class FixedBlockEntityRenderers {
     private static final Map<BlockEntityType<?>, IFixedBlockEntityRenderer<?>> renderers = new IdentityHashMap<>();
 
     public static void render(
-        AddSectionGeometryEvent.SectionRenderingContext context,
+        NESectionGeometry.SectionRenderingContext context,
         BlockPos sectionOrigin
     ) {
         BlockAndTintGetter region = context.getRegion();
@@ -38,7 +38,7 @@ public class FixedBlockEntityRenderers {
             render(
                 region,
                 blockEntity,
-                Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(Minecraft.getInstance().isPaused()),
+                Minecraft.getInstance().getFrameTime(),
                 context.getPoseStack(),
                 bufferSource,
                 LevelRenderer.getLightColor(region, blockEntity.getBlockPos()),

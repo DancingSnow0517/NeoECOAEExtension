@@ -99,8 +99,8 @@ public final class SinglePatternGrowthCalculator {
             return declined(SinglePatternGrowthResult.Reason.MULTIPLE_MEMBERS,
                 "The component holds " + component.members().size() + " member keys");
         }
-        CompiledPattern only = transitions.getFirst();
-        AEKey member = component.members().getFirst();
+        CompiledPattern only = cn.dancingsnow.neoecoae.platform.JdkCompat.first(transitions);
+        AEKey member = cn.dancingsnow.neoecoae.platform.JdkCompat.first(component.members());
         if (component.internalEdges().isEmpty()) {
             return declined(SinglePatternGrowthResult.Reason.NOT_A_SELF_LOOP,
                 "The component records no internal edge");
@@ -171,7 +171,7 @@ public final class SinglePatternGrowthCalculator {
             return declined(SinglePatternGrowthResult.Reason.MULTIPLE_FEEDBACK_KEYS,
                 "Stage one handles a single feedback key; this pattern feeds back " + feedbackCandidates.size());
         }
-        AEKey feedback = feedbackCandidates.getFirst();
+        AEKey feedback = cn.dancingsnow.neoecoae.platform.JdkCompat.first(feedbackCandidates);
         PlannerAmount consume = PlannerAmount.of(profile.consumptionOf(feedback));
         PlannerAmount produce = PlannerAmount.of(profile.grossProductionOf(feedback));
         PlannerAmount growth = produce.subtract(consume);

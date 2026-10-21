@@ -229,7 +229,7 @@ public class NEMultiBlocks {
             .create(DEFINITIONS::add);
     }
 
-    private static MultiBlockDefinition storageSystem(Holder<Block> owner, BlockState system, BlockState energyCell) {
+    private static MultiBlockDefinition storageSystem(java.util.function.Supplier<? extends Block> owner, BlockState system, BlockState energyCell) {
         MultiBlockDefinition.Builder builder = MultiBlockDefinition.builder(owner)
             .setBlock(pos(1, 1, 0), system)
             .setBlock(pos(1, 0, 0), NEBlocks.STORAGE_CASING.getDefaultState())

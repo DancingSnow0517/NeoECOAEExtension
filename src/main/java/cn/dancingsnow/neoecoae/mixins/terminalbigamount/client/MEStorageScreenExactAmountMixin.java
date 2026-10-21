@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(MEStorageScreen.class)
+@Mixin(value = MEStorageScreen.class, remap = false)
 public abstract class MEStorageScreenExactAmountMixin {
     @Shadow @Final protected Repo repo;
     @Unique private long neoecoae$exactAmountRevision = -1;

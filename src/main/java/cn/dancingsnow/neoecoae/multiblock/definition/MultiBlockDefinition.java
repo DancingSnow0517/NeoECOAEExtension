@@ -49,6 +49,7 @@ public class MultiBlockDefinition {
     public static Builder builder(Holder<Block> owner) {
         return new Builder(owner);
     }
+    public static Builder builder(java.util.function.Supplier<? extends Block> owner){return builder(owner.get().builtInRegistryHolder());}
 
     public Level createLevel(MultiBlockContext context) {
         for (BlockInstruction builderAction : builderActions) {

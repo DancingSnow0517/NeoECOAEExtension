@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.json;
 
 import com.google.gson.JsonObject;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 
 /**
  * Runtime hooks used by {@link NeoUiJsonLoader}.  JSON files only describe the

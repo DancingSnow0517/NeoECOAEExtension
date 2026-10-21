@@ -11,6 +11,7 @@ public final class MultiBlockRotation {
 
     private MultiBlockRotation() {
     }
+    public static BlockPos transformLocalPos(BlockPos pos,boolean mirrored){return mirrored?mirrorLocalPos(pos):pos;}
 
     public static BlockPos localToWorld(BlockPos localPos, BlockPos controllerPos, Direction facing, boolean mirrored) {
         if (mirrored) {

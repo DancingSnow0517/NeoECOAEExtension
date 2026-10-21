@@ -180,7 +180,7 @@ public final class CompactTreeLayout implements GraphLayoutEngine {
 
     private static void append(List<GraphLayoutSnapshot.Point> points, float x, float y) {
         var point = new GraphLayoutSnapshot.Point(x, y);
-        if (points.isEmpty() || !points.getLast().equals(point)) points.add(point);
+        if (points.isEmpty() || !cn.dancingsnow.neoecoae.platform.JdkCompat.last(points).equals(point)) points.add(point);
     }
 
     private record WidthFrame(int id, boolean exit) {}

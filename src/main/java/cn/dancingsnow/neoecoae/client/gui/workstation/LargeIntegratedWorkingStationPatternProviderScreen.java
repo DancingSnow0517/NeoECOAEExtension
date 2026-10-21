@@ -107,12 +107,12 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaY) {
         if (deltaY != 0 && overPatterns(mouseX, mouseY) && patternScroll.maximum() > 0) {
             patternScroll.scrollBy(-deltaY * WorkstationPatternScroll.ROW_HEIGHT);
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+        return super.mouseScrolled(mouseX, mouseY, deltaY);
     }
 
     private void updatePatternSlots() {
@@ -173,16 +173,17 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     }
 
     @Override
-    protected void renderSlotHighlight(GuiGraphics graphics, Slot slot, int mouseX, int mouseY, float partialTicks) {
+    public void renderCustomSlotHighlight(GuiGraphics graphics,int x,int y,int z) {
+        Slot slot=hoveredSlot;
         if (menu.getSlotSemantic(slot) != SlotSemantics.ENCODED_PATTERN) {
-            super.renderSlotHighlight(graphics, slot, mouseX, mouseY, partialTicks);
+            super.renderCustomSlotHighlight(graphics,x,y,z);
             return;
         }
         clipPatterns(graphics);
         graphics.pose().pushPose();
         try {
             graphics.pose().translate(0, -fractionalOffset(), 0);
-            super.renderSlotHighlight(graphics, slot, mouseX, mouseY, partialTicks);
+            super.renderCustomSlotHighlight(graphics,x,y,z);
         } finally {
             graphics.pose().popPose();
             graphics.disableScissor();
@@ -236,8 +237,8 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
             try {
                 graphics.pose().translate(0, scrollbarThumbOffset(), 0);
                 var sprite = patternScroll.maximum() == 0
-                    ? Scrollbar.SMALL.disabledSprite() : Scrollbar.SMALL.enabledSprite();
-                Blitter.guiSprite(sprite).dest(getBounds().getX(), getBounds().getY()).blit(graphics);
+                    ? cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.SMALL.disabledBlitter() : cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.SMALL.enabledBlitter();
+                sprite.dest(getBounds().getX(), getBounds().getY()).blit(graphics);
             } finally {
                 graphics.pose().popPose();
             }

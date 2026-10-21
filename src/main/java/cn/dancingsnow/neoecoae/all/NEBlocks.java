@@ -390,9 +390,9 @@ public class NEBlocks {
         .loot((prov, block) -> {
             prov.add(block, prov.createSingleItemTable(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL));
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
         .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
         .register();
 
@@ -414,9 +414,9 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
         .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
         .register();
 
@@ -438,9 +438,9 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
         .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
         .register();
 
@@ -462,9 +462,9 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
         .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
         .register();
 
@@ -477,9 +477,9 @@ public class NEBlocks {
             prov.directionalBlock(ctx.get(), model);
         })
         .loot(LootTableUtil::energizedBud)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.CLUSTER_BLOCKS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
-        .tag(Tags.Items.CLUSTERS)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.CLUSTER_ITEMS)
         .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
         .build()
         .register();
@@ -493,9 +493,9 @@ public class NEBlocks {
             prov.directionalBlock(ctx.get(), model);
         })
         .loot(LootTableUtil::energizedBud)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.CLUSTER_BLOCKS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
-        .tag(Tags.Items.CLUSTERS)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.CLUSTER_ITEMS)
         .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
         .build()
         .register();
@@ -509,9 +509,9 @@ public class NEBlocks {
             prov.directionalBlock(ctx.get(), model);
         })
         .loot(LootTableUtil::energizedBud)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.CLUSTER_BLOCKS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
-        .tag(Tags.Items.CLUSTERS)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.CLUSTER_ITEMS)
         .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
         .build()
         .register();
@@ -525,9 +525,9 @@ public class NEBlocks {
             prov.directionalBlock(ctx.get(), model);
         })
         .loot(LootTableUtil::energizedCluster)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.CLUSTER_BLOCKS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
-        .tag(Tags.Items.CLUSTERS)
+        .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.CLUSTER_ITEMS)
         .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
         .build()
         .register();

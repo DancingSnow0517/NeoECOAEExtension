@@ -2,6 +2,7 @@
   "required": false,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins.compat.advancedae",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.compat.ECOOptionalAddonMixinPlugin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "accessor.AdvancedAeCraftingJobAccessor",

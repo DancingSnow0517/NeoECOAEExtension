@@ -362,8 +362,8 @@ public final class ECOPlanningResultRegistry {
                 .map(Map.Entry::getKey)
                 .toList();
             if (matches.size() != 1) return null;
-            mapping.put(sourceTask.getKey(), matches.getFirst());
-            usedTargets.add(matches.getFirst());
+            mapping.put(sourceTask.getKey(), cn.dancingsnow.neoecoae.platform.JdkCompat.first(matches));
+            usedTargets.add(cn.dancingsnow.neoecoae.platform.JdkCompat.first(matches));
         }
         return usedTargets.size() == submittedTasks.size() ? mapping : null;
     }
@@ -377,7 +377,7 @@ public final class ECOPlanningResultRegistry {
             .map(Map.Entry::getValue)
             .distinct()
             .toList();
-        return matches.size() == 1 ? matches.getFirst() : null;
+        return matches.size() == 1 ? cn.dancingsnow.neoecoae.platform.JdkCompat.first(matches) : null;
     }
 
     private static RegistrationInspection inspectRegistration(@Nullable ICraftingPlan plan,

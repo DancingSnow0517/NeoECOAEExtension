@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
@@ -12,16 +12,16 @@ import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.SyncStrategy;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -160,20 +160,20 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         text(context, font, name(entry).getString(), x + 3, y + 2, 50, 0.666F, color);
         context.graphics.blit(entry.overlay(), Math.round(x + 55), Math.round(y), 0, 0, 10, 10, 10, 10);
         if (entry.output() != null && !entry.status().equals("idle")) {
-            icon(context, Icon.S_CRAFT, x + 2, y + 10);
+            icon(context, ECOIcon.S_CRAFT, x + 2, y + 10);
             fittedText(context, font, entry.amount(entry.requested(), false), x + 14, y + 13, 39, 0.666F, color);
             key(context, entry, x + 55, y + 10, 0.625F);
             context.graphics.fill(Math.round(x + 1), Math.round(y + 20), Math.round(x + 1 + progress * 66), Math.round(y + 21),
                 chosen ? 0xFF7DA9D2 : 0xFFACE9FF);
         } else {
             if (entry.parallel() > 0) {
-                icon(context, Icon.S_PROCESSOR, x + 2, y + 10);
+                icon(context, ECOIcon.S_PROCESSOR, x + 2, y + 10);
                 fittedText(context, font, HostText.ae2Amount(entry.parallel()), x + 14, y + 13, 12, 0.666F, color);
             }
-            icon(context, Icon.S_STORAGE, x + 27, y + 10);
+            icon(context, ECOIcon.S_STORAGE, x + 27, y + 10);
             fittedText(context, font, entry.storageText(), x + 39, y + 13,
                 entry.mode() == CpuSelectionMode.ANY ? 26 : 15, 0.666F, color);
-            if (entry.mode() != CpuSelectionMode.ANY) icon(context, entry.mode() == CpuSelectionMode.PLAYER_ONLY ? Icon.S_TERMINAL : Icon.S_MACHINE, x + 55, y + 10);
+            if (entry.mode() != CpuSelectionMode.ANY) icon(context, entry.mode() == CpuSelectionMode.PLAYER_ONLY ? ECOIcon.S_TERMINAL : ECOIcon.S_MACHINE, x + 55, y + 10);
         }
     }
 
@@ -202,10 +202,10 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         context.graphics.pose().popPose();
     }
 
-    private static void icon(GUIContext context, Icon icon, float x, float y) {
+    private static void icon(GUIContext context, ECOIcon icon, float x, float y) {
         context.graphics.pose().pushPose();
         context.graphics.pose().translate(x, y, 0);
-        icon.getBlitter().dest(0, 0).blit(context.graphics);
+        icon.blit(context.graphics,0,0,0);
         context.graphics.pose().popPose();
     }
 

@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.data.worldgen;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.data.worldgen.BootstrapContext;
+import net.minecraft.data.worldgen.BootstapContext;
 import net.minecraft.data.worldgen.placement.PlacementUtils;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.levelgen.VerticalAnchor;
@@ -25,7 +25,7 @@ public class NEPlacedFeatures {
         ORE_TUNGSTEN = key("ore_tungsten"),
         ORE_TUNGSTEN_SMALL = key("ore_tungsten_small");
 
-    public static void bootstrap(BootstrapContext<PlacedFeature> context) {
+    public static void bootstrap(BootstapContext<PlacedFeature> context) {
         HolderGetter<ConfiguredFeature<?, ?>> lookup = context.lookup(Registries.CONFIGURED_FEATURE);
         PlacementUtils.register(
             context,

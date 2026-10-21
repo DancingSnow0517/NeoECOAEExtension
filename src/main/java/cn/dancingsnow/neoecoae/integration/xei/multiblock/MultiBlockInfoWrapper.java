@@ -7,21 +7,21 @@ import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Scene;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.integration.xei.IngredientIO;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.SupplierDataSource;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.TextWrap;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Scene;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ScrollerView;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.style.StylesheetManager;
+import com.lowdragmc.lowdraglib.jei.IngredientIO;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
 import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -29,10 +29,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
-import org.appliedenergistics.yoga.YogaEdge;
-import org.appliedenergistics.yoga.YogaFlexDirection;
-import org.appliedenergistics.yoga.YogaGutter;
-import org.appliedenergistics.yoga.YogaPositionType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -98,10 +94,10 @@ public class MultiBlockInfoWrapper {
         int sceneHeight = height - PADDING * 2 - GAP * 2 - HEADER_HEIGHT - MATERIALS_HEIGHT;
 
         var root = new UIElement().layout(layout -> layout
-            .setWidth(width)
-            .setHeight(height)
-            .setPadding(YogaEdge.ALL, PADDING)
-            .setGap(YogaGutter.ALL, GAP)
+            .width(width)
+            .height(height)
+            .paddingAll(PADDING)
+            .gapAll(GAP)
         ).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
 
         root.addChild(new TextElement()
@@ -114,12 +110,12 @@ public class MultiBlockInfoWrapper {
                 .lineSpacing(1)
                 .textShadow(true))
             .layout(layout -> layout
-                .setWidthPercent(100)
-                .setHeight(HEADER_HEIGHT)));
+                .widthPercent(100)
+                .height(HEADER_HEIGHT)));
 
         UIElement sceneContainer = new UIElement().layout(layout -> layout
-            .setWidthPercent(100)
-            .setHeight(sceneHeight)
+            .widthPercent(100)
+            .height(sceneHeight)
         );
         root.addChild(sceneContainer);
 
@@ -132,42 +128,42 @@ public class MultiBlockInfoWrapper {
             .setShowHoverBlockTips(true)
             .useCacheBuffer()
             .setOnSelected(this::onSelect);
-        scene.getLayout()
-            .positionType(YogaPositionType.ABSOLUTE)
-            .setWidthPercent(100)
-            .setHeightPercent(100)
-            .setPosition(YogaEdge.LEFT, 0)
-            .setPosition(YogaEdge.TOP, 0);
+        scene.getLayoutStyle()
+            .positionType(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition.ABSOLUTE)
+            .widthPercent(100)
+            .heightPercent(100)
+            .left(0)
+            .top(0);
         sceneContainer.addChild(scene);
 
         UIElement buttons = new UIElement().layout(layout -> layout
-            .positionType(YogaPositionType.ABSOLUTE)
-            .setWidth(CONTROL_BUTTON_WIDTH * 3 + GAP * 2)
-            .setHeight(CONTROL_BUTTON_HEIGHT)
-            .flexDirection(YogaFlexDirection.ROW)
-            .setGap(YogaGutter.ALL, GAP)
-            .setPosition(YogaEdge.RIGHT, 2)
-            .setPosition(YogaEdge.TOP, 2)
+            .positionType(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition.ABSOLUTE)
+            .width(CONTROL_BUTTON_WIDTH * 3 + GAP * 2)
+            .height(CONTROL_BUTTON_HEIGHT)
+            .flexDirection(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.FlexDirection.ROW)
+            .gapAll(GAP)
+            .right(2)
+            .top(2)
         );
         expandButton = new Button().setText("E: " + expand).setOnClick(event -> expand());
-        expandButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
+        expandButton.getLayoutStyle().height(CONTROL_BUTTON_HEIGHT).width(CONTROL_BUTTON_WIDTH);
         buttons.addChild(expandButton);
 
         layerButton = new Button().setText("L: " + layer).setOnClick(event -> nextLayer());
-        layerButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
+        layerButton.getLayoutStyle().height(CONTROL_BUTTON_HEIGHT).width(CONTROL_BUTTON_WIDTH);
         buttons.addChild(layerButton);
 
         formedButton = new Button().setText("F: " + formed).setOnClick(event -> cycleFormed());
-        formedButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
+        formedButton.getLayoutStyle().height(CONTROL_BUTTON_HEIGHT).width(CONTROL_BUTTON_WIDTH);
         buttons.addChild(formedButton);
 
         sceneContainer.addChild(buttons);
 
         sceneContainer.addChild(new ItemSlot()
             .bindDataSource(SupplierDataSource.of(() -> selectedItem))
-            .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
-                .setPosition(YogaEdge.LEFT, 2)
-                .setPosition(YogaEdge.TOP, 2))
+            .layout(layout -> layout.positionType(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition.ABSOLUTE)
+                .left(2)
+                .top(2))
             .addClass("panel_border"));
 
         requiredItems = new ScrollerView();
@@ -176,9 +172,9 @@ public class MultiBlockInfoWrapper {
             .layout(layout -> layout.paddingAll(1).paddingBottom(3))
             .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
         requiredItems.viewContainer(c -> c
-            .layout(layout -> layout.flexDirection(YogaFlexDirection.ROW))
+            .layout(layout -> layout.flexDirection(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.FlexDirection.ROW))
             .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
-        requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(MATERIALS_HEIGHT));
+        requiredItems.layout(layout -> layout.widthPercent(100).height(MATERIALS_HEIGHT));
         root.addChild(requiredItems);
 
         initializeRequiredItemSlots();
@@ -321,7 +317,7 @@ public class MultiBlockInfoWrapper {
         }
 
         private boolean matches(ItemStack stack) {
-            return !requiredItem.isEmpty() && ItemStack.isSameItemSameComponents(requiredItem, stack);
+            return !requiredItem.isEmpty() && ItemStack.isSameItemSameTags(requiredItem, stack);
         }
 
         private boolean isUnused() {

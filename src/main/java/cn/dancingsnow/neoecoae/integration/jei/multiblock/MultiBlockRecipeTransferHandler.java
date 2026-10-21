@@ -49,7 +49,7 @@ public final class MultiBlockRecipeTransferHandler
             var output = GenericStack.fromItemStack(
                 recipe.getDefinition().getOwner().value().asItem().getDefaultInstance()
             );
-            appeng.integration.modules.itemlists.EncodingHelper.encodeProcessingRecipe(
+            appeng.integration.modules.jeirei.EncodingHelper.encodeProcessingRecipe(
                 menu,
                 inputs,
                 output == null ? List.of() : List.of(output)

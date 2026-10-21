@@ -40,7 +40,7 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
     }
 
     @Override
-    protected RenderShape getRenderShape(BlockState state) {
+    public RenderShape getRenderShape(BlockState state) {
         if (isEffectivelyInvisible(state)) {
             return RenderShape.INVISIBLE;
         }
@@ -48,22 +48,22 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
     }
 
     @Override
-    protected boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
+    public boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
         return isEffectivelyInvisible(state);
     }
 
     @Override
-    protected float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
+    public float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
         return isEffectivelyInvisible(state) ? 1 : 0.2f;
     }
 
     @Override
-    protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    public VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return isEffectivelyInvisible(state) ? Shapes.empty() : super.getVisualShape(state, level, pos, context);
     }
 
     @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
+    public boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
         return isEffectivelyInvisible(state);
     }
 

@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.client.gui.widget;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
-import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.slot.LocalSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 

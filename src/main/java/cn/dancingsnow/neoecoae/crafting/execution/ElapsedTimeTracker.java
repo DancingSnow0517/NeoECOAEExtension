@@ -44,9 +44,9 @@ public class ElapsedTimeTracker {
     private final java.util.Map<AEKeyType, java.math.BigInteger> exactCompleted = new LinkedHashMap<>();
 
     private final Reference2LongMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(
-            AEKeyTypes.getAll().size());
+            com.google.common.collect.Iterables.size(AEKeyTypes.getAll()));
     private final Reference2LongMap<AEKeyType> completedWorkByType = new Reference2LongOpenHashMap<>(
-            AEKeyTypes.getAll().size());
+            com.google.common.collect.Iterables.size(AEKeyTypes.getAll()));
 
     public ElapsedTimeTracker() {
     }

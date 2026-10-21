@@ -86,7 +86,7 @@ public final class CycleClusterProjection {
             List<InterCycleFlow> clusterFlows = flows.stream()
                 .filter(flow -> memberSet.contains(flow.fromComponentId()) && memberSet.contains(flow.toComponentId()))
                 .toList();
-            result.add(new CycleCluster(members.getFirst(), members, clusterFlows));
+            result.add(new CycleCluster(cn.dancingsnow.neoecoae.platform.JdkCompat.first(members), members, clusterFlows));
         }
         return result;
     }

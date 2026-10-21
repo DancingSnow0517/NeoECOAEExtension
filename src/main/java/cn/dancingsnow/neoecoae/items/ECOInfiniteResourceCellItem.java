@@ -88,9 +88,7 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
 
     @Override
     public ConfigInventory getConfigInventory(ItemStack is) {
-        return ConfigInventory.configTypes(CONFIG_SLOTS)
-            .slotFilter(ECOInfiniteResourceCellItem::isLockedKey)
-            .build();
+        return ConfigInventory.configTypes(ECOInfiniteResourceCellItem::isLockedKey, CONFIG_SLOTS, null);
     }
 
     @Override
@@ -104,7 +102,7 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, net.minecraft.world.level.Level level, List<Component> lines, TooltipFlag tooltipFlag) {
         if (ECOInfiniteStorageMember.isMember(stack)) {
             lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));

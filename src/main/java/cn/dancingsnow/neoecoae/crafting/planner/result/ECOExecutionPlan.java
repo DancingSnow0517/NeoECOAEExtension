@@ -62,7 +62,7 @@ public record ECOExecutionPlan(
         public static PatternRuntimeInfo from(IPatternDetails pattern) {
             var inputs = pattern.getInputs();
             return new PatternRuntimeInfo(pattern.getDefinition(), inputs == null ? 0 : inputs.length,
-                pattern.getOutputs());
+                java.util.Arrays.asList(pattern.getOutputs()));
         }
     }
 

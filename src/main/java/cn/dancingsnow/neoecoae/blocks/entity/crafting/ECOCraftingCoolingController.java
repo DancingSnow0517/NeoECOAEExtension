@@ -136,7 +136,7 @@ final class ECOCraftingCoolingController {
             || host.getCoolantMaxOverclock() == maxOverclock
                 && host.getCluster() != null
                 && host.getCluster().getInputHatch() != null
-                && FluidStack.isSameFluidSameComponents(host.getCurrentCoolantFluid(),
+                && cn.dancingsnow.neoecoae.platform.nbt.NEStacks.sameFluid(host.getCurrentCoolantFluid(),
                     host.getCluster().getInputHatch().tank.getFluid());
     }
 
@@ -183,7 +183,7 @@ final class ECOCraftingCoolingController {
             return 0;
         }
 
-        FluidStack coolantFluid = inputHatch.getFluid().copyWithAmount(1);
+        FluidStack coolantFluid = cn.dancingsnow.neoecoae.platform.nbt.NEStacks.withAmount(inputHatch.getFluid(), 1);
         int drained = inputHatch.drain((int) drainAmount, IFluidHandler.FluidAction.EXECUTE).getAmount();
         if (drained <= 0) {
             return 0;
@@ -193,7 +193,7 @@ final class ECOCraftingCoolingController {
         if (!output.isEmpty()) {
             int outputAmount = (int) ((long) drained * recipe.outputAmount() / inputAmount);
             if (outputAmount > 0) {
-                outputHatch.fill(output.copyWithAmount(outputAmount), IFluidHandler.FluidAction.EXECUTE);
+                outputHatch.fill(cn.dancingsnow.neoecoae.platform.nbt.NEStacks.withAmount(output, outputAmount), IFluidHandler.FluidAction.EXECUTE);
             }
         }
 
@@ -215,7 +215,7 @@ final class ECOCraftingCoolingController {
             return Long.MAX_VALUE;
         }
         FluidStack stored = outputHatch.getFluid();
-        if (!stored.isEmpty() && !FluidStack.isSameFluidSameComponents(stored, output)) {
+        if (!stored.isEmpty() && !cn.dancingsnow.neoecoae.platform.nbt.NEStacks.sameFluid(stored, output)) {
             return 0;
         }
         int outputAmount = recipe.outputAmount();

@@ -1244,5 +1244,7 @@
   "gui.neoecoae.structure_terminal.unknown_material": "Unknown material",
   "gui.neoecoae.structure_terminal.variable_sections": "Variable Sections: %s [%s-%s]",
   "item.neoecoae.structure_terminal": "Structure Terminal",
-  "recipe_type.neoecoae.expatternprovider.crystal_assembler": "ExtendedAE: Crystal Assembling"
+  "recipe_type.neoecoae.expatternprovider.crystal_assembler": "ExtendedAE: Crystal Assembling",
+  "gui.neoecoae.computation.pause": "Pause",
+  "gui.neoecoae.computation.resume": "Resume"
 }

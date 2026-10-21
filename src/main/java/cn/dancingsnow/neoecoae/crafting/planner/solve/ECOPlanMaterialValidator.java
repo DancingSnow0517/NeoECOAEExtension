@@ -52,7 +52,7 @@ public final class ECOPlanMaterialValidator {
                 if (times.isZero()) continue;
 
                 GenericStack[] outputs = pattern.getOutputs() == null
-                    ? null : pattern.getOutputs().toArray(GenericStack[]::new);
+                    ? null : pattern.getOutputs();
                 if (outputs == null) {
                     return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO, "NULL_PATTERN_OUTPUTS");
                 }

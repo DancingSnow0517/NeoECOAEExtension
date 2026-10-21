@@ -130,7 +130,7 @@ public final class PlanIdentity {
             }
 
             List<StackIdentity> outputs = new ArrayList<>();
-            List<GenericStack> rawOutputs = pattern.getOutputs();
+            List<GenericStack> rawOutputs = java.util.Arrays.asList(pattern.getOutputs());
             if (rawOutputs == null) return objectIdentity(pattern);
             for (GenericStack output : rawOutputs) {
                 if (output == null || output.what() == null) return objectIdentity(pattern);

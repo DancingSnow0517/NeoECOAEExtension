@@ -19,12 +19,12 @@ public abstract class StoredEnergyAmountMixin implements IContentChangeAware, IN
     @Unique private Runnable neoecoae$onContentsChanged = () -> {};
 
     @Override
-    public @UnknownNullability DoubleTag serializeNBT(HolderLookup.Provider provider) {
+    public @UnknownNullability DoubleTag serializeNBT() {
         return DoubleTag.valueOf(getAmount());
     }
 
     @Override
-    public void deserializeNBT(HolderLookup.Provider provider, DoubleTag nbt) {
+    public void deserializeNBT(DoubleTag nbt) {
         setStored(nbt.getAsDouble());
     }
 

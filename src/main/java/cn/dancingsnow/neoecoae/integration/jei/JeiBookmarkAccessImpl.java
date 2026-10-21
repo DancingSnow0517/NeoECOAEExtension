@@ -5,7 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.ITypedIngredient;
-import mezz.jei.api.neoforge.NeoForgeTypes;
+import mezz.jei.api.forge.ForgeTypes;
 import net.minecraft.world.item.ItemStack;
 
 import java.lang.reflect.Field;
@@ -77,7 +77,7 @@ final class JeiBookmarkAccessImpl {
             var stack = GenericStack.fromItemStack(item.get());
             return stack == null ? null : stack.what();
         }
-        var fluid = ingredient.getIngredient(NeoForgeTypes.FLUID_STACK);
+        var fluid = ingredient.getIngredient(ForgeTypes.FLUID_STACK);
         if (fluid.isPresent()) {
             var stack = GenericStack.fromFluidStack(fluid.get());
             return stack == null ? null : stack.what();

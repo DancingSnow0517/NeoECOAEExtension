@@ -29,7 +29,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Observes existing calls only: no extra target probes, insertion, or changes to AE2's return value. */
-@Mixin(PatternProviderLogic.class)
+@Mixin(value = PatternProviderLogic.class, remap = false)
 public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushDiagnostics {
     @Shadow @Final private PatternProviderLogicHost host;
     @Shadow @Final private List<GenericStack> sendList;

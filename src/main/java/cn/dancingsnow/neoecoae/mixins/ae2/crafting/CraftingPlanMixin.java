@@ -7,7 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-@Mixin(CraftingPlan.class)
+@Mixin(value = CraftingPlan.class, remap = false)
 public class CraftingPlanMixin implements ECOCraftingPlanDiagnostics {
     @Unique private ECOPlanningResult neoecoae$planningResult;
     @Override @Nullable public ECOPlanningResult neoecoae$getPlanningResult() { return neoecoae$planningResult; }

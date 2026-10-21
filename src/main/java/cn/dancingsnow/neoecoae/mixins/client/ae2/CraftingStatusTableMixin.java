@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.network.chat.Component;
 import java.util.List;
 
-@Mixin(CraftingStatusTableRenderer.class)
+@Mixin(value = CraftingStatusTableRenderer.class, remap = false)
 public class CraftingStatusTableMixin {
     @Inject(method = "getEntryDescription(Lappeng/menu/me/crafting/CraftingStatusEntry;)Ljava/util/List;", at = @At("HEAD"), cancellable = true)
     private void exactDescription(CraftingStatusEntry entry, CallbackInfoReturnable<List<Component>> cir) {

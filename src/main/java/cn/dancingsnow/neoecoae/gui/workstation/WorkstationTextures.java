@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import net.minecraft.resources.ResourceLocation;
 
 /** Pixel coordinates in the supplied workstation atlas; all sprites remain resource replaceable. */

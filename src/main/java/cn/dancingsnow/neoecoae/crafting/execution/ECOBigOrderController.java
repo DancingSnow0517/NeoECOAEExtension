@@ -209,8 +209,8 @@ final class ECOBigOrderController {
         if (result.status() != cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS
                 || result.plan() == null) return false;
         for (var pattern : result.plan().patternTimes().keySet()) {
-            if (pattern.getOutputs().isEmpty()
-                    || !service.getCraftingFor(pattern.getOutputs().getFirst().what()).contains(pattern)) return false;
+            if (pattern.getOutputs().length == 0
+                    || !service.getCraftingFor(cn.dancingsnow.neoecoae.platform.JdkCompat.first(pattern.getOutputs()).what()).contains(pattern)) return false;
         }
         return true;
     }

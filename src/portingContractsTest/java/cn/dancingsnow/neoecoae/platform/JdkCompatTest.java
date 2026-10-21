@@ -6,6 +6,34 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JdkCompatTest {
     @Test
+    void firstAndLastKeepEmptyCollectionFailureAndNullElements() {
+        assertThrows(java.util.NoSuchElementException.class, () -> JdkCompat.first(java.util.List.of()));
+        assertThrows(java.util.NoSuchElementException.class, () -> JdkCompat.last(java.util.List.of()));
+        assertThrows(java.util.NoSuchElementException.class, () -> JdkCompat.first(new Object[0]));
+        var values = new java.util.ArrayList<String>();
+        values.add(null);
+        values.add("tail");
+        assertNull(JdkCompat.first(values));
+        assertEquals("tail", JdkCompat.last(values));
+    }
+
+    @Test
+    void reversedListRemainsBackedAndSupportsMutationInBothDirections() {
+        var original = new java.util.ArrayList<>(java.util.List.of("a", "b", "c"));
+        var reversed = JdkCompat.reversed(original);
+        assertEquals(java.util.List.of("c", "b", "a"), reversed);
+        original.set(2, "C");
+        assertEquals("C", JdkCompat.first(reversed));
+        reversed.add(1, "x");
+        reversed.set(0, "z");
+        assertEquals(java.util.List.of("a", "b", "x", "z"), original);
+        assertEquals("a", reversed.remove(reversed.size() - 1));
+        assertEquals(java.util.List.of("b", "x", "z"), original);
+        assertThrows(IndexOutOfBoundsException.class, () -> reversed.get(-1));
+        assertThrows(IndexOutOfBoundsException.class, () -> reversed.add(reversed.size() + 1, "bad"));
+    }
+
+    @Test
     void clampsBeforeNarrowingLongToInteger() {
         assertEquals(Integer.MAX_VALUE, JdkCompat.clamp(Long.MAX_VALUE, 0, Integer.MAX_VALUE));
         assertEquals(Integer.MIN_VALUE, JdkCompat.clamp(Long.MIN_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE));

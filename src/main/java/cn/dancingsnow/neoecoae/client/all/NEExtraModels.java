@@ -46,7 +46,7 @@ public class NEExtraModels {
     @SubscribeEvent
     public static void onRegisterExtraModels(ModelEvent.RegisterAdditional event) {
         for (ResourceLocation model : MODELS) {
-            event.register(ModelResourceLocation.standalone(model));
+            event.register(model);
         }
     }
 

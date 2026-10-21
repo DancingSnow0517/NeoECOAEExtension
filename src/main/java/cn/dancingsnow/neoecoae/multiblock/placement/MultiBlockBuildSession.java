@@ -7,6 +7,12 @@ public class MultiBlockBuildSession {
     private final int totalBlocks;
     private int nextBlockIndex;
     private int waitTicks;
+    private int skippedBlocks;
+    public int getRemainingBlockCount(){return pendingBlocks.size()-nextBlockIndex;}
+    public int getPlacedBlockCount(){return nextBlockIndex-skippedBlocks;}
+    public int getSkippedBlockCount(){return skippedBlocks;}
+    public int getTotalBlocks(){return totalBlocks;}
+    public void skip(int delay){skippedBlocks++;advance(delay);}
 
     public MultiBlockBuildSession(List<WorldPlannedBlock> pendingBlocks, int initialDelay) {
         this.pendingBlocks = pendingBlocks;

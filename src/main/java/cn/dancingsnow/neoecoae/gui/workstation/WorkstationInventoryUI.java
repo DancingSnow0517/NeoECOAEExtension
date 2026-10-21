@@ -5,16 +5,16 @@ import appeng.items.contents.NetworkToolMenuHost;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.slot.ItemHandlerSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.inventory.InventorySlots;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
 import com.google.gson.JsonObject;
 import java.util.Objects;
 import net.minecraft.resources.ResourceLocation;
-import dev.vfyjxf.taffy.style.FlexDirection;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.FlexDirection;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
@@ -26,12 +26,12 @@ import org.jetbrains.annotations.Nullable;
 /** Player inventory locking and the nine network-tool upgrade slots. */
 final class WorkstationInventoryUI {
     private WorkstationInventoryUI() {}
-    static UIElement createNetworkToolbox(NetworkToolMenuHost<?> networkTool) {
+    static UIElement createNetworkToolbox(NetworkToolMenuHost networkTool) {
         return WorkstationUiJson.load(new ResourceLocation("neoecoae", "screens/workstation/network_toolbox"),
             new JsonContext(networkTool));
     }
 
-    private static UIElement createLegacyNetworkToolbox(NetworkToolMenuHost<?> networkTool) {
+    private static UIElement createLegacyNetworkToolbox(NetworkToolMenuHost networkTool) {
         var itemHandler = new NetworkToolItemHandler(networkTool);
         UIElement toolbox = new UIElement();
 
@@ -51,9 +51,9 @@ final class WorkstationInventoryUI {
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
-        private final NetworkToolMenuHost<?> networkTool;
+        private final NetworkToolMenuHost networkTool;
 
-        private JsonContext(NetworkToolMenuHost<?> networkTool) {
+        private JsonContext(NetworkToolMenuHost networkTool) {
             this.networkTool = Objects.requireNonNull(networkTool, "networkTool");
         }
 
@@ -72,25 +72,11 @@ final class WorkstationInventoryUI {
     }
 
     static InventorySlots createPlayerInventory(Inventory inventory, @Nullable Integer lockedSlot) {
-        return new InventorySlots() {
-            @Override
-            protected void onModularUIChanged(UIEvent event) {
-                var mui = getModularUI();
-                if (mui == null || event.customData == mui || mui.getMenu() == null || mui.player == null) {
-                    return;
-                }
-
-                for (int rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-                    for (int columnIndex = 0; columnIndex < rows[rowIndex].slots.length; columnIndex++) {
-                        int inventorySlot = rowIndex * 9 + columnIndex + 9;
-                        rows[rowIndex].slots[columnIndex].bind(playerSlot(inventory, inventorySlot, lockedSlot));
-                    }
-                }
-                for (int slotIndex = 0; slotIndex < hotbar.slots.length; slotIndex++) {
-                    hotbar.slots[slotIndex].bind(playerSlot(inventory, slotIndex, lockedSlot));
-                }
-            }
-        };
+        var slots=new InventorySlots();
+        for(int row=0;row<slots.rows.length;row++)for(int column=0;column<slots.rows[row].slots.length;column++)
+            slots.rows[row].slots[column].bind(playerSlot(inventory,row*9+column+9,lockedSlot));
+        for(int slot=0;slot<slots.hotbar.slots.length;slot++)slots.hotbar.slots[slot].bind(playerSlot(inventory,slot,lockedSlot));
+        return slots;
     }
 
     private static Slot playerSlot(Inventory inventory, int slotIndex, @Nullable Integer lockedSlot) {
@@ -110,9 +96,9 @@ final class WorkstationInventoryUI {
         };
     }
 
-    private record NetworkToolItemHandler(NetworkToolMenuHost<?> networkTool) implements IItemHandlerModifiable {
+    private record NetworkToolItemHandler(NetworkToolMenuHost networkTool) implements IItemHandlerModifiable {
         private InternalInventory inventory() {
-            return networkTool.isValid() ? networkTool.getInventory() : InternalInventory.empty();
+            return (networkTool.getSlot()==null || net.minecraft.world.item.ItemStack.isSameItem(networkTool.getPlayer().getInventory().getItem(networkTool.getSlot()),networkTool.getItemStack())) ? networkTool.getInventory() : InternalInventory.empty();
         }
 
         @Override

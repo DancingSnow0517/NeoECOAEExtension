@@ -1,19 +1,19 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IBindable;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IDataSource;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.Horizontal;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.TextWrap;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Label;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.AlignItems;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.FlexDirection;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,7 +39,7 @@ public final class HostElements {
 
     public static Label panelTitle(Supplier<Component> text) {
         Label label = new Label();
-        Supplier<Component> styledText = () -> text.get().copy().withColor(HostText.PRIMARY);
+        Supplier<Component> styledText = () -> text.get().copy().withStyle(neColor -> neColor.withColor(HostText.PRIMARY));
         label.setText(styledText.get());
         label.bind(DataBindingBuilder.componentS2C(styledText).build());
         label.textStyle(HostElements::panelTitleTextStyle);
@@ -48,7 +48,7 @@ public final class HostElements {
 
     public static Label textSegment(Supplier<Component> text, IntSupplier color) {
         Label label = new Label();
-        Supplier<Component> styledText = () -> text.get().copy().withColor(color.getAsInt());
+        Supplier<Component> styledText = () -> text.get().copy().withStyle(neColor -> neColor.withColor(color.getAsInt()));
         label.setText(styledText.get());
         label.bind(DataBindingBuilder.componentS2C(styledText).build());
         label.textStyle(HostElements::lineTextStyle);

@@ -13,7 +13,7 @@ import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.ISubMenuHost;
-import appeng.core.network.clientbound.CraftConfirmPlanPacket;
+import appeng.core.sync.packets.CraftConfirmPlanPacket;
 import appeng.menu.guisync.GuiSync;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
@@ -59,7 +59,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 
 // Include Data Energistics, OmniSequence, and AppliedEnhancements merged long-amount planning entry points (priority 1000).
-@Mixin(value = CraftConfirmMenu.class, priority = 1100)
+@Mixin(value = CraftConfirmMenu.class, priority = 1100, remap = false)
 public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
     private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
@@ -807,7 +807,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             "[craft-submit] Rejected: reason=INVENTORY_RECHECK, container={}, key={}, missing={}",
             menu.containerId, missing.getWhat(), missing.getMissingAmount());
         if (menu.getPlayer() instanceof ServerPlayer player) {
-            player.connection.send(new CraftConfirmPlanPacket(refreshed));
+            appeng.core.sync.network.NetworkHandler.instance().sendTo(new CraftConfirmPlanPacket(refreshed), player);
         }
         ci.cancel();
     }

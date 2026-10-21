@@ -35,7 +35,7 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
         AEItemKey definition = null;
         try {
             definition = pattern.getDefinition();
-            List<GenericStack> outputs = pattern.getOutputs();
+            List<GenericStack> outputs = java.util.Arrays.asList(pattern.getOutputs());
             if (outputs == null || outputs.isEmpty()) {
                 return PatternSemantics.unsupported(pattern, definition, "NO_OUTPUTS");
             }
@@ -78,8 +78,8 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
                     hasRemainder = true;
                     everyRemainderIsExactReusableStock &= choice.exactReusableStock();
                     returned.add(new GenericStack(remaining, multiplier));
-                    if (!outputs.isEmpty() && outputs.getFirst() != null && outputs.getFirst().what() != null) {
-                        feedback.add(new PatternSemantics.FeedbackEdge(remaining, outputs.getFirst().what(),
+                    if (!outputs.isEmpty() && cn.dancingsnow.neoecoae.platform.JdkCompat.first(outputs) != null && cn.dancingsnow.neoecoae.platform.JdkCompat.first(outputs).what() != null) {
+                        feedback.add(new PatternSemantics.FeedbackEdge(remaining, cn.dancingsnow.neoecoae.platform.JdkCompat.first(outputs).what(),
                             remainingAmount));
                     }
                 }

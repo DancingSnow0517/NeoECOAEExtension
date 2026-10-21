@@ -47,14 +47,14 @@ public final class ECOPatternWrappers {
     public static IPatternDetails unwrap(@Nullable IPatternDetails original) {
         List<Object> chain = trace(original);
         if (chain.isEmpty()) return null;
-        Object last = chain.getLast();
+        Object last = cn.dancingsnow.neoecoae.platform.JdkCompat.last(chain);
         return last instanceof IPatternDetails pattern ? pattern : null;
     }
 
     /** Includes each identity once, stopping at malformed delegation. */
     public static List<Object> wrapperChain(@Nullable Object original) {
         var chain = trace(original);
-        if (!chain.isEmpty() && chain.getLast() == null) chain.removeLast();
+        if (!chain.isEmpty() && cn.dancingsnow.neoecoae.platform.JdkCompat.last(chain) == null) chain.remove(chain.size()-1);
         return List.copyOf(chain);
     }
 

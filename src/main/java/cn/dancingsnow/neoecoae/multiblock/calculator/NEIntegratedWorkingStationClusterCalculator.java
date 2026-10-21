@@ -27,7 +27,7 @@ public class NEIntegratedWorkingStationClusterCalculator
     }
 
     @Override
-    protected Holder<Block> casing() {
+    protected java.util.function.Supplier<? extends Block> casing() {
         return NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING;
     }
 

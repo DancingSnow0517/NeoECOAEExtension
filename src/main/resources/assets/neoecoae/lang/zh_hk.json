@@ -985,5 +985,7 @@
   "gui.neoecoae.structure_terminal.unknown_material": "未知材料",
   "gui.neoecoae.structure_terminal.variable_sections": "可變段：%s [%s-%s]",
   "item.neoecoae.structure_terminal": "ECO 結構終端",
-  "recipe_type.neoecoae.expatternprovider.crystal_assembler": "ExtendedAE：水晶裝配"
+  "recipe_type.neoecoae.expatternprovider.crystal_assembler": "ExtendedAE：水晶裝配",
+  "gui.neoecoae.computation.pause": "暫停",
+  "gui.neoecoae.computation.resume": "繼續"
 }

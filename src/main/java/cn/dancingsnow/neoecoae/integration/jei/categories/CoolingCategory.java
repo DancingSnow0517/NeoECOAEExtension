@@ -11,7 +11,7 @@ import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.gui.drawable.IDrawableAnimated;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.helpers.IGuiHelper;
-import mezz.jei.api.neoforge.NeoForgeTypes;
+import mezz.jei.api.forge.ForgeTypes;
 import mezz.jei.api.recipe.IFocusGroup;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
@@ -75,7 +75,7 @@ public class CoolingCategory implements IRecipeCategory<CoolingRecipe> {
     public void setRecipe(IRecipeLayoutBuilder builder, CoolingRecipe recipeHolder, IFocusGroup focuses) {
         CoolingRecipe recipe = recipeHolder;
         builder.addInputSlot(10, 11)
-            .addIngredients(NeoForgeTypes.FLUID_STACK, Arrays.asList(recipe.input().getFluids()))
+            .addIngredients(ForgeTypes.FLUID_STACK, Arrays.asList(recipe.input().getFluids()))
             .setStandardSlotBackground()
             .setFluidRenderer(1,false, 16,16);
         builder.addOutputSlot(72, 11)

@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 
 // This class-level guard is the only protection when ExtendedAE is absent.
 @Pseudo
-@Mixin(TileExIOPort.class)
+@Mixin(value = TileExIOPort.class, remap = false)
 public class ExtendedAeIOPortBlockEntityMixin {
     @WrapOperation(method = "tickingRequest", at = @At(value = "INVOKE", target = "Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;"))
     private StorageCell wrapGetCellInventory(ItemStack inventory, ISaveProvider ch, Operation<StorageCell> original) {

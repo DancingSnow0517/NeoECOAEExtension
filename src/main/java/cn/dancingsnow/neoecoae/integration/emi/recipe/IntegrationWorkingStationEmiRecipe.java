@@ -32,7 +32,7 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
 
     public IntegrationWorkingStationEmiRecipe(LargeWorkstationRecipe recipe) {
         this(NeoECOAEEmiPlugin.LARGE_WORKING_STATION,
-            NeoECOAE.id("/large_workstation/" + recipe.getId().getNamespace() + "/" + recipe.getId().getPath()),
+            NeoECOAE.id("/large_workstation/" + recipe.id().getNamespace() + "/" + recipe.id().getPath()),
             recipe.display(), recipe.energy(), recipe.extraInputs(), recipe.sourceTypeDescription());
     }
 
@@ -80,7 +80,7 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
             : Component.translatable("gui.neoecoae.integrated_working_station.energy", energy / 1000);
         widgets.addText(text, 24, 66, 0x403e53, false);
         if (!extraInputs.isEmpty()) {
-            var extra = extraInputs.getFirst();
+            var extra = cn.dancingsnow.neoecoae.platform.JdkCompat.first(extraInputs);
             widgets.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_amount",
                 extra.amount()), 0, 79, 0x403e53, false);
             widgets.addText(extra.what().getDisplayName(), 0, 91, 0x403e53, false);

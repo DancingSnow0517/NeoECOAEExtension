@@ -14,7 +14,7 @@ public final class ECOCellModelRegistrar {
     @SubscribeEvent
     public static void on(ModelEvent.RegisterAdditional event) {
         ECOCellModels.getDeferredModels().values().forEach(location ->
-            event.register(ModelResourceLocation.standalone(location)));
-        event.register(ModelResourceLocation.standalone(ECOCellModels.DEFAULT_MODEL));
+            event.register(location));
+        event.register(ECOCellModels.DEFAULT_MODEL);
     }
 }

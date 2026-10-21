@@ -311,8 +311,8 @@ public final class AcyclicCraftingSolver {
             IPatternDetails.IInput matchingInput = null;
             IPatternDetails demandProducer = state.demandProducers.get(key);
             if (demandProducer != null) {
-                for (CompiledPattern candidate : network.producersOf(demandProducer.getOutputs().isEmpty()
-                        ? key : demandProducer.getOutputs().getFirst().what())) {
+                for (CompiledPattern candidate : network.producersOf(demandProducer.getOutputs().length == 0
+                        ? key : cn.dancingsnow.neoecoae.platform.JdkCompat.first(demandProducer.getOutputs()).what())) {
                     if (candidate.details() != demandProducer) continue;
                     for (CompiledInput input : candidate.inputs()) {
                         if (input.key().equals(key) && input.ignoresComponents()) {

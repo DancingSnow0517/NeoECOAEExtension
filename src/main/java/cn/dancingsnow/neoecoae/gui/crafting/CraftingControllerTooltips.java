@@ -58,7 +58,7 @@ final class CraftingControllerTooltips {
 
     List<Component> coolantTooltip() {
         return List.of(Component.translatable("gui.neoecoae.host.crafting.coolant"),
-            coolantVisible() ? view.coolantFluid.getHoverName() : Component.translatable("ldlib.fluid.empty"),
+            coolantVisible() ? view.coolantFluid.getDisplayName() : Component.translatable("ldlib.fluid.empty"),
             HostText.usedOfTotal(HostText.usedPart(HostText.expandedNumber(view.coolantAmount), view.coolantAmount,
                 view.coolantCapacity), " / ", HostText.totalPart(HostText.expandedNumber(view.coolantCapacity) + " mB")),
             Component.translatable("gui.neoecoae.crafting.ui.coolant_overclock", Math.max(0, view.coolantMaxOverclock)));
@@ -66,7 +66,7 @@ final class CraftingControllerTooltips {
 
     List<Component> outputTooltip() {
         return List.of(Component.translatable("gui.neoecoae.crafting.ui.cooling_output"),
-            view.outputFluid.isEmpty() ? Component.translatable("ldlib.fluid.empty") : view.outputFluid.getHoverName(),
+            view.outputFluid.isEmpty() ? Component.translatable("ldlib.fluid.empty") : view.outputFluid.getDisplayName(),
             HostText.usedOfTotal(HostText.usedPart(HostText.expandedNumber(view.outputFluid.getAmount()),
                 view.outputFluid.getAmount(), view.outputCapacity), " / ",
                 HostText.totalPart(HostText.expandedNumber(view.outputCapacity) + " mB")));

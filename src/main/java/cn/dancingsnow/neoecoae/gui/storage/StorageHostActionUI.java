@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.List;

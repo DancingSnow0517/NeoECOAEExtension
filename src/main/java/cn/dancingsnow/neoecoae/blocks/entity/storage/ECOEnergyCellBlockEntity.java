@@ -178,7 +178,7 @@ public class ECOEnergyCellBlockEntity extends cn.dancingsnow.neoecoae.blocks.ent
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 20, !neighborChangePending);
+        return new TickingRequest(1, 20, !neighborChangePending, true);
     }
 
     @Override

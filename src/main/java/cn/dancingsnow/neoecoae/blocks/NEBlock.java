@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks;
 
-import appeng.block.AEBaseEntityBlock;
+import cn.dancingsnow.neoecoae.platform.NEEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -16,7 +16,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntityBlock<T> {
+public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends NEEntityBlock<T> {
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
 
     protected NEBlock(Properties properties) {
@@ -35,7 +35,7 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    protected RenderShape getRenderShape(BlockState state) {
+    public RenderShape getRenderShape(BlockState state) {
         if (!hideWhenFormed()) {
             return super.getRenderShape(state);
         }
@@ -43,12 +43,12 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    protected boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
+    public boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
         return hideWhenFormed() ? state.getValue(FORMED) : super.skipRendering(state, adjacentState, direction);
     }
 
     @Override
-    protected float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
+    public float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
         if (!hideWhenFormed()) {
             return super.getShadeBrightness(state, level, pos);
         }
@@ -56,24 +56,24 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    public VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return isVisuallyHidden(state) ? Shapes.empty() : super.getVisualShape(state, level, pos, context);
     }
 
     @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
+    public boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
         return hideWhenFormed()
             ? state.getValue(FORMED)
             : super.propagatesSkylightDown(state, level, pos);
     }
 
     @Override
-    protected int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) {
+    public int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) {
         return getRenderShape(state) == RenderShape.INVISIBLE ? 0 : super.getLightBlock(state, level, pos);
     }
 
     @Override
-    protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
+    public VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
         return getRenderShape(state) == RenderShape.INVISIBLE
             ? Shapes.empty()
             : super.getOcclusionShape(state, level, pos);
@@ -100,7 +100,7 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
         if (level instanceof ServerLevel serverLevel && serverLevel.getServer().isStopped()) {
             return;
         }

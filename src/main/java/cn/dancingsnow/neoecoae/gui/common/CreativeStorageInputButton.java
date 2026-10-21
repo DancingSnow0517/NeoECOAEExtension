@@ -1,13 +1,13 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -19,7 +19,7 @@ public final class CreativeStorageInputButton {
 
     public static Button create(BooleanSupplier ignoring, Runnable toggle) {
         Button button = HostSideButtonBar.createButton().noText().addPreIcon(icon(ignoring.getAsBoolean()));
-        var image = button.getChildren().getFirst();
+        var image = cn.dancingsnow.neoecoae.platform.JdkCompat.first(button.getChildren());
         button.setOnServerClick(event -> toggle.run());
         BindableValue<Boolean> synced = new BindableValue<>(ignoring.getAsBoolean());
         synced.bind(DataBindingBuilder.boolS2C(ignoring::getAsBoolean).build());

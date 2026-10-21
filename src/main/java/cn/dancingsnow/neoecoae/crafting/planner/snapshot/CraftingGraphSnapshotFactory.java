@@ -312,7 +312,7 @@ public final class CraftingGraphSnapshotFactory {
     private static String displayIdentity(IPatternDetails pattern) {
         StringBuilder value = new StringBuilder(pattern.getClass().getSimpleName());
         try {
-            if (!pattern.getOutputs().isEmpty()) value.append(':').append(pattern.getOutputs().getFirst().what());
+            if (pattern.getOutputs().length > 0) value.append(':').append(cn.dancingsnow.neoecoae.platform.JdkCompat.first(pattern.getOutputs()).what());
         } catch (RuntimeException ignored) {
         }
         return value.toString();

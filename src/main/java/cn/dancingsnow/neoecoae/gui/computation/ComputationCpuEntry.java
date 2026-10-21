@@ -57,7 +57,7 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
         CompoundTag tag = new CompoundTag();
         tag.putInt("serial", serial);
         tag.putString("name", name);
-        if (output != null) tag.put("output", output.toTagGeneric(registries));
+        if (output != null) tag.put("output", output.toTagGeneric());
         tag.putByteArray("requested", requested.toByteArray());
         tag.putByteArray("remaining", remaining.toByteArray());
         tag.putFloat("progress", progress);
@@ -72,7 +72,7 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
 
     static ComputationCpuEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuEntry(tag.getInt("serial"), tag.getString("name"),
-            tag.contains("output") ? AEKey.fromTagGeneric(registries, tag.getCompound("output")) : null,
+            tag.contains("output") ? AEKey.fromTagGeneric(tag.getCompound("output")) : null,
             new BigInteger(tag.getByteArray("requested")), new BigInteger(tag.getByteArray("remaining")),
             tag.getFloat("progress"), tag.getLong("elapsed"), tag.getLong("storage"), tag.getInt("parallel"),
             CpuSelectionMode.values()[JdkCompat.clamp(tag.getInt("mode"), 0, CpuSelectionMode.values().length - 1)],

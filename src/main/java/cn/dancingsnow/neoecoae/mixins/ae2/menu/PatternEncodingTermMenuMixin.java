@@ -28,7 +28,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(PatternEncodingTermMenu.class)
+@Mixin(value = PatternEncodingTermMenu.class, remap = false)
 public class PatternEncodingTermMenuMixin extends MEStorageMenu implements PatternEncodingTermMenuExtension {
     @Shadow
     @Final
@@ -67,9 +67,9 @@ public class PatternEncodingTermMenuMixin extends MEStorageMenu implements Patte
             sendClientAction(ACTION_UPLOAD_PATTERN);
             return;
         }
-        IGridNode node = getGridNode();
+        IGridNode node = getNetworkNode();
         if (node == null) return;
-        if (!getLinkStatus().connected()) return;
+        if (!canInteractWithGrid()) return;
         if (currentMode == EncodingMode.PROCESSING) return;
         IGrid grid = node.getGrid();
         if (grid == null) return;

@@ -28,11 +28,18 @@ public abstract class Ae2CpuJobAccessor
     @Accessor("finalOutput")
     public abstract GenericStack neoecoae$finalOutput();
 
-    @Accessor("suspended")
-    public abstract boolean neoecoae$suspended();
+    @org.spongepowered.asm.mixin.Unique private boolean neoecoae$suspended;
+    public boolean neoecoae$suspended(){return neoecoae$suspended;}
+    public void neoecoae$suspended(boolean value){neoecoae$suspended=value;}
 
-    @Accessor("suspended")
-    public abstract void neoecoae$suspended(boolean value);
+    @org.spongepowered.asm.mixin.injection.Inject(method="writeToNBT",at=@org.spongepowered.asm.mixin.injection.At("RETURN"))
+    private void neoecoae$writeSuspended(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<net.minecraft.nbt.CompoundTag> cir){
+        cir.getReturnValue().putBoolean("neoecoaeSuspended",neoecoae$suspended);
+    }
+    @org.spongepowered.asm.mixin.injection.Inject(method="<init>(Lnet/minecraft/nbt/CompoundTag;Lappeng/crafting/execution/ExecutingCraftingJob$CraftingDifferenceListener;Lappeng/crafting/execution/CraftingCpuLogic;)V",at=@org.spongepowered.asm.mixin.injection.At("RETURN"))
+    private void neoecoae$readSuspended(net.minecraft.nbt.CompoundTag data,@org.spongepowered.asm.mixin.injection.Coerce Object listener,appeng.crafting.execution.CraftingCpuLogic cpu,org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci){
+        neoecoae$suspended=data.getBoolean("neoecoaeSuspended");
+    }
 
     @Override
     public void neoecoae$addRemainderItems(long amount, appeng.api.stacks.AEKeyType type) {

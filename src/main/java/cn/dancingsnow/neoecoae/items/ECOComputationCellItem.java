@@ -19,7 +19,7 @@ public class ECOComputationCellItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, net.minecraft.world.level.Level level, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
         if (stack.getItem() instanceof ECOComputationCellItem cellItem) {
             IECOTier tier = cellItem.getTier();
             tooltipComponents.add(Component.translatable(

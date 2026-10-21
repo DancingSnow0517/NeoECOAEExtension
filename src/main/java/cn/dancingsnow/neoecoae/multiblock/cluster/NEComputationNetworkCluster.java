@@ -46,7 +46,7 @@ public class NEComputationNetworkCluster {
         if (members.isEmpty()) {
             return;
         }
-        CpuSelectionMode mode = members.getFirst().getSelectionMode();
+        CpuSelectionMode mode = cn.dancingsnow.neoecoae.platform.JdkCompat.first(members).getSelectionMode();
         for (NEComputationCluster member : members) {
             member.applyNetworkSelectionMode(mode);
         }
@@ -85,7 +85,7 @@ public class NEComputationNetworkCluster {
     }
 
     public boolean isLeader(NEComputationCluster member) {
-        return !members.isEmpty() && members.getFirst() == member;
+        return !members.isEmpty() && cn.dancingsnow.neoecoae.platform.JdkCompat.first(members) == member;
     }
 
     private long sumMultiplied(ToLongFunction<NEComputationCluster> getter) {

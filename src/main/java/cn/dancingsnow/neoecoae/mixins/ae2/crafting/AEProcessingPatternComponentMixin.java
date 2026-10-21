@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(AEProcessingPattern.class)
+@Mixin(value = AEProcessingPattern.class, remap = false)
 public abstract class AEProcessingPatternComponentMixin {
     @Inject(method = "pushInputsToExternalInventory", at = @At("HEAD"), cancellable = true)
     private void neoecoae$pushConcreteInputs(KeyCounter[] inputs, IPatternDetails.PatternInputSink sink,

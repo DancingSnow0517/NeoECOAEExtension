@@ -35,11 +35,11 @@ public final class ECOExternalPatternNormalization {
     }
 
     private static long multiplier(IPatternDetails scaled, IPatternDetails original) {
-        var outputs = scaled.getOutputs();
-        var base = original.getOutputs();
-        if (outputs.isEmpty() || outputs.size() != base.size() || base.getFirst().amount() <= 0)
+        var outputs = java.util.Arrays.asList(scaled.getOutputs());
+        var base = java.util.Arrays.asList(original.getOutputs());
+        if (outputs.isEmpty() || outputs.size() != base.size() || cn.dancingsnow.neoecoae.platform.JdkCompat.first(base).amount() <= 0)
             throw new IllegalArgumentException("Invalid EAEP output shape");
-        long n = outputs.getFirst().amount() / base.getFirst().amount();
+        long n = cn.dancingsnow.neoecoae.platform.JdkCompat.first(outputs).amount() / cn.dancingsnow.neoecoae.platform.JdkCompat.first(base).amount();
         if (n <= 0) throw new IllegalArgumentException("Invalid EAEP multiplier");
         for (int i = 0; i < outputs.size(); i++) {
             if (!outputs.get(i).what().equals(base.get(i).what())

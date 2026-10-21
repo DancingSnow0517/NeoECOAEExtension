@@ -9,15 +9,15 @@ import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.google.gson.JsonObject;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.inventory.InventorySlots;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -61,7 +61,7 @@ public final class ComputationControllerUI {
     ) {
         HolderLookup.Provider registries() {
             return player == null ? RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
-                : player.registryAccess();
+                : player.level().registryAccess();
         }
     }
 
@@ -214,8 +214,8 @@ public final class ComputationControllerUI {
             lines.add(Component.translatable("gui.neoecoae.computation.settings." + key));
             lines.add(Component.translatable(on
                 ? "gui.neoecoae.computation.ui.switch.on"
-                : "gui.neoecoae.computation.ui.switch.off").withColor(on ? 0x55FF55 : 0xAAAAAA));
-            lines.add(Component.translatable("gui.neoecoae.computation.ui.switch." + key + ".desc").withColor(0xAAAAAA));
+                : "gui.neoecoae.computation.ui.switch.off").withStyle(neColor -> neColor.withColor(on ? 0x55FF55 : 0xAAAAAA)));
+            lines.add(Component.translatable("gui.neoecoae.computation.ui.switch." + key + ".desc").withStyle(neColor -> neColor.withColor(0xAAAAAA)));
             if (count != null) {
                 lines.add(Component.translatable("gui.neoecoae.crafting.planning.substitution_pattern_count",
                     Math.max(0, count.getValue() == null ? 0 : count.getValue())));

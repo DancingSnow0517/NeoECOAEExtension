@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import appeng.api.client.AEKeyRendering;
 import appeng.api.util.AEColor;
-import appeng.client.gui.widgets.AE2Button;
+import cn.dancingsnow.neoecoae.client.gui.widget.NEButtonText;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
@@ -13,18 +13,18 @@ import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.SyncStrategy;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEventBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -124,7 +124,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             Component.translatable("gui.neoecoae.computation.settings.back"));
         pauseButton.setId("computation-status-pause");
         cancelButton.setId("computation-status-cancel");
-        pauseButton.setText(GuiText.Suspend.text())
+        pauseButton.setText(Component.translatable("gui.neoecoae.computation.pause"))
             .setOnClick(event -> { if (event.button == 0) cpuAction.send(selectedSerial, 1); });
         placeButton(pauseButton, 191, HEIGHT - 25);
         cancelButton.setText(GuiText.Cancel.text())
@@ -165,7 +165,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         boolean busy = selected != null && !selected.status().equals("idle");
         pauseButton.setActive(busy && !selected.status().equals("error") && !selected.status().equals("returning"));
         cancelButton.setActive(busy);
-        pauseButton.setText(selected != null && selected.status().equals("suspended") ? GuiText.Resume.text() : GuiText.Suspend.text());
+        pauseButton.setText(selected != null && selected.status().equals("suspended") ? Component.translatable("gui.neoecoae.computation.resume") : Component.translatable("gui.neoecoae.computation.pause"));
         return this;
     }
 
@@ -195,7 +195,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
             lines.addAll(itemDescription(item, true));
             if (item.batched()) {
-                lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF));
+                lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withStyle(neColor -> neColor.withColor(0xC7A6FF)));
             }
             event.hoverTooltips = HoverTooltips.empty().append(lines.toArray(Component[]::new));
         });
@@ -351,7 +351,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             int offset = !isActive() ? -1 : getState() == State.DEFAULT ? 1 : 0;
             int color = !isActive() ? TEXT : getState() == State.DEFAULT ? 0xF2F2F2 : 0x517497;
             context.graphics.flush();
-            AE2Button.renderButtonText(context.graphics, Minecraft.getInstance().font, label,
+            NEButtonText.renderButtonText(context.graphics, Minecraft.getInstance().font, label,
                 x + 2, y, x + Math.round(getSizeWidth()) - 2, y + Math.round(getSizeHeight()), offset, 0xFF000000 | color);
         }
     }

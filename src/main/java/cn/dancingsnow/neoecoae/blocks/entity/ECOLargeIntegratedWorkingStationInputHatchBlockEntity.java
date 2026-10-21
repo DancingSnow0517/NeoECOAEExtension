@@ -44,7 +44,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     private boolean isCoolant(FluidStack fluid) {
         if (level == null || fluid.isEmpty()) return false;
         for (var holder : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
-            if (holder.value().input().ingredient().test(fluid)) return true;
+            if (holder.input().ingredient().test(fluid)) return true;
         }
         return false;
     }

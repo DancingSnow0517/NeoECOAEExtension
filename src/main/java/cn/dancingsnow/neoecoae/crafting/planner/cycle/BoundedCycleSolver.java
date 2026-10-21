@@ -388,7 +388,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                             if (laps.signum() > 0) {
                                 best.addAll(witness);
                                 if (witness.size() == 1) {
-                                    BatchFiring run = witness.getFirst();
+                                    BatchFiring run = cn.dancingsnow.neoecoae.platform.JdkCompat.first(witness);
                                     best.set(0, new BatchFiring(run.transition(), run.exactCount().multiply(laps)));
                                 } else if (laps.compareTo(PlannerAmount.ONE) > 0) {
                                     repeatTail(best, 0, laps.subtract(PlannerAmount.ONE));

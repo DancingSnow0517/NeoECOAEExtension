@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /** Keeps controls available for an ECO job even when its accounting table is temporarily empty. */
-@Mixin(CraftingCPUScreen.class)
+@Mixin(value = CraftingCPUScreen.class, remap = false)
 public abstract class CraftingCpuScreenMixin {
     @WrapOperation(
         method = "render",

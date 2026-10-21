@@ -75,7 +75,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
 
     protected abstract int maxLength();
 
-    protected abstract Holder<Block> casing();
+    protected abstract java.util.function.Supplier<? extends Block> casing();
 
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {
@@ -90,8 +90,8 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         return fn.test(level.getBlockState(pos), value);
     }
 
-    public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, Holder<Block> type) {
-        return expandTowards(level, direction, start, type.value());
+    public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, java.util.function.Supplier<? extends Block> type) {
+        return expandTowards(level, direction, start, type.get());
     }
 
     public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, Block type) {
@@ -148,15 +148,15 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         BlockPos centerPos,
         Direction top,
         Direction down,
-        Holder<Block> casing
+        java.util.function.Supplier<? extends Block> casing
     ) {
-        if (!validateBlock(level, centerPos, BlockState::is, casing)) {
+        if (!validateBlock(level, centerPos, (candidateState, reference) -> candidateState.is(reference.get()), casing)) {
             return false;
         }
-        if (!validateBlock(level, centerPos.relative(top), BlockState::is, casing)) {
+        if (!validateBlock(level, centerPos.relative(top), (candidateState, reference) -> candidateState.is(reference.get()), casing)) {
             return false;
         }
-        return validateBlock(level, centerPos.relative(down), BlockState::is, casing);
+        return validateBlock(level, centerPos.relative(down), (candidateState, reference) -> candidateState.is(reference.get()), casing);
     }
 
     protected final boolean validateCasing(
@@ -183,22 +183,22 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         BlockPos interfacePos,
         Direction top,
         Direction down,
-        Holder<Block> interfaceType,
-        Holder<Block> casingType
+        java.util.function.Supplier<? extends Block> interfaceType,
+        java.util.function.Supplier<? extends Block> casingType
     ) {
-        if (!validateBlock(level, interfacePos, BlockState::is, interfaceType)) {
+        if (!validateBlock(level, interfacePos, (candidateState, reference) -> candidateState.is(reference.get()), interfaceType)) {
             return false;
         }
-        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, casingType)) {
+        if (!validateBlock(level, interfacePos.relative(top), (candidateState, reference) -> candidateState.is(reference.get()), casingType)) {
             return false;
         }
-        return validateBlock(level, interfacePos.relative(down), BlockState::is, casingType);
+        return validateBlock(level, interfacePos.relative(down), (candidateState, reference) -> candidateState.is(reference.get()), casingType);
     }
 
     protected static boolean ensureSameSurface(List<BlockPos> list) {
-        int x = list.getFirst().getX();
-        int y = list.getFirst().getY();
-        int z = list.getFirst().getZ();
+        int x = cn.dancingsnow.neoecoae.platform.JdkCompat.first(list).getX();
+        int y = cn.dancingsnow.neoecoae.platform.JdkCompat.first(list).getY();
+        int z = cn.dancingsnow.neoecoae.platform.JdkCompat.first(list).getZ();
         boolean sameX = true;
         boolean sameY = true;
         boolean sameZ = true;
@@ -305,10 +305,10 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     protected static BiPredicate<BlockState, BlockPos> matchingStateFacing(
-        Holder<Block> block,
+        java.util.function.Supplier<? extends Block> block,
         Direction facing
     ) {
-        return (state, pos) -> state.is(block)
+        return (state, pos) -> state.is(block.get())
             && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 

@@ -39,8 +39,7 @@ public final class ECOCraftConfirmScreenIntegration {
         if (screen instanceof ECOCraftConfirmScreen
                 || Minecraft.getInstance().screen != screen
                 || !(screen instanceof CraftConfirmScreen container)
-                || !(container.getMenu() instanceof CraftConfirmMenu menu)
-                || !((Object) menu instanceof ECOCraftConfirmMenuMode mode)
+                || !((Object) container.getMenu() instanceof ECOCraftConfirmMenuMode mode)
                 || (!mode.neoecoae$isEcoPlannerAvailable()
                     && (!renderFallback || !mode.neoecoae$isEcoReportReady()))) {
             return;
@@ -52,7 +51,7 @@ public final class ECOCraftConfirmScreenIntegration {
                 mode.neoecoae$isEcoPlannerAvailable(), mode.neoecoae$isEcoReportReady());
         }
         Minecraft.getInstance().setScreen(new ECOCraftConfirmScreen(
-                menu, menu.getPlayerInventory(), screen.getTitle(), style));
+                container.getMenu(), container.getMenu().getPlayerInventory(), screen.getTitle(), style));
     }
 
 }

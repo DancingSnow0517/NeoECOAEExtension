@@ -9,15 +9,15 @@ import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -152,10 +152,10 @@ final class ComputationControllerArtwork extends UIElement {
             Component.translatable("gui.neoecoae.host.computation.cpu_storage").append(": ")
                 .append(HostText.fullByteProgress(usedBytes, totalBytes)),
             Component.translatable("gui.neoecoae.host.computation.free_memory").append(": ")
-                .append(Component.literal(HostText.expandedNumber(availableBytes) + " B").withColor(HostText.VALUE)),
+                .append(Component.literal(HostText.expandedNumber(availableBytes) + " B").withStyle(neColor -> neColor.withColor(HostText.VALUE))),
             Component.translatable("gui.neoecoae.computation.ui.stat.usage").append(": ")
                 .append(Component.literal(percent(permille(usedBytes, totalBytes)))
-                    .withColor(HostText.usedValueColor(usedBytes, totalBytes))));
+                    .withStyle(neColor -> neColor.withColor(HostText.usedValueColor(usedBytes, totalBytes)))));
     }
 
     private List<Component> threadTooltip() {
@@ -168,7 +168,7 @@ final class ComputationControllerArtwork extends UIElement {
                 .append(": " + HostText.expandedNumber(Math.max(0, totalThreads - usedThreads))),
             Component.translatable("gui.neoecoae.computation.ui.stat.usage").append(": ")
                 .append(Component.literal(percent(permille(usedThreads, totalThreads)))
-                    .withColor(HostText.usedValueColor(usedThreads, totalThreads))));
+                    .withStyle(neColor -> neColor.withColor(HostText.usedValueColor(usedThreads, totalThreads)))));
     }
 
     private List<Component> parallelTooltip() {
@@ -177,8 +177,8 @@ final class ComputationControllerArtwork extends UIElement {
                 .append(HostText.expandedNumber(parallelCount)),
             Component.translatable("gui.neoecoae.computation.ui.parallel_full").append(": ")
                 .append(Component.literal(percent(permille(parallelCount, fullParallelCount)))
-                    .withColor(HostText.usedValueColor(parallelCount, fullParallelCount))),
-            Component.translatable("gui.neoecoae.computation.ui.parallel_shared").withColor(0xAAAAAA),
+                    .withStyle(neColor -> neColor.withColor(HostText.usedValueColor(parallelCount, fullParallelCount)))),
+            Component.translatable("gui.neoecoae.computation.ui.parallel_shared").withStyle(neColor -> neColor.withColor(0xAAAAAA)),
             Component.translatable("gui.neoecoae.computation.ui.stat.multiplier").append(": x" + networkMultiplier),
             Component.translatable("gui.neoecoae.computation.ui.stat.threads")
                 .append(": " + HostText.expandedNumber(totalThreads)));
@@ -190,8 +190,8 @@ final class ComputationControllerArtwork extends UIElement {
         return List.of(
             Component.translatable("gui.neoecoae.computation.settings." + key),
             Component.translatable(on ? "gui.neoecoae.computation.ui.switch.on" : "gui.neoecoae.computation.ui.switch.off")
-                .withColor(on ? 0x55FF55 : 0xAAAAAA),
-            Component.translatable("gui.neoecoae.computation.ui.switch." + key + ".desc").withColor(0xAAAAAA));
+                .withStyle(neColor -> neColor.withColor(on ? 0x55FF55 : 0xAAAAAA)),
+            Component.translatable("gui.neoecoae.computation.ui.switch." + key + ".desc").withStyle(neColor -> neColor.withColor(0xAAAAAA)));
     }
 
     private boolean switchOn(int index) {

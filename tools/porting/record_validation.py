@@ -27,9 +27,13 @@ def record(log_path: Path) -> dict:
     log = read_log(log_path)
     # Gradle repeats javac diagnostics in its failure recap; count the actual compiler output once.
     compiler_log = log.partition("FAILURE: Build failed")[0]
-    errors = re.findall(r"^(.+?\.java):(\d+): error: (.+)$", compiler_log, re.MULTILINE)
-    declared = re.findall(r"^([\d,]+) errors?\s*$", compiler_log, re.MULTILINE)
-    warnings = re.findall(r"^(\d+) warnings?\s*$", compiler_log, re.MULTILINE)
+    main_section = re.search(r"(?ms)^> Task :compileJava[^\r\n]*\r?\n(.*?)(?=^> Task :|\Z)", compiler_log)
+    main_log = main_section.group(1) if main_section else compiler_log
+    errors = re.findall(r"^(.+?\.java):(\d+): error: (.+)$", main_log, re.MULTILINE)
+    declared = re.findall(r"^([\d,]+) errors?\s*$", main_log, re.MULTILINE)
+    warnings = re.findall(r"^(\d+) warnings?\s*$", main_log, re.MULTILINE)
+    full_compile_succeeded = "BUILD SUCCESSFUL" in log and re.search(
+        r"^> Task :compileJava(?: UP-TO-DATE| FROM-CACHE)?\s*$", log, re.MULTILINE) is not None
     files = Counter()
     messages = Counter()
     for file, _, message in errors:
@@ -63,8 +67,8 @@ def record(log_path: Path) -> dict:
         "working_tree_parent": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "compile": {
             "log": log_path.relative_to(ROOT).as_posix(), "sha256": digest(log_path),
-            "result": "failed" if errors else "inspect log",
-            "reported_errors": int(declared[-1].replace(",", "")) if declared else None,
+            "result": "failed" if errors else "success" if full_compile_succeeded else "inspect log",
+            "reported_errors": int(declared[-1].replace(",", "")) if declared else 0 if full_compile_succeeded else None,
             "parsed_error_locations": len(errors),
             "reported_warnings": int(warnings[-1]) if warnings else None,
             "error_messages": dict(messages.most_common()),
@@ -73,8 +77,8 @@ def record(log_path: Path) -> dict:
         "isolated_tests": reports,
         "scope": {"removed_files": len(scope["removed_files"]), "unexpected_remaining_files": unexpected},
         "json_syntax": {"files": json_count, "invalid": malformed},
-        "full_business_tests": "not run; main compilation incomplete",
-        "current_business_runtime": "not run; main compilation incomplete",
+        "full_business_tests": "not covered by isolated platform/contract tasks; see full-compilation-adaptation.json",
+        "current_business_runtime": "not verified for the full business tree",
         "minimal_environment_runtime": "historical checkpoint e24ea3b only; see environment-validation.json",
         "ordinary_forge_installation": "not verified",
     }

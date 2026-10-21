@@ -124,14 +124,12 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
     }
 
     @Inject(method = "readFromNBT", at = @At("TAIL"), remap = false)
-    private void neoecoae$readBatchEnergy(net.minecraft.nbt.CompoundTag tag,
-            net.minecraft.core.HolderLookup.Provider registries, CallbackInfo ci) {
+    private void neoecoae$readBatchEnergy(net.minecraft.nbt.CompoundTag tag, CallbackInfo ci) {
         neoecoae$batchDispatcher().read(tag.getCompound("neoecoaeFastPath"));
     }
 
     @Inject(method = "writeToNBT", at = @At("TAIL"), remap = false)
-    private void neoecoae$writeBatchEnergy(net.minecraft.nbt.CompoundTag tag,
-            net.minecraft.core.HolderLookup.Provider registries, CallbackInfo ci) {
+    private void neoecoae$writeBatchEnergy(net.minecraft.nbt.CompoundTag tag, CallbackInfo ci) {
         if (neoecoae$batchDispatcher == null) return;
         var ledger = new net.minecraft.nbt.CompoundTag();
         neoecoae$batchDispatcher.write(ledger);

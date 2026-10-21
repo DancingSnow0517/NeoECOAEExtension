@@ -70,10 +70,6 @@ public class NeoECOAE {
     public NeoECOAE() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         MOD_BUS = modBus;
-        // Force the copied AE2/ExtendedAE-style menu type to enter AE2's menu
-        // registration queue during mod construction.
-        LargeIntegratedWorkingStationPatternProviderMenu.TYPE.toString();
-
         NECreativeTabs.register();
         NEMenus.register(modBus);
         NEItems.register();
@@ -90,6 +86,8 @@ public class NeoECOAE {
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();
         integrationManager.loadAllIntegrations();
+        net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
+            () -> () -> cn.dancingsnow.neoecoae.client.NeoECOAEClient.initialize(modBus));
         cn.dancingsnow.neoecoae.compat.ae2.AE2PatternOptimizationIntegration.init();
         cn.dancingsnow.neoecoae.compat.ECOPatternIntegrations.initialize();
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
@@ -161,7 +159,7 @@ public class NeoECOAE {
         ForgeBlockCapabilities.register(
             ForgeCapabilities.ITEM_HANDLER,
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-            AEBaseInvBlockEntity::getExposedItemHandler
+            (be, side) -> be.getInternalInventory().toItemHandler()
         );
         ForgeBlockCapabilities.register(
             appeng.capabilities.Capabilities.IN_WORLD_GRID_NODE_HOST,
@@ -193,7 +191,7 @@ public class NeoECOAE {
                 NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_FLUID_CELL_64M, NEItems.ECO_FLUID_CELL_256M
             );
             for (ItemEntry<ECOStorageCellItem> cell : cells) {
-                Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
+                Upgrades.add(AEItems.FUZZY_CARD.asItem(), cell, 1, storageCellGroup);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
             }
@@ -212,14 +210,13 @@ public class NeoECOAE {
     }
 
     private static void addClassicPack(AddPackFindersEvent event) {
-        event.addPackFinders(
-            NeoECOAE.id("classic_pack"),
-            PackType.CLIENT_RESOURCES,
-            Component.translatable("neoecoae.classic_pack"),
-            PackSource.BUILT_IN,
-            false,
-            Pack.Position.TOP
-        );
+        if(event.getPackType()!=PackType.CLIENT_RESOURCES)return;
+        event.addRepositorySource(consumer->{
+            var root=net.minecraftforge.fml.ModList.get().getModFileById(MOD_ID).getFile().findResource("classic_pack");
+            var pack=Pack.readMetaAndCreate("neoecoae:classic_pack",Component.translatable("neoecoae.classic_pack"),false,
+                id->new net.minecraftforge.resource.PathPackResources(id,true,root),PackType.CLIENT_RESOURCES,Pack.Position.TOP,PackSource.BUILT_IN);
+            if(pack!=null)consumer.accept(pack);
+        });
     }
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {

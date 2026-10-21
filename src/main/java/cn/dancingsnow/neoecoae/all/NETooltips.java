@@ -181,7 +181,7 @@ public class NETooltips {
     }
 
     private static void addTooltips(List<Component> tooltip, TooltipFlag flags, Component... tooltips) {
-        if (flags.hasShiftDown()) {
+        if (net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
             tooltip.addAll(List.of(tooltips));
         } else if (!tooltip.contains(HOLD_SHIFT)) {
             tooltip.add(HOLD_SHIFT);

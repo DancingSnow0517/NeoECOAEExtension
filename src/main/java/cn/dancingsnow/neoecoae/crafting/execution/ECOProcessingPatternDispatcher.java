@@ -194,7 +194,7 @@ final class ECOProcessingPatternDispatcher {
         if (ECOAe2LtDirectDispatch.isProvider(provider)) {
             return ECOAe2LtDirectDispatch.open(provider) != null
                     && isProcessingPattern(ECOProviderPatternIntrospection.unwrap(request.pattern()))
-                    && request.pattern().getInputs().length > 0 && !request.pattern().getOutputs().isEmpty()
+                    && request.pattern().getInputs().length > 0 && request.pattern().getOutputs().length > 0
                     && request.pattern().supportsPushInputsToExternalInventory();
         }
         Object providerLogic = providerLogic(provider);
@@ -207,7 +207,7 @@ final class ECOProcessingPatternDispatcher {
                 || (ECOAdvancedAEPatternScaling.isAdvancedPattern(base) && !advancedLogic)
                 || base != request.pattern()
                 || request.pattern().getInputs().length == 0
-                || request.pattern().getOutputs().isEmpty()
+                || request.pattern().getOutputs().length == 0
                 || !request.pattern().supportsPushInputsToExternalInventory()) return false;
         // Known directional/wireless provider modes split one push across targets and are not atomic here.
         for (String method : new String[]{"getProviderMode", "getWirelessDispatchMode", "getPushDirection"}) {

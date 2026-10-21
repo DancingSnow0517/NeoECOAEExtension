@@ -37,7 +37,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
     }
 
     @Override
-    protected Holder<Block> casing() {
+    protected java.util.function.Supplier<? extends Block> casing() {
         return NEBlocks.STORAGE_CASING;
     }
 
@@ -84,10 +84,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         if (!validateCasing(level, controllerPos, top, down, staticSide)) return false;
         if (!validateCasing(level, controllerPos, top, down, back)) return false;
         if (!validateInterface(level, controllerPos.relative(staticSide).relative(back), top, down)) return false;
-        if (!validateBlock(level, controllerPos.relative(top), BlockState::is, NEBlocks.STORAGE_CASING)) {
+        if (!validateBlock(level, controllerPos.relative(top), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.STORAGE_CASING)) {
             return false;
         }
-        if (!validateBlock(level, controllerPos.relative(down), BlockState::is, NEBlocks.STORAGE_CASING)) {
+        if (!validateBlock(level, controllerPos.relative(down), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.STORAGE_CASING)) {
             return false;
         }
         BlockPos transitionCenter = controllerPos.relative(expandSide);
@@ -106,7 +106,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             level,
             storageBlocksStart,
             storageBlocksEnd,
-            state -> state.is(NEBlocks.ECO_DRIVE)
+            state -> state.is(NEBlocks.ECO_DRIVE.get())
                 && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == front
         )) {
             return false;
@@ -172,7 +172,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         if (!ensureSameSurface(tailCasingPoses)) {
             return false;
         }
-        return validateBlocks(level, tailCasingPoses, BlockState::is, NEBlocks.STORAGE_CASING);
+        return validateBlocks(level, tailCasingPoses, (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.STORAGE_CASING);
     }
 
     @Override

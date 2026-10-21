@@ -166,7 +166,7 @@ public class NECraftingNetworkCluster {
     }
 
     private ECOCraftingSystemBlockEntity getLeaderController() {
-        return members.isEmpty() ? null : members.getFirst().getController();
+        return members.isEmpty() ? null : cn.dancingsnow.neoecoae.platform.JdkCompat.first(members).getController();
     }
 
     /** Allocation-free counterpart of {@link #collectCandidateWorkers()} for busy checks. */
@@ -445,7 +445,7 @@ public class NECraftingNetworkCluster {
     }
 
     public boolean isLeader(NECraftingCluster member) {
-        return !members.isEmpty() && members.getFirst() == member;
+        return !members.isEmpty() && cn.dancingsnow.neoecoae.platform.JdkCompat.first(members) == member;
     }
 
     /**

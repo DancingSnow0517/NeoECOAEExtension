@@ -26,14 +26,14 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
     public record DiskPattern(ItemStack stack, String inputKeywords, String outputKeywords) {
         public CompoundTag encode(HolderLookup.Provider registries) {
             CompoundTag tag = new CompoundTag();
-            tag.put("stack", stack.saveOptional(registries));
+            tag.put("stack", cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(stack, registries));
             if (!inputKeywords.isEmpty()) tag.putString("inputs", inputKeywords);
             if (!outputKeywords.isEmpty()) tag.putString("output", outputKeywords);
             return tag;
         }
 
         public static DiskPattern decode(CompoundTag tag, HolderLookup.Provider registries) {
-            return new DiskPattern(ItemStack.parseOptional(registries, tag.getCompound("stack")),
+            return new DiskPattern(cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(registries, tag.getCompound("stack")),
                     tag.getString("inputs"), tag.getString("output"));
         }
     }
@@ -42,7 +42,7 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
         CompoundTag tag = new CompoundTag();
         tag.putLong("bus", busPosition);
         tag.putInt("slot", physicalSlot);
-        tag.put("stack", stack.saveOptional(registries));
+        tag.put("stack", cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(stack, registries));
         if (!inputKeywords.isEmpty()) tag.putString("inputs", inputKeywords);
         if (!outputKeywords.isEmpty()) tag.putString("output", outputKeywords);
         ListTag held = new ListTag();
@@ -64,7 +64,7 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
             held.add(DiskPattern.decode(entry, registries));
         }
         return new PatternPreviewEntry(tag.getLong("bus"), tag.getInt("slot"),
-                ItemStack.parseOptional(registries, tag.getCompound("stack")),
+                cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(registries, tag.getCompound("stack")),
                 tag.getString("inputs"), tag.getString("output"), held, tag.getBoolean("diskSlot"));
     }
 }

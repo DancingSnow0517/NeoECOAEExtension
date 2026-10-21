@@ -180,7 +180,7 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void renderBackground(GuiGraphics graphics) {
         // This screen paints its background before the graph. Screen.render() must not blur the graph afterward.
     }
 
@@ -286,10 +286,10 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (mouseY < graphContentTop()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+        if (mouseY < graphContentTop()) return super.mouseScrolled(mouseX, mouseY, scrollY);
         if (graph.isCompactTree() && !Screen.hasControlDown()) {
-            cameraX -= (float) scrollX * 28;
+            if(Screen.hasShiftDown())cameraX -= (float) scrollY * 28;
             cameraY -= (float) scrollY * 28;
             return true;
         }

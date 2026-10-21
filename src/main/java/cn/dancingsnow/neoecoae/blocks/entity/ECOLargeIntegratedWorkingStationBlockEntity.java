@@ -45,9 +45,9 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
@@ -176,6 +176,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Override
     public @Nullable IEnergyStorage getEnergyStorage(@Nullable Direction side) {
         return formed ? null : super.getEnergyStorage(side);
+    }
+
+    @Override
+    public <T>net.minecraftforge.common.util.LazyOptional<T> getCapability(net.minecraftforge.common.capabilities.Capability<T> capability,Direction side){
+        if(formed&&capability==net.minecraftforge.common.capabilities.ForgeCapabilities.ENERGY)return net.minecraftforge.common.util.LazyOptional.empty();
+        return super.getCapability(capability,side);
     }
 
     @Override
@@ -586,7 +592,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Override
-    public void onChangeInventory(AppEngInternalInventory inventory, int slot) {
+    public void onChangeInventory(appeng.api.inventories.InternalInventory inventory, int slot) {
         super.onChangeInventory(inventory, slot);
         cachedTask = null;
         setChanged();
@@ -847,7 +853,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return task == null
             ? Component.translatable("gui.neoecoae.large_integrated_working_station.no_task")
             : Component.translatable("gui.neoecoae.large_integrated_working_station.task",
-                task.hasItemOutput() ? task.itemOutput().getHoverName() : task.fluidOutput().getHoverName());
+                task.hasItemOutput() ? task.itemOutput().getHoverName() : task.fluidOutput().getDisplayName());
     }
 
     public Component getRecipeText() {
@@ -861,7 +867,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return formed ? new TickingRequest(1, 20, false) : super.getTickingRequest(node);
+        return formed ? new TickingRequest(1, 20, false, true) : super.getTickingRequest(node);
     }
 
     @Override
@@ -1284,13 +1290,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return null;
         }
         coolingProblemId = PauseReason.NONE.ordinal();
-        return new CoolingTickPlan(getInputTank().getFluid().copyWithAmount(COOLANT_PER_PROCESSING_TICK), output);
+        return new CoolingTickPlan(cn.dancingsnow.neoecoae.platform.nbt.NEStacks.withAmount(getInputTank().getFluid(), COOLANT_PER_PROCESSING_TICK), output);
     }
 
     private boolean consumeCoolingTick(CoolingTickPlan plan) {
         FluidStack drained = getInputTank().drain(COOLANT_PER_PROCESSING_TICK, IFluidHandler.FluidAction.EXECUTE);
         if (drained.getAmount() != COOLANT_PER_PROCESSING_TICK
-            || !FluidStack.isSameFluidSameComponents(drained, plan.input)) {
+            || !cn.dancingsnow.neoecoae.platform.nbt.NEStacks.sameFluid(drained, plan.input)) {
             if (!drained.isEmpty()) getInputTank().fill(drained, IFluidHandler.FluidAction.EXECUTE);
             return false;
         }
@@ -1519,7 +1525,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Nullable
     private static KeyCounter collectPatternOutputs(IPatternDetails pattern) {
         KeyCounter result = new KeyCounter();
-        List<GenericStack> outputs = pattern.getOutputs();
+        List<GenericStack> outputs = java.util.Arrays.asList(pattern.getOutputs());
         if (outputs == null || outputs.isEmpty()) return null;
         for (GenericStack output : outputs) {
             if (output == null || output.what() == null || output.amount() <= 0L) return null;

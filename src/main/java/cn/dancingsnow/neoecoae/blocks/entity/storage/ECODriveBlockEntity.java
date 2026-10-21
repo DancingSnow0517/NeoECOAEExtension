@@ -152,9 +152,9 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     public boolean isLockedByInfiniteMode() {
-        return cluster instanceof NEStorageCluster storageCluster
-            && storageCluster.getController() != null
-            && storageCluster.getController().isInfiniteMode()
+        return cluster != null
+            && cluster.getController() != null
+            && cluster.getController().isInfiniteMode()
             && cellStack != null
             && !cellStack.isEmpty()
             && ECOInfiniteStorageMember.isMember(cellStack);
@@ -166,8 +166,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         }
         updateCellState();
         double power = 256;
-        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
-            IECOTier mainTier = storageCluster.getController().getTier();
+        if (cluster != null && cluster.getController() != null) {
+            IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 power += cellInventory.getIdleDrain();
@@ -177,9 +177,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         IStorageProvider.requestUpdate(getMainNode());
     }
 
-    @Override
     public void scheduleRenderUpdate() {
-        markForClientUpdate();
+        markForUpdate();
     }
 
     @Override
@@ -222,16 +221,16 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
-        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
-            IECOTier mainTier = storageCluster.getController().getTier();
+        if (cluster != null && cluster.getController() != null) {
+            IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null
                 && mainTier.compareTo(cellInventory.getTier()) >= 0
-                && !storageCluster.getController().isStorageInterfaceTransferMode()
+                && !cluster.getController().isStorageInterfaceTransferMode()
                 && !ECOInfiniteStorageMember.isMigrating(cellStack)
                 && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 int priority = cn.dancingsnow.neoecoae.gui.storage.StoragePriority.mountPriority(
-                    storageCluster.getController().getStoragePriority(), cellInventory.prioritizesMarkedInserts());
+                    cluster.getController().getStoragePriority(), cellInventory.prioritizesMarkedInserts());
                 storageMounts.mount(cellInventory, priority);
                 mounted = true;
                 updateCellState();
@@ -281,7 +280,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Nullable
     public ECOStorageSystemBlockEntity getStorageController() {
-        return cluster instanceof NEStorageCluster storageCluster ? storageCluster.getController() : null;
+        return cluster != null ? cluster.getController() : null;
     }
 
     /** Persists an in-place CellConfig mutation and refreshes this drive's AE2 storage mount. */

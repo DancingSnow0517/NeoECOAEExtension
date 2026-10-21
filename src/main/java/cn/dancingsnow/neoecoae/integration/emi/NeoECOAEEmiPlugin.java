@@ -21,7 +21,7 @@ import dev.emi.emi.api.EmiEntrypoint;
 import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
 import dev.emi.emi.api.stack.EmiStackInteraction;
-import dev.emi.emi.api.neoforge.NeoForgeEmiStack;
+import dev.emi.emi.api.forge.ForgeEmiStack;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
@@ -108,7 +108,7 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
             return new EmiStackInteraction(EmiStack.of(item.toStack()), null, false);
         }
         if (key instanceof AEFluidKey fluid) {
-            return new EmiStackInteraction(NeoForgeEmiStack.of(fluid.toStack(1)), null, false);
+            return new EmiStackInteraction(ForgeEmiStack.of(fluid.toStack(1)), null, false);
         }
         // EMI has no generic representation for AE2's optional/custom key types (energy, chemicals,
         // etc.). Leave those untouched so the screen's native tooltip remains authoritative.

@@ -41,8 +41,8 @@ public record ECOImportJeiBookmarksC2SPacket(int containerId, List<AEKey> keys) 
             int slot = 0;
             for (AEKey key : packet.keys) {
                 if (slot >= capacity) break;
-                if (key == null || !config.isAllowedIn(slot, key)
-                        || cellConfig != null && !cellConfig.isAllowedIn(slot, key)) continue;
+                if (key == null || !config.isAllowed(key)
+                        || cellConfig != null && !cellConfig.isAllowed(key)) continue;
                 config.setStack(slot++, new GenericStack(key, 1));
             }
             menu.broadcastChanges();

@@ -115,7 +115,7 @@ public class NEIntegratedWorkingStationControllerCalculator
                 && member.getCalculator() instanceof NEIntegratedWorkingStationClusterCalculator);
     }
 
-    private static boolean is(ServerLevel level, BlockPos pos, net.minecraft.core.Holder<Block> block) {
-        return level.getBlockState(pos).is(block);
+    private static boolean is(ServerLevel level, BlockPos pos, java.util.function.Supplier<? extends Block> block) {
+        return level.getBlockState(pos).is(block.get());
     }
 }

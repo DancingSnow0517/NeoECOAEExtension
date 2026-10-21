@@ -50,7 +50,7 @@ public final class ThunderPatternSemanticAdapter implements ECOPatternSemanticAd
 
             boolean hasIdOnlyInput = (boolean) ThunderboltApi.invoke(HAS_FUZZY_INPUTS, pattern);
             boolean hasIdOnlyOutput = false;
-            for (int slot = 0; slot < pattern.getOutputs().size(); slot++) {
+            for (int slot = 0; slot < pattern.getOutputs().length; slot++) {
                 if ((boolean) ThunderboltApi.invoke(IS_FUZZY_OUTPUT, pattern, slot)) {
                     hasIdOnlyOutput = true;
                     break;

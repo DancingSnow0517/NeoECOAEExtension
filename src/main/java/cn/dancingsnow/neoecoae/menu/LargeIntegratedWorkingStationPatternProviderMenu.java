@@ -5,7 +5,7 @@ import appeng.api.upgrades.IUpgradeInventory;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.menu.SlotSemantic;
 import appeng.menu.SlotSemantics;
-import appeng.menu.implementations.MenuTypeBuilder;
+import cn.dancingsnow.neoecoae.platform.menu.NEMenuTypes;
 import appeng.menu.implementations.PatternProviderMenu;
 import appeng.menu.slot.RestrictedInputSlot;
 import appeng.core.definitions.AEItems;
@@ -24,9 +24,9 @@ import net.minecraft.world.item.ItemStack;
  * <p>All physical pattern slots remain in the menu while capacity cards unlock their visible rows.</p>
  */
 public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternProviderMenu {
-    public static final MenuType<LargeIntegratedWorkingStationPatternProviderMenu> TYPE = MenuTypeBuilder
-        .create(LargeIntegratedWorkingStationPatternProviderMenu::new, PatternProviderLogicHost.class)
-        .buildUnregistered(NeoECOAE.id("large_integrated_working_station_interface"));
+    public static final MenuType<LargeIntegratedWorkingStationPatternProviderMenu> TYPE = NEMenuTypes.create(
+        NeoECOAE.id("large_integrated_working_station_interface"),
+        LargeIntegratedWorkingStationPatternProviderMenu::new, PatternProviderLogicHost.class);
 
     protected LargeIntegratedWorkingStationPatternProviderMenu(
         int id,
@@ -72,7 +72,7 @@ public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternPro
         private final LargeWorkstationPatternProvider provider;
 
         private DiskAwarePatternSlot(InternalInventory inventory, int slotIndex, LargeWorkstationPatternProvider provider) {
-            super(PlacableItemType.PROVIDER_PATTERN, inventory, slotIndex);
+            super(PlacableItemType.ENCODED_PATTERN, inventory, slotIndex);
             this.provider = provider;
             this.holder = provider.getWorkstationInterface();
         }
@@ -96,7 +96,7 @@ public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternPro
 
         @Override
         public boolean mayPickup(Player player) {
-            return (!AEItems.CAPACITY_CARD.is(getItem()) || provider.canRemoveCapacityCard())
+            return (!AEItems.CAPACITY_CARD.isSameAs(getItem()) || provider.canRemoveCapacityCard())
                 && super.mayPickup(player);
         }
     }

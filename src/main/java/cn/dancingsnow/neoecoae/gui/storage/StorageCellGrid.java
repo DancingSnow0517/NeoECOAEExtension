@@ -4,16 +4,16 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
-import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEventBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEmitter;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -156,16 +156,16 @@ final class StorageCellGrid extends UIElement {
             lines.add(Component.translatable("gui.neoecoae.storage.ui.cell_state." +
                 (!cell.online() || !state.formed() ? "offline" : cell.infinite() ? "infinite"
                     : cell.state().name().toLowerCase(java.util.Locale.ROOT))));
-            if (cell.extractionBlockReason() != null) lines.add(cell.extractionBlockReason().copy().withColor(0xFF5555));
-            else lines.add(Component.translatable("gui.neoecoae.storage.ui.take_cell").withColor(HostText.MUTED));
+            if (cell.extractionBlockReason() != null) lines.add(cell.extractionBlockReason().copy().withStyle(neColor -> neColor.withColor(0xFF5555)));
+            else lines.add(Component.translatable("gui.neoecoae.storage.ui.take_cell").withStyle(neColor -> neColor.withColor(HostText.MUTED)));
         } else {
             lines.add(Component.translatable("gui.neoecoae.storage.ui.cell_state.absent"));
             if (cell(index).position() != null) {
-                lines.add(Component.translatable("gui.neoecoae.storage.ui.insert_cell").withColor(HostText.MUTED));
+                lines.add(Component.translatable("gui.neoecoae.storage.ui.insert_cell").withStyle(neColor -> neColor.withColor(HostText.MUTED)));
             }
         }
         lines.add(pageText(state, columns * 3));
-        lines.add(Component.translatable("gui.neoecoae.storage.ui.scroll_cells").withColor(HostText.MUTED));
+        lines.add(Component.translatable("gui.neoecoae.storage.ui.scroll_cells").withStyle(neColor -> neColor.withColor(HostText.MUTED)));
         return lines;
     }
 

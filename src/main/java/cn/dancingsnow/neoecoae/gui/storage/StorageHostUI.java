@@ -6,11 +6,11 @@ import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import appeng.api.storage.cells.CellState;
 import com.google.gson.JsonObject;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.slot.ItemHandlerSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.inventory.InventorySlots;
 import java.util.List;
 import java.util.UUID;
 import java.math.BigInteger;
@@ -97,7 +97,7 @@ public final class StorageHostUI {
 
         HolderLookup.Provider registries() {
             return player == null ? RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
-                : player.registryAccess();
+                : player.level().registryAccess();
         }
     }
 
@@ -220,7 +220,7 @@ public final class StorageHostUI {
         InventorySlots inventory = new InventorySlots();
         inventory.apply(slot -> slot.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         inventory.getChildren().forEach(child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY));
-        inventory.hotbar.getLayout().marginTop(4);
+        inventory.hotbar.getLayoutStyle().marginTop(4);
         return inventory;
     }
 

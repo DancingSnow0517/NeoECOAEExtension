@@ -51,7 +51,7 @@ public final class PatternPreviewCodec {
             int index = entry.getInt("index");
             long bus = entry.getLong("bus");
             int slot = entry.getInt("slot");
-            Run last = runs.isEmpty() ? null : runs.getLast();
+            Run last = runs.isEmpty() ? null : cn.dancingsnow.neoecoae.platform.JdkCompat.last(runs);
             if (last != null && last.content == id && last.bus == bus
                     && last.index + last.count == index && last.slot + last.count == slot) last.count++;
             else runs.add(new Run(index, bus, slot, id));
@@ -83,9 +83,10 @@ public final class PatternPreviewCodec {
         payload.putBoolean("reuse", (flags & 8) != 0);
         int count = bounded(buf.readVarInt(), MAX_PAGE_ENTRIES);
         List<CompoundTag> contents = new ArrayList<>(count);
-        NbtAccounter accounting = NbtAccounter.create(32L * 1024 * 1024);
+        NbtAccounter accounting = new NbtAccounter(32L * 1024 * 1024);
         for (int i = 0; i < count; i++) {
-            if (!(buf.readNbt(accounting) instanceof CompoundTag content))
+            CompoundTag content=buf.readNbt(accounting);
+            if (content==null)
                 throw new IllegalArgumentException("Missing preview content");
             contents.add(content);
         }

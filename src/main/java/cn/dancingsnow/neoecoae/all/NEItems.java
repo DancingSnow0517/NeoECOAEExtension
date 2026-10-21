@@ -79,8 +79,7 @@ public class NEItems {
     }
 
     public static final ItemEntry<AxeItem> ALUMINUM_AXE = REGISTRATE
-        .item("aluminum_axe", p -> new AxeItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM, 6.0F, -3.2F)))
+        .item("aluminum_axe", p -> new AxeItem(NEToolTier.ALUMINUM, 6.0F, -3.2F, p))
         .tag(ItemTags.AXES)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -95,8 +94,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<HoeItem> ALUMINUM_HOE = REGISTRATE
-        .item("aluminum_hoe", p -> new HoeItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(HoeItem.createAttributes(NEToolTier.ALUMINUM, 0.0F, -3.0F)))
+        .item("aluminum_hoe", p -> new HoeItem(NEToolTier.ALUMINUM, (int)0.0F, -3.0F, p))
         .tag(ItemTags.HOES)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -111,8 +109,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<ShovelItem> ALUMINUM_SHOVEL = REGISTRATE
-        .item("aluminum_shovel", p -> new ShovelItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 1.5F, -3.0F)))
+        .item("aluminum_shovel", p -> new ShovelItem(NEToolTier.ALUMINUM, 1.5F, -3.0F, p))
         .tag(ItemTags.SHOVELS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -127,9 +124,8 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<PickaxeItem> ALUMINUM_PICKAXE = REGISTRATE
-        .item("aluminum_pickaxe", p -> new PickaxeItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(PickaxeItem.createAttributes(NEToolTier.ALUMINUM, 1.0F, -2.8F)))
-        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
+        .item("aluminum_pickaxe", p -> new PickaxeItem(NEToolTier.ALUMINUM, (int)1.0F, -2.8F, p))
+        .tag(ItemTags.PICKAXES, cn.dancingsnow.neoecoae.platform.NEConventionTags.MINING_TOOLS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
                 .pattern("AAA")
@@ -143,8 +139,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<SwordItem> ALUMINUM_SWORD = REGISTRATE
-        .item("aluminum_sword", p -> new SwordItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(SwordItem.createAttributes(NEToolTier.ALUMINUM, 3F, -2.4F)))
+        .item("aluminum_sword", p -> new SwordItem(NEToolTier.ALUMINUM, (int)3F, -2.4F, p))
         .tag(ItemTags.SWORDS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -159,8 +154,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<AxeItem> TUNGSTEN_AXE = REGISTRATE
-        .item("tungsten_axe", p -> new AxeItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.TUNGSTEN, 6.0F, -3.2F)))
+        .item("tungsten_axe", p -> new AxeItem(NEToolTier.TUNGSTEN, 6.0F, -3.2F, p))
         .tag(ItemTags.AXES)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -175,8 +169,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<HoeItem> TUNGSTEN_HOE = REGISTRATE
-        .item("tungsten_hoe", p -> new HoeItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(HoeItem.createAttributes(NEToolTier.TUNGSTEN, 0.0F, -3.0F)))
+        .item("tungsten_hoe", p -> new HoeItem(NEToolTier.TUNGSTEN, (int)0.0F, -3.0F, p))
         .tag(ItemTags.HOES)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -191,8 +184,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<ShovelItem> TUNGSTEN_SHOVEL = REGISTRATE
-        .item("tungsten_shovel", p -> new ShovelItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 1.5F, -3.0F)))
+        .item("tungsten_shovel", p -> new ShovelItem(NEToolTier.TUNGSTEN, 1.5F, -3.0F, p))
         .tag(ItemTags.SHOVELS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -207,9 +199,8 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<PickaxeItem> TUNGSTEN_PICKAXE = REGISTRATE
-        .item("tungsten_pickaxe", p -> new PickaxeItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(PickaxeItem.createAttributes(NEToolTier.TUNGSTEN, 1.0F, -2.8F)))
-        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
+        .item("tungsten_pickaxe", p -> new PickaxeItem(NEToolTier.TUNGSTEN, (int)1.0F, -2.8F, p))
+        .tag(ItemTags.PICKAXES, cn.dancingsnow.neoecoae.platform.NEConventionTags.MINING_TOOLS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
                 .pattern("AAA")
@@ -223,8 +214,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<SwordItem> TUNGSTEN_SWORD = REGISTRATE
-        .item("tungsten_sword", p -> new SwordItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(SwordItem.createAttributes(NEToolTier.TUNGSTEN, 3F, -2.4F)))
+        .item("tungsten_sword", p -> new SwordItem(NEToolTier.TUNGSTEN, (int)3F, -2.4F, p))
         .tag(ItemTags.SWORDS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -266,8 +256,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<AxeItem> ALUMINUM_ALLOY_AXE = REGISTRATE
-        .item("aluminum_alloy_axe", p -> new AxeItem(NEToolTier.ALUMINUM_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 6.0F, -3.2F)))
+        .item("aluminum_alloy_axe", p -> new AxeItem(NEToolTier.ALUMINUM_ALLOY, 6.0F, -3.2F, p))
         .tag(ItemTags.AXES)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
@@ -283,8 +272,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<HoeItem> ALUMINUM_ALLOY_HOE = REGISTRATE
-        .item("aluminum_alloy_hoe", p -> new HoeItem(NEToolTier.ALUMINUM_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 0F, -3F)))
+        .item("aluminum_alloy_hoe", p -> new HoeItem(NEToolTier.ALUMINUM_ALLOY, (int)0F, -3F, p))
         .tag(ItemTags.HOES)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
@@ -300,8 +288,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<ShovelItem> ALUMINUM_ALLOY_SHOVEL = REGISTRATE
-        .item("aluminum_alloy_shovel", p -> new ShovelItem(NEToolTier.ALUMINUM_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 1.5F, -3F)))
+        .item("aluminum_alloy_shovel", p -> new ShovelItem(NEToolTier.ALUMINUM_ALLOY, 1.5F, -3F, p))
         .tag(ItemTags.SHOVELS)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
@@ -317,9 +304,8 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<PickaxeItem> ALUMINUM_ALLOY_PICKAXE = REGISTRATE
-        .item("aluminum_alloy_pickaxe", p -> new PickaxeItem(NEToolTier.ALUMINUM_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 1F, -2.8F)))
-        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
+        .item("aluminum_alloy_pickaxe", p -> new PickaxeItem(NEToolTier.ALUMINUM_ALLOY, (int)1F, -2.8F, p))
+        .tag(ItemTags.PICKAXES, cn.dancingsnow.neoecoae.platform.NEConventionTags.MINING_TOOLS)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
                     Ingredient.of(NEItems.ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE),
@@ -334,8 +320,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<SwordItem> ALUMINUM_ALLOY_SWORD = REGISTRATE
-        .item("aluminum_alloy_sword", p -> new SwordItem(NEToolTier.ALUMINUM_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 3F, -2.4F)))
+        .item("aluminum_alloy_sword", p -> new SwordItem(NEToolTier.ALUMINUM_ALLOY, (int)3F, -2.4F, p))
         .tag(ItemTags.SWORDS)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
@@ -378,8 +363,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<AxeItem> BLACK_TUNGSTEN_ALLOY_AXE = REGISTRATE
-        .item("black_tungsten_alloy_axe", p -> new AxeItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 6.0F, -3.2F)))
+        .item("black_tungsten_alloy_axe", p -> new AxeItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, 6.0F, -3.2F, p))
         .tag(ItemTags.AXES)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
@@ -395,8 +379,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<HoeItem> BLACK_TUNGSTEN_ALLOY_HOE = REGISTRATE
-        .item("black_tungsten_alloy_hoe", p -> new HoeItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 0F, -3F)))
+        .item("black_tungsten_alloy_hoe", p -> new HoeItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, (int)0F, -3F, p))
         .tag(ItemTags.HOES)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
@@ -412,8 +395,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<ShovelItem> BLACK_TUNGSTEN_ALLOY_SHOVEL = REGISTRATE
-        .item("black_tungsten_alloy_shovel", p -> new ShovelItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 1.5F, -3F)))
+        .item("black_tungsten_alloy_shovel", p -> new ShovelItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, 1.5F, -3F, p))
         .tag(ItemTags.SHOVELS)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
@@ -429,9 +411,8 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<PickaxeItem> BLACK_TUNGSTEN_ALLOY_PICKAXE = REGISTRATE
-        .item("black_tungsten_alloy_pickaxe", p -> new PickaxeItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 1F, -2.8F)))
-        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
+        .item("black_tungsten_alloy_pickaxe", p -> new PickaxeItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, (int)1F, -2.8F, p))
+        .tag(ItemTags.PICKAXES, cn.dancingsnow.neoecoae.platform.NEConventionTags.MINING_TOOLS)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
                     Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
@@ -446,8 +427,7 @@ public class NEItems {
         .register();
 
     public static final ItemEntry<SwordItem> BLACK_TUNGSTEN_ALLOY_SWORD = REGISTRATE
-        .item("black_tungsten_alloy_sword", p -> new SwordItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 3F, -2.4F)))
+        .item("black_tungsten_alloy_sword", p -> new SwordItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, (int)3F, -2.4F, p))
         .tag(ItemTags.SWORDS)
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
@@ -739,7 +719,7 @@ public class NEItems {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(Items.ICE)
                 .requires(ConventionTags.CERTUS_QUARTZ_DUST)
-                .requires(ConventionTags.SKY_STONE_DUST)
+                .requires(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM, new ResourceLocation("forge", "dusts/sky_stone")))
                 .requires(Items.SNOWBALL)
                 .requires(Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_DUST), 4)
                 .unlockedBy("has_energized_cryztal_dust", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL_DUST))
@@ -754,7 +734,7 @@ public class NEItems {
                 .pattern("AAA")
                 .pattern("ABA")
                 .pattern("AAA")
-                .define('A', ConventionTags.SKY_STONE_DUST)
+                .define('A', net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM, new ResourceLocation("forge", "dusts/sky_stone")))
                 .define('B', NEItems.CRYOTHEUM)
                 .unlockedBy("has_cryotheum", RegistrateRecipeProvider.has(NEItems.CRYOTHEUM))
                 .save(prov);
@@ -851,7 +831,7 @@ public class NEItems {
     public static final ItemEntry<Item> ECO_INFINITE_CELL_COMPONENT = REGISTRATE
         .<Item>item("eco_infinite_cell_component", p -> new Item(p.rarity(Rarity.EPIC)) {
             @Override
-            public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+            public void appendHoverText(ItemStack stack, net.minecraft.world.level.Level level, List<Component> lines, TooltipFlag tooltipFlag) {
                 lines.add(Component.translatable("tooltip.neoecoae.infinite_component.header")
                     .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
                 lines.add(Component.translatable("tooltip.neoecoae.infinite_component.components")

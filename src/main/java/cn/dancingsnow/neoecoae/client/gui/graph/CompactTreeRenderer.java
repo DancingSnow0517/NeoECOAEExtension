@@ -126,7 +126,7 @@ public final class CompactTreeRenderer {
             route = verticalRoute(from, to);
         }
         drawRoute(graphics, route, color, cameraX, cameraY, zoom);
-        var end = route.getLast();
+        var end = cn.dancingsnow.neoecoae.platform.JdkCompat.last(route);
         int endX = screen(cameraX, end.x(), zoom);
         int endY = screen(cameraY, end.y(), zoom);
         graphics.fill(endX - 3, endY - 2, endX + 1, endY + 3, color);

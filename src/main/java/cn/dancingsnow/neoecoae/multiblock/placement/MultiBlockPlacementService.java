@@ -34,6 +34,26 @@ public final class MultiBlockPlacementService {
 
     private MultiBlockPlacementService() {
     }
+    /** Terminal dismantling uses ordinary block loot/removal so packed recovery and addons keep their hooks. */
+    public static boolean dismantle(ServerLevel level,cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost host,ServerPlayer player){
+        if(!(host instanceof cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<?,?> controller)||controller.getCluster()==null)return false;
+        var positions=new ArrayList<BlockPos>();controller.getCluster().getBlockEntities().forEachRemaining(be->{if(!be.getBlockPos().equals(host.getHostPos()))positions.add(be.getBlockPos().immutable());});
+        for(var pos:positions)if(!level.hasChunkAt(pos)||!level.mayInteract(player,pos))return false;
+        boolean changed=false;
+        for(var pos:positions){
+            if(net.minecraftforge.common.ForgeHooks.onBlockBreakEvent(level,player.gameMode.getGameModeForPlayer(),player,pos)==-1)continue;
+            var before=java.util.Collections.newSetFromMap(new IdentityHashMap<net.minecraft.world.entity.item.ItemEntity,Boolean>());
+            var box=new net.minecraft.world.phys.AABB(pos).inflate(1);
+            before.addAll(level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,box));
+            if(level.destroyBlock(pos,true,player)){
+                changed=true;
+                for(var entity:level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,box))if(!before.contains(entity)){
+                    var stack=entity.getItem();player.getInventory().add(stack);if(stack.isEmpty())entity.discard();else entity.setItem(stack);
+                }
+            }
+        }
+        controller.rebuildMultiblock();return changed;
+    }
 
     public static MultiBlockPlacementPlan preview(
         Level level,
@@ -167,7 +187,7 @@ public final class MultiBlockPlacementService {
             return 0;
         }
 
-        int count = ItemStack.isSameItemSameComponents(stack, target) ? stack.getCount() : 0;
+        int count = ItemStack.isSameItemSameTags(stack, target) ? stack.getCount() : 0;
         IItemHandler itemHandler = stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
         if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
             return count;
@@ -194,7 +214,7 @@ public final class MultiBlockPlacementService {
             return remaining;
         }
 
-        if (ItemStack.isSameItemSameComponents(stack, target)) {
+        if (ItemStack.isSameItemSameTags(stack, target)) {
             int taken = Math.min(stack.getCount(), remaining);
             stack.shrink(taken);
             remaining -= taken;
@@ -217,7 +237,7 @@ public final class MultiBlockPlacementService {
             if (slotStack.isEmpty()) {
                 continue;
             }
-            if (ItemStack.isSameItemSameComponents(slotStack, target)) {
+            if (ItemStack.isSameItemSameTags(slotStack, target)) {
                 int toExtract = Math.min(slotStack.getCount(), remaining);
                 ItemStack extracted = itemHandler.extractItem(slot, toExtract, false);
                 remaining -= extracted.getCount();
@@ -234,7 +254,7 @@ public final class MultiBlockPlacementService {
     private static void mergeItem(List<RequiredItem> requiredItems, ItemStack toAdd) {
         for (int i = 0; i < requiredItems.size(); i++) {
             RequiredItem requiredItem = requiredItems.get(i);
-            if (ItemStack.isSameItemSameComponents(requiredItem.stack(), toAdd)) {
+            if (ItemStack.isSameItemSameTags(requiredItem.stack(), toAdd)) {
                 requiredItems.set(i, requiredItem.grow(toAdd.getCount()));
                 return;
             }

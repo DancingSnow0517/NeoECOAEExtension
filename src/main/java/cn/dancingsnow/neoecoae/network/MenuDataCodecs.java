@@ -7,8 +7,8 @@ import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountClientCache;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUIContainer;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
 
@@ -41,8 +41,8 @@ final class MenuDataCodecs {
             case PATTERNS -> {
                 var pos = buf.readBlockPos();
                 var tag = cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewCodec.read(buf);
-                if (menu instanceof ModularUIContainerMenu modular
-                        && modular.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder
+                if (menu instanceof ModularUIContainer modular
+                        && modular.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder
                         && holder.pos.equals(pos)
                         && player.level().getBlockEntity(pos) instanceof ECOMachineInterfaceBlockEntity<?> host)
                     host.getPatternPreviewSync().receive(tag);

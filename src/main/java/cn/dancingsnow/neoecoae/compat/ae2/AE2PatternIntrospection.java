@@ -60,7 +60,7 @@ public final class AE2PatternIntrospection {
             if (input == null) continue;
             for (var possible : input.getPossibleInputs()) {
                 if (possible != null && possible.what() instanceof AEItemKey itemKey
-                    && !itemKey.toStack(1).getComponentsPatch().isEmpty()) {
+                    && !!itemKey.toStack(1).hasTag()) {
                     return true;
                 }
             }

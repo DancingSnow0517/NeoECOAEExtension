@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 /** Exposes AE2's success-side crafting-lock transition to specialized providers. */
-@Mixin(PatternProviderLogic.class)
+@Mixin(value = PatternProviderLogic.class, remap = false)
 public interface PatternProviderLogicAccessor {
     @Accessor("sendList")
     List<GenericStack> neoecoae$getSendList();

@@ -2,9 +2,9 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.Config;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -74,7 +74,7 @@ final class CraftingControllerSync {
             CraftingOutputDisplay output = cell < outputs.size() ? outputs.get(cell) : CraftingOutputDisplay.EMPTY;
             CompoundTag entry = new CompoundTag();
             if (!output.item().isEmpty() && registries != null) {
-                entry.put("item", output.item().saveOptional(registries));
+                entry.put("item", cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(output.item(), registries));
                 entry.putString("amount", output.amount().toString());
             }
             items.add(entry);
@@ -92,13 +92,13 @@ final class CraftingControllerSync {
         if (fluid == null || fluid.isEmpty()) return new CompoundTag();
         HolderLookup.Provider registries = config.registries().get();
         if (registries == null) return new CompoundTag();
-        Tag saved = fluid.saveOptional(registries);
+        Tag saved = cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(fluid, registries);
         return saved instanceof CompoundTag compound ? compound : new CompoundTag();
     }
 
     private FluidStack loadFluid(CompoundTag tag, Supplier<FluidStack> fallbackSupplier) {
         HolderLookup.Provider registries = config.registries().get();
-        FluidStack parsed = registries == null ? FluidStack.EMPTY : FluidStack.parseOptional(registries, tag);
+        FluidStack parsed = registries == null ? FluidStack.EMPTY : FluidStack.loadFluidStackFromNBT(tag);
         if (!parsed.isEmpty()) return parsed;
         FluidStack fallback = fallbackSupplier.get();
         return fallback == null || fallback.isEmpty() ? FluidStack.EMPTY : fallback.copy();
@@ -139,7 +139,7 @@ final class CraftingControllerSync {
         for (int cell = 0; cell < CraftingControllerPanelState.SLOT_COUNT; cell++) {
             CompoundTag entry = items.getCompound(cell);
             ItemStack item = registries == null ? ItemStack.EMPTY
-                : ItemStack.parseOptional(registries, entry.getCompound("item"));
+                : cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(registries, entry.getCompound("item"));
             BigInteger amount = item.isEmpty() ? BigInteger.ZERO : new BigInteger(entry.getString("amount"));
             outputs.add(new CraftingOutputDisplay(item, amount));
         }

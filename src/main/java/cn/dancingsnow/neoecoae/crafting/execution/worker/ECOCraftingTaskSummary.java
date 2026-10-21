@@ -46,12 +46,12 @@ public final class ECOCraftingTaskSummary {
             if (this == other) return true;
             if (!(other instanceof TaskKey that)) return false;
             return java.util.Objects.equals(jobId, that.jobId)
-                && ItemStack.isSameItemSameComponents(output, that.output);
+                && ItemStack.isSameItemSameTags(output, that.output);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(jobId, output.getItem(), output.getComponents());
+            return java.util.Objects.hash(jobId, output.getItem(), output.getTag());
         }
     }
 

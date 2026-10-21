@@ -31,10 +31,10 @@ import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.annotation.RPCMethod;
@@ -131,6 +131,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private int selectedEcoMegaPage;
     @DescSynced
     private boolean buildInProgress;
+    @Getter
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
 
     private final ECOStorageStageRunner stageRunner = new ECOStorageStageRunner(this);
@@ -370,7 +371,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) {
             return;
         }
-        ServerPlayer player = sender.asPlayer();
+        ServerPlayer player = cn.dancingsnow.neoecoae.platform.sync.NERpcSenders.asPlayer(sender);
         if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) {
             return;
         }
@@ -393,7 +394,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @RPCMethod
     public void cycleEcoMegaCutoff(RPCSender sender, int driveIndex, int page, int visualSlot, int delta) {
         if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) return;
-        ServerPlayer player = sender.asPlayer();
+        ServerPlayer player = cn.dancingsnow.neoecoae.platform.sync.NERpcSenders.asPlayer(sender);
         if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) return;
         var selected = megaController.cycleCutoff(driveIndex, page, visualSlot, delta);
         if (selected != null) {
@@ -415,13 +416,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return text;
     }
 
-    @Override
-    public void saveChangedInventory(AppEngInternalInventory inv) {
+    public void saveChangedInventory(appeng.util.inv.AppEngInternalInventory inv) {
         saveChanges();
     }
 
     @Override
-    public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+    public void onChangeInventory(appeng.api.inventories.InternalInventory inv, int slot) {
         infiniteComponentsDirty = true;
         infiniteRestore.invalidateExtractionCheck();
         invalidateStorageStatistics();
@@ -755,6 +755,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Override
     public void saveAdditional(CompoundTag data) {
         super.saveAdditional(data);
+        buildController.writeTerminalPreview(data);
         data.putString("infiniteHostMode", hostMode.id());
         if (infiniteDomainId != null) {
             data.putUUID("infiniteDomainId", infiniteDomainId);
@@ -765,6 +766,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
+        buildController.readTerminalPreview(data);
         loadLegacyInfiniteComponentInventory(data);
         setStorageHostMode(ECOStorageHostMode.fromId(data.getString("infiniteHostMode")));
         setInfiniteDomainId(data.hasUUID("infiniteDomainId") ? data.getUUID("infiniteDomainId") : null);

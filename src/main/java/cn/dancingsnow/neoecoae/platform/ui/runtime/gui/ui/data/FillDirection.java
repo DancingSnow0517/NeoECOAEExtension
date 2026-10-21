@@ -1,0 +1,2 @@
+package cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data;
+public enum FillDirection { LEFT_TO_RIGHT, RIGHT_TO_LEFT, UP_TO_DOWN, DOWN_TO_UP, ALWAYS_FULL }

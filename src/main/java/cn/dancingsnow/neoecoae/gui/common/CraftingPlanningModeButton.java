@@ -3,13 +3,13 @@ package cn.dancingsnow.neoecoae.gui.common;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -39,7 +39,7 @@ public final class CraftingPlanningModeButton {
         button.addClass("eco-host-planning-mode-button");
         button.layout(layout -> layout.width(size).height(size));
 
-        UIElement icon = button.getChildren().getFirst();
+        UIElement icon = cn.dancingsnow.neoecoae.platform.JdkCompat.first(button.getChildren());
         button.setOnServerClick(event -> toggle.run());
 
         BindableValue<Boolean> syncedMode = new BindableValue<>(ignoringSubstitutions.getAsBoolean());

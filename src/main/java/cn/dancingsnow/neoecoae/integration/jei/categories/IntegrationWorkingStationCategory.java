@@ -12,7 +12,7 @@ import mezz.jei.api.gui.drawable.IDrawableAnimated;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.gui.widgets.IRecipeExtrasBuilder;
 import mezz.jei.api.helpers.IGuiHelper;
-import mezz.jei.api.neoforge.NeoForgeTypes;
+import mezz.jei.api.forge.ForgeTypes;
 import mezz.jei.api.recipe.IFocusGroup;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
@@ -87,7 +87,7 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Integr
         SizedFluidIngredient inputFluid = recipe.inputFluid();
         if (!inputFluid.ingredient().isEmpty()) {
             builder.addInputSlot(5, 9)
-                .addIngredients(NeoForgeTypes.FLUID_STACK, Arrays.asList(inputFluid.getFluids()))
+                .addIngredients(ForgeTypes.FLUID_STACK, Arrays.asList(inputFluid.getFluids()))
                 .setFluidRenderer(16000, false, 16, 58);
         }
 

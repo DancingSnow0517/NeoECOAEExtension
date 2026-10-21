@@ -60,9 +60,10 @@ import java.util.Set;
 import java.util.UUID;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 
-@Mixin(CraftingService.class)
+@Mixin(value=CraftingService.class, remap = false)
 public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings, ECOCraftingOutputRouter,
-        IGridServiceProvider, ECOCraftingProviderRevision, ECOCraftingServiceDiagnostics {
+        IGridServiceProvider, ECOCraftingProviderRevision, ECOCraftingServiceDiagnostics,
+        cn.dancingsnow.neoecoae.platform.mixin.CraftingServiceEarlyBridge {
     @Unique
     private static final Logger NEOECOAE_SUBMISSION_LOGGER = LoggerFactory.getLogger("neoecoae.submit");
     @Unique
@@ -463,17 +464,14 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     }
 
-    @Inject(
-            method = "insertIntoCpus",
-            at = @At(value = "RETURN", shift = At.Shift.BY, by = -1),
-            order = 500
-    )
-    private void onInsertIntoCpus(
+    @Override
+    @Unique
+    public void neoecoae$earlyInsertIntoCpus(
             AEKey what,
             long amount,
             Actionable type,
             CallbackInfoReturnable<Long> cir,
-            @Local(name = "inserted") LocalLongRef inserted
+            LocalLongRef inserted
     ) {
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {
@@ -636,20 +634,16 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                 route, neoecoae$describeSubmissionPlan(job), neoecoae$describeSubmissionResult(result));
     }
 
-    @Inject(
-            method = "submitJob",
-            at = @At(value = "INVOKE_ASSIGN", target = "Lappeng/me/service/CraftingService;findSuitableCraftingCPU(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;Lorg/apache/commons/lang3/mutable/MutableObject;)Lappeng/me/cluster/implementations/CraftingCPUCluster;"),
-            cancellable = true,
-            order = 500
-    )
-    private void onSubmitJob(
+    @Override
+    @Unique
+    public void neoecoae$earlySubmitJob(
             ICraftingPlan job,
             ICraftingRequester requestingMachine,
             ICraftingCPU target,
             boolean prioritizePower,
             IActionSource src,
             CallbackInfoReturnable<ICraftingSubmitResult> cir,
-            @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpusResult
+            MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
         if (NEConfig.ecoCraftSubmissionDebug) {
             NEOECOAE_SUBMISSION_LOGGER.info(
@@ -781,17 +775,14 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             return NE_FAST_FIRST_COMPARATOR.compare(a, b);
         });
 
-        return validCpusClusters.getFirst();
+        return cn.dancingsnow.neoecoae.platform.JdkCompat.first(validCpusClusters);
     }
 
-    @Inject(
-            method = "getCpus",
-            at = @At(value = "INVOKE", target = "Lcom/google/common/collect/ImmutableSet$Builder;build()Lcom/google/common/collect/ImmutableSet;"),
-            order = 500
-    )
-    private void onGetCpus(
+    @Override
+    @Unique
+    public void neoecoae$earlyGetCpus(
             CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir,
-            @Local(name = "cpus") ImmutableSet.Builder<ICraftingCPU> cpus
+            ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
         for (var cluster : this.neoecoae$computationClusters) {
             List<ECOCraftingCPU> ecoCpus = cluster.getActiveCPUs();
@@ -806,13 +797,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         }
     }
 
-    @Inject(
-            method = "getRequestedAmount",
-            at = @At("RETURN"),
-            cancellable = true,
-            order = 500
-    )
-    private void onGetRequestedAmount(
+    @Override
+    @Unique
+    public void neoecoae$earlyGetRequestedAmount(
             AEKey what,
             CallbackInfoReturnable<Long> cir
     ) {

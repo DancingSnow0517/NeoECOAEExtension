@@ -23,7 +23,7 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
 
     CompoundTag write(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
-        tag.put("key", key.toTagGeneric(registries));
+        tag.put("key", key.toTagGeneric());
         tag.putByteArray("stored", stored.toByteArray());
         tag.putByteArray("active", active.toByteArray());
         tag.putByteArray("pending", pending.toByteArray());
@@ -33,7 +33,7 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
 
     static ComputationCpuItemEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuItemEntry(
-            AEKey.fromTagGeneric(registries, tag.getCompound("key")),
+            AEKey.fromTagGeneric(tag.getCompound("key")),
             new BigInteger(tag.getByteArray("stored")),
             new BigInteger(tag.getByteArray("active")),
             new BigInteger(tag.getByteArray("pending")),

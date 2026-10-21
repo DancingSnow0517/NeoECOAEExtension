@@ -935,7 +935,7 @@ public final class ComponentPlanner {
                 .filter(cycle -> cycle.patterns().stream().anyMatch(pattern -> pattern.grossOutputs().stream()
                         .anyMatch(output -> output.what().equals(key))))
                 .distinct().toList();
-        return byproductOwners.size() == 1 ? byproductOwners.getFirst() : null;
+        return byproductOwners.size() == 1 ? cn.dancingsnow.neoecoae.platform.JdkCompat.first(byproductOwners) : null;
     }
 
     private static Set<IPatternDetails> selectedExecutionPatterns(SolveState state, AEKey key,

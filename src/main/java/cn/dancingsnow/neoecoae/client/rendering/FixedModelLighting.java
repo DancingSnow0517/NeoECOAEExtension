@@ -46,7 +46,8 @@ final class FixedModelLighting implements MultiBufferSource, AutoCloseable {
     FixedModelLighting(BlockAndTintGetter level, BlockPos pos, BlockState state, PoseStack.Pose blockPose,
                        MultiBufferSource delegate, Lighters lighters, boolean ambientOcclusion) {
         this.delegate = delegate;
-        this.blockPose = blockPose.copy();
+        var snapshot=new PoseStack();snapshot.last().pose().set(blockPose.pose());snapshot.last().normal().set(blockPose.normal());
+        this.blockPose=snapshot.last();
         this.level = level;
         this.pos = pos.immutable();
         this.state = state;
@@ -87,14 +88,13 @@ final class FixedModelLighting implements MultiBufferSource, AutoCloseable {
                         localVertices[offset + 1] = Float.floatToRawIntBits(Float.intBitsToFloat(localVertices[offset + 1]) - part.origin().getY());
                         localVertices[offset + 2] = Float.floatToRawIntBits(Float.intBitsToFloat(localVertices[offset + 2]) - part.origin().getZ());
                     }
-                    lighter.computeLightingForQuad(localVertices, quad.isShade());
-                    for (int vertex = 0; vertex < 4; vertex++) {
-                        shadedBrightness[vertex] = part.brightness()[vertex] * lighter.getComputedBrightness()[vertex];
-                    }
-                    // The split quad is already in block coordinates, including the model rotation.
-                    // Draw it with the original block pose so the geometry is transformed once.
-                    parent.putBulkData(blockPose, part.quad(), shadedBrightness, red, green, blue, alpha,
-                        lighter.getComputedLightmap(), packedOverlay, readAlpha);
+                    var localQuad=new BakedQuad(localVertices,-1,part.quad().getDirection(),part.quad().getSprite(),quad.isShade(),quad.hasAmbientOcclusion());
+                    lighter.process(new VertexConsumerWrapper(parent){
+                        @Override public void putBulkData(PoseStack.Pose samplePose,BakedQuad sample,float[] computed,float tintR,float tintG,float tintB,int[] lights,int overlay,boolean baked){
+                            for(int vertex=0;vertex<4;vertex++)shadedBrightness[vertex]=part.brightness()[vertex]*computed[vertex];
+                            parent.putBulkData(FixedModelLighting.this.blockPose,part.quad(),shadedBrightness,red,green,blue,alpha,lights,packedOverlay,readAlpha);
+                        }
+                    },blockPose,localQuad,packedOverlay);
                 }
             }
         });

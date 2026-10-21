@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.ArrayList;
 import java.util.List;
 
-@Mixin(AppEngInternalInventory.class)
+@Mixin(value = AppEngInternalInventory.class, remap = false)
 public abstract class AppEngInternalInventoryMixin implements INBTSerializable<CompoundTag>, IContentChangeAware {
     @Unique
     private Runnable neoECOAEExtension$onContentsChanged;
@@ -32,27 +32,27 @@ public abstract class AppEngInternalInventoryMixin implements INBTSerializable<C
     public abstract int size();
 
     @Shadow
-    public abstract void writeToNBT(CompoundTag data, String name, HolderLookup.Provider registries);
+    public abstract void writeToNBT(CompoundTag data, String name);
 
     @Shadow
-    public abstract void readFromNBT(CompoundTag data, String name, HolderLookup.Provider registries);
+    public abstract void readFromNBT(CompoundTag data, String name);
 
     @Override
-    public @UnknownNullability CompoundTag serializeNBT(HolderLookup.Provider provider) {
+    public @UnknownNullability CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
-        this.writeToNBT(tag, "inventory", provider);
+        this.writeToNBT(tag, "inventory");
         return tag;
     }
 
     @Override
-    public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+    public void deserializeNBT(CompoundTag nbt) {
         // LDLib sends a complete snapshot, while AE2's reader only overlays the slots present in the NBT
         // and writes the backing list directly. A slot the snapshot omits therefore has to be cleared
         // explicitly; remember the old contents so the hosts can be told what actually changed.
         List<ItemStack> before = new ArrayList<>(stacks);
         // Clear silently: receiving or loading a snapshot must not publish intermediate empty inventories.
         stacks.clear();
-        this.readFromNBT(nbt, "inventory", provider);
+        this.readFromNBT(nbt, "inventory");
         // The guard also keeps this method honest when the mixin body is exercised directly, as the
         // unit test does: there is no host to tell, so there is nothing to do.
         Object self = this;

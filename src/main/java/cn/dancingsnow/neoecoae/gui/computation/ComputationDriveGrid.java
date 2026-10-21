@@ -2,17 +2,17 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
-import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEmitter;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEventBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -79,7 +79,7 @@ final class ComputationDriveGrid extends UIElement {
     private CompoundTag writeDrive(ComputationDriveEntry entry) {
         CompoundTag tag = new CompoundTag();
         if (entry.position() != null) tag.putLong("pos", entry.position().asLong());
-        if (!entry.stack().isEmpty()) tag.put("stack", entry.stack().saveOptional(config.registries()));
+        if (!entry.stack().isEmpty()) tag.put("stack", cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(entry.stack(), config.registries()));
         return tag;
     }
 
@@ -99,7 +99,7 @@ final class ComputationDriveGrid extends UIElement {
 
     private ComputationDriveEntry readDrive(CompoundTag tag) {
         BlockPos position = tag.contains("pos") ? BlockPos.of(tag.getLong("pos")) : null;
-        return new ComputationDriveEntry(position, ItemStack.parseOptional(config.registries(), tag.getCompound("stack")));
+        return new ComputationDriveEntry(position, cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(config.registries(), tag.getCompound("stack")));
     }
 
     final class DriveSlot extends ItemSlot {
@@ -167,10 +167,10 @@ final class ComputationDriveGrid extends UIElement {
         private List<Component> tooltip() {
             if (!getValue().isEmpty()) {
                 return List.of(Component.translatable("gui.neoecoae.computation.ui.take_cell")
-                    .withColor(HostText.MUTED));
+                    .withStyle(neColor -> neColor.withColor(HostText.MUTED)));
             }
             return List.of(Component.translatable("gui.neoecoae.computation.ui.drive_empty"),
-                Component.translatable("gui.neoecoae.computation.ui.insert_cell").withColor(HostText.MUTED));
+                Component.translatable("gui.neoecoae.computation.ui.insert_cell").withStyle(neColor -> neColor.withColor(HostText.MUTED)));
         }
     }
 }

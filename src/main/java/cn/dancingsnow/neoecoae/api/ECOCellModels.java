@@ -13,7 +13,7 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 
 public class ECOCellModels {
-    private static final Map<Holder<Item>, ResourceLocation> deferredRegistration = new HashMap<>();
+    private static final Map<java.util.function.Supplier<? extends Item>, ResourceLocation> deferredRegistration = new HashMap<>();
     @Getter
     private static final Map<Item, ResourceLocation> registry = new IdentityHashMap<>();
     public static final ResourceLocation DEFAULT_MODEL = NeoECOAE.id("block/cell/storage_cell_default");
@@ -40,7 +40,7 @@ public class ECOCellModels {
         return registry.getOrDefault(item, DEFAULT_MODEL);
     }
 
-    public static void register(Holder<Item> item, ResourceLocation model) {
+    public static void register(java.util.function.Supplier<? extends Item> item, ResourceLocation model) {
         deferredRegistration.put(item, model);
     }
 
@@ -49,9 +49,9 @@ public class ECOCellModels {
     }
 
     public static void runDeferredRegistration() {
-        register(AEItems.CREATIVE_CELL.asItem(), NeoECOAE.id("block/cell/storage_cell_creative"));
+        register(AEItems.ITEM_CELL_CREATIVE.asItem(), NeoECOAE.id("block/cell/storage_cell_creative"));
         deferredRegistration.forEach((itemHolder, location) -> {
-            register(itemHolder.value(), location);
+            register(itemHolder.get(), location);
         });
     }
 

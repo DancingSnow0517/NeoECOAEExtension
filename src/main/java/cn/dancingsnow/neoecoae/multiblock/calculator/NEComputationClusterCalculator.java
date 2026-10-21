@@ -37,7 +37,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     }
 
     @Override
-    protected Holder<Block> casing() {
+    protected java.util.function.Supplier<? extends Block> casing() {
         return NEBlocks.COMPUTATION_CASING;
     }
 
@@ -260,7 +260,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         )) {
             return false;
         }
-        return validateBlocks(level, tailCasings, BlockState::is, NEBlocks.COMPUTATION_CASING);
+        return validateBlocks(level, tailCasings, (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.COMPUTATION_CASING);
     }
 
     @Override
@@ -283,8 +283,8 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     private static void syncNetworkSwitchState(ServerLevel level, BlockPos controllerPos, BlockState controllerState, boolean mirrored) {
         BlockPos switchPos = NENetworkSwitchUtil.switchPosition(controllerPos, controllerState, mirrored);
         BlockState switchState = level.getBlockState(switchPos);
-        boolean normal = switchState.is(NEBlocks.COMPUTATION_NETWORK_SWITCH);
-        boolean highEnergy = switchState.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH);
+        boolean normal = switchState.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.get());
+        boolean highEnergy = switchState.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get());
         NENetworkSwitchUtil.syncFormed(level, controllerPos, controllerState, mirrored);
         level.setBlock(controllerPos, level.getBlockState(controllerPos)
             .setValue(cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem.NETWORK_SWITCH, normal)
@@ -302,11 +302,11 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     private boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
         BlockPos center = controllerPos.relative(side);
         BlockState state = level.getBlockState(center);
-        boolean sw = state.is(NEBlocks.COMPUTATION_NETWORK_SWITCH) || state.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH);
-        if (!state.is(NEBlocks.COMPUTATION_CASING) && !sw) return false;
+        boolean sw = state.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.get()) || state.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get());
+        if (!state.is(NEBlocks.COMPUTATION_CASING.get()) && !sw) return false;
         if (sw && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) return false;
-        return validateBlock(level, center.relative(top), BlockState::is, NEBlocks.COMPUTATION_CASING)
-            && validateBlock(level, center.relative(down), BlockState::is, NEBlocks.COMPUTATION_CASING);
+        return validateBlock(level, center.relative(top), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.COMPUTATION_CASING)
+            && validateBlock(level, center.relative(down), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.COMPUTATION_CASING);
     }
 
     private BiPredicate<BlockState, BlockPos> matchingParallelCore(

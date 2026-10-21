@@ -76,7 +76,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
 
                 @Override
                 public boolean allowExtract(InternalInventory inv, int slot, int amount) {
-                    return !AEItems.CAPACITY_CARD.is(inv.getStackInSlot(slot)) || canRemoveCapacityCard();
+                    return !AEItems.CAPACITY_CARD.isSameAs(inv.getStackInSlot(slot)) || canRemoveCapacityCard();
                 }
             });
         }
@@ -209,7 +209,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
 
     @Nullable
     private ECOLargeIntegratedWorkingStationBlockEntity controller() {
-        return host.getCluster() instanceof NEIntegratedWorkingStationCluster cluster ? cluster.getController() : null;
+        return host.getCluster() != null ? host.getCluster().getController() : null;
     }
 
     @Override
@@ -222,7 +222,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     }
 
     @Override
-    public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+    public void onChangeInventory(appeng.api.inventories.InternalInventory inv, int slot) {
         super.onChangeInventory(inv, slot);
         // The host is the storage the grid indexes, but its patterns live in this logic's inventory. Without
         // this the catalog's revision for the host never moves, so a slot cleared here stays counted forever.

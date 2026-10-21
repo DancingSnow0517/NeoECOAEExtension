@@ -8,14 +8,14 @@ import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import com.google.gson.JsonObject;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -408,9 +408,9 @@ final class StorageHostCharts {
 
         /** Panel figure: coloured used part over a bounded total, or the plain used figure when unbounded. */
         private Component usage(String used, long usedValue, long totalValue, String total) {
-            if (totalValue < 0 || state().unbounded()) return HostText.totalPart(used).withColor(StoragePanelTextures.VALUE_TEXT);
+            if (totalValue < 0 || state().unbounded()) return HostText.totalPart(used).withStyle(neColor -> neColor.withColor(StoragePanelTextures.VALUE_TEXT));
             return HostText.usedOfTotal(HostText.usedPart(used, usedValue, totalValue), "/",
-                HostText.totalPart(total).withColor(StoragePanelTextures.VALUE_TEXT));
+                HostText.totalPart(total).withStyle(neColor -> neColor.withColor(StoragePanelTextures.VALUE_TEXT)));
         }
 
         List<Component> tooltip(int row) {
@@ -424,7 +424,7 @@ final class StorageHostCharts {
                 Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
                     HostText.usedPart(HostText.fullBytes(type.exactUsedBytes()), type.usedBytes(), type.totalBytes()),
                     HostText.totalPart(state().unbounded() ? "∞" : HostText.fullBytes(type.totalBytes()))),
-                Component.translatable("gui.neoecoae.storage.ui.scroll_types").withColor(HostText.MUTED));
+                Component.translatable("gui.neoecoae.storage.ui.scroll_types").withStyle(neColor -> neColor.withColor(HostText.MUTED)));
         }
     }
 
@@ -499,16 +499,16 @@ final class StorageHostCharts {
     }
 
     static Component capacityValue(StoragePanelState state) {
-        var used = Component.literal(state.usedBytes()).withColor(state.unbounded()
-            ? StoragePanelTextures.VALUE_TEXT : HostText.gaugeTextColor((float) state.usage()));
+        var used = Component.literal(state.usedBytes()).withStyle(neColor -> neColor.withColor(state.unbounded()
+            ? StoragePanelTextures.VALUE_TEXT : HostText.gaugeTextColor((float) state.usage())));
         if (state.unbounded()) return used;
-        return used.append(Component.literal(" / ").withColor(TEXT))
-            .append(Component.literal(HostText.ae2Amount(state.totalBytes())).withColor(StoragePanelTextures.VALUE_TEXT));
+        return used.append(Component.literal(" / ").withStyle(neColor -> neColor.withColor(TEXT)))
+            .append(Component.literal(HostText.ae2Amount(state.totalBytes())).withStyle(neColor -> neColor.withColor(StoragePanelTextures.VALUE_TEXT)));
     }
 
     private static Component fullCapacityValue(StoragePanelState state) {
-        var used = Component.literal(fullUsedBytes(state)).withColor(state.unbounded()
-            ? HostText.VALUE : HostText.gaugeTextColor((float) state.usage()));
+        var used = Component.literal(fullUsedBytes(state)).withStyle(neColor -> neColor.withColor(state.unbounded()
+            ? HostText.VALUE : HostText.gaugeTextColor((float) state.usage())));
         if (state.unbounded()) return used;
         return HostText.usedOfTotal(used, " / ", HostText.totalPart(HostText.fullBytes(state.totalBytes())));
     }
@@ -545,7 +545,7 @@ final class StorageHostCharts {
             double share = new BigDecimal(type.exactUsedBytes())
                 .divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue();
             lines.add(Component.translatable("gui.neoecoae.storage.ui.resource_share",
-                type.name(), HostText.fullBytes(type.exactUsedBytes()), HostText.percent(share)).withColor(type.color()));
+                type.name(), HostText.fullBytes(type.exactUsedBytes()), HostText.percent(share)).withStyle(neColor -> neColor.withColor(type.color())));
         }
         return lines;
     }
@@ -565,17 +565,17 @@ final class StorageHostCharts {
         }
         double share = new BigDecimal(used).divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue();
         return List.of(Component.translatable("gui.neoecoae.storage.ui.resource_share", name,
-            HostText.fullBytes(used), HostText.percent(share)).withColor(segment.color()));
+            HostText.fullBytes(used), HostText.percent(share)).withStyle(neColor -> neColor.withColor(segment.color())));
     }
 
     private List<Component> domainTooltip() {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable(state().migrating() ? "gui.neoecoae.storage.ui.migrating"
             : state().infinite() ? "gui.neoecoae.storage.ui.infinite" : "gui.neoecoae.storage.ui.normal"));
-        if (!state().domainId().isEmpty()) lines.add(Component.literal("UUID: " + state().domainId()).withColor(0x55FFFF));
+        if (!state().domainId().isEmpty()) lines.add(Component.literal("UUID: " + state().domainId()).withStyle(neColor -> neColor.withColor(0x55FFFF)));
         if (state().missingMembers() > 0) {
-            lines.add(Component.translatable("gui.neoecoae.storage.members_missing", state().missingMembers()).withColor(0xFF6A75));
-            lines.add(Component.translatable("gui.neoecoae.storage.members_return").withColor(0xFF6A75));
+            lines.add(Component.translatable("gui.neoecoae.storage.members_missing", state().missingMembers()).withStyle(neColor -> neColor.withColor(0xFF6A75)));
+            lines.add(Component.translatable("gui.neoecoae.storage.members_return").withStyle(neColor -> neColor.withColor(0xFF6A75)));
         }
         return lines;
     }

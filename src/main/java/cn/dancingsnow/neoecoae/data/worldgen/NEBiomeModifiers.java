@@ -4,23 +4,23 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.data.worldgen.BootstrapContext;
+import net.minecraft.data.worldgen.BootstapContext;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraftforge.common.world.BiomeModifier;
-import net.minecraftforge.common.world.BiomeModifiers;
+import net.minecraftforge.common.world.ForgeBiomeModifiers;
 import net.minecraftforge.registries.ForgeRegistries;
 
 public class NEBiomeModifiers {
     public static final ResourceKey<BiomeModifier> ORE_END = key("ore_end");
 
-    public static void bootstrap(BootstrapContext<BiomeModifier> context) {
+    public static void bootstrap(BootstapContext<BiomeModifier> context) {
         HolderGetter<Biome> biomes = context.lookup(Registries.BIOME);
         HolderGetter<PlacedFeature> placedFeatures = context.lookup(Registries.PLACED_FEATURE);
-        BiomeModifiers.AddFeaturesBiomeModifier oreBiomeModifier = new BiomeModifiers.AddFeaturesBiomeModifier(
+        ForgeBiomeModifiers.AddFeaturesBiomeModifier oreBiomeModifier = new ForgeBiomeModifiers.AddFeaturesBiomeModifier(
             HolderSet.direct(
                 biomes.getOrThrow(Biomes.THE_END),
                 biomes.getOrThrow(Biomes.END_HIGHLANDS),

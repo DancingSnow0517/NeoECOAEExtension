@@ -10,7 +10,7 @@ public record BulkUnits(List<AEItemKey> items, List<Long> factors) {
     public BulkUnits {
 
 
-        if (items.isEmpty() || items.size() != factors.size() || factors.getFirst() != 1L
+        if (items.isEmpty() || items.size() != factors.size() || cn.dancingsnow.neoecoae.platform.JdkCompat.first(factors) != 1L
                 || items.stream().distinct().count() != items.size()) {
             throw new IllegalArgumentException("Invalid bulk unit definition");
         }

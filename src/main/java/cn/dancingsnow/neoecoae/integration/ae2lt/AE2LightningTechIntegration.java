@@ -36,7 +36,7 @@ public final class AE2LightningTechIntegration {
                 NELightningItems.ECO_LIGHTNING_CELL_64M,
                 NELightningItems.ECO_LIGHTNING_CELL_256M
             )) {
-                Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, group);
+                Upgrades.add(AEItems.FUZZY_CARD.asItem(), cell, 1, group);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, group);
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
             }

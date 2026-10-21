@@ -63,7 +63,7 @@ final class JointOutputDemandQueue {
         }
         // A conservative lookahead can find mutually waiting branches. Fall back to the original
         // demand order; missing inputs remain pending and actual supply cycles must still be validated.
-        if (chosen == null) chosen = waiting.removeFirst();
+        if (chosen == null) chosen = waiting.remove(0);
         ready.addAll(waiting);
         queued.remove(chosen);
         return chosen;

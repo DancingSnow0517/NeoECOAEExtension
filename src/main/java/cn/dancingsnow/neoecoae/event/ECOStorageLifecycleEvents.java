@@ -12,7 +12,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
-import net.minecraftforge.event.tick.ServerTickEvent;
+import net.minecraftforge.event.TickEvent;
 
 public final class ECOStorageLifecycleEvents {
     private ECOStorageLifecycleEvents() {
@@ -39,7 +39,8 @@ public final class ECOStorageLifecycleEvents {
         }
     }
 
-    public static void onServerTick(ServerTickEvent.Post event) {
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         for (ServerLevel level : event.getServer().getAllLevels()) {
             NELogicalNetworkManager.tick(level);
         }

@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.ArrayList;
 
-@Mixin(CraftingStatusMenu.class)
+@Mixin(value = CraftingStatusMenu.class, remap = false)
 public class CraftingStatusMenuMixin extends CraftingCPUMenu {
     @org.spongepowered.asm.mixin.injection.Inject(method = "selectCpu", at = @At("HEAD"))
     private void neoecoae$clearParentOnSelection(int serial,

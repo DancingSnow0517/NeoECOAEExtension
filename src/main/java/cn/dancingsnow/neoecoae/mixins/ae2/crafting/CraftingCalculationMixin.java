@@ -28,8 +28,9 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Mixin(CraftingCalculation.class)
-public abstract class CraftingCalculationMixin implements ECOCraftingCalculationSettings {
+@Mixin(value = CraftingCalculation.class, remap = false)
+public abstract class CraftingCalculationMixin implements ECOCraftingCalculationSettings,
+        cn.dancingsnow.neoecoae.platform.mixin.CraftingCalculationDiagnosticsBridge {
     @Unique
     private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
     @Unique
@@ -170,8 +171,9 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         return Thread.currentThread().isInterrupted();
     }
 
-    @Inject(method = "runCraftAttempt", at = @At("RETURN"), order = 2000)
-    private void attachEcoDiagnosticToNativePlan(boolean simulate, long amount,
+    @Override
+    @Unique
+    public void neoecoae$attachAttemptDiagnostics(boolean simulate, long amount,
             CallbackInfoReturnable<CraftingPlan> cir) {
         ThreadLocal<ECOPlanningResult> attemptResultLocal = neoecoae$getAttemptPlanningResult();
         ECOPlanningResult attemptResult = attemptResultLocal.get();
@@ -196,8 +198,9 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         }
     }
 
-    @Inject(method = "run", at = @At("RETURN"), order = 2000)
-    private void attachEcoDiagnosticToFinalPublicPlan(CallbackInfoReturnable<ICraftingPlan> cir) {
+    @Override
+    @Unique
+    public void neoecoae$attachFinalDiagnostics(CallbackInfoReturnable<ICraftingPlan> cir) {
         ICraftingPlan plan = cir.getReturnValue();
         if (plan == null || plan.simulation()) return;
 

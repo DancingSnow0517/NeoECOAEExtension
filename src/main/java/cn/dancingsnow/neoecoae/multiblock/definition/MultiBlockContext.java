@@ -58,7 +58,7 @@ public abstract class MultiBlockContext {
             if (itemStack.isEmpty()) return;
             for (int i = 0; i < itemStacks.size(); i++) {
                 RequiredItem stack = itemStacks.get(i);
-                if (ItemStack.isSameItemSameComponents(itemStack, stack.stack())) {
+                if (ItemStack.isSameItemSameTags(itemStack, stack.stack())) {
                     itemStacks.set(i, stack.grow(itemStack.getCount()));
                     return;
                 }

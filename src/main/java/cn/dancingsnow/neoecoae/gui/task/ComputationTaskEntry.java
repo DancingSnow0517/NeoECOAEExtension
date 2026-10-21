@@ -6,7 +6,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ComponentSerialization;
+import cn.dancingsnow.neoecoae.platform.nbt.NEComponentSerialization;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -152,7 +152,7 @@ public final class ComputationTaskEntry {
     public CompoundTag writeToNBT(HolderLookup.Provider provider) {
         CompoundTag tag = new CompoundTag();
         tag.putString(NBT_ID, id);
-        tag.put(NBT_OUTPUT, output.saveOptional(provider));
+        tag.put(NBT_OUTPUT, cn.dancingsnow.neoecoae.platform.nbt.NEStacks.save(output, provider));
         tag.putLong(NBT_OUTPUT_AMOUNT, outputAmount);
         tag.putLong(NBT_CRAFT_COUNT, craftCount);
         tag.putLong(NBT_TOTAL_PROGRESS, totalProgress);
@@ -160,7 +160,7 @@ public final class ComputationTaskEntry {
         tag.putString(NBT_STATUS, status.name());
         tag.putInt(NBT_CPU_SERIAL, cpuSerial);
         if (cpuName != null) {
-            ComponentSerialization.CODEC.encodeStart(provider.createSerializationContext(NbtOps.INSTANCE), cpuName)
+            NEComponentSerialization.CODEC.encodeStart(NbtOps.INSTANCE, cpuName)
                 .result()
                 .ifPresent(nameTag -> tag.put(NBT_CPU_NAME, nameTag));
         }
@@ -178,11 +178,11 @@ public final class ComputationTaskEntry {
     public static ComputationTaskEntry readFromNBT(HolderLookup.Provider provider, CompoundTag tag) {
         ItemStack output = ItemStack.EMPTY;
         if (tag.contains(NBT_OUTPUT, Tag.TAG_COMPOUND)) {
-            output = ItemStack.parseOptional(provider, tag.getCompound(NBT_OUTPUT));
+            output = cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(provider, tag.getCompound(NBT_OUTPUT));
         }
         Component cpuName = null;
         if (tag.contains(NBT_CPU_NAME)) {
-            cpuName = ComponentSerialization.CODEC.parse(provider.createSerializationContext(NbtOps.INSTANCE), tag.get(NBT_CPU_NAME))
+            cpuName = NEComponentSerialization.CODEC.parse(NbtOps.INSTANCE, tag.get(NBT_CPU_NAME))
                 .result()
                 .orElse(null);
         }
@@ -256,7 +256,7 @@ public final class ComputationTaskEntry {
             id,
             output.getItem(),
             output.getCount(),
-            output.getComponents(),
+            output.getTag(),
             outputAmount,
             craftCount,
             totalProgress,

@@ -61,7 +61,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         Minecraft mc = Minecraft.getInstance();
         ModelBlockRenderer modelRenderer = mc.getBlockRenderer().getModelRenderer();
         BakedModel bakedModel = mc.getModelManager()
-            .getModel(ModelResourceLocation.standalone(model));
+            .getModel(model);
         VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
         modelRenderer.tesselateWithAO(
             level,
@@ -104,7 +104,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     ) {
         Minecraft mc = Minecraft.getInstance();
         BakedModel bakedModel = mc.getModelManager()
-            .getModel(ModelResourceLocation.standalone(model));
+            .getModel(model);
         for (Direction value : Direction.values()) {
             List<BakedQuad> quads = bakedModel.getQuads(
                 null,
@@ -146,7 +146,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
                 quad,
                 1, 1, 1, 1,
                 packedLight,
-                packedOverlay
+                packedOverlay, true
             );
         }
     }

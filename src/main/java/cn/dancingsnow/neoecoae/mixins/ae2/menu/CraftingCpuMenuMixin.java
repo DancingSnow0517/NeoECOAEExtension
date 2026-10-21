@@ -9,7 +9,7 @@ import java.util.Map;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
-import appeng.core.network.clientbound.CraftingStatusPacket;
+import appeng.core.sync.packets.CraftingStatusPacket;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.menu.AEBaseMenu;
 import appeng.menu.me.common.IncrementalUpdateHelper;
@@ -34,7 +34,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.function.Consumer;
 
 @SuppressWarnings("removal")
-@Mixin(CraftingCPUMenu.class)
+@Mixin(value = CraftingCPUMenu.class, remap = false)
 public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost {
     @Unique private cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress neoecoae$bigProgress;
     @Unique private int neoecoae$bigSerial = -1;
@@ -267,7 +267,9 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
         long remainingItems = logic.getElapsedTimeTracker().getSyntheticRemainingItemCount();
         long startItems = logic.getElapsedTimeTracker().getSyntheticStartItemCount();
         boolean suspended = logic.isJobSuspended();
-        return new CraftingStatus(full, elapsedTime, remainingItems, startItems, newEntries.build(), suspended);
+        var status=new CraftingStatus(full, elapsedTime, remainingItems, startItems, newEntries.build());
+        ((cn.dancingsnow.neoecoae.api.ECOCraftingStatusSuspension)status).neoecoae$setSuspended(suspended);
+        return status;
     }
 
     @Shadow

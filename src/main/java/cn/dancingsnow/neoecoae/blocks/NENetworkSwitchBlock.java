@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks;
 
-import appeng.block.AEBaseEntityBlock;
+import cn.dancingsnow.neoecoae.platform.NEEntityBlock;
 import appeng.blockentity.grid.AENetworkBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
@@ -17,7 +17,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public abstract class NENetworkSwitchBlock<T extends AENetworkBlockEntity> extends AEBaseEntityBlock<T> {
+public abstract class NENetworkSwitchBlock<T extends AENetworkBlockEntity> extends NEEntityBlock<T> {
     // Independent from NEBlock.FORMED: network switches are not in the NEBlock inheritance tree.
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
 
@@ -52,23 +52,23 @@ public abstract class NENetworkSwitchBlock<T extends AENetworkBlockEntity> exten
     }
 
     @Override
-    protected RenderShape getRenderShape(BlockState state) { return state.getValue(FORMED) ? RenderShape.INVISIBLE : RenderShape.MODEL; }
+    public RenderShape getRenderShape(BlockState state) { return state.getValue(FORMED) ? RenderShape.INVISIBLE : RenderShape.MODEL; }
 
     @Override
-    protected boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) { return false; }
+    public boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) { return false; }
 
     @Override
-    protected float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) { return state.getValue(FORMED) ? 1 : 0.2f; }
+    public float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) { return state.getValue(FORMED) ? 1 : 0.2f; }
 
     @Override
-    protected int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) { return state.getValue(FORMED) ? 0 : super.getLightBlock(state, level, pos); }
+    public int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) { return state.getValue(FORMED) ? 0 : super.getLightBlock(state, level, pos); }
 
     @Override
-    protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) { return state.getValue(FORMED) ? Shapes.empty() : super.getOcclusionShape(state, level, pos); }
+    public VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) { return state.getValue(FORMED) ? Shapes.empty() : super.getOcclusionShape(state, level, pos); }
 
     @Override
-    protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) { return state.getValue(FORMED) ? Shapes.empty() : super.getVisualShape(state, level, pos, context); }
+    public VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) { return state.getValue(FORMED) ? Shapes.empty() : super.getVisualShape(state, level, pos, context); }
 
     @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) { return state.getValue(FORMED); }
+    public boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) { return state.getValue(FORMED); }
 }

@@ -212,7 +212,7 @@ public final class HostText {
         int start = 0;
         while (start < exact.length()) {
             int end = Math.min(exact.length(), start + 32);
-            lines.add(Component.literal(exact.substring(start, end)).withColor(color));
+            lines.add(Component.literal(exact.substring(start, end)).withStyle(neColor -> neColor.withColor(color)));
             start = end;
         }
         return lines;
@@ -241,17 +241,17 @@ public final class HostText {
 
     /** Used figure coloured by how full the resource is. */
     public static MutableComponent usedPart(String text, long used, long max) {
-        return Component.literal(text).withColor(usedValueColor(used, max));
+        return Component.literal(text).withStyle(neColor -> neColor.withColor(usedValueColor(used, max)));
     }
 
     /** Capacity figure in value colour. */
     public static MutableComponent totalPart(String text) {
-        return Component.literal(text).withColor(VALUE);
+        return Component.literal(text).withStyle(neColor -> neColor.withColor(VALUE));
     }
 
     /** "used / total" with a muted separator; the parts keep their own colours. */
     public static MutableComponent usedOfTotal(Component used, String separator, Component total) {
-        return used.copy().append(Component.literal(separator).withColor(MUTED)).append(total);
+        return used.copy().append(Component.literal(separator).withStyle(neColor -> neColor.withColor(MUTED))).append(total);
     }
 
     public static int usedValueColor(long used, long max) {

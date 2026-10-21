@@ -57,7 +57,7 @@ public final class CompiledStructureCache {
                     || matches(entry, service, revision, goal, cycles, fuzzyItems)));
         int totalWeight = ENTRIES.stream().mapToInt(Entry::weight).sum();
         while (!ENTRIES.isEmpty() && (ENTRIES.size() >= MAX_ENTRIES || totalWeight + weight > MAX_WEIGHT)) {
-            totalWeight -= ENTRIES.removeFirst().weight();
+            totalWeight -= ENTRIES.remove(0).weight();
         }
         ENTRIES.add(new Entry(new WeakReference<>(service), revision, contractGeneration, goal, cycles,
                 Set.copyOf(fuzzyItems), structure, (int) weight));

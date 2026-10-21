@@ -21,7 +21,7 @@ public class ECODriveModel implements BasicUnbakedModel {
     public @Nullable BakedModel bake(
         ModelBaker modelBaker,
         Function<Material, TextureAtlasSprite> function,
-        ModelState modelState
+        ModelState modelState, ResourceLocation modelLocation
     ) {
         BakedModel driveEmptyModel = modelBaker.bake(DRIVE_EMPTY, modelState, function);
         BakedModel driveFullModel = modelBaker.bake(DRIVE_FULL, modelState, function);

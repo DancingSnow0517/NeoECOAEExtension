@@ -311,6 +311,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.cpu.status.error", "Execution blocked");
         provider.add("gui.neoecoae.cpu.remaining", "Remaining: %s");
         provider.add("gui.neoecoae.computation.settings.title", "Computation System Settings");
+        provider.add("gui.neoecoae.computation.pause", "Pause");
+        provider.add("gui.neoecoae.computation.resume", "Resume");
         provider.add("gui.neoecoae.computation.settings.cpu_mode", "CPU Selection Mode");
         provider.add("gui.neoecoae.computation.settings.substitutions", "Use substitution patterns in planning");
         provider.add("gui.neoecoae.computation.settings.cycle_planning", "Enable cycle planning");

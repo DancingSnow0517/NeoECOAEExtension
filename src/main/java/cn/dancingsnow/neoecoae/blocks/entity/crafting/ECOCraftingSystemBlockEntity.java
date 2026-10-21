@@ -40,10 +40,10 @@ import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
@@ -159,6 +159,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private int networkFrequency = NEFrequencyAllocator.DEFAULT_FREQUENCY;
     @DescSynced
     private boolean buildInProgress;
+    @Getter
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
     private final ECOCraftingCoolingController coolingController = new ECOCraftingCoolingController(this);
     // Transient derived state rebuilt by the calculator; the BlockState property is render-only persistence.
@@ -220,7 +221,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 10, false);
+        return new TickingRequest(1, 10, false, true);
     }
 
     @Override
@@ -479,7 +480,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         for (var id : ECOVirtualCraftingCoolantRegistry.registeredFluidIds()) {
             if (!names.getSiblings().isEmpty()) names.append(", ");
             names.append(BuiltInRegistries.FLUID.getOptional(id)
-                .map(fluid -> new FluidStack(fluid, 1).getHoverName())
+                .map(fluid -> new FluidStack(fluid, 1).getDisplayName())
                 .orElseGet(() -> Component.literal(id.toString())));
         }
         return names;
@@ -998,7 +999,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         for (CraftingOutputDisplay output : perWorker) {
             if (output.item().isEmpty()) continue;
             int index = 0;
-            while (index < merged.size() && !ItemStack.isSameItemSameComponents(merged.get(index).item(), output.item())) index++;
+            while (index < merged.size() && !ItemStack.isSameItemSameTags(merged.get(index).item(), output.item())) index++;
             if (index == merged.size()) {
                 merged.add(output);
             } else {
@@ -1095,7 +1096,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             Component blocked = getVirtualCraftingBlockedNotice();
             if (!blocked.getString().isEmpty()) {
                 MutableComponent result = Component.translatable("gui.neoecoae.crafting.virtual_blocked.title")
-                    .withColor(0xFFFF5555)
+                    .withStyle(neColor -> neColor.withColor(0xFFFF5555))
                     .append("\n").append(blocked)
                     .append("\n").append(Component.translatable("gui.neoecoae.crafting.virtual_blocked.coolant_required",
                         getVirtualCraftingCoolantNames(), MAX_OVERCLOCK_TIMES, VIRTUAL_COOLANT_PER_LANE_TICK))
@@ -1110,10 +1111,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 return result;
             }
             return Component.translatable("gui.neoecoae.crafting.virtual_status.infinite")
-                .withColor(0xFF55FF8A);
+                .withStyle(neColor -> neColor.withColor(0xFF55FF8A));
         }
         MutableComponent title = Component.translatable("gui.neoecoae.crafting.virtual_status.title")
-            .withColor(0xFFD8B4FE);
+            .withStyle(neColor -> neColor.withColor(0xFFD8B4FE));
         if (!isOverclocked()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.overclock"));
         if (!isActiveCooling()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.cooling"));
         if (!hasVirtualCraftingCoolant()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.coolant_type",
@@ -1144,7 +1145,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         if (lines.isEmpty()) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.topology"));
         MutableComponent result = title;
         for (Component line : lines) {
-            result.append("\n").append(line.copy().withColor(0xFFFF5555));
+            result.append("\n").append(line.copy().withStyle(neColor -> neColor.withColor(0xFFFF5555)));
         }
         return result;
     }
@@ -1192,10 +1193,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             return level.registryAccess();
         }
         return net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer()
-            .getServerResources()
-            .managers()
-            .fullRegistries()
-            .get();
+            .registryAccess();
     }
 
     private List<ComputationTaskEntry> getActiveTaskEntries() {
@@ -1281,6 +1279,18 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public void buildStateChanged() {
         setChanged();
         markForUpdate();
+    }
+
+    @Override
+    public void saveAdditional(net.minecraft.nbt.CompoundTag data) {
+        super.saveAdditional(data);
+        buildController.writeTerminalPreview(data);
+    }
+
+    @Override
+    public void loadTag(net.minecraft.nbt.CompoundTag data) {
+        super.loadTag(data);
+        buildController.readTerminalPreview(data);
     }
 
 }

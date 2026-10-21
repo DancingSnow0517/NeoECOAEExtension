@@ -4,9 +4,9 @@ import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.core.AppEng;
 import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import guideme.GuidesCommon;
 import guideme.PageAnchor;
 import net.minecraft.ChatFormatting;
@@ -27,7 +27,7 @@ public final class GuideButton {
                 player, AppEng.makeId("guide"), PageAnchor.parse(page)))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
                 List.of(
-                    ButtonToolTips.OpenGuide.text().withColor(-1),
+                    ButtonToolTips.OpenGuide.text().withStyle(neColor -> neColor.withColor(-1)),
                     ButtonToolTips.OpenGuideDetail.text().withStyle(ChatFormatting.GRAY)),
                 null,
                 null,

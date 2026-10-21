@@ -43,7 +43,7 @@ final class CpuSelectionState<T> {
         entries = List.copyOf(next);
         if (selected() == null) {
             T fallback = entries.stream().filter(busy).findFirst()
-                .orElse(entries.isEmpty() ? null : entries.getFirst());
+                .orElse(entries.isEmpty() ? null : cn.dancingsnow.neoecoae.platform.JdkCompat.first(entries));
             selectedSerial = fallback == null ? -1 : serial(fallback);
         }
         scroll(offset);

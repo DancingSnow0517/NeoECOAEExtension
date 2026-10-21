@@ -354,7 +354,7 @@ final class ECOInfiniteStorageModeController {
             return UUID.nameUUIDFromBytes((restore + ":" + identity).getBytes(StandardCharsets.UTF_8));
         }
         String value = domainId + ":" + direction + ":" + drive.getBlockPos().asLong() + ":"
-                + key.toTagGeneric(host.getLevel().registryAccess()) + ":" + amount;
+                + key.toTagGeneric() + ":" + amount;
         return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
     }
 

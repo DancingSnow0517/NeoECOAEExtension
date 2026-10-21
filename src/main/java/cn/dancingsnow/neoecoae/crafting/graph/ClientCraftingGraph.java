@@ -235,7 +235,7 @@ public final class ClientCraftingGraph {
         int root = cycle.requiredOutputs().stream().map(CraftingGraphSnapshot.KeyAmount::key)
             .map(key -> snapshot.nodes().stream().filter(node -> node.key().equals(key)).findFirst().orElse(null))
             .filter(java.util.Objects::nonNull).map(CraftingGraphSnapshot.MaterialNode::nodeId).findFirst()
-            .orElse(cycle.memberNodeIds().isEmpty() ? -1 : cycle.memberNodeIds().getFirst());
+            .orElse(cycle.memberNodeIds().isEmpty() ? -1 : cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.memberNodeIds()));
         Integer focusedId = focusedMaterial == null ? null : snapshot.nodes().stream()
             .filter(node -> members.contains(node.nodeId()) && node.key().equals(focusedMaterial))
             .map(CraftingGraphSnapshot.MaterialNode::nodeId).findFirst().orElse(null);
