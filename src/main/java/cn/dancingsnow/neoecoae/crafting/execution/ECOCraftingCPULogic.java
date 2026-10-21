@@ -31,7 +31,6 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -54,8 +53,8 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.core.AELog;
-import appeng.core.network.ClientboundPacket;
-import appeng.core.network.clientbound.CraftingJobStatusPacket;
+import appeng.core.sync.network.NetworkHandler;
+import appeng.core.sync.packets.CraftingJobStatusPacket;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.execution.CraftingSubmitResult;
@@ -581,20 +580,20 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         }
     }
 
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        persistence.read(data, registries);
+    public void readFromNBT(CompoundTag data) {
+        persistence.read(data);
     }
 
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        persistence.write(data, registries);
+    public void writeToNBT(CompoundTag data) {
+        persistence.write(data);
     }
 
-    void loadJobAttachments(CompoundTag jobData, HolderLookup.Provider registries) {
-        if (job != null) jobAttachments.load(jobData, registries, createJobContext(job));
+    void loadJobAttachments(CompoundTag jobData) {
+        if (job != null) jobAttachments.load(jobData, createJobContext(job));
     }
 
-    void writeJobAttachments(CompoundTag jobData, HolderLookup.Provider registries) {
-        if (job != null) jobAttachments.save(jobData, registries, createJobContext(job));
+    void writeJobAttachments(CompoundTag jobData) {
+        if (job != null) jobAttachments.save(jobData, createJobContext(job));
     }
 
     public ICraftingLink getLastLink() {
@@ -762,9 +761,9 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         var connectedPlayer = IPlayerRegistry.getConnected(server, playerId);
         if (connectedPlayer != null) {
             var jobId = job.link.getCraftingID();
-            ClientboundPacket message = new CraftingJobStatusPacket(
+            CraftingJobStatusPacket message = new CraftingJobStatusPacket(
                     jobId, job.finalOutput.what(), job.finalOutput.amount(), job.remainingAmount, status);
-            connectedPlayer.connection.send(message);
+            NetworkHandler.instance().sendTo(message, connectedPlayer);
         }
     }
 

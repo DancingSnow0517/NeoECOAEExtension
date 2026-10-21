@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -26,7 +25,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.PlannedInputAllocation;
 public final class ECOExecutionPlanNbtCodec {
     private ECOExecutionPlanNbtCodec() {}
 
-    public static CompoundTag encode(ECOExecutionPlan plan, HolderLookup.Provider registries) {
+    public static CompoundTag encode(ECOExecutionPlan plan) {
         CompoundTag data = new CompoundTag();
         data.putString("mode", plan.mode().name());
 
@@ -40,7 +39,7 @@ public final class ECOExecutionPlanNbtCodec {
             taskTag.putLong("total", task.totalCount());
             taskTag.putInt("phase", task.phaseIndex());
             taskTag.putString("kind", task.kind().name());
-            taskTag.put("pattern", task.pattern().getDefinition().toTag(registries));
+            taskTag.put("pattern", task.pattern().getDefinition().toTag());
 
             ListTag allocations = new ListTag();
             for (var allocation : task.inputAllocations()) {
@@ -48,8 +47,7 @@ public final class ECOExecutionPlanNbtCodec {
                 allocationTag.putInt("slot", allocation.slot());
                 ListTag runs = new ListTag();
                 for (var run : allocation.runs()) {
-                    CompoundTag runTag = GenericStack.writeTag(registries,
-                        new GenericStack(run.key(), run.amount()));
+                    CompoundTag runTag = GenericStack.writeTag(new GenericStack(run.key(), run.amount()));
                     runTag.putLong("crafts", run.crafts());
                     runs.add(runTag);
                 }
@@ -94,7 +92,7 @@ public final class ECOExecutionPlanNbtCodec {
 
             ListTag seeds = new ListTag();
             for (var entry : phase.initialSeed().entrySet()) {
-                seeds.add(GenericStack.writeTag(registries, new GenericStack(entry.getKey(), entry.getValue())));
+                seeds.add(GenericStack.writeTag(new GenericStack(entry.getKey(), entry.getValue())));
             }
             phaseTag.put("initialSeed", seeds);
             phaseTags.add(phaseTag);
@@ -103,8 +101,7 @@ public final class ECOExecutionPlanNbtCodec {
         return data;
     }
 
-    public static ECOExecutionPlan decode(CompoundTag data, HolderLookup.Provider registries,
-            ECOCraftingCPULogic cpu, GenericStack finalOutput) {
+    public static ECOExecutionPlan decode(CompoundTag data, ECOCraftingCPULogic cpu, GenericStack finalOutput) {
         ExecutionMode mode = ExecutionMode.valueOf(data.getString("mode"));
         ListTag taskTags = data.getList("tasks", Tag.TAG_COMPOUND);
         List<ECOExecutionPlan.TaskSpec> tasks = new ArrayList<>(taskTags.size());
@@ -113,7 +110,7 @@ public final class ECOExecutionPlanNbtCodec {
             CompoundTag taskTag = taskTags.getCompound(i);
             int id = taskTag.getInt("id");
             if (id != i) throw new IllegalArgumentException("Persisted execution task ids are not dense");
-            AEItemKey definition = AEItemKey.fromTag(registries, taskTag.getCompound("pattern"));
+            AEItemKey definition = AEItemKey.fromTag(taskTag.getCompound("pattern"));
             IPatternDetails pattern = PatternDetailsHelper.decodePattern(definition, cpu.cpu.getLevel());
             if (pattern == null) throw new IllegalArgumentException("Persisted execution pattern cannot be decoded");
             PlanIdentity.PatternIdentity identity = PlanIdentity.patternIdentityFor(pattern);
@@ -128,7 +125,7 @@ public final class ECOExecutionPlanNbtCodec {
                 ListTag runTags = allocationTag.getList("runs", Tag.TAG_COMPOUND);
                 for (int runIndex = 0; runIndex < runTags.size(); runIndex++) {
                     CompoundTag runTag = runTags.getCompound(runIndex);
-                    GenericStack stack = GenericStack.readTag(registries, runTag);
+                    GenericStack stack = GenericStack.readTag(runTag);
                     long crafts = runTag.getLong("crafts");
                     if (stack == null) throw new IllegalArgumentException("Invalid persisted input allocation");
                     runs.add(new PlannedInputAllocation.Run(stack.what(), stack.amount(), crafts));
@@ -171,7 +168,7 @@ public final class ECOExecutionPlanNbtCodec {
             Map<AEKey, Long> seed = new LinkedHashMap<>();
             ListTag seedTags = phaseTag.getList("initialSeed", Tag.TAG_COMPOUND);
             for (int seedIndex = 0; seedIndex < seedTags.size(); seedIndex++) {
-                GenericStack stack = GenericStack.readTag(registries, seedTags.getCompound(seedIndex));
+                GenericStack stack = GenericStack.readTag(seedTags.getCompound(seedIndex));
                 if (stack == null || stack.amount() <= 0L) {
                     throw new IllegalArgumentException("Invalid persisted seed");
                 }

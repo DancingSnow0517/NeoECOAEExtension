@@ -18,14 +18,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
-import net.minecraftforge.common.IOUtilities;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -53,11 +50,11 @@ class ECOInfiniteStorageDurabilityTest {
     }
 
     private static CompoundTag emptySnapshot() {
-        return ECOInfiniteStorageData.createNew().save(new CompoundTag(), RegistryAccess.EMPTY);
+        return ECOInfiniteStorageData.createNew().save(new CompoundTag());
     }
 
     private static ECOInfiniteStorageData fresh() {
-        return ECOInfiniteStorageData.load(emptySnapshot(), RegistryAccess.EMPTY, ITEM_CODEC);
+        return ECOInfiniteStorageData.load(emptySnapshot(), ITEM_CODEC);
     }
 
     /** Appends one record in the format of the retired write-ahead journal. */
@@ -80,8 +77,8 @@ class ECOInfiniteStorageDurabilityTest {
     }
 
     private static ECOInfiniteStorageData readBack(Path snapshot) throws Exception {
-        var root = NbtIo.readCompressed(snapshot, NbtAccounter.unlimitedHeap());
-        return ECOInfiniteStorageData.load(root.getCompound("data"), RegistryAccess.EMPTY, ITEM_CODEC);
+        var root = NbtIo.readCompressed(snapshot.toFile());
+        return ECOInfiniteStorageData.load(root.getCompound("data"), ITEM_CODEC);
     }
 
     @Test
@@ -100,8 +97,7 @@ class ECOInfiniteStorageDurabilityTest {
             assertEquals(0, files.count(), "no per-transfer file I/O");
         }
 
-        live.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
+        live.save(snapshot.toFile());
         assertFalse(live.isDirty());
         assertEquals(HugeAmount.of(900), readBack(snapshot).getAmount(key));
     }
@@ -137,8 +133,7 @@ class ECOInfiniteStorageDurabilityTest {
         var engine = new SavedDataInfiniteStorageEngine(live);
         assertEquals(Long.MAX_VALUE, engine.insert(key, Long.MAX_VALUE, Actionable.MODULATE));
         assertEquals(5, engine.insert(key, 5, Actionable.MODULATE));
-        live.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
+        live.save(snapshot.toFile());
         assertEquals(HugeAmount.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(5))),
                 readBack(snapshot).getAmount(key));
     }
@@ -154,19 +149,18 @@ class ECOInfiniteStorageDurabilityTest {
         appendLegacyRecord(journal, 3, dirt, 7, true);
 
         var live = fresh();
-        ECOInfiniteStorageData.replayJournal(live, snapshot, RegistryAccess.EMPTY);
+        ECOInfiniteStorageData.replayJournal(live, snapshot);
         assertEquals(HugeAmount.of(80), live.getAmount(stone));
         assertEquals(HugeAmount.of(7), live.getAmount(dirt));
         assertTrue(live.isDirty());
 
-        live.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
+        live.save(snapshot.toFile());
         assertFalse(Files.exists(journal));
 
         // A journal left behind by a crash after the snapshot write is skipped by its recorded sequence.
         appendLegacyRecord(journal, 1, stone, 100, true);
         var recovered = readBack(snapshot);
-        ECOInfiniteStorageData.replayJournal(recovered, snapshot, RegistryAccess.EMPTY);
+        ECOInfiniteStorageData.replayJournal(recovered, snapshot);
         assertEquals(HugeAmount.of(80), recovered.getAmount(stone));
     }
 
@@ -181,7 +175,7 @@ class ECOInfiniteStorageDurabilityTest {
             out.writeByte(1);
         }
         var recovered = fresh();
-        ECOInfiniteStorageData.replayJournal(recovered, snapshot, RegistryAccess.EMPTY);
+        ECOInfiniteStorageData.replayJournal(recovered, snapshot);
         assertEquals(HugeAmount.of(10), recovered.getAmount(key));
     }
 
@@ -195,8 +189,7 @@ class ECOInfiniteStorageDurabilityTest {
         assertEquals(ECOInfiniteStorageData.DomainStatus.UNAVAILABLE, data.status());
         assertEquals(0, new SavedDataInfiniteStorageEngine(data).insert(AEItemKey.of(Items.STONE), 1, Actionable.MODULATE));
         data.setDirty();
-        data.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
+        data.save(snapshot.toFile());
         assertArrayEquals(damaged, Files.readAllBytes(snapshot));
     }
 
@@ -208,16 +201,14 @@ class ECOInfiniteStorageDurabilityTest {
         assertEquals(100, engine.insert(key, 100, Actionable.MODULATE));
         Path blockedParent = directory.resolve("not-a-directory");
         Files.writeString(blockedParent, "occupied");
-        live.save(blockedParent.resolve("domain.dat").toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
+        live.save(blockedParent.resolve("domain.dat").toFile());
         assertEquals(ECOInfiniteStorageData.DomainStatus.DEGRADED, live.status());
         assertFalse(live.canExitOrRestore());
         // Inventory stays usable in memory, like any vanilla SavedData.
         assertEquals(10, engine.extract(key, 10, Actionable.MODULATE));
 
         var snapshot = directory.resolve("domain.dat");
-        live.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
+        live.save(snapshot.toFile());
         assertEquals(ECOInfiniteStorageData.DomainStatus.HEALTHY, live.status());
         assertEquals(HugeAmount.of(90), readBack(snapshot).getAmount(key));
     }

@@ -13,7 +13,6 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
@@ -70,13 +69,13 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
         for (int i = 0; i < cpus.length; i++) {
             ECOCraftingCPU cpu = cpus[i];
             if (cpu != null) {
                 CompoundTag tag = new CompoundTag();
-                cpu.writeToNBT(tag, registries);
+                cpu.writeToNBT(tag);
                 data.put("CPU" + i, tag);
             } else if (deferredInit[i] != null) {
                 data.put("CPU" + i, deferredInit[i].copy());
@@ -88,15 +87,14 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     public void updateCluster(@Nullable NEComputationCluster cluster) {
         NEComputationCluster previous = this.cluster;
         if (cluster == null && previous != null) {
-            HolderLookup.Provider registries = level != null ? level.registryAccess() : null;
-            if (registries != null) {
+            if (level != null) {
                 for (int i = 0; i < cpus.length; i++) {
                     ECOCraftingCPU cpu = cpus[i];
                     if (cpu == null) {
                         continue;
                     }
                     CompoundTag tag = new CompoundTag();
-                    cpu.writeToNBT(tag, registries);
+                    cpu.writeToNBT(tag);
                     deferredInit[i] = tag;
                     previous.deactivate(cpu.getPlan());
                     cpus[i] = null;
@@ -109,13 +107,12 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             for (int i = 0; i < deferredInit.length; i++) {
                 CompoundTag tag = deferredInit[i];
                 if (tag != null) {
-                    HolderLookup.Provider registries = level != null ? level.registryAccess() : null;
-                    if (registries == null) {
+                    if (level == null) {
                         continue;
                     }
                     ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, null, this);
                     try {
-                        cpu.readFromNBT(tag, registries);
+                        cpu.readFromNBT(tag);
                         if (cpu.getPlan() != null) {
                             ECOCraftingJobLifecycle.resumePersistedJob(level, tag);
                             cpus[i] = cpu;
@@ -135,8 +132,8 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
         Arrays.fill(cpus, null);
         Arrays.fill(deferredInit, null);
         for (int i = 0; i < cpus.length; i++) {
@@ -169,7 +166,6 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         prepareForPermanentRemoval();
         super.addAdditionalDrops(level, pos, drops);
-        HolderLookup.Provider registries = level.registryAccess();
         for (int i = 0; i < cpus.length; i++) {
             if (packedExactInventories.get(i)) continue;
             KeyCounter owned = new KeyCounter();
@@ -177,7 +173,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             if (cpu != null) {
                 cpu.getLogic().getOwnedItems(owned);
             } else if (deferredInit[i] != null) {
-                collectDeferredOwnedItems(deferredInit[i], registries, owned);
+                collectDeferredOwnedItems(deferredInit[i], owned);
             }
             addOwnedDrops(owned, drops, level, pos);
         }
@@ -210,7 +206,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             if (cpu != null) {
                 cpu.getLogic().cancel();
                 saved = new CompoundTag();
-                cpu.writeToNBT(saved, level.registryAccess());
+                cpu.writeToNBT(saved);
             } else {
                 saved = deferredInit[i].copy();
                 ECOCraftingJobLifecycle.cancelPersistedJob(level, saved);
@@ -237,11 +233,10 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
 
     private static void collectDeferredOwnedItems(
         CompoundTag cpuTag,
-        HolderLookup.Provider registries,
         KeyCounter out
     ) {
         ListCraftingInventory inventory = new ListCraftingInventory(ignored -> {});
-        inventory.readFromNBT(cpuTag.getList("inventory", Tag.TAG_COMPOUND), registries);
+        inventory.readFromNBT(cpuTag.getList("inventory", Tag.TAG_COMPOUND));
         out.addAll(inventory.list);
 
         CompoundTag jobTag = cpuTag.getCompound("job");
@@ -250,7 +245,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             return;
         }
         try {
-            GenericStack finalOutput = GenericStack.readTag(registries, jobTag.getCompound("finalOutput"));
+            GenericStack finalOutput = GenericStack.readTag(jobTag.getCompound("finalOutput"));
             if (finalOutput != null) {
                 out.add(finalOutput.what(), buffered);
             }

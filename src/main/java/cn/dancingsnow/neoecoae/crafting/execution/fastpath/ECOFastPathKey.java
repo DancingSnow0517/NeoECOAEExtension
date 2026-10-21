@@ -146,7 +146,7 @@ public final class ECOFastPathKey {
                 || !leftStack.isDamageableItem() || !rightStack.isDamageableItem()) return false;
         leftStack.setDamageValue(0);
         rightStack.setDamageValue(0);
-        return ItemStack.isSameItemSameComponents(leftStack, rightStack);
+        return ItemStack.isSameItemSameTags(leftStack, rightStack);
     }
 
     public ECOFastPathPatternKey patternKey() {

@@ -4,7 +4,6 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 
 /** Owns CPU NBT orchestration while preserving the established save keys and migration paths. */
@@ -15,7 +14,7 @@ final class ECOCraftingCpuPersistence {
         this.host = host;
     }
 
-    void read(CompoundTag data, HolderLookup.Provider registries) {
+    void read(CompoundTag data) {
         cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge.clear(host);
         host.taskSchedulerForPersistence().reset();
         host.dispatchStrategyForPersistence().reset();
@@ -23,7 +22,7 @@ final class ECOCraftingCpuPersistence {
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
         host.energyTransactionForPersistence().readFromNBT(data);
         host.exactInventory().setEnabled(data.getBoolean("ecoExactInventory"));
-        host.getInventory().readFromNBT(data.getList("inventory", 10), registries);
+        host.getInventory().readFromNBT(data.getList("inventory", 10));
 
         if (!data.contains("job")) {
             host.setJobFromPersistence(null);
@@ -32,13 +31,13 @@ final class ECOCraftingCpuPersistence {
         }
 
         var jobData = data.getCompound("job");
-        var restoredJob = new ExecutingCraftingJob(jobData, registries, host::postChange, host);
+        var restoredJob = new ExecutingCraftingJob(jobData, host::postChange, host);
         if (restoredJob.exactOrder && restoredJob.link.isStandalone())
             restoredJob.link.setNexus(new appeng.crafting.CraftingLinkNexus(restoredJob.link.getCraftingID()));
         host.setJobFromPersistence(restoredJob);
-        host.bigOrder.read(data, registries);
-        host.outputDeliveryForPersistence().loadPendingFinalOutputs(jobData, registries);
-        host.loadJobAttachments(jobData, registries);
+        host.bigOrder.read(data);
+        host.outputDeliveryForPersistence().loadPendingFinalOutputs(jobData);
+        host.loadJobAttachments(jobData);
 
         IGrid grid = host.cpu.getGrid();
         if (grid != null) {
@@ -56,10 +55,10 @@ final class ECOCraftingCpuPersistence {
         }
     }
 
-    void write(CompoundTag data, HolderLookup.Provider registries) {
-        host.bigOrder.write(data, registries);
+    void write(CompoundTag data) {
+        host.bigOrder.write(data);
         data.putBoolean("ecoExactInventory", host.exactInventory().isEnabled());
-        data.put("inventory", host.getInventory().writeToNBT(registries));
+        data.put("inventory", host.getInventory().writeToNBT());
         host.energyTransactionForPersistence().writeToNBT(data);
         var job = host.getJob();
         if (job == null) {
@@ -67,9 +66,9 @@ final class ECOCraftingCpuPersistence {
             return;
         }
 
-        CompoundTag jobData = job.writeToNBT(registries);
-        host.outputDeliveryForPersistence().writePendingFinalOutputs(jobData, registries);
-        host.writeJobAttachments(jobData, registries);
+        CompoundTag jobData = job.writeToNBT();
+        host.outputDeliveryForPersistence().writePendingFinalOutputs(jobData);
+        host.writeJobAttachments(jobData);
         data.put("job", jobData);
     }
 }

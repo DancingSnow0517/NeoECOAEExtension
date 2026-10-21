@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
@@ -33,14 +32,14 @@ public final class ECOCraftingJobAttachments {
         unboundData.clear();
     }
 
-    public void load(CompoundTag jobData, HolderLookup.Provider registries, ECOCraftingJobContext context) {
+    public void load(CompoundTag jobData, ECOCraftingJobContext context) {
         initialize(context);
         CompoundTag persisted = jobData.getCompound("attachments");
         for (var entry : new ArrayList<>(bound.entrySet())) {
             String id = entry.getKey().toString();
             if (!persisted.contains(id, Tag.TAG_COMPOUND)) continue;
             try {
-                entry.getValue().load(persisted.getCompound(id).copy(), registries);
+                entry.getValue().load(persisted.getCompound(id).copy());
                 unboundData.put(entry.getKey(), persisted.getCompound(id).copy());
             } catch (RuntimeException failure) {
                 LOGGER.error("ECO job attachment {} could not be restored; preserving raw state", id, failure);
@@ -58,12 +57,12 @@ public final class ECOCraftingJobAttachments {
         }
     }
 
-    public void save(CompoundTag jobData, HolderLookup.Provider registries, ECOCraftingJobContext context) {
-        resolveUnbound(registries, context);
+    public void save(CompoundTag jobData, ECOCraftingJobContext context) {
+        resolveUnbound(context);
         CompoundTag persisted = new CompoundTag();
         for (var entry : bound.entrySet()) {
             try {
-                CompoundTag data = entry.getValue().save(registries);
+                CompoundTag data = entry.getValue().save();
                 if (data == null) throw new IllegalStateException("save returned null");
                 persisted.put(entry.getKey().toString(), data.copy());
                 unboundData.put(entry.getKey(), data.copy());
@@ -96,14 +95,14 @@ public final class ECOCraftingJobAttachments {
         reset();
     }
 
-    private void resolveUnbound(HolderLookup.Provider registries, ECOCraftingJobContext context) {
+    private void resolveUnbound(ECOCraftingJobContext context) {
         if (unboundData.isEmpty()) return;
         for (var entry : new ArrayList<>(unboundData.entrySet())) {
             if (bound.containsKey(entry.getKey())) continue;
             var attachment = ECOCraftingJobAttachmentRegistry.create(entry.getKey(), context);
             if (attachment == null) continue;
             try {
-                attachment.load(entry.getValue().copy(), registries);
+                attachment.load(entry.getValue().copy());
                 bound.put(entry.getKey(), attachment);
                 unboundData.remove(entry.getKey());
             } catch (RuntimeException failure) {

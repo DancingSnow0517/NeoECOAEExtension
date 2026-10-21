@@ -57,7 +57,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
                 ItemStack normalizedResult = result.copyWithCount(1);
                 normalizedInitial.setDamageValue(0);
                 normalizedResult.setDamageValue(0);
-                if (!ItemStack.isSameItemSameComponents(normalizedInitial, normalizedResult)) return Optional.empty();
+                if (!ItemStack.isSameItemSameTags(normalizedInitial, normalizedResult)) return Optional.empty();
                 delta = result.getDamageValue() - initialDamage;
                 if (delta < 0) return Optional.empty();
             }
@@ -84,7 +84,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
      * cross-slot matching proof.
      */
     boolean supportsToolPool() {
-        return transitions.size() == 1 && transitions.getFirst().damageDelta() > 0;
+        return transitions.size() == 1 && transitions.get(0).damageDelta() > 0;
     }
 
     @Nullable
@@ -95,7 +95,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         long requestedCrafts
     ) {
         if (!supportsToolPool() || requestedCrafts <= 0L) return null;
-        Transition transition = transitions.getFirst();
+        Transition transition = transitions.get(0);
 
         KeyCounter consumedPerCraft = toCounter(ordinaryInputs);
         AEItemKey resolvedTool = AEItemKey.of(transition.initialStack());
@@ -362,7 +362,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         ItemStack normalizedRight = right.copyWithCount(1);
         normalizedLeft.setDamageValue(0);
         normalizedRight.setDamageValue(0);
-        return ItemStack.isSameItemSameComponents(normalizedLeft, normalizedRight);
+        return ItemStack.isSameItemSameTags(normalizedLeft, normalizedRight);
     }
 
     private static boolean sameCounter(KeyCounter left, KeyCounter right) {

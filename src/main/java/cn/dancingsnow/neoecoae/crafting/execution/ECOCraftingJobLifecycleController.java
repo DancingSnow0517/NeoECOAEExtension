@@ -19,7 +19,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingWorkerRecovery;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.core.AELog;
-import appeng.core.network.clientbound.CraftingJobStatusPacket;
+import appeng.core.sync.packets.CraftingJobStatusPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;

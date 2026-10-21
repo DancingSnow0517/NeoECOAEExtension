@@ -17,7 +17,6 @@ import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressView;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import lombok.Getter;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
@@ -178,8 +177,8 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
         this.plan = next;
     }
 
-    private void writeCraftingPlanToNBT(ICraftingPlan plan, CompoundTag tag, HolderLookup.Provider registries) {
-        CompoundTag outputTag = GenericStack.writeTag(registries, plan.finalOutput());
+    private void writeCraftingPlanToNBT(ICraftingPlan plan, CompoundTag tag) {
+        CompoundTag outputTag = GenericStack.writeTag(plan.finalOutput());
         tag.put("output", outputTag);
         tag.putLong("bytes", plan.bytes());
         tag.putBoolean("simulation", plan.simulation());
@@ -190,8 +189,8 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
      * @return the restored plan, or null if the persisted data cannot produce a usable one.
      */
     @Nullable
-    private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        GenericStack output = GenericStack.readTag(registries, tag.getCompound("output"));
+    private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag) {
+        GenericStack output = GenericStack.readTag(tag.getCompound("output"));
         if (output == null) {
             // The final output no longer decodes (removed item/fluid, corrupt tag). A plan without an
             // output cannot drive a job, so refuse it instead of handing out a half-valid plan.
@@ -214,11 +213,11 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
         );
     }
 
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        logic.writeToNBT(data, registries);
+    public void writeToNBT(CompoundTag data) {
+        logic.writeToNBT(data);
         if (this.plan != null) {
             CompoundTag tag = new CompoundTag();
-            writeCraftingPlanToNBT(this.plan, tag, registries);
+            writeCraftingPlanToNBT(this.plan, tag);
             data.put("plan", tag);
         }
     }
@@ -229,15 +228,15 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
      * the logic is loaded: restoring a job registers a crafting link with the grid and can push items back
      * into network storage, and neither may happen for a CPU that will be rejected and replayed.
      */
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
+    public void readFromNBT(CompoundTag data) {
         CraftingPlan restoredPlan = null;
         if (data.contains("plan")) {
-            restoredPlan = readCraftingPlanFromNBT(data.getCompound("plan"), registries);
+            restoredPlan = readCraftingPlanFromNBT(data.getCompound("plan"));
         }
         if (restoredPlan == null) {
             return;
         }
-        logic.readFromNBT(data, registries);
+        logic.readFromNBT(data);
         // Only publish the plan once the logic loaded without throwing, so that getPlan() != null
         // means "fully restored" for the caller.
         this.plan = restoredPlan;

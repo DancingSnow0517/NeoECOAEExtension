@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
@@ -32,10 +30,9 @@ class LargeWorkstationCoolingOutputTest {
         assertEquals(0, process(state, SECOND, 300, 2));
 
         var tag = new CompoundTag();
-        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        state.save(tag, registries);
+        state.save(tag);
         var restored = new LargeWorkstationCoolingOutput();
-        restored.load(tag, registries);
+        restored.load(tag);
 
         assertEquals(0, process(restored, FIRST, 300, 1));
         assertEquals(1, process(restored, FIRST, 300, 1));
@@ -72,7 +69,7 @@ class LargeWorkstationCoolingOutputTest {
         tag.put("coolingOutputRemainders", entries);
 
         var state = new LargeWorkstationCoolingOutput();
-        state.load(tag, RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
+        state.load(tag);
         assertEquals(66, process(state, FIRST, 300, 200));
     }
 

@@ -48,7 +48,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import cn.dancingsnow.neoecoae.platform.nbt.NEItemData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -754,8 +753,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
         data.putString("infiniteHostMode", hostMode.id());
         if (infiniteDomainId != null) {
             data.putUUID("infiniteDomainId", infiniteDomainId);
@@ -764,15 +763,15 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        loadLegacyInfiniteComponentInventory(data, registries);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        loadLegacyInfiniteComponentInventory(data);
         setStorageHostMode(ECOStorageHostMode.fromId(data.getString("infiniteHostMode")));
         setInfiniteDomainId(data.hasUUID("infiniteDomainId") ? data.getUUID("infiniteDomainId") : null);
         loadInfiniteMembers(data);
     }
 
-    private void loadLegacyInfiniteComponentInventory(CompoundTag data, HolderLookup.Provider registries) {
+    private void loadLegacyInfiniteComponentInventory(CompoundTag data) {
         if (!infiniteComponentInventory.getStackInSlot(0).isEmpty()) {
             return;
         }
@@ -782,8 +781,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
         infiniteComponentInventory.readFromNBT(
                 managed.getCompound(LEGACY_COMPONENT_INVENTORY_PERSIST_KEY),
-                "inventory",
-                registries
+                "inventory"
         );
     }
 

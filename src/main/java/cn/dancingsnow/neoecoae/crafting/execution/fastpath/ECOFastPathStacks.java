@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.ItemStack;
@@ -186,7 +185,8 @@ public final class ECOFastPathStacks {
         if (itemKey.isDamaged() && !validation.isDamagedAllowed()) {
             return ItemStackValidationFailure.DAMAGED_ITEM;
         }
-        if (!validation.isComponentPatchAllowed() && !itemStack.isComponentsPatchEmpty()) {
+        if (!validation.isComponentPatchAllowed()
+                && !ItemStack.isSameItemSameTags(itemStack, new ItemStack(itemStack.getItem()))) {
             return ItemStackValidationFailure.COMPONENT_PATCH;
         }
         // Stateful inputs are admitted only after the slow-path verifier attaches a concrete model.
@@ -224,56 +224,51 @@ public final class ECOFastPathStacks {
         return true;
     }
 
-    public static ListTag writeGenericStacks(HolderLookup.Provider registries, List<GenericStack> stacks) {
+    public static ListTag writeGenericStacks(List<GenericStack> stacks) {
         ListTag tag = new ListTag();
         for (GenericStack stack : stacks) {
             if (stack != null && stack.amount() > 0) {
-                tag.add(GenericStack.writeTag(registries, stack));
+                tag.add(GenericStack.writeTag(stack));
             }
         }
         return tag;
     }
 
     public static Optional<List<GenericStack>> readValidatedBatchItemStacks(
-        HolderLookup.Provider registries,
         ListTag tag,
         boolean requireNonEmpty
     ) {
         return readValidatedBatchItemStacks(
-            registries, tag, requireNonEmpty, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT);
+            tag, requireNonEmpty, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT);
     }
 
     public static Optional<List<GenericStack>> readValidatedBatchInputStacks(
-        HolderLookup.Provider registries,
         ListTag tag,
         boolean requireNonEmpty,
         long maxAmount
     ) {
         return readValidatedBatchStacks(
-            registries, tag, requireNonEmpty, maxAmount, ItemStackValidation.PERSISTED_INPUT);
+            tag, requireNonEmpty, maxAmount, ItemStackValidation.PERSISTED_INPUT);
     }
 
     public static Optional<List<GenericStack>> readValidatedBatchInputStacks(
-        HolderLookup.Provider registries,
         ListTag tag,
         boolean requireNonEmpty
     ) {
         return readValidatedBatchInputStacks(
-            registries, tag, requireNonEmpty, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT);
+            tag, requireNonEmpty, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT);
     }
 
     public static Optional<List<GenericStack>> readValidatedBatchItemStacks(
-        HolderLookup.Provider registries,
         ListTag tag,
         boolean requireNonEmpty,
         long maxAmount
     ) {
         return readValidatedBatchStacks(
-            registries, tag, requireNonEmpty, maxAmount, ItemStackValidation.PERSISTED);
+            tag, requireNonEmpty, maxAmount, ItemStackValidation.PERSISTED);
     }
 
     private static Optional<List<GenericStack>> readValidatedBatchStacks(
-        HolderLookup.Provider registries,
         ListTag tag,
         boolean requireNonEmpty,
         long maxAmount,
@@ -286,7 +281,7 @@ public final class ECOFastPathStacks {
         try {
             List<GenericStack> stacks = new ArrayList<>(tag.size());
             for (int i = 0; i < tag.size(); i++) {
-                GenericStack stack = GenericStack.readTag(registries, tag.getCompound(i));
+                GenericStack stack = GenericStack.readTag(tag.getCompound(i));
                 if (stack == null) {
                     return Optional.empty();
                 }

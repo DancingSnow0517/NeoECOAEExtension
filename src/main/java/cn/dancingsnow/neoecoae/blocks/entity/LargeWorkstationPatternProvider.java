@@ -29,7 +29,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -196,16 +195,16 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     }
 
     @Override
-    public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.readFromNBT(tag, registries);
-        capacityUpgrades.readFromNBT(tag, "workstationCapacityUpgrades", registries);
+    public void readFromNBT(CompoundTag tag) {
+        super.readFromNBT(tag);
+        capacityUpgrades.readFromNBT(tag, "workstationCapacityUpgrades");
         disableSmartDoubling();
     }
 
     @Override
-    public void writeToNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.writeToNBT(tag, registries);
-        capacityUpgrades.writeToNBT(tag, "workstationCapacityUpgrades", registries);
+    public void writeToNBT(CompoundTag tag) {
+        super.writeToNBT(tag);
+        capacityUpgrades.writeToNBT(tag, "workstationCapacityUpgrades");
     }
 
     @Nullable

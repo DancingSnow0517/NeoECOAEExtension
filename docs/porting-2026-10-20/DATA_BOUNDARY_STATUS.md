@@ -1,5 +1,7 @@
 # Forge 1.20.1 配方与 NBT 适配检查点
 
+本文保留配方/NBT 检查点的历史结果；后续保存周期与 FastPath 适配见 [PERSISTENCE_AND_FASTPATH_STATUS.md](PERSISTENCE_AND_FASTPATH_STATUS.md)，当前整体状态见 [IMPLEMENTATION_PROGRESS.md](IMPLEMENTATION_PROGRESS.md)。
+
 更新日期：2026-10-20。主体仍为锁定 main `dc8344f48ee866e57e02c285fdda5e0fb5da9421`，没有使用旧 1.20.1 工程替换业务或存储后端。此前平台/范围检查点为 `6bcdd5a`；本文件描述其后的实现。全部验证串行运行，不推送。
 
 ## 实现与验证边界

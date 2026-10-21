@@ -4,9 +4,9 @@
 
 ## 当前结论
 
-最小 Forge 环境、锁定 main 主体导入、范围裁剪及首批平台/配方/NBT 适配已经落地。当前业务源码尚不能完整编译，不能启动或作为可用版本交付。最新完整编译为 **1,505 errors、12 warnings**，日志 `validation/compile-data-checkpoint-final.log`。前两个检查点分别为 1,957 和 1,560 errors，均使用 10,000 的显示上限；更早的 1,000 是截断上限，不能用于计算进度百分比。
+最小 Forge 环境、锁定 main 主体导入、范围裁剪、首批平台/配方/NBT 适配，以及无限存储保存周期和 FastPath 状态边界已落地。当前仍处于 **P2 平台与数据边界适配阶段**，UI 原型交错推进；业务源码尚不能完整编译，不能启动或作为可用版本交付。最新完整编译为 **1,454 errors、12 warnings**，日志 `validation/compile-storage-fastpath-final.log`。已记录的完整检查点为 1,957 → 1,560 → 1,505 → 1,499 → 1,454 errors，均使用 10,000 的显示上限；更早的 1,000 是截断上限。错误数量存在级联和遮蔽，不能用于计算完成百分比。
 
-`portingPlatformTest` 的 46 项和 `portingContractsTest` 的 4 项共 **50 项隔离 Java 测试通过，0 失败、0 跳过**，另有 **8 项 Python 资源转换/账本检查通过**。这些验证指定生产适配类、真实附属配方对象、原生 Forge/AE2 编解码及静态资源，未验证完整 main、全业务测试、游戏交互或 UI 视觉效果。机器记录见 `porting/validation-state.json`、`porting/data-resource-validation.json`；本轮细节见 [DATA_BOUNDARY_STATUS.md](DATA_BOUNDARY_STATUS.md)。
+`portingPlatformTest` 的 79 项和 `portingContractsTest` 的 4 项共 **83 项隔离 Java 测试通过，0 失败、0 跳过**，另有 **8 项 Python 资源转换/账本检查通过**。新增 33 项验证真实 1.20.1 保存周期、文件 I/O、AE2 key 编解码、NBT 状态、精确账本、冷却余数和筛选器。它们未验证完整 main、全业务测试、游戏交互或 UI 视觉效果。机器记录见 `porting/validation-state.json`、`porting/data-resource-validation.json`、`porting/persistence-fastpath-adaptation.json`；本轮细节见 [PERSISTENCE_AND_FASTPATH_STATUS.md](PERSISTENCE_AND_FASTPATH_STATUS.md)，前一轮见 [DATA_BOUNDARY_STATUS.md](DATA_BOUNDARY_STATUS.md)。
 
 ## 输入与范围
 
@@ -34,12 +34,16 @@
 9. EAE 缺失的水晶装配器配方已落成 ECO 自有类型及实际匹配契约，输入/产出和 2,000 AE 沿用 main，常规模块不能解锁。EAE 升级卡中三个不存在的 1.21 物品按文档映射到 1.20 可用物品，数量和总能耗保留。完整机器执行仍待编译恢复后验收。
 10. 增加 ECO 自有存储盘拆解元数据，保留物品使用动作中的服务端/空盘检查。9 条现有静态装配/拆解账本已核对；闪电盘原来分别投入 1/2/4 个组件却返还 4/16/64 个，现修正为返还 1/2/4，保持原返还物品种类，不额外返还加工耗材。
 11. 普通盘内容、模糊模式、无限盘迁移标记、恢复回执、控制器域和精确 CPU 恢复物品改接 1.20 NBT；记忆卡自动导出侧向设置使用实际 AE2 15 NBT 钩子。存储编码在实际 Forge key registry 上测试 long/NBT 往返与未知 key 拒绝；业务存储异常状态及完整恢复流程仍待验证。
+12. 无限存储接入 1.20.1 `DimensionDataStorage` 的反序列化函数/构造函数和 `SavedData.save(File)`。保留 main 的 v3 快照、旧日志重放、迁移回执、恢复分配及原文件保护。服务端保存周期同步写临时压缩文件并原子替换，写入或清理失败保持待重试状态；不会每次物料转移都写盘。原子替换不支持时明确失败，不退回覆盖旧文件。大规模世界保存耗时仍待实际测量。
+13. FastPath 可复用物品状态改为原生 NBT，物品比较包含 Forge capability 一致性；原版专用字段变化不作为自定义线性计数器。保留二次证明、耐久与催化剂组合、返回物和溢出规则；1.20 原生配方直接使用完整 3×3 网格，返回物不再套用新版压缩网格坐标。
+14. 精确虚拟账本、普通/精确 CPU 库存、执行计划和工作站批次的编解码调用改接 AE2 15；BE、线程及 CPU 的保存入口改为目标签名，任务状态通知改用 AE2 15 原生网络处理器。独立账本和过滤器已有测试；完整 CPU/BE、终止任务账本及第三方 Mixin 链仍受全量编译阻塞，不能据此宣布运行通过。
+15. 冷却余数按 Forge 原生 FluidStack NBT 保存，保留流体标签及按配方隔离的分数；存储筛选使用实际注册 key 解码，缺失通道/物品时仍拒绝放行，不把已有未知过滤项当作空过滤器。
 
 独立平台测试任务编译实际生产适配类；未批量排除 main 源码。测试 JVM 没有 ModLauncher 变换器，少量 fixture mock 仅隔离启动器边界，不能替代 Forge 内运行。
 
 ## 后续必做
 
-- 继续处理 FastPath 的组件状态语义、BE/AE2 保存接口、未知数据的业务只读状态及其他持久化 API；不能把本轮 NBT helper 测试等同于完整存储恢复验收。
+- 继续处理其余 AE2 15 调用、Mixin 保存/执行挂点与 UI 中的旧序列化调用，并恢复原有业务测试；本轮独立存储/状态测试不等同于整个 CPU/BE、未知数据业务只读状态及完整恢复链验收。
 - 适配 AE2 15 合成、菜单、存储与执行 API，恢复完整业务编译及已有业务测试。
 - 按实际组件补齐 LDLib1 UI 桥接并逐界面迁移；验证槽位、同步、手势、缩放和多人行为。
 - 结构终端接入当前共享搭建服务，补齐预览/拆除和大工作站支持；拆除须保护实际物品与库存。

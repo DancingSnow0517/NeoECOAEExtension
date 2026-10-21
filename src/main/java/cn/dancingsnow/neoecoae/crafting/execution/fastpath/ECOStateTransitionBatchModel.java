@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.DoubleTag;
@@ -19,10 +18,19 @@ import net.minecraft.nbt.NumericTag;
 import net.minecraft.nbt.ShortTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 
 /** Linear count/identity state for reusable items whose observed state is not a durability mutation. */
 public final class ECOStateTransitionBatchModel implements ECOReusableStateModel {
+    // These vanilla fields correspond to dedicated item components in the source version. Their changes must
+    // not be mistaken for an affine custom-data counter just because 1.20 stores both in the same root tag.
+    private static final java.util.Set<String> FIXED_ITEM_TAGS = java.util.Set.of(
+        "Damage", "Unbreakable", "Enchantments", "StoredEnchantments", "display", "HideFlags", "RepairCost",
+        "CustomModelData", "AttributeModifiers", "CanDestroy", "CanPlaceOn", "BlockEntityTag", "BlockStateTag",
+        "EntityTag", "SkullOwner", "Trim", "Potion", "CustomPotionEffects", "CustomPotionColor", "BucketVariantTag",
+        "map", "map_scale_direction", "map_to_lock", "Decorations", "Charged", "ChargedProjectiles", "Fireworks",
+        "Explosion", "LodestonePos", "LodestoneDimension", "LodestoneTracked", "instrument", "pages", "filtered_pages",
+        "title", "filtered_title", "author", "generation", "resolved", "Recipes", "Items"
+    );
     private final List<Transition> transitions;
     private final long maxBatchSize;
 
@@ -41,7 +49,7 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
             ItemStack result = after.get(i);
             if (initial == null || result == null || initial.isEmpty() || result.isEmpty()
                     || !ItemStack.isSameItem(initial, result)) continue;
-            boolean unchanged = ItemStack.isSameItemSameComponents(initial, result);
+            boolean unchanged = ItemStack.isSameItemSameTags(initial, result);
             if (initial.isDamageableItem() && !unchanged) continue;
             NumericCompoundDelta customDataDelta = null;
             if (!unchanged) {
@@ -162,7 +170,7 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
         private ItemStack apply(long crafts) {
             ItemStack result = initial.copyWithCount(1);
             if (customDataDelta != null) {
-                result.set(DataComponents.CUSTOM_DATA, CustomData.of(customDataDelta.apply(crafts)));
+                result.setTag(customDataDelta.apply(crafts));
             }
             return result;
         }
@@ -174,14 +182,17 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
         private static Optional<NumericCompoundDelta> analyze(ItemStack initialStack, ItemStack resultStack) {
             ItemStack initialBase = initialStack.copyWithCount(1);
             ItemStack resultBase = resultStack.copyWithCount(1);
-            CustomData initialData = initialBase.get(DataComponents.CUSTOM_DATA);
-            CustomData resultData = resultBase.get(DataComponents.CUSTOM_DATA);
-            initialBase.remove(DataComponents.CUSTOM_DATA);
-            resultBase.remove(DataComponents.CUSTOM_DATA);
-            if (!ItemStack.isSameItemSameComponents(initialBase, resultBase)
+            CompoundTag initialData = initialBase.getTag();
+            CompoundTag resultData = resultBase.getTag();
+            initialBase.setTag(null);
+            resultBase.setTag(null);
+            // Native comparison also checks Forge capabilities, which live outside the ordinary item tag.
+            if (!ItemStack.isSameItemSameTags(initialBase, resultBase)
                     || initialData == null || resultData == null) return Optional.empty();
-
-            return analyze(initialData.copyTag(), resultData.copyTag());
+            for (String key : FIXED_ITEM_TAGS) {
+                if (!java.util.Objects.equals(initialData.get(key), resultData.get(key))) return Optional.empty();
+            }
+            return analyze(initialData, resultData);
         }
 
         private static Optional<NumericCompoundDelta> analyze(CompoundTag before, CompoundTag after) {

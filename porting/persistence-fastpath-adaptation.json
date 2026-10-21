@@ -1,0 +1,271 @@
+{
+  "working_tree_parent": "1e94e16563b158f3c8c6f8e3dbe4c433e31cc705",
+  "recorded_at_utc": "2026-10-21T02:13:36.441027+00:00",
+  "main_baseline": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "reference": {
+    "ae2_tag": "forge/v15.4.11",
+    "ae2_commit": "1c2f96e70ca6b61e8120482923e9775d772fd9e7",
+    "refs_updated_before_reading": true,
+    "source_workspace_changes": "none made by this checkpoint",
+    "minecraft_forge_sources": {
+      "path": "build/moddev/artifacts/forge-1.20.1-47.4.28-sources.jar",
+      "sha256": "9194fa95f5a9ef1f0afa637a83b247406365ef41f92c48169e977dff94d6ee98"
+    }
+  },
+  "save_contract": {
+    "owner": "overworld DimensionDataStorage",
+    "thread": "synchronous server save cycle; no per-transfer IO",
+    "snapshot_version": 3,
+    "publication": "compressed temporary file, forced write, atomic replace; unsupported replacement fails without overwrite fallback",
+    "retained": [
+      "unknown raw entries",
+      "migration receipts",
+      "restore allocations",
+      "legacy journal sequence",
+      "unreadable snapshot protection",
+      "read-only partial legacy imports"
+    ],
+    "save_latency_in_real_world": "not measured",
+    "cross_minecraft_world_conversion": "not implemented"
+  },
+  "fastpath_contract": {
+    "item_state": "native NBT and Forge item/capability comparison",
+    "vanilla_metadata_mutation": "not treated as affine custom NBT",
+    "crafting_grid": "native full CraftingContainer, copied full-grid remainders",
+    "proof": "existing second-step, durability, count and overflow rules retained"
+  },
+  "new_tests": [
+    {
+      "suite": "cn.dancingsnow.neoecoae.impl.storage.infinite.ForgeInfiniteStoragePersistenceTest",
+      "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.infinite.ForgeInfiniteStoragePersistenceTest.xml",
+      "sha256": "d00d634c03a912276a89d01f37b032ade616ccc9528f553c5fcfa9553bbbce67",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.dancingsnow.neoecoae.crafting.execution.fastpath.ForgeFastPathStateBoundaryTest",
+      "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.fastpath.ForgeFastPathStateBoundaryTest.xml",
+      "sha256": "8848592e895994bdb65abf0f0be650129db2dfa8655b78e2e9181bfb3de1d1d5",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.dancingsnow.neoecoae.crafting.execution.worker.ForgeExactLedgerPersistenceTest",
+      "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.worker.ForgeExactLedgerPersistenceTest.xml",
+      "sha256": "fa0b321450b4fe63a48aab4c7246d393223061f82dc1d38514fd6b8c2a65ab0c",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.dancingsnow.neoecoae.blocks.entity.ForgeCoolingRemainderPersistenceTest",
+      "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.blocks.entity.ForgeCoolingRemainderPersistenceTest.xml",
+      "sha256": "19d38e9294053c4b8abfbe0de5c86a378da403cc9622319e35c9e300654e0cba",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.dancingsnow.neoecoae.impl.storage.ForgeStorageFilterTest",
+      "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.ForgeStorageFilterTest.xml",
+      "sha256": "53239ba59af630735a50a0fa7db8bc2986e94a9e988f245f977982874bf748f7",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "new_test_total": 33,
+  "logs": [
+    {
+      "path": "validation/storage-fastpath-test.log",
+      "sha256": "f6a16b8482345dd00cfb9d444fd7fc6c681aade22007c72086758e9905542893"
+    },
+    {
+      "path": "validation/compile-storage-fastpath-final.log",
+      "sha256": "8288d93ec07b9bdb7720450cc9513cf38c8dd2584d354e823f676da14e1624f7"
+    }
+  ],
+  "changed_production_sources": [
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/api/ECOTier.java",
+      "sha256": "324251f031ccc4ae9ebad3d5a06c56ded2485dd9480eb19c75c5df0a8d5eba7e"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/api/me/ECOCraftingCPULogic.java",
+      "sha256": "e738dbed7579a49dd8c0b65f2e274395d34aca87d2b57a55b3ff6a848a3cf4b2"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/api/me/attachment/ECOCraftingJobAttachment.java",
+      "sha256": "a22cee50f3f281ef306c5ca3daa7423af7ee926d162ad48fb46aff228d2d2106"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/api/me/attachment/ECOCraftingJobAttachments.java",
+      "sha256": "404d9e6d4a08242ce757b7713d087656109ec9966a3215573d4c32ebfd2e3713"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOExactInventory.java",
+      "sha256": "b4ef5cd3d47a18b5568bddf9f9cd64556fb721db273d97a972a3426d54c29757"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOIntegratedWorkingStationBlockEntity.java",
+      "sha256": "ad65dbcf1185f2ae090b5c2331b18b4b83b007b45f2bd34155a2b3cb22f5c3a1"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOLargeIntegratedWorkingStationBlockEntity.java",
+      "sha256": "6ebb3981bbbab1e336d3af036ade2ec0d189bcc820fbda7001c1a92d129edc77"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOLargeIntegratedWorkingStationInterfaceBlockEntity.java",
+      "sha256": "c6a23ad57ec60669ac0a0aeb06ec7536fddd2335ba968a4753827c5212b93db1"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOMachineInterfaceBlockEntity.java",
+      "sha256": "62dd2b66ca4dddfabecf3bc5529ec6d73b2edd8a6b1a9d03f85e21fba2333484"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationCoolingOutput.java",
+      "sha256": "5232ef1f53f56dc324ad775eba934ab1a30978ab7e28260ef123f57db3b34d0b"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationPatternProvider.java",
+      "sha256": "3b383d6e8324599728d1819cb504876c6050f4ec2e9a30f5ea7ee077e998a8a9"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/computation/ECOComputationThreadingCoreBlockEntity.java",
+      "sha256": "e60907d4802e02530969a398a1c0079fad886415e4a352bc6a0ddd743ae58761"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOCraftingWorkerBlockEntity.java",
+      "sha256": "d1bcd2c41d0f1b4476dd6aa035c2c8e1f803ca57c93df274414dd22a331466f9"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOInfiniteStorageModeController.java",
+      "sha256": "d2ce701bc838522beb955da8c3ad88f2cff9990636f7a361c465bb1d802e024e"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOStorageSystemBlockEntity.java",
+      "sha256": "260810339316f2fe2fc22b182032e8b8b66ab5c33e95bf94c9a893d4c040b058"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/compat/extendedaeplus/ECOExtendedAEPlusMatrixBridge.java",
+      "sha256": "f32b29bacdbfbca4bda287f459381f651628c9c1d08ca928b62178d67106ca45"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOBigOrderController.java",
+      "sha256": "bdfc6f8abc110f321342a5bd6240e5e5da16a3f96c34b28d34031aea6c97b27e"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingCPU.java",
+      "sha256": "9907593f04a8cffde32ac6da67cef198f8b9c879e1b12baeb942c0f4777b7349"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingCPULogic.java",
+      "sha256": "a01633b3eb0a0a213215c592b54bf9e66cecedf79bb679b0d77924aef8bfc12f"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingCpuPersistence.java",
+      "sha256": "ef038888b52660ec938edbb1024d38de9997dcf630d651f59a4a4e2aaf120db7"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingJobLifecycleController.java",
+      "sha256": "71002d60ca5095e04523bc74a06c9e4d8cd9bc2b8950d63370143438650bf301"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingOutputDelivery.java",
+      "sha256": "f81b7129b33c75850e107b2bdf3096e60c493fa1148775d265477ff37a072dff"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOExecutionPlanNbtCodec.java",
+      "sha256": "9d6dc6627280839bc23ec6a0a865ef7b348e6e0734d1fdf6c6902f5b63a42059"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOExecutionRuntime.java",
+      "sha256": "87218a9fc899e28c5f4c40bed65eba6f87d114bce9099b635dd108271af431bf"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ExecutingCraftingJob.java",
+      "sha256": "82f203883e6d692d1776dc3ee0a0ed7e8fccf504966335f5bfb31c78e22271df"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOCraftingStateSlots.java",
+      "sha256": "701731e66545add7ea2a35e321200c8cae13712cac98a990b02d062461d50916"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECODurabilityBatchModel.java",
+      "sha256": "f8c01603084930eb8bef2b45d819273cc67096cfa10abd8e49214d0e7f571792"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOFastPathKey.java",
+      "sha256": "fd144542c923ee0568dcd54c07e238097bf1bf25cd8163f1955d352b8b96aadd"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOFastPathStacks.java",
+      "sha256": "4070aa3ccb6d604cf10f32b9a0774fc3a8f6fca69d2fb62ba92e92956058ddcc"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOReusableStateAnalyzer.java",
+      "sha256": "0759c8661164c61110134b8454ac912bb90eb587ac6589f4834ec8ea2f6969a6"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOStateTransitionBatchModel.java",
+      "sha256": "b3523b0f3543118b4296f9952c08e0ac520fd05432ba5b88d21c23dd3c82df8f"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/worker/ECOCraftingFastPathVerifier.java",
+      "sha256": "e80e9c106f8ddf18bd2f2c7d865c1e06aff74e26c48819ca86008336b4eef27c"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/worker/ECOCraftingJobLifecycle.java",
+      "sha256": "7c1cfea93d6b2a5c94cf4e02b901d45eae6703264e0800dae230dd16427be963"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/worker/ECOCraftingThread.java",
+      "sha256": "720ad63736abcf71448c37d2f595271dad289de80669f554b74cf1af2bd94cab"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/worker/ECOExactVirtualLedger.java",
+      "sha256": "55d131890cf69fd9f6a1e6a56a833c8ac952a1ade286674d57769af0bbc77f8e"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageResourceFilterGrid.java",
+      "sha256": "62860601b2cd23161d21c26e14b36dcaca1e9d2d2ec2604989c8ed31afb8738a"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/StorageInterfaceFilter.java",
+      "sha256": "870de0f37efc6fe6bd833302d8211b5edf6f12084b7a1ec4e3f98bbb11e89f48"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageData.java",
+      "sha256": "73a167db2d5a3a3f6076a05217696e9b906ed97c11ae325dd296015d5d33fc3f"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageDomains.java",
+      "sha256": "608543eecca7896c250e25f1b92f5860ff3d4a81a1858feb336cb71572447baa"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageTransfer.java",
+      "sha256": "aaa8a731accfc84be19cbf14b111c16b23938f9b025f321366b45221949badbe"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/infinite/LegacyInfiniteStorageReader.java",
+      "sha256": "46598cd3aa13c749d8fd696e7fdafebdf750b4278c90a1b4aa18d559aa44bd99"
+    },
+    {
+      "path": "src/main/java/cn/dancingsnow/neoecoae/platform/nbt/NEAtomicNbtFile.java",
+      "sha256": "1891cedad0dae2ca52a944b5a86720a7d94c54a7108e0dc78d663c927beae35c"
+    }
+  ],
+  "acceptance": {
+    "isolated_production_boundaries": "83 Java tests passed including 33 new tests; see validation-state.json",
+    "full_main_compilation": "failed: 1454 errors, 12 warnings; compiler display limit 10000",
+    "cpu_be_and_mixins": "source calls adapted; full compilation and launcher execution pending",
+    "business_tests_datagen_jar_and_runtime": "not accepted by this checkpoint"
+  }
+}

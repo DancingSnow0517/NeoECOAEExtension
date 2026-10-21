@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
-import net.minecraft.core.HolderLookup;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -35,16 +34,14 @@ public final class ECOInfiniteStorageTransfer {
      * complete clears the source and marks it as a member, using the same live cell handler.
      */
     public boolean step(ItemStack source, IECOStorageMigrationCell cell, UUID domain,
-                        ECOInfiniteStorageEngine engine, HolderLookup.Provider registries,
-                        Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt) {
+                        ECOInfiniteStorageEngine engine, Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt) {
         if (!isEligible(cell) || !engine.isHealthy()) return false;
         UUID migration = ECOInfiniteStorageMember.beginMigration(source, domain);
-        return step(migration, source, cell, engine, registries, persistSeal, complete, legacyReceipt);
+        return step(migration, source, cell, engine, persistSeal, complete, legacyReceipt);
     }
 
     boolean step(UUID migration, Object source, IECOStorageMigrationCell cell,
-                 ECOInfiniteStorageEngine engine, HolderLookup.Provider registries,
-                 Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt) {
+                 ECOInfiniteStorageEngine engine, Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt) {
         if (!cell.isInfiniteStorageEligible() || !engine.isHealthy()) return false;
         Cursor cursor = cursors.get(migration);
         if (cursor == null || cursor.source != source || cursor.cell != cell) {
@@ -64,7 +61,7 @@ public final class ECOInfiniteStorageTransfer {
             if (cursor.amount > 0) {
                 UUID legacy = legacyReceipt.apply(cursor.key, cursor.amount);
                 UUID sealed = UUID.nameUUIDFromBytes(
-                        (migration + ":" + cursor.key.toTagGeneric(registries)).getBytes(StandardCharsets.UTF_8));
+                        (migration + ":" + cursor.key.toTagGeneric()).getBytes(StandardCharsets.UTF_8));
                 if (engine.insertOnce(java.util.Set.of(legacy, sealed), cursor.key, cursor.amount) != cursor.amount) {
                     return false;
                 }

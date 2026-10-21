@@ -60,7 +60,6 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -703,12 +702,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 entry.putLong("amount", output.amount());
                 if (output.what() instanceof AEItemKey item && level != null) {
                     // The icon is one stack; the batch's exact long count is synchronized separately.
-                    // ItemStack's codec rejects counts above 99 even when a recipe batch is much larger.
-                    Tag saved = item.toStack(1).saveOptional(level.registryAccess());
-                    if (saved instanceof CompoundTag compound) entry.put("item", compound);
+                    entry.put("item", item.toStack(1).save(new CompoundTag()));
                 } else if (output.what() instanceof AEFluidKey fluid && level != null) {
-                    Tag saved = fluid.toStack(1).saveOptional(level.registryAccess());
-                    if (saved instanceof CompoundTag compound) entry.put("fluid", compound);
+                    entry.put("fluid", fluid.toStack(1).writeToNBT(new CompoundTag()));
                 }
             }
             entries.add(entry);
@@ -797,25 +793,25 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        data.put("workstationModule", moduleInventory.serializeNBT(registries));
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        data.put("workstationModule", moduleInventory.serializeNBT());
         CompoundTag thermal = new CompoundTag();
         LargeWorkstationThermal.save(thermalState(), thermal);
         data.put("largeWorkstationThermal", thermal);
         if (pendingPowerRefund > 0.0D) data.putDouble("pendingPowerRefund", pendingPowerRefund);
-        coolingOutput.save(data, registries);
+        coolingOutput.save(data);
         ListTag batches = new ListTag();
         for (PendingBatch batch : pendingBatches) {
-            batches.add(batch.save(registries));
+            batches.add(batch.save());
         }
         data.put("pendingBatches", batches);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        moduleInventory.deserializeNBT(registries, data.getCompound("workstationModule"));
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        moduleInventory.deserializeNBT(data.getCompound("workstationModule"));
         var thermal = LargeWorkstationThermal.load(data.getCompound("largeWorkstationThermal"));
         temperature = thermal.temperature();
         overheated = thermal.overheated();
@@ -825,13 +821,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (overheated) preheating = false;
         double restoredRefund = data.getDouble("pendingPowerRefund");
         pendingPowerRefund = Double.isFinite(restoredRefund) && restoredRefund > 0.0D ? restoredRefund : 0.0D;
-        coolingOutput.load(data, registries);
+        coolingOutput.load(data);
         pendingBatches.clear();
         ListTag batches = data.getList("pendingBatches", Tag.TAG_COMPOUND);
         setPauseReason(PauseReason.NONE);
         long currentTick = level == null ? 0L : level.getGameTime();
         for (int index = 0; index < batches.size(); index++) {
-            PendingBatch batch = PendingBatch.load(batches.getCompound(index), registries, currentTick);
+            PendingBatch batch = PendingBatch.load(batches.getCompound(index), currentTick);
             if (batch != null) {
                 pendingBatches.addLast(batch);
             }
@@ -1785,7 +1781,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             this.createdTick = createdTick;
         }
 
-        private CompoundTag save(HolderLookup.Provider registries) {
+        private CompoundTag save() {
             CompoundTag tag = new CompoundTag();
             tag.putLong("craftCount", craftCount);
             tag.putLong("energyPerCraft", energyPerCraft);
@@ -1807,16 +1803,16 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 tag.putBoolean("pendingStateTooLarge", true);
                 return tag;
             }
-            tag.put("inputTotal", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(inputTotal)));
-            tag.put("missingExtras", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(missingExtras)));
-            tag.put("outputTotal", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(outputTotal)));
-            tag.put("pendingOutput", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(pendingOutput)));
-            if (unlockStack != null) tag.put("unlockStack", GenericStack.writeTag(registries, unlockStack));
+            tag.put("inputTotal", ECOFastPathStacks.writeGenericStacks(ECOFastPathStacks.copyCounter(inputTotal)));
+            tag.put("missingExtras", ECOFastPathStacks.writeGenericStacks(ECOFastPathStacks.copyCounter(missingExtras)));
+            tag.put("outputTotal", ECOFastPathStacks.writeGenericStacks(ECOFastPathStacks.copyCounter(outputTotal)));
+            tag.put("pendingOutput", ECOFastPathStacks.writeGenericStacks(ECOFastPathStacks.copyCounter(pendingOutput)));
+            if (unlockStack != null) tag.put("unlockStack", GenericStack.writeTag(unlockStack));
             return tag;
         }
 
         @Nullable
-        private static PendingBatch load(CompoundTag tag, HolderLookup.Provider registries, long currentTick) {
+        private static PendingBatch load(CompoundTag tag, long currentTick) {
             if (tag.getBoolean("pendingStateTooLarge")) {
                 LOGGER.error("Discarding a large workstation batch whose persisted state exceeded the save limit");
                 return null;
@@ -1833,10 +1829,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 || progress < 0 || progress > MAX_PROCESSING_STEPS) {
                 return null;
             }
-            KeyCounter inputTotal = readCounter(registries, tag, "inputTotal", false);
-            KeyCounter outputTotal = readCounter(registries, tag, "outputTotal", true);
-            KeyCounter pendingOutput = readCounter(registries, tag, "pendingOutput", false);
-            KeyCounter missingExtras = readCounter(registries, tag, "missingExtras", false);
+            KeyCounter inputTotal = readCounter(tag, "inputTotal", false);
+            KeyCounter outputTotal = readCounter(tag, "outputTotal", true);
+            KeyCounter pendingOutput = readCounter(tag, "pendingOutput", false);
+            KeyCounter missingExtras = readCounter(tag, "missingExtras", false);
             if (inputTotal == null || outputTotal == null || pendingOutput == null || missingExtras == null
                 || progress > 0 && !missingExtras.isEmpty()
                 || progress < MAX_PROCESSING_STEPS && inputTotal.isEmpty()
@@ -1847,7 +1843,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             ResourceLocation recipeId = tag.contains("recipeId", Tag.TAG_STRING)
                 ? ResourceLocation.tryParse(tag.getString("recipeId")) : null;
             GenericStack unlockStack = tag.contains("unlockStack", Tag.TAG_COMPOUND)
-                ? GenericStack.readTag(registries, tag.getCompound("unlockStack")) : null;
+                ? GenericStack.readTag(tag.getCompound("unlockStack")) : null;
             long createdTick = tag.contains("createdTick", Tag.TAG_LONG)
                 ? tag.getLong("createdTick") : currentTick;
             PendingBatch batch = new PendingBatch(
@@ -1871,7 +1867,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
         @Nullable
         private static KeyCounter readCounter(
-            HolderLookup.Provider registries,
             CompoundTag tag,
             String name,
             boolean requireNonEmpty
@@ -1882,7 +1877,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             try {
                 KeyCounter result = new KeyCounter();
                 for (int i = 0; i < entries.size(); i++) {
-                    GenericStack stack = GenericStack.readTag(registries, entries.getCompound(i));
+                    GenericStack stack = GenericStack.readTag(entries.getCompound(i));
                     if (stack == null || stack.amount() <= 0
                         || stack.amount() > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT) return null;
                     long total = result.get(stack.what());

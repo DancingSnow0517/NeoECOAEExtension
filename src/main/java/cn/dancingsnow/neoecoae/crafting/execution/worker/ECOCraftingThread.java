@@ -42,7 +42,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -1204,7 +1203,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     @Override
-    public @UnknownNullability CompoundTag serializeNBT(HolderLookup.Provider provider) {
+    public @UnknownNullability CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
         boolean batchGenericWork =
             !batchOutputItems.isEmpty() || !batchInputItems.isEmpty() || !batchRemainingItems.isEmpty();
@@ -1216,7 +1215,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         tag.putInt("finiteBatchCraftCount", finiteBatchCraftCount);
         tag.putLong("craftCount", craftCount);
         tag.putBoolean("virtualBatch", virtualBatch);
-        if (exactVirtual != null) tag.put("exactVirtual", exactVirtual.write(provider));
+        if (exactVirtual != null) tag.put("exactVirtual", exactVirtual.write());
         tag.putBoolean("outputsReady", outputsReady);
         tag.putBoolean("completedJobOutputsReleased", completedJobOutputsReleased);
         tag.putString("recoveryState", recoveryState.name());
@@ -1230,46 +1229,45 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             tag.putString("fastPathReason", fastPathReason);
         }
         if (!craftingEventOutput.isEmpty()) {
-            tag.put("craftingEventOutput", saveSerializableStack(craftingEventOutput, provider));
+            tag.put("craftingEventOutput", saveSerializableStack(craftingEventOutput));
         }
         if (batchGenericWork) {
             tag.putBoolean("batchGenericWork", true);
-            tag.put("batchOutputItems", ECOFastPathStacks.writeGenericStacks(provider, batchOutputItems));
-            tag.put("batchInputItems", ECOFastPathStacks.writeGenericStacks(provider, batchInputItems));
-            tag.put("batchRemainingItems", ECOFastPathStacks.writeGenericStacks(provider, batchRemainingItems));
+            tag.put("batchOutputItems", ECOFastPathStacks.writeGenericStacks(batchOutputItems));
+            tag.put("batchInputItems", ECOFastPathStacks.writeGenericStacks(batchInputItems));
+            tag.put("batchRemainingItems", ECOFastPathStacks.writeGenericStacks(batchRemainingItems));
         } else {
-            tag.put("outputItem", saveSerializableStack(firstOutputItem(), provider));
+            tag.put("outputItem", saveSerializableStack(firstOutputItem()));
         }
 
         ListTag outputs = new ListTag();
-        saveSerializableStacks(outputItems, outputs, provider);
+        saveSerializableStacks(outputItems, outputs);
         tag.put("outputItems", outputs);
 
         ListTag inputs = new ListTag();
-        saveSerializableStacks(inputItems, inputs, provider);
+        saveSerializableStacks(inputItems, inputs);
         tag.put("inputItems", inputs);
 
         ListTag remaining = new ListTag();
-        saveSerializableStacks(remainingItems, remaining, provider);
+        saveSerializableStacks(remainingItems, remaining);
         tag.put("remainingItems", remaining);
         return tag;
     }
 
-    private static Tag saveSerializableStack(ItemStack stack, HolderLookup.Provider provider) {
+    private static Tag saveSerializableStack(ItemStack stack) {
         if (stack.isEmpty() || stack.getCount() <= MAX_SERIALIZED_ITEM_STACK_COUNT) {
-            return stack.saveOptional(provider);
+            return stack.save(new CompoundTag());
         }
-        return stack.copyWithCount(MAX_SERIALIZED_ITEM_STACK_COUNT).saveOptional(provider);
+        return stack.copyWithCount(MAX_SERIALIZED_ITEM_STACK_COUNT).save(new CompoundTag());
     }
 
     private static void saveSerializableStacks(
         List<ItemStack> stacks,
-        ListTag tag,
-        HolderLookup.Provider provider
+        ListTag tag
     ) {
         for (ItemStack stack : stacks) {
             if (!stack.isEmpty()) {
-                copySerializableStacks(stack, tag, provider);
+                copySerializableStacks(stack, tag);
             }
         }
     }
@@ -1282,21 +1280,21 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
-    private static void copySerializableStacks(ItemStack stack, ListTag tag, HolderLookup.Provider provider) {
+    private static void copySerializableStacks(ItemStack stack, ListTag tag) {
         int remaining = stack.getCount();
         while (remaining > 0) {
             int count = Math.min(remaining, MAX_SERIALIZED_ITEM_STACK_COUNT);
-            tag.add(stack.copyWithCount(count).saveOptional(provider));
+            tag.add(stack.copyWithCount(count).save(new CompoundTag()));
             remaining -= count;
         }
     }
 
     @Override
-    public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+    public void deserializeNBT(CompoundTag nbt) {
         clearVirtualCraftingDiagnostic();
         worker.markDisplayDirty();
         exactVirtual = nbt.contains("exactVirtual", Tag.TAG_COMPOUND)
-            ? ECOExactVirtualLedger.read(nbt.getCompound("exactVirtual"), provider) : null;
+            ? ECOExactVirtualLedger.read(nbt.getCompound("exactVirtual")) : null;
         int persistedVersion = nbt.getInt("neoecoae_version");
         this.isBusy = nbt.getBoolean("isBusy");
         this.reboot = nbt.getBoolean("reboot");
@@ -1340,7 +1338,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         } else if (!outputs.isEmpty()) {
             for (int i = 0; i < Math.min(outputs.size(), MAX_PERSISTED_ITEM_STACK_ENTRIES); i++) {
                 try {
-                    ItemStack output = ItemStack.parseOptional(provider, outputs.getCompound(i));
+                    ItemStack output = ItemStack.of(outputs.getCompound(i));
                     if (output.isEmpty()) {
                         invalidPersistedState = true;
                     } else {
@@ -1353,7 +1351,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         } else if (persistedVersion < CURRENT_NBT_VERSION) {
             // Compatibility with the singular output format used through 1.21.1-1.3.4.
             try {
-                ItemStack output = ItemStack.parseOptional(provider, nbt.getCompound("outputItem"));
+                ItemStack output = ItemStack.of(nbt.getCompound("outputItem"));
                 if (!output.isEmpty()) {
                     outputItems.add(output);
                 }
@@ -1367,7 +1365,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         invalidPersistedState |= inputs.size() > MAX_PERSISTED_ITEM_STACK_ENTRIES;
         for (int i = 0; i < Math.min(inputs.size(), MAX_PERSISTED_ITEM_STACK_ENTRIES); i++) {
             try {
-                ItemStack input = ItemStack.parseOptional(provider, inputs.getCompound(i));
+                ItemStack input = ItemStack.of(inputs.getCompound(i));
                 if (input.isEmpty()) {
                     invalidPersistedState = true;
                 } else {
@@ -1383,7 +1381,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         invalidPersistedState |= remaining.size() > MAX_PERSISTED_ITEM_STACK_ENTRIES;
         for (int i = 0; i < Math.min(remaining.size(), MAX_PERSISTED_ITEM_STACK_ENTRIES); i++) {
             try {
-                ItemStack remainingItem = ItemStack.parseOptional(provider, remaining.getCompound(i));
+                ItemStack remainingItem = ItemStack.of(remaining.getCompound(i));
                 if (remainingItem.isEmpty()) {
                     invalidPersistedState = true;
                 } else {
@@ -1408,13 +1406,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             boolean recoveringInputs = recoveryState == RecoveryState.RECOVERING_INPUTS;
             long persistedAmountLimit = virtualBatch ? Long.MAX_VALUE : ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT;
             var batchOutputs = ECOFastPathStacks.readValidatedBatchItemStacks(
-                provider, nbt.getList("batchOutputItems", Tag.TAG_COMPOUND), !recoveringInputs, persistedAmountLimit
+                nbt.getList("batchOutputItems", Tag.TAG_COMPOUND), !recoveringInputs, persistedAmountLimit
             );
             var batchInputs = ECOFastPathStacks.readValidatedBatchInputStacks(
-                provider, nbt.getList("batchInputItems", Tag.TAG_COMPOUND), recoveringInputs, persistedAmountLimit
+                nbt.getList("batchInputItems", Tag.TAG_COMPOUND), recoveringInputs, persistedAmountLimit
             );
             var batchRemaining = ECOFastPathStacks.readValidatedBatchItemStacks(
-                provider, nbt.getList("batchRemainingItems", Tag.TAG_COMPOUND), false, persistedAmountLimit
+                nbt.getList("batchRemainingItems", Tag.TAG_COMPOUND), false, persistedAmountLimit
             );
             batchOutputs.ifPresent(batchOutputItems::addAll);
             batchInputs.ifPresent(batchInputItems::addAll);
@@ -1439,7 +1437,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             this.finiteBatchCraftCount = Math.max(1, occupiedSlotsUpperBound);
         }
         try {
-            craftingEventOutput = ItemStack.parseOptional(provider, nbt.getCompound("craftingEventOutput"));
+            craftingEventOutput = ItemStack.of(nbt.getCompound("craftingEventOutput"));
         } catch (RuntimeException e) {
             craftingEventOutput = ItemStack.EMPTY;
             invalidPersistedState = true;

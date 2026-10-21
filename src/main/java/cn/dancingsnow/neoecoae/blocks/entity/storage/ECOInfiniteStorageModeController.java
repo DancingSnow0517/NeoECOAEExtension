@@ -287,7 +287,6 @@ final class ECOInfiniteStorageModeController {
         }
         UUID migration = ECOInfiniteStorageMember.beginMigration(drive.getCellStack(), domainId);
         boolean finished = transfer.step(drive.getCellStack(), migrationCell, domainId, engine,
-                host.getLevel().registryAccess(),
                 () -> {
                     if (!preparedSourceSeals.contains(migration)) {
                         throw new IllegalStateException("Source seal has not been prepared");

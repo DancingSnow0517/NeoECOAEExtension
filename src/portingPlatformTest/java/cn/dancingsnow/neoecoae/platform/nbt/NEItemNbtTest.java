@@ -3,8 +3,6 @@ package cn.dancingsnow.neoecoae.platform.nbt;
 import appeng.api.config.FuzzyMode;
 import appeng.api.orientation.RelativeSide;
 import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKeyType;
-import appeng.api.stacks.AEKeyTypesInternal;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.api.components.AutoExportSides;
 import cn.dancingsnow.neoecoae.platform.PlatformTestBootstrap;
@@ -13,7 +11,6 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraftforge.registries.RegistryBuilder;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import java.util.EnumSet;
@@ -21,16 +18,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NEItemNbtTest {
-    @BeforeAll @SuppressWarnings("unchecked") static void bootstrap() throws Exception {
-        PlatformTestBootstrap.initialize();
-        // Actual Forge registry and real AE2 codecs, without replacing keys with test doubles.
-        var builder = new RegistryBuilder<AEKeyType>().setName(new ResourceLocation("neoecoae_test", "key_types"));
-        var create = RegistryBuilder.class.getDeclaredMethod("create");
-        create.setAccessible(true); // Package-private Forge lifecycle boundary; no ModLauncher in JUnit.
-        var registry = (net.minecraftforge.registries.IForgeRegistry<AEKeyType>) create.invoke(builder);
-        registry.register(AEKeyType.items().getId(), AEKeyType.items());
-        registry.register(AEKeyType.fluids().getId(), AEKeyType.fluids());
-        AEKeyTypesInternal.setRegistry(() -> registry);
+    @BeforeAll static void bootstrap() throws Exception {
+        PlatformTestBootstrap.initializeKeyRegistry();
     }
 
     @Test void readsDoNotCreateAnItemTag() {

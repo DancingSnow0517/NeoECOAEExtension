@@ -26,7 +26,6 @@ import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.player.Player;
@@ -145,19 +144,19 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        workstationProvider.writeToNBT(data, registries);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        workstationProvider.writeToNBT(data);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        workstationProvider.readFromNBT(data, registries);
-        readLegacyWorkstationPatterns(data, registries);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        workstationProvider.readFromNBT(data);
+        readLegacyWorkstationPatterns(data);
     }
 
-    private void readLegacyWorkstationPatterns(CompoundTag data, HolderLookup.Provider registries) {
+    private void readLegacyWorkstationPatterns(CompoundTag data) {
         if (data.contains(PatternProviderLogic.NBT_MEMORY_CARD_PATTERNS, Tag.TAG_LIST)
             || !data.contains("workstationPatterns", Tag.TAG_LIST)
             || !workstationProvider.getPatternInv().isEmpty()) {
@@ -165,7 +164,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         }
 
         var legacy = new AppEngInternalInventory(this, LargeWorkstationPatternProvider.MAX_PATTERN_SLOTS, 1);
-        legacy.readFromNBT(data, "workstationPatterns", registries);
+        legacy.readFromNBT(data, "workstationPatterns");
         for (int slot = 0; slot < legacy.size(); slot++) {
             workstationProvider.getPatternInv().setItemDirect(slot, legacy.getStackInSlot(slot));
         }

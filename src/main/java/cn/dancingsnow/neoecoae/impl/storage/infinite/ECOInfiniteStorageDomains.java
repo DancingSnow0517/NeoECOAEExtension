@@ -100,20 +100,21 @@ public final class ECOInfiniteStorageDomains {
         Path dataDir = server.getWorldPath(LevelResource.ROOT).resolve("data");
         Path dataFile = dataDir.resolve(dataName + ".dat");
         Path legacyFile = dataDir.resolve(legacyName + ".dat");
+        var factory = ECOInfiniteStorageData.factory(dataFile, () -> importLegacy(domainId, legacyFile));
         ECOInfiniteStorageData data = overworld.getDataStorage().computeIfAbsent(
-                ECOInfiniteStorageData.factory(dataFile, () -> importLegacy(overworld, domainId, legacyFile)), dataName);
+                factory.deserializer(), factory.constructor(), dataName);
         if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
             LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
         }
         return new SavedDataInfiniteStorageEngine(data);
     }
 
-    private static ECOInfiniteStorageData importLegacy(ServerLevel overworld, UUID domainId, Path legacyFile) {
+    private static ECOInfiniteStorageData importLegacy(UUID domainId, Path legacyFile) {
         ECOInfiniteStorageData data = ECOInfiniteStorageData.createNew();
         try {
             if (!LegacyInfiniteStorageReader.exists(legacyFile)) return data;
             var recovered = LegacyInfiniteStorageReader.readAvailable(legacyFile);
-            data = ECOInfiniteStorageData.load(recovered.data(), overworld.registryAccess());
+            data = ECOInfiniteStorageData.load(recovered.data());
             if (!recovered.failures().isEmpty()) data.markIncompleteLegacy(recovered.failures());
             // Written as v3 on the next world save; the legacy files are never touched.
             if (data.canWrite()) data.setDirty();

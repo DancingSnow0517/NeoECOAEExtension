@@ -59,7 +59,7 @@ final class StorageResourceFilterGrid extends UIElement {
         if (!(value instanceof CompoundTag tag)) return;
         for (int slot = 0; slot < slots.size(); slot++) {
             FilterSlot element = slots.get(slot);
-            element.key = StorageInterfaceFilter.get(tag, slot, player.registryAccess());
+            element.key = StorageInterfaceFilter.get(tag, slot);
             element.unavailable = tag.contains(Integer.toString(slot)) && element.key == null;
             ItemStack display = element.key instanceof AEItemKey item ? item.toStack(1)
                 : element.key == null ? ItemStack.EMPTY : GenericStack.wrapInItemStack(element.key, 1);
@@ -70,7 +70,7 @@ final class StorageResourceFilterGrid extends UIElement {
     void applyEdit(int slot, Tag value) {
         if (slot < 0 || slot >= slots.size() || !(value instanceof CompoundTag tag)
             || !StorageInterfaceUI.canEdit(this, host, player)) return;
-        AEKey key = tag.isEmpty() ? null : StorageInterfaceFilter.decode(tag, player.registryAccess());
+        AEKey key = tag.isEmpty() ? null : StorageInterfaceFilter.decode(tag);
         if (!tag.isEmpty() && key == null) return;
         host.setStorageResourceFilter(slot, key);
     }
@@ -118,7 +118,7 @@ final class StorageResourceFilterGrid extends UIElement {
         }
 
         private void request(@Nullable AEKey key) {
-            edit.send(index, key == null ? new CompoundTag() : StorageInterfaceFilter.encode(key, player.registryAccess()));
+            edit.send(index, key == null ? new CompoundTag() : StorageInterfaceFilter.encode(key));
         }
 
         @Override

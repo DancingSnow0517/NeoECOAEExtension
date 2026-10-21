@@ -4,30 +4,32 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingInput;
+import net.minecraft.world.inventory.CraftingContainer;
 
-/** Converts recipe-local remainder coordinates back to the molecular assembler's full crafting grid. */
+/** Copies 1.20.1's full-grid recipe remainders without changing slot identity. */
 public final class ECOCraftingStateSlots {
     private ECOCraftingStateSlots() {
     }
 
     public static List<ItemStack> expandRemainingItems(
-        CraftingInput.Positioned positionedInput,
+        CraftingContainer input,
         List<ItemStack> remainingItems,
         int gridWidth,
         int gridHeight
     ) {
-        CraftingInput input = positionedInput.input();
+        if (input.getWidth() != gridWidth || input.getHeight() != gridHeight) {
+            throw new IllegalArgumentException("Crafting remainder grid does not match input");
+        }
         List<ItemStack> copiedRemainders = new ArrayList<>(remainingItems.size());
         for (ItemStack remainder : remainingItems) {
             copiedRemainders.add(remainder == null ? ItemStack.EMPTY : remainder.copy());
         }
         return expandSlots(
             copiedRemainders,
-            positionedInput.left(),
-            positionedInput.top(),
-            input.width(),
-            input.height(),
+            0,
+            0,
+            input.getWidth(),
+            input.getHeight(),
             gridWidth,
             gridHeight,
             ItemStack.EMPTY

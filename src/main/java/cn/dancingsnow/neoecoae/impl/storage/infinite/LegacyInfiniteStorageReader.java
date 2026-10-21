@@ -45,7 +45,7 @@ final class LegacyInfiniteStorageReader {
     static ReadResult readAvailable(Path dataFile) throws IOException {
         Path directory = storePath(dataFile);
         if (!Files.exists(directory)) {
-            CompoundTag root = NbtIo.readCompressed(dataFile, NbtAccounter.unlimitedHeap());
+            CompoundTag root = NbtIo.readCompressed(dataFile.toFile());
             if (!root.contains("data", Tag.TAG_COMPOUND)) throw new IOException("Missing legacy domain data");
             return new ReadResult(root.getCompound("data"), List.of());
         }
@@ -124,7 +124,7 @@ final class LegacyInfiniteStorageReader {
                     if (next > sequence) {
                         if (next != sequence + 1) throw new IOException("Legacy journal sequence gap");
                         try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(bytes))) {
-                            apply(NbtIo.read(input, NbtAccounter.create(MAX_RECORD_BYTES)));
+                            apply(NbtIo.read(input, new NbtAccounter(MAX_RECORD_BYTES)));
                         }
                         sequence = next;
                     }
@@ -149,7 +149,7 @@ final class LegacyInfiniteStorageReader {
     }
 
     private static CompoundTag readSnapshot(Path file) throws IOException {
-        CompoundTag tag = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
+        CompoundTag tag = NbtIo.readCompressed(file.toFile());
         if (tag.getInt("format") != 2 || !tag.contains("sequence", Tag.TAG_LONG) || tag.getLong("sequence") < 0) {
             throw new IOException("Invalid legacy snapshot format");
         }

@@ -19,7 +19,6 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -549,19 +548,19 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
         ListTag threads = new ListTag();
         for (ECOCraftingThread thread : craftingThreads) {
-            threads.add(thread.serializeNBT(registries));
+            threads.add(thread.serializeNBT());
         }
         data.put("craftingThreads", threads);
         data.putInt("runningThreads", runningThreads);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
         markDisplayDirty();
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         craftingThreads.clear();
@@ -578,7 +577,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         long busyThreads = 0L;
         for (int i = 0; i < Math.min(threads.size(), MAX_PERSISTED_THREAD_RECORDS); i++) {
             ECOCraftingThread thread = new ECOCraftingThread(this);
-            thread.deserializeNBT(registries, threads.getCompound(i));
+            thread.deserializeNBT(threads.getCompound(i));
             craftingThreads.add(thread);
             if (!thread.isFree()) {
                 busyThreads++;

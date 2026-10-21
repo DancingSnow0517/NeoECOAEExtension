@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.ToLongBiFunction;
 import java.util.function.BiFunction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 
 /** Durable custody for one exact virtual lane. External long APIs only see bounded windows. */
@@ -73,18 +72,18 @@ public final class ECOExactVirtualLedger {
         return inventory.snapshot().isEmpty();
     }
 
-    public CompoundTag write(HolderLookup.Provider registries) {
+    public CompoundTag write() {
         var tag = new CompoundTag();
         tag.putString("crafts", crafts.toString());
-        tag.put("inputs", inputs.writeToNBT(registries));
-        tag.put("outputs", outputs.writeToNBT(registries));
+        tag.put("inputs", inputs.writeToNBT());
+        tag.put("outputs", outputs.writeToNBT());
         return tag;
     }
 
-    public static ECOExactVirtualLedger read(CompoundTag tag, HolderLookup.Provider registries) {
+    public static ECOExactVirtualLedger read(CompoundTag tag) {
         var ledger = new ECOExactVirtualLedger(new BigInteger(tag.getString("crafts")));
-        ledger.inputs.readFromNBT(tag.getList("inputs", 10), registries);
-        ledger.outputs.readFromNBT(tag.getList("outputs", 10), registries);
+        ledger.inputs.readFromNBT(tag.getList("inputs", 10));
+        ledger.outputs.readFromNBT(tag.getList("outputs", 10));
         return ledger;
     }
 }

@@ -8,7 +8,6 @@ import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 
@@ -115,12 +114,12 @@ public final class ECOExactInventory extends ListCraftingInventory {
         super.clear();
     }
 
-    @Override public ListTag writeToNBT(HolderLookup.Provider registries) {
-        if (!enabled) return super.writeToNBT(registries);
+    @Override public ListTag writeToNBT() {
+        if (!enabled) return super.writeToNBT();
         var result = new ListTag();
         for (var entry : list) {
             if (entry.getLongValue() <= 0) continue;
-            var tag = entry.getKey().toTagGeneric(registries);
+            var tag = entry.getKey().toTagGeneric();
             tag.putLong("#", entry.getLongValue());
             if (excess.containsKey(entry.getKey())) tag.putString("ecoExactAmount", amount(entry.getKey()).toString());
             result.add(tag);
@@ -128,18 +127,18 @@ public final class ECOExactInventory extends ListCraftingInventory {
         return result;
     }
 
-    @Override public void readFromNBT(ListTag data, HolderLookup.Provider registries) {
+    @Override public void readFromNBT(ListTag data) {
         if (!enabled) {
             boolean exactData = false;
             for (int i = 0; i < data.size(); i++) exactData |= data.getCompound(i).contains("ecoExactAmount", Tag.TAG_STRING);
-            if (!exactData) { excess.clear(); super.readFromNBT(data, registries); return; }
+            if (!exactData) { excess.clear(); super.readFromNBT(data); return; }
         }
         // Decode into a temporary ledger first. Invalid exact data must not silently become a long window.
         var restored = new LinkedHashMap<AEKey, BigInteger>();
         boolean hasExact = false;
         for (int i = 0; i < data.size(); i++) {
             var tag = data.getCompound(i);
-            var key = AEKey.fromTagGeneric(registries, tag);
+            var key = AEKey.fromTagGeneric(tag);
             boolean exact = tag.contains("ecoExactAmount", Tag.TAG_STRING);
             if (key == null) {
                 if (exact) throw new IllegalArgumentException("Unknown key in exact inventory");

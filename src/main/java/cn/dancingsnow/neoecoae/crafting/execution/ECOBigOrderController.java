@@ -13,7 +13,6 @@ import appeng.crafting.execution.CraftingCpuHelper;
 import cn.dancingsnow.neoecoae.api.me.bigorder.*;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOBigOrderPlanner;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -290,7 +289,7 @@ final class ECOBigOrderController {
         oldKeys.forEach(host::postChange);
     }
 
-    void write(CompoundTag data, HolderLookup.Provider registries) {
+    void write(CompoundTag data) {
         if (order == null || host.getJob() == null) { data.remove("bigOrder"); return; }
         var tag = new CompoundTag();
         tag.putUUID("id", order.id());
@@ -303,7 +302,7 @@ final class ECOBigOrderController {
         tag.putLong("retryTicks", order.retryTicks());
         tag.putInt("retryDelay", order.retryDelay());
         tag.putString("reason", order.reason());
-        tag.put("goal", GenericStack.writeTag(registries, new GenericStack(goal, 1)));
+        tag.put("goal", GenericStack.writeTag(new GenericStack(goal, 1)));
         tag.putBoolean("cycles", options.cyclePlanningEnabled());
         tag.putBoolean("ignoreSubstitutions", options.ignorePatternSubstitutions());
         var fuzzy = new ListTag();
@@ -312,7 +311,7 @@ final class ECOBigOrderController {
         var forecast = new ListTag();
         pendingPreview.forEach((key, amount) -> {
             var entry = new CompoundTag();
-            entry.put("key", GenericStack.writeTag(registries, new GenericStack(key, 1)));
+            entry.put("key", GenericStack.writeTag(new GenericStack(key, 1)));
             entry.putString("amount", amount.toString());
             forecast.add(entry);
         });
@@ -320,7 +319,7 @@ final class ECOBigOrderController {
         data.put("bigOrder", tag);
     }
 
-    void read(CompoundTag data, HolderLookup.Provider registries) {
+    void read(CompoundTag data) {
         clear();
         if (!data.contains("bigOrder")) return;
         var tag = data.getCompound("bigOrder");
@@ -334,7 +333,7 @@ final class ECOBigOrderController {
             throw new IllegalArgumentException("Parent amount mismatch");
         if (current == null || !current.link.getCraftingID().equals(restored.id()))
             throw new IllegalArgumentException("Parent link mismatch");
-        var target = GenericStack.readTag(registries, tag.getCompound("goal"));
+        var target = GenericStack.readTag(tag.getCompound("goal"));
         if (target == null || current.finalOutput == null || !target.what().equals(current.finalOutput.what())
                 || restored.state() == ECOBigOrderState.RUNNING_CHILD
                 && restored.childTarget() != current.finalOutput.amount())
@@ -351,7 +350,7 @@ final class ECOBigOrderController {
         var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
         for (int i = 0; i < forecast.size(); i++) {
             var entry = forecast.getCompound(i);
-            var stack = GenericStack.readTag(registries, entry.getCompound("key"));
+            var stack = GenericStack.readTag(entry.getCompound("key"));
             if (stack != null) amounts.put(stack.what(), ECOBigCraftingOrder.decode(entry.getString("amount")));
         }
         pendingPreview = amounts;

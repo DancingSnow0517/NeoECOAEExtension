@@ -151,6 +151,10 @@ sourceSets {
         java.include 'cn/dancingsnow/neoecoae/platform/recipe/**'
         java.include 'cn/dancingsnow/neoecoae/platform/nbt/**'
         java.include 'cn/dancingsnow/neoecoae/api/components/AutoExportSides.java'
+        java.include 'cn/dancingsnow/neoecoae/api/ECOTier.java'
+        java.include 'cn/dancingsnow/neoecoae/api/IECOTier.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/StorageByteAccounting.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/StorageInterfaceFilter.java'
         java.include 'cn/dancingsnow/neoecoae/all/NERecipeTypes.java'
         java.include 'cn/dancingsnow/neoecoae/recipe/IntegratedWorkingStationRecipe.java'
         java.include 'cn/dancingsnow/neoecoae/recipe/IntegratedWorkingStationRecipeBuilder.java'
@@ -165,6 +169,26 @@ sourceSets {
         java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipeAdapters.java'
         java.include 'cn/dancingsnow/neoecoae/mixins/minecraft/RecipeManagerAccessor.java'
         java.include 'cn/dancingsnow/neoecoae/gui/common/FluidHatchUI.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageData.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageDomains.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageEngine.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/SavedDataInfiniteStorageEngine.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/LegacyInfiniteStorageReader.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/HugeAmount.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/InfiniteStorageAmounts.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/MutableInfiniteStorageTotal.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOBatchCraftingHelper.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/amount/NEMath.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOFastPathStacks.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOReusableStateModel.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOStateTransitionBatchModel.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECODurabilityBatchModel.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOCombinedStateModel.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOReusableStateAnalyzer.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOCraftingStateSlots.java'
+        java.include 'cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationCoolingOutput.java'
+        java.include 'cn/dancingsnow/neoecoae/api/me/bigorder/ECOExactInventory.java'
+        java.include 'cn/dancingsnow/neoecoae/crafting/execution/worker/ECOExactVirtualLedger.java'
         compileClasspath += sourceSets.main.compileClasspath
         runtimeClasspath += sourceSets.main.compileClasspath
         resources.srcDir 'src/main/resources'
@@ -180,6 +204,9 @@ configurations.portingContractsTestImplementation.extendsFrom configurations.tes
 configurations.portingContractsTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
 configurations.portingPlatformTestImplementation.extendsFrom configurations.testImplementation
 configurations.portingPlatformTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
+dependencies {
+    portingPlatformAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
+}
 tasks.register('portingContractsTest', Test) {
     description = 'Tests isolated Java 17 production contracts; full main compilation is a separate gate.'
     group = 'verification'

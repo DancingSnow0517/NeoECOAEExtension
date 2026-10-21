@@ -190,9 +190,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     public boolean acceptsStorageResource(AEKey key) {
         if (storageResourceFilter == null || cachedStorageResourceFilters != storageResourceFilters) {
-            var registries = level == null ? net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
-                : level.registryAccess();
-            storageResourceFilter = new StorageInterfaceFilter(storageResourceFilters, registries);
+            storageResourceFilter = new StorageInterfaceFilter(storageResourceFilters);
             cachedStorageResourceFilters = storageResourceFilters;
         }
         return storageResourceFilter.test(key);
@@ -202,7 +200,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public void setStorageResourceFilter(int slot, @Nullable AEKey key) {
         if (level == null || level.isClientSide || !supportsStorageInterfaceUi()
             || slot < 0 || slot >= StorageInterfaceFilter.SLOTS) return;
-        CompoundTag updated = StorageInterfaceFilter.with(storageResourceFilters, slot, key, level.registryAccess());
+        CompoundTag updated = StorageInterfaceFilter.with(storageResourceFilters, slot, key);
         if (updated.equals(storageResourceFilters)) return;
         storageResourceFilters = updated;
         transferredLastTick = 0;

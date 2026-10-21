@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.api.me.attachment;
 
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobResult;
 
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 
@@ -16,9 +15,9 @@ public interface ECOCraftingJobAttachment {
 
     ResourceLocation id();
 
-    CompoundTag save(HolderLookup.Provider registries);
+    CompoundTag save();
 
-    void load(CompoundTag tag, HolderLookup.Provider registries);
+    void load(CompoundTag tag);
 
     void clear(ECOCraftingJobResult result);
 }

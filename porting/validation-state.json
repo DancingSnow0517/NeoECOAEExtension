@@ -1,14 +1,14 @@
 {
-  "working_tree_parent": "6bcdd5ae27da1d845a499a991f331ab57c98f25f",
+  "working_tree_parent": "1e94e16563b158f3c8c6f8e3dbe4c433e31cc705",
   "compile": {
-    "log": "validation/compile-data-checkpoint-final.log",
-    "sha256": "49e99db349c4ee7a5cb54bcd360bd5b1dc4a2e96cb04dd96a04f6a48548e884b",
+    "log": "validation/compile-storage-fastpath-final.log",
+    "sha256": "8288d93ec07b9bdb7720450cc9513cf38c8dd2584d354e823f676da14e1624f7",
     "result": "failed",
-    "reported_errors": 1505,
-    "parsed_error_locations": 1505,
+    "reported_errors": 1454,
+    "parsed_error_locations": 1454,
     "reported_warnings": 12,
     "error_messages": {
-      "cannot find symbol": 884,
+      "cannot find symbol": 872,
       "package com.lowdragmc.lowdraglib2.gui.ui does not exist": 72,
       "package com.lowdragmc.lowdraglib2.gui.ui.elements does not exist": 71,
       "package com.lowdragmc.lowdraglib2.gui.ui.event does not exist": 60,
@@ -17,11 +17,11 @@
       "package BlockUIMenuType does not exist": 27,
       "package com.lowdragmc.lowdraglib2.gui.ui.rendering does not exist": 27,
       "package com.lowdragmc.lowdraglib2.gui.sync.bindings.impl does not exist": 23,
-      "method does not override or implement a method from a supertype": 18,
       "package com.lowdragmc.lowdraglib2.gui.factory does not exist": 17,
       "package com.lowdragmc.lowdraglib2.gui.ui.data does not exist": 14,
       "package com.lowdragmc.lowdraglib2.gui.sync.bindings does not exist": 13,
       "package com.lowdragmc.lowdraglib2.gui.slot does not exist": 10,
+      "method does not override or implement a method from a supertype": 10,
       "package com.lowdragmc.lowdraglib2.gui.ui.elements.inventory does not exist": 9,
       "package com.lowdragmc.lowdraglib2.gui.util does not exist": 8,
       "package com.lowdragmc.lowdraglib2.gui.sync.rpc does not exist": 8,
@@ -33,27 +33,17 @@
       "type NetworkToolMenuHost does not take parameters": 5,
       "invalid method reference": 5,
       "incompatible types: int cannot be converted to TickRates": 5,
-      "package appeng.core.network.clientbound does not exist": 4,
       "package org.appliedenergistics.yoga does not exist": 4,
       "expression type NEStorageCluster is a subtype of pattern type NEStorageCluster": 4,
       "package AddSectionGeometryEvent does not exist": 3,
       "package com.lowdragmc.lowdraglib2.gui.ui.style does not exist": 3,
       "package mezz.jei.api.neoforge does not exist": 3,
-      "method saveAdditional in class AENetworkBlockEntity cannot be applied to given types;": 3,
-      "method loadTag in class AENetworkBlockEntity cannot be applied to given types;": 3,
-      "method readTag in record GenericStack cannot be applied to given types;": 3,
       "package com.lowdragmc.lowdraglib2.registry.annotation does not exist": 2,
       "package cn.dancingsnow.neoecoae.client.gui.ldlib does not exist": 2,
-      "method readFromNBT in class FluidTank cannot be applied to given types;": 2,
-      "method writeToNBT in class FluidTank cannot be applied to given types;": 2,
-      "package appeng.core.network does not exist": 1,
-      "package CraftingJobStatusPacket does not exist": 1,
+      "package appeng.core.network.clientbound does not exist": 2,
       "package BaseFlowingFluid does not exist": 1,
       "package net.minecraftforge.client.event.ClientTickEvent does not exist": 1,
       "package EditorResourceEvent does not exist": 1,
-      "package CraftingInput does not exist": 1,
-      "package net.minecraft.core.component does not exist": 1,
-      "package net.minecraft.world.item.component does not exist": 1,
       "package net.minecraftforge.event.tick does not exist": 1,
       "package ServerTickEvent does not exist": 1,
       "package com.lowdragmc.lowdraglib2.utils does not exist": 1,
@@ -73,7 +63,6 @@
       "ECODriveBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "ECOStorageVentBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "ECOStorageSystemBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
-      "method readFromNBT in class AppEngInternalInventory cannot be applied to given types;": 1,
       "ECOEnergyCellBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "ECOCraftingSystemBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "no suitable method found for append(Object)": 1,
@@ -86,22 +75,12 @@
       "ECOComputationTransmitterBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "ECOComputationParallelCoreBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "ECOComputationThreadingCoreBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
-      "method readFromNBT in class ListCraftingInventory cannot be applied to given types;": 1,
       "ECOComputationCoolingControllerBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "ECOComputationSystemBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "ECOComputationDriveBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "ECOIntegratedWorkingStationBlockEntity is not abstract and does not override abstract method onChangeInventory(InternalInventory,int) in AEBaseInvBlockEntity": 1,
-      "method loadTag in class AENetworkPowerBlockEntity cannot be applied to given types;": 1,
-      "method readFromNBT in interface IUpgradeInventory cannot be applied to given types;": 1,
-      "method readFromNBT in interface IConfigManager cannot be applied to given types;": 1,
-      "method saveAdditional in class AENetworkPowerBlockEntity cannot be applied to given types;": 1,
-      "method writeToNBT in interface IUpgradeInventory cannot be applied to given types;": 1,
-      "method writeToNBT in interface IConfigManager cannot be applied to given types;": 1,
       "ECOLargeIntegratedWorkingStationBlockEntity is not abstract and does not override abstract method getSyncStorage() in IManaged": 1,
-      "method serializeNBT in class ItemStackHandler cannot be applied to given types;": 1,
-      "method deserializeNBT in class ItemStackHandler cannot be applied to given types;": 1,
       "incompatible types: GenericStack[] cannot be converted to List<GenericStack>": 1,
-      "method writeTag in record GenericStack cannot be applied to given types;": 1,
       "NEIntegratedWorkingStationCluster is not abstract and does not override abstract method isDestroyed() in IAECluster": 1,
       "ECOLargeIntegratedWorkingStationInputHatchBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
       "ECOLargeIntegratedWorkingStationOutputHatchBlockEntity is not abstract and does not override abstract method getCluster() in IAEMultiBlock": 1,
@@ -126,24 +105,24 @@
       "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StoragePriorityUI.java": 37,
       "src/main/java/cn/dancingsnow/neoecoae/gui/computation/ComputationCpuStatusPanel.java": 35,
       "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingControllerArtwork.java": 34,
-      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOLargeIntegratedWorkingStationBlockEntity.java": 33,
-      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOIntegratedWorkingStationBlockEntity.java": 33,
       "src/main/java/cn/dancingsnow/neoecoae/gui/common/HostSideButtonBar.java": 33,
       "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostCharts.java": 30,
       "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/LargeWorkstationPanel.java": 30,
-      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOStorageSystemBlockEntity.java": 29,
       "src/main/java/cn/dancingsnow/neoecoae/gui/computation/ComputationCpuSelector.java": 28,
-      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOCraftingWorkerBlockEntity.java": 28,
       "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageInterfaceUI.java": 27,
       "src/main/java/cn/dancingsnow/neoecoae/integration/xei/multiblock/MultiBlockInfoWrapper.java": 27,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/computation/ECOComputationSystemBlockEntity.java": 26,
+      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOLargeIntegratedWorkingStationBlockEntity.java": 26,
       "src/main/java/cn/dancingsnow/neoecoae/gui/common/HostElements.java": 26,
       "src/main/java/cn/dancingsnow/neoecoae/gui/computation/ComputationControllerArtwork.java": 26,
       "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingPatternBusUI.java": 25,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOMachineInterfaceBlockEntity.java": 24,
+      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOStorageSystemBlockEntity.java": 24,
+      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOCraftingWorkerBlockEntity.java": 24,
       "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StoragePanelTextures.java": 23,
       "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/IntegratedWorkstationUI.java": 23,
       "src/main/java/cn/dancingsnow/neoecoae/gui/json/NeoUiJsonLoader.java": 22,
+      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOIntegratedWorkingStationBlockEntity.java": 21,
       "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationOutputPanel.java": 21,
       "src/main/java/cn/dancingsnow/neoecoae/multiblock/cluster/NEComputationCluster.java": 21,
       "src/main/java/cn/dancingsnow/neoecoae/gui/computation/ComputationInterfaceUI.java": 19,
@@ -155,7 +134,6 @@
       "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/LargeWorkstationUI.java": 18,
       "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationInventoryUI.java": 16,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECODriveBlockEntity.java": 16,
-      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/computation/ECOComputationThreadingCoreBlockEntity.java": 15,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOCraftingPatternBusBlockEntity.java": 14,
       "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingControllerInteractions.java": 14,
       "src/main/java/cn/dancingsnow/neoecoae/gui/common/HostNetworkStatusElement.java": 13,
@@ -170,6 +148,7 @@
       "src/main/java/cn/dancingsnow/neoecoae/gui/computation/ComputationScrollbar.java": 9,
       "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationFluidGauge.java": 9,
       "src/main/java/cn/dancingsnow/neoecoae/multiblock/cluster/NECraftingCluster.java": 9,
+      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/computation/ECOComputationThreadingCoreBlockEntity.java": 9,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/computation/ECOComputationSystem.java": 8,
       "src/main/java/cn/dancingsnow/neoecoae/gui/widget/PatternItemSlot.java": 8,
       "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingOutputSlot.java": 8,
@@ -189,7 +168,6 @@
       "src/main/java/cn/dancingsnow/neoecoae/gui/common/ECOModularUI.java": 6,
       "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NEStructureTerminalWidget.java": 6,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOLargeIntegratedWorkingStationInputHatchBlockEntity.java": 6,
-      "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationCoolingOutput.java": 6,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/ECOIntegratedWorkingStation.java": 5,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/crafting/ECOCraftingPatternBus.java": 5,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/ECOLargeIntegratedWorkingStation.java": 5,
@@ -204,7 +182,6 @@
       "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingControllerSync.java": 4,
       "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingServiceMixin.java": 4,
       "src/main/java/cn/dancingsnow/neoecoae/NeoECOAE.java": 4,
-      "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingCPULogic.java": 3,
       "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostActionUI.java": 3,
       "src/main/java/cn/dancingsnow/neoecoae/client/gui/widget/PatternItemSlotClient.java": 3,
       "src/main/java/cn/dancingsnow/neoecoae/client/rendering/DelegatedBufferSource.java": 3,
@@ -212,15 +189,12 @@
       "src/main/java/cn/dancingsnow/neoecoae/gui/json/NeoUiJsonContext.java": 3,
       "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/support/StructureTerminalActions.java": 3,
       "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NEStructureTerminalMaterialPanel.java": 3,
-      "src/main/java/cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageData.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/PatternPreviewSync.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/storage/ECODriveBlock.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/computation/ECOComputationDrive.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/all/NEFluids.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/client/rendering/FixedBlockEntityRenderers.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/compat/advanced_ae/ECOAdvancedAEPatternScaling.java": 2,
-      "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOCraftingStateSlots.java": 2,
-      "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOStateTransitionBatchModel.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/data/worldgen/NEConfiguredFeatures.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/data/worldgen/NEPlacedFeatures.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/event/ECOStorageLifecycleEvents.java": 2,
@@ -232,13 +206,11 @@
       "src/main/java/cn/dancingsnow/neoecoae/network/MenuDataCodecs.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingCalculationMixin.java": 2,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOEnergyCellBlockEntity.java": 2,
-      "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOCraftingJobLifecycleController.java": 1,
       "src/main/java/cn/dancingsnow/neoecoae/gui/task/ComputationTaskEntry.java": 1,
       "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOStorageInfiniteRestore.java": 1,
       "src/main/java/cn/dancingsnow/neoecoae/items/ECOComputationCellItem.java": 1,
       "src/main/java/cn/dancingsnow/neoecoae/items/ECOInfiniteResourceCellItem.java": 1,
       "src/main/java/cn/dancingsnow/neoecoae/items/ECOStorageCellItem.java": 1,
-      "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/worker/ECOCraftingJobLifecycle.java": 1,
       "src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NEStructureTerminalRenderContext.java": 1,
       "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StoragePanelState.java": 1,
       "src/main/java/cn/dancingsnow/neoecoae/gui/theme/NEStyleSheets.java": 1,
@@ -281,50 +253,70 @@
       "scope": "isolated production classes; not full main or Forge runtime acceptance"
     },
     "portingPlatformTest": {
-      "tests": 46,
+      "tests": 79,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
       "reports": [
         {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.blocks.entity.ForgeCoolingRemainderPersistenceTest.xml",
+          "sha256": "19d38e9294053c4b8abfbe0de5c86a378da403cc9622319e35c9e300654e0cba"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.fastpath.ForgeFastPathStateBoundaryTest.xml",
+          "sha256": "8848592e895994bdb65abf0f0be650129db2dfa8655b78e2e9181bfb3de1d1d5"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.worker.ForgeExactLedgerPersistenceTest.xml",
+          "sha256": "fa0b321450b4fe63a48aab4c7246d393223061f82dc1d38514fd6b8c2a65ab0c"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.ForgeStorageFilterTest.xml",
+          "sha256": "53239ba59af630735a50a0fa7db8bc2986e94a9e988f245f977982874bf748f7"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.infinite.ForgeInfiniteStoragePersistenceTest.xml",
+          "sha256": "d00d634c03a912276a89d01f37b032ade616ccc9528f553c5fcfa9553bbbce67"
+        },
+        {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilitiesTest.xml",
-          "sha256": "564891f72327d129b1121147a3daeb2ff2a6fdc446dc285bb84e6db6700345dc"
+          "sha256": "c590d9173a19a00618e436a58e6227caae5aed368a10979a0a7a1a354109990e"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.nbt.NEItemNbtTest.xml",
-          "sha256": "4a3147534346d962f6f7be838f2a6239ded8520075f31fd1c6e55555a1c7dcd4"
+          "sha256": "768041b1ef016784b603c4a3901b2796e93f3e6a36372244155fdce70593c0f4"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedBlockEntityFieldsTest.xml",
-          "sha256": "76c800f7a51f56d4972cf001de3a105b78707b8da8e092b430a6719402b3f7a8"
+          "sha256": "fae7c8e0c99671388f3ef4d035d57e750cc40e16e2b3523c1e56149a6b473cbe"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedInitialSyncTest.xml",
-          "sha256": "e9606a5b57cf0e6446243e66f9508f7793f9472fe962f440e47ca818bc4aaf5c"
+          "sha256": "5046120c26b281d3a0e84f9697708b3c9532cc4dcdc5a970b1b8e5dcb2a3d8a1"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.NERegistryAccessorTest.xml",
-          "sha256": "8749dda949bcfe9fa742a285810acb7813bd8d469048218c93595ccc46aca2e0"
+          "sha256": "ce1c1dbede8978a6d2302ca46ca992fa821f7a9a8866f707d42f8014a7d38c2b"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.NEUiJsonBridgeTest.xml",
-          "sha256": "792b538d42e7578c95d748cf640f1febc81d1a58ed29884c4c066da4e3642caa"
+          "sha256": "d8909fdf403b984b9fef7e0d0b61dbe2aed1eb6ae44a3ed6d49d5e152d7f98c0"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.UiLayoutTest.xml",
-          "sha256": "09446e93a79fe40ea4055c7486972e4cd07f903d8cf05a2e60cae06d6885e003"
+          "sha256": "632e25630e2f5000377bdaf8350b0e328c2cfe722cc7a2066bdf74924dded21b"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.ForgeRecipeAdapterTest.xml",
-          "sha256": "8109e13f06b2e9991be63d011bdfa3abe706d2981b3b09a4f0df51074d160dd6"
+          "sha256": "ab5f4b6d38b3a653966d9ffc403349df12d56b659fea7a220907937016a3c61c"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.ForgeRecipeBoundaryTest.xml",
-          "sha256": "47d9d072893b7947b42f7e86f3743f5f6e424c7a0803b003d43676092e7ef813"
+          "sha256": "0dbfe1e0cedebffd5f3f412ade381c88d2f1baef9e010129e6248c7b919c6265"
         },
         {
           "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.StorageCellDisassemblyBoundaryTest.xml",
-          "sha256": "bb7a4225ba9f40c182ba1bff92746b3b4f919a89a553be7be352fd8bc32901b7"
+          "sha256": "e8a18b53e6b039c7345aafb549b46097699c0b6b262ea3dc16ec649ee3635402"
         }
       ],
       "scope": "isolated production classes; not full main or Forge runtime acceptance"
@@ -335,7 +327,7 @@
     "unexpected_remaining_files": []
   },
   "json_syntax": {
-    "files": 1511,
+    "files": 1512,
     "invalid": []
   },
   "full_business_tests": "not run; main compilation incomplete",

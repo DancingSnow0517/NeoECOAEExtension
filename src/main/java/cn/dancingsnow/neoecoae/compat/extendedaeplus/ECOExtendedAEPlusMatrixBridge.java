@@ -69,12 +69,11 @@ public final class ECOExtendedAEPlusMatrixBridge {
         for (int slot = 0; slot < grid.getContainerSize(); slot++) {
             if (!grid.getItem(slot).isEmpty()) materialized.add(grid.getItem(slot).copy());
         }
-        var input = grid.asPositionedCraftInput().input();
-        var output = ECOFastPathStacks.fromItemStack(pattern.assemble(input, context.level()));
+        var output = ECOFastPathStacks.fromItemStack(pattern.assemble(grid, context.level()));
         var consumed = ECOFastPathStacks.fromItemStacks(materialized);
         return output.isPresent() && output.get().equals(context.outputs())
             && consumed.isPresent() && consumed.get().equals(context.inputItems())
-            && pattern.getRemainingItems(input).stream().allMatch(ItemStack::isEmpty);
+            && pattern.getRemainingItems(grid).stream().allMatch(ItemStack::isEmpty);
     }
 
     /** Returns whether this provider/pattern pair can use the EAP counted dispatch contract. */

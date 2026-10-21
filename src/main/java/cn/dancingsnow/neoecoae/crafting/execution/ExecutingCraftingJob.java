@@ -31,7 +31,6 @@ import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -175,11 +174,10 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         this.permanentExecutionError = null;
     }
 
-    ExecutingCraftingJob(CompoundTag data, HolderLookup.Provider registries,
-            CraftingDifferenceListener postCraftingDifference, ECOCraftingCPULogic cpu) {
+    ExecutingCraftingJob(CompoundTag data, CraftingDifferenceListener postCraftingDifference, ECOCraftingCPULogic cpu) {
         this.link = new CraftingLink(data.getCompound(NBT_LINK), cpu.cpu);
 
-        this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
+        this.finalOutput = GenericStack.readTag(data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
         this.exactOrder = data.getBoolean("exactOrder");
         var fuzzyItems = new HashSet<net.minecraft.resources.ResourceLocation>();
@@ -189,9 +187,9 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         }
         this.fuzzyPlanningItemIds = Set.copyOf(fuzzyItems);
         this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
-        this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
+        this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND));
         for (var tag : data.getList(NBT_BATCHED_OUTPUTS, Tag.TAG_COMPOUND)) {
-            var key = AEKey.fromTagGeneric(registries, (CompoundTag) tag);
+            var key = AEKey.fromTagGeneric((CompoundTag) tag);
             if (key != null) batchedOutputs.add(key);
         }
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
@@ -205,7 +203,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         boolean taskDefinitionLost = false;
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
-            var pattern = AEItemKey.fromTag(registries, item);
+            var pattern = AEItemKey.fromTag(item);
             var details = PatternDetailsHelper.decodePattern(pattern, cpu.cpu.getLevel());
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
@@ -219,20 +217,20 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
         ECOExecutionPlan restoredPlan = null;
         exactOrder = data.getBoolean("exactOrder");
-        readDeferred(data, "deferredStock", deferredStock, registries);
-        readDeferred(data, "deferredEmitted", deferredEmitted, registries);
+        readDeferred(data, "deferredStock", deferredStock);
+        readDeferred(data, "deferredEmitted", deferredEmitted);
         ECOExecutionRuntime restoredRuntime = null;
         boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED)
             || exactOrder && taskDefinitionLost;
         if (data.contains(NBT_EXECUTION_PLAN)) {
             try {
                 restoredPlan = ECOExecutionPlanNbtCodec.decode(
-                    data.getCompound(NBT_EXECUTION_PLAN), registries, cpu, this.finalOutput);
+                    data.getCompound(NBT_EXECUTION_PLAN), cpu, this.finalOutput);
                 Map<Integer, IPatternDetails> boundPatterns = bindExecutionPatterns(restoredPlan, false);
                 TaskProgress[] boundProgress = bindExecutionProgress(restoredPlan, boundPatterns);
                 if (data.contains(NBT_EXECUTION_RUNTIME)) {
                     restoredRuntime = ECOExecutionRuntime.fromNBT(restoredPlan, boundPatterns,
-                        boundProgress, data.getCompound(NBT_EXECUTION_RUNTIME), registries);
+                        boundProgress, data.getCompound(NBT_EXECUTION_RUNTIME));
                 } else {
                     restoredRuntime = new ECOExecutionRuntime(restoredPlan, boundPatterns, boundProgress);
                 }
@@ -308,24 +306,24 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         return result;
     }
 
-    CompoundTag writeToNBT(HolderLookup.Provider registries) {
+    CompoundTag writeToNBT() {
         CompoundTag data = new CompoundTag();
 
         CompoundTag linkData = new CompoundTag();
         link.writeToNBT(linkData);
         data.put(NBT_LINK, linkData);
 
-        data.put(NBT_FINAL_OUTPUT, GenericStack.writeTag(registries, finalOutput));
+        data.put(NBT_FINAL_OUTPUT, GenericStack.writeTag(finalOutput));
 
-        data.put(NBT_WAITING_FOR, waitingFor.writeToNBT(registries));
+        data.put(NBT_WAITING_FOR, waitingFor.writeToNBT());
         ListTag batched = new ListTag();
-        batchedOutputs.forEach(key -> batched.add(key.toTagGeneric(registries)));
+        batchedOutputs.forEach(key -> batched.add(key.toTagGeneric()));
         data.put(NBT_BATCHED_OUTPUTS, batched);
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
 
         final ListTag list = new ListTag();
         for (var e : this.tasks.entrySet()) {
-            var item = e.getKey().getDefinition().toTag(registries);
+            var item = e.getKey().getDefinition().toTag();
             item.putLong(NBT_CRAFTING_PROGRESS, e.getValue().value);
             if (e.getValue().exactTotal != null) {
                 item.putString("exactTotal", e.getValue().exactTotal.toString());
@@ -341,8 +339,8 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         fuzzyPlanningItemIds.stream().sorted().forEach(id ->
             fuzzyItems.add(net.minecraft.nbt.StringTag.valueOf(id.toString())));
         data.put("fuzzyPlanningItemIds", fuzzyItems);
-        writeDeferred(data, "deferredStock", deferredStock, registries);
-        writeDeferred(data, "deferredEmitted", deferredEmitted, registries);
+        writeDeferred(data, "deferredStock", deferredStock);
+        writeDeferred(data, "deferredEmitted", deferredEmitted);
         if (this.playerId != null) {
             data.putInt(NBT_PLAYER_ID, this.playerId);
         }
@@ -355,9 +353,9 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         }
         if (executionPlan != null && executionRuntime != null) {
             try {
-                data.put(NBT_EXECUTION_PLAN, ECOExecutionPlanNbtCodec.encode(executionPlan, registries));
+                data.put(NBT_EXECUTION_PLAN, ECOExecutionPlanNbtCodec.encode(executionPlan));
                 CompoundTag runtime = new CompoundTag();
-                executionRuntime.writeToNBT(runtime, registries);
+                executionRuntime.writeToNBT(runtime);
                 data.put(NBT_EXECUTION_RUNTIME, runtime);
             } catch (RuntimeException failure) {
                 // A phased job must never be restored as a native unordered job when a pattern definition cannot
@@ -424,24 +422,22 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         return inventory;
     }
 
-    private static void writeDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts,
-            HolderLookup.Provider registries) {
+    private static void writeDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts) {
         var list = new ListTag();
         amounts.forEach((key, amount) -> {
             var entry = new CompoundTag();
-            entry.put("key", GenericStack.writeTag(registries, new GenericStack(key, 1)));
+            entry.put("key", GenericStack.writeTag(new GenericStack(key, 1)));
             entry.putString("amount", amount.toString());
             list.add(entry);
         });
         data.put(name, list);
     }
 
-    private static void readDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts,
-            HolderLookup.Provider registries) {
+    private static void readDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts) {
         var list = data.getList(name, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             var entry = list.getCompound(i);
-            var key = GenericStack.readTag(registries, entry.getCompound("key"));
+            var key = GenericStack.readTag(entry.getCompound("key"));
             var amount = new java.math.BigInteger(entry.getString("amount"));
             if (key == null || amount.signum() <= 0) throw new IllegalArgumentException("Invalid deferred material");
             amounts.put(key.what(), amount);

@@ -33,7 +33,7 @@ public final class ECOReusableStateAnalyzer {
             if (initial == null || initial.isEmpty()) continue;
             if (initial.isDamageableItem()) {
                 if (result != null && !result.isEmpty() && ItemStack.isSameItem(initial, result)) {
-                    if (ItemStack.isSameItemSameComponents(initial, result)) {
+                    if (ItemStack.isSameItemSameTags(initial, result)) {
                         hasReusableState = true;
                     } else {
                         hasDurability = true;

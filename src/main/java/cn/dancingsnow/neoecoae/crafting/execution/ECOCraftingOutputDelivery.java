@@ -19,7 +19,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.core.HolderLookup;
 import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -394,11 +393,11 @@ final class ECOCraftingOutputDelivery {
         return !host.hasJob();
     }
 
-    void loadPendingFinalOutputs(CompoundTag jobData, HolderLookup.Provider registries) {
+    void loadPendingFinalOutputs(CompoundTag jobData) {
         ListTag entries = jobData.getList("pendingFinalOutputs", Tag.TAG_COMPOUND);
         for (int index = 0; index < entries.size(); index++) {
             try {
-                GenericStack stack = GenericStack.readTag(registries, entries.getCompound(index));
+                GenericStack stack = GenericStack.readTag(entries.getCompound(index));
                 if (stack != null && stack.amount() > 0L) {
                     pendingFinalOutputs.mergeLong(stack.what(), stack.amount(), NEMath::saturatingAdd);
                 }
@@ -408,7 +407,7 @@ final class ECOCraftingOutputDelivery {
         }
     }
 
-    void writePendingFinalOutputs(CompoundTag jobData, HolderLookup.Provider registries) {
+    void writePendingFinalOutputs(CompoundTag jobData) {
         if (pendingFinalOutputs.isEmpty()) {
             jobData.remove("pendingFinalOutputs");
             return;
@@ -416,7 +415,7 @@ final class ECOCraftingOutputDelivery {
         ListTag entries = new ListTag();
         for (var entry : pendingFinalOutputs.object2LongEntrySet()) {
             if (entry.getLongValue() > 0L) {
-                entries.add(GenericStack.writeTag(registries, new GenericStack(entry.getKey(), entry.getLongValue())));
+                entries.add(GenericStack.writeTag(new GenericStack(entry.getKey(), entry.getLongValue())));
             }
         }
         if (entries.isEmpty()) {

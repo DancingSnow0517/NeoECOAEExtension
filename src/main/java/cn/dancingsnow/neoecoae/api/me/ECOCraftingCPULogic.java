@@ -8,7 +8,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 
@@ -52,10 +51,10 @@ public abstract class ECOCraftingCPULogic {
     }
 
     /** Legacy AE2LT persistence injection targets. */
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
+    public void readFromNBT(CompoundTag data) {
     }
 
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
+    public void writeToNBT(CompoundTag data) {
     }
 
     private static boolean ae2ltLegacyMixinAnchorEnabled() {

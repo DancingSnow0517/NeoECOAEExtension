@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -536,7 +535,7 @@ public final class ECOExecutionRuntime {
         return null;
     }
 
-    void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
+    void writeToNBT(CompoundTag data) {
         data.putIntArray("stepCursor", stepCursor);
         data.putIntArray("dynamicCursor", dynamicCursor);
         ListTag phases = new ListTag();
@@ -560,8 +559,7 @@ public final class ECOExecutionRuntime {
         ListTag seeds = new ListTag();
         for (int phaseIndex = 0; phaseIndex < startupSeedRemainingByPhase.size(); phaseIndex++) {
             for (var entry : startupSeedRemainingByPhase.get(phaseIndex).object2LongEntrySet()) {
-                CompoundTag seed = GenericStack.writeTag(registries,
-                    new GenericStack(entry.getKey(), entry.getLongValue()));
+                CompoundTag seed = GenericStack.writeTag(new GenericStack(entry.getKey(), entry.getLongValue()));
                 seed.putInt("phase", phaseIndex);
                 seeds.add(seed);
             }
@@ -570,13 +568,12 @@ public final class ECOExecutionRuntime {
     }
 
     static ECOExecutionRuntime fromNBT(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById,
-            CompoundTag data, HolderLookup.Provider registries) {
-        return fromNBT(plan, patternsById, null, data, registries);
+            CompoundTag data) {
+        return fromNBT(plan, patternsById, null, data);
     }
 
     static ECOExecutionRuntime fromNBT(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById,
-            ExecutingCraftingJob.TaskProgress[] progressByTaskId, CompoundTag data,
-            HolderLookup.Provider registries) {
+            ExecutingCraftingJob.TaskProgress[] progressByTaskId, CompoundTag data) {
         ECOExecutionRuntime runtime = new ECOExecutionRuntime(plan, patternsById, progressByTaskId);
         int[] stepCursor = data.getIntArray("stepCursor");
         int[] dynamicCursor = data.getIntArray("dynamicCursor");
@@ -637,7 +634,7 @@ public final class ECOExecutionRuntime {
         Map<AEKey, Long> legacySeeds = new LinkedHashMap<>();
         for (int i = 0; i < seeds.size(); i++) {
             CompoundTag seed = seeds.getCompound(i);
-            GenericStack stack = GenericStack.readTag(registries, seed);
+            GenericStack stack = GenericStack.readTag(seed);
             if (stack != null && stack.amount() > 0L) {
                 if (seed.contains("phase", Tag.TAG_INT)) {
                     int phaseIndex = seed.getInt("phase");

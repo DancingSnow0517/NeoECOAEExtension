@@ -74,14 +74,13 @@ final class ECOCraftingFastPathVerifier {
         craftingInventory.clearContent();
         pattern.fillCraftingGrid(execution.craftingContainer(), craftingInventory::setItem);
         List<ItemStack> beforeSlots = snapshotSlots();
-        var positionedInput = craftingInventory.asPositionedCraftInput();
-        ItemStack output = pattern.assemble(positionedInput.input(), worker.getLevel());
+        ItemStack output = pattern.assemble(craftingInventory, worker.getLevel());
         if (output.isEmpty()) {
             craftingInventory.clearContent();
             return null;
         }
-        List<ItemStack> remainingSlots = ECOCraftingStateSlots.expandRemainingItems(positionedInput,
-                pattern.getRemainingItems(positionedInput.input()), craftingInventory.getWidth(),
+        List<ItemStack> remainingSlots = ECOCraftingStateSlots.expandRemainingItems(craftingInventory,
+                pattern.getRemainingItems(craftingInventory), craftingInventory.getWidth(),
                 craftingInventory.getHeight());
         List<ItemStack> remaining = remainingSlots.stream().filter(stack -> !stack.isEmpty())
                 .map(ItemStack::copy).toList();
@@ -140,12 +139,11 @@ final class ECOCraftingFastPathVerifier {
                 craftingInventory.setItem(slot, !initial.isEmpty() && !remainder.isEmpty()
                         && ItemStack.isSameItem(initial, remainder) ? remainder.copy() : initial.copy());
             }
-            var input = craftingInventory.asPositionedCraftInput();
-            ItemStack secondOutput = pattern.assemble(input.input(), worker.getLevel());
+            ItemStack secondOutput = pattern.assemble(craftingInventory, worker.getLevel());
             if (secondOutput.isEmpty() || secondOutput.getCount() != firstOutput.getCount()
-                    || !ItemStack.isSameItemSameComponents(firstOutput, secondOutput)) return false;
-            List<ItemStack> secondRemaining = ECOCraftingStateSlots.expandRemainingItems(input,
-                    pattern.getRemainingItems(input.input()), craftingInventory.getWidth(),
+                    || !ItemStack.isSameItemSameTags(firstOutput, secondOutput)) return false;
+            List<ItemStack> secondRemaining = ECOCraftingStateSlots.expandRemainingItems(craftingInventory,
+                    pattern.getRemainingItems(craftingInventory), craftingInventory.getWidth(),
                     craftingInventory.getHeight());
             var second = ECOReusableStateAnalyzer.analyze(firstRemainingSlots, secondRemaining,
                     execution.fastPathType() == ECORecipeClassifier.Type.DURABILITY_MUTATION);
@@ -180,7 +178,7 @@ final class ECOCraftingFastPathVerifier {
             result.append("\n  {index=").append(index);
             if (stack == null || stack.isEmpty()) result.append(", AEKey=null, amount=0, state=EMPTY}");
             else result.append(", AEKey=").append(AEItemKey.of(stack)).append(", amount=")
-                    .append(stack.getCount()).append(", components=").append(stack.getComponentsPatch())
+                    .append(stack.getCount()).append(", nbt=").append(stack.getTag())
                     .append(", damage=").append(stack.getDamageValue()).append('}');
         }
         return result.append("\n]").toString();

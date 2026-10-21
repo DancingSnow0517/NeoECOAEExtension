@@ -59,7 +59,6 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -291,22 +290,22 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        this.inputTank.readFromNBT(registries, data.getCompound("inputTank"));
-        this.outputTank.readFromNBT(registries, data.getCompound("outputTank"));
-        this.upgrades.readFromNBT(data, "upgrades", registries);
-        this.configManager.readFromNBT(data, registries);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        this.inputTank.readFromNBT(data.getCompound("inputTank"));
+        this.outputTank.readFromNBT(data.getCompound("outputTank"));
+        this.upgrades.readFromNBT(data, "upgrades");
+        this.configManager.readFromNBT(data);
         shouldAutoExport = configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        data.put("inputTank", this.inputTank.writeToNBT(registries, new CompoundTag()));
-        data.put("outputTank", this.outputTank.writeToNBT(registries, new CompoundTag()));
-        upgrades.writeToNBT(data, "upgrades", registries);
-        configManager.writeToNBT(data, registries);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        data.put("inputTank", this.inputTank.writeToNBT(new CompoundTag()));
+        data.put("outputTank", this.outputTank.writeToNBT(new CompoundTag()));
+        upgrades.writeToNBT(data, "upgrades");
+        configManager.writeToNBT(data);
     }
 
     @Override

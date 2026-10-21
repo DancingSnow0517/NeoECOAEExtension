@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -16,8 +15,6 @@ import org.jetbrains.annotations.Nullable;
 /** Durable terminal decisions shared by CPU owners and workers, including unloaded workers. */
 public final class ECOCraftingJobLifecycle extends SavedData {
     private static final String DATA_NAME = "neoecoae_crafting_job_lifecycle";
-    private static final Factory<ECOCraftingJobLifecycle> FACTORY =
-        new Factory<>(ECOCraftingJobLifecycle::new, ECOCraftingJobLifecycle::load, null);
 
     // Do not expire decisions by time: a worker can remain unloaded for arbitrarily long.
     // Unknown jobs remain resumable; absence of a live CPU is never evidence of cancellation.
@@ -25,7 +22,8 @@ public final class ECOCraftingJobLifecycle extends SavedData {
 
     private static @Nullable ECOCraftingJobLifecycle get(@Nullable Level level) {
         if (!(level instanceof ServerLevel serverLevel)) return null;
-        return serverLevel.getServer().overworld().getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
+        return serverLevel.getServer().overworld().getDataStorage().computeIfAbsent(
+            ECOCraftingJobLifecycle::load, ECOCraftingJobLifecycle::new, DATA_NAME);
     }
 
     public static boolean isTerminated(@Nullable Level level, @Nullable UUID jobId) {
@@ -77,7 +75,7 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         }
     }
 
-    private static ECOCraftingJobLifecycle load(CompoundTag tag, HolderLookup.Provider registries) {
+    private static ECOCraftingJobLifecycle load(CompoundTag tag) {
         var data = new ECOCraftingJobLifecycle();
         ListTag jobs = tag.getList("jobs", Tag.TAG_COMPOUND);
         for (int i = 0; i < jobs.size(); i++) {
@@ -88,7 +86,7 @@ public final class ECOCraftingJobLifecycle extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public CompoundTag save(CompoundTag tag) {
         ListTag jobs = new ListTag();
         terminatedJobs.forEach((id, completed) -> {
             CompoundTag job = new CompoundTag();
