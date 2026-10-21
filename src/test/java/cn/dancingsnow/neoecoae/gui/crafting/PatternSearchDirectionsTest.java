@@ -31,7 +31,7 @@ class PatternSearchDirectionsTest {
         when(input.getPossibleInputs()).thenReturn(new GenericStack[]{iron, copper, water});
         when(details.getInputs()).thenReturn(new IPatternDetails.IInput[]{input});
         when(details.getPrimaryOutput()).thenReturn(primary);
-        when(details.getOutputs()).thenReturn(java.util.List.of(primary, byproduct));
+        when(details.getOutputs()).thenReturn(java.util.List.of(primary, byproduct).toArray(GenericStack[]::new));
         var terms = PatternSearchKeywords.directions(details);
         for (var ingredient : input.getPossibleInputs()) {
             assertTrue(terms.inputs().contains(ingredient.what().getDisplayName().getString().toLowerCase(java.util.Locale.ROOT)));

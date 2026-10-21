@@ -144,7 +144,7 @@ class AERecipeCircuitTest {
     private static CycleSolveResult solve(List<AEKey> members, List<CompiledPattern> patterns, AEKey product,
             long quantity, Map<AEKey, Long> stock, AEKey boundaryKey) throws Exception {
         var boundary = boundaryKey == null ? List.<ComponentDependency>of() : List.of(new ComponentDependency(0, 1,
-            List.of(new CraftingGraphEdge(members.getFirst(), boundaryKey, patterns.getFirst(), null))));
+            List.of(new CraftingGraphEdge(cn.dancingsnow.neoecoae.platform.JdkCompat.first(members), boundaryKey, cn.dancingsnow.neoecoae.platform.JdkCompat.first(patterns), null))));
         var component = new CycleComponent(0, members, patterns, List.of(), List.of(), boundary);
         return new BoundedCycleSolver().solve(new CycleSolveRequest(component, Map.of(product, quantity), stock,
             boundary, new CycleSolveRequest.PlannerOptions()), ECOCancellation.NONE);
@@ -154,10 +154,10 @@ class AERecipeCircuitTest {
         var pattern = mock(IPatternDetails.class, "recipe" + id);
         var out = outputs.entrySet().stream().map(e -> new GenericStack(e.getKey(), e.getValue())).toList();
         var returned = returns.entrySet().stream().map(e -> new GenericStack(e.getKey(), e.getValue())).toList();
-        when(pattern.getOutputs()).thenReturn(out);
+        when(pattern.getOutputs()).thenReturn(out.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(pattern, null, List.of(), out, returned, List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
-        return new CompiledPattern(id, pattern, out.getFirst().what(), PlannerAmount.of(out.getFirst().amount()),
+        return new CompiledPattern(id, pattern, cn.dancingsnow.neoecoae.platform.JdkCompat.first(out).what(), PlannerAmount.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(out).amount()),
             inputs.entrySet().stream().map(e -> new CompiledInput(null, e.getKey(), e.getValue(), true, null)).toList(),
             out, true, null, false, semantics);
     }

@@ -47,7 +47,7 @@ class AppEngInternalInventorySyncTest {
         field.set(inventory, slots);
         inventory.setOnContentsChanged(() -> fail("Receiving a snapshot must not mark it dirty"));
 
-        inventory.deserializeNBT(null, new CompoundTag());
+        inventory.deserializeNBT(new CompoundTag());
 
         assertEquals(3, slots.size());
         assertTrue(slots.stream().allMatch(ItemStack::isEmpty));
@@ -145,8 +145,8 @@ class AppEngInternalInventorySyncTest {
     private static final class SnapshotReceiver extends AppEngInternalInventoryMixin {
         boolean read;
         @Override public int size() { return 3; }
-        @Override public void writeToNBT(CompoundTag data, String name, HolderLookup.Provider registries) {}
-        @Override public void readFromNBT(CompoundTag data, String name, HolderLookup.Provider registries) {
+        @Override public void writeToNBT(CompoundTag data, String name) {}
+        @Override public void readFromNBT(CompoundTag data, String name) {
             read = true;
         }
     }

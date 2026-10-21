@@ -41,10 +41,7 @@ class LargeWorkstationPatternInventoryTest {
         var itemField = ItemDefinition.class.getDeclaredField("item");
         itemField.setAccessible(true);
         originalCapacityItem = itemField.get(AEItems.CAPACITY_CARD);
-        var deferred = mock(net.minecraftforge.registries.DeferredItem.class);
-        when(deferred.get()).thenReturn(Items.PAPER);
-        when(deferred.asItem()).thenReturn(Items.PAPER);
-        itemField.set(AEItems.CAPACITY_CARD, deferred);
+        itemField.set(AEItems.CAPACITY_CARD, Items.PAPER);
         Upgrades.add(AEItems.CAPACITY_CARD, Blocks.BARREL, 4);
         Upgrades.add(Items.REDSTONE, Blocks.BARREL, 1);
     }
@@ -101,7 +98,7 @@ class LargeWorkstationPatternInventoryTest {
         assertEquals(45, provider.getPatternInv().size());
         provider.getPatternInv().setItemDirect(44, ItemStack.EMPTY);
         assertTrue(provider.canRemoveCapacityCard());
-        assertTrue(AEItems.CAPACITY_CARD.is(provider.getCapacityUpgrades().extractItem(0, 1, false)));
+        assertTrue(AEItems.CAPACITY_CARD.isSameAs(provider.getCapacityUpgrades().extractItem(0, 1, false)));
         assertEquals(36, provider.getPatternInv().size());
     }
 
@@ -120,9 +117,9 @@ class LargeWorkstationPatternInventoryTest {
 
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         CompoundTag saved = new CompoundTag();
-        provider.writeToNBT(saved, registries);
+        provider.writeToNBT(saved);
         var restored = provider();
-        restored.readFromNBT(saved, registries);
+        restored.readFromNBT(saved);
         assertEquals(4, restored.getUpgrades().getInstalledUpgrades(AEItems.CAPACITY_CARD));
         assertEquals(1, restored.getUpgrades().getInstalledUpgrades(Items.REDSTONE));
         var menu = menu(restored);
@@ -140,9 +137,9 @@ class LargeWorkstationPatternInventoryTest {
         original.getMenuPatternInventory().setItemDirect(35, new ItemStack(Items.PAPER));
         original.getMenuPatternInventory().setItemDirect(71, new ItemStack(Items.EMERALD));
         CompoundTag saved = new CompoundTag();
-        original.writeToNBT(saved, registries);
+        original.writeToNBT(saved);
         var restored = provider();
-        restored.readFromNBT(saved, registries);
+        restored.readFromNBT(saved);
         assertEquals(4, restored.getUnlockedPatternRows());
         assertEquals(72, restored.getPatternInv().size());
         assertFalse(restored.canInsertPattern(71));
@@ -158,9 +155,9 @@ class LargeWorkstationPatternInventoryTest {
         var oldInventory = new appeng.util.inv.AppEngInternalInventory(36);
         oldInventory.setItemDirect(35, new ItemStack(Items.PAPER));
         CompoundTag saved = new CompoundTag();
-        oldInventory.writeToNBT(saved, PatternProviderLogic.NBT_MEMORY_CARD_PATTERNS, registries);
+        oldInventory.writeToNBT(saved, PatternProviderLogic.NBT_MEMORY_CARD_PATTERNS);
         var restored = provider();
-        restored.readFromNBT(saved, registries);
+        restored.readFromNBT(saved);
         assertEquals(36, restored.getPatternInv().size());
         assertTrue(restored.getPatternInv().getStackInSlot(35).is(Items.PAPER));
         assertTrue(restored.getMenuPatternInventory().getStackInSlot(36).isEmpty());
@@ -173,9 +170,9 @@ class LargeWorkstationPatternInventoryTest {
         original.getCapacityUpgrades().insertItem(0, AEItems.CAPACITY_CARD.stack(), false);
         original.getCapacityUpgrades().insertItem(1, AEItems.CAPACITY_CARD.stack(), false);
         CompoundTag saved = new CompoundTag();
-        original.writeToNBT(saved, registries);
+        original.writeToNBT(saved);
         var restored = provider();
-        restored.readFromNBT(saved, registries);
+        restored.readFromNBT(saved);
         assertEquals(2, restored.getCapacityUpgrades().getInstalledUpgrades(AEItems.CAPACITY_CARD));
         assertEquals(54, restored.getPatternInv().size());
     }

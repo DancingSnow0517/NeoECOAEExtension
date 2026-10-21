@@ -2,10 +2,10 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
-import com.lowdragmc.lowdraglib2.LDLib2;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib.LDLib;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import java.math.BigInteger;
 import java.util.List;
 import javax.imageio.ImageIO;
@@ -30,8 +30,8 @@ class StorageResourceHoverTest {
     @ParameterizedTest
     @ValueSource(strings = {"resource_bar", "capacity_bar"})
     void hoverHighlightsOnlyTheSelectedSegmentAndShowsItsMergedResourceAmounts(String id) {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement bar = bar(state(false, 0.75, List.of(type(1, "fluids", 30),
                 type(2, "items", 60), type(2, "items", 30))), id);
             boolean capacity = id.equals("capacity_bar");
@@ -39,8 +39,8 @@ class StorageResourceHoverTest {
             float fluidWidth = capacity ? 30F : 40F;
             int tooltipLines = capacity ? 3 : 1;
             GUIContext context = mock(GUIContext.class);
-            context.mouseX = 220;
-            context.mouseY = 337;
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",220);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseY",337);
             bar.drawBackgroundAdditional(context);
             verify(context, times(1)).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                 eq(208F), eq(334F), eq(itemWidth), eq(8F));
@@ -50,7 +50,7 @@ class StorageResourceHoverTest {
             assertEquals("75.0%", item[2]);
 
             clearInvocations(context);
-            context.mouseX = Math.round(208 + itemWidth); // Exact boundary belongs to the next resource, not both.
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",Math.round(208 + itemWidth)); // Exact boundary belongs to the next resource, not both.
             bar.drawBackgroundAdditional(context);
             verify(context, times(1)).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                 eq(208F + itemWidth), eq(334F), eq(fluidWidth), eq(8F));
@@ -61,56 +61,56 @@ class StorageResourceHoverTest {
 
             for (float mouseX : new float[] {208 + itemWidth + fluidWidth, 209 + itemWidth + fluidWidth}) {
                 clearInvocations(context);
-                context.mouseX = Math.round(mouseX);
+                cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",Math.round(mouseX));
                 bar.drawBackgroundAdditional(context);
                 verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                     anyFloat(), anyFloat(), anyFloat(), anyFloat());
-                assertEquals(capacity ? 2 : 0, bar.collectHoverTooltips().tooltipTexts().size());
+                assertEquals(capacity ? 2 : 0, bar.collectHoverTooltips().tooltips().size());
             }
         }
     }
 
     @Test
     void outsideEdgesAndLeavingTheBarClearTheHighlightAndTooltip() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement bar = bar(state(false, 0.75, List.of(type(2, "items", 90), type(1, "fluids", 30))));
             GUIContext context = mock(GUIContext.class);
             for (int[] point : List.of(new int[] {368, 337},
                 new int[] {207, 337}, new int[] {220, 333}, new int[] {220, 342})) {
-                context.mouseX = 220;
-                context.mouseY = 337;
+                cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",220);
+                cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseY",337);
                 bar.drawBackgroundAdditional(context);
-                assertFalse(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+                assertFalse(bar.collectHoverTooltips().tooltips().isEmpty());
                 clearInvocations(context);
-                context.mouseX = point[0];
-                context.mouseY = point[1];
+                cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",point[0]);
+                cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseY",point[1]);
                 bar.drawBackgroundAdditional(context);
                 verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                     anyFloat(), anyFloat(), anyFloat(), anyFloat());
-                assertTrue(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+                assertTrue(bar.collectHoverTooltips().tooltips().isEmpty());
             }
-            context.mouseX = 220;
-            context.mouseY = 337;
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",220);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseY",337);
             bar.drawBackgroundAdditional(context);
             clearInvocations(context);
             doReturn(false).when(bar).isHover();
             bar.drawBackgroundAdditional(context);
             verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                 anyFloat(), anyFloat(), anyFloat(), anyFloat());
-            assertTrue(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+            assertTrue(bar.collectHoverTooltips().tooltips().isEmpty());
         }
     }
 
     @Test
     void finiteResourceHoverStillMatchesItsShareWhenCapacityUsageIsTiny() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement bar = bar(state(false, 0.000001,
                 List.of(type(2, "items", 32_769), type(1, "fluids", 81_796))));
             GUIContext context = mock(GUIContext.class);
-            context.mouseX = 321;
-            context.mouseY = 337;
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",321);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseY",337);
             bar.drawBackgroundAdditional(context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 208F, 334F, 114F, 8F);
             Object[] fluid = tooltipArguments(bar);
@@ -119,7 +119,7 @@ class StorageResourceHoverTest {
             assertEquals("71.4%", fluid[2]);
 
             clearInvocations(context);
-            context.mouseX = 322;
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",322);
             bar.drawBackgroundAdditional(context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 322F, 334F, 46F, 8F);
             Object[] item = tooltipArguments(bar);
@@ -131,14 +131,14 @@ class StorageResourceHoverTest {
 
     @Test
     void infiniteResourceHoverUsesExactAmountsBeyondLongAndOnlyItsOwnSegment() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             BigInteger huge = BigInteger.TEN.pow(100);
             BigInteger items = huge.multiply(BigInteger.valueOf(3));
             UIElement bar = bar(state(true, 1, List.of(type(1, "fluids", huge), type(2, "items", items))));
             GUIContext context = mock(GUIContext.class);
-            context.mouseX = 327;
-            context.mouseY = 337;
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",327);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseY",337);
             bar.drawBackgroundAdditional(context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 208F, 334F, 120F, 8F);
             Object[] tooltip = tooltipArguments(bar);
@@ -152,22 +152,22 @@ class StorageResourceHoverTest {
     @Test
     @SuppressWarnings("unchecked")
     void removingResourcesWhileHoveredClearsTheCachedTooltip() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
-            BindableValue<Tag> display = (BindableValue<Tag>) root.getChildren().getFirst();
+            BindableValue<Tag> display = (BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(root.getChildren());
             display.setValue(state(false, 0.75, List.of(type(2, "items", 90))).toTag());
             UIElement bar = positioned(root);
             GUIContext context = mock(GUIContext.class);
-            context.mouseX = 220;
-            context.mouseY = 337;
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",220);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseY",337);
             bar.drawBackgroundAdditional(context);
-            assertFalse(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+            assertFalse(bar.collectHoverTooltips().tooltips().isEmpty());
             display.setValue(StoragePanelState.EMPTY.toTag());
             clearInvocations(context);
             bar.drawBackgroundAdditional(context);
             verifyNoInteractions(context);
-            assertTrue(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+            assertTrue(bar.collectHoverTooltips().tooltips().isEmpty());
         }
     }
 
@@ -178,7 +178,7 @@ class StorageResourceHoverTest {
         assertEquals(78, texture.spritePosition.y);
         assertEquals(8, texture.spriteSize.width);
         assertEquals(8, texture.spriteSize.height);
-        assertEquals(-1, texture.color);
+        assertEquals(-1, cn.dancingsnow.neoecoae.util.UiTestSupport.color(texture));
         try (var input = getClass().getResourceAsStream("/assets/neoecoae/textures/guis/storage/storage_widget.png")) {
             assertNotNull(input);
             var atlas = ImageIO.read(input);
@@ -194,9 +194,9 @@ class StorageResourceHoverTest {
 
     private static Object[] tooltipArguments(UIElement bar, int expectedLines) {
         // LDLib2 collects hover tooltips after drawing, without filling in event.x/event.y.
-        var lines = bar.collectHoverTooltips().tooltipTexts();
+        var lines = bar.collectHoverTooltips().tooltips();
         assertEquals(expectedLines, lines.size());
-        return assertInstanceOf(TranslatableContents.class, lines.getLast().getContents()).getArgs();
+        return assertInstanceOf(TranslatableContents.class, cn.dancingsnow.neoecoae.platform.JdkCompat.last(lines).getContents()).getArgs();
     }
 
     private static UIElement bar(StoragePanelState state) {
@@ -206,7 +206,7 @@ class StorageResourceHoverTest {
     @SuppressWarnings("unchecked")
     private static UIElement bar(StoragePanelState state, String id) {
         UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
-        ((BindableValue<Tag>) root.getChildren().getFirst()).setValue(state.toTag());
+        ((BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(root.getChildren())).setValue(state.toTag());
         return positioned(root, id);
     }
 

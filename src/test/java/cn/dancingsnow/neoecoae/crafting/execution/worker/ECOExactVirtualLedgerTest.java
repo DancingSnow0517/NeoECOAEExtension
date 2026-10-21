@@ -20,7 +20,7 @@ class ECOExactVirtualLedgerTest {
     @Test void exactCustodySurvivesPartialDeliveryAndReload() {
         var key = mock(AEKey.class);
         var registries = mock(HolderLookup.Provider.class);
-        when(key.toTagGeneric(registries)).thenAnswer(call -> new CompoundTag());
+        when(key.toTagGeneric()).thenAnswer(call -> new CompoundTag());
         var count = BigInteger.TEN.pow(28).add(BigInteger.valueOf(17));
         var ledger = new ECOExactVirtualLedger(count, List.of(new GenericStack(key, 9)),
             List.of(new GenericStack(key, 2)), List.of(new GenericStack(key, 1)));
@@ -31,8 +31,8 @@ class ECOExactVirtualLedgerTest {
         }, () -> {}));
         var remaining = count.multiply(BigInteger.valueOf(3)).subtract(BigInteger.valueOf(17));
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(eq(registries), any())).thenReturn(key);
-            var restored = ECOExactVirtualLedger.read(ledger.write(registries), registries);
+            keys.when(() -> AEKey.fromTagGeneric(any())).thenReturn(key);
+            var restored = ECOExactVirtualLedger.read(ledger.write());
             assertEquals(count, restored.crafts());
             assertEquals(remaining, restored.snapshot(true).get(key));
             assertThrows(IllegalStateException.class,

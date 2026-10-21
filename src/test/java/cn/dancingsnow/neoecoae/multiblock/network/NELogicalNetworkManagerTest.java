@@ -61,7 +61,7 @@ class NELogicalNetworkManagerTest {
         clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(reason));
         clusters.forEach(cluster -> assertNull(cluster.getNetworkCluster()));
         NELogicalNetworkManager.tick(level);
-        var network = clusters.getFirst().getNetworkCluster();
+        var network = cn.dancingsnow.neoecoae.platform.JdkCompat.first(clusters).getNetworkCluster();
         assertNotNull(network);
         assertEquals(8, network.getMembers().size());
         clusters.forEach(cluster -> assertSame(network, cluster.getNetworkCluster()));
@@ -73,7 +73,7 @@ class NELogicalNetworkManagerTest {
         when(node.isOnline()).thenReturn(true);
         clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(reason));
         NELogicalNetworkManager.tick(level);
-        assertEquals(8, clusters.getFirst().getNetworkCluster().getMembers().size());
+        assertEquals(8, cn.dancingsnow.neoecoae.platform.JdkCompat.first(clusters).getNetworkCluster().getMembers().size());
     }
 
     @org.junit.jupiter.api.Test
@@ -100,11 +100,11 @@ class NELogicalNetworkManagerTest {
             controllers.add(controller);
         }
 
-        var network = clusters.getFirst().getNetworkCluster();
+        var network = cn.dancingsnow.neoecoae.platform.JdkCompat.first(clusters).getNetworkCluster();
         assertNotNull(network);
         clusters.forEach(cluster -> assertEquals(CpuSelectionMode.PLAYER_ONLY, cluster.getSelectionMode()));
 
-        clusters.getLast().setSelectionMode(CpuSelectionMode.ANY);
+        cn.dancingsnow.neoecoae.platform.JdkCompat.last(clusters).setSelectionMode(CpuSelectionMode.ANY);
 
         clusters.forEach(cluster -> assertEquals(CpuSelectionMode.ANY, cluster.getSelectionMode()));
         controllers.forEach(controller -> verify(controller).setCpuSelectionMode(CpuSelectionMode.ANY));
@@ -133,7 +133,7 @@ class NELogicalNetworkManagerTest {
         when(node.isOnline()).thenReturn(true);
         clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(reason));
         NELogicalNetworkManager.tick(level);
-        var network = clusters.getFirst().getNetworkCluster();
+        var network = cn.dancingsnow.neoecoae.platform.JdkCompat.first(clusters).getNetworkCluster();
         assertNotNull(network);
         assertEquals(8, network.getMembers().size());
         clusters.forEach(cluster -> assertSame(network, cluster.getNetworkCluster()));

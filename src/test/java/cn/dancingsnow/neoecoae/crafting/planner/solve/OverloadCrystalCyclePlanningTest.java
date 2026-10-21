@@ -41,7 +41,7 @@ class OverloadCrystalCyclePlanningTest {
             var inventory = stock(crystals);
             var missing = plan(network, inventory, requested);
             assertEquals(PlanningStatus.MISSING_ITEMS, missing.status(), missing.trace().diagnostics().toString());
-            var cycle = missing.trace().cycles().getFirst().solveResult();
+            var cycle = cn.dancingsnow.neoecoae.platform.JdkCompat.first(missing.trace().cycles()).solveResult();
             assertTrue(cycle.diagnostics().stream().anyMatch(d ->
                 d.code() == CycleSolveDiagnostic.Code.FULL_ORDER_MATERIAL_DEFICIT), cycle.summary());
             assertFalse(cycle.diagnostics().stream().anyMatch(d ->
@@ -69,7 +69,7 @@ class OverloadCrystalCyclePlanningTest {
             assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
             assertTrue(result.state().missingItems().isEmpty());
             assertEquals(3, result.state().patternTimes().size());
-            var cycle = result.trace().cycles().getFirst().solveResult();
+            var cycle = cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.trace().cycles()).solveResult();
             assertTrue(cycle.deliverableOutputs().get(dust) >= requested);
             assertTrue(cycle.executionPlan().size() < 100, "Large orders must retain a compact firing order");
             result.state().executionProvenance().requireComplete();
@@ -112,7 +112,7 @@ class OverloadCrystalCyclePlanningTest {
 
     private static IPatternDetails pattern(GenericStack output, GenericStack... inputs) {
         var pattern = mock(IPatternDetails.class);
-        when(pattern.getOutputs()).thenReturn(List.of(output));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{output});
         when(pattern.getPrimaryOutput()).thenReturn(output);
         var slots = new IPatternDetails.IInput[inputs.length];
         for (int i = 0; i < inputs.length; i++) {

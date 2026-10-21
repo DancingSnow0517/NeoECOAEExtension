@@ -91,7 +91,7 @@ class AcyclicStockRouteTest {
     private static CompiledPattern pattern(int id, AEKey output, long outputAmount, GenericStack... inputs) {
         var details = mock(IPatternDetails.class);
         var outputs = List.of(new GenericStack(output, outputAmount));
-        when(details.getOutputs()).thenReturn(outputs);
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), outputs, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         var compiledInputs = java.util.Arrays.stream(inputs)

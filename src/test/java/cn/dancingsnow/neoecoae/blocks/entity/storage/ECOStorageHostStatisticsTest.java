@@ -93,9 +93,9 @@ class ECOStorageHostStatisticsTest {
 
         List<StorageHostUI.CellEntry> cells = fixture.statistics.getCellEntries();
         assertEquals(3, cells.size());
-        assertFalse(cells.getFirst().installed());
-        assertTrue(cells.getFirst().stack().isEmpty());
-        assertEquals(empty.getBlockPos(), cells.getFirst().position());
+        assertFalse(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cells).installed());
+        assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cells).stack().isEmpty());
+        assertEquals(empty.getBlockPos(), cn.dancingsnow.neoecoae.platform.JdkCompat.first(cells).position());
         assertEquals(fixture.id("items"), cells.get(1).typeId());
         assertEquals(interactionId, cells.get(1).interactionId());
         assertEquals(fixture.id("fluids"), cells.get(2).typeId());
@@ -178,7 +178,7 @@ class ECOStorageHostStatisticsTest {
         assertTotals(fixture.line(ordinary), 0, 5, 0, 4_096);
         assertTrue(fixture.line(ordinary).visible().getAsBoolean());
         assertFalse(fixture.line(variant).visible().getAsBoolean());
-        assertEquals(fixture.id(variant), fixture.statistics.getCellEntries().getFirst().typeId());
+        assertEquals(fixture.id(variant), cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.statistics.getCellEntries()).typeId());
         assertTrue(fixture.faults.snapshot().isEmpty());
     }
 

@@ -6,26 +6,23 @@ import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.lowdragmc.lowdraglib2.LDLib2;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.EnhancedPoseStack;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
+import com.lowdragmc.lowdraglib.LDLib;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import com.mojang.blaze3d.vertex.PoseStack;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -61,14 +58,14 @@ class CraftingHostPanelRenderingTest {
             registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
             Class.forName(UIElement.class.getName());
             Class.forName(NETextures.class.getName());
-            AccessorRegistries.init();
+
         }
     }
 
     @Test
     void artworkTextAndGaugesFollowTheWindowPosition() throws ReflectiveOperationException {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             Font font = installFont(minecraft);
             ItemStack hostItem = new ItemStack(Items.DIAMOND);
             UIElement artwork = positioned(artwork(formedState(), hostItem));
@@ -113,11 +110,11 @@ class CraftingHostPanelRenderingTest {
     @Test
     @SuppressWarnings("unchecked")
     void syncedMetricsReplaceInitialValues() throws ReflectiveOperationException {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             installFont(minecraft);
             UIElement artwork = artwork(formedState());
-            BindableValue<Tag> synced = (BindableValue<Tag>) artwork.getChildren().getFirst();
+            BindableValue<Tag> synced = (BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(artwork.getChildren());
             CompoundTag update = formedState().toTag();
             update.putInt("queue", 250);
             update.putInt("energy", 0);
@@ -145,9 +142,9 @@ class CraftingHostPanelRenderingTest {
     @Test
     void openingAnimatesBothHorizontalBarsAndTheEnergyGaugeToTheirActualValues() throws ReflectiveOperationException {
         AtomicLong now = new AtomicLong();
-        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class);
+        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class);
              var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             clock.when(Util::getMillis).thenAnswer(call -> now.get());
             installFont(minecraft);
             UIElement artwork = positioned(artwork(formedState()));
@@ -175,8 +172,8 @@ class CraftingHostPanelRenderingTest {
 
     @Test
     void unformedPanelStillDrawsAtTheWindowPosition() throws ReflectiveOperationException {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             Font font = installFont(minecraft);
             ItemStack hostItem = new ItemStack(Items.DIAMOND);
             UIElement artwork = positioned(artwork(CraftingControllerPanelState.UNFORMED, hostItem));
@@ -201,47 +198,47 @@ class CraftingHostPanelRenderingTest {
     @Test
     @SuppressWarnings("unchecked")
     void informationTooltipUsesSyncedLinesAndPreservesTheStatusColor() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement icon = CraftingHostPanelUI.createMaintenanceStatusIcon(() -> Component.literal("initial"));
-            BindableValue<Component> synced = (BindableValue<Component>) icon.getChildren().getFirst();
+            BindableValue<Component> synced = (BindableValue<Component>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(icon.getChildren());
             UIElement information = icon.getChildren().get(1);
-            synced.setValue(Component.literal("status\nfirst condition\nsecond condition").withColor(0xD8B4FE), false);
-            UIEvent event = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            synced.setValue(Component.literal("status\nfirst condition\nsecond condition").withStyle(style -> style.withColor(0xD8B4FE)), false);
+            UIEvent event = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
             event.target = information;
-            UIEventDispatcher.dispatchEvent(event);
+            event.target.dispatchEvent(event);
 
-            List<Component> lines = event.hoverTooltips.tooltipTexts();
+            List<Component> lines = event.hoverTooltips.tooltips();
             assertEquals(List.of("status", "first condition", "second condition"),
                 lines.stream().map(Component::getString).toList());
-            assertEquals(0xD8B4FE, lines.getFirst().getStyle().getColor().getValue() & 0xFFFFFF);
+            assertEquals(0xD8B4FE, cn.dancingsnow.neoecoae.platform.JdkCompat.first(lines).getStyle().getColor().getValue() & 0xFFFFFF);
             assertEquals(0xFF5555, lines.get(1).getStyle().getColor().getValue() & 0xFFFFFF);
-            UIEvent frameHover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            UIEvent frameHover = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
             frameHover.target = icon;
-            UIEventDispatcher.dispatchEvent(frameHover, false, false, false);
+            frameHover.target.dispatchEvent(frameHover);
             assertNull(frameHover.hoverTooltips);
-            var infinite = CraftingHostPanelUI.maintenanceTooltipLines(Component.literal("infinite").withColor(0x55FF8A));
+            var infinite = CraftingHostPanelUI.maintenanceTooltipLines(Component.literal("infinite").withStyle(style -> style.withColor(0x55FF8A)));
             assertEquals(1, infinite.size());
-            assertEquals(0x55FF8A, infinite.getFirst().getStyle().getColor().getValue() & 0xFFFFFF);
+            assertEquals(0x55FF8A, cn.dancingsnow.neoecoae.platform.JdkCompat.first(infinite).getStyle().getColor().getValue() & 0xFFFFFF);
         }
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void workerOutputsKeepEmptyCellsAndComponentsAndClearOnSyncedUpdates() throws ReflectiveOperationException {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             installFont(minecraft);
             var state = CraftingControllerPanelState.of(3, List.of(), List.of(),
                 3, true, false, false, 0, 0);
             ItemStack diamond = new ItemStack(Items.DIAMOND);
-            diamond.set(DataComponents.CUSTOM_NAME, Component.literal("Worker output"));
+            diamond.setHoverName(Component.literal("Worker output"));
             ItemStack emerald = new ItemStack(Items.EMERALD);
             List<CraftingOutputDisplay> items = new ArrayList<>(Collections.nCopies(11, CraftingOutputDisplay.EMPTY));
             items.set(10, new CraftingOutputDisplay(diamond, BigInteger.TEN.pow(30)));
             items.set(8, new CraftingOutputDisplay(emerald, BigInteger.valueOf(512)));
             UIElement artwork = positioned(artwork(state, ItemStack.EMPTY, items));
-            BindableValue<Tag> synced = (BindableValue<Tag>) artwork.getChildren().getFirst();
+            BindableValue<Tag> synced = (BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(artwork.getChildren());
             CompoundTag payload = (CompoundTag) synced.getValue();
             ListTag encoded = payload.getList("workerOutputs", Tag.TAG_COMPOUND);
             assertEquals(11, encoded.size());
@@ -252,14 +249,14 @@ class CraftingHostPanelRenderingTest {
             assertTrue(ItemStack.matches(emerald, slots.get(8).getValue()));
             assertTrue(slots.get(9).getValue().isEmpty());
             assertEquals("1000000000000000000000000000000", encoded.getCompound(10).getString("amount"));
-            assertTrue(slots.get(10).getFullTooltipTexts(false).getLast().getString().endsWith(
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(slots.get(10).getFullTooltipTexts(false)).getString().endsWith(
                 "1,000,000,000,000,000,000,000,000,000,000"));
 
             CompoundTag countUpdate = payload.copy();
             countUpdate.getList("workerOutputs", Tag.TAG_COMPOUND).getCompound(10).putString("amount", "2000");
             synced.setValue(countUpdate);
             assertTrue(ItemStack.matches(diamond, slots.get(10).getValue()));
-            assertTrue(slots.get(10).getFullTooltipTexts(false).getLast().getString().endsWith("2,000"));
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(slots.get(10).getFullTooltipTexts(false)).getString().endsWith("2,000"));
 
             CompoundTag update = state.toTag();
             update.put("workerOutputs", new ListTag());
@@ -272,36 +269,35 @@ class CraftingHostPanelRenderingTest {
     @Test
     @SuppressWarnings("unchecked")
     void outputSlotsShowNativeItemTooltipsHoverAndBottomRightCompactCounts() throws ReflectiveOperationException {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class);
+        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class);
              var drawer = mockStatic(DrawerHelper.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             Font font = installFont(minecraft);
             when(font.width(anyString())).thenAnswer(call -> ((String) call.getArgument(0)).length() * 6);
             ItemStack item = new ItemStack(Items.DIAMOND);
             var artwork = artwork(formedState(), ItemStack.EMPTY,
                 List.of(new CraftingOutputDisplay(item, BigInteger.valueOf(32))));
-            var synced = (BindableValue<Tag>) artwork.getChildren().getFirst();
-            var slot = spy(workerSlots(artwork).getFirst());
+            var synced = (BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(artwork.getChildren());
+            var slot = spy(cn.dancingsnow.neoecoae.platform.JdkCompat.first(workerSlots(artwork)));
             doReturn(true).when(slot).isHover();
             doReturn(16F).when(slot).getContentWidth();
             doReturn(16F).when(slot).getContentHeight();
             drawer.when(() -> DrawerHelper.getItemToolTip(any())).thenReturn(
                 List.of(Component.literal("Actual item name"), Component.literal("Actual item details")));
-            UIEvent event = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            UIEvent event = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
             event.target = slot;
-            UIEventDispatcher.dispatchEvent(event);
-            assertEquals("Actual item details", event.hoverTooltips.tooltipTexts().get(1).getString());
-            assertTrue(ItemStack.matches(item, event.hoverTooltips.tooltipStack()));
-            assertTrue(event.hoverTooltips.tooltipTexts().getLast().getString().endsWith("32"));
+            event.target.dispatchEvent(event);
+            assertEquals("Actual item details", event.hoverTooltips.tooltips().get(1).getString());
+            assertTrue(ItemStack.matches(item, (ItemStack)event.hoverTooltips.image()));
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(event.hoverTooltips.tooltips()).getString().endsWith("32"));
             GUIContext context = context();
-            context.modularUI = mock(ModularUI.class);
-            context.pose = mock(EnhancedPoseStack.class);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"pose",mock(PoseStack.class));
             context.elementColor = -1;
             for (var count : List.of("32", "512", "2000")) {
                 CompoundTag update = ((CompoundTag) synced.getValue()).copy();
                 update.getList("workerOutputs", Tag.TAG_COMPOUND).getCompound(0).putString("amount", count);
                 synced.setValue(update);
-                var updatedSlot = spy(workerSlots(artwork).getFirst());
+                var updatedSlot = spy(cn.dancingsnow.neoecoae.platform.JdkCompat.first(workerSlots(artwork)));
                 doReturn(true).when(updatedSlot).isHover();
                 doReturn(16F).when(updatedSlot).getContentWidth();
                 doReturn(16F).when(updatedSlot).getContentHeight();
@@ -321,8 +317,8 @@ class CraftingHostPanelRenderingTest {
     @Test
     @SuppressWarnings("unchecked")
     void modeButtonsKeepOverclockAndCoolingIndependentAndFollowSyncedHoverStates() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             AtomicBoolean overclocked = new AtomicBoolean(true);
             AtomicBoolean cooling = new AtomicBoolean(false);
             UIElement panel = CraftingHostPanelUI.create(config(formedState(), ItemStack.EMPTY, List.of(),
@@ -331,36 +327,36 @@ class CraftingHostPanelRenderingTest {
             List<Button> buttons = panel.getChildren().stream()
                 .filter(Button.class::isInstance).map(Button.class::cast).toList();
             assertEquals(2, buttons.size());
-            Button overclockButton = buttons.getFirst();
-            Button coolingButton = buttons.getLast();
-            var syncedOverclock = (BindableValue<Boolean>) overclockButton.getChildren().getLast();
-            var syncedCooling = (BindableValue<Boolean>) coolingButton.getChildren().getLast();
-            overclockButton.getStyleBag().compute(0);
-            coolingButton.getStyleBag().compute(0);
+            Button overclockButton = cn.dancingsnow.neoecoae.platform.JdkCompat.first(buttons);
+            Button coolingButton = cn.dancingsnow.neoecoae.platform.JdkCompat.last(buttons);
+            var syncedOverclock = (BindableValue<Boolean>) cn.dancingsnow.neoecoae.platform.JdkCompat.last(overclockButton.getChildren());
+            var syncedCooling = (BindableValue<Boolean>) cn.dancingsnow.neoecoae.platform.JdkCompat.last(coolingButton.getChildren());
+            cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(overclockButton);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(coolingButton);
             assertEquals(0, ((SpriteTexture) overclockButton.getButtonStyle().baseTexture()).spritePosition.x);
             assertEquals(15, ((SpriteTexture) overclockButton.getButtonStyle().hoverTexture()).spritePosition.x);
             assertEquals(30, ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).spritePosition.x);
             assertEquals(45, ((SpriteTexture) coolingButton.getButtonStyle().hoverTexture()).spritePosition.x);
 
-            UIEvent click = UIEvent.create(UIEvents.MOUSE_DOWN);
+            UIEvent click = new UIEvent(UIEvents.MOUSE_DOWN,null,0,0,0);
             click.button = 0;
-            coolingButton.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {click});
+            cn.dancingsnow.neoecoae.util.UiTestSupport.serverClick(coolingButton,click);
             assertTrue(cooling.get());
             assertTrue(overclocked.get());
-            overclockButton.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {click});
+            cn.dancingsnow.neoecoae.util.UiTestSupport.serverClick(overclockButton,click);
             assertFalse(overclocked.get());
             assertTrue(cooling.get());
             click.button = 1;
-            coolingButton.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {click});
+            cn.dancingsnow.neoecoae.util.UiTestSupport.serverClick(coolingButton,click);
             assertTrue(cooling.get());
 
-            UIEvent hover = UIEvent.create(UIEvents.MOUSE_ENTER);
+            UIEvent hover = new UIEvent(UIEvents.MOUSE_ENTER,null,0,0,0);
             hover.target = coolingButton;
-            UIEventDispatcher.dispatchEvent(hover, false, false, false);
+            hover.target.dispatchEvent(hover);
             syncedCooling.setValue(true);
             syncedOverclock.setValue(false);
-            overclockButton.getStyleBag().compute(1);
-            coolingButton.getStyleBag().compute(1);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(overclockButton);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(coolingButton);
             assertEquals(0, ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).spritePosition.x);
             assertEquals(15, ((SpriteTexture) coolingButton.getButtonStyle().hoverTexture()).spritePosition.x);
             assertEquals(30, ((SpriteTexture) overclockButton.getButtonStyle().baseTexture()).spritePosition.x);
@@ -368,10 +364,10 @@ class CraftingHostPanelRenderingTest {
             coolingButton.drawBackgroundAdditional(context);
             verify(context).drawTexture(eq(coolingButton.getButtonStyle().hoverTexture()),
                 anyFloat(), anyFloat(), anyFloat(), anyFloat());
-            UIEvent tooltip = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            UIEvent tooltip = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
             tooltip.target = coolingButton;
-            UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
-            assertEquals("gui.neoecoae.crafting.active_cooling.on", tooltip.hoverTooltips.tooltipTexts().getFirst().getString());
+            tooltip.target.dispatchEvent(tooltip);
+            assertEquals("gui.neoecoae.crafting.active_cooling.on", cn.dancingsnow.neoecoae.platform.JdkCompat.first(tooltip.hoverTooltips.tooltips()).getString());
         }
     }
 
@@ -384,8 +380,8 @@ class CraftingHostPanelRenderingTest {
     }
 
     private static UIElement artwork(CraftingControllerPanelState state, ItemStack hostItem, List<CraftingOutputDisplay> workerItems) {
-        return CraftingHostPanelUI.create(config(state, hostItem, workerItems,
-            () -> false, () -> {}, () -> false, () -> {})).getChildren().getFirst();
+        return cn.dancingsnow.neoecoae.platform.JdkCompat.first(CraftingHostPanelUI.create(config(state, hostItem, workerItems,
+            () -> false, () -> {}, () -> false, () -> {})).getChildren());
     }
 
     private static CraftingHostPanelUI.Config config(CraftingControllerPanelState state, ItemStack hostItem,
@@ -426,7 +422,7 @@ class CraftingHostPanelRenderingTest {
 
     private static GUIContext context() {
         GUIContext context = mock(GUIContext.class);
-        context.graphics = mock(GuiGraphics.class);
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"graphics",mock(GuiGraphics.class));
         PoseStack pose = spy(new PoseStack());
         when(context.graphics.pose()).thenReturn(pose);
         return context;

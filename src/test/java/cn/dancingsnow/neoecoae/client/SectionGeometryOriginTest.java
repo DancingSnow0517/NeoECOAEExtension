@@ -3,7 +3,8 @@ package cn.dancingsnow.neoecoae.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockAndTintGetter;
-import net.minecraftforge.client.event.AddSectionGeometryEvent;
+import cn.dancingsnow.neoecoae.mixins.client.minecraft.ChunkRebuildTaskMixin;
+import net.minecraft.client.renderer.chunk.RenderChunkRegion;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,13 +15,9 @@ import static org.mockito.Mockito.when;
 
 class SectionGeometryOriginTest {
     @Test
-    void queuedRendererKeepsItsOriginalSectionAfterRenderSectionMoves() {
+    void chunkInjectionKeepsItsOriginalSectionWhenMutableOriginChangesDuringRendering() throws Exception {
         BlockPos.MutableBlockPos origin = new BlockPos.MutableBlockPos(-32, 64, 48);
-        AddSectionGeometryEvent event = new AddSectionGeometryEvent(origin, null);
-        NeoECOAEClient.onAddChunkGeometry(event);
-
-        origin.set(256, -64, -256);
-        BlockAndTintGetter region = mock(BlockAndTintGetter.class);
+        RenderChunkRegion region = mock(RenderChunkRegion.class);
         int[] visited = {0};
         when(region.getBlockEntity(any(BlockPos.class))).thenAnswer(invocation -> {
             BlockPos pos = invocation.getArgument(0);
@@ -28,16 +25,14 @@ class SectionGeometryOriginTest {
             assertTrue(pos.getY() >= 64 && pos.getY() <= 79);
             assertTrue(pos.getZ() >= 48 && pos.getZ() <= 63);
             visited[0]++;
+            origin.set(256, -64, -256);
             return null;
         });
-        var context = new AddSectionGeometryEvent.SectionRenderingContext(
-            layer -> { throw new AssertionError("Empty section must not request a buffer"); },
-            region,
-            new PoseStack()
-        );
-
-        assertEquals(1, event.getAdditionalRenderers().size());
-        event.getAdditionalRenderers().getFirst().render(context);
+        var injection=ChunkRebuildTaskMixin.class.getDeclaredMethods()[0];
+        injection.setAccessible(true);
+        var buffers=mock(net.minecraft.client.renderer.ChunkBufferBuilderPack.class);
+        injection.invoke(new ChunkRebuildTaskMixin(){},0F,0F,0F,buffers,null,origin,region,new PoseStack(),new java.util.HashSet<net.minecraft.client.renderer.RenderType>());
+        org.mockito.Mockito.verifyNoInteractions(buffers);
         assertEquals(16 * 16 * 16, visited[0]);
     }
 }

@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.AEItemKey;
@@ -16,7 +15,6 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.pattern.AEProcessingPattern;
-import appeng.crafting.pattern.EncodedProcessingPattern;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
@@ -29,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -56,18 +53,13 @@ class ECOProcessingComponentMatchingTest {
     }
 
     private static AEProcessingPattern patternWithOutput(GenericStack output, GenericStack... inputs) {
-        var encoded = mock(EncodedProcessingPattern.class);
-        when(encoded.sparseInputs()).thenReturn(Arrays.asList(inputs));
-        when(encoded.sparseOutputs()).thenReturn(List.of(output));
-        var definition = mock(AEItemKey.class);
-        when(definition.get(AEComponents.ENCODED_PROCESSING_PATTERN)).thenReturn(encoded);
-        return new AEProcessingPattern(definition);
+        return cn.dancingsnow.neoecoae.util.NativePatternTestSupport.processing(Arrays.asList(inputs),List.of(output));
     }
 
     private static CraftingService service(AEProcessingPattern... patterns) {
         var service = mock(CraftingService.class);
         var index = new java.util.LinkedHashMap<AEKey, List<IPatternDetails>>();
-        for (var pattern : patterns) index.put(pattern.getOutputs().getFirst().what(), List.of(pattern));
+        for (var pattern : patterns) index.put(cn.dancingsnow.neoecoae.platform.JdkCompat.first(pattern.getOutputs()).what(), List.of(pattern));
         when(service.getCraftingFor(any())).thenAnswer(call ->
             index.getOrDefault(call.getArgument(0), List.of()));
         when(service.getCraftables(any())).thenAnswer(call -> {
@@ -80,7 +72,7 @@ class ECOProcessingComponentMatchingTest {
     private static ECOPlanningResult plan(AEProcessingPattern pattern, KeyCounter stock,
             Set<ResourceLocation> marked, long count) throws Exception {
         return new ECOCraftingPlannerService().createSession(service(pattern),
-            pattern.getOutputs().getFirst().what(), stock, false, false, marked)
+            cn.dancingsnow.neoecoae.platform.JdkCompat.first(pattern.getOutputs()).what(), stock, false, false, marked)
             .plan(count, false, ECOCancellation.NONE);
     }
 
@@ -188,7 +180,7 @@ class ECOProcessingComponentMatchingTest {
         when(input.isValid(eq(expected), any())).thenReturn(true);
         var pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {input});
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(AEItemKey.of(Items.IRON_BLOCK), 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(AEItemKey.of(Items.IRON_BLOCK), 1)});
         var inventory = new ListCraftingInventory(ignored -> {});
         inventory.insert(actual, 1, Actionable.MODULATE);
         assertFalse(ECOProcessingComponentMatching.isValid(pattern, input, expected, actual, null));
@@ -201,7 +193,7 @@ class ECOProcessingComponentMatchingTest {
     @Test void finalRequestedOutputStillRequiresItsExactComponents() throws Exception {
         var pattern = pattern(new GenericStack(pickaxe(0), 1));
         var named = new ItemStack(Items.IRON_BLOCK);
-        named.set(DataComponents.CUSTOM_NAME, Component.literal("Exact requested result"));
+        named.setHoverName(Component.literal("Exact requested result"));
         var stock = new KeyCounter(); stock.add(pickaxe(131), 1);
         var marked = Set.of(new ResourceLocation("minecraft:iron_pickaxe"),
             new ResourceLocation("minecraft:iron_block"));
@@ -222,13 +214,13 @@ class ECOProcessingComponentMatchingTest {
         assertEquals(PlanningStatus.SUCCESS, result.status());
         assertEquals(Map.of(producer, 1L, consumer, 1L), result.plan().patternTimes());
         assertEquals(1, result.plan().usedItems().get(ingot));
-        assertEquals(actual, producer.getOutputs().getFirst().what());
+        assertEquals(actual, cn.dancingsnow.neoecoae.platform.JdkCompat.first(producer.getOutputs()).what());
     }
 
     @Test void nativeCpuCannotAcceptAPlanRequiringProcessingOverrides() {
         var pattern = pattern(new GenericStack(pickaxe(0), 1));
         var stock = new KeyCounter(); stock.add(pickaxe(131), 1);
-        var plan = new appeng.crafting.CraftingPlan(pattern.getOutputs().getFirst(), 1,
+        var plan = new appeng.crafting.CraftingPlan(cn.dancingsnow.neoecoae.platform.JdkCompat.first(pattern.getOutputs()), 1,
             false, false, stock, new KeyCounter(), new KeyCounter(), Map.of(pattern, 1L));
         var result = new ECOPlanningResult(PlanningStatus.SUCCESS, plan,
             mock(cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace.class),
@@ -247,7 +239,7 @@ class ECOProcessingComponentMatchingTest {
     @Test void multipleComponentVariantsSupplyTheFullProcessingAmount() throws Exception {
         var expected = pickaxe(0);
         var named = new ItemStack(Items.IRON_PICKAXE);
-        named.set(DataComponents.CUSTOM_NAME, Component.literal("My pickaxe"));
+        named.setHoverName(Component.literal("My pickaxe"));
         var actual = AEItemKey.of(named);
         var pattern = pattern(new GenericStack(expected, 2));
         var stock = new KeyCounter(); stock.add(actual, 1); stock.add(pickaxe(131), 1);

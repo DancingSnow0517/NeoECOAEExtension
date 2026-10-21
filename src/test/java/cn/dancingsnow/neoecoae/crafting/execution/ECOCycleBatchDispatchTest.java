@@ -22,46 +22,46 @@ class ECOCycleBatchDispatchTest {
 
     @Test void repeatedProcessingCircuitOffersAllRemainingLaps() {
         var f = new Fixture(64, false, false);
-        var first = f.runtime.candidates().getFirst();
+        var first = cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates());
         assertEquals(64, first.maxDispatchCount());
         f.accept(first, 1);
         // One adaptive visit keeps its original candidate while accepting 1, 2, 4... chunks.
         f.accept(first, 2);
         f.accept(first, 4);
-        assertEquals(1, f.runtime.candidates().getFirst().taskId());
-        var second = f.runtime.candidates().getFirst();
+        assertEquals(1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates()).taskId());
+        var second = cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates());
         f.accept(second, 7);
-        assertEquals(57, f.runtime.candidates().getFirst().maxDispatchCount());
-        f.accept(f.runtime.candidates().getFirst(), 57);
-        f.accept(f.runtime.candidates().getFirst(), 57);
+        assertEquals(57, cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates()).maxDispatchCount());
+        f.accept(cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates()), 57);
+        f.accept(cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates()), 57);
         assertTrue(f.runtime.isComplete());
     }
 
     @Test void acceptedAheadOfTheLapSurvivesBoundAndUnboundReload() {
         var f = new Fixture(16, false, false);
-        f.accept(f.runtime.candidates().getFirst(), 8);
+        f.accept(cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates()), 8);
         var tag = new CompoundTag();
         var registries = mock(HolderLookup.Provider.class);
-        f.runtime.writeToNBT(tag, registries);
+        f.runtime.writeToNBT(tag);
         for (boolean bound : List.of(false, true)) {
             var restored = bound
-                ? ECOExecutionRuntime.fromNBT(f.plan, f.patterns, f.progress, tag, registries)
-                : ECOExecutionRuntime.fromNBT(f.plan, f.patterns, tag, registries);
+                ? ECOExecutionRuntime.fromNBT(f.plan, f.patterns, f.progress, tag)
+                : ECOExecutionRuntime.fromNBT(f.plan, f.patterns, tag);
             var next = bound ? restored.candidates() : restored.candidates(Map.of(f.first, 8L, f.second, 16L));
-            assertEquals(1, next.getFirst().taskId());
-            restored.onAccepted(next.getFirst(), 8, new KeyCounter[0]);
+            assertEquals(1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(next).taskId());
+            restored.onAccepted(cn.dancingsnow.neoecoae.platform.JdkCompat.first(next), 8, new KeyCounter[0]);
             if (bound) f.progress[1].accept(8);
             next = bound ? restored.candidates() : restored.candidates(Map.of(f.first, 8L, f.second, 8L));
-            assertEquals(0, next.getFirst().taskId());
-            assertEquals(8, next.getFirst().maxDispatchCount());
+            assertEquals(0, cn.dancingsnow.neoecoae.platform.JdkCompat.first(next).taskId());
+            assertEquals(8, cn.dancingsnow.neoecoae.platform.JdkCompat.first(next).maxDispatchCount());
         }
     }
 
     @Test void trillionAcceptedLapsAdvanceWithoutPerLapReplay() {
         assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
             var f = new Fixture(1_000_000_000_000L, false, false);
-            f.accept(f.runtime.candidates().getFirst(), f.laps);
-            f.accept(f.runtime.candidates().getFirst(), f.laps);
+            f.accept(cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates()), f.laps);
+            f.accept(cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates()), f.laps);
             assertTrue(f.runtime.isComplete());
         });
     }
@@ -71,24 +71,24 @@ class ECOCycleBatchDispatchTest {
         when(f.first.getInputs()[0].getPossibleInputs()).thenReturn(new GenericStack[]{
             new GenericStack(f.bucket, 1), new GenericStack(mock(AEKey.class), 1)});
         var runtime = new ECOExecutionRuntime(f.plan, f.patterns, f.progress);
-        assertEquals(1, runtime.candidates().getFirst().maxDispatchCount());
+        assertEquals(1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(runtime.candidates()).maxDispatchCount());
     }
 
     @Test void acceptanceCannotExceedRemainingRepeatedWork() {
         var f = new Fixture(8, false, false);
-        var first = f.runtime.candidates().getFirst();
+        var first = cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates());
         f.accept(first, 7);
         assertThrows(IllegalArgumentException.class,
             () -> f.runtime.onAccepted(first, 2, new KeyCounter[0]));
         f.accept(first, 1);
-        f.accept(f.runtime.candidates().getFirst(), 8);
+        f.accept(cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates()), 8);
         assertTrue(f.runtime.isComplete());
     }
 
     @Test void sharedInputsAllowSurplusBatchesWithoutStealingTheOtherBranch() {
         for (boolean dynamic : List.of(false, true)) {
             var f = new Fixture(32, true, dynamic);
-            var candidate = f.runtime.candidates().getFirst();
+            var candidate = cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.runtime.candidates());
             assertEquals(32, candidate.maxDispatchCount());
             var inventory = new ListCraftingInventory(ignored -> {});
             inventory.insert(f.bucket, 32, Actionable.MODULATE);
@@ -111,7 +111,7 @@ class ECOCycleBatchDispatchTest {
         inventory.insert(f.bucket, 1, Actionable.MODULATE);
         var input = new KeyCounter(); input.add(f.bucket, 1);
         var output = new KeyCounter(); output.add(f.filled, 1);
-        var candidate = job.executionRuntime.candidates().getFirst();
+        var candidate = cn.dancingsnow.neoecoae.platform.JdkCompat.first(job.executionRuntime.candidates());
         var request = new ECOCraftingDispatchRequest(job, candidate, f.first, new KeyCounter[]{input}, output,
             new KeyCounter(), candidate.maxDispatchCount(), inventory, mock(net.minecraft.world.level.Level.class));
         var energy = mock(appeng.api.networking.energy.IEnergyService.class);
@@ -144,7 +144,7 @@ class ECOCycleBatchDispatchTest {
                     current.finalOutput, f.laps, current.remainingAmount), ignored -> {}));
         dispatcher.beginTick(0);
         for (int taskId = 0; taskId < 2; taskId++) {
-            var candidate = job.executionRuntime.candidates().getFirst();
+            var candidate = cn.dancingsnow.neoecoae.platform.JdkCompat.first(job.executionRuntime.candidates());
             assertEquals(taskId, candidate.taskId());
             var input = new KeyCounter(); input.add(taskId == 0 ? f.bucket : f.filled, 1);
             var output = new KeyCounter(); output.add(taskId == 0 ? f.filled : f.bucket, 1);
@@ -225,7 +225,7 @@ class ECOCycleBatchDispatchTest {
                 return input;
             }).toArray(IPatternDetails.IInput[]::new);
             when(pattern.getInputs()).thenReturn(inputs);
-            when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+            when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 1)});
             when(pattern.supportsPushInputsToExternalInventory()).thenReturn(true);
             return pattern;
         }

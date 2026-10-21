@@ -28,7 +28,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.List;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -55,8 +54,8 @@ class CraftingNetworkDeduplicationTest {
         assertEquals(1, network.reachablePatternCount());
         assertEquals(1, network.edgeCount());
         assertFalse(network.multiplePaths());
-        assertSame(first, network.producersOf(seed).getFirst().details());
-        assertEquals(0, network.producersOf(seed).getFirst().id());
+        assertSame(first, cn.dancingsnow.neoecoae.platform.JdkCompat.first(network.producersOf(seed)).details());
+        assertEquals(0, cn.dancingsnow.neoecoae.platform.JdkCompat.first(network.producersOf(seed)).id());
 
         var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
         var condensation = CondensationGraph.build(graph,
@@ -74,12 +73,12 @@ class CraftingNetworkDeduplicationTest {
             outcome.components(), outcome.executionComponentOrder(), 0L);
         var snapshot = CraftingGraphSnapshotFactory.create(result);
         assertEquals(1, snapshot.patterns().size());
-        assertEquals(CandidateStatus.SELECTED, snapshot.patterns().getFirst().status());
+        assertEquals(CandidateStatus.SELECTED, cn.dancingsnow.neoecoae.platform.JdkCompat.first(snapshot.patterns()).status());
         assertEquals(outcome.state().patternTimes().get(first).longValue(),
-            snapshot.patterns().getFirst().firingCount());
+            cn.dancingsnow.neoecoae.platform.JdkCompat.first(snapshot.patterns()).firingCount());
         assertEquals(1, snapshot.cycleGroups().size());
         assertEquals(2, snapshot.edges().size());
-        assertEquals(1, snapshot.cycleGroups().getFirst().patternTimes().size());
+        assertEquals(1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(snapshot.cycleGroups()).patternTimes().size());
     }
 
     @Test
@@ -139,7 +138,7 @@ class CraftingNetworkDeduplicationTest {
         when(input.getMultiplier()).thenReturn(1L);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] { input });
         var output = new GenericStack(seed, 2L);
-        when(pattern.getOutputs()).thenReturn(List.of(output));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{output});
         when(pattern.getPrimaryOutput()).thenReturn(output);
         when(pattern.getDefinition()).thenReturn(definition);
         return pattern;
@@ -147,7 +146,7 @@ class CraftingNetworkDeduplicationTest {
 
     private static AEItemKey definition(String name) {
         ItemStack stack = new ItemStack(Items.PAPER);
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+        stack.setHoverName(Component.literal(name));
         return AEItemKey.of(stack);
     }
 

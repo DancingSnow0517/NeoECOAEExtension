@@ -48,7 +48,7 @@ class UnsupportedRouteFallbackTest {
         var result = external(true);
         assertEquals(CycleExternalDemandStatus.SOLVED, result.status());
         assertEquals(Set.of(alternate.details()), result.selectedPatterns());
-        assertEquals(2L, result.states().getFirst().usedItems().get(stock));
+        assertEquals(2L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.states()).usedItems().get(stock));
     }
 
     @Test
@@ -87,8 +87,8 @@ class UnsupportedRouteFallbackTest {
             cycle, Map.of(goal, 500_000_000L), inventory, new SolveState(inventory), Map.of(), Set.of(),
             ECOCancellation.NONE);
         assertEquals(CycleExternalDemandStatus.SOLVED, result.status());
-        assertEquals(Map.of(alternate.details(), 500_000_000L), result.states().getFirst().patternTimes());
-        assertEquals(1_000_000_000L, result.states().getFirst().usedItems().get(stock));
+        assertEquals(Map.of(alternate.details(), 500_000_000L), cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.states()).patternTimes());
+        assertEquals(1_000_000_000L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.states()).usedItems().get(stock));
     }
 
     @Test
@@ -128,7 +128,7 @@ class UnsupportedRouteFallbackTest {
     private static CompiledPattern pattern(int id, AEKey output, boolean supported, GenericStack... inputs) {
         var details = mock(IPatternDetails.class);
         var outputs = List.of(new GenericStack(output, 1));
-        when(details.getOutputs()).thenReturn(outputs);
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), outputs, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         return new CompiledPattern(id, details, output, PlannerAmount.ONE,

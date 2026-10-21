@@ -119,8 +119,8 @@ class ECOExternalCpuFastPathTest {
         setup(engine);
         assertEquals(1, dispatch(1));
         assertEquals(1, deliveries.size());
-        assertEquals(512, deliveries.getFirst().craftCount());
-        assertEquals(1024, deliveries.getFirst().inputTotal().getFirst().amount());
+        assertEquals(512, cn.dancingsnow.neoecoae.platform.JdkCompat.first(deliveries).craftCount());
+        assertEquals(1024, cn.dancingsnow.neoecoae.platform.JdkCompat.first(cn.dancingsnow.neoecoae.platform.JdkCompat.first(deliveries).inputTotal()).amount());
         assertEquals(1024, inventory.list.get(input));
         assertEquals(512, remaining.get());
         assertEquals(1024, waiting.list.get(output));
@@ -148,7 +148,7 @@ class ECOExternalCpuFastPathTest {
     @Test void taskAndActualMaterialsBoundBatch() {
         setup("ae2"); remaining.set(200); inventory.list.set(input, 150);
         assertEquals(1, dispatch(1));
-        assertEquals(75, deliveries.getFirst().craftCount());
+        assertEquals(75, cn.dancingsnow.neoecoae.platform.JdkCompat.first(deliveries).craftCount());
         assertEquals(125, remaining.get());
         assertEquals(150, waiting.list.get(output));
     }
@@ -277,7 +277,7 @@ class ECOExternalCpuFastPathTest {
         // 桥接provider不应被调用，只有真正的ECO provider会被使用
         assertEquals(1, dispatch(1));
         assertEquals(1, deliveries.size());
-        assertEquals(512, deliveries.getFirst().craftCount());
+        assertEquals(512, cn.dancingsnow.neoecoae.platform.JdkCompat.first(deliveries).craftCount());
 
         // 验证桥接provider完全没有被调用
         verify(bridgedProvider, never()).isBusy();

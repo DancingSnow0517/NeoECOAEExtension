@@ -39,7 +39,7 @@ class WorkstationArtworkTest {
                 for (LargeWorkstationModule module : LargeWorkstationModule.values()) {
                     if (module == LargeWorkstationModule.REGULAR) continue;
                     var sprite = WorkstationTextures.circuit(module);
-                    int pixel = atlas.getRGB(sprite.spritePosition.getX() + x, sprite.spritePosition.getY() + y);
+                    int pixel = atlas.getRGB((int)sprite.spritePosition.x+x,(int)sprite.spritePosition.y+y);
                     assertEquals(wire, (pixel >>> 24) != 0,
                         module + " must recolor only the existing circuit at " + x + "," + y);
                 }
@@ -50,14 +50,14 @@ class WorkstationArtworkTest {
 
     @Test
     void fourRetainedFamiliesKeepTheOriginalAtlasColumns() {
-        assertEquals(0, WorkstationTextures.module(LargeWorkstationModule.REGULAR).spritePosition.getX());
-        assertEquals(15, WorkstationTextures.module(LargeWorkstationModule.ADVANCED_AE).spritePosition.getX());
-        assertEquals(30, WorkstationTextures.module(LargeWorkstationModule.EXTENDED_AE).spritePosition.getX());
-        assertEquals(60, WorkstationTextures.module(LargeWorkstationModule.LIGHTNING_TECH).spritePosition.getX());
-        assertEquals(0, WorkstationTextures.circuit(LargeWorkstationModule.REGULAR).spritePosition.getX());
-        assertEquals(28, WorkstationTextures.circuit(LargeWorkstationModule.ADVANCED_AE).spritePosition.getX());
-        assertEquals(56, WorkstationTextures.circuit(LargeWorkstationModule.EXTENDED_AE).spritePosition.getX());
-        assertEquals(112, WorkstationTextures.circuit(LargeWorkstationModule.LIGHTNING_TECH).spritePosition.getX());
+        assertEquals(0, WorkstationTextures.module(LargeWorkstationModule.REGULAR).spritePosition.x);
+        assertEquals(15, WorkstationTextures.module(LargeWorkstationModule.ADVANCED_AE).spritePosition.x);
+        assertEquals(30, WorkstationTextures.module(LargeWorkstationModule.EXTENDED_AE).spritePosition.x);
+        assertEquals(60, WorkstationTextures.module(LargeWorkstationModule.LIGHTNING_TECH).spritePosition.x);
+        assertEquals(0, WorkstationTextures.circuit(LargeWorkstationModule.REGULAR).spritePosition.x);
+        assertEquals(28, WorkstationTextures.circuit(LargeWorkstationModule.ADVANCED_AE).spritePosition.x);
+        assertEquals(56, WorkstationTextures.circuit(LargeWorkstationModule.EXTENDED_AE).spritePosition.x);
+        assertEquals(112, WorkstationTextures.circuit(LargeWorkstationModule.LIGHTNING_TECH).spritePosition.x);
     }
 
     @Test

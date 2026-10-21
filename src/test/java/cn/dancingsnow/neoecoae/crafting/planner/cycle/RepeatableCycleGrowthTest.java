@@ -40,15 +40,15 @@ class RepeatableCycleGrowthTest {
             patterns.add(pattern(i, i == 0 ? Map.of(keys.get(i), 1L, fuel, 1000L) : Map.of(keys.get(i), 1L),
                     Map.of(keys.get((i + 1) % size), i == size - 1 ? 2L : 1L)));
         }
-        var boundary = boundary(patterns.getFirst());
+        var boundary = boundary(cn.dancingsnow.neoecoae.platform.JdkCompat.first(patterns));
         var cycle = new CycleComponent(0, keys, patterns, List.of(), List.of(), boundary);
         for (long quantity : new long[] {100_000_000L, 1_000_000_000_000L}) {
             var work = new AtomicLong();
-            var result = solve(cycle, Map.of(keys.getFirst(), quantity + 64), Map.of(keys.getFirst(), 64L),
+            var result = solve(cycle, Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(keys), quantity + 64), Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(keys), 64L),
                     boundary, Map.of(), work);
             assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
             assertFormula(result);
-            assertEquals(1L, result.requiredSeed().get(keys.getFirst()), "Leave the other 63 copies in ME");
+            assertEquals(1L, result.requiredSeed().get(cn.dancingsnow.neoecoae.platform.JdkCompat.first(keys)), "Leave the other 63 copies in ME");
             assertEquals(1000L * quantity, result.externalDemand().get(fuel));
             for (var pattern : patterns) assertEquals(quantity, result.patternTimes().get(pattern.details()));
             assertTrue(result.executionWitness().isEmpty(), "Do not expand one entry per physical firing");
@@ -149,7 +149,7 @@ class RepeatableCycleGrowthTest {
         assertEquals(2L, result.requiredSeed().get(a));
         assertEquals(100_000_000_000L, result.externalDemand().get(fuel));
         assertEquals(3, result.executionPlan().size());
-        assertEquals(100_000_000L, result.executionPlan().getLast().repetitions());
+        assertEquals(100_000_000L, cn.dancingsnow.neoecoae.platform.JdkCompat.last(result.executionPlan()).repetitions());
     }
 
     @Test
@@ -207,10 +207,10 @@ class RepeatableCycleGrowthTest {
     private static CompiledPattern pattern(int id, Map<AEKey, Long> inputs, Map<AEKey, Long> outputs) {
         var details = mock(IPatternDetails.class, "pattern-" + id);
         var stacks = outputs.entrySet().stream().map(entry -> new GenericStack(entry.getKey(), entry.getValue())).toList();
-        when(details.getOutputs()).thenReturn(stacks);
+        when(details.getOutputs()).thenReturn(stacks.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), stacks, List.of(), List.of(),
                 PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
-        return new CompiledPattern(id, details, stacks.getFirst().what(), PlannerAmount.of(stacks.getFirst().amount()),
+        return new CompiledPattern(id, details, cn.dancingsnow.neoecoae.platform.JdkCompat.first(stacks).what(), PlannerAmount.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(stacks).amount()),
                 inputs.entrySet().stream().map(entry -> new CompiledInput(null, entry.getKey(), entry.getValue(), true, null)).toList(),
                 stacks, true, null, false, semantics);
     }

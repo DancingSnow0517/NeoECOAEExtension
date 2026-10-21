@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.storage;
 
 import appeng.api.config.Actionable;
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -50,7 +49,12 @@ class ECOCreativeCellTest {
         // Only the item shell is mocked; both inventories use AE2's real CellConfig and storage logic.
         ItemStack stack = mock(ItemStack.class);
         when(stack.getItem()).thenReturn(mock(CreativeCellItem.class));
-        when(stack.getOrDefault(eq(AEComponents.STORAGE_CELL_CONFIG_INV), anyList())).thenReturn(config);
+        var tag=new net.minecraft.nbt.CompoundTag();
+        when(stack.getOrCreateTag()).thenReturn(tag);
+        when(stack.getTag()).thenReturn(tag);
+        when(stack.hasTag()).thenAnswer(call -> !tag.isEmpty());
+        var nativeConfig=appeng.items.contents.CellConfig.create(stack);
+        for(int i=0;i<config.size();i++)nativeConfig.setStack(i,config.get(i));
         when(stack.getHoverName()).thenReturn(Component.literal("Creative test cell"));
         return stack;
     }
@@ -95,7 +99,7 @@ class ECOCreativeCellTest {
         assertEquals(0, eco.getUsedBytes());
         assertEquals(1, eco.getStoredItemTypes());
         assertEquals(63, eco.getTotalItemTypes());
-        verify(stack, never()).set(eq(AEComponents.STORAGE_CELL_CONFIG_INV), anyList());
+        verify(stack, never()).setTag(any());
     }
 
     @Test

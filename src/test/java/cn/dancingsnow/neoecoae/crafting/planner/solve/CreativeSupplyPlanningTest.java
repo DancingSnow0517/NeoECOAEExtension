@@ -15,10 +15,10 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import appeng.blockentity.storage.DriveBlockEntity;
-import appeng.blockentity.storage.MEChestBlockEntity;
+import appeng.blockentity.storage.ChestBlockEntity;
 import appeng.me.storage.NetworkStorage;
 import com.glodblock.github.extendedae.common.inventory.InfinityCellInventory;
-import com.glodblock.github.extendedae.common.items.ItemInfinityCell;
+import com.glodblock.github.extendedae.common.items.InfinityCell;
 import com.glodblock.github.extendedae.common.tileentities.TileExDrive;
 import com.moakiee.ae2lt.item.FixedInfiniteCellItem;
 import com.moakiee.ae2lt.item.InfiniteStorageCellItem;
@@ -301,7 +301,7 @@ class CreativeSupplyPlanningTest {
     }
 
     private static InfinityCellInventory extendedAeCell(AEKey key) {
-        var item = mock(ItemInfinityCell.class);
+        var item = mock(InfinityCell.class);
         when(item.getRecord()).thenReturn(key);
         return new InfinityCellInventory(cellStack(item));
     }
@@ -322,7 +322,7 @@ class CreativeSupplyPlanningTest {
     }
 
     private static Stream<Arguments> thirdPartyInfiniteCellHosts() {
-        return Stream.of(DriveBlockEntity.class, MEChestBlockEntity.class, TileExDrive.class)
+        return Stream.of(DriveBlockEntity.class, ChestBlockEntity.class, TileExDrive.class)
             .flatMap(hostType -> Stream.of(false, true).map(extendedAe -> Arguments.of(hostType, extendedAe)));
     }
 
@@ -372,7 +372,7 @@ class CreativeSupplyPlanningTest {
         when(ingredient.getMultiplier()).thenReturn(1L);
         when(details.getInputs()).thenReturn(new IPatternDetails.IInput[]{ingredient});
         var outputs = List.of(new GenericStack(output, 1));
-        when(details.getOutputs()).thenReturn(outputs);
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), outputs, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         var pattern = new CompiledPattern(0, details, output, PlannerAmount.of(1),

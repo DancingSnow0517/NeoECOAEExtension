@@ -151,15 +151,15 @@ class ECOExactInventoryLifecycleTest {
         var logic = new ECOCraftingCPULogic(cpu);
         var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
         var registry = mock(HolderLookup.Provider.class);
-        when(key.toTagGeneric(registry)).thenAnswer(call -> new CompoundTag());
+        when(key.toTagGeneric()).thenAnswer(call -> new CompoundTag());
         logic.exactInventory().setEnabled(true);
         for (int i = 0; i < 9; i++) logic.getInventory().insert(key, Long.MAX_VALUE, Actionable.MODULATE);
         var saved = new CompoundTag();
-        logic.writeToNBT(saved, registry);
+        logic.writeToNBT(saved);
         var restored = new ECOCraftingCPULogic(cpu);
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(eq(registry), any())).thenReturn(key);
-            restored.readFromNBT(saved, registry);
+            keys.when(() -> AEKey.fromTagGeneric(any())).thenReturn(key);
+            restored.readFromNBT(saved);
         }
         var total = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(9));
         assertEquals(total, restored.exactInventory().amount(key));
@@ -178,14 +178,14 @@ class ECOExactInventoryLifecycleTest {
         cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
         var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
         var registry = mock(net.minecraft.core.RegistryAccess.class);
-        when(key.toTagGeneric(registry)).thenAnswer(call -> new CompoundTag());
+        when(key.toTagGeneric()).thenAnswer(call -> new CompoundTag());
         var cpu = mock(ECOCraftingCPU.class);
         var logic = new ECOCraftingCPULogic(cpu);
         when(cpu.getLogic()).thenReturn(logic);
         logic.exactInventory().setEnabled(true);
         for (int i = 0; i < 9; i++) logic.getInventory().insert(key, Long.MAX_VALUE, Actionable.MODULATE);
-        doAnswer(call -> { logic.writeToNBT(call.getArgument(0), registry); return null; })
-            .when(cpu).writeToNBT(any(), eq(registry));
+        doAnswer(call -> { logic.writeToNBT(call.getArgument(0)); return null; })
+            .when(cpu).writeToNBT(any());
         var ordinaryCpu = mock(ECOCraftingCPU.class);
         var ordinaryLogic = new ECOCraftingCPULogic(ordinaryCpu);
         when(ordinaryCpu.getLogic()).thenReturn(ordinaryLogic);
@@ -214,8 +214,8 @@ class ECOExactInventoryLifecycleTest {
         assertNull(restoredSlots[1]);
         var restored = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ignored -> {});
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(eq(registry), any())).thenReturn(key);
-            restored.readFromNBT(restoredSlots[0].getList("inventory", 10), registry);
+            keys.when(() -> AEKey.fromTagGeneric(any())).thenReturn(key);
+            restored.readFromNBT(restoredSlots[0].getList("inventory", 10));
         }
         assertEquals(logic.exactInventory().amount(key), restored.amount(key));
     }

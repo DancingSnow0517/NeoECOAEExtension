@@ -14,7 +14,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidStack;
@@ -135,7 +134,7 @@ class WorkstationUpgradeCardRecipeTest {
     void nativeLargeRecipesAreAvailableWithoutAnyCardAndKeepFullBatchCosts(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
         var id = new ResourceLocation("test:card_" + variant);
-        var holder = new RecipeHolder<>(id, recipe);
+        var holder = cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(id, recipe);
         var manager = mock(RecipeManager.class);
         when(manager.getRecipes()).thenReturn(List.of(holder));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
@@ -145,7 +144,7 @@ class WorkstationUpgradeCardRecipeTest {
             assertFalse(IntegratedWorkingStationRecipe.class.isInstance(recipe));
             var available = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR);
             assertEquals(1, available.size());
-            var runtime = available.getFirst();
+            var runtime = cn.dancingsnow.neoecoae.platform.JdkCompat.first(available);
             assertEquals(LargeWorkstationRecipe.NATIVE_TYPE, runtime.sourceType());
             assertEquals(16_384_000, runtime.energy());
             assertSame(runtime, LargeWorkstationRecipes.getById(manager, registries, id));
@@ -170,7 +169,7 @@ class WorkstationUpgradeCardRecipeTest {
                 inputs.add(AEFluidKey.of(Fluids.WATER), 1);
             }
             assertTrue(runtime.matches(inputs, outputs));
-            var required = recipe.display().inputItems().getLast();
+            var required = cn.dancingsnow.neoecoae.platform.JdkCompat.last(recipe.display().inputItems());
             inputs.remove(AEItemKey.of(required.getItems()[0]), 1);
             assertFalse(runtime.matches(inputs, outputs));
             inputs.add(AEItemKey.of(required.getItems()[0]), 1);
@@ -192,13 +191,13 @@ class WorkstationUpgradeCardRecipeTest {
         var recipe = decodeWithVanillaItems(resource("aelt"));
         assertEquals(9, recipe.display().inputItems().size());
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = registries.createSerializationContext(JsonOps.INSTANCE);
-        var json = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow();
-        var restored = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, json).getOrThrow();
+        var ops = JsonOps.INSTANCE;
+        var json = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow(false, message -> { throw new IllegalStateException(message); });
+        var restored = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, json).getOrThrow(false, message -> { throw new IllegalStateException(message); });
         assertEquals(recipe.display().inputItems().stream().map(input -> input.count()).toList(),
             restored.display().inputItems().stream().map(input -> input.count()).toList());
 
-        var buffer = new FriendlyByteBuf(Unpooled.buffer(), registries);
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
         try (var sync = mockStatic(RegistryManager.class)) {
             LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, restored);
             var synced = LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer);
@@ -210,7 +209,7 @@ class WorkstationUpgradeCardRecipeTest {
             assertEquals(4, synced.display().inputItems().get(5).count());
             assertEquals(4, synced.display().inputItems().get(6).count());
             assertEquals(128, synced.display().inputItems().get(7).count());
-            assertEquals(128, synced.display().inputItems().getLast().count());
+            assertEquals(128, cn.dancingsnow.neoecoae.platform.JdkCompat.last(synced.display().inputItems()).count());
             assertEquals(16_384_000, synced.display().energy());
             assertFalse(buffer.isReadable());
         } finally {
@@ -223,11 +222,11 @@ class WorkstationUpgradeCardRecipeTest {
     void fluidCostsSurviveJsonAndNetworkRoundTrips(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = registries.createSerializationContext(JsonOps.INSTANCE);
-        var json = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow();
-        var restored = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, json).getOrThrow();
+        var ops = JsonOps.INSTANCE;
+        var json = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow(false, message -> { throw new IllegalStateException(message); });
+        var restored = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, json).getOrThrow(false, message -> { throw new IllegalStateException(message); });
 
-        var buffer = new FriendlyByteBuf(Unpooled.buffer(), registries);
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
         try (var sync = mockStatic(RegistryManager.class)) {
             LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, restored);
             var synced = LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer);
@@ -251,8 +250,8 @@ class WorkstationUpgradeCardRecipeTest {
         var recipe = decodeWithVanillaItems(json);
         assertEquals(12, recipe.display().inputItems().size());
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = registries.createSerializationContext(JsonOps.INSTANCE);
-        var encoded = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow();
+        var ops = JsonOps.INSTANCE;
+        var encoded = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow(false, message -> { throw new IllegalStateException(message); });
         assertTrue(IntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, encoded).error().isPresent());
         inputs.add(inputs.get(0).deepCopy());
         assertThrows(IllegalStateException.class, () -> decodeWithVanillaItems(json));
@@ -280,6 +279,6 @@ class WorkstationUpgradeCardRecipeTest {
         json.getAsJsonObject("itemOutput").addProperty("id", "minecraft:diamond");
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         return LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec()
-            .parse(registries.createSerializationContext(JsonOps.INSTANCE), json).getOrThrow();
+            .parse(JsonOps.INSTANCE, json).getOrThrow(false, message -> { throw new IllegalStateException(message); });
     }
 }

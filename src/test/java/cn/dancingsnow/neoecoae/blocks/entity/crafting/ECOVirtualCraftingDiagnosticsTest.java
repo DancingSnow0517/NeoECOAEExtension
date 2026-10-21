@@ -213,7 +213,7 @@ class ECOVirtualCraftingDiagnosticsTest {
     void everyNetworkMemberSeesTheExecutingLanesFailure(VirtualLaneStartResult failure)
         throws ReflectiveOperationException {
         var lanes = createNetwork();
-        var executing = lanes.getFirst();
+        var executing = cn.dancingsnow.neoecoae.platform.JdkCompat.first(lanes);
         startBatch(executing, UUID.randomUUID(), 1L);
         doReturn(failure).when(executing.host()).tryStartVirtualLaneTickWithResult();
         executing.thread().tick(executing.host(), 9, 1, 1);
@@ -229,7 +229,7 @@ class ECOVirtualCraftingDiagnosticsTest {
     @Test
     void anotherSuccessfulLaneDoesNotHideAnActiveFailure() throws ReflectiveOperationException {
         var lanes = createNetwork();
-        var blocked = lanes.getFirst();
+        var blocked = cn.dancingsnow.neoecoae.platform.JdkCompat.first(lanes);
         var successful = lanes.get(1);
         startBatch(blocked, UUID.randomUUID(), 1L);
         startBatch(successful, UUID.randomUUID(), 1L);
@@ -267,7 +267,7 @@ class ECOVirtualCraftingDiagnosticsTest {
     @Test
     void regroupedWorkersDoNotCarryThePreviousNetworksWarning() throws ReflectiveOperationException {
         var lanes = createNetwork();
-        var executing = lanes.getFirst();
+        var executing = cn.dancingsnow.neoecoae.platform.JdkCompat.first(lanes);
         startBatch(executing, UUID.randomUUID(), 1L);
         doReturn(ENERGY_UNAVAILABLE).when(executing.host()).tryStartVirtualLaneTickWithResult();
         executing.thread().tick(executing.host(), 9, 1, 1);
@@ -282,9 +282,9 @@ class ECOVirtualCraftingDiagnosticsTest {
     @Test
     void pooledTierNineCoolantDoesNotTriggerALocalLowTierWarning() throws ReflectiveOperationException {
         var lanes = createNetwork();
-        doReturn(2).when(lanes.getFirst().host()).getLocalCoolingMaxOverclock();
-        doReturn(2).when(lanes.getFirst().host()).getCoolantMaxOverclock();
-        assertEquals(9, lanes.getFirst().host().getDisplayedCoolingMaxOverclock());
+        doReturn(2).when(cn.dancingsnow.neoecoae.platform.JdkCompat.first(lanes).host()).getLocalCoolingMaxOverclock();
+        doReturn(2).when(cn.dancingsnow.neoecoae.platform.JdkCompat.first(lanes).host()).getCoolantMaxOverclock();
+        assertEquals(9, cn.dancingsnow.neoecoae.platform.JdkCompat.first(lanes).host().getDisplayedCoolingMaxOverclock());
         for (var member : lanes) assertTrue(member.host().getCraftingStatusNotice().getString().isEmpty());
     }
 
@@ -293,9 +293,9 @@ class ECOVirtualCraftingDiagnosticsTest {
         throws ReflectiveOperationException {
         var lanes = createNetwork();
         for (var member : lanes) doReturn(false).when(member.host()).hasLocalVirtualCraftingCoolant();
-        doReturn(true).when(lanes.getLast().host()).hasLocalVirtualCraftingCoolant();
+        doReturn(true).when(cn.dancingsnow.neoecoae.platform.JdkCompat.last(lanes).host()).hasLocalVirtualCraftingCoolant();
         for (var member : lanes) assertTrue(member.host().getCraftingStatusNotice().getString().isEmpty());
-        doReturn(false).when(lanes.getLast().host()).hasLocalVirtualCraftingCoolant();
+        doReturn(false).when(cn.dancingsnow.neoecoae.platform.JdkCompat.last(lanes).host()).hasLocalVirtualCraftingCoolant();
         for (var member : lanes) assertNotice(member.host(), "coolant_type");
     }
 

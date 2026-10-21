@@ -75,7 +75,7 @@ class ExactMaterialFlowTest {
         var pattern = mock(IPatternDetails.class);
         var inputs = new IPatternDetails.IInput[]{input(seed, 1), input(diamond, 7)};
         when(pattern.getInputs()).thenReturn(inputs);
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(seed, 2)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(seed, 2)});
         var plan = new CraftingPlan(new GenericStack(seed, 1), 0, shell, false,
             new KeyCounter(), new KeyCounter(), new KeyCounter(), shell ? Map.of() : Map.of(pattern, count.longValueExact()));
         var result = new ECOPlanningResult(shell ? PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE

@@ -202,7 +202,7 @@ class ECOAe2LtBigCraftingInteropTest {
         when(slot.isValid(eq(input), any())).thenReturn(true);
         when(pattern.getDefinition()).thenReturn(AEItemKey.of(net.minecraft.world.item.Items.PAPER));
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {slot});
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 3)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 3)});
         when(pattern.getPrimaryOutput()).thenReturn(new GenericStack(output, 3));
         var recipe = BigProviderRecipe.capture(pattern, List.of(Map.of(input, 2L)), null);
         assertNotNull(recipe);

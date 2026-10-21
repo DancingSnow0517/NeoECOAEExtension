@@ -47,8 +47,8 @@ class ECOCraftingFastPathCacheTest {
         assertNull(cache.get(keys.get(241), 9));
         cache.clear();
         for (var key : keys) assertNull(cache.get(key, 11));
-        cache.putNegative(keys.getFirst(), 20);
-        assertNotNull(cache.get(keys.getFirst(), 20));
+        cache.putNegative(cn.dancingsnow.neoecoae.platform.JdkCompat.first(keys), 20);
+        assertNotNull(cache.get(cn.dancingsnow.neoecoae.platform.JdkCompat.first(keys), 20));
     }
 
     @Test

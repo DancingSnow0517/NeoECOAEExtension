@@ -18,8 +18,8 @@ class TarjanSccAnalyzerTest {
         var graph = graph(List.of(a, b, c), List.of(edge(a, b), edge(b, c), edge(c, a)));
         var components = new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE);
         assertEquals(1, components.size());
-        assertEquals(Set.of(a, b, c), Set.copyOf(components.getFirst().members()));
-        assertTrue(components.getFirst().cyclic());
+        assertEquals(Set.of(a, b, c), Set.copyOf(cn.dancingsnow.neoecoae.platform.JdkCompat.first(components).members()));
+        assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(components).cyclic());
     }
 
     @Test
@@ -41,6 +41,6 @@ class TarjanSccAnalyzerTest {
     private static CraftingDependencyGraph graph(List<AEKey> keys, List<CraftingGraphEdge> edges) {
         var nodes = new LinkedHashMap<AEKey, CraftingGraphNode>();
         for (AEKey key : keys) nodes.put(key, new CraftingGraphNode(key, List.of()));
-        return new CraftingDependencyGraph(keys.getFirst(), nodes, edges);
+        return new CraftingDependencyGraph(cn.dancingsnow.neoecoae.platform.JdkCompat.first(keys), nodes, edges);
     }
 }

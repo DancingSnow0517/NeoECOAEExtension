@@ -143,8 +143,8 @@ class ECOAe2LtIOPortTest {
         Assumptions.assumeTrue(loader.getResource(BLOCK + ".class") != null, "Old AE2LT has no overloaded IO port");
         var block = readClass(BLOCK);
         var constructor = block.methods.stream().filter(m -> m.name.equals("<init>")).findFirst().orElseThrow();
-        MethodInsnNode firstFilter = calls(constructor, "appeng/util/inv/AppEngInternalInventory", "setFilter")
-            .getFirst();
+        MethodInsnNode firstFilter = cn.dancingsnow.neoecoae.platform.JdkCompat.first(calls(constructor, "appeng/util/inv/AppEngInternalInventory", "setFilter")
+            );
         var cursor = firstFilter.getPrevious();
         while (cursor != null && !(cursor instanceof FieldInsnNode field && field.name.equals("input"))) {
             cursor = cursor.getPrevious();
@@ -153,7 +153,7 @@ class ECOAe2LtIOPortTest {
         var ticking = block.methods.stream().filter(m -> m.name.equals("tickingRequest")).findFirst().orElseThrow();
         var reads = calls(ticking, "appeng/api/storage/StorageCells", "getCellInventory");
         assertEquals(1, reads.size());
-        assertEquals("(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;", reads.getFirst().desc);
+        assertEquals("(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;", cn.dancingsnow.neoecoae.platform.JdkCompat.first(reads).desc);
         var menu = readClass(MENU).methods.stream().filter(m -> m.name.equals("setupConfig")).findFirst().orElseThrow();
         assertEquals(1, calls(menu, "appeng/menu/slot/RestrictedInputSlot", "<init>").size());
     }

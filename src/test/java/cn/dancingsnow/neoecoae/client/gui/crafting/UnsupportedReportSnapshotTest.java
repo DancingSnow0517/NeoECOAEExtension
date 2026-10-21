@@ -21,7 +21,7 @@ class UnsupportedReportSnapshotTest {
             new ECOPlanTrace(), List.of(), List.of(), List.of(), 1L);
         var snapshot = CraftingGraphSnapshotFactory.create(result);
         assertEquals(1, snapshot.nodes().size());
-        var root = snapshot.nodes().getFirst();
+        var root = cn.dancingsnow.neoecoae.platform.JdkCompat.first(snapshot.nodes());
         assertEquals(root.nodeId(), snapshot.rootNodeId());
         assertSame(goal, root.key());
         assertEquals(BigInteger.ONE, root.requestedBigInteger());

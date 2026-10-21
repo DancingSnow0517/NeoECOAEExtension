@@ -4,13 +4,11 @@ import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUIContainer;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -39,9 +37,9 @@ class CraftingPatternPreviewStateTest {
             when(modList.getAllScanData()).thenReturn(List.of());
             mods.when(ModList::get).thenReturn(modList);
             registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
-            Class.forName("com.lowdragmc.lowdraglib2.gui.ui.UIElement");
+            Class.forName("cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement");
             Class.forName("cn.dancingsnow.neoecoae.gui.theme.NETextures");
-            AccessorRegistries.init();
+
         }
     }
 
@@ -93,15 +91,17 @@ class CraftingPatternPreviewStateTest {
         var state = new CraftingPatternPreviewState(f.host, f.player);
         state.tick();
         assertTrue(f.requests.isEmpty(), "UI construction still sees the previous container");
-        var menu = mock(ModularUIContainerMenu.class);
+        var menu = mock(ModularUIContainer.class);
         setField(menu, "containerId", 42);
-        setField(menu, "uiHolder", new BlockUIMenuType.BlockUIHolder(null, f.player, BlockPos.ZERO, null));
+        var nativeUi=mock(com.lowdragmc.lowdraglib.gui.modular.ModularUI.class);
+        setField(nativeUi,"holder",new BlockUIMenuType.BlockUIHolder(f.player,BlockPos.ZERO));
+        when(menu.getModularUI()).thenReturn(nativeUi);
         f.player.containerMenu = menu;
         state.tick();
         state.tick();
         assertEquals(1, f.requests.size());
-        assertEquals(42, f.requests.getFirst().getInt("menu"));
-        assertEquals(-1, f.requests.getFirst().getInt("revision"));
+        assertEquals(42, cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.requests).getInt("menu"));
+        assertEquals(-1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.requests).getInt("revision"));
     }
 
     @Test void equalCoordinatesInAnotherClientWorldCannotRestoreOldPatternsOrSearches() throws Exception {
@@ -123,10 +123,10 @@ class CraftingPatternPreviewStateTest {
         assertTrue(state.getScrollOffset() > 0 && state.getScrollOffset() < 18);
         assertNotEquals(Math.rint(state.getScrollOffset()), state.getScrollOffset());
         assertEquals(63, preview.getChildren().size());
-        assertTrue(preview.getChildren().getFirst().isVisible());
+        assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren()).isVisible());
         assertTrue(preview.getChildren().get(54).isVisible());
-        var first = preview.getChildren().getFirst();
-        first.getStyleBag().compute(0);
+        var first = cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren());
+        cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(first);
         double[] point = {0, 0};
         first.getStyle().transform2D().inversePoint(first, point);
         assertEquals(state.getScrollOffset(), point[1], 1e-5);
@@ -148,13 +148,13 @@ class CraftingPatternPreviewStateTest {
         state.setScrollOffset(18.5);
         assertEquals(1, state.getScrollRow());
         assertEquals(0.5, state.getRowOffset());
-        var first = (PatternItemSlot) preview.getChildren().getFirst();
-        var event = UIEvent.create(UIEvents.MOUSE_DOWN);
+        var first = (PatternItemSlot) cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren());
+        var event = new UIEvent(UIEvents.MOUSE_DOWN,null,0,0,0);
         event.target = first;
         event.button = 0;
         try (var ui = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
             ui.when(UIElement::isShiftDown).thenReturn(false);
-            UIEventDispatcher.dispatchEvent(event, true, true, false);
+            event.target.dispatchEvent(event);
         }
         var action = ArgumentCaptor.forClass(CompoundTag.class);
         verify(f.host).rpcToServer(eq("actOnPatternPreview"), action.capture());

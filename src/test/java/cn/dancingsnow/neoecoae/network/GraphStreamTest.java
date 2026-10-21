@@ -21,7 +21,7 @@ class GraphStreamTest {
             5L, CraftingGraphSnapshot.CandidateStatus.SELECTED, null, -1));
         var graph = new CraftingGraphSnapshot(-1, List.of(), patterns, List.of(), List.of(), List.of(),
             new CraftingGraphSnapshot.Summary("SUCCESS", 0, patterns.size(), 0, 0, 123));
-        var encoded = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        var encoded = new FriendlyByteBuf(Unpooled.buffer());
         try {
             graph.writeToPacket(encoded);
             ECOCycleItemList.EMPTY.writeToPacket(encoded);
@@ -34,7 +34,7 @@ class GraphStreamTest {
                 completed = assembler.accept(1, bytes.length, offset,
                     Arrays.copyOfRange(bytes, offset, Math.min(bytes.length, offset + 16_384)));
             assertNotNull(completed);
-            var received = new FriendlyByteBuf(Unpooled.wrappedBuffer(completed), RegistryAccess.EMPTY);
+            var received = new FriendlyByteBuf(Unpooled.wrappedBuffer(completed));
             try {
                 assertEquals(graph, new CraftingGraphSnapshot(received));
                 assertEquals(ECOCycleItemList.EMPTY, new ECOCycleItemList(received));

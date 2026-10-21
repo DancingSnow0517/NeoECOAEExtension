@@ -35,9 +35,9 @@ class MaterialProvenanceTest {
 
         var frozen = ledger.freeze();
         frozen.requireComplete();
-        assertEquals(MaterialSource.Stock.INSTANCE, frozen.allocationsFor(honeyInput).getFirst().source());
+        assertEquals(MaterialSource.Stock.INSTANCE, cn.dancingsnow.neoecoae.platform.JdkCompat.first(frozen.allocationsFor(honeyInput)).source());
         assertEquals(new MaterialSource.PatternOutput(honey, false),
-            frozen.allocationsFor(otherInput).getFirst().source());
+            cn.dancingsnow.neoecoae.platform.JdkCompat.first(frozen.allocationsFor(otherInput)).source());
         assertEquals(2, frozen.allocations().size(), "Unused returned bottles are not dependencies");
     }
 

@@ -47,7 +47,7 @@ class ExternalDemandCacheTest {
         assertEquals(CycleExternalDemandStatus.MISSING, second.status());
         assertEquals(Map.of(raw, 3L), first.missingLeaves());
         assertEquals(first.missingLeaves(), second.missingLeaves());
-        assertNotSame(first.states().getFirst(), second.states().getFirst());
+        assertNotSame(cn.dancingsnow.neoecoae.platform.JdkCompat.first(first.states()), cn.dancingsnow.neoecoae.platform.JdkCompat.first(second.states()));
         assertExternalSolves(1);
 
         new ExternalDemandPlanner(solver).solveDemands(network, cycle, Map.of(output, 2L), stock, base,
@@ -65,7 +65,7 @@ class ExternalDemandCacheTest {
         demands.put(output, 2L);
         var first = planner.solveDemands(network, cycle, demands, stock, base, Map.of(), Set.of(), ECOCancellation.NONE);
         assertTrue(first.solved());
-        var state = first.states().getFirst();
+        var state = cn.dancingsnow.neoecoae.platform.JdkCompat.first(first.states());
         var originalProvenance = state.provenance.copy().freeze();
         state.used.add(raw, 100L);
         state.patternTimes.clear();
@@ -75,16 +75,16 @@ class ExternalDemandCacheTest {
 
         var second = planner.solveDemands(network, cycle, demands, stock, base, Map.of(), Set.of(), ECOCancellation.NONE);
         assertEquals(1L, second.directReservations().get(member));
-        assertEquals(4L, second.states().getFirst().usedItems().get(raw));
-        assertEquals(Map.of(recipe.details(), 2L), second.states().getFirst().patternTimes());
+        assertEquals(4L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(second.states()).usedItems().get(raw));
+        assertEquals(Map.of(recipe.details(), 2L), cn.dancingsnow.neoecoae.platform.JdkCompat.first(second.states()).patternTimes());
         assertEquals(Set.of(recipe.details()), second.selectedPatterns());
-        assertEquals(originalProvenance, second.states().getFirst().executionProvenance());
-        second.states().getFirst().executionProvenance().requireComplete();
-        second.states().getFirst().used.add(raw, 100L);
+        assertEquals(originalProvenance, cn.dancingsnow.neoecoae.platform.JdkCompat.first(second.states()).executionProvenance());
+        cn.dancingsnow.neoecoae.platform.JdkCompat.first(second.states()).executionProvenance().requireComplete();
+        cn.dancingsnow.neoecoae.platform.JdkCompat.first(second.states()).used.add(raw, 100L);
         second.directReservations().set(member, 100L);
 
         var third = planner.solveDemands(network, cycle, demands, stock, base, Map.of(), Set.of(), ECOCancellation.NONE);
-        assertEquals(4L, third.states().getFirst().usedItems().get(raw));
+        assertEquals(4L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(third.states()).usedItems().get(raw));
         assertEquals(1L, third.directReservations().get(member));
         assertExternalSolves(1);
         assertEquals(10L, stock.get(raw));
@@ -97,11 +97,11 @@ class ExternalDemandCacheTest {
         var base = new SolveState(stock);
         var first = solve(network, cycle, 2L, stock, base);
         first.missingLeaves().clear();
-        first.states().getFirst().missing.set(raw, PlannerAmount.ZERO);
+        cn.dancingsnow.neoecoae.platform.JdkCompat.first(first.states()).missing.set(raw, PlannerAmount.ZERO);
         var second = solve(network, cycle, 2L, stock, base);
 
         assertEquals(Map.of(raw, 3L), second.missingLeaves());
-        assertEquals(3L, second.states().getFirst().missingItems().get(raw));
+        assertEquals(3L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(second.states()).missingItems().get(raw));
         assertExternalSolves(1);
     }
 
@@ -123,7 +123,7 @@ class ExternalDemandCacheTest {
         var stock = stock(10L);
         var base = new SolveState(stock);
         assertTrue(solve(network, cycle, 2L, stock, base).solved());
-        assertEquals(6L, solve(network, cycle, 3L, stock, base).states().getFirst().usedItems().get(raw));
+        assertEquals(6L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(solve(network, cycle, 3L, stock, base).states()).usedItems().get(raw));
         stock.set(raw, 1L);
         assertEquals(Map.of(raw, 3L), solve(network, cycle, 2L, stock, base).missingLeaves());
         stock.set(raw, 10L);
@@ -246,7 +246,7 @@ class ExternalDemandCacheTest {
     private static CompiledPattern pattern(AEKey output, AEKey input, long amount) {
         var details = mock(IPatternDetails.class);
         var outputs = List.of(new GenericStack(output, 1L));
-        when(details.getOutputs()).thenReturn(outputs);
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), outputs, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         return new CompiledPattern(0, details, output, PlannerAmount.ONE,

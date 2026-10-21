@@ -72,7 +72,7 @@ class ECOAe2LtDirectDispatchTest {
 
     @Test void directionalBatchesPreserveOneCopyRoutingAndStopOnFirstRejection() throws Exception {
         var f = new Fixture(false, 0, false);
-        when(((net.pedroksl.advanced_ae.common.patterns.IAdvPatternDetails) f.pattern).directionalInputsSet()).thenReturn(true);
+        when(((net.pedroksl.advanced_ae.common.patterns.AdvPatternDetails) f.pattern).directionalInputsSet()).thenReturn(true);
         assertEquals(1, Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic)).maxBatchSize(f.pattern));
         var attempts = new java.util.concurrent.atomic.AtomicInteger();
         when(f.logic.pushPattern(eq(f.pattern), any())).thenAnswer(call -> {
@@ -101,7 +101,7 @@ class ECOAe2LtDirectDispatchTest {
         final OverloadedPatternProviderLogic logic;
         final OverloadedPatternProviderBlockEntity host = mock(OverloadedPatternProviderBlockEntity.class);
         final IPatternDetails pattern = mock(IPatternDetails.class,
-                withSettings().extraInterfaces(net.pedroksl.advanced_ae.common.patterns.IAdvPatternDetails.class));
+                withSettings().extraInterfaces(net.pedroksl.advanced_ae.common.patterns.AdvPatternDetails.class));
         final KeyCounter[] inputs = {new KeyCounter()};
         final List<Integer> offers = new ArrayList<>();
         Fixture(boolean enabled, long accepted, boolean buffered) throws Exception {

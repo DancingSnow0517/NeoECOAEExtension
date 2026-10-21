@@ -69,7 +69,7 @@ class ThunderboltRuntimeContractTest {
         assertTrue(defaults.stream().noneMatch(value -> value.getClass().getName().equals(adapter)));
         var ordinary = mock(IPatternDetails.class);
         when(ordinary.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(ordinary.getOutputs()).thenReturn(List.of(new GenericStack(AEItemKey.of(Items.STONE), 1)));
+        when(ordinary.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(AEItemKey.of(Items.STONE), 1)});
         var semantics = (PatternSemantics) loader.loadClass(registry)
             .getMethod("analyze", IPatternDetails.class).invoke(null, ordinary);
         assertTrue(semantics.supported(), semantics.unsupportedReason());
@@ -108,7 +108,7 @@ class ThunderboltRuntimeContractTest {
         var output = new GenericStack(AEItemKey.of(Items.STONE), 3);
         var source = mock(IPatternDetails.class);
         when(source.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(source.getOutputs()).thenReturn(List.of(output));
+        when(source.getOutputs()).thenReturn(new GenericStack[]{output});
         var pattern = (IPatternDetails) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{IPatternDetails.class, overloadContract(), wrapperContract()},
                 (proxy, method, args) -> switch (method.getName()) {

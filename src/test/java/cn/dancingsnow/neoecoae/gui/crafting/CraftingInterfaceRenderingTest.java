@@ -6,18 +6,16 @@ import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.EnhancedPoseStack;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import com.mojang.blaze3d.vertex.PoseStack;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
@@ -50,9 +48,9 @@ class CraftingInterfaceRenderingTest {
             when(mods.getAllScanData()).thenReturn(List.of());
             modList.when(ModList::get).thenReturn(mods);
             registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
-            Class.forName("com.lowdragmc.lowdraglib2.gui.ui.UIElement");
+            Class.forName("cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement");
             Class.forName("cn.dancingsnow.neoecoae.gui.theme.NETextures");
-            AccessorRegistries.init();
+
         }
     }
 
@@ -62,23 +60,23 @@ class CraftingInterfaceRenderingTest {
         when(state.createSlot(anyInt())).thenAnswer(call -> {
             var slot = spy(new PatternItemSlot());
             // Verify the real parent's traversal without needing a running graphics context for item rendering.
-            doNothing().when(slot).drawInBackground(any(GUIContext.class));
+            doNothing().when(slot).drawInBackground(any(GuiGraphics.class),anyInt(),anyInt(),anyFloat());
             slots.add(slot);
             return slot;
         });
         var preview = CraftingInterfaceUI.patternPreview(state);
         // A running ModularUI computes inline styles before rendering each element.
-        preview.getStyleBag().compute(0);
+        cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(preview);
         var context = mock(GUIContext.class);
-        context.graphics = mock(GuiGraphics.class);
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"graphics",mock(GuiGraphics.class));
         context.elementColor = -1;
         preview.drawContents(context);
         assertEquals(63, slots.size());
         for (var slot : slots) {
-            verify(slot).drawInBackground(context);
-            slot.getStyleBag().compute(0);
+            verify(slot).drawInBackground(context.graphics,(int)context.mouseX,(int)context.mouseY,context.partialTicks);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(slot);
             assertSame(IGuiTexture.EMPTY, slot.getStyle().backgroundTexture());
-            assertSame(IGuiTexture.EMPTY, slot.getSlotStyle().slotOverlay());
+            assertSame(IGuiTexture.EMPTY, cn.dancingsnow.neoecoae.util.UiTestSupport.get(cn.dancingsnow.neoecoae.util.UiTestSupport.get(slot,"slotStyle"),"overlay"));
         }
         verify(context, times(2)).enableScissor(anyFloat(), anyFloat(), anyFloat(), anyFloat());
         verify(context, times(2)).disableScissor();
@@ -96,7 +94,7 @@ class CraftingInterfaceRenderingTest {
         fixture.click(0, false);
 
         assertEquals(1, fixture.actions.size());
-        var action = fixture.actions.getFirst();
+        var action = cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.actions);
         assertEquals(60, action.getInt("slot"));
         assertEquals(0, action.getInt("action"));
         assertEquals(0, action.getInt("button"));
@@ -120,7 +118,7 @@ class CraftingInterfaceRenderingTest {
         fixture.click(1, false);
 
         assertEquals(1, fixture.actions.size());
-        var action = fixture.actions.getFirst();
+        var action = cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.actions);
         assertEquals(3, action.getInt("slot"));
         assertEquals(1, action.getInt("button"));
         assertFalse(action.getCompound("stack").isEmpty(), "replacement must validate the selected pattern");
@@ -132,7 +130,7 @@ class CraftingInterfaceRenderingTest {
         fixture.click(0, false);
 
         assertEquals(1, fixture.actions.size());
-        assertEquals(3, fixture.actions.getFirst().getInt("slot"));
+        assertEquals(3, cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.actions).getInt("slot"));
     }
 
     @Test void leftClickOnAReadOnlyDiskRecipeInsertsWithoutTargetingTheDisk() throws Exception {
@@ -142,8 +140,8 @@ class CraftingInterfaceRenderingTest {
         fixture.click(0, false);
 
         assertEquals(1, fixture.actions.size());
-        assertEquals(1, fixture.actions.getFirst().getInt("slot"));
-        assertSame(fixture.preview, fixture.preview.getChildren().getFirst()
+        assertEquals(1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.actions).getInt("slot"));
+        assertSame(fixture.preview, cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.preview.getChildren())
                 .getFirstAncestorOfType(CraftingInterfaceUI.PatternPreview.class));
         try (var patterns = mockStatic(PatternDetailsHelper.class)) {
             patterns.when(() -> PatternDetailsHelper.isEncodedPattern(fixture.carried)).thenReturn(true);
@@ -197,10 +195,10 @@ class CraftingInterfaceRenderingTest {
                  var ui = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
                 patterns.when(() -> PatternDetailsHelper.isEncodedPattern(carried)).thenReturn(true);
                 ui.when(UIElement::isShiftDown).thenReturn(shift);
-                var event = UIEvent.create(UIEvents.MOUSE_DOWN);
-                event.target = preview.getChildren().getFirst();
+                var event = new UIEvent(UIEvents.MOUSE_DOWN,null,0,0,0);
+                event.target = cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren());
                 event.button = button;
-                UIEventDispatcher.dispatchEvent(event, true, true, false);
+                event.target.dispatchEvent(event);
                 assertTrue(event.hasHandler);
             }
         }
@@ -212,8 +210,8 @@ class CraftingInterfaceRenderingTest {
         var secondary = Component.literal("背包空间不足，仍有 1 个样板待回收");
         var lines = CraftingInterfaceUI.statusTooltipLines(network, primary, secondary);
         var tooltip = HoverTooltips.empty().append(lines.toArray(Component[]::new));
-        assertEquals(List.of(network, primary, secondary), tooltip.tooltipTexts());
-        assertTrue(tooltip.tooltipTexts().stream().noneMatch(line -> line.getString().contains("\n")));
+        assertEquals(List.of(network, primary, secondary), tooltip.tooltips());
+        assertTrue(tooltip.tooltips().stream().noneMatch(line -> line.getString().contains("\n")));
         assertEquals(List.of(network, primary), CraftingInterfaceUI.statusTooltipLines(network, primary, Component.empty()));
     }
 
@@ -221,9 +219,9 @@ class CraftingInterfaceRenderingTest {
         var state = mock(CraftingPatternPreviewState.class);
         var scrollbar = CraftingInterfaceUI.patternPreviewScrollbar(state);
         var context = mock(GUIContext.class);
-        context.graphics = mock(GuiGraphics.class);
-        context.pose = mock(EnhancedPoseStack.class);
-        context.pose = mock(EnhancedPoseStack.class);
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"graphics",mock(GuiGraphics.class));
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"pose",mock(PoseStack.class));
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"pose",mock(PoseStack.class));
 
         // Empty and single-page lists still draw AE2's disabled handle.
         scrollbar.drawBackgroundAdditional(context);
@@ -284,16 +282,15 @@ class CraftingInterfaceRenderingTest {
         var state = mock(CraftingPatternPreviewState.class);
         when(state.createSlot(anyInt())).thenAnswer(call -> new PatternItemSlot());
         var preview = CraftingInterfaceUI.patternPreview(state);
-        var slot = spy((PatternItemSlot) preview.getChildren().getFirst());
-        slot.getStyleBag().compute(0);
+        var slot = spy((PatternItemSlot) cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren()));
+        cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(slot);
         var item = new ItemStack(Items.DIAMOND);
         slot.setValue(item, false);
         doReturn(16F).when(slot).getContentWidth();
         doReturn(16F).when(slot).getContentHeight();
         var context = mock(GUIContext.class);
-        context.graphics = mock(GuiGraphics.class);
-        context.pose = mock(EnhancedPoseStack.class);
-        context.modularUI = mock(ModularUI.class);
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"graphics",mock(GuiGraphics.class));
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"pose",mock(PoseStack.class));
         context.elementColor = -1;
         var order = new ArrayList<String>();
         doAnswer(call -> { order.add("backdrop"); return null; }).when(context)

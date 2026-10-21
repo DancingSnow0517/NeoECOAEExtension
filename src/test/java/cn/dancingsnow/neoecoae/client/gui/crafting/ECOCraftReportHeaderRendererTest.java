@@ -60,7 +60,7 @@ class ECOCraftReportHeaderRendererTest {
                 assertNotNull(clip);
                 assertTrue(origin[0] + (int) call.getArgument(0) >= clip[0]);
                 assertTrue(origin[0] + (int) call.getArgument(2) <= clip[2]);
-                assertTrue(origin[1] + (int) call.getArgument(1) >= rows.getLast()[3]);
+                assertTrue(origin[1] + (int) call.getArgument(1) >= cn.dancingsnow.neoecoae.platform.JdkCompat.last(rows)[3]);
                 assertTrue(origin[1] + (int) call.getArgument(3) <= clip[3]);
                 return null;
             }).when(graphics).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
@@ -103,7 +103,7 @@ class ECOCraftReportHeaderRendererTest {
             text -> ("字节：" + argument(text)).length() * 9);
 
         assertEquals("0.54321", argument(summary.elapsed()));
-        assertEquals("0.543210", argument(summary.tooltip().getFirst()));
+        assertEquals("0.543210", argument(cn.dancingsnow.neoecoae.platform.JdkCompat.first(summary.tooltip())));
         String display = argument(summary.bytes());
         assertEquals("e123 B", display, "the mantissa is omitted when the measured row is too narrow");
         assertTrue(display.endsWith(" B"));

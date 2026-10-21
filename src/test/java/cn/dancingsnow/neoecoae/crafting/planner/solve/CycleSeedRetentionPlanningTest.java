@@ -313,7 +313,7 @@ class CycleSeedRetentionPlanningTest {
     private static CompiledPattern fastPattern(int id, AEKey output, long amount, GenericStack... inputs) {
         var details = mock(IPatternDetails.class);
         var outputs = List.of(new GenericStack(output, amount));
-        when(details.getOutputs()).thenReturn(outputs);
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), outputs, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         return new CompiledPattern(id, details, output, PlannerAmount.of(amount),

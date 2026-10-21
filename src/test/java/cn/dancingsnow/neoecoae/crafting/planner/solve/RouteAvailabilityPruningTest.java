@@ -35,11 +35,11 @@ class RouteAvailabilityPruningTest {
         }
         var goal = AEItemKey.of(Items.BRICK);
         var missing = AEItemKey.of(Items.DIAMOND);
-        index.put(goal, List.of(pattern(goal, keys.getFirst(), missing)));
+        index.put(goal, List.of(pattern(goal, cn.dancingsnow.neoecoae.platform.JdkCompat.first(keys), missing)));
         var svc = mock(ICraftingService.class);
         when(svc.getCraftingFor(any())).thenAnswer(call -> index.getOrDefault(call.getArgument(0), List.of()));
         var stock = new KeyCounter();
-        stock.add(keys.getLast(), 1);
+        stock.add(cn.dancingsnow.neoecoae.platform.JdkCompat.last(keys), 1);
         var session = new ECOCraftingPlannerService().createSession(svc, goal, stock, true);
         var field = session.getClass().getDeclaredField("planningBudget");
         field.setAccessible(true);
@@ -64,7 +64,7 @@ class RouteAvailabilityPruningTest {
             raw.add(input);
         }
         when(pattern.getInputs()).thenReturn(raw.toArray(IPatternDetails.IInput[]::new));
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 1)});
         when(pattern.getPrimaryOutput()).thenReturn(new GenericStack(output, 1));
         return pattern;
     }

@@ -48,14 +48,14 @@ class LargeWorkstationModuleInventoryTest {
             modules.when(() -> LargeWorkstationModule.isUpgradeCard(any(ItemStack.class))).thenReturn(true);
             inventory.setStackInSlot(0, new ItemStack(Items.PAPER));
         }
-        CompoundTag saved = inventory.serializeNBT(registries);
+        CompoundTag saved = inventory.serializeNBT();
         var restored = new LargeWorkstationModuleInventory(changes::incrementAndGet);
-        restored.deserializeNBT(registries, saved);
+        restored.deserializeNBT(saved);
         assertTrue(restored.getStackInSlot(0).is(Items.PAPER));
         assertEquals(1, restored.getStackInSlot(0).getCount());
-        assertEquals(saved, restored.serializeNBT(registries));
+        assertEquals(saved, restored.serializeNBT());
         assertEquals(1, changes.get(), "Loading must not republish a partly restored machine");
-        restored.deserializeNBT(registries, new CompoundTag());
+        restored.deserializeNBT(new CompoundTag());
         assertEquals(1, restored.getSlots());
         assertTrue(restored.getStackInSlot(0).isEmpty());
     }

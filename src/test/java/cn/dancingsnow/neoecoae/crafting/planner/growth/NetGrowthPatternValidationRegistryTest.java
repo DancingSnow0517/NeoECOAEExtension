@@ -72,7 +72,7 @@ class NetGrowthPatternValidationRegistryTest {
         when(slot.getMultiplier()).thenReturn(1L);
         IPatternDetails pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {slot});
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, amount)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, amount)});
         return pattern;
     }
 }

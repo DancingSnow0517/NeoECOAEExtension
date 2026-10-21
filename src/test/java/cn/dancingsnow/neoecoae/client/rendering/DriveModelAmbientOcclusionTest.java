@@ -34,9 +34,9 @@ class DriveModelAmbientOcclusionTest {
                         for (var entry : element.faces.entrySet()) {
                             Direction face = entry.getKey();
                             var actual = bakery.bakeQuad(element.from, element.to, entry.getValue(),
-                                UnitTextureAtlasSprite.INSTANCE, face, rotation, element.rotation, element.shade);
+                                UnitTextureAtlasSprite.INSTANCE, face, rotation, element.rotation, element.shade, new net.minecraft.resources.ResourceLocation("neoecoae:test_model"));
                             var canonical = bakery.bakeQuad(element.from, element.to, entry.getValue(),
-                                UnitTextureAtlasSprite.INSTANCE, face, rotation, null, element.shade);
+                                UnitTextureAtlasSprite.INSTANCE, face, rotation, null, element.shade, new net.minecraft.resources.ResourceLocation("neoecoae:test_model"));
                             for (int vertex = 0; vertex < 4; vertex++) {
                                 for (int axis = 0; axis < 3; axis++) {
                                     int offset = vertex * 8 + axis;

@@ -19,7 +19,7 @@ class AE2ProcessingCycleSemanticsTest {
         when(slot.getMultiplier()).thenReturn(1L);
         var pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {slot});
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 1)});
         var adapter = new AE2PatternSemanticAdapter();
         assertTrue(adapter.analyze(pattern).cycleSafeForStaticPlanning());
         when(slot.getRemainingKey(raw)).thenReturn(mock(AEKey.class));

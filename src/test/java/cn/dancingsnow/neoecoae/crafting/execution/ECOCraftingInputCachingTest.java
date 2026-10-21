@@ -56,7 +56,7 @@ class ECOCraftingInputCachingTest {
         var input = input(key, 2, 2);
         var pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {input});
-        when(pattern.getOutputs()).thenReturn(List.of());
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{});
         var cache = new ECOCraftingInputTemplateCache();
         var remainderCache = new ECOCraftingRemainderCache();
 
@@ -97,7 +97,7 @@ class ECOCraftingInputCachingTest {
         inventory.extract(key, 7L, Actionable.MODULATE);
         assertSame(candidates, cache.get(inventory, input));
         var preview = new ECOCraftingInputPreview(inventory, cache);
-        assertEquals(1L, preview.extractTemplates(candidates.getFirst(), 10L));
+        assertEquals(1L, preview.extractTemplates(cn.dancingsnow.neoecoae.platform.JdkCompat.first(candidates), 10L));
         inventory.insert(key, 4L, Actionable.MODULATE);
         assertSame(candidates, cache.get(inventory, input));
     }
@@ -125,7 +125,7 @@ class ECOCraftingInputCachingTest {
         var input = input(key, 1, 1);
         inventory.insert(key, 1001L, Actionable.MODULATE);
         for (int i = 0; i < 1000; i++) {
-            var candidate = cache.get(inventory, input).getFirst();
+            var candidate = cn.dancingsnow.neoecoae.platform.JdkCompat.first(cache.get(inventory, input));
             assertEquals(1L, new ECOCraftingInputPreview(inventory, cache).extractTemplates(candidate, 1L));
             inventory.extract(key, 1L, Actionable.MODULATE);
         }

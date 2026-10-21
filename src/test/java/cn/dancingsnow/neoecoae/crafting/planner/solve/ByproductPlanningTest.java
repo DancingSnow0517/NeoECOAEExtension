@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -97,21 +96,21 @@ class ByproductPlanningTest {
         var service = indexedService(false, pattern);
         var network = new CraftingNetworkCompiler().compile(service, ingot, ECOCancellation.NONE);
         assertEquals(PlannerAmount.of(Long.MAX_VALUE).multiply(2L),
-            network.producersOf(ingot).getFirst().outputPerPattern());
+            cn.dancingsnow.neoecoae.platform.JdkCompat.first(network.producersOf(ingot)).outputPerPattern());
         assertSuccessful(plan(service, ingot, Long.MAX_VALUE / 2, 1), Map.of(pattern, 1L), 1);
     }
 
     @Test
     void primaryOutputDoesNotHaveToBeTheFirstStack() throws Exception {
         var pattern = pattern(List.of(stack(ore, 1)), stack(ingot, 2), stack(slag, 1));
-        when(pattern.getOutputs()).thenReturn(List.of(stack(slag, 1), stack(ingot, 2)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{stack(slag, 1), stack(ingot, 2)});
         assertSuccessful(plan(indexedService(false, pattern), ingot, 3, 2), Map.of(pattern, 2L), 2);
     }
 
     @Test
     void componentInsensitiveByproductStacksAreSummedAndCredited() throws Exception {
         ItemStack namedGravel = new ItemStack(Items.GRAVEL);
-        namedGravel.set(DataComponents.CUSTOM_NAME, Component.literal("byproduct"));
+        namedGravel.setHoverName(Component.literal("byproduct"));
         AEKey namedSlag = AEItemKey.of(namedGravel);
         var upstream = pattern(List.of(stack(ore, 1)), stack(ingot, 1),
             stack(namedSlag, 2), stack(slag, 1), stack(namedSlag, 1));
@@ -126,13 +125,13 @@ class ByproductPlanningTest {
                 Set.of(BuiltInRegistries.ITEM.getKey(Items.GRAVEL)))
             .plan(7, false, ECOCancellation.NONE);
         assertSuccessful(result, Map.of(upstream, 2L, downstream, 7L), 2);
-        assertEquals(namedSlag, upstream.getOutputs().get(1).what());
+        assertEquals(namedSlag, upstream.getOutputs()[1].what());
     }
 
     @Test
     void componentInsensitivePlanningCannotOverrideThePhysicalInputPredicate() throws Exception {
         ItemStack namedGravel = new ItemStack(Items.GRAVEL);
-        namedGravel.set(DataComponents.CUSTOM_NAME, Component.literal("rejected by exact recipe"));
+        namedGravel.setHoverName(Component.literal("rejected by exact recipe"));
         AEKey namedSlag = AEItemKey.of(namedGravel);
         var upstream = pattern(List.of(stack(ore, 1)), stack(ingot, 1), stack(namedSlag, 4));
         var downstream = pattern(List.of(stack(slag, 1)), stack(brick, 1));
@@ -184,7 +183,7 @@ class ByproductPlanningTest {
             return input;
         }).toArray(IPatternDetails.IInput[]::new);
         when(details.getInputs()).thenReturn(rawInputs);
-        when(details.getOutputs()).thenReturn(List.of(outputs));
+        when(details.getOutputs()).thenReturn(outputs);
         when(details.getPrimaryOutput()).thenReturn(outputs[0]);
         return details;
     }
@@ -193,7 +192,7 @@ class ByproductPlanningTest {
     private static ICraftingService indexedService(boolean indexByproducts, IPatternDetails... patterns) {
         var index = new LinkedHashMap<AEKey, List<IPatternDetails>>();
         for (var pattern : patterns) {
-            var outputs = indexByproducts ? pattern.getOutputs() : List.of(pattern.getPrimaryOutput());
+            var outputs = indexByproducts ? java.util.Arrays.asList(pattern.getOutputs()) : List.of(pattern.getPrimaryOutput());
             for (var output : outputs) {
                 var candidates = index.computeIfAbsent(output.what(), ignored -> new ArrayList<>());
                 if (!candidates.contains(pattern)) candidates.add(pattern);

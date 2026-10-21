@@ -41,7 +41,7 @@ class StoredInputSnapshotTest {
             null, PlannerAmount.ZERO, true);
         var details = mock(IPatternDetails.class);
         var outputs = List.of(new GenericStack(goal, 1L));
-        when(details.getOutputs()).thenReturn(outputs);
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), outputs, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         var analysis = special ? new SpecialPatternAnalysis(List.of(new SpecialPatternAnalysis.Requirement(

@@ -143,15 +143,15 @@ class ECOPatternSemanticsRegistryTest {
         BigInteger amount = BigInteger.ONE.shiftLeft(90);
         List<ECOPatternSemantics.Input> inputs = new ArrayList<>();
         inputs.add(new ECOPatternSemantics.Input(source, key, amount, null, BigInteger.ZERO));
-        List<GenericStack> outputs = new ArrayList<>(pattern.getOutputs());
+        List<GenericStack> outputs = new ArrayList<>(java.util.Arrays.asList(pattern.getOutputs()));
         ECOPatternSemantics semantics = new ECOPatternSemantics(pattern, null, inputs, outputs, List.of(), List.of(),
             ECOPatternSemantics.MatchingMode.EXACT, ECOPatternSemantics.ExecutionRestriction.NONE, true, true, null);
         inputs.clear();
         outputs.clear();
         register("amount", 0, adapter((ignored, base) -> semantics));
         var internal = PatternSemanticAdapters.analyze(pattern);
-        assertEquals(amount, internal.consumedInputs().getFirst().amountPerPattern().toBigInteger());
-        assertSame(source, internal.consumedInputs().getFirst().source());
+        assertEquals(amount, cn.dancingsnow.neoecoae.platform.JdkCompat.first(internal.consumedInputs()).amountPerPattern().toBigInteger());
+        assertSame(source, cn.dancingsnow.neoecoae.platform.JdkCompat.first(internal.consumedInputs()).source());
         assertEquals(1, internal.producedOutputs().size());
         assertThrows(UnsupportedOperationException.class, semantics.consumedInputs()::clear);
         assertThrows(UnsupportedOperationException.class, internal.consumedInputs()::clear);
@@ -210,7 +210,7 @@ class ECOPatternSemanticsRegistryTest {
     private static IPatternDetails ordinaryPattern() {
         IPatternDetails pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(mock(AEKey.class), 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(mock(AEKey.class), 1)});
         return pattern;
     }
 }

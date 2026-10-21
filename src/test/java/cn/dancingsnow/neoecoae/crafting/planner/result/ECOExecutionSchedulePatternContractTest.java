@@ -21,7 +21,7 @@ class ECOExecutionSchedulePatternContractTest {
         var pattern = mock(IPatternDetails.class);
         var output = new GenericStack(key, 1);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of(output));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{output});
         when(pattern.getPrimaryOutput()).thenReturn(output);
         var components = List.of(new ComponentPlanningResult(0, ComponentPlanningResult.Type.ACYCLIC,
             ComponentPlanningResult.Status.PLANNED, Map.of(key, 1L), Set.of(pattern), null, null,

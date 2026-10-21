@@ -83,7 +83,7 @@ class LargeWorkstationPatternScalingTest {
             assertTrue(controller.acceptPatternBatch(pattern, holders, 3, job));
         }
         for (var holder : holders) assertTrue(holder.isEmpty(), "Accepted inputs belong to the controller");
-        var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
+        var batch = cn.dancingsnow.neoecoae.platform.JdkCompat.first(((Deque<?>) value(controller, "pendingBatches")));
         assertEquals(3L, value(batch, "craftCount"));
         assertEquals(200L, value(batch, "energyPerCraft"));
         assertEquals(job, value(batch, "craftingJobId"));
@@ -132,7 +132,7 @@ class LargeWorkstationPatternScalingTest {
             recipes.when(() -> LargeWorkstationRecipes.getAvailable(controller.getLevel(), LargeWorkstationModule.REGULAR)).thenReturn(List.of(base, exact));
             assertTrue(controller.acceptPatternBatch(pattern(8, 4), holders, 1, null));
         }
-        var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
+        var batch = cn.dancingsnow.neoecoae.platform.JdkCompat.first(((Deque<?>) value(controller, "pendingBatches")));
         assertEquals(150L, value(batch, "energyPerCraft"));
         assertEquals(exact.id(), value(batch, "recipeId"));
     }
@@ -163,7 +163,7 @@ class LargeWorkstationPatternScalingTest {
         when(input.getMultiplier()).thenReturn(inputAmount);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{input});
         var output = new GenericStack(AEItemKey.of(Items.DIAMOND), outputAmount);
-        when(pattern.getOutputs()).thenReturn(List.of(output));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{output});
         when(pattern.getPrimaryOutput()).thenReturn(output);
         return pattern;
     }

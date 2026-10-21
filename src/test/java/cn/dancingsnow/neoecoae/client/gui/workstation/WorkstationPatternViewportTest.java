@@ -35,7 +35,7 @@ class WorkstationPatternViewportTest {
     @Test
     void partiallyVisibleSlotsOnlyAcceptPointerHitsInsideTheClippedViewport() throws Exception {
         var fixture = fixture(9.5);
-        Slot first = fixture.slots.getFirst();
+        Slot first = cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.slots);
         Slot entering = fixture.slots.get(45);
         assertTrue(first.isActive());
         assertTrue(entering.isActive());
@@ -78,7 +78,7 @@ class WorkstationPatternViewportTest {
         GuiGraphics graphics = mock(GuiGraphics.class);
         PoseStack pose = new PoseStack();
         when(graphics.pose()).thenReturn(pose);
-        fixture.screen.renderSlot(graphics, fixture.slots.getFirst());
+        fixture.screen.renderSlot(graphics, cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.slots));
         verify(graphics).enableScissor(108, 73, 268, 161);
         verify(graphics).disableScissor();
         assertEquals(0, pose.last().pose().m31());

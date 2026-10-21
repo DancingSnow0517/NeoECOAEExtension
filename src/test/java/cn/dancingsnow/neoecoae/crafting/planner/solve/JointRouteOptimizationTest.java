@@ -71,8 +71,8 @@ class JointRouteOptimizationTest {
         result.provenance().requireComplete();
         assertNull(result.executionPlanError());
         var phases = result.executionPlan().schedule().phases();
-        assertEquals(Set.of(joint), phases.getFirst().patternSet());
-        assertEquals(Set.of(finish), phases.getLast().patternSet());
+        assertEquals(Set.of(joint), cn.dancingsnow.neoecoae.platform.JdkCompat.first(phases).patternSet());
+        assertEquals(Set.of(finish), cn.dancingsnow.neoecoae.platform.JdkCompat.last(phases).patternSet());
     }
 
     @Test void integerFiringsDoNotRoundFractionalStockIntoAPlan() throws Exception {
@@ -164,14 +164,14 @@ class JointRouteOptimizationTest {
             return input;
         }).toArray(IPatternDetails.IInput[]::new);
         when(pattern.getInputs()).thenReturn(raw);
-        when(pattern.getOutputs()).thenReturn(List.of(outputs));
+        when(pattern.getOutputs()).thenReturn(outputs);
         when(pattern.getPrimaryOutput()).thenReturn(outputs[0]);
         return pattern;
     }
 
     private static ICraftingService service(boolean byproducts, IPatternDetails... patterns) {
         Map<AEKey, List<IPatternDetails>> index = new LinkedHashMap<>();
-        for (var pattern : patterns) for (var output : byproducts ? pattern.getOutputs() : List.of(pattern.getPrimaryOutput())) {
+        for (var pattern : patterns) for (var output : byproducts ? java.util.Arrays.asList(pattern.getOutputs()) : List.of(pattern.getPrimaryOutput())) {
             var list = index.computeIfAbsent(output.what(), ignored -> new ArrayList<>());
             if (!list.contains(pattern)) list.add(pattern);
         }

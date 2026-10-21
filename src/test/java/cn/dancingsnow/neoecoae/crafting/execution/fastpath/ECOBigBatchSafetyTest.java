@@ -15,7 +15,7 @@ class ECOBigBatchSafetyTest {
         assertEquals(Long.MAX_VALUE / 2, ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
             List.of(new GenericStack(key, 1)), List.of(new GenericStack(key, 2)), List.of()));
         long count = (1L << 42) + 1;
-        assertEquals(count, ECOBatchCraftingHelper.multiply(List.of(new GenericStack(key, 1)), count).getFirst().amount());
+        assertEquals(count, cn.dancingsnow.neoecoae.platform.JdkCompat.first(ECOBatchCraftingHelper.multiply(List.of(new GenericStack(key, 1)), count)).amount());
     }
     @Test void duplicateEntriesAreAggregatedBeforeComputingTheLimit() {
         var same = List.of(new GenericStack(key, 1), new GenericStack(key, 1));

@@ -51,7 +51,7 @@ class ActiveRouteSelectorTest {
         IPatternDetails details = mock(IPatternDetails.class);
         GenericStack product = new GenericStack(output, 1L);
         when(details.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(details.getOutputs()).thenReturn(List.of(product));
+        when(details.getOutputs()).thenReturn(new GenericStack[]{product});
         List<CompiledInput> inputs = input == null
             ? List.of() : List.of(new CompiledInput(null, input, 1L, true, null));
         List<PatternSemantics.Input> consumed = input == null

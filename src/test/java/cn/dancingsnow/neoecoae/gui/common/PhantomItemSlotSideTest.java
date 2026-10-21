@@ -5,10 +5,9 @@ import cn.dancingsnow.neoecoae.gui.computation.ComputationInterfaceUI;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.lowdragmc.lowdraglib2.LDLib2;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
+import com.lowdragmc.lowdraglib.LDLib;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.resources.ResourceLocation;
@@ -33,7 +32,7 @@ class PhantomItemSlotSideTest {
             mods.when(ModList::get).thenReturn(modList);
             registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
             Class.forName(ItemSlot.class.getName());
-            AccessorRegistries.init();
+
         }
     }
 
@@ -47,37 +46,23 @@ class PhantomItemSlotSideTest {
         if (level != null) {
             when(level.isClientSide()).thenReturn(client);
         }
-        try (var ldlib = mockStatic(LDLib2.class);
-             var jei = mockStatic(ItemSlot.JEISupport.class);
-             var emi = mockStatic(ItemSlot.EMISupport.class)) {
-            ldlib.when(LDLib2::isClient).thenReturn(client || side.equals("integrated"));
-            ldlib.when(LDLib2::isServer).thenReturn(!client);
-            ldlib.when(LDLib2::isRemote).thenReturn(client);
-            ldlib.when(() -> LDLib2.id(anyString())).thenAnswer(invocation ->
-                new ResourceLocation("ldlib2", invocation.getArgument(0)));
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isClient).thenReturn(client || side.equals("integrated"));
+            ldlib.when(LDLib::isServer).thenReturn(!client);
+            ldlib.when(LDLib::isRemote).thenReturn(client);
             // Recipe-viewer mods can be present on a dedicated server too.
-            ldlib.when(LDLib2::isJeiLoaded).thenReturn(true);
-            ldlib.when(LDLib2::isEmiLoaded).thenReturn(true);
-            if (!client) {
-                emi.when(() -> ItemSlot.EMISupport.renderDragHandler(any())).thenThrow(
-                    new NoClassDefFoundError("net/minecraft/client/gui/components/Renderable"));
-            }
-
+            ldlib.when(LDLib::isJeiLoaded).thenReturn(true);
+            ldlib.when(LDLib::isEmiLoaded).thenReturn(true);
             UIElement grid = assertDoesNotThrow(() -> createGrid(level));
             List<ItemSlot> slots = new ArrayList<>();
             collectSlots(grid, slots);
             assertEquals(63, slots.size());
             for (ItemSlot slot : slots) {
                 assertNotNull(slot.getSlot());
-                if (client) {
-                    jei.verify(() -> ItemSlot.JEISupport.ghostIngredient(slot));
-                    emi.verify(() -> ItemSlot.EMISupport.renderDragHandler(slot));
-                    emi.verify(() -> ItemSlot.EMISupport.dropStackHandler(slot));
-                }
-            }
-            if (!client) {
-                jei.verifyNoInteractions();
-                emi.verifyNoInteractions();
+                var ingredient=new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND,7);
+                var targets=((com.lowdragmc.lowdraglib.gui.ingredient.IGhostIngredientTarget)slot.widgets.get(0)).getPhantomTargets(ingredient);
+                assertEquals(client?1:0,targets.size());
+                if(client){targets.get(0).accept(ingredient);assertEquals(7,ingredient.getCount());assertEquals(7,slot.getValue().getCount());}
             }
         }
     }

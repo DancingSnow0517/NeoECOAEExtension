@@ -74,7 +74,7 @@ class CpuFormattingOwnershipTest {
             } else {
                 assertSame(existing, result);
                 assertEquals(1, tooltipCalls.size());
-                assertArrayEquals(new Object[] {cpu.storage()}, tooltipCalls.getFirst());
+                assertArrayEquals(new Object[] {cpu.storage()}, cn.dancingsnow.neoecoae.platform.JdkCompat.first(tooltipCalls));
             }
         }
     }
@@ -90,7 +90,7 @@ class CpuFormattingOwnershipTest {
         // Ensure reading a foreign CPU also clears stale ECO state.
         receiver.neoecoae$setEcoCpu(!eco);
         var cpu = entry();
-        var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        var buf = new FriendlyByteBuf(Unpooled.buffer());
         try (var overlays = mockStatic(IOverlayTextureHolder.class);
              var ownership = mockStatic(ECOCraftingCpuListEntry.class)) {
             overlays.when(() -> IOverlayTextureHolder.of(cpu)).thenReturn(receiver);
@@ -141,8 +141,8 @@ class CpuFormattingOwnershipTest {
         format.setAccessible(true);
         assertSame(existing, format.invoke(screen, GuiText.ConfirmCraftCpuStatus, arguments, original));
         assertEquals(1, calls.size());
-        assertSame(GuiText.ConfirmCraftCpuStatus, calls.getFirst()[0]);
-        Object[] actual = (Object[]) calls.getFirst()[1];
+        assertSame(GuiText.ConfirmCraftCpuStatus, cn.dancingsnow.neoecoae.platform.JdkCompat.first(calls)[0]);
+        Object[] actual = (Object[]) cn.dancingsnow.neoecoae.platform.JdkCompat.first(calls)[1];
         if (eco) {
             assertEquals("8 EB", ((Component) actual[0]).getString());
             assertEquals("1.5M", ((Component) actual[1]).getString());

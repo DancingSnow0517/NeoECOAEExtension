@@ -1,0 +1,34 @@
+{
+  "rule": "Only addon-exclusive tests for explicitly excluded production features are retired; retained business assertions remain active. No Gradle source exclusions or test skips are added.",
+  "retired_files": [
+    {
+      "source": "src/test/java/cn/dancingsnow/neoecoae/compat/fluxnetworks/FluxNetworkDemandTest.java",
+      "archive": "porting/retired-tests/cn/dancingsnow/neoecoae/compat/fluxnetworks/FluxNetworkDemandTest.java",
+      "source_commit": "b1285b2",
+      "sha256": "1d22b9e1ea7aaae5520642d4f59cc24574a237bdac3243f9e5b8407ded7a82f0",
+      "reason": "Flux Networks integration was explicitly removed from the approved addon scope."
+    },
+    {
+      "source": "src/test/java/cn/dancingsnow/neoecoae/crafting/execution/ECOOmniSequenceDispatchIntegrationTest.java",
+      "archive": "porting/retired-tests/cn/dancingsnow/neoecoae/crafting/execution/ECOOmniSequenceDispatchIntegrationTest.java",
+      "source_commit": "b1285b2",
+      "sha256": "fe3f679fc4f211641abb9af874b5e9109deddd74040780ccf0e270246d04e507",
+      "reason": "OmniSequence integration was explicitly removed from the approved addon scope."
+    }
+  ],
+  "retired_methods": [
+    {
+      "source": "src/test/java/cn/dancingsnow/neoecoae/crafting/execution/ECOProcessingDispatchIntegrationTest.java",
+      "archive": "porting/retired-tests/crafting/execution/ECOProcessingDispatchIntegrationTest.mek-only.java.txt",
+      "methods": [
+        "mekSmartQueueTakesWholeBatchBeforeThunderboltAndAccountsOnce",
+        "mekQueueRejectionRefundsEntireBatchWithoutOrdinaryReplay",
+        "mekQueueFailureRetainsOwnershipAndSuspendsJob",
+        "mekDisabledSmartQueueDispatchesOnlyOneCopy",
+        "mekInactiveOrBusyOrUnregisteredMachineDoesNotTakeInputs"
+      ],
+      "reason": "Mek-Energistics dispatch implementation and its external owner API were explicitly removed from the approved addon scope. Remaining generic dispatch and AdvancedAE tests stay active.",
+      "archive_sha256": "b80b8675553daca75032cc0d45b71d64bafb3dd9a2d2fe185bb6e59dd9c89cab"
+    }
+  ]
+}

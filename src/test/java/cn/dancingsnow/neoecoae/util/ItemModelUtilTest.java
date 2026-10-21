@@ -25,7 +25,7 @@ class ItemModelUtilTest {
                 "neoecoae:item/eco_cells/cell_status_light",
                 "neoecoae:item/eco_cells/ae2omnicells/quantum_omni_cell_layer"
             ), generatedTextures(provider -> ItemModelUtil.compatCellModel(
-                "ae2omnicells", "quantum_omni_cell_housing", tier.getFirst(), "quantum_omni_cell_layer")
+                "ae2omnicells", "quantum_omni_cell_housing", cn.dancingsnow.neoecoae.platform.JdkCompat.first(tier), "quantum_omni_cell_layer")
                 .accept(context(), provider)));
         }
         assertEquals(List.of(

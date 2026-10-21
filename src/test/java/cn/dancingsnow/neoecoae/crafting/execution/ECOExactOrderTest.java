@@ -126,7 +126,7 @@ class ECOExactOrderTest {
                     new ECOExecutionPlan.PhaseSpec(0, 0, ECOExecutionSchedule.Type.DAG, List.of(0), List.of(), List.of())),
                 new ECOExecutionSchedule(List.of()));
             var job = new ExecutingCraftingJob(plan, execution, ignored -> {}, mock(CraftingLink.class), null);
-            var candidate = job.executionRuntime.candidates().getFirst();
+            var candidate = cn.dancingsnow.neoecoae.platform.JdkCompat.first(job.executionRuntime.candidates());
             var request = new ECOCraftingDispatchRequest(job, candidate, pattern, new KeyCounter[]{inputs},
                 outputs, new KeyCounter(), Long.MAX_VALUE, inventory, null);
             when(provider.eco$prepareExactFastPath(any(), eq(HUGE))).thenReturn(
@@ -247,7 +247,7 @@ class ECOExactOrderTest {
         var definition = mock(AEItemKey.class);
         when(pattern.getDefinition()).thenReturn(definition);
         var registries = mock(HolderLookup.Provider.class);
-        when(definition.toTag(registries)).thenAnswer(i -> new CompoundTag());
+        when(definition.toTag()).thenAnswer(i -> new CompoundTag());
         var result = result(key, Map.of(pattern, PlannerAmount.of(HUGE)));
         result.setExactMaterials(Map.of(key, PlannerAmount.of(HUGE)), Map.of(), Map.of());
         var cpu = mock(ECOCraftingCPU.class);
@@ -256,15 +256,15 @@ class ECOExactOrderTest {
              var definitions = mockStatic(AEItemKey.class);
              var patterns = mockStatic(appeng.api.crafting.PatternDetailsHelper.class);
              var stacks = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
-            definitions.when(() -> AEItemKey.fromTag(eq(registries), any())).thenReturn(definition);
+            definitions.when(() -> AEItemKey.fromTag(any())).thenReturn(definition);
             patterns.when(() -> appeng.api.crafting.PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(pattern);
-            stacks.when(() -> GenericStack.writeTag(eq(registries), any())).thenReturn(new CompoundTag());
-            stacks.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(key, 10));
+            stacks.when(() -> GenericStack.writeTag(any())).thenReturn(new CompoundTag());
+            stacks.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(key, 10));
             var link = new CraftingLink(CraftingCpuHelper.generateLinkData(UUID.randomUUID(), true, false), cpu);
             var plan = new ECOExactCraftingPlan(result, false);
             var job = new ExecutingCraftingJob(plan, ignored -> {}, link, null);
             job.tasks.get(pattern).accept(37);
-            var restored = new ExecutingCraftingJob(job.writeToNBT(registries), registries, ignored -> {}, logic);
+            var restored = new ExecutingCraftingJob(job.writeToNBT(), ignored -> {}, logic);
             assertTrue(restored.exactOrder);
             assertEquals(HUGE.subtract(BigInteger.valueOf(37)), restored.tasks.get(pattern).remainingExact());
             assertEquals(HUGE.subtract(BigInteger.valueOf(Long.MAX_VALUE)), restored.deferredStock.get(key));
@@ -279,7 +279,7 @@ class ECOExactOrderTest {
     private static IPatternDetails pattern(AEKey output) {
         var pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 1)});
         return pattern;
     }
     private static ECOPlanningResult result(AEKey key, Map<IPatternDetails, PlannerAmount> counts) {

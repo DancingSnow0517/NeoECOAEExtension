@@ -1,10 +1,8 @@
 package cn.dancingsnow.neoecoae.grid;
 
 import appeng.api.crafting.PatternDetailsHelper;
-import appeng.api.ids.AEComponents;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
-import appeng.crafting.pattern.EncodedCraftingPattern;
 import appeng.helpers.patternprovider.PatternContainer;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayList;
@@ -49,8 +47,7 @@ class PatternCatalogScanTest {
         when(grid.getMachineClasses()).thenReturn(List.of(GenericContainer.class));
         when(grid.getActiveMachines(GenericContainer.class)).thenReturn(Set.of(source));
         ItemStack pattern = new ItemStack(Items.STONE);
-        pattern.set(AEComponents.ENCODED_CRAFTING_PATTERN, new EncodedCraftingPattern(List.of(),
-                new ItemStack(Items.DIAMOND), new ResourceLocation("test"), false, false));
+        pattern.getOrCreateTag().putString("recipe", "test:discovery");
         when(source.getTerminalPatternInventory().getStackInSlot(19)).thenAnswer(call -> { reads.add("source:19"); return pattern; });
         // Discovery accepts integration-defined encoded items; no mod registry is installed in this JVM test.
         try (var patterns = mockStatic(PatternDetailsHelper.class)) {
@@ -66,7 +63,7 @@ class PatternCatalogScanTest {
             for (int i = 0; i < 100; i++) catalog.onServerEndTick();
             reads.clear();
             finish(catalog, grid);
-            assertEquals("source:19", reads.getFirst());
+            assertEquals("source:19", cn.dancingsnow.neoecoae.platform.JdkCompat.first(reads));
             assertEquals(20, reads.size());
             assertEquals(20, catalog.getExternalPatternIndex(grid).scannedSlots());
         }

@@ -9,14 +9,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.util.Unit;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.BeforeAll;
@@ -31,23 +29,23 @@ class StorageCellUiExtractionTest {
     void diskWithRuntimeOnlyComponentsCanBeTakenAfterDisplaySerialization() {
         Fixture f = new Fixture();
         // Display snapshots use persistent NBT, which omits network-only components.
-        f.cell.get().set(DataComponents.CREATIVE_SLOT_LOCK, Unit.INSTANCE);
+        f.cell.get().getOrCreateTag().putBoolean("custom-lock-marker",true);
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        ItemStack displayed = ItemStack.parse(registries, f.cell.get().save(registries)).orElseThrow();
+        ItemStack displayed = ItemStack.of(f.cell.get().save(new net.minecraft.nbt.CompoundTag()));
         assertFalse(ItemStack.matches(displayed, f.cell.get()));
         assertTrue(f.take(f.interactionId.get(), false));
-        assertTrue(f.carried.get().has(DataComponents.CREATIVE_SLOT_LOCK));
+        assertTrue(f.carried.get().getOrCreateTag().getBoolean("custom-lock-marker"));
     }
 
     @Test
     void contentsUpdatedSinceDisplaySnapshotDoNotPreventTakingTheSameDisk() {
         Fixture f = new Fixture();
         UUID displayedId = f.interactionId.get();
-        var data = f.cell.get().get(DataComponents.CUSTOM_DATA).copyTag();
+        var data = f.cell.get().getOrCreateTag().copy();
         data.putLong("stored-amount", 42);
-        f.cell.get().set(DataComponents.CUSTOM_DATA, CustomData.of(data));
+        f.cell.get().setTag(data.copy());
         assertTrue(f.take(displayedId, false));
-        assertEquals(42, f.carried.get().get(DataComponents.CUSTOM_DATA).copyTag().getLong("stored-amount"));
+        assertEquals(42, f.carried.get().getOrCreateTag().copy().getLong("stored-amount"));
     }
 
     @Test
@@ -56,13 +54,13 @@ class StorageCellUiExtractionTest {
         UUID expected = f.interactionId.get();
         // Unmount can persist new components; the returned item must retain them.
         doAnswer(call -> {
-            f.cell.get().set(DataComponents.CUSTOM_NAME, Component.literal("Persisted disk"));
+            f.cell.get().setHoverName(Component.literal("Persisted disk"));
             f.cell.set(null);
             return null;
         }).when(f.drive).setCellStack(null);
         assertTrue(f.take(expected, false));
-        assertEquals(Component.literal("Persisted disk"), f.carried.get().get(DataComponents.CUSTOM_NAME));
-        assertTrue(f.carried.get().get(DataComponents.CUSTOM_DATA).copyTag().contains("neoecoae_infinite_member"));
+        assertEquals(Component.literal("Persisted disk"), f.carried.get().getHoverName());
+        assertTrue(f.carried.get().getOrCreateTag().copy().contains("neoecoae_infinite_member"));
         assertNull(f.cell.get());
         assertFalse(f.take(expected, false));
         verify(f.drive, times(1)).setCellStack(null);

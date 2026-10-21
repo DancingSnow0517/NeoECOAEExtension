@@ -32,7 +32,7 @@ class ECOExactMaterialTableRendererTest {
         var rows = ECOExactMaterialTableRenderer.sortMaterials(snapshot.nodes());
         var storedRow = rows.stream().filter(row -> row.key().equals(variant)).findFirst().orElseThrow();
         assertEquals(java.math.BigInteger.valueOf(3), storedRow.fromInventoryBigInteger());
-        assertEquals(java.math.BigInteger.ONE, rows.getFirst().missingBigInteger());
+        assertEquals(java.math.BigInteger.ONE, cn.dancingsnow.neoecoae.platform.JdkCompat.first(rows).missingBigInteger());
         var renderer = mock(ECOExactMaterialTableRenderer.class, CALLS_REAL_METHODS);
         assertEquals(List.of(appeng.core.localization.GuiText.FromStorage.text("3")),
             renderer.getEntryDescription(storedRow));
@@ -50,7 +50,7 @@ class ECOExactMaterialTableRendererTest {
         predicate.setAccessible(true);
         predicate.set(renderer, (java.util.function.Predicate<AEKey>) candidate -> candidate.equals(key));
         var description = renderer.getEntryDescription(node);
-        var contents = (net.minecraft.network.chat.contents.TranslatableContents) description.getFirst().getContents();
+        var contents = (net.minecraft.network.chat.contents.TranslatableContents) cn.dancingsnow.neoecoae.platform.JdkCompat.first(description).getContents();
         assertEquals("gui.neoecoae.crafting_report.seed_shortfall_estimate", contents.getKey());
         assertArrayEquals(new Object[] {"1"}, contents.getArgs());
         try (var rendering = mockStatic(AEKeyRendering.class)) {
@@ -98,7 +98,7 @@ class ECOExactMaterialTableRendererTest {
         var renderer = mock(ECOExactMaterialTableRenderer.class, CALLS_REAL_METHODS);
         var lines = renderer.getEntryDescription(node);
         assertEquals(1, lines.size());
-        var contents = (net.minecraft.network.chat.contents.TranslatableContents) lines.getFirst().getContents();
+        var contents = (net.minecraft.network.chat.contents.TranslatableContents) cn.dancingsnow.neoecoae.platform.JdkCompat.first(lines).getContents();
         assertEquals("gui.neoecoae.crafting_report.quantity_unknown", contents.getKey());
         verify(key, never()).formatAmount(anyLong(), any());
     }

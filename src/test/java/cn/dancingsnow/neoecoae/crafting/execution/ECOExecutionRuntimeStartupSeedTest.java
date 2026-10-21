@@ -97,14 +97,14 @@ class ECOExecutionRuntimeStartupSeedTest {
         var runtime = new ECOExecutionRuntime(plan, Map.of(0, consumer, 1, producer), progress);
 
         var candidates = runtime.candidates();
-        assertEquals(0, candidates.getFirst().taskId(), "fixture must put the consumer first");
-        assertEquals(Map.of(seed, 1L), runtime.protectedStartupSeed(candidates.getFirst()));
+        assertEquals(0, cn.dancingsnow.neoecoae.platform.JdkCompat.first(candidates).taskId(), "fixture must put the consumer first");
+        assertEquals(Map.of(seed, 1L), runtime.protectedStartupSeed(cn.dancingsnow.neoecoae.platform.JdkCompat.first(candidates)));
         assertEquals(Map.of(), runtime.protectedStartupSeed(candidates.get(1)));
 
         var inventory = new ListCraftingInventory(ignored -> {});
         inventory.insert(seed, 1L, Actionable.MODULATE);
         var blocked = new ECOCraftingInputPreview(inventory, consumer,
-            runtime.protectedStartupSeed(candidates.getFirst()), new ECOCraftingRemainderCache());
+            runtime.protectedStartupSeed(cn.dancingsnow.neoecoae.platform.JdkCompat.first(candidates)), new ECOCraftingRemainderCache());
         assertNull(ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(consumer, blocked, null,
             new KeyCounter(), new KeyCounter(), new ECOCraftingRemainderCache()));
     }
@@ -146,7 +146,7 @@ class ECOExecutionRuntimeStartupSeedTest {
     private static IPatternDetails pattern(AEKey output) {
         var pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 1)});
         return pattern;
     }
 
@@ -157,7 +157,7 @@ class ECOExecutionRuntimeStartupSeedTest {
         when(input.getMultiplier()).thenReturn(1L);
         when(input.isValid(any(), any())).thenReturn(true);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {input});
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(outputKey, outputAmount)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(outputKey, outputAmount)});
         return pattern;
     }
 }

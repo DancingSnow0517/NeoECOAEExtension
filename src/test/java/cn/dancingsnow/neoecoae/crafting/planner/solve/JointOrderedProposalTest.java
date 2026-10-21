@@ -41,7 +41,7 @@ class JointOrderedProposalTest {
         assertNotNull(result);
         assertEquals(PlanningStatus.SUCCESS,result.status());
         assertEquals(1_000_000_000_000L,result.state().patternTimes().get(grow.details()));
-        assertTrue(result.components().getFirst().cycleResult().executionPlan().size()<10);
+        assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.components()).cycleResult().executionPlan().size()<10);
     }
 
     @Test void dominanceCannotReplaceAnAdvertisedViewWithAnUnadvertisedCoproduct() throws Exception {
@@ -72,7 +72,7 @@ class JointOrderedProposalTest {
         Map<AEKey,List<CompiledPattern>> index=new LinkedHashMap<>();
         for(var pattern:patterns){
             for(var input:pattern.inputs()) index.putIfAbsent(input.key(),new ArrayList<>());
-            var advertised=allOutputs?pattern.outputs():List.of(pattern.outputs().getFirst());
+            var advertised=allOutputs?pattern.outputs():List.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(pattern.outputs()));
             for(var output:advertised) index.computeIfAbsent(output.what(),ignored->new ArrayList<>()).add(
                 new CompiledPattern(pattern.id(),pattern.details(),output.what(),PlannerAmount.of(output.amount()),
                     pattern.inputs(),pattern.outputs(),true,null,false,pattern.semantics()));
@@ -104,13 +104,13 @@ class JointOrderedProposalTest {
         assertEquals(PlanningStatus.SUCCESS,result.status());
         assertTrue(result.state().patternTimes().get(makeAcid.details()) >= 5);
         assertTrue(result.state().patternTimes().get(saltSplit.details()) >= 40);
-        assertFalse(result.components().getFirst().cycleResult().executionPlan().isEmpty());
+        assertFalse(cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.components()).cycleResult().executionPlan().isEmpty());
         result.state().executionProvenance().requireComplete();
     }
     private static GenericStack s(AEKey key,long amount){return new GenericStack(key,amount);}
     private static AEKey key(String name){var key=mock(AEKey.class,name);when(key.getAmountPerByte()).thenReturn(8);return key;}
     private static CompiledPattern pattern(int id,List<GenericStack> in,GenericStack... out){
-        var details=mock(IPatternDetails.class);var outputs=List.of(out);when(details.getOutputs()).thenReturn(outputs);
+        var details=mock(IPatternDetails.class);var outputs=List.of(out);when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         var rawInputs=in.stream().map(stack -> {
             var input=mock(IPatternDetails.IInput.class);
             when(input.getPossibleInputs()).thenReturn(new GenericStack[]{stack});

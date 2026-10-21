@@ -30,7 +30,7 @@ class StorageInteractionLockTest {
             drive.setCellStack(disk);
             var installed = drive.getCellInteractionId();
             assertNotNull(installed);
-            disk.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Updated contents"));
+            disk.setHoverName(Component.literal("Updated contents"));
             assertEquals(installed, drive.getCellInteractionId());
 
             doReturn(false).when(drive).canExtractCell();
@@ -74,7 +74,7 @@ class StorageInteractionLockTest {
             cellHost.getCellExtractionBlockReasonText());
         cellHost.setCellStack(null);
         assertSame(stack, drive.getCellStack());
-        stack.remove(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+        stack.setTag(null);
         assertTrue(drive.canExtractCell());
         assertNull(cellHost.getCellExtractionBlockReasonText());
     }

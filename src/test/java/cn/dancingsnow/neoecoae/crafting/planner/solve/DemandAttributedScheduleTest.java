@@ -54,11 +54,11 @@ class DemandAttributedScheduleTest {
         var provenance = outcome.state().executionProvenance();
         provenance.requireComplete();
         assertEquals(MaterialSource.Stock.INSTANCE,
-            provenance.allocationsFor(consumeHoney.details()).getFirst().source());
+            cn.dancingsnow.neoecoae.platform.JdkCompat.first(provenance.allocationsFor(consumeHoney.details())).source());
         assertEquals(new MaterialSource.PatternOutput(consumeHoney.details(), false),
-            provenance.allocationsFor(useBottle.details()).getFirst().source());
+            cn.dancingsnow.neoecoae.platform.JdkCompat.first(provenance.allocationsFor(useBottle.details())).source());
         assertEquals(new MaterialSource.PatternOutput(useBottle.details(), false),
-            provenance.allocationsFor(otherHoneyConsumer.details()).getFirst().source());
+            cn.dancingsnow.neoecoae.platform.JdkCompat.first(provenance.allocationsFor(otherHoneyConsumer.details())).source());
         var schedule = ECOExecutionSchedule.from(List.of(), List.of(), outcome.state().patternTimes(), provenance);
         assertBefore(schedule, consumeHoney.details(), useBottle.details());
         assertBefore(schedule, useBottle.details(), otherHoneyConsumer.details());
@@ -97,7 +97,7 @@ class DemandAttributedScheduleTest {
         var goal = AEItemKey.of(Items.DIAMOND);
         var supplier = pattern(0, tool, List.of(new GenericStack(tool, 1)), raw);
         var base = pattern(1, goal, List.of(new GenericStack(goal, 1)), tool);
-        var input = base.inputs().getFirst();
+        var input = cn.dancingsnow.neoecoae.platform.JdkCompat.first(base.inputs());
         when(input.source().getRemainingKey(tool)).thenReturn(tool);
         var special = new cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis(List.of(
             new cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis.Requirement(input, tool,
@@ -181,7 +181,7 @@ class DemandAttributedScheduleTest {
 
     private static CompiledPattern pattern(int id, AEKey key, List<GenericStack> outputs, AEKey... keys) {
         var details = mock(IPatternDetails.class);
-        when(details.getOutputs()).thenReturn(outputs);
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         var inputs = new ArrayList<CompiledInput>();
         var rawInputs = new IPatternDetails.IInput[keys.length];
         for (int i = 0; i < keys.length; i++) {

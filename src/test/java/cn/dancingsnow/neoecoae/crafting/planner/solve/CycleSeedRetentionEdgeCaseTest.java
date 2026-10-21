@@ -339,7 +339,7 @@ class CycleSeedRetentionEdgeCaseTest {
 
     private static IPatternDetails details(List<GenericStack> outputs) {
         var details = mock(IPatternDetails.class);
-        when(details.getOutputs()).thenReturn(outputs);
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         return details;
     }
 

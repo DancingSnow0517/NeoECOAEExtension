@@ -150,7 +150,7 @@ class CompiledStructureCacheTest {
         when(input.getPossibleInputs()).thenReturn(new GenericStack[] {new GenericStack(raw, 1)});
         var pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {input});
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(goal, 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(goal, 1)});
         when(pattern.getPrimaryOutput()).thenReturn(new GenericStack(goal, 1));
         when(service.getCraftingFor(goal)).thenReturn(List.of(pattern));
         when(service.getCraftingFor(raw)).thenReturn(List.of());

@@ -293,8 +293,8 @@ class CycleRouteCompletenessReviewTest {
             return input;
         }).toArray(IPatternDetails.IInput[]::new);
         when(details.getInputs()).thenReturn(rawInputs);
-        when(details.getOutputs()).thenReturn(stacks);
-        when(details.getPrimaryOutput()).thenReturn(stacks.getFirst());
+        when(details.getOutputs()).thenReturn(stacks.toArray(GenericStack[]::new));
+        when(details.getPrimaryOutput()).thenReturn(cn.dancingsnow.neoecoae.platform.JdkCompat.first(stacks));
         var compiled = inputs.entrySet().stream().map(entry ->
             new CompiledInput(null, entry.getKey(), entry.getValue(), true, null)).toList();
         var consumed = inputs.entrySet().stream().map(entry -> new PatternSemantics.Input(null,

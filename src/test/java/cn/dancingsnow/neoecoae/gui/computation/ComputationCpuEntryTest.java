@@ -87,10 +87,10 @@ class ComputationCpuEntryTest {
             new ResourceLocation("neoecoae:textures/gui/computation/cpu_overlay/l4.png"), "running");
         CompoundTag fluidTag = new CompoundTag();
         fluidTag.putString("type", "fluid");
-        when(fluid.toTagGeneric(RegistryAccess.EMPTY)).thenReturn(fluidTag);
+        when(fluid.toTagGeneric()).thenReturn(fluidTag);
         CompoundTag payload = entry.write(RegistryAccess.EMPTY);
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(RegistryAccess.EMPTY, fluidTag)).thenReturn(fluid);
+            keys.when(() -> AEKey.fromTagGeneric(fluidTag)).thenReturn(fluid);
             assertEquals(entry, ComputationCpuEntry.read(payload, RegistryAccess.EMPTY));
         }
     }

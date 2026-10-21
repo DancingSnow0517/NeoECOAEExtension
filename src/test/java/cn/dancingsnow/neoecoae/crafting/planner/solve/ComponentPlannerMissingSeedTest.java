@@ -129,7 +129,7 @@ class ComponentPlannerMissingSeedTest {
         var catalystInput = new CompiledInput(null, catalyst, 1L, true, null, catalyst, 1L);
         var outputs = List.of(new GenericStack(seed, 2L));
         IPatternDetails details = mock(IPatternDetails.class);
-        when(details.getOutputs()).thenReturn(outputs);
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), outputs,
             List.of(new GenericStack(catalyst, 1L)), List.of(), PatternSemantics.MatchingMode.EXACT,
             PatternSemantics.ExecutionRestriction.NONE, true, true, null);
@@ -185,8 +185,8 @@ class ComponentPlannerMissingSeedTest {
             outcome.status(), outcome.trace().diagnostics().toString());
         assertTrue(outcome.state().missingItems().isEmpty());
         assertEquals(28L, outcome.state().patternTimes().get(growth.details()));
-        assertEquals(1L, outcome.trace().cycles().getFirst().solveResult().requiredSeed().get(seed));
-        assertTrue(outcome.trace().cycles().getFirst().solveResult().seedShortfall().isEmpty());
+        assertEquals(1L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(outcome.trace().cycles()).solveResult().requiredSeed().get(seed));
+        assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(outcome.trace().cycles()).solveResult().seedShortfall().isEmpty());
     }
 
     @Test
@@ -420,7 +420,7 @@ class ComponentPlannerMissingSeedTest {
         assertEquals(0L, outcome.state().usedItems().get(crystal));
         assertEquals(100_003L, outcome.state().patternTimes().get(unpack.details()));
         for (AEKey seed : seeds) {
-            assertEquals(3L, outcome.state().patternTimes().get(producers.get(seed).getFirst().details()));
+            assertEquals(3L, outcome.state().patternTimes().get(cn.dancingsnow.neoecoae.platform.JdkCompat.first(producers.get(seed)).details()));
         }
         assertFalse(outcome.state().patternTimes().containsKey(pack.details()));
         outcome.state().executionProvenance().requireComplete();
@@ -437,8 +437,8 @@ class ComponentPlannerMissingSeedTest {
             GenericStack... inputs) {
         IPatternDetails details = mock(IPatternDetails.class);
         var outputs = List.of(new GenericStack(outputKey, outputAmount));
-        when(details.getOutputs()).thenReturn(outputs);
-        when(details.getPrimaryOutput()).thenReturn(outputs.getFirst());
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
+        when(details.getPrimaryOutput()).thenReturn(cn.dancingsnow.neoecoae.platform.JdkCompat.first(outputs));
         var rawInputs = java.util.Arrays.stream(inputs).map(stack -> {
             var input = mock(IPatternDetails.IInput.class);
             when(input.getPossibleInputs()).thenReturn(new GenericStack[] {stack});
@@ -461,7 +461,7 @@ class ComponentPlannerMissingSeedTest {
         when(seed.getAmountPerByte()).thenReturn(8);
         IPatternDetails details = mock(IPatternDetails.class);
         var output = new GenericStack(seed, 2L);
-        when(details.getOutputs()).thenReturn(List.of(output));
+        when(details.getOutputs()).thenReturn(new GenericStack[]{output});
         var semantics = new PatternSemantics(details, null, List.of(), List.of(output), List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         var pattern = new CompiledPattern(0, details, seed, PlannerAmount.of(2),
@@ -478,16 +478,16 @@ class ComponentPlannerMissingSeedTest {
         var outcome = planner.plan(network, condensation, new KeyCounter(), 100L, true, ECOCancellation.NONE);
 
         assertEquals(1L, outcome.state().missingItems().get(seed));
-        assertEquals(Map.of(seed, 1L), outcome.trace().cycles().getFirst().solveResult().seedShortfall());
-        assertEquals(CycleExecutionDisposition.BLOCKED, outcome.components().getFirst().cycleDisposition());
+        assertEquals(Map.of(seed, 1L), cn.dancingsnow.neoecoae.platform.JdkCompat.first(outcome.trace().cycles()).solveResult().seedShortfall());
+        assertEquals(CycleExecutionDisposition.BLOCKED, cn.dancingsnow.neoecoae.platform.JdkCompat.first(outcome.components()).cycleDisposition());
         assertTrue(outcome.state().patternTimes().isEmpty(), "Failed cycle must remain uncommitted");
         var plan = new AE2CraftingPlanBridge().partial(seed, 100L, false, outcome.state());
         var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);
         var summary = CraftingPlanSummary.fromJob(grid, mock(IActionSource.class), plan);
         assertTrue(summary.isSimulation());
         assertEquals(1, summary.getEntries().size());
-        assertEquals(seed, summary.getEntries().getFirst().getWhat());
-        assertEquals(1L, summary.getEntries().getFirst().getMissingAmount());
+        assertEquals(seed, cn.dancingsnow.neoecoae.platform.JdkCompat.first(summary.getEntries()).getWhat());
+        assertEquals(1L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(summary.getEntries()).getMissingAmount());
     }
 
     @Test
@@ -581,7 +581,7 @@ class ComponentPlannerMissingSeedTest {
         for (AEKey key : List.of(seed, diamond, netherrack)) when(key.getAmountPerByte()).thenReturn(8);
         IPatternDetails details = mock(IPatternDetails.class);
         var output = new GenericStack(seed, 2L);
-        when(details.getOutputs()).thenReturn(List.of(output));
+        when(details.getOutputs()).thenReturn(new GenericStack[]{output});
         var semantics = new PatternSemantics(details, null, List.of(), List.of(output), List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         var pattern = new CompiledPattern(0, details, seed, PlannerAmount.of(2),

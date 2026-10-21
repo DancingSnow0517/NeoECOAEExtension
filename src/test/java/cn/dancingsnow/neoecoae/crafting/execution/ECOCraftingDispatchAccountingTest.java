@@ -47,7 +47,7 @@ class ECOCraftingDispatchAccountingTest {
 
     ECOCraftingDispatchAccountingTest() {
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 3), new GenericStack(secondary, 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 3), new GenericStack(secondary, 1)});
         when(plan.finalOutput()).thenReturn(new GenericStack(output, 30));
         when(plan.emittedItems()).thenReturn(new KeyCounter());
         when(plan.patternTimes()).thenReturn(Map.of(pattern, 10L));
@@ -101,33 +101,33 @@ class ECOCraftingDispatchAccountingTest {
         var registries = RegistryAccess.EMPTY;
         var definition = mock(AEItemKey.class);
         when(pattern.getDefinition()).thenReturn(definition);
-        when(definition.toTag(registries)).thenAnswer(ignored -> new CompoundTag());
+        when(definition.toTag()).thenAnswer(ignored -> new CompoundTag());
         var outputTag = new CompoundTag(); outputTag.putString("testKey", "output");
         var secondaryTag = new CompoundTag(); secondaryTag.putString("testKey", "secondary");
-        when(output.toTagGeneric(registries)).thenReturn(outputTag);
-        when(secondary.toTagGeneric(registries)).thenReturn(secondaryTag);
+        when(output.toTagGeneric()).thenReturn(outputTag);
+        when(secondary.toTagGeneric()).thenReturn(secondaryTag);
         var logic = new ECOCraftingCPULogic(cpu);
         try (var keys = mockStatic(AEItemKey.class);
              var genericKeys = mockStatic(AEKey.class);
              var patterns = mockStatic(PatternDetailsHelper.class);
              var stacks = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
-            keys.when(() -> AEItemKey.fromTag(eq(registries), any())).thenReturn(definition);
-            genericKeys.when(() -> AEKey.fromTagGeneric(eq(registries), any())).thenAnswer(invocation ->
+            keys.when(() -> AEItemKey.fromTag(any())).thenReturn(definition);
+            genericKeys.when(() -> AEKey.fromTagGeneric(any())).thenAnswer(invocation ->
                 ((CompoundTag) invocation.getArgument(1)).getString("testKey").equals("output") ? output : secondary);
             patterns.when(() -> PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(pattern);
-            stacks.when(() -> GenericStack.writeTag(eq(registries), any())).thenReturn(new CompoundTag());
-            stacks.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(output, 30));
+            stacks.when(() -> GenericStack.writeTag(any())).thenReturn(new CompoundTag());
+            stacks.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(output, 30));
             var job = newJob();
             job.batchedOutputs.addAll(Set.of(output, secondary));
             job.fuzzyPlanningItemIds = Set.of(new net.minecraft.resources.ResourceLocation("minecraft:iron_pickaxe"));
-            var saved = job.writeToNBT(registries);
-            var restored = new ExecutingCraftingJob(saved, registries, ignored -> {}, logic);
+            var saved = job.writeToNBT();
+            var restored = new ExecutingCraftingJob(saved, ignored -> {}, logic);
             assertEquals(job.batchedOutputs, restored.batchedOutputs);
             assertEquals(job.fuzzyPlanningItemIds, restored.fuzzyPlanningItemIds);
             saved.remove("batchedOutputs");
             saved.remove("fuzzyPlanningItemIds");
-            assertTrue(new ExecutingCraftingJob(saved, registries, ignored -> {}, logic).batchedOutputs.isEmpty());
-            assertTrue(new ExecutingCraftingJob(saved, registries, ignored -> {}, logic).fuzzyPlanningItemIds.isEmpty());
+            assertTrue(new ExecutingCraftingJob(saved, ignored -> {}, logic).batchedOutputs.isEmpty());
+            assertTrue(new ExecutingCraftingJob(saved, ignored -> {}, logic).fuzzyPlanningItemIds.isEmpty());
         }
     }
 }

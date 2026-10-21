@@ -15,5 +15,5 @@ public class ScaledProcessingPattern implements IPatternDetails {
     public IPatternDetails getOriginal() { return original; }
     public AEItemKey getDefinition() { return original.getDefinition(); }
     public IInput[] getInputs() { return view.getInputs(); }
-    public List<GenericStack> getOutputs() { return view.getOutputs(); }
+    public GenericStack[] getOutputs() { return view.getOutputs(); }
 }

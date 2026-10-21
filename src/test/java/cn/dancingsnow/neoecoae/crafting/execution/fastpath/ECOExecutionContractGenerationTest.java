@@ -40,7 +40,8 @@ class ECOExecutionContractGenerationTest {
         ECOCraftingFastPathCache cache = new ECOCraftingFastPathCache(16);
         ECOFastPathKey key = ECOFastPathKey.of(new Object(), new KeyCounter[0], null,
             AE2PatternIntrospection.reloadGeneration()).orElseThrow();
-        try (var executor = Executors.newFixedThreadPool(2)) {
+        var executor = Executors.newFixedThreadPool(2);
+        try {
             var writes = executor.submit(() -> {
                 for (int i = 0; i < 500; i++) {
                     cache.putNegative(key, i);
@@ -52,7 +53,7 @@ class ECOExecutionContractGenerationTest {
             });
             writes.get(10, TimeUnit.SECONDS);
             invalidations.get(10, TimeUnit.SECONDS);
-        }
+        } finally { executor.shutdownNow(); }
         cache.putNegative(key, 1000L, "STILL_USABLE");
         assertEquals("STILL_USABLE", cache.get(key, 1000L).rejectReason());
     }

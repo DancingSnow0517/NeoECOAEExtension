@@ -97,7 +97,7 @@ class FixedModelLightingTest {
             pose.translate(0.5, 0.5, 0.5);
             pose.mulPose(Axis.YP.rotationDegrees(rotation));
             pose.translate(-0.5, -0.5, -0.5);
-            lighting.getBuffer(RenderType.cutout()).putBulkData(pose.last(), quad, 1, 1, 1, 1, LightTexture.FULL_BRIGHT, 0);
+            lighting.getBuffer(RenderType.cutout()).putBulkData(pose.last(), quad, 1, 1, 1, LightTexture.FULL_BRIGHT, 0);
         }
         return output;
     }
@@ -119,7 +119,8 @@ class FixedModelLightingTest {
     }
 
     private BakedQuad quad(Direction direction, boolean ao) {
-        QuadBakingVertexConsumer builder = new QuadBakingVertexConsumer();
+        var result=new java.util.concurrent.atomic.AtomicReference<BakedQuad>();
+        QuadBakingVertexConsumer builder = new QuadBakingVertexConsumer(result::set);
         builder.setDirection(direction);
         builder.setShade(true);
         builder.setHasAmbientOcclusion(ao);
@@ -127,10 +128,10 @@ class FixedModelLightingTest {
             ? new float[][]{{0.2F, 0.2F, 0.2F}, {0.2F, 0.2F, 0.8F}, {0.8F, 0.2F, 0.8F}, {0.8F, 0.2F, 0.2F}}
             : new float[][]{{0.2F, 0.2F, 0}, {0.2F, 0.8F, 0}, {0.8F, 0.8F, 0}, {0.8F, 0.2F, 0}};
         for (float[] position : positions) {
-            builder.addVertex(position[0], position[1], position[2]).setColor(255, 255, 255, 255)
-                .setNormal(direction.getStepX(), direction.getStepY(), direction.getStepZ());
+            builder.vertex(position[0], position[1], position[2]).color(255, 255, 255, 255)
+                .normal(direction.getStepX(), direction.getStepY(), direction.getStepZ()).endVertex();
         }
-        return builder.bakeQuad();
+        return result.get();
     }
 
     private static class RecordingConsumer extends VertexConsumerWrapper {

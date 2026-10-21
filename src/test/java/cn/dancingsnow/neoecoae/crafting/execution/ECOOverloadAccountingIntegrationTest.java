@@ -17,7 +17,6 @@ import com.moakiee.ae2lt.overload.runtime.model.*;
 import com.moakiee.ae2lt.overload.runtime.pattern.*;
 import java.util.*;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -129,7 +128,7 @@ class ECOOverloadAccountingIntegrationTest {
         f.job.waitingFor.clear();
         f.register(4);
         var ordinary = mock(IPatternDetails.class);
-        when(ordinary.getOutputs()).thenReturn(List.of(new GenericStack(f.actual, 1)));
+        when(ordinary.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(f.actual, 1)});
         when(ordinary.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
         assertFalse(ECOOverloadCpuAccountingBridge.prepare(f.logic, ordinary,
                 f.job.link.getCraftingID(), null, f.job.waitingFor.list).canDispatch());
@@ -182,15 +181,15 @@ class ECOOverloadAccountingIntegrationTest {
 
     private static Fixture fixture(boolean finalOutput, long amount) {
         var template = new ItemStack(Items.DIAMOND_PICKAXE);
-        template.set(DataComponents.CUSTOM_NAME, Component.literal("expected"));
+        template.setHoverName(Component.literal("expected"));
         var actualStack = template.copy();
-        actualStack.set(DataComponents.CUSTOM_NAME, Component.literal("actual"));
+        actualStack.setHoverName(Component.literal("actual"));
         var expected = AEItemKey.of(template);
         var actual = AEItemKey.of(actualStack);
         var source = mock(IPatternDetails.class);
         when(source.getDefinition()).thenReturn(AEItemKey.of(Items.PAPER));
         when(source.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(source.getOutputs()).thenReturn(List.of(new GenericStack(expected, 1)));
+        when(source.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(expected, 1)});
         var parsed = new ParsedPatternDefinition(new SourcePatternSnapshot(
                 new ResourceLocation("test:overload"), null, null), List.of(),
                 List.of(new ParsedPatternOutput(0, template, true)));

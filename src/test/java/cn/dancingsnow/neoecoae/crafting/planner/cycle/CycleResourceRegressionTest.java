@@ -38,7 +38,7 @@ class CycleResourceRegressionTest {
         var first = pattern(0, Map.of(water, 3000L), firstOutputs, false);
         var second = pattern(1, Map.of(water, 3000L), secondOutputs, false);
         var boundary = List.of(new ComponentDependency(10, 11,
-            List.of(new CraftingGraphEdge(hydrogen, water, second, second.inputs().getFirst()))));
+            List.of(new CraftingGraphEdge(hydrogen, water, second, cn.dancingsnow.neoecoae.platform.JdkCompat.first(second.inputs())))));
         var cycle = new CycleComponent(10, List.of(oxygen, hydrogen), List.of(first, second),
             List.of(), List.of(), boundary);
         var request = new CycleSolveRequest(cycle, Map.of(oxygen, 1_503_000L, hydrogen, 27_615_000L),
@@ -50,7 +50,7 @@ class CycleResourceRegressionTest {
         assertEquals(32_049_000L, result.externalDemand().get(water));
         assertTrue(result.seedShortfall().isEmpty());
         assertEquals(1, result.executionPlan().size());
-        long firings = result.executionPlan().getFirst().count();
+        long firings = cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.executionPlan()).count();
         assertTrue(6_249_500L + 2000L * firings >= 27_615_000L);
         assertTrue(16_934_750L + 1000L * firings >= 1_503_000L);
     }
@@ -82,8 +82,8 @@ class CycleResourceRegressionTest {
         var cycle = ring(40);
         BigInteger target = BigInteger.TEN.pow(80);
         var result = new BoundedCycleSolver().solve(new CycleSolveRequest(cycle, Map.of(),
-            Map.of(cycle.members().getFirst(), PlannerAmount.of(target)),
-            Map.of(cycle.members().getFirst(), 1L), List.of(), null), ECOCancellation.NONE);
+            Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.members()), PlannerAmount.of(target)),
+            Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.members()), 1L), List.of(), null), ECOCancellation.NONE);
         assertEquals(CycleSolveStatus.UNREPRESENTABLE, result.status(), result.summary());
         assertTrue(result.hasExactExecutionCounts());
         result.exactPatternTimes().values().forEach(count -> assertEquals(target.subtract(BigInteger.ONE), count.toBigInteger()));
@@ -94,8 +94,8 @@ class CycleResourceRegressionTest {
     @Test void reverseOrderedCircuitLongerThan32StepsCompressesATrillionLaps() {
         assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
             var cycle = ring(40);
-            var result = solve(cycle, Map.of(cycle.members().getFirst(), 1_000_000_000_001L),
-                Map.of(cycle.members().getFirst(), 1L));
+            var result = solve(cycle, Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.members()), 1_000_000_000_001L),
+                Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.members()), 1L));
             assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
             assertTrue(result.executionPlan().size() <= 3 * 40);
             assertTrue(result.executionPlan().stream().anyMatch(run -> run.repeatWidth() == 40));
@@ -109,8 +109,8 @@ class CycleResourceRegressionTest {
         var base = ring(70);
         var patterns = new ArrayList<>(base.patterns());
         var stock = new LinkedHashMap<AEKey, Long>();
-        stock.put(base.members().getFirst(), 1L);
-        var first = patterns.getFirst();
+        stock.put(cn.dancingsnow.neoecoae.platform.JdkCompat.first(base.members()), 1L);
+        var first = cn.dancingsnow.neoecoae.platform.JdkCompat.first(patterns);
         var inputs = new LinkedHashMap<AEKey, Long>();
         first.inputs().forEach(input -> inputs.put(input.key(), input.amountPerPattern().longValueExact()));
         var outputs = new LinkedHashMap<AEKey, Long>();
@@ -123,7 +123,7 @@ class CycleResourceRegressionTest {
         }
         patterns.set(0, pattern(first.id(), inputs, outputs, false));
         var cycle = new CycleComponent(0, base.members(), patterns, List.of(), List.of(), List.of());
-        var result = solve(cycle, Map.of(base.members().getFirst(), 11L), stock);
+        var result = solve(cycle, Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(base.members()), 11L), stock);
         assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
         assertEquals(70, result.metrics().transitions());
         assertEquals(270, result.metrics().relevantKeys());
@@ -133,7 +133,7 @@ class CycleResourceRegressionTest {
     @Test void closedFormGrowthRunsThroughBothEntrypointsAndBooksFiniteFuel() throws Exception {
         AEKey a = mock(AEKey.class), fuel = mock(AEKey.class);
         var grow = pattern(0, Map.of(a, 9L, fuel, 2L), Map.of(a, 10L), true);
-        var edge = new CraftingGraphEdge(a, a, grow, grow.inputs().getFirst());
+        var edge = new CraftingGraphEdge(a, a, grow, cn.dancingsnow.neoecoae.platform.JdkCompat.first(grow.inputs()));
         var cycle = new CycleComponent(0, List.of(a), List.of(grow), List.of(edge), List.of(), List.of());
         long target = 1_000_000_000_009L;
         var request = new CycleSolveRequest(cycle, Map.of(a, target), Map.of(a, 9L, fuel, 2_000_000_000_000L),
@@ -187,7 +187,7 @@ class CycleResourceRegressionTest {
 
     @Test void paretoStartupCandidatesAreNotTruncatedAt32() throws Exception {
         var cycle = ring(40);
-        var result = solve(cycle, Map.of(cycle.members().getFirst(), 10L), Map.of());
+        var result = solve(cycle, Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.members()), 10L), Map.of());
         assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, result.status(), result.summary());
         assertEquals(40, result.startupCandidates().size());
         for (AEKey key : cycle.members()) assertTrue(result.startupCandidates().contains(Map.of(key, 1L)));
@@ -195,8 +195,8 @@ class CycleResourceRegressionTest {
 
     @Test void resourceExhaustionAndCancellationNeverBecomeInfeasibility() throws Exception {
         var cycle = ring(40);
-        var request = new CycleSolveRequest(cycle, Map.of(cycle.members().getFirst(), 100L),
-            Map.of(cycle.members().getFirst(), 1L), List.of(), null);
+        var request = new CycleSolveRequest(cycle, Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.members()), 100L),
+            Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.members()), 1L), List.of(), null);
         var budget = new ECOPlanningBudget(ECOCancellation.NONE, 10, Long.MAX_VALUE, () -> 0L);
         assertThrows(ECOPlanningBudget.Exhausted.class, () -> new BoundedCycleSolver().solve(request, budget));
         assertThrows(InterruptedException.class, () -> new BoundedCycleSolver().solve(request, () -> { throw new InterruptedException(); }));
@@ -204,7 +204,7 @@ class CycleResourceRegressionTest {
         try {
             NEConfig.ecoPlanningMaxMemoryMiB = 1;
             var wide = ring(200);
-            var result = solve(wide, Map.of(wide.members().getFirst(), 100L), Map.of(wide.members().getFirst(), 1L));
+            var result = solve(wide, Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(wide.members()), 100L), Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(wide.members()), 1L));
             assertEquals(CycleSolveStatus.UNKNOWN_BUDGET, result.status());
             assertTrue(result.diagnostics().stream().anyMatch(d -> d.code() == CycleSolveDiagnostic.Code.MEMORY_BUDGET_EXHAUSTED));
             assertFalse(result.hasExactExecutionCounts());
@@ -230,10 +230,10 @@ class CycleResourceRegressionTest {
     private static CompiledPattern pattern(int id, Map<AEKey, Long> inputs, Map<AEKey, Long> outputs, boolean growthValidated) {
         var details = mock(IPatternDetails.class, "pattern" + id);
         var stacks = outputs.entrySet().stream().map(e -> new GenericStack(e.getKey(), e.getValue())).toList();
-        when(details.getOutputs()).thenReturn(stacks);
+        when(details.getOutputs()).thenReturn(stacks.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), stacks, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
-        return new CompiledPattern(id, details, stacks.getFirst().what(), PlannerAmount.of(stacks.getFirst().amount()),
+        return new CompiledPattern(id, details, cn.dancingsnow.neoecoae.platform.JdkCompat.first(stacks).what(), PlannerAmount.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(stacks).amount()),
             inputs.entrySet().stream().map(e -> new CompiledInput(null, e.getKey(), e.getValue(), true, null)).toList(),
             stacks, true, null, growthValidated, semantics);
     }
@@ -242,7 +242,7 @@ class CycleResourceRegressionTest {
     private static void replayCompact(CycleComponent cycle, CycleSolveResult result, long target) {
         var stock = new LinkedHashMap<AEKey, BigInteger>();
         cycle.members().forEach(key -> stock.put(key, BigInteger.ZERO));
-        stock.put(cycle.members().getFirst(), BigInteger.ONE);
+        stock.put(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.members()), BigInteger.ONE);
         int cursor = 0;
         while (cursor < result.executionPlan().size()) {
             int end = cursor;
@@ -281,6 +281,6 @@ class CycleResourceRegressionTest {
             assertEquals(stock, lastLap);
             cursor = end + 1;
         }
-        assertEquals(BigInteger.valueOf(target), stock.get(cycle.members().getFirst()));
+        assertEquals(BigInteger.valueOf(target), stock.get(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cycle.members())));
     }
 }

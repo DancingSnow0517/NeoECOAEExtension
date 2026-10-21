@@ -5,7 +5,6 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
@@ -53,7 +52,7 @@ class LargeWorkstationRecipeDeduplicationTest {
         var extended = new LargeWorkstationRecipe(new ResourceLocation("expatternprovider:cheapest"), regular.display(),
             10, List.of(), new ResourceLocation("expatternprovider:crystal_assembler"));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = registries.createSerializationContext(JsonOps.INSTANCE);
+        var ops = JsonOps.INSTANCE;
         var recipes = List.of(extended, regular, advanced);
         assertEquals(List.of(regular), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.REGULAR, ops));
         assertEquals(List.of(advanced), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.ADVANCED_AE, ops));
@@ -136,7 +135,7 @@ class LargeWorkstationRecipeDeduplicationTest {
     @Test void outputCountsAndComponentsRemainDistinct() {
         var first = materialRecipe("test:a", 100, List.of());
         var named = new ItemStack(Items.DIAMOND);
-        named.set(DataComponents.CUSTOM_NAME, Component.literal("Distinct output"));
+        named.setHoverName(Component.literal("Distinct output"));
         var namedOutput = recipe("test:b", first.display().inputItems(), emptyFluid(), named, FluidStack.EMPTY, 1, List.of());
         var largerOutput = recipe("test:c", first.display().inputItems(), emptyFluid(), new ItemStack(Items.DIAMOND, 2),
             FluidStack.EMPTY, 1, List.of());
@@ -145,7 +144,7 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     @Test void componentItemInputsDeduplicateOnlyWhenPredicatesAgree() {
         var stack = new ItemStack(Items.IRON_INGOT);
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal("Required name"));
+        stack.setHoverName(Component.literal("Required name"));
         var first = recipe("test:a", List.of(input(DataComponentIngredient.of(true, stack), 4)), emptyFluid(),
             new ItemStack(Items.DIAMOND), FluidStack.EMPTY, 100, List.of());
         var cheaper = recipe("test:b", List.of(input(DataComponentIngredient.of(true, stack.copy()), 4)), emptyFluid(),
@@ -159,7 +158,7 @@ class LargeWorkstationRecipeDeduplicationTest {
     @Test void componentFluidInputsAndOutputsRemainDistinct() {
         var inputs = List.of(input(Ingredient.of(Items.IRON_INGOT), 4));
         var stack = new FluidStack(Fluids.WATER, 1000);
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal("Required fluid"));
+        stack.setHoverName(Component.literal("Required fluid"));
         var first = recipe("test:a", inputs, new SizedFluidIngredient(DataComponentFluidIngredient.of(true, stack), 1000),
             ItemStack.EMPTY, new FluidStack(Fluids.LAVA, 250), 100, List.of());
         var cheaper = recipe("test:b", inputs, new SizedFluidIngredient(DataComponentFluidIngredient.of(true, stack.copy()), 1000),
@@ -167,20 +166,20 @@ class LargeWorkstationRecipeDeduplicationTest {
         var partial = recipe("test:c", inputs, new SizedFluidIngredient(DataComponentFluidIngredient.of(false, stack), 1000),
             ItemStack.EMPTY, new FluidStack(Fluids.LAVA, 250), 50, List.of());
         var namedOutput = new FluidStack(Fluids.LAVA, 250);
-        namedOutput.set(DataComponents.CUSTOM_NAME, Component.literal("Distinct output"));
+        namedOutput.setHoverName(Component.literal("Distinct output"));
         var output = recipe("test:d", inputs, cheaper.display().inputFluid(), ItemStack.EMPTY, namedOutput, 50, List.of());
         assertEquals(List.of(cheaper, partial, output), deduplicate(first, cheaper, partial, output));
     }
 
     private static List<LargeWorkstationRecipe> deduplicate(LargeWorkstationRecipe... recipes) {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        return LargeWorkstationRecipes.deduplicate(List.of(recipes), registries.createSerializationContext(JsonOps.INSTANCE));
+        return LargeWorkstationRecipes.deduplicate(List.of(recipes), JsonOps.INSTANCE);
     }
 
     private static LargeWorkstationRecipe decode(String id, String type, String json) {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         return LargeWorkstationRecipes.decode(new ResourceLocation(id), type, JsonParser.parseString(json).getAsJsonObject(),
-            registries.createSerializationContext(JsonOps.INSTANCE));
+            JsonOps.INSTANCE);
     }
 
     private static SizedIngredient input(Ingredient ingredient, int amount) { return new SizedIngredient(ingredient, amount); }

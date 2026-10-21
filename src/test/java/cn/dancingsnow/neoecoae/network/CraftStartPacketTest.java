@@ -5,7 +5,7 @@ import cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.handling.IPayloadContext;
+import cn.dancingsnow.neoecoae.platform.network.NEPacketContext;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.*;
@@ -20,7 +20,7 @@ class CraftStartPacketTest {
         var player = mock(ServerPlayer.class);
         player.containerMenu = menu;
         when(menu.stillValid(player)).thenReturn(true);
-        var context = mock(IPayloadContext.class);
+        var context = mock(NEPacketContext.class);
         when(context.player()).thenReturn(player);
         doAnswer(call -> {
             ((Runnable) call.getArgument(0)).run();
@@ -44,7 +44,7 @@ class CraftStartPacketTest {
         var player = mock(ServerPlayer.class);
         player.containerMenu = menu;
         when(menu.stillValid(player)).thenReturn(true);
-        var context = mock(IPayloadContext.class);
+        var context = mock(NEPacketContext.class);
         when(context.player()).thenReturn(player);
         doAnswer(call -> {
             ((Runnable) call.getArgument(0)).run();

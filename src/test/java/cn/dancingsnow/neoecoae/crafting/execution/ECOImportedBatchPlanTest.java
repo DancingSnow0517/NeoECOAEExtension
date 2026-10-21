@@ -23,11 +23,11 @@ class ECOImportedBatchPlanTest {
         when(input.getPossibleInputs()).thenReturn(new GenericStack[]{new GenericStack(key, 1)});
         when(input.getMultiplier()).thenReturn(1L);
         when(base.getInputs()).thenReturn(new IPatternDetails.IInput[]{input});
-        when(base.getOutputs()).thenReturn(List.of(new GenericStack(key, 1)));
+        when(base.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(key, 1)});
         var definition = mock(AEItemKey.class);
         when(base.getDefinition()).thenReturn(definition);
         var registries = mock(HolderLookup.Provider.class);
-        when(definition.toTag(registries)).thenAnswer(call -> new CompoundTag());
+        when(definition.toTag()).thenAnswer(call -> new CompoundTag());
         var cpu = mock(ECOCraftingCPU.class);
         var logic = new ECOCraftingCPULogic(cpu);
         var wrapper = new ScaledProcessingPattern(base, 10);
@@ -39,16 +39,16 @@ class ECOImportedBatchPlanTest {
              var keys = mockStatic(AEItemKey.class);
              var patterns = mockStatic(PatternDetailsHelper.class);
              var stacks = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
-            keys.when(() -> AEItemKey.fromTag(eq(registries), any())).thenReturn(definition);
+            keys.when(() -> AEItemKey.fromTag(any())).thenReturn(definition);
             patterns.when(() -> PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(base);
-            stacks.when(() -> GenericStack.writeTag(eq(registries), any())).thenReturn(new CompoundTag());
-            stacks.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(key, Long.MAX_VALUE));
+            stacks.when(() -> GenericStack.writeTag(any())).thenReturn(new CompoundTag());
+            stacks.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(key, Long.MAX_VALUE));
             var link = new CraftingLink(CraftingCpuHelper.generateLinkData(UUID.randomUUID(), true, false), cpu);
             var job = new ExecutingCraftingJob(plan, ignored -> {}, link, null);
             assertFalse(job.tasks.containsKey(wrapper));
             assertEquals(BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TEN), job.tasks.get(base).remainingExact());
             job.tasks.get(base).accept(23);
-            var restored = new ExecutingCraftingJob(job.writeToNBT(registries), registries, ignored -> {}, logic);
+            var restored = new ExecutingCraftingJob(job.writeToNBT(), ignored -> {}, logic);
             assertEquals(job.tasks.get(base).remainingExact(), restored.tasks.get(base).remainingExact());
             assertEquals(Map.of(wrapper, Long.MAX_VALUE), plan.patternTimes(), "Import must not mutate another CPU's plan");
         }

@@ -173,13 +173,13 @@ class ECOBigOrderLifecycleTest {
              var codec = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
             helpers.when(() -> CraftingCpuHelper.tryExtractInitialItems(any(), any(), any(), any())).thenReturn(null);
             var registries = mock(HolderLookup.Provider.class);
-            codec.when(() -> GenericStack.writeTag(eq(registries), any())).thenReturn(new CompoundTag());
-            codec.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(key, 1));
+            codec.when(() -> GenericStack.writeTag(any())).thenReturn(new CompoundTag());
+            codec.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(key, 1));
             assertTrue(admission.submit(carrier -> logic.trySubmitJob(grid, carrier, IActionSource.empty(), null)).successful());
             var link = logic.getLastLink();
             var saved = new CompoundTag();
-            logic.bigOrder.write(saved, registries);
-            logic.bigOrder.read(saved, registries);
+            logic.bigOrder.write(saved);
+            logic.bigOrder.read(saved);
             assertEquals(link.getCraftingID(), logic.getProgressView().bigOrder().orElseThrow().orderId());
             logic.cancel();
             assertTrue(link.isCanceled());
@@ -196,7 +196,7 @@ class ECOBigOrderLifecycleTest {
         var service = mock(appeng.api.networking.crafting.ICraftingService.class);
         var pattern = mock(appeng.api.crafting.IPatternDetails.class);
         var key = mock(AEKey.class);
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(key, 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(key, 1)});
         var plan = new CraftingPlan(new GenericStack(key, 1), 1, false, false,
             new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of(pattern, 1L));
         when(service.getCraftingFor(key)).thenReturn(List.of(pattern));

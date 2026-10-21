@@ -11,27 +11,21 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys;
-import com.lowdragmc.lowdraglib2.LDLib2;
-import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.ui.style.PropertyRegistry;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
+import com.lowdragmc.lowdraglib.LDLib;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEmitter;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Label;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.inventory.InventorySlots;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import com.mojang.blaze3d.vertex.PoseStack;
-import dev.vfyjxf.taffy.style.LengthPercentageAuto;
-import dev.vfyjxf.taffy.style.TaffyDimension;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.List;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -68,20 +62,20 @@ class StorageInterfaceUiTest {
             registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
             Class.forName(UIElement.class.getName());
             Class.forName(NETextures.class.getName());
-            AccessorRegistries.init();
+
         }
     }
 
     @Test
     void jsonPositionsTheInterfaceControlsAndTwentySevenPhantomFilters() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             var host = host();
             UIElement root = StorageInterfaceUI.createRoot(host, player(), () -> Long.MAX_VALUE);
             assertEquals(TaffyPosition.RELATIVE, root.getLayout().getValueImmediate(LayoutProperties.POSITION));
-            assertEquals(TaffyDimension.length(176), root.getLayout().getValueImmediate(LayoutProperties.WIDTH));
-            assertEquals(TaffyDimension.length(218), root.getLayout().getValueImmediate(LayoutProperties.HEIGHT));
-            SpriteTexture texture = (SpriteTexture) node(root, "background").getStyle().getValueImmediate(PropertyRegistry.BACKGROUND);
+            assertEquals((float)(176), root.getLayoutStyle().width);
+            assertEquals((float)(218), root.getLayoutStyle().height);
+            SpriteTexture texture = (SpriteTexture) node(root, "background").getStyle().backgroundTexture();
             assertEquals("neoecoae:textures/guis/storage/storage_interface.png", texture.getImageLocation().toString());
             assertEquals(176, texture.spriteSize.width);
             assertEquals(218, texture.spriteSize.height);
@@ -92,13 +86,13 @@ class StorageInterfaceUiTest {
                 assertFalse(slot.getSlot().mayPickup(null));
                 assertEquals(0, slot.getSlot().getMaxStackSize());
             }
-            assertEquals(LengthPercentageAuto.length(7), grid.getLayout().getValueImmediate(LayoutProperties.LEFT));
-            assertEquals(LengthPercentageAuto.length(65), grid.getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(144), filters.getLast().getLayout().getValueImmediate(LayoutProperties.LEFT));
-            assertEquals(LengthPercentageAuto.length(36), filters.getLast().getLayout().getValueImmediate(LayoutProperties.TOP));
+            assertEquals((float)(7), grid.getLayoutStyle().left);
+            assertEquals((float)(65), grid.getLayoutStyle().top);
+            assertEquals((float)(144), cn.dancingsnow.neoecoae.platform.JdkCompat.last(filters).getLayoutStyle().left);
+            assertEquals((float)(36), cn.dancingsnow.neoecoae.platform.JdkCompat.last(filters).getLayoutStyle().top);
             InventorySlots inventory = (InventorySlots) node(root, "player_inventory");
-            assertEquals(LengthPercentageAuto.length(133), inventory.getLayout().getValueImmediate(LayoutProperties.TOP));
-            assertEquals(LengthPercentageAuto.length(4), inventory.hotbar.getLayout().getValueImmediate(LayoutProperties.MARGIN_TOP));
+            assertEquals((float)(133), inventory.getLayoutStyle().top);
+            assertEquals((float)(4), inventory.hotbar.getLayoutStyle().marginTop);
             for (String id : List.of("title", "mode_caption", "structure_status", "network_status",
                 "transfer_status", "filter_caption", "filter_hint")) {
                 Label text = (Label) node(root, id);
@@ -109,14 +103,14 @@ class StorageInterfaceUiTest {
 
     @Test
     void longStatusTextFitsItsBoxWithoutDiscardingTheColoredState() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement root = StorageInterfaceUI.createRoot(host(), player(), () -> 0);
             Label text = spy((Label) node(root, "structure_status"));
             Component value = Component.literal("Infinite: ")
-                .append(Component.literal("Unavailable in this structure").withColor(0xB53643));
+                .append(Component.literal("Unavailable in this structure").withStyle(style -> style.withColor(0xB53643)));
             text.setValue(value);
-            text.getStyleBag().compute(1);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(text);
             Font font = mock(Font.class);
             when(font.width(value)).thenReturn(180);
             doReturn(font).when(text).getFont();
@@ -125,7 +119,7 @@ class StorageInterfaceUiTest {
             doReturn(200F).when(text).getContentX();
             doReturn(300F).when(text).getContentY();
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"graphics",mock(GuiGraphics.class));
             PoseStack pose = new PoseStack();
             when(context.graphics.pose()).thenReturn(pose);
             when(context.graphics.drawString(eq(font), same(value), eq(0), eq(0), anyInt(), eq(false)))
@@ -134,7 +128,7 @@ class StorageInterfaceUiTest {
                     assertEquals(89F, 180 * matrix.m00(), 0.001F);
                     assertEquals(200F, matrix.m30(), 0.001F);
                     assertEquals(300 + (8 - font.lineHeight * matrix.m00()) / 2, matrix.m31(), 0.001F);
-                    assertEquals(0xB53643, value.getSiblings().getFirst().getStyle().getColor().getValue());
+                    assertEquals(0xB53643, cn.dancingsnow.neoecoae.platform.JdkCompat.first(value.getSiblings()).getStyle().getColor().getValue());
                     return 0;
                 });
             text.drawBackgroundAdditional(context);
@@ -145,12 +139,12 @@ class StorageInterfaceUiTest {
     @Test
     @SuppressWarnings("unchecked")
     void modeCaptionAndButtonStatesFollowServerSnapshotWithoutSendingModeChanges() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             var host = host();
             when(host.getStorageInterfaceMode()).thenReturn(ECOStorageInterfaceMode.OUTPUT);
             UIElement root = StorageInterfaceUI.createRoot(host, player(), () -> 0);
-            BindableValue<Integer> mode = (BindableValue<Integer>) root.getChildren().getFirst();
+            BindableValue<Integer> mode = (BindableValue<Integer>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(root.getChildren());
             Label caption = (Label) node(root, "mode_caption");
             for (int selected : List.of(2, 1, 0, 2, 1)) {
                 mode.setValue(selected);
@@ -158,7 +152,7 @@ class StorageInterfaceUiTest {
                     + ECOStorageInterfaceMode.values()[selected].getSerializedName()), caption.getValue());
                 for (int button = 0; button < 3; button++) {
                     Button element = (Button) node(root, "mode_" + ECOStorageInterfaceMode.values()[button].getSerializedName());
-                    element.getStyleBag().compute(selected + 1);
+                    cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(element);
                     SpriteTexture base = (SpriteTexture) element.getButtonStyle().baseTexture();
                     SpriteTexture hover = (SpriteTexture) element.getButtonStyle().hoverTexture();
                     SpriteTexture pressed = (SpriteTexture) element.getButtonStyle().pressedTexture();
@@ -171,13 +165,13 @@ class StorageInterfaceUiTest {
                     assertEquals(17, pressed.spriteSize.height);
                     for (SpriteTexture texture : List.of(base, hover)) {
                         assertEquals(button == selected ? 17 : 18, texture.spriteSize.height);
-                        assertEquals(0, texture.borderLT.getY());
-                        assertEquals(0, texture.borderRB.getY());
+                        assertEquals(0, texture.borderLT.y);
+                        assertEquals(0, texture.borderRB.y);
                     }
-                    assertEquals(LengthPercentageAuto.length(9 + button * 21),
-                        element.getLayout().getValueImmediate(LayoutProperties.LEFT));
-                    assertEquals(LengthPercentageAuto.length(32), element.getLayout().getValueImmediate(LayoutProperties.TOP));
-                    assertEquals(TaffyDimension.length(18), element.getLayout().getValueImmediate(LayoutProperties.HEIGHT));
+                    assertEquals((float)(9 + button * 21),
+                        element.getLayoutStyle().left);
+                    assertEquals((float)(32), element.getLayoutStyle().top);
+                    assertEquals((float)(18), element.getLayoutStyle().height);
                     Button drawing = spy(element);
                     doReturn(209F).when(drawing).getPositionX();
                     doReturn(240F).when(drawing).getPositionY();
@@ -205,15 +199,15 @@ class StorageInterfaceUiTest {
     @Test
     @SuppressWarnings("unchecked")
     void receivedFiltersPopulateSamplesWithoutEditingOrMovingRealItems() {
-        try (var ldlib = mockStatic(LDLib2.class); var keys = mockStatic(AEKeyTypesInternal.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var keys = mockStatic(AEKeyTypesInternal.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             keys.when(AEKeyTypesInternal::getRegistry).thenReturn(LargeWorkstationTestKeys.REGISTRY);
             var host = host();
             Player player = player();
             var grid = (StorageResourceFilterGrid) node(StorageInterfaceUI.createRoot(host, player, () -> 0), "resource_filters");
-            var snapshot = (BindableValue<Tag>) grid.getChildren().getLast();
+            var snapshot = (BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.last(grid.getChildren());
             var key = AEItemKey.of(Items.DIAMOND);
-            snapshot.setValue(StorageInterfaceFilter.with(new CompoundTag(), 26, key, player.registryAccess()));
+            snapshot.setValue(StorageInterfaceFilter.with(new CompoundTag(), 26, key));
             ItemSlot slot = (ItemSlot) grid.getChildren().get(26);
             assertTrue(slot.getValue().is(Items.DIAMOND));
             assertEquals(1, slot.getValue().getCount());
@@ -227,8 +221,8 @@ class StorageInterfaceUiTest {
 
     @Test
     void serverRejectsEditsFromAClosedOrDistantMenuAndRejectsInvalidKeys() throws Exception {
-        try (var ldlib = mockStatic(LDLib2.class); var keys = mockStatic(AEKeyTypesInternal.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var keys = mockStatic(AEKeyTypesInternal.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             keys.when(AEKeyTypesInternal::getRegistry).thenReturn(LargeWorkstationTestKeys.REGISTRY);
             var host = host();
             Player player = player();
@@ -248,7 +242,7 @@ class StorageInterfaceUiTest {
             field.setAccessible(true);
             field.set(grid, ui);
             var key = AEItemKey.of(Items.STONE);
-            CompoundTag value = StorageInterfaceFilter.encode(key, player.registryAccess());
+            CompoundTag value = StorageInterfaceFilter.encode(key);
             grid.applyEdit(26, value);
             verify(host).setStorageResourceFilter(26, key);
             grid.applyEdit(26, new CompoundTag());
@@ -284,8 +278,8 @@ class StorageInterfaceUiTest {
 
     @Test
     void clicksSendOnlyFilterKeysAndLeaveTheCursorStackUntouched() throws Exception {
-        try (var ldlib = mockStatic(LDLib2.class); var modifiers = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var modifiers = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             modifiers.when(UIElement::isShiftDown).thenReturn(false);
             Player player = player();
             var grid = (StorageResourceFilterGrid) node(StorageInterfaceUI.createRoot(host(), player, () -> 0), "resource_filters");
@@ -293,7 +287,7 @@ class StorageInterfaceUiTest {
             var editField = StorageResourceFilterGrid.class.getDeclaredField("edit");
             editField.setAccessible(true);
             editField.set(grid, edits);
-            UIElement slot = grid.getChildren().getFirst();
+            UIElement slot = cn.dancingsnow.neoecoae.platform.JdkCompat.first(grid.getChildren());
             var ui = mock(ModularUI.class);
             var menu = mock(AbstractContainerMenu.class);
             var carried = new ItemStack(Items.STONE, 32);
@@ -303,15 +297,15 @@ class StorageInterfaceUiTest {
             uiField.setAccessible(true);
             uiField.set(slot, ui);
             for (int button : List.of(0, 1)) {
-                UIEvent event = UIEvent.create(UIEvents.MOUSE_DOWN);
+                UIEvent event = new UIEvent(UIEvents.MOUSE_DOWN,null,0,0,0);
                 event.target = slot;
                 event.button = button;
-                UIEventDispatcher.dispatchEvent(event, false, false, false);
+                event.target.dispatchEvent(event);
                 assertTrue(event.hasHandler);
                 assertEquals(32, carried.getCount());
             }
             verify(edits).send(eq(0), argThat((Object value) -> value instanceof CompoundTag tag
-                && tag.equals(StorageInterfaceFilter.encode(AEItemKey.of(Items.STONE), player.registryAccess()))));
+                && tag.equals(StorageInterfaceFilter.encode(AEItemKey.of(Items.STONE)))));
             verify(edits).send(eq(0), argThat((Object value) -> value instanceof CompoundTag tag && tag.isEmpty()));
             verify(menu, never()).setCarried(any());
         }
@@ -328,7 +322,7 @@ class StorageInterfaceUiTest {
 
     private static Player player() {
         Player player = mock(Player.class);
-        when(player.registryAccess()).thenReturn(RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
+        when(player.level().registryAccess()).thenReturn(RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
         return player;
     }
 

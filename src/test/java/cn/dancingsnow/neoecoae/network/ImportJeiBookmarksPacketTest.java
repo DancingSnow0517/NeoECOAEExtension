@@ -19,7 +19,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraftforge.network.handling.IPayloadContext;
+import cn.dancingsnow.neoecoae.platform.network.NEPacketContext;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -71,7 +71,7 @@ class ImportJeiBookmarksPacketTest {
     private static final class Fixture {
         final CellWorkbenchMenu menu = mock(CellWorkbenchMenu.class);
         final ServerPlayer player = mock(ServerPlayer.class);
-        final IPayloadContext context = mock(IPayloadContext.class);
+        final NEPacketContext context = mock(NEPacketContext.class);
         final GenericStackInv config = new GenericStackInv(
             Set.of(AEKeyType.items(), AEKeyType.fluids()), null, GenericStackInv.Mode.CONFIG_TYPES, 5);
 

@@ -55,10 +55,10 @@ class CpuSelectionStateTest {
         selection.scroll(Integer.MAX_VALUE);
         assertEquals(992, selection.offset());
         assertEquals(8, selection.page().size());
-        assertSame(cpus.getLast(), selection.page().getLast());
+        assertSame(cn.dancingsnow.neoecoae.platform.JdkCompat.last(cpus), cn.dancingsnow.neoecoae.platform.JdkCompat.last(selection.page()));
         Collections.reverse(cpus);
         update(cpus);
-        assertSame(cpus.getFirst(), selection.page().getLast());
+        assertSame(cn.dancingsnow.neoecoae.platform.JdkCompat.first(cpus), cn.dancingsnow.neoecoae.platform.JdkCompat.last(selection.page()));
         update(cpus.subList(0, 3));
         assertEquals(0, selection.offset());
         assertEquals(3, selection.page().size());

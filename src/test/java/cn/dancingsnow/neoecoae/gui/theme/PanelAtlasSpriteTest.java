@@ -2,11 +2,11 @@ package cn.dancingsnow.neoecoae.gui.theme;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
-import com.lowdragmc.lowdraglib2.editor.resource.BuiltinResourceProvider;
-import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.editor.resource.BuiltinPath;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.editor.resource.BuiltinResourceProvider;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.editor.resource.ResourceInstance;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.LinkedHashMap;
@@ -75,7 +75,7 @@ class PanelAtlasSpriteTest {
                 assertEquals(cached.spriteSize, resolved.spriteSize);
                 assertEquals(cached.borderLT, resolved.borderLT);
                 assertEquals(cached.borderRB, resolved.borderRB);
-                assertEquals(cached.color, resolved.color);
+                assertEquals(cn.dancingsnow.neoecoae.util.UiTestSupport.color(cached), cn.dancingsnow.neoecoae.util.UiTestSupport.color(resolved));
             }
         } finally {
             for (var entry : saved.entrySet()) entry.getKey().set(null, entry.getValue());

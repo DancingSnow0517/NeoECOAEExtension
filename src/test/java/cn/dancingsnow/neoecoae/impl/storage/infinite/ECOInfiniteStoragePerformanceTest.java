@@ -11,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -35,7 +34,7 @@ class ECOInfiniteStoragePerformanceTest {
             var engine = new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew());
             for (int i = 0; i < count; i++) {
                 var stack = new ItemStack(Items.STONE);
-                stack.set(DataComponents.CUSTOM_NAME, Component.literal("bench" + i));
+                stack.setHoverName(Component.literal("bench" + i));
                 keys[i] = AEItemKey.of(stack);
                 engine.insert(keys[i], 1_000, Actionable.MODULATE);
             }

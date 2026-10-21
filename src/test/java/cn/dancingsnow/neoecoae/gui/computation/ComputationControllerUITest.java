@@ -3,18 +3,16 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.lowdragmc.lowdraglib2.LDLib2;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib.LDLib;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.inventory.InventorySlots;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntConsumer;
@@ -46,17 +44,17 @@ class ComputationControllerUITest {
             mods.when(ModList::get).thenReturn(modList);
             // NeoECOAE's static initialiser (used by theme icons) needs a ModList while the class loads.
             Class.forName(NeoECOAE.class.getName());
-            AccessorRegistries.init();
+
         }
     }
 
     @Test
     void loadsLayoutWithArtworkSwitchesInventoryAndToolbar() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),
-                () -> ComputationControllerPanelState.UNFORMED, new UIElement(), new UIElement(), new UIElement());
+                () -> ComputationControllerPanelState.UNFORMED, new UIElement());
 
             assertNotNull(find(root, "computation_artwork"));
             assertNotNull(find(root, "computation_switch_substitutions"));
@@ -75,11 +73,11 @@ class ComputationControllerUITest {
 
     @Test
     void driveGridHasOneSlotPerDriveWithoutDrives() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),
-                () -> ComputationControllerPanelState.UNFORMED, new UIElement(), new UIElement(), new UIElement());
+                () -> ComputationControllerPanelState.UNFORMED, new UIElement());
 
             UIElement grid = find(root, "computation_drive_grid");
             assertNotNull(grid);
@@ -90,13 +88,13 @@ class ComputationControllerUITest {
 
     @Test
     void switchesRunTheirServerActions() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             Runnable substitutions = mock(Runnable.class);
             Runnable cyclePlanning = mock(Runnable.class);
             Runnable fastPlanner = mock(Runnable.class);
             UIElement root = ComputationControllerUI.create(config(substitutions, cyclePlanning, fastPlanner),
-                () -> ComputationControllerPanelState.UNFORMED, new UIElement(), new UIElement(), new UIElement());
+                () -> ComputationControllerPanelState.UNFORMED, new UIElement());
 
             serverClick(find(root, "computation_switch_substitutions"), 0);
             verify(substitutions).run();
@@ -114,19 +112,19 @@ class ComputationControllerUITest {
 
     @Test
     void switchTooltipListsNameStateDescriptionAndCount() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),
-                () -> ComputationControllerPanelState.UNFORMED, new UIElement(), new UIElement(), new UIElement());
+                () -> ComputationControllerPanelState.UNFORMED, new UIElement());
 
             UIElement substitutions = find(root, "computation_switch_substitutions");
             assertNotNull(substitutions);
-            UIEvent tooltip = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            UIEvent tooltip = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
             tooltip.target = substitutions;
-            UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
+            tooltip.target.dispatchEvent(tooltip);
             assertNotNull(tooltip.hoverTooltips);
-            assertEquals(4, tooltip.hoverTooltips.tooltipTexts().size());
+            assertEquals(4, tooltip.hoverTooltips.tooltips().size());
         }
     }
 
@@ -134,9 +132,9 @@ class ComputationControllerUITest {
     @SuppressWarnings("unchecked")
     void allThreeGaugesOpenToTheirActualRatiosAndKeepFollowingSyncedValues() throws ReflectiveOperationException {
         AtomicLong now = new AtomicLong();
-        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class);
+        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class);
              var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             clock.when(Util::getMillis).thenAnswer(call -> now.get());
             Minecraft client = mock(Minecraft.class);
             var fontField = Minecraft.class.getDeclaredField("font");
@@ -145,15 +143,15 @@ class ComputationControllerUITest {
             minecraft.when(Minecraft::getInstance).thenReturn(client);
             UIElement root = ComputationControllerUI.create(config(() -> {}, () -> {}, () -> {}),
                 () -> new ComputationControllerPanelState(true, 1, 0, 0, 0, 0),
-                new UIElement(), new UIElement(), new UIElement());
+                new UIElement());
             UIElement artwork = find(root, "computation_artwork");
-            BindableValue<Tag> synced = (BindableValue<Tag>) artwork.getChildren().getLast();
+            BindableValue<Tag> synced = (BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.last(artwork.getChildren());
             CompoundTag update = ((CompoundTag) synced.getValue()).copy();
             update.putLong("usedBytes", 512);
             update.putInt("usedThreads", 2);
             synced.setValue(update);
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"graphics",mock(GuiGraphics.class));
             PoseStack pose = new PoseStack();
             when(context.graphics.pose()).thenReturn(pose);
 
@@ -213,8 +211,8 @@ class ComputationControllerUITest {
 
     private static void serverClick(UIElement element, int button) {
         assertNotNull(element);
-        UIEvent event = UIEvent.create(UIEvents.MOUSE_DOWN);
+        UIEvent event = new UIEvent(UIEvents.MOUSE_DOWN,null,0,0,0);
         event.button = button;
-        element.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor().apply(new Object[] {event});
+        cn.dancingsnow.neoecoae.util.UiTestSupport.serverClick(element,event);
     }
 }

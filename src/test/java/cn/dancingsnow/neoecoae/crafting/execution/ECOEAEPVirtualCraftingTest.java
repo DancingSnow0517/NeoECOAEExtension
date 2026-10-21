@@ -33,7 +33,7 @@ class ECOEAEPVirtualCraftingTest {
 
     ECOEAEPVirtualCraftingTest() {
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 1)});
         var plan = mock(ICraftingPlan.class);
         when(plan.finalOutput()).thenReturn(new GenericStack(output, 4));
         when(plan.patternTimes()).thenReturn(Map.of(pattern, 4L));

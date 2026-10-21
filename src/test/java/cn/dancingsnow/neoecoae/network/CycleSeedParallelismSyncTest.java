@@ -41,7 +41,7 @@ class CycleSeedParallelismSyncTest {
                 assertEquals(17, ((FriendlyByteBuf) call.getArgument(0)).readVarInt());
                 return key;
             });
-            var buffer = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            var buffer = new FriendlyByteBuf(Unpooled.buffer());
             try {
                 var expected = new ECOCycleItemList(entries);
                 expected.writeToPacket(buffer);

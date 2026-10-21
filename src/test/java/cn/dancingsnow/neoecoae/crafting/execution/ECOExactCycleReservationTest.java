@@ -33,8 +33,8 @@ class ECOExactCycleReservationTest {
         assertEquals(Long.MAX_VALUE, plan.usedItems().get(fixture.stock));
         assertEquals(total, plan.deferredStock().get(fixture.stock).add(BigInteger.valueOf(plan.usedItems().get(fixture.stock))));
         assertEquals(ExecutionMode.ORDERED_CYCLE, plan.execution().mode());
-        assertEquals(1, plan.execution().phases().getFirst().steps().size());
-        assertEquals(1L, plan.execution().phases().getFirst().initialSeed().get(fixture.stock));
+        assertEquals(1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(plan.execution().phases()).steps().size());
+        assertEquals(1L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(plan.execution().phases()).initialSeed().get(fixture.stock));
     }
 
     @Test void cycleReservationSuppliesTheExactMaterialLedger() {
@@ -61,7 +61,7 @@ class ECOExactCycleReservationTest {
         final IPatternDetails pattern = mock(IPatternDetails.class);
         Fixture() {
             when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-            when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+            when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 1)});
         }
         ComponentPlanningResult component(int id, long reserved) {
             var run = mock(PatternRun.class);

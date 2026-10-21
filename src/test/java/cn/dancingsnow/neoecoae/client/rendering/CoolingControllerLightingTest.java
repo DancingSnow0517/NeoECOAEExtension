@@ -125,7 +125,7 @@ class CoolingControllerLightingTest {
                 for (var element : model.getElements()) {
                     for (var entry : element.faces.entrySet()) {
                         BakedQuad quad = bakery.bakeQuad(element.from, element.to, entry.getValue(),
-                            UnitTextureAtlasSprite.INSTANCE, entry.getKey(), rotation, element.rotation, element.shade);
+                            UnitTextureAtlasSprite.INSTANCE, entry.getKey(), rotation, element.rotation, element.shade, new net.minecraft.resources.ResourceLocation("neoecoae:test_model"));
                         int[] original = quad.getVertices().clone();
                         List<BlockGridQuads.Part> parts = BlockGridQuads.split(quad, new float[]{1, 1, 1, 1});
                         assertEquals(area(quad), parts.stream().mapToDouble(part -> area(part.quad())).sum(), 0.0001);
@@ -163,9 +163,9 @@ class CoolingControllerLightingTest {
     }
 
     private static BakedQuad bodyFace(boolean mirrored, BlockModelRotation rotation, Direction face) throws Exception {
-        var body = model(mirrored).getElements().getLast();
+        var body = cn.dancingsnow.neoecoae.platform.JdkCompat.last(model(mirrored).getElements());
         return new FaceBakery().bakeQuad(body.from, body.to, body.faces.get(face),
-            UnitTextureAtlasSprite.INSTANCE, face, rotation, body.rotation, body.shade);
+            UnitTextureAtlasSprite.INSTANCE, face, rotation, body.rotation, body.shade, new net.minecraft.resources.ResourceLocation("neoecoae:test_model"));
     }
 
     private static BlockModel model(boolean mirrored) throws Exception {
@@ -187,7 +187,7 @@ class CoolingControllerLightingTest {
         pose.translate(sectionX, sectionY, sectionZ);
         try (var lighting = new FixedModelLighting(region, BlockPos.ZERO, Blocks.GLASS.defaultBlockState(),
             pose.last(), layer -> output, new FixedModelLighting.Lighters(new BlockColors()), ao)) {
-            lighting.getBuffer(RenderType.cutout()).putBulkData(pose.last(), quad, 1, 1, 1, 1, 0, 0);
+            lighting.getBuffer(RenderType.cutout()).putBulkData(pose.last(), quad, 1, 1, 1, 0, 0);
         }
         return result;
     }

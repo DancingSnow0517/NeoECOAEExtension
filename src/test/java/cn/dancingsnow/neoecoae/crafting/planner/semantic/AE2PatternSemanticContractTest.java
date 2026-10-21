@@ -52,7 +52,7 @@ class AE2PatternSemanticContractTest {
         var slot = input(new GenericStack[] {new GenericStack(key, Long.MAX_VALUE)}, 3);
         var pattern = pattern(new IPatternDetails.IInput[] {slot}, List.of(new GenericStack(key, 1)));
         assertEquals(BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(3)),
-            PatternSemanticAdapters.analyze(pattern).consumedInputs().getFirst().amountPerPattern().toBigInteger());
+            cn.dancingsnow.neoecoae.platform.JdkCompat.first(PatternSemanticAdapters.analyze(pattern).consumedInputs()).amountPerPattern().toBigInteger());
     }
 
     @Test
@@ -83,7 +83,7 @@ class AE2PatternSemanticContractTest {
     private static IPatternDetails pattern(IPatternDetails.IInput[] inputs, List<GenericStack> outputs) {
         IPatternDetails pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(inputs);
-        when(pattern.getOutputs()).thenReturn(outputs);
+        when(pattern.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
         return pattern;
     }
 }

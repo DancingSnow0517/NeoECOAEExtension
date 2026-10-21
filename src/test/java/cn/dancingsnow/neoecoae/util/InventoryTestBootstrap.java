@@ -8,13 +8,14 @@ import java.util.List;
 
 import static org.mockito.Mockito.*;
 
-/** Supplies the mod list normally installed by the NeoForge launcher. */
+/** Supplies registry/channel initialization boundaries normally installed by the Forge launcher. */
 public final class InventoryTestBootstrap {
     private InventoryTestBootstrap() {}
 
     public static void initialize() {
         SharedConstants.tryDetectVersion();
-        try (var loading = mockStatic(LoadingModList.class)) {
+        try (var loading = mockStatic(LoadingModList.class);
+             var network = mockStatic(net.minecraftforge.network.NetworkHooks.class)) {
             var mods = mock(LoadingModList.class);
             when(mods.getModFiles()).thenReturn(List.of());
             loading.when(LoadingModList::get).thenReturn(mods);

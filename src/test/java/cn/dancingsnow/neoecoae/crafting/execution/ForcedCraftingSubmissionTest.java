@@ -131,12 +131,12 @@ class ForcedCraftingSubmissionTest {
         assertEquals(4, logic.getInventory().list.get(key));
 
         var registries = mock(HolderLookup.Provider.class);
-        when(key.toTagGeneric(registries)).thenAnswer(call -> new CompoundTag());
+        when(key.toTagGeneric()).thenAnswer(call -> new CompoundTag());
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(eq(registries), any())).thenReturn(key);
-            var saved = job.waitingFor.writeToNBT(registries);
+            keys.when(() -> AEKey.fromTagGeneric(any())).thenReturn(key);
+            var saved = job.waitingFor.writeToNBT();
             job.waitingFor.clear();
-            job.waitingFor.readFromNBT(saved, registries);
+            job.waitingFor.readFromNBT(saved);
         }
         assertEquals(5, logic.getWaitingFor(key));
         assertEquals(5, logic.insert(key, 100, Actionable.MODULATE));

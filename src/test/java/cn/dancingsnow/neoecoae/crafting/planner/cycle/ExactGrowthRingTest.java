@@ -27,7 +27,7 @@ class ExactGrowthRingTest {
         for (var amount : List.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE),
                 BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.TWO),
                 BigInteger.TEN.pow(50))) {
-            var result = solve(ring, amount, Map.of(ring.members().getFirst(), 1L));
+            var result = solve(ring, amount, Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(ring.members()), 1L));
             // One unit is already stocked. A MAX_VALUE+1 target needs exactly MAX_VALUE firings,
             // so a wide deliverable alone must not make an otherwise representable task overflow.
             var expectedCount = amount.subtract(BigInteger.ONE);
@@ -68,11 +68,11 @@ class ExactGrowthRingTest {
     @ValueSource(ints = {1, 2, 3})
     void smallRingRetainsAReplayableExecutionPlan(int size) throws Exception {
         var ring = ring(size);
-        var result = solve(ring, BigInteger.valueOf(32), Map.of(ring.members().getFirst(), 1L));
+        var result = solve(ring, BigInteger.valueOf(32), Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(ring.members()), 1L));
         assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.diagnostics().toString());
         var stock = new java.util.LinkedHashMap<AEKey, BigInteger>();
         ring.members().forEach(key -> stock.put(key, BigInteger.ZERO));
-        stock.put(ring.members().getFirst(), BigInteger.ONE);
+        stock.put(cn.dancingsnow.neoecoae.platform.JdkCompat.first(ring.members()), BigInteger.ONE);
         for (var firing : result.executionWitness()) {
             for (var input : firing.pattern().inputs()) {
                 stock.compute(input.key(), (key, count) -> count.subtract(input.amountPerPattern().toBigInteger()));
@@ -82,7 +82,7 @@ class ExactGrowthRingTest {
                 stock.compute(output.what(), (key, count) -> count.add(BigInteger.valueOf(output.amount())));
             }
         }
-        assertTrue(stock.get(ring.members().getFirst()).compareTo(BigInteger.valueOf(32)) >= 0);
+        assertTrue(stock.get(cn.dancingsnow.neoecoae.platform.JdkCompat.first(ring.members())).compareTo(BigInteger.valueOf(32)) >= 0);
     }
 
     private static CycleSolveResult solve(CycleComponent ring, BigInteger amount, Map<AEKey, Long> stock)
@@ -90,7 +90,7 @@ class ExactGrowthRingTest {
         // Any fallback to bounded search fails this budget; exact solving is independent of it.
         var limits = new CycleSolveLimits(8, 16, 1, 1, 0);
         return new BoundedCycleSolver().solve(new CycleSolveRequest(ring, Map.of(),
-            Map.of(ring.members().getFirst(), PlannerAmount.of(amount)), stock, List.of(),
+            Map.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(ring.members()), PlannerAmount.of(amount)), stock, List.of(),
             new CycleSolveRequest.PlannerOptions(limits)), ECOCancellation.NONE);
     }
 
@@ -103,7 +103,7 @@ class ExactGrowthRingTest {
             AEKey output = keys.get((i + 1) % size);
             long count = i == size - 1 ? 2 : 1;
             var outputs = List.of(new GenericStack(output, count));
-            when(details.getOutputs()).thenReturn(outputs);
+            when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
             var semantics = new PatternSemantics(details, null, List.of(), outputs, List.of(), List.of(),
                 PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
             patterns.add(new CompiledPattern(i, details, output, PlannerAmount.of(count),

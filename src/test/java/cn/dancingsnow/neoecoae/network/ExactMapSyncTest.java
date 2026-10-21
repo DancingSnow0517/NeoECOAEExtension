@@ -38,7 +38,7 @@ class ExactMapSyncTest {
             });
             statics.when(() -> AEKey.readKey(any())).thenAnswer(call -> keys.get(
                 ((FriendlyByteBuf) call.getArgument(0)).readVarInt()));
-            var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            var buf = new FriendlyByteBuf(Unpooled.buffer());
             try {
                 ExactMapSync.write(buf, MapDelta.between(before, after));
                 assertTrue(buf.readableBytes() < 500, "1024 decimal digits should occupy roughly 426 binary bytes");

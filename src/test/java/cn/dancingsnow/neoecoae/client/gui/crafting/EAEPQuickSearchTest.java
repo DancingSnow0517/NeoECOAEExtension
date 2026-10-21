@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.extendedae_plus.client.ModKeybindings;
 import com.extendedae_plus.compat.EmiHelper;
-import com.extendedae_plus.compat.JeiRuntimeCompat;
+import com.extendedae_plus.integration.jei.JeiRuntimeProxy;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -53,20 +53,20 @@ class EAEPQuickSearchTest {
 
     @Test void jeiCoordinatesAndFallbackCoverItemsAndFluidDisplayNames() throws Exception {
         ITypedIngredient<?> typed = mock(ITypedIngredient.class);
-        try (var jei = mockStatic(JeiRuntimeCompat.class)) {
-            jei.when(() -> JeiRuntimeCompat.getIngredientUnderMouse(20, 30)).thenReturn(Optional.of(typed));
+        try (var jei = mockStatic(JeiRuntimeProxy.class)) {
+            jei.when(() -> JeiRuntimeProxy.getIngredientUnderMouse(20, 30)).thenReturn(Optional.of(typed));
             var item = new ItemStack(Items.DIAMOND);
-            jei.when(() -> JeiRuntimeCompat.getTypedIngredientValue(typed)).thenReturn(item);
+            doReturn(item).when(typed).getIngredient();
             assertEquals(item.getHoverName().getString(), EAEPQuickSearch.jeiQuery(20, 30, 0).orElseThrow());
             assertEquals("@minecraft", EAEPQuickSearch.jeiQuery(20, 30, GLFW.GLFW_MOD_ALT).orElseThrow());
 
-            jei.when(() -> JeiRuntimeCompat.getIngredientUnderMouse(20, 30)).thenReturn(Optional.empty());
-            jei.when(JeiRuntimeCompat::getIngredientUnderMouse).thenReturn(Optional.of(typed));
-            jei.when(() -> JeiRuntimeCompat.getTypedIngredientValue(typed)).thenReturn(null);
-            jei.when(() -> JeiRuntimeCompat.getTypedIngredientDisplayName(typed)).thenReturn("液态水");
+            jei.when(() -> JeiRuntimeProxy.getIngredientUnderMouse(20, 30)).thenReturn(Optional.empty());
+            jei.when(JeiRuntimeProxy::getIngredientUnderMouse).thenReturn(Optional.of(typed));
+            doReturn(null).when(typed).getIngredient();
+            jei.when(() -> JeiRuntimeProxy.getTypedIngredientDisplayName(typed)).thenReturn("液态水");
             assertEquals("液态水", EAEPQuickSearch.jeiQuery(20, 30, 0).orElseThrow());
             assertEquals("液态水", EAEPQuickSearch.jeiQuery(20, 30, GLFW.GLFW_MOD_ALT).orElseThrow());
-            jei.when(JeiRuntimeCompat::getIngredientUnderMouse).thenReturn(Optional.empty());
+            jei.when(JeiRuntimeProxy::getIngredientUnderMouse).thenReturn(Optional.empty());
             assertTrue(EAEPQuickSearch.jeiQuery(20, 30, 0).isEmpty());
         }
     }

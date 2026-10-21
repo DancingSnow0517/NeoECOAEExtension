@@ -58,9 +58,9 @@ class ExternalDemandReservationTest {
             roots, stock, new SolveState(stock), Map.of(), Set.of(), ECOCancellation.NONE);
         assertTrue(result.solved(), result.diagnostic());
         assertEquals(1, result.states().size());
-        assertEquals(Map.of(joint.details(), 1L), result.states().getFirst().patternTimes());
-        assertEquals(1L, result.states().getFirst().usedItems().get(raw));
-        result.states().getFirst().executionProvenance().requireComplete();
+        assertEquals(Map.of(joint.details(), 1L), cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.states()).patternTimes());
+        assertEquals(1L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.states()).usedItems().get(raw));
+        cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.states()).executionProvenance().requireComplete();
         assertEquals(1L, stock.get(raw));
     }
 
@@ -85,7 +85,7 @@ class ExternalDemandReservationTest {
 
     private static CompiledPattern pattern(AEKey primary, List<GenericStack> inputs, GenericStack... outputs) {
         var details = mock(IPatternDetails.class);
-        var outputList = List.of(outputs); when(details.getOutputs()).thenReturn(outputList);
+        var outputList = List.of(outputs); when(details.getOutputs()).thenReturn(outputList.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), outputList, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
         return new CompiledPattern(0, details, primary, PlannerAmount.of(outputs[0].amount()),

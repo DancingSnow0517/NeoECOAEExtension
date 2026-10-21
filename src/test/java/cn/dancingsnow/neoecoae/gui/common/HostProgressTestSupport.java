@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
@@ -16,7 +16,7 @@ public final class HostProgressTestSupport {
         try (var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
             clock.when(Util::getMillis).thenReturn(0L);
             GUIContext firstFrame = mock(GUIContext.class);
-            firstFrame.graphics = mock(GuiGraphics.class);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(firstFrame,"graphics",mock(GuiGraphics.class));
             PoseStack pose = new PoseStack();
             when(firstFrame.graphics.pose()).thenReturn(pose);
             element.drawBackgroundAdditional(firstFrame);

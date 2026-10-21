@@ -14,7 +14,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.client.ChunkRenderTypeSet;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.model.data.ModelData;
-import net.minecraftforge.common.util.TriState;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -48,11 +47,11 @@ class CoolingControllerBakedModelTest {
         }
         var unrelated = new ModelResourceLocation(new ResourceLocation("neoecoae", "computation_system_l9"), "formed=true");
         models.put(unrelated, original);
-        CoolingControllerBakedModel.onModifyBakingResult(new ModelEvent.ModifyBakingResult(models, null, null));
+        CoolingControllerBakedModel.onModifyBakingResult(new ModelEvent.ModifyBakingResult(models, null));
         assertEquals(24, models.values().stream().filter(CoolingControllerBakedModel.class::isInstance).count());
         assertSame(original, models.get(unrelated));
         for (var entry : models.entrySet()) {
-            assertEquals(entry.getKey().variant().contains("formed=true") && !entry.getKey().equals(unrelated),
+            assertEquals(entry.getKey().getVariant().contains("formed=true") && !entry.getKey().equals(unrelated),
                 entry.getValue() instanceof CoolingControllerBakedModel, entry.getKey().toString());
         }
     }
@@ -78,7 +77,7 @@ class CoolingControllerBakedModelTest {
         BakedQuad glass = mock(BakedQuad.class);
         var state = Blocks.GLASS.defaultBlockState();
         when(original.useAmbientOcclusion()).thenReturn(true);
-        when(original.useAmbientOcclusion(any(), any(), any())).thenReturn(TriState.DEFAULT);
+        when(original.useAmbientOcclusion(any(net.minecraft.world.level.block.state.BlockState.class))).thenReturn(true);
         when(original.getRenderTypes(eq(state), any(), eq(ModelData.EMPTY)))
             .thenReturn(ChunkRenderTypeSet.of(RenderType.cutout(), RenderType.translucent()));
         when(original.getQuads(eq(state), nullable(Direction.class), any(), eq(ModelData.EMPTY), any()))
@@ -91,8 +90,8 @@ class CoolingControllerBakedModelTest {
         VertexConsumer glassOutput = mock(VertexConsumer.class);
         var pose = new PoseStack();
         wrapped.renderFixed(state, pose, layer -> layer == RenderType.cutout() ? opaqueOutput : glassOutput, 123, 456);
-        verify(opaqueOutput).putBulkData(pose.last(), opaque, 1F, 1F, 1F, 1F, 123, 456);
-        verify(glassOutput).putBulkData(pose.last(), glass, 1F, 1F, 1F, 1F, 123, 456);
+        verify(opaqueOutput).putBulkData(pose.last(), opaque, 1F, 1F, 1F, 123, 456);
+        verify(glassOutput).putBulkData(pose.last(), glass, 1F, 1F, 1F, 123, 456);
         verifyNoMoreInteractions(opaqueOutput, glassOutput);
     }
 }

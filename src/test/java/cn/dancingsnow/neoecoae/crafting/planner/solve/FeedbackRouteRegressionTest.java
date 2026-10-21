@@ -88,7 +88,7 @@ class FeedbackRouteRegressionTest {
             assertTrue(firings++ < 20, "Schedule failed to finish");
             var candidates = runtime.candidates(remaining);
             assertEquals(1, candidates.size(), "Only the verified next transition may spend the seed");
-            var candidate = candidates.getFirst();
+            var candidate = cn.dancingsnow.neoecoae.platform.JdkCompat.first(candidates);
             if (firings == 1) assertSame(prepare.details(), candidate.pattern());
             var recipe = compiled.get(candidate.pattern());
             var consumed = new KeyCounter();
@@ -225,8 +225,8 @@ class FeedbackRouteRegressionTest {
             return input;
         }).toArray(IPatternDetails.IInput[]::new);
         when(details.getInputs()).thenReturn(rawInputs);
-        when(details.getOutputs()).thenReturn(stacks);
-        when(details.getPrimaryOutput()).thenReturn(stacks.getFirst());
+        when(details.getOutputs()).thenReturn(stacks.toArray(GenericStack[]::new));
+        when(details.getPrimaryOutput()).thenReturn(cn.dancingsnow.neoecoae.platform.JdkCompat.first(stacks));
         var compiled = inputs.entrySet().stream().map(entry ->
             new CompiledInput(null, entry.getKey(), entry.getValue(), true, null)).toList();
         var consumed = inputs.entrySet().stream().map(entry -> new PatternSemantics.Input(null,

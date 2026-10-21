@@ -90,7 +90,7 @@ class ECOAe2LtExistingInteropTest {
         when(slot.getMultiplier()).thenReturn(1L);
         when(pattern.getDefinition()).thenReturn(AEItemKey.of(Items.STONE));
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{slot});
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 1)});
         var plan = mock(ICraftingPlan.class);
         when(plan.finalOutput()).thenReturn(new GenericStack(output, 1));
         when(plan.emittedItems()).thenReturn(new KeyCounter());

@@ -56,11 +56,11 @@ class InfusionCrystalClassificationTest {
         var crystalRecipe = pattern(crystal, input(upgraded, 1, null));
         when(service.getCraftingFor(crystal)).thenReturn(List.of(crystalRecipe));
         var network = compiler(omitSummary).compile(service, upgraded, ECOCancellation.NONE);
-        var compiled = network.producersOf(upgraded).getFirst();
+        var compiled = cn.dancingsnow.neoecoae.platform.JdkCompat.first(network.producersOf(upgraded));
         assertTrue(compiled.fastSupported(), compiled.unsupportedReason());
         assertEquals(1, compiled.specialAnalysis().requirements().size());
         assertEquals(durability ? SpecialPatternAnalysis.Type.DURABILITY : SpecialPatternAnalysis.Type.REUSABLE,
-            compiled.specialAnalysis().requirements().getFirst().type());
+            cn.dancingsnow.neoecoae.platform.JdkCompat.first(compiled.specialAnalysis().requirements()).type());
         var classification = ECORecipeClassifier.classify(recipe);
         assertTrue(classification.supported(), classification.reason());
         assertEquals(durability ? ECORecipeClassifier.Type.DURABILITY_MUTATION
@@ -125,7 +125,7 @@ class InfusionCrystalClassificationTest {
         var pattern = mock(IPatternDetails.class);
         var product = new GenericStack(output, 1);
         when(pattern.getInputs()).thenReturn(inputs);
-        when(pattern.getOutputs()).thenReturn(List.of(product));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{product});
         when(pattern.getPrimaryOutput()).thenReturn(product);
         return pattern;
     }

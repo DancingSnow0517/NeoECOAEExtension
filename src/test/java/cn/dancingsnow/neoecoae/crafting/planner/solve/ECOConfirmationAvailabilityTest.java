@@ -42,8 +42,8 @@ class ECOConfirmationAvailabilityTest {
         method.invoke(null, grid, source, summary);
         ArgumentCaptor<List<CraftingPlanSummaryEntry>> entries = ArgumentCaptor.forClass((Class) List.class);
         verify((CraftingPlanSummaryAccessor) summary).neoecoae$setEntries(entries.capture());
-        assertEquals(21864722041L, entries.getValue().getFirst().getStoredAmount());
-        assertEquals(115481708064L, entries.getValue().getFirst().getMissingAmount());
+        assertEquals(21864722041L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(entries.getValue()).getStoredAmount());
+        assertEquals(115481708064L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(entries.getValue()).getMissingAmount());
     }
 
     @Test

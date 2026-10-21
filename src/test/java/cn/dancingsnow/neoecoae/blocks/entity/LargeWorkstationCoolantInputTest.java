@@ -9,7 +9,6 @@ import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
@@ -122,8 +121,8 @@ class LargeWorkstationCoolantInputTest {
         assertEquals(0, hatch.tank.fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE));
     }
 
-    private static RecipeHolder<CoolingRecipe> cooling(net.minecraft.world.level.material.Fluid fluid) {
+    private static CoolingRecipe cooling(net.minecraft.world.level.material.Fluid fluid) {
         var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), FluidStack.EMPTY, 1500, 2);
-        return new RecipeHolder<>(new ResourceLocation("test:coolant"), recipe);
+        return cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(new ResourceLocation("test:coolant"), recipe);
     }
 }

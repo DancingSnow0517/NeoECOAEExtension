@@ -19,7 +19,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
@@ -119,7 +118,7 @@ class LargeWorkstationThermalControllerTest {
     @Test
     void registeredRecoveryCoolantHasATranslatableDisplayName() {
         assertEquals(Component.translatable("fluid.neoecoae.cryotheum_solution"),
-            new FluidStack(cryotheum, 1).getHoverName());
+            new FluidStack(cryotheum, 1).getDisplayName());
     }
 
     @Test
@@ -221,7 +220,7 @@ class LargeWorkstationThermalControllerTest {
         field(host, "pendingBatches", queue);
         field(host, "temperature", 19.9);
         host.tickingRequest(mock(IGridNode.class), 20);
-        assertSame(batch, queue.getFirst());
+        assertSame(batch, cn.dancingsnow.neoecoae.platform.JdkCompat.first(queue));
         assertEquals(50, value(batch, "progress"));
         assertEquals(400, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
         verify(host, never()).extractAEPower(anyDouble(), any(), any());
@@ -445,9 +444,8 @@ class LargeWorkstationThermalControllerTest {
         Object batch = queuedBatch(0);
         field(batch, "recipeId", null);
         field(batch, "progress", 25);
-        var stack = new net.minecraft.world.item.ItemStack(Items.DIAMOND);
-        stack.set(net.minecraft.core.component.DataComponents.MAX_STACK_SIZE, 8);
-        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Batch icon"));
+        var stack = new net.minecraft.world.item.ItemStack(Items.ENDER_PEARL);
+        stack.setHoverName(net.minecraft.network.chat.Component.literal("Batch icon"));
         KeyCounter outputs = (KeyCounter) value(batch, "outputTotal");
         outputs.clear();
         outputs.add(AEItemKey.of(stack), amount);
@@ -458,7 +456,7 @@ class LargeWorkstationThermalControllerTest {
         assertEquals(amount, row.getLong("amount"));
         assertEquals(25, row.getInt("progress"));
         assertTrue(row.getBoolean("returnable"));
-        var icon = net.minecraft.world.item.ItemStack.parseOptional(registries, row.getCompound("item"));
+        var icon = cn.dancingsnow.neoecoae.platform.nbt.NEStacks.read(registries, row.getCompound("item"));
         assertEquals(1, icon.getCount());
         assertEquals(8, icon.getMaxStackSize());
         assertEquals("Batch icon", icon.getHoverName().getString());
@@ -534,7 +532,7 @@ class LargeWorkstationThermalControllerTest {
     private void coolant(Fluid fluid, int tier, FluidStack byproduct) {
         var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), byproduct, 1, tier);
         when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(
-            new RecipeHolder<>(new ResourceLocation("test:cooling"), recipe)));
+            cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(new ResourceLocation("test:cooling"), recipe)));
     }
 
     private void tick() { host.tickThermal(level, BlockPos.ZERO, Blocks.AIR.defaultBlockState()); }

@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
@@ -16,7 +15,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.pattern.AEProcessingPattern;
-import appeng.crafting.pattern.EncodedProcessingPattern;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
@@ -147,18 +145,12 @@ class ECOExecutionRuntimeDagStreamingTest {
     private static IPatternDetails pattern() {
         var pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(mock(AEKey.class), 1L)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(mock(AEKey.class), 1L)});
         return pattern;
     }
 
     private static AEProcessingPattern processingPattern(AEItemKey output, AEItemKey... inputs) {
-        var encoded = mock(EncodedProcessingPattern.class);
-        when(encoded.sparseInputs()).thenReturn(java.util.Arrays.stream(inputs)
-                .map(key -> new GenericStack(key, 1L)).toList());
-        when(encoded.sparseOutputs()).thenReturn(List.of(new GenericStack(output, 1L)));
-        var definition = mock(AEItemKey.class);
-        when(definition.get(AEComponents.ENCODED_PROCESSING_PATTERN)).thenReturn(encoded);
-        return new AEProcessingPattern(definition);
+        return cn.dancingsnow.neoecoae.util.NativePatternTestSupport.processing(java.util.Arrays.stream(inputs).map(key -> new GenericStack(key,1L)).toList(),List.of(new GenericStack(output,1L)));
     }
 
     private static final class Fixture {

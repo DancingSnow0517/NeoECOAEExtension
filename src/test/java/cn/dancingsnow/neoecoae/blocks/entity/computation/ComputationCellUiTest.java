@@ -5,7 +5,6 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -52,7 +51,7 @@ class ComputationCellUiTest {
     void staleOrChangedCursorAndEmptyRequestCannotInstallACell() {
         Fixture f = new Fixture();
         ItemStack oldRequest = f.carried.get().copy();
-        f.carried.get().set(DataComponents.CUSTOM_NAME, Component.literal("Different cell"));
+        f.carried.get().setHoverName(Component.literal("Different cell"));
         assertFalse(ComputationCellUi.insert(f.host, f.player, f.upperPosition, oldRequest));
         f.carried.set(ItemStack.EMPTY);
         assertFalse(ComputationCellUi.insert(f.host, f.player, f.upperPosition, oldRequest));
@@ -110,12 +109,12 @@ class ComputationCellUiTest {
         Fixture f = new Fixture();
         f.carried.set(ItemStack.EMPTY);
         ItemStack cell = new ItemStack(Items.DIAMOND);
-        cell.set(DataComponents.CUSTOM_NAME, Component.literal("Installed cell"));
+        cell.setHoverName(Component.literal("Installed cell"));
         f.upperCell.set(cell);
         assertTrue(f.take(f.upperPosition, cell.copy(), false));
         assertSame(cell, f.carried.get());
         assertNull(f.upperCell.get());
-        assertEquals(Component.literal("Installed cell"), f.carried.get().get(DataComponents.CUSTOM_NAME));
+        assertEquals(Component.literal("Installed cell"), f.carried.get().getHoverName());
         verify(f.upper, times(1)).setCellStack(null);
         verify(f.menu, times(1)).broadcastChanges();
     }
@@ -153,7 +152,7 @@ class ComputationCellUiTest {
         ItemStack cell = new ItemStack(Items.DIAMOND);
         f.upperCell.set(cell);
         ItemStack stale = cell.copy();
-        cell.set(DataComponents.CUSTOM_NAME, Component.literal("Changed cell"));
+        cell.setHoverName(Component.literal("Changed cell"));
         assertFalse(f.take(f.upperPosition, stale, false));
         assertFalse(f.take(f.upperPosition.above(), cell.copy(), false));
         when(f.upper.isRemoved()).thenReturn(true);

@@ -28,17 +28,17 @@ class ECORepeatedCircuitRuntimeTest {
         var fixture = fixture(3, 0, 0);
         var runtime = fixture.runtime;
         accept(runtime, fixture, 0, 5, 1); // Prefix 5, accept only one.
-        assertEquals(4, runtime.candidates().getFirst().maxDispatchCount());
+        assertEquals(4, cn.dancingsnow.neoecoae.platform.JdkCompat.first(runtime.candidates()).maxDispatchCount());
         accept(runtime, fixture, 0, 4, 4);
         accept(runtime, fixture, 0, 2, 1); // Half of first circuit run.
         var state = new CompoundTag();
         var registries = mock(HolderLookup.Provider.class);
-        runtime.writeToNBT(state, registries);
-        runtime = ECOExecutionRuntime.fromNBT(fixture.plan, fixture.patterns, fixture.progress, state, registries);
+        runtime.writeToNBT(state);
+        runtime = ECOExecutionRuntime.fromNBT(fixture.plan, fixture.patterns, fixture.progress, state);
         accept(runtime, fixture, 0, 1, 1);
         // A failed provider push makes no onAccepted call and must not advance to the next lap.
-        assertEquals(1, runtime.candidates().getFirst().taskId());
-        assertEquals(runtime.candidates().getFirst(), runtime.candidates().getFirst());
+        assertEquals(1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(runtime.candidates()).taskId());
+        assertEquals(cn.dancingsnow.neoecoae.platform.JdkCompat.first(runtime.candidates()), cn.dancingsnow.neoecoae.platform.JdkCompat.first(runtime.candidates()));
         accept(runtime, fixture, 1, 1, 1);
         for (int lap = 1; lap < 3; lap++) {
             accept(runtime, fixture, 0, 2, 2);
@@ -67,8 +67,8 @@ class ECORepeatedCircuitRuntimeTest {
         accept(runtime, fixture, 1, 3, 1);
         var saved = new CompoundTag();
         var registries = mock(HolderLookup.Provider.class);
-        runtime.writeToNBT(saved, registries);
-        runtime = ECOExecutionRuntime.fromNBT(fixture.plan, fixture.patterns, fixture.progress, saved, registries);
+        runtime.writeToNBT(saved);
+        runtime = ECOExecutionRuntime.fromNBT(fixture.plan, fixture.patterns, fixture.progress, saved);
         accept(runtime, fixture, 0, 3, 3);
         accept(runtime, fixture, 1, 2, 2);
         accept(runtime, fixture, 0, 3, 3);
@@ -82,14 +82,14 @@ class ECORepeatedCircuitRuntimeTest {
         for (int i = 0; i < 2; i++) {
             var tag = new CompoundTag(); tag.putInt("testId", i);
             when(fixture.patterns.get(i).getDefinition()).thenReturn(definitions.get(i));
-            when(definitions.get(i).toTag(registries)).thenReturn(tag);
+            when(definitions.get(i).toTag()).thenReturn(tag);
         }
         var saved = ECOExecutionPlanNbtCodec.encode(fixture.plan, registries);
         assertEquals(4, saved.getList("phases", 10).getCompound(0).getList("steps", 10).size());
         var cpu = mock(ECOCraftingCPU.class);
         var logic = new ECOCraftingCPULogic(cpu);
         try (var keys = mockStatic(AEItemKey.class); var patterns = mockStatic(PatternDetailsHelper.class)) {
-            keys.when(() -> AEItemKey.fromTag(eq(registries), any())).thenAnswer(call ->
+            keys.when(() -> AEItemKey.fromTag(any())).thenAnswer(call ->
                 definitions.get(((CompoundTag) call.getArgument(1)).getInt("testId")));
             for (int i = 0; i < 2; i++) {
                 var definition = definitions.get(i);
@@ -97,7 +97,7 @@ class ECORepeatedCircuitRuntimeTest {
             }
             var restored = ECOExecutionPlanNbtCodec.decode(saved, registries, logic,
                 new GenericStack(mock(AEKey.class), 1));
-            assertEquals(fixture.plan.phases().getFirst().steps(), restored.phases().getFirst().steps());
+            assertEquals(cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.plan.phases()).steps(), cn.dancingsnow.neoecoae.platform.JdkCompat.first(restored.phases()).steps());
         }
     }
 
@@ -112,7 +112,7 @@ class ECORepeatedCircuitRuntimeTest {
     private static void accept(ECOExecutionRuntime runtime, Fixture fixture, int id, long allowance, long accepted) {
         var candidates = runtime.candidates();
         assertEquals(1, candidates.size());
-        var candidate = candidates.getFirst();
+        var candidate = cn.dancingsnow.neoecoae.platform.JdkCompat.first(candidates);
         assertEquals(id, candidate.taskId());
         assertEquals(allowance, candidate.maxDispatchCount());
         fixture.progress[id].accept(accepted);
@@ -155,7 +155,7 @@ class ECORepeatedCircuitRuntimeTest {
     private static IPatternDetails pattern() {
         var result = mock(IPatternDetails.class);
         when(result.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(result.getOutputs()).thenReturn(List.of(new GenericStack(mock(AEKey.class), 1)));
+        when(result.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(mock(AEKey.class), 1)});
         return result;
     }
 }

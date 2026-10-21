@@ -172,10 +172,10 @@ class CycleCompletenessReviewTest {
     private static CompiledPattern pattern(int id, Map<AEKey, Long> inputs, Map<AEKey, Long> outputs) {
         var details = mock(IPatternDetails.class, "pattern" + id);
         var stacks = outputs.entrySet().stream().map(e -> new GenericStack(e.getKey(), e.getValue())).toList();
-        when(details.getOutputs()).thenReturn(stacks);
+        when(details.getOutputs()).thenReturn(stacks.toArray(GenericStack[]::new));
         var semantics = new PatternSemantics(details, null, List.of(), stacks, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
-        return new CompiledPattern(id, details, stacks.getFirst().what(), PlannerAmount.of(stacks.getFirst().amount()),
+        return new CompiledPattern(id, details, cn.dancingsnow.neoecoae.platform.JdkCompat.first(stacks).what(), PlannerAmount.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(stacks).amount()),
             inputs.entrySet().stream().map(e -> new CompiledInput(null, e.getKey(), e.getValue(), true, null)).toList(),
             stacks, true, null, false, semantics);
     }

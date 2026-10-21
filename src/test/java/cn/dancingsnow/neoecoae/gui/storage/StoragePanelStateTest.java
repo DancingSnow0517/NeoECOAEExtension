@@ -12,11 +12,9 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraftforge.items.ItemStackHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -26,16 +24,16 @@ class StoragePanelStateTest {
     @Test
     void addonTierNameSurvivesPagingAndTransportWithoutBeingInferredFromItsNumber() {
         var addon = org.mockito.Mockito.mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
-        Component name = Component.translatable("prototype.tier.l1").withColor(0x12AB34);
+        Component name = Component.translatable("prototype.tier.l1").withStyle(style -> style.withColor(0x12AB34));
         org.mockito.Mockito.when(addon.getPanelTierName()).thenReturn(name);
         CellEntry entry = new CellEntry(0, 0, CellEntry.KIND_ITEM, 0, 10, 0, 100,
             false, CellState.EMPTY, true).withPanelTier(addon)
             .atDrive(new BlockPos(1, 2, 3), new ItemStack(Items.DIAMOND), null);
         StoragePanelState received = StoragePanelState.fromTag(
             StoragePanelState.capture(config(List.of(entry), false), 0, 33).toTag());
-        assertTrue(received.cells().getFirst().installed());
-        assertEquals(name, StorageCellGrid.tierName(received.cells().getFirst()));
-        assertEquals(0, received.cells().getFirst().tier());
+        assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(received.cells()).installed());
+        assertEquals(name, StorageCellGrid.tierName(cn.dancingsnow.neoecoae.platform.JdkCompat.first(received.cells())));
+        assertEquals(0, cn.dancingsnow.neoecoae.platform.JdkCompat.first(received.cells()).tier());
         assertEquals(Component.literal("L4"), StorageCellGrid.tierName(cell(0, 100)));
     }
 
@@ -77,20 +75,20 @@ class StoragePanelStateTest {
         ItemStack disk = new ItemStack(Items.DIAMOND);
         CompoundTag data = new CompoundTag();
         data.putString("disk-id", "stored-resources-42");
-        disk.set(DataComponents.CUSTOM_DATA, CustomData.of(data));
-        disk.set(DataComponents.CUSTOM_NAME, Component.literal("My disk"));
+        disk.setTag(data.copy());
+        disk.setHoverName(Component.literal("My disk"));
         BlockPos position = new BlockPos(10, 70, 34);
         Component lock = Component.translatable("tooltip.neoecoae.storage.infinite_migration_locked");
         var interactionId = java.util.UUID.randomUUID();
         CellEntry entry = cell(50, 100).atDrive(position, disk, lock, interactionId);
         StoragePanelState received = StoragePanelState.fromTag(StoragePanelState.capture(config(List.of(entry), false), 0, 33).toTag());
-        CellEntry transported = received.cells().getFirst();
+        CellEntry transported = cn.dancingsnow.neoecoae.platform.JdkCompat.first(received.cells());
         assertEquals(position, transported.position());
         assertEquals(interactionId, transported.interactionId());
         assertEquals(lock, transported.extractionBlockReason());
         assertTrue(ItemStack.matches(disk, transported.stack()));
-        disk.set(DataComponents.CUSTOM_NAME, Component.literal("Changed after capture"));
-        assertEquals(Component.literal("My disk"), entry.stack().get(DataComponents.CUSTOM_NAME));
+        disk.setHoverName(Component.literal("Changed after capture"));
+        assertEquals(Component.literal("My disk"), entry.stack().getHoverName());
     }
 
     @Test
@@ -98,9 +96,9 @@ class StoragePanelStateTest {
         BlockPos position = new BlockPos(5, 60, 14);
         CellEntry emptyDrive = CellEntry.EMPTY.atDrive(position, ItemStack.EMPTY, null);
         var received = StoragePanelState.fromTag(StoragePanelState.capture(config(List.of(emptyDrive), false), 0, 33).toTag());
-        assertEquals(position, received.cells().getFirst().position());
-        assertFalse(received.cells().getFirst().installed());
-        assertTrue(received.cells().getFirst().stack().isEmpty());
+        assertEquals(position, cn.dancingsnow.neoecoae.platform.JdkCompat.first(received.cells()).position());
+        assertFalse(cn.dancingsnow.neoecoae.platform.JdkCompat.first(received.cells()).installed());
+        assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(received.cells()).stack().isEmpty());
         assertNull(received.cells().get(1).position());
     }
 
@@ -125,7 +123,7 @@ class StoragePanelStateTest {
         assertEquals(BigInteger.ZERO, onlySpecial.totalBytes());
         assertEquals(0, onlySpecial.usage());
         assertFalse(onlySpecial.unbounded());
-        assertEquals(special, onlySpecial.cells().getFirst());
+        assertEquals(special, cn.dancingsnow.neoecoae.platform.JdkCompat.first(onlySpecial.cells()));
 
         List<CellEntry> mixed = new ArrayList<>(java.util.Collections.nCopies(35, cell(50, 100)));
         mixed.add(special);
@@ -204,7 +202,7 @@ class StoragePanelStateTest {
     @Test
     void transportKeepsTranslatedNamesColorsAndHugeInfiniteAmounts() {
         String huge = "12345678901234567890123456789012345678901234567890";
-        Component name = Component.translatable("custom.storage", Component.literal("sample").withColor(0x9BC9FE))
+        Component name = Component.translatable("custom.storage", Component.literal("sample").withStyle(style -> style.withColor(0x9BC9FE)))
             .withColor(0xFFB2D8);
         StoragePanelState.TypeLine type = new StoragePanelState.TypeLine(7, name, 0xFFB2D8,
             100, -1, Long.MAX_VALUE, -1, huge);
@@ -212,7 +210,7 @@ class StoragePanelStateTest {
             50, 100, 20, huge, 1, 100, 99, List.of(new CellEntry(7, 3, 1, 0, -1, 0, -1, true)),
             List.of(type), "test-domain", 2, true);
         assertEquals(state, StoragePanelState.fromTag(state.toTag()));
-        assertEquals(huge, StoragePanelState.fromTag(state.toTag()).types().getFirst().bytesText());
+        assertEquals(huge, cn.dancingsnow.neoecoae.platform.JdkCompat.first(StoragePanelState.fromTag(state.toTag()).types()).bytesText());
         assertEquals(name, StoragePanelState.fromTag(state.toTag()).type(7).name());
     }
 
@@ -237,14 +235,14 @@ class StoragePanelStateTest {
         var unknown = StoragePanelTextures.swatch(StoragePanelTextures.FALLBACK_SWATCH, 0x54E6F2);
         assertEquals(16, unknown.spritePosition.x);
         assertEquals(78, unknown.spritePosition.y);
-        assertEquals(0xFF54E6F2, unknown.color);
-        assertEquals(-1, StoragePanelTextures.swatch(7, 0xA56ACB).color);
+        assertEquals(0xFF54E6F2, cn.dancingsnow.neoecoae.util.UiTestSupport.color(unknown));
+        assertEquals(-1, cn.dancingsnow.neoecoae.util.UiTestSupport.color(StoragePanelTextures.swatch(7, 0xA56ACB)));
         for (int i = 10; i <= 13; i++) {
             int expectedX = 64 + (i - 10) * 8;
             var swatch = StoragePanelTextures.swatch(i, 0);
             assertEquals(expectedX, swatch.spritePosition.x);
             assertEquals(62, swatch.spritePosition.y);
-            assertEquals(-1, swatch.color);
+            assertEquals(-1, cn.dancingsnow.neoecoae.util.UiTestSupport.color(swatch));
 
             var icon = StoragePanelTextures.resourceIcon(i, 0);
             assertEquals(expectedX, icon.spritePosition.x);
@@ -298,7 +296,7 @@ class StoragePanelStateTest {
         }
         StoragePanelState captured = StoragePanelState.capture(config(cells, false), 0, 33);
         assertEquals(captured, StoragePanelState.fromTag(captured.toTag()));
-        assertFalse(captured.cells().getFirst().installed());
+        assertFalse(cn.dancingsnow.neoecoae.platform.JdkCompat.first(captured.cells()).installed());
         assertTrue(captured.cells().get(1).installed());
     }
 
@@ -317,7 +315,7 @@ class StoragePanelStateTest {
     }
 
     static StorageHostUI.Config config(List<CellEntry> cells, boolean infinite) {
-        Component name = Component.translatable("custom.storage").withColor(0xF89737);
+        Component name = Component.translatable("custom.storage").withStyle(style -> style.withColor(0xF89737));
         StorageHostUI.StorageTypeLine type = new StorageHostUI.StorageTypeLine(new ECOCellType(name, 1), 7,
             () -> 2, () -> infinite ? -1 : 315, () -> 50, () -> infinite ? -1 : 100, () -> "999999999999999999999999");
         return new StorageHostUI.Config(() -> Component.translatable("host.title"), () -> 2, () -> true,

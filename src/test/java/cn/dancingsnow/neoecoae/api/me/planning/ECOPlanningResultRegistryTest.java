@@ -33,7 +33,7 @@ class ECOPlanningResultRegistryTest {
         AEKey output = mock(AEKey.class);
         IPatternDetails pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of());
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{});
         var plans = new java.util.ArrayList<CraftingPlan>();
         for (int i = 0; i < 4096; i++) {
             CraftingPlan plan = plan(output, pattern);
@@ -60,7 +60,7 @@ class ECOPlanningResultRegistryTest {
         AEKey output = mock(AEKey.class);
         IPatternDetails pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of());
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{});
         CraftingPlan plan = mock(CraftingPlan.class);
         when(plan.finalOutput()).thenReturn(new GenericStack(output, 1L));
         when(plan.patternTimes()).thenReturn(Map.of(pattern, 2L));
@@ -82,7 +82,7 @@ class ECOPlanningResultRegistryTest {
         AEKey output = mock(AEKey.class);
         IPatternDetails pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of());
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{});
         CraftingPlan original = plan(output, pattern);
         CraftingPlan copy = plan(output, pattern);
         ECOPlanningResult result = result(original);
@@ -99,7 +99,7 @@ class ECOPlanningResultRegistryTest {
         AEKey output = mock(AEKey.class);
         IPatternDetails pattern = mock(IPatternDetails.class);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        when(pattern.getOutputs()).thenReturn(List.of());
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{});
         CraftingPlan plan = plan(output, pattern);
         ECOPlanningResult result = result(plan, PlanningStatus.MISSING_ITEMS);
 

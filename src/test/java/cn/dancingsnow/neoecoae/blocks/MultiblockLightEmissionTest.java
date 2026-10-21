@@ -58,7 +58,7 @@ class MultiblockLightEmissionTest {
 
     @Test
     void explicitlyConfiguredLightEmissionIsPreserved() {
-        for (BlockState state : blocks.getLast().getStateDefinition().getPossibleStates()) {
+        for (BlockState state : cn.dancingsnow.neoecoae.platform.JdkCompat.last(blocks).getStateDefinition().getPossibleStates()) {
             assertEquals(7, state.getLightEmission(EmptyBlockGetter.INSTANCE, BlockPos.ZERO));
         }
     }

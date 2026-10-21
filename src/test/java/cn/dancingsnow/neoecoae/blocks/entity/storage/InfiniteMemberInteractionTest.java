@@ -82,7 +82,7 @@ class InfiniteMemberInteractionTest {
         var restored = host(domain);
         var load = ECOStorageSystemBlockEntity.class.getDeclaredMethod("loadInfiniteMembers", CompoundTag.class);
         load.setAccessible(true);
-        load.invoke(restored, controller.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA).copyTag());
+        load.invoke(restored, controller.getOrCreateTag().copy());
         assertEquals(1, restored.getMissingInfiniteMembers());
         var drive = mock(ECODriveBlockEntity.class);
         when(drive.getCellStack()).thenReturn(member);

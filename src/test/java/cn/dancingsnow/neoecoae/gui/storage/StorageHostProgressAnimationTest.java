@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import com.lowdragmc.lowdraglib2.LDLib2;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib.LDLib;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,11 +29,11 @@ class StorageHostProgressAnimationTest {
     @SuppressWarnings("unchecked")
     void capacityAndEnergyAnimateToTheirActualValuesAndReplayAfterRemoval() {
         AtomicLong now = new AtomicLong();
-        try (var ldlib = mockStatic(LDLib2.class); var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             clock.when(Util::getMillis).thenAnswer(call -> now.get());
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
-            BindableValue<Tag> synced = (BindableValue<Tag>) root.getChildren().getFirst();
+            BindableValue<Tag> synced = (BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(root.getChildren());
             synced.setValue(state(false, false).toTag());
             UIElement capacity = bar(root, "capacity_bar", 208, 313, 160, 8);
             UIElement energy = bar(root, "energy_bar", 373, 292, 74, 7);
@@ -101,35 +101,35 @@ class StorageHostProgressAnimationTest {
     @SuppressWarnings("unchecked")
     void resourceRevealPreservesSegmentBoundariesAndOnlyHoversTheVisibleArea() {
         AtomicLong now = new AtomicLong();
-        try (var ldlib = mockStatic(LDLib2.class); var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             clock.when(Util::getMillis).thenAnswer(call -> now.get());
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
-            ((BindableValue<Tag>) root.getChildren().getFirst()).setValue(state(false, false).toTag());
+            ((BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(root.getChildren())).setValue(state(false, false).toTag());
             UIElement resources = bar(root, "resource_bar", 208, 334, 160, 8);
             doReturn(true).when(resources).isHover();
             GUIContext context = mock(GUIContext.class);
-            context.mouseX = 220;
-            context.mouseY = 337;
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",220);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseY",337);
             resources.drawBackgroundAdditional(context);
             verifyNoInteractions(context);
-            assertTrue(resources.collectHoverTooltips().tooltipTexts().isEmpty());
+            assertTrue(resources.collectHoverTooltips().tooltips().isEmpty());
 
             now.set(250);
             resources.drawBackgroundAdditional(context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 208F, 334F, 80F, 8F);
             clearInvocations(context);
-            context.mouseX = 330;
+            cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"mouseX",330);
             resources.drawBackgroundAdditional(context);
             verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                 anyFloat(), anyFloat(), anyFloat(), anyFloat());
-            assertTrue(resources.collectHoverTooltips().tooltipTexts().isEmpty());
+            assertTrue(resources.collectHoverTooltips().tooltips().isEmpty());
 
             clearInvocations(context);
             now.set(375);
             resources.drawBackgroundAdditional(context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 328F, 334F, 15F, 8F);
-            var line = resources.collectHoverTooltips().tooltipTexts().getFirst();
+            var line = cn.dancingsnow.neoecoae.platform.JdkCompat.first(resources.collectHoverTooltips().tooltips());
             var arguments = assertInstanceOf(TranslatableContents.class, line.getContents()).getArgs();
             assertEquals("25.0%", arguments[2]);
 
@@ -144,13 +144,13 @@ class StorageHostProgressAnimationTest {
     @SuppressWarnings("unchecked")
     void infiniteAndMigratingBarsRevealWithoutStretchingTheirPattern() {
         AtomicLong now = new AtomicLong();
-        try (var ldlib = mockStatic(LDLib2.class); var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class); var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             clock.when(Util::getMillis).thenAnswer(call -> now.get());
             for (boolean migrating : List.of(false, true)) {
                 now.set(0);
                 UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(), false));
-                ((BindableValue<Tag>) root.getChildren().getFirst()).setValue(state(!migrating, migrating).toTag());
+                ((BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(root.getChildren())).setValue(state(!migrating, migrating).toTag());
                 UIElement capacity = bar(root, "capacity_bar", 208, 313, 160, 8);
                 GUIContext context = mock(GUIContext.class);
                 capacity.drawBackgroundAdditional(context);

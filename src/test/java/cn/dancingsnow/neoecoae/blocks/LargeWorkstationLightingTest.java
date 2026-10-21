@@ -93,8 +93,8 @@ class LargeWorkstationLightingTest {
             int emissiveFaces = 0;
             for (var element : model.getElements()) {
                 for (var face : element.faces.values()) {
-                    String texture = face.texture();
-                    var lighting = face.faceData();
+                    String texture = face.texture;
+                    var lighting = face.getFaceData();
                     if (texture.equals("#light") || variant.equals("on") && texture.equals("#screen")) {
                         assertEquals(15, lighting.blockLight());
                         assertEquals(15, lighting.skyLight());

@@ -303,7 +303,7 @@ class ByproductReviewProbeTest {
             return input;
         }).toArray(IPatternDetails.IInput[]::new);
         when(details.getInputs()).thenReturn(raw);
-        when(details.getOutputs()).thenReturn(List.of(outputs));
+        when(details.getOutputs()).thenReturn(outputs);
         when(details.getPrimaryOutput()).thenReturn(outputs[0]);
         return details;
     }

@@ -4,8 +4,8 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import java.util.List;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -46,7 +46,7 @@ class HostPanelTierTest {
     @Test
     void addonAppearanceWinsEvenWhenItsNumericTierIsZeroOrCollidesWithABuiltin() {
         IECOTier addon = mock(IECOTier.class, CALLS_REAL_METHODS);
-        Component name = Component.translatable("addon.tier.l1").withColor(0x12AB34);
+        Component name = Component.translatable("addon.tier.l1").withStyle(style -> style.withColor(0x12AB34));
         when(addon.getPanelTierName()).thenReturn(name);
         assertSame(name, HostPanelTier.name(addon, 0));
         assertSame(name, HostPanelTier.name(addon, 1));

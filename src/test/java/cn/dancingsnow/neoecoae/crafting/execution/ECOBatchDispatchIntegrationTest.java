@@ -53,7 +53,7 @@ class ECOBatchDispatchIntegrationTest {
     ECOBatchDispatchIntegrationTest() {
         var inputs = new KeyCounter(); inputs.add(input, 2);
         var outputs = new KeyCounter(); outputs.add(output, 3);
-        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 3)));
+        when(pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 3)});
         var plan = mock(ICraftingPlan.class);
         when(plan.finalOutput()).thenReturn(new GenericStack(output, 30));
         when(plan.emittedItems()).thenReturn(new KeyCounter());
@@ -156,7 +156,7 @@ class ECOBatchDispatchIntegrationTest {
     @Test void manyIngredientProcessingPushGrowsBatchesWithoutChangingSlotOrder() {
         var processingPattern = mock(AEProcessingPattern.class);
         when(processingPattern.getDefinition()).thenReturn(AEItemKey.of(Items.STONE));
-        when(processingPattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 3)));
+        when(processingPattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 3)});
         when(processingPattern.supportsPushInputsToExternalInventory()).thenReturn(true);
         var wide = manyIngredientRequest(81, processingPattern);
         var provider = mock(Ae2LogicProvider.class);
@@ -224,7 +224,7 @@ class ECOBatchDispatchIntegrationTest {
         assertEquals(92, inventory.list.get(input));
         assertEquals(2, request.inputs()[0].get(input));
         verify(accounting).apply(eq(request), argThat(r -> r.acceptedCrafts() == 4
-                && r.outputs().getFirst().amount() == 12), any(), eq(provider));
+                && cn.dancingsnow.neoecoae.platform.JdkCompat.first(r.outputs()).amount() == 12), any(), eq(provider));
     }
 
     @Test void workstationProviderUsesParallelRouteEvenWhenItExposesAe2ProviderLogic() {
@@ -238,7 +238,7 @@ class ECOBatchDispatchIntegrationTest {
         var processingPattern = mock(AEProcessingPattern.class);
         when(processingPattern.getDefinition()).thenReturn(AEItemKey.of(Items.STONE));
         when(processingPattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{mock(IPatternDetails.IInput.class)});
-        when(processingPattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 3)));
+        when(processingPattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(output, 3)});
         when(processingPattern.supportsPushInputsToExternalInventory()).thenReturn(true);
         var processingRequest = new ECOCraftingDispatchRequest(request.job(), null, processingPattern,
                 request.inputs(), request.outputs(), request.remainders(), 10, inventory, request.level());

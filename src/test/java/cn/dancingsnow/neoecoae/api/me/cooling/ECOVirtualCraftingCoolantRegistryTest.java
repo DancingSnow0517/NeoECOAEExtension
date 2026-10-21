@@ -17,7 +17,7 @@ class ECOVirtualCraftingCoolantRegistryTest {
         var id = ECOVirtualCraftingCoolantRegistry.CRYOTHEUM_SOLUTION;
         ECOVirtualCraftingCoolantRegistry.register(id);
         ECOVirtualCraftingCoolantRegistry.unregister(id);
-        assertEquals(id, ECOVirtualCraftingCoolantRegistry.registeredFluidIds().getFirst());
+        assertEquals(id, cn.dancingsnow.neoecoae.platform.JdkCompat.first(ECOVirtualCraftingCoolantRegistry.registeredFluidIds()));
         assertFalse(ECOVirtualCraftingCoolantRegistry.isAllowed(FluidStack.EMPTY));
         assertFalse(ECOVirtualCraftingCoolantRegistry.isAllowed(null));
     }

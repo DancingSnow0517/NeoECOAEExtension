@@ -40,7 +40,7 @@ class ECOFastPathFacadeTest {
             output, new KeyCounter(), inventory, Long.MAX_VALUE, 0, null, null, null);
         assertNotNull(batch);
         assertEquals(Long.MAX_VALUE / 2, batch.craftCount());
-        assertEquals(Long.MAX_VALUE - 1, batch.outputs().getFirst().amount());
+        assertEquals(Long.MAX_VALUE - 1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(batch.outputs()).amount());
         assertTrue(batch.submit(amount -> reservation));
         assertEquals(Long.MAX_VALUE - Long.MAX_VALUE / 2, inventory.list.get(key));
         verify(reservation).commit();
@@ -51,7 +51,7 @@ class ECOFastPathFacadeTest {
             when(provider.eco$prepareFastPath(any())).thenReturn(
                 new ECOFastPathDispatchProvider.Preparation(Long.MAX_VALUE, null, false, delivery -> {
                     assertEquals(Long.MAX_VALUE, delivery.craftCount());
-                    assertEquals(Long.MAX_VALUE, delivery.inputTotal().getFirst().amount());
+                    assertEquals(Long.MAX_VALUE, cn.dancingsnow.neoecoae.platform.JdkCompat.first(delivery.inputTotal()).amount());
                     return accepted;
                 }));
             when(energy.extractAEPower(anyDouble(), any(), eq(PowerMultiplier.CONFIG)))
@@ -96,9 +96,9 @@ class ECOFastPathFacadeTest {
     }
 
     @Test void externalCpuReceivesBoundedTotalsAndCanSubmitOnlyOnce() {
-        var batch = prepare(delivery -> delivery.craftCount() == 7 && delivery.inputTotal().getFirst().amount() == 14);
+        var batch = prepare(delivery -> delivery.craftCount() == 7 && cn.dancingsnow.neoecoae.platform.JdkCompat.first(delivery.inputTotal()).amount() == 14);
         assertEquals(7, batch.craftCount());
-        assertEquals(21, batch.outputs().getFirst().amount());
+        assertEquals(21, cn.dancingsnow.neoecoae.platform.JdkCompat.first(batch.outputs()).amount());
         assertEquals(28, batch.power());
         assertTrue(batch.submit(amount -> reservation));
         assertEquals(6, inventory.list.get(key));
@@ -159,7 +159,7 @@ class ECOFastPathFacadeTest {
         var provider = mock(Provider.class);
         when(provider.eco$prepareFastPath(any())).thenReturn(
             new ECOFastPathDispatchProvider.Preparation(8, null, false,
-                batch -> batch.inputTotal().getFirst().amount() == 14));
+                batch -> cn.dancingsnow.neoecoae.platform.JdkCompat.first(batch.inputTotal()).amount() == 14));
         var execution = mock(cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution.class);
         when(execution.canUseFastPath()).thenReturn(true);
         when(execution.fastPathType()).thenReturn(cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL);

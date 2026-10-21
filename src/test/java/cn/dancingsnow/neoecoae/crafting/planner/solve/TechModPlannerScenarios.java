@@ -18,7 +18,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -342,7 +341,7 @@ final class TechModPlannerScenarios {
 
         AEKey item(String name) {
             var stack = new ItemStack(Items.PAPER);
-            stack.set(DataComponents.CUSTOM_NAME, Component.literal(id + ":" + name));
+            stack.setHoverName(Component.literal(id + ":" + name));
             AEKey key = AEItemKey.of(stack);
             labels.put(key, name);
             return key;
@@ -350,7 +349,7 @@ final class TechModPlannerScenarios {
 
         AEKey fluid(String name) {
             var stack = new FluidStack(Fluids.WATER, 1);
-            stack.set(DataComponents.CUSTOM_NAME, Component.literal(id + ":" + name));
+            stack.setHoverName(Component.literal(id + ":" + name));
             AEKey key = AEFluidKey.of(stack);
             labels.put(key, name + " [mB]");
             return key;
@@ -376,8 +375,8 @@ final class TechModPlannerScenarios {
                 return slot;
             }).toArray(IPatternDetails.IInput[]::new);
             when(pattern.getInputs()).thenReturn(slots);
-            when(pattern.getOutputs()).thenReturn(stacks);
-            when(pattern.getPrimaryOutput()).thenReturn(stacks.getFirst());
+            when(pattern.getOutputs()).thenReturn(stacks.toArray(GenericStack[]::new));
+            when(pattern.getPrimaryOutput()).thenReturn(cn.dancingsnow.neoecoae.platform.JdkCompat.first(stacks));
             recipes.add(new Recipe(name, Collections.unmodifiableMap(new LinkedHashMap<>(inputs)),
                     Collections.unmodifiableMap(new LinkedHashMap<>(outputs)), Map.copyOf(returns), pattern));
             return recipes.size() - 1;

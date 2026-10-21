@@ -7,7 +7,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraftforge.event.server.ServerStoppedEvent;
-import net.minecraftforge.event.tick.ServerTickEvent;
+import net.minecraftforge.event.TickEvent;
 import cn.dancingsnow.neoecoae.network.ECONetwork;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -23,7 +23,7 @@ class MenuDataTransportTest {
     @Test void allBulkChannelsShareTheBudgetAndAreDrainedFairly() {
         var server = mock(MinecraftServer.class);
         var player = player(server);
-        var tick = new ServerTickEvent.Post(() -> true, server);
+        var tick = new TickEvent.ServerTickEvent(TickEvent.Phase.END, () -> true, server);
         List<ECOMenuChunkS2CPacket> sent = new ArrayList<>();
         try (var packets = mockStatic(PacketDistributor.class)) {
             packets.when(() -> ECONetwork.sendToPlayer(eq(player), any(ECOMenuChunkS2CPacket.class)))
@@ -51,7 +51,7 @@ class MenuDataTransportTest {
         try (var packets = mockStatic(PacketDistributor.class)) {
             MenuDataTransport.send(player, MenuDataTransport.Channel.CPU, buf -> buf.writeBytes(new byte[60_000]));
             player.containerMenu = mock(AbstractContainerMenu.class);
-            MenuDataTransport.tick(new ServerTickEvent.Post(() -> true, server));
+            MenuDataTransport.tick(new TickEvent.ServerTickEvent(TickEvent.Phase.END, () -> true, server));
             packets.verifyNoInteractions();
             assertFalse(MenuDataTransport.busy(player, MenuDataTransport.Channel.CPU));
             MenuDataTransport.send(player, MenuDataTransport.Channel.CPU, buf -> buf.writeByte(1));
@@ -59,7 +59,7 @@ class MenuDataTransportTest {
             assertFalse(MenuDataTransport.busy(player, MenuDataTransport.Channel.CPU));
             MenuDataTransport.send(player, MenuDataTransport.Channel.CPU, buf -> buf.writeByte(2));
             when(player.hasDisconnected()).thenReturn(true);
-            MenuDataTransport.tick(new ServerTickEvent.Post(() -> true, server));
+            MenuDataTransport.tick(new TickEvent.ServerTickEvent(TickEvent.Phase.END, () -> true, server));
             packets.verifyNoInteractions();
         }
     }
@@ -68,7 +68,7 @@ class MenuDataTransportTest {
         var player = mock(ServerPlayer.class);
         player.containerMenu = mock(AbstractContainerMenu.class);
         when(player.getServer()).thenReturn(server);
-        when(player.registryAccess()).thenReturn(RegistryAccess.EMPTY);
+        when(player.level().registryAccess()).thenReturn(RegistryAccess.EMPTY);
         return player;
     }
 }

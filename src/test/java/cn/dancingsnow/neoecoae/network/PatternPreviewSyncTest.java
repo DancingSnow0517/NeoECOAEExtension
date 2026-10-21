@@ -49,7 +49,7 @@ class PatternPreviewSyncTest {
             transport.when(() -> MenuDataTransport.send(eq(player), eq(MenuDataTransport.Channel.PATTERNS), any()))
                 .thenAnswer(call -> {
                     Consumer<FriendlyByteBuf> encoder = call.getArgument(2);
-                    var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+                    var buf = new FriendlyByteBuf(Unpooled.buffer());
                     try {
                         encoder.accept(buf);
                         assertEquals(BlockPos.ZERO, buf.readBlockPos());
@@ -59,7 +59,7 @@ class PatternPreviewSyncTest {
                 });
             sync.tick(level);
             assertEquals(1, sent.size());
-            assertTrue(sent.getFirst().getBoolean("full"));
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(sent).getBoolean("full"));
             busy.set(true);
             when(level.getGameTime()).thenReturn(5L);
             when(host.getPatternContentRevision()).thenReturn(2);
@@ -71,7 +71,7 @@ class PatternPreviewSyncTest {
             when(level.getGameTime()).thenReturn(10L);
             sync.tick(level);
             assertEquals(2, sent.size());
-            var delta = sent.getLast();
+            var delta = cn.dancingsnow.neoecoae.platform.JdkCompat.last(sent);
             assertFalse(delta.getBoolean("full"));
             assertEquals(1, delta.getInt("base"));
             assertEquals(2, delta.getInt("revision"));
@@ -83,8 +83,8 @@ class PatternPreviewSyncTest {
             sync.resend(player);
             when(level.getGameTime()).thenReturn(20L);
             sync.tick(level);
-            assertTrue(sent.getLast().getBoolean("full"));
-            assertEquals(2, sent.getLast().getList("entries", Tag.TAG_COMPOUND).size());
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(sent).getBoolean("full"));
+            assertEquals(2, cn.dancingsnow.neoecoae.platform.JdkCompat.last(sent).getList("entries", Tag.TAG_COMPOUND).size());
         }
     }
 
@@ -97,12 +97,12 @@ class PatternPreviewSyncTest {
     @Test void reopeningWithTheSameSessionSnapshotSendsOnlyAReuseMarker() {
         try (Fixture f = new Fixture(2)) {
             f.tick();
-            long epoch = f.sent.getFirst().getLong("epoch");
+            long epoch = cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.sent).getLong("epoch");
             f.player.containerMenu = mock(AbstractContainerMenu.class);
             f.sync.open(f.player, 0, 1, epoch);
             f.tick();
             assertEquals(2, f.sent.size());
-            CompoundTag reuse = f.sent.getLast();
+            CompoundTag reuse = cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent);
             assertTrue(reuse.getBoolean("reuse"));
             assertFalse(reuse.getBoolean("full"));
             assertTrue(reuse.getList("entries", Tag.TAG_COMPOUND).isEmpty());
@@ -112,25 +112,25 @@ class PatternPreviewSyncTest {
     @Test void reopeningWithAnOldSessionEpochFallsBackToAFullSnapshot() {
         try (Fixture f = new Fixture(2)) {
             f.tick();
-            long epoch = f.sent.getFirst().getLong("epoch");
+            long epoch = cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.sent).getLong("epoch");
             f.player.containerMenu = mock(AbstractContainerMenu.class);
             f.sync.open(f.player, 0, 1, epoch + 1);
             f.tick();
             assertEquals(2, f.sent.size());
-            assertTrue(f.sent.getLast().getBoolean("full"));
-            assertEquals(2, f.sent.getLast().getList("entries", Tag.TAG_COMPOUND).size());
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getBoolean("full"));
+            assertEquals(2, cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getList("entries", Tag.TAG_COMPOUND).size());
         }
     }
 
     @Test void reopeningWithAChangedRevisionFallsBackToAFullSnapshot() {
         try (Fixture f = new Fixture(2)) {
             f.tick();
-            long epoch = f.sent.getFirst().getLong("epoch");
+            long epoch = cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.sent).getLong("epoch");
             f.player.containerMenu = mock(AbstractContainerMenu.class);
             f.sync.open(f.player, 0, 2, epoch);
             f.tick();
             assertEquals(2, f.sent.size());
-            assertTrue(f.sent.getLast().getBoolean("full"));
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getBoolean("full"));
         }
     }
 
@@ -138,8 +138,8 @@ class PatternPreviewSyncTest {
         try (Fixture f = new Fixture(600)) {
             for (int i = 0; i < 100 && f.sent.isEmpty(); i++) f.tick();
             assertFalse(f.sent.isEmpty(), "initial snapshot must finish building");
-            assertTrue(f.sent.getFirst().getBoolean("first"));
-            assertFalse(f.sent.getFirst().getBoolean("last"));
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.sent).getBoolean("first"));
+            assertFalse(cn.dancingsnow.neoecoae.platform.JdkCompat.first(f.sent).getBoolean("last"));
             when(f.host.getPatternContentRevision()).thenReturn(2);
             when(f.host.getPatternPreviewEntry(599)).thenReturn(entry(599, "changed while paging"));
             f.sync.dirty(599, 1);
@@ -167,8 +167,8 @@ class PatternPreviewSyncTest {
             f.sync.reset();
             f.tick();
             assertEquals(2, f.sent.size());
-            assertTrue(f.sent.getLast().getBoolean("full"));
-            assertEquals(2, f.sent.getLast().getInt("revision"));
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getBoolean("full"));
+            assertEquals(2, cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getInt("revision"));
         }
     }
 
@@ -193,8 +193,8 @@ class PatternPreviewSyncTest {
             int before = f.sent.size();
             f.tick();
             assertEquals(before + 1, f.sent.size());
-            assertTrue(f.sent.getLast().getBoolean("full"));
-            assertTrue(f.sent.getLast().getBoolean("first"));
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getBoolean("full"));
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getBoolean("first"));
         }
     }
 
@@ -210,7 +210,7 @@ class PatternPreviewSyncTest {
             f.transport.when(() -> MenuDataTransport.send(eq(second), eq(MenuDataTransport.Channel.PATTERNS), any()))
                     .thenAnswer(call -> {
                         Consumer<FriendlyByteBuf> encoder = call.getArgument(2);
-                        var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+                        var buf = new FriendlyByteBuf(Unpooled.buffer());
                         try {
                             encoder.accept(buf);
                             buf.readBlockPos();
@@ -220,7 +220,7 @@ class PatternPreviewSyncTest {
                     });
             f.tick();
             assertEquals(1, f.sent.size());
-            assertTrue(secondPackets.getFirst().getBoolean("full"));
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(secondPackets).getBoolean("full"));
             when(f.host.getPatternPreviewEntry(1)).thenReturn(entry(1, "changed"));
             when(f.host.getPatternContentRevision()).thenReturn(2);
             clearInvocations(f.host);
@@ -229,7 +229,7 @@ class PatternPreviewSyncTest {
             verify(f.host, times(1)).getPatternPreviewEntry(1);
             assertEquals(2, f.sent.size());
             assertEquals(2, secondPackets.size());
-            assertEquals(f.sent.getLast(), secondPackets.getLast());
+            assertEquals(cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent), cn.dancingsnow.neoecoae.platform.JdkCompat.last(secondPackets));
         }
     }
 
@@ -250,7 +250,7 @@ class PatternPreviewSyncTest {
             when(f.host.getPatternContentRevision()).thenReturn(2);
             f.sync.dirty(0, 1);
             f.tick();
-            var change = f.sent.getLast().getList("entries", Tag.TAG_COMPOUND).getCompound(0);
+            var change = cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getList("entries", Tag.TAG_COMPOUND).getCompound(0);
             assertEquals(100, change.getInt("diskSize"));
             assertEquals(1, change.getList("diskChanges", Tag.TAG_COMPOUND).size());
             assertEquals(50, change.getList("diskChanges", Tag.TAG_COMPOUND).getCompound(0).getInt("recipe"));
@@ -284,7 +284,7 @@ class PatternPreviewSyncTest {
             transport.when(() -> MenuDataTransport.send(eq(player), eq(MenuDataTransport.Channel.PATTERNS), any()))
                     .thenAnswer(call -> {
                         Consumer<FriendlyByteBuf> encoder = call.getArgument(2);
-                        var buf = new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+                        var buf = new FriendlyByteBuf(Unpooled.buffer());
                         try {
                             encoder.accept(buf);
                             buf.readBlockPos();

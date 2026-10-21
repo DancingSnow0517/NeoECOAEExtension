@@ -62,9 +62,9 @@ class PatternPreviewCodecTest {
             var disk = PatternPreviewEntry.decode(result.getCompound(1), RegistryAccess.EMPTY);
             assertTrue(disk.auxiliaryDisk());
             assertEquals(1, disk.diskPatterns().size());
-            assertEquals("coal", disk.diskPatterns().getFirst().inputKeywords());
-            assertEquals("diamond", disk.diskPatterns().getFirst().outputKeywords());
-            assertTrue(disk.diskPatterns().getFirst().stack().is(Items.DIAMOND));
+            assertEquals("coal", cn.dancingsnow.neoecoae.platform.JdkCompat.first(disk.diskPatterns()).inputKeywords());
+            assertEquals("diamond", cn.dancingsnow.neoecoae.platform.JdkCompat.first(disk.diskPatterns()).outputKeywords());
+            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(disk.diskPatterns()).stack().is(Items.DIAMOND));
         } finally { buf.release(); }
     }
 
@@ -91,5 +91,5 @@ class PatternPreviewCodecTest {
         return result;
     }
 
-    private static FriendlyByteBuf buffer() { return new FriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY); }
+    private static FriendlyByteBuf buffer() { return new FriendlyByteBuf(Unpooled.buffer()); }
 }

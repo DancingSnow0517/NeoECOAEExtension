@@ -12,24 +12,21 @@ import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.lowdragmc.lowdraglib2.LDLib2;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
-import com.lowdragmc.lowdraglib2.gui.texture.ColorBorderTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
+import com.lowdragmc.lowdraglib.LDLib;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.slot.ItemHandlerSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.ColorBorderTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UI;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.FluidSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Toggle;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.inventory.InventorySlots;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -60,15 +57,14 @@ class WorkstationUIInteractionTest {
             registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
             Class.forName(UIElement.class.getName());
             Class.forName(NETextures.class.getName());
-            AccessorRegistries.init();
+
         }
     }
 
     @Test
     void upgradeColumnMatchesNativeAe2GeometryAfterScreenResize() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
-            LayoutProperties.init();
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             for (int count : List.of(1, 3, 4)) {
                 ItemStackHandler upgrades = new ItemStackHandler(count);
                 List<ItemSlot> slots = new ArrayList<>();
@@ -80,7 +76,7 @@ class WorkstationUIInteractionTest {
                     .addChild(rail);
                 ModularUI ui = new ModularUI(UI.of(root));
                 for (int screenWidth : List.of(640, 800)) {
-                    ui.init(screenWidth, 360);
+                    cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui,screenWidth, 360);
                     assertEquals(root.getPositionX() + 168, rail.getPositionX());
                     assertEquals(root.getPositionY(), rail.getPositionY());
                     assertEquals(12 + count * 18, rail.getSizeHeight());
@@ -93,25 +89,24 @@ class WorkstationUIInteractionTest {
                         assertSame(AETextures.icon(ECOIcon.SLOT_BACKGROUND), slot.getStyle().backgroundTexture());
                     }
                 }
-                UIElement column = rail.getChildren().getFirst();
+                UIElement column = cn.dancingsnow.neoecoae.platform.JdkCompat.first(rail.getChildren());
                 ColorBorderTexture frame = assertInstanceOf(ColorBorderTexture.class,
                     column.getStyle().backgroundTexture());
-                assertEquals(-1, frame.border);
-                assertEquals(0xFFF2F2F2, frame.color);
+                assertEquals(-1, cn.dancingsnow.neoecoae.util.UiTestSupport.get(frame,"border"));
+                assertEquals(0xFFF2F2F2, cn.dancingsnow.neoecoae.util.UiTestSupport.color(frame));
                 assertEquals(count * 18, column.getSizeHeight());
                 SpriteTexture background = assertInstanceOf(SpriteTexture.class, rail.getStyle().backgroundTexture());
-                assertEquals(5, background.borderLT.getY());
-                assertEquals(7, background.borderRB.getY());
+                assertEquals(5, background.borderLT.y);
+                assertEquals(7, background.borderRB.y);
             }
         }
     }
 
     @Test
     void integratedArtworkKeepsNativeSlotsAndTankInteriorsAfterResize() {
-        try (var ldlib = mockStatic(LDLib2.class); var factory = mockStatic(ECOModularUI.class);
+        try (var ldlib = mockStatic(LDLib.class); var factory = mockStatic(ECOModularUI.class);
                 var tools = mockStatic(NetworkToolItem.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
-            LayoutProperties.init();
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             AtomicReference<UIElement> captured = new AtomicReference<>();
             Player player = mock(Player.class);
             when(player.getInventory()).thenReturn(new Inventory(player));
@@ -124,7 +119,7 @@ class WorkstationUIInteractionTest {
             UIElement root = captured.get();
             ModularUI ui = new ModularUI(UI.of(root));
             for (int width : List.of(640, 800)) {
-                ui.init(width, 480);
+                cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui,width, 480);
                 assertEquals(176, root.getSizeWidth());
                 assertEquals(190, root.getSizeHeight());
                 List<ItemSlot> slots = collect(root, ItemSlot.class);
@@ -139,7 +134,7 @@ class WorkstationUIInteractionTest {
                         assertSame(IGuiTexture.EMPTY, slot.getStyle().backgroundTexture());
                     }
                 }
-                var inventory = collect(root, InventorySlots.class).getFirst();
+                var inventory = cn.dancingsnow.neoecoae.platform.JdkCompat.first(collect(root, InventorySlots.class));
                 assertEquals(root.getPositionX() + 8, inventory.rows[0].slots[0].getContentX());
                 assertEquals(root.getPositionY() + 106, inventory.rows[0].slots[0].getContentY());
                 assertEquals(root.getPositionY() + 164, inventory.hotbar.slots[0].getContentY());
@@ -157,10 +152,10 @@ class WorkstationUIInteractionTest {
                     SpriteTexture base = assertInstanceOf(SpriteTexture.class, button.getButtonStyle().baseTexture());
                     SpriteTexture hover = assertInstanceOf(SpriteTexture.class, button.getButtonStyle().hoverTexture());
                     SpriteTexture pressed = assertInstanceOf(SpriteTexture.class, button.getButtonStyle().pressedTexture());
-                    assertEquals(0, base.spritePosition.getX());
-                    assertEquals(12, hover.spritePosition.getX());
-                    assertEquals(24, pressed.spritePosition.getX());
-                    assertEquals(6, base.spritePosition.getY());
+                    assertEquals(0, base.spritePosition.x);
+                    assertEquals(12, hover.spritePosition.x);
+                    assertEquals(24, pressed.spritePosition.x);
+                    assertEquals(6, base.spritePosition.y);
                     assertEquals(WorkstationTextures.WIDGETS, base.getImageLocation());
                 }
             }
@@ -169,9 +164,8 @@ class WorkstationUIInteractionTest {
 
     @Test
     void largeArtworkKeepsInventoryContentsAndFluidInsideBakedFrames() {
-        try (var ldlib = mockStatic(LDLib2.class); var factory = mockStatic(ECOModularUI.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
-            LayoutProperties.init();
+        try (var ldlib = mockStatic(LDLib.class); var factory = mockStatic(ECOModularUI.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             AtomicReference<UIElement> captured = new AtomicReference<>();
             Player player = mock(Player.class);
             when(player.getInventory()).thenReturn(new Inventory(player));
@@ -189,7 +183,7 @@ class WorkstationUIInteractionTest {
             UIElement root = captured.get();
             ModularUI ui = new ModularUI(UI.of(root));
             for (int width : List.of(640, 800)) {
-                ui.init(width, 480);
+                cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui,width, 480);
                 assertEquals(253, root.getSizeWidth());
                 assertEquals(214, root.getSizeHeight());
                 List<ItemSlot> allSlots = collect(root, ItemSlot.class);
@@ -200,13 +194,13 @@ class WorkstationUIInteractionTest {
                     assertEquals(16, slot.getContentWidth());
                     assertEquals(16, slot.getContentHeight());
                 }
-                assertEquals(root.getPositionX() + 8, slots.getFirst().getContentX());
-                assertEquals(root.getPositionY() + 130, slots.getFirst().getContentY());
+                assertEquals(root.getPositionX() + 8, cn.dancingsnow.neoecoae.platform.JdkCompat.first(slots).getContentX());
+                assertEquals(root.getPositionY() + 130, cn.dancingsnow.neoecoae.platform.JdkCompat.first(slots).getContentY());
                 assertEquals(root.getPositionY() + 188, slots.get(27).getContentY());
                 List<FluidSlot> tanks = collect(root, FluidSlot.class);
                 assertEquals(2, tanks.size());
-                assertEquals(root.getPositionX() + 204, tanks.getFirst().getContentX());
-                assertEquals(root.getPositionX() + 227, tanks.getLast().getContentX());
+                assertEquals(root.getPositionX() + 204, cn.dancingsnow.neoecoae.platform.JdkCompat.first(tanks).getContentX());
+                assertEquals(root.getPositionX() + 227, cn.dancingsnow.neoecoae.platform.JdkCompat.last(tanks).getContentX());
                 for (FluidSlot tank : tanks) {
                     assertEquals(root.getPositionY() + 78, tank.getContentY());
                     assertEquals(18, tank.getContentWidth());
@@ -226,7 +220,7 @@ class WorkstationUIInteractionTest {
                     UIElement row = collect(root, UIElement.class).stream()
                         .filter(element -> ("large-workstation-" + id).equals(element.getId())).findFirst().orElseThrow();
                     assertFalse(row instanceof Button, "Status rows only display telemetry");
-                    assertNull(row.getBaubleServerEvent(UIEvents.MOUSE_DOWN), "No machine action may be registered on " + id);
+                    assertNull(cn.dancingsnow.neoecoae.util.UiTestSupport.serverAction(row), "No machine action may be registered on " + id);
                 }
                 UIElement scrollbar = collect(root, UIElement.class).stream()
                     .filter(element -> "large-workstation-scrollbar".equals(element.getId())).findFirst().orElseThrow();
@@ -241,33 +235,33 @@ class WorkstationUIInteractionTest {
                         .filter(element -> ("large-workstation-" + id).equals(element.getId())).findFirst().orElseThrow();
                     var hit = root.hitTest(control.getPositionX() + 2, control.getPositionY() + 2);
                     assertNotNull(hit, id);
-                    assertSame(control, hit.getA(), "The inventory container must not intercept " + id);
-                    UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
-                    hover.target = hit.getA();
-                    UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                    assertSame(control, hit, "The inventory container must not intercept " + id);
+                    UIEvent hover = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
+                    hover.target = hit;
+                    hover.target.dispatchEvent(hover);
                     assertNotNull(hover.hoverTooltips, id);
-                    assertFalse(hover.hoverTooltips.tooltipTexts().isEmpty(), id);
+                    assertFalse(hover.hoverTooltips.tooltips().isEmpty(), id);
                 }
                 for (FluidSlot tank : tanks) {
                     var hit = root.hitTest(tank.getPositionX() + 2, tank.getPositionY() + 2);
                     assertNotNull(hit);
-                    UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
-                    hover.target = hit.getA();
-                    UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                    UIEvent hover = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
+                    hover.target = hit;
+                    hover.target.dispatchEvent(hover);
                     assertNotNull(hover.hoverTooltips, "Empty fluid tanks still explain their role and capacity");
-                    assertTrue(hover.hoverTooltips.tooltipTexts().size() >= 3);
-                    var title = hover.hoverTooltips.tooltipTexts().getFirst();
+                    assertTrue(hover.hoverTooltips.tooltips().size() >= 3);
+                    var title = cn.dancingsnow.neoecoae.platform.JdkCompat.first(hover.hoverTooltips.tooltips());
                     // The isolated JVM has no NeoForge fluid-type registry; only its descriptive fields are mocked.
-                    try (var fluidInfo = mockStatic(com.lowdragmc.lowdraglib2.utils.FluidHelper.class)) {
-                        fluidInfo.when(() -> com.lowdragmc.lowdraglib2.utils.FluidHelper.getDisplayName(any()))
+                    try (var fluidInfo = mockStatic(com.lowdragmc.lowdraglib.side.fluid.FluidHelper.class)) {
+                        fluidInfo.when(() -> com.lowdragmc.lowdraglib.side.fluid.FluidHelper.getDisplayName(any()))
                             .thenReturn(net.minecraft.network.chat.Component.literal("Water"));
-                        fluidInfo.when(com.lowdragmc.lowdraglib2.utils.FluidHelper::getUnit).thenReturn("mB");
+                        fluidInfo.when(com.lowdragmc.lowdraglib.side.fluid.FluidHelper::getUnit).thenReturn("mB");
                         for (FluidStack contents : List.of(new FluidStack(Fluids.WATER, 500), FluidStack.EMPTY)) {
-                            tank.setFluid(contents);
-                            UIEvent filledHover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                            ((com.lowdragmc.lowdraglib.gui.widget.TankWidget)cn.dancingsnow.neoecoae.util.UiTestSupport.get(tank,"tank")).setFluid(com.lowdragmc.lowdraglib.side.fluid.FluidStack.create(contents.getFluid(),contents.getAmount(),contents.getTag()),false);
+                            UIEvent filledHover = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
                             filledHover.target = tank;
-                            UIEventDispatcher.dispatchEvent(filledHover, false, false, false);
-                            assertEquals(title, filledHover.hoverTooltips.tooltipTexts().getFirst(),
+                            filledHover.target.dispatchEvent(filledHover);
+                            assertEquals(title, cn.dancingsnow.neoecoae.platform.JdkCompat.first(filledHover.hoverTooltips.tooltips()),
                                 "The tank role must remain visible when fluid replaces the empty placeholder");
                         }
                     }
@@ -277,16 +271,16 @@ class WorkstationUIInteractionTest {
                 assertEquals(root.getPositionY() + 42, module.getContentY());
                 assertEquals(16, module.getContentWidth());
                 assertEquals(16, module.getContentHeight());
-                assertSame(module, root.hitTest(module.getPositionX() + 3, module.getPositionY() + 3).getA());
+                assertSame(module, root.hitTest(module.getPositionX() + 3, module.getPositionY() + 3));
             }
         }
     }
 
     @Test
     void fluidSlotsKeepSeparateHandlersForContainerTransfers() throws ReflectiveOperationException {
-        try (var ldlib = mockStatic(LDLib2.class); var factory = mockStatic(ECOModularUI.class);
+        try (var ldlib = mockStatic(LDLib.class); var factory = mockStatic(ECOModularUI.class);
                 var tools = mockStatic(NetworkToolItem.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             FluidTank input = new FluidTank(1_000);
             FluidTank output = new FluidTank(2_000);
             output.fill(new FluidStack(Fluids.LAVA, 1_000), IFluidHandler.FluidAction.EXECUTE);
@@ -305,16 +299,16 @@ class WorkstationUIInteractionTest {
             assertEquals(2, slots.size());
             var handlerField = FluidSlot.class.getDeclaredField("boundHandler");
             handlerField.setAccessible(true);
-            IFluidHandler inputHandler = (IFluidHandler) handlerField.get(slots.getFirst());
-            IFluidHandler outputHandler = (IFluidHandler) handlerField.get(slots.getLast());
+            IFluidHandler inputHandler = (IFluidHandler) handlerField.get(cn.dancingsnow.neoecoae.platform.JdkCompat.first(slots));
+            IFluidHandler outputHandler = (IFluidHandler) handlerField.get(cn.dancingsnow.neoecoae.platform.JdkCompat.last(slots));
             assertSame(input, inputHandler);
             assertSame(output, outputHandler);
-            assertTrue(slots.getFirst().isAllowClickDrained());
-            assertTrue(slots.getLast().isAllowClickFilled());
-            assertFalse(slots.getLast().isAllowClickDrained());
+            assertTrue((boolean)cn.dancingsnow.neoecoae.util.UiTestSupport.get(cn.dancingsnow.neoecoae.util.UiTestSupport.get(cn.dancingsnow.neoecoae.platform.JdkCompat.first(slots),"tank"),"allowClickDrained"));
+            assertTrue((boolean)cn.dancingsnow.neoecoae.util.UiTestSupport.get(cn.dancingsnow.neoecoae.util.UiTestSupport.get(cn.dancingsnow.neoecoae.platform.JdkCompat.last(slots),"tank"),"allowClickFilled"));
+            assertFalse((boolean)cn.dancingsnow.neoecoae.util.UiTestSupport.get(cn.dancingsnow.neoecoae.util.UiTestSupport.get(cn.dancingsnow.neoecoae.platform.JdkCompat.last(slots),"tank"),"allowClickDrained"));
             inputHandler.fill(new FluidStack(Fluids.WATER, 500), IFluidHandler.FluidAction.EXECUTE);
             FluidStack extracted = outputHandler.drain(250, IFluidHandler.FluidAction.EXECUTE);
-            assertTrue(extracted.is(Fluids.LAVA));
+            assertTrue(extracted.getFluid()==Fluids.LAVA);
             assertEquals(500, input.getFluidAmount());
             assertEquals(750, output.getFluidAmount());
         }
@@ -322,8 +316,8 @@ class WorkstationUIInteractionTest {
 
     @Test
     void outputSideButtonsKeepMirroredDirectionsAndApplyServerActions() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
             EnumSet<RelativeSide> enabled = EnumSet.noneOf(RelativeSide.class);
             List<RelativeSide> clicked = new ArrayList<>();
             UIElement panel = WorkstationOutputPanel.create(config(new FluidTank(1_000),
@@ -335,17 +329,16 @@ class WorkstationUIInteractionTest {
             for (int index = 0; index < toggles.size(); index++) {
                 Toggle toggle = toggles.get(index);
                 RelativeSide side = expected.get(index);
-                UIEvent click = UIEvent.create(UIEvents.MOUSE_DOWN);
+                UIEvent click = new UIEvent(UIEvents.MOUSE_DOWN,null,0,0,0);
                 click.button = 0;
-                toggle.toggleButton.getBaubleServerEvent(UIEvents.MOUSE_DOWN).executor()
-                    .apply(new Object[] {click});
+                cn.dancingsnow.neoecoae.util.UiTestSupport.serverClick(toggle.toggleButton,click);
                 assertTrue(enabled.contains(side));
                 toggle.setValue(true);
-                UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                UIEvent hover = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
                 hover.target = toggle;
-                UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                hover.target.dispatchEvent(hover);
                 assertEquals("gui.neoecoae.integrated_working_station.allow_outputs.enabled",
-                    hover.hoverTooltips.tooltipTexts().getLast().getString());
+                    cn.dancingsnow.neoecoae.platform.JdkCompat.last(hover.hoverTooltips.tooltips()).getString());
             }
             assertEquals(expected, clicked);
         }

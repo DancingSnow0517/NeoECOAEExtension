@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
@@ -15,7 +14,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.pattern.AEProcessingPattern;
-import appeng.crafting.pattern.EncodedProcessingPattern;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
@@ -88,12 +86,7 @@ class ECOManyIngredientCpuDispatchTest {
                     .filter(item -> item != Items.AIR && item != Items.NETHER_STAR)
                     .limit(ingredientCount).map(item -> new GenericStack(AEItemKey.of(item), 1)).toList();
             assertEquals(ingredientCount, ingredients.size());
-            var encoded = mock(EncodedProcessingPattern.class);
-            when(encoded.sparseInputs()).thenReturn(ingredients);
-            when(encoded.sparseOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
-            var definition = mock(AEItemKey.class);
-            when(definition.get(AEComponents.ENCODED_PROCESSING_PATTERN)).thenReturn(encoded);
-            pattern = new AEProcessingPattern(definition);
+            pattern = cn.dancingsnow.neoecoae.util.NativePatternTestSupport.processing(ingredients,List.of(new GenericStack(output,1)));
             assertEquals(ingredientCount, pattern.getInputs().length);
 
             var cpu = mock(ECOCraftingCPU.class);
