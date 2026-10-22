@@ -46,6 +46,9 @@ public final class ClientStartupProbe {
         }
         if (!started && client.screen instanceof TitleScreen && client.getOverlay() == null) {
             started = true;
+            if (!System.getProperty("neoecoae.multiblockAlignmentSmoke", "").isBlank()) {
+                MultiblockAlignmentClientProbe.verifyModels(client);
+            }
             if (Boolean.getBoolean("neoecoae.ae2ByteTooltipSmoke")) {
                 AE2ByteTooltipClientProbe.verify();
                 client.stop();
@@ -84,6 +87,10 @@ public final class ClientStartupProbe {
         if (captured && client.level != null && client.player != null
                 && !System.getProperty("neoecoae.workstationModelSmoke", "").isBlank()) {
             WorkstationModelClientProbe.tick(client);
+        }
+        if (captured && client.level != null && client.player != null
+                && !System.getProperty("neoecoae.multiblockAlignmentSmoke", "").isBlank()) {
+            MultiblockAlignmentClientProbe.tick(client);
         }
         if (captured && client.level != null && client.player != null
                 && Boolean.getBoolean("neoecoae.clientSmokeInventories")) {

@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.IntSupplier;
 
 public class MultiBlockDefinition {
     private final List<BlockInstruction> builderActions;
@@ -25,8 +26,7 @@ public class MultiBlockDefinition {
     private final Component name;
     @Getter
     private final int expandMin;
-    @Getter
-    private final int expandMax;
+    private final IntSupplier expandMax;
     @Getter
     private final BiConsumer<BlockPos, Level> onFormed;
 
@@ -38,12 +38,28 @@ public class MultiBlockDefinition {
         int expandMax,
         BiConsumer<BlockPos, Level> onFormed
     ) {
+        this(builderActions, owner, name, expandMin, () -> expandMax, onFormed);
+    }
+
+    public MultiBlockDefinition(
+        List<BlockInstruction> builderActions,
+        Holder<Block> owner,
+        Component name,
+        int expandMin,
+        IntSupplier expandMax,
+        BiConsumer<BlockPos, Level> onFormed
+    ) {
         this.builderActions = builderActions;
         this.owner = owner;
         this.name = name;
         this.expandMin = expandMin;
         this.expandMax = expandMax;
         this.onFormed = onFormed;
+    }
+
+    /** Definitions can initialize at the title screen, before the world's server config is available. */
+    public int getExpandMax() {
+        return expandMax.getAsInt();
     }
 
     public static Builder builder(Holder<Block> owner) {
@@ -70,7 +86,7 @@ public class MultiBlockDefinition {
         private int expandMin = 1;
         private BiConsumer<BlockPos, Level> onFormed = (a, b) -> {
         };
-        private int expandMax = 16;
+        private IntSupplier expandMax = () -> 16;
 
         public Builder(Holder<Block> owner) {
             this.owner = owner;
@@ -111,6 +127,10 @@ public class MultiBlockDefinition {
         }
 
         public Builder expandMax(int expandMax) {
+            return expandMax(() -> expandMax);
+        }
+
+        public Builder expandMax(IntSupplier expandMax) {
             this.expandMax = expandMax;
             return this;
         }

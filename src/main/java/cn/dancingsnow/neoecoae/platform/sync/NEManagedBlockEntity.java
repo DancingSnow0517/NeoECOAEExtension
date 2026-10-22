@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.platform.sync;
 
-import com.lowdragmc.lowdraglib.syncdata.IManaged;
+import com.lowdragmc.lowdraglib.syncdata.IEnhancedManaged;
 import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
 import com.lowdragmc.lowdraglib.syncdata.blockentity.IAsyncAutoSyncBlockEntity;
 import com.lowdragmc.lowdraglib.syncdata.blockentity.IAutoPersistBlockEntity;
@@ -12,7 +12,7 @@ import net.minecraft.server.level.ServerLevel;
 import java.util.concurrent.RejectedExecutionException;
 
 /** The project's managed block-entity contract backed by LDLib 1, including its lifecycle mixin. */
-public interface NEManagedBlockEntity extends IManaged, IAutoPersistBlockEntity,
+public interface NEManagedBlockEntity extends IEnhancedManaged, IAutoPersistBlockEntity,
         IAsyncAutoSyncBlockEntity, IRPCBlockEntity {
 
     @Override
@@ -28,6 +28,18 @@ public interface NEManagedBlockEntity extends IManaged, IAutoPersistBlockEntity,
     @Override
     default void onChanged() {
         notifyPersistence();
+    }
+
+    @Override
+    default void scheduleRenderUpdate() {
+        var self = getSelf();
+        var level = self.getLevel();
+        if (level != null && level.isClientSide() && !self.isRemoved()
+                && level.getBlockEntity(self.getBlockPos()) == self) {
+            self.requestModelDataUpdate();
+            var state = self.getBlockState();
+            level.sendBlockUpdated(self.getBlockPos(), state, state, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+        }
     }
 
     default void notifyPersistence() {

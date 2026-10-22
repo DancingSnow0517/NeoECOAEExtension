@@ -9,7 +9,7 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.common.ForgeConfigSpec;
 
-@EventBusSubscriber(modid = NeoECOAE.MOD_ID)
+@EventBusSubscriber(modid = NeoECOAE.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public class NEConfig {
     public static final int PATTERN_BUS_SLOTS_PER_PAGE = 63;
     public static final int PATTERN_BUS_MIN_PAGES = 1;
@@ -254,9 +254,9 @@ public class NEConfig {
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
-    public static int craftingSystemMaxLength;
-    public static int computationSystemMaxLength;
-    public static int storageSystemMaxLength;
+    public static int craftingSystemMaxLength = CRAFTING_SYSTEM_MAX_LENGTH.getDefault();
+    public static int computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.getDefault();
+    public static int storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.getDefault();
     public static long megaBulkAutoMarkThreshold = 20_000L;
     public static boolean postCraftingEvent;
     public static boolean largeWorkstationIgnoreUpgradeCards = false;
@@ -274,12 +274,12 @@ public class NEConfig {
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
-        applyConfig();
+        if (event.getConfig().getSpec() == SPEC) applyConfig();
     }
 
     @SubscribeEvent
     public static void onReload(ModConfigEvent.Reloading event) {
-        applyConfig();
+        if (event.getConfig().getSpec() == SPEC) applyConfig();
     }
 
     private static void applyConfig() {

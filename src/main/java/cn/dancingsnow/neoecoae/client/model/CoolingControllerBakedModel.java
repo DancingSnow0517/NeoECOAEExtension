@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Keeps the resource-pack model, but emits formed cooling geometry through the section lighting path. */
-@EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public final class CoolingControllerBakedModel extends BakedModelWrapper<BakedModel> {
     private static final Direction[] DIRECTIONS = Direction.values();
     private static final Set<String> CONTROLLERS = Set.of(

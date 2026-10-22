@@ -1,12 +1,13 @@
 package cn.dancingsnow.neoecoae.client.model;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
-import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.client.event.ModelEvent;
 
-@EventBusSubscriber
+@EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public final class ECOCellModelRegistrar {
     private ECOCellModelRegistrar() {
     }

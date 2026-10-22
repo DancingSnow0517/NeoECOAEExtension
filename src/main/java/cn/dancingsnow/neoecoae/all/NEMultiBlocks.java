@@ -152,7 +152,7 @@ public class NEMultiBlocks {
             .setBlockWithRepeatShifted(pos(-1, 1, 1), Direction.WEST, 0, casing)
             .setBlockWithRepeatShifted(pos(-1, 2, 1), Direction.WEST, 0, casing)
             .expandMin(1)
-            .expandMax(NEConfig.craftingSystemMaxLength - 4)
+            .expandMax(() -> NEConfig.craftingSystemMaxLength - 4)
             .onFormed((pos, level) -> {
                 BlockState state = level.getBlockState(pos);
                 BlockState newState = state;
@@ -210,7 +210,7 @@ public class NEMultiBlocks {
             .setBlockWithRepeatShifted(pos(-1, 1, 1), Direction.WEST, 0, casing)
             .setBlockWithRepeatShifted(pos(-1, 2, 1), Direction.WEST, 0, casing)
             .expandMin(1)
-            .expandMax(NEConfig.computationSystemMaxLength - 4)
+            .expandMax(() -> NEConfig.computationSystemMaxLength - 4)
             .onFormed((pos, level) -> {
                 BlockState state = level.getBlockState(pos);
                 BlockState newState = state;
@@ -264,7 +264,7 @@ public class NEMultiBlocks {
             .setBlockWithRepeatShifted(pos(0, 2, 0), Direction.WEST, 1, casing)
             .setBlockWithRepeatShifted(pos(0, 2, 1), Direction.WEST, 1, casing)
             .expandMin(1)
-            .expandMax(NEConfig.storageSystemMaxLength - 4)
+            .expandMax(() -> NEConfig.storageSystemMaxLength - 4)
             .onFormed((pos, level) -> {
                 BlockState state = level.getBlockState(pos);
                 BlockState newState = state;

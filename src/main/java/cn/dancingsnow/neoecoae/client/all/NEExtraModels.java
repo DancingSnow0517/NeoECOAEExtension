@@ -4,7 +4,6 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -14,7 +13,7 @@ import net.minecraftforge.client.event.ModelEvent;
 import java.util.HashSet;
 import java.util.Set;
 
-@EventBusSubscriber(value = Dist.CLIENT)
+@EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public class NEExtraModels {
     private static final Set<ResourceLocation> MODELS = new HashSet<>();
 
