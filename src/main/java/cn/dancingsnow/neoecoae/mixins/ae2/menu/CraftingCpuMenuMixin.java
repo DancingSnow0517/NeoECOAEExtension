@@ -161,7 +161,10 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
     }
 
     @Inject(
-        method = {"removed"},
+        // AE2 is not remapped by this mixin; accept its named development
+        // override and the SRG override shipped in Forge release JARs.
+        method = {"removed(Lnet/minecraft/world/entity/player/Player;)V",
+            "m_6877_(Lnet/minecraft/world/entity/player/Player;)V"},
         at = {@At("TAIL")}
     )
     public void onRemoved(Player player, CallbackInfo ci) {
@@ -173,7 +176,7 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
     }
 
     @Inject(
-        method = {"broadcastChanges"},
+        method = {"broadcastChanges()V", "m_38946_()V"},
         at = {@At("HEAD")}
     )
     public void onBroadcastChanges(CallbackInfo ci) {

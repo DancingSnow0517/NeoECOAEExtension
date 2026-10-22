@@ -124,7 +124,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$cycleItems = cycles;
     }
 
-    @Inject(method = "broadcastChanges", at = @At("TAIL"))
+    @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("TAIL"))
     private void neoecoae$sendDiagnostics(CallbackInfo ci) {
         var menu = (CraftConfirmMenu) (Object) this;
         if (!(menu.getPlayer() instanceof ServerPlayer player) || player.containerMenu != menu) return;
@@ -158,7 +158,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$selectedCpuEco = selectedCpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
     }
 
-    @Inject(method = "broadcastChanges", at = @At("HEAD"))
+    @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("HEAD"))
     private void neoecoae$syncBigOrderCpu(CallbackInfo ci) {
         if (((CraftConfirmMenu) (Object) this).isClientSide()) return;
         neoecoae$bigOrderCpu = neoecoae$resolveBigOrderCpu() != null;
@@ -433,7 +433,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     @Inject(
-        method = "broadcastChanges",
+        method = {"broadcastChanges()V", "m_38946_()V"},
         at = @At(
             value = "INVOKE",
             target = "Lappeng/menu/me/crafting/CraftingPlanSummary;fromJob("
@@ -651,7 +651,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     @WrapOperation(
-        method = "broadcastChanges",
+        method = {"broadcastChanges()V", "m_38946_()V"},
         at = @At(
             value = "INVOKE",
             target = "Lappeng/menu/me/crafting/CraftingPlanSummary;fromJob("
@@ -707,7 +707,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         return summary;
     }
 
-    @Inject(method = "broadcastChanges", at = @At("TAIL"))
+    @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("TAIL"))
     private void logDisabledStartButton(CallbackInfo ci) {
         var menu = (CraftConfirmMenu) (Object) this;
         if (menu.isClientSide() || result == null

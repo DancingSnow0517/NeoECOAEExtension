@@ -21,7 +21,7 @@ public abstract class MEStorageScreenExactAmountMixin {
     @Shadow @Final protected Repo repo;
     @Unique private long neoecoae$exactAmountRevision = -1;
 
-    @Inject(method = "containerTick", at = @At("TAIL"), require = 1)
+    @Inject(method = {"containerTick()V", "m_181908_()V"}, at = @At("TAIL"), require = 1)
     private void neoecoae$refreshExactAmountOrder(CallbackInfo ci) {
         long revision = ExactAmountClientCache.revision();
         if (neoecoae$exactAmountRevision != revision) {
@@ -34,13 +34,14 @@ public abstract class MEStorageScreenExactAmountMixin {
         }
     }
 
-    @Inject(method = "removed", at = @At("HEAD"))
+    @Inject(method = {"removed()V", "m_7861_()V"}, at = @At("HEAD"))
     private void neoecoae$clearExactAmounts(CallbackInfo ci) {
         var self = (MEStorageScreen<?>) (Object) this;
         ExactAmountClientCache.clear(self.getMenu().containerId);
     }
 
-    @ModifyExpressionValue(method = "renderSlot", at = @At(value = "INVOKE", target =
+    @ModifyExpressionValue(method = {"renderSlot(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/world/inventory/Slot;)V",
+        "m_280092_(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/world/inventory/Slot;)V"}, at = @At(value = "INVOKE", target =
         "Lappeng/api/stacks/AEKey;formatAmount(JLappeng/api/stacks/AmountFormat;)Ljava/lang/String;"))
     private String neoecoae$renderExactSlotAmount(String original, @Local GridInventoryEntry entry) {
         MEStorageScreen<?> self = (MEStorageScreen<?>) (Object) this;

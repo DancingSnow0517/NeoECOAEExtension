@@ -86,7 +86,7 @@ dependencies {
     modApi "com.tterrag.registrate:Registrate:${registrate_version}"
     jarJar "com.tterrag.registrate:Registrate:${registrate_version}"
     implementation "io.github.llamalad7:mixinextras-forge:${mixinextras_version}"
-    compileOnly "io.github.llamalad7:mixinextras-common:${mixinextras_version}"
+    compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}"))
     jarJar "io.github.llamalad7:mixinextras-forge:${mixinextras_version}"
     compileOnly 'org.projectlombok:lombok:1.18.36'
     annotationProcessor 'org.projectlombok:lombok:1.18.36'

@@ -48,7 +48,8 @@ public abstract class CraftingCpuScreenMixin extends AEBaseScreen<CraftingCPUMen
         neoecoae$pause.setState(status instanceof ECOCraftingStatusSuspension state && state.neoecoae$isSuspended());
     }
     @WrapOperation(
-        method = "render",
+        method = {"render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
+            "m_88315_(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"},
         at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z")
     )
     private boolean neoecoae$jobCanBeControlled(List<?> entries, Operation<Boolean> original) {

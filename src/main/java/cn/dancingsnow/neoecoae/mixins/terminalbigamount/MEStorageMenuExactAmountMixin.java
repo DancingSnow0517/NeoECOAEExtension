@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class MEStorageMenuExactAmountMixin {
     @Unique private final TerminalExactAmountSync neoecoae$exactAmountSync = new TerminalExactAmountSync();
 
-    @WrapOperation(method = "broadcastChanges", at = @At(value = "INVOKE", target =
+    @WrapOperation(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At(value = "INVOKE", target =
         "Lappeng/api/storage/MEStorage;getAvailableStacks()Lappeng/api/stacks/KeyCounter;"))
     private KeyCounter neoecoae$collectExactAmounts(MEStorage storage, Operation<KeyCounter> original) {
         return neoecoae$exactAmountSync.collect((MEStorageMenu) (Object) this, () -> original.call(storage));
