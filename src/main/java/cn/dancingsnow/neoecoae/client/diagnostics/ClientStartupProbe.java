@@ -46,6 +46,11 @@ public final class ClientStartupProbe {
         }
         if (!started && client.screen instanceof TitleScreen && client.getOverlay() == null) {
             started = true;
+            if (Boolean.getBoolean("neoecoae.ae2ByteTooltipSmoke")) {
+                AE2ByteTooltipClientProbe.verify();
+                client.stop();
+                return;
+            }
             LOG.info("CLIENT_SMOKE title screen reached; creating isolated creative world");
             var rules = new GameRules();
             rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);

@@ -4,6 +4,7 @@
   "package": "cn.dancingsnow.neoecoae.mixins",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "ae2.TooltipsByteUnitsMixin",
     "ae2.accessor.AECraftingPatternAccessor",
     "ae2.accessor.CraftingPlanSummaryAccessor",
     "ae2.accessor.DelegatingMEInventoryAccessor",

@@ -26,7 +26,8 @@ side="BOTH"
 [[dependencies.neoecoae]]
 modId="ae2"
 mandatory=true
-versionRange="[15.4.11,16)"
+# 15.4.11 is recommended; TooltipsByteUnitsMixin backports the byte table fix for 15.4.10.
+versionRange="[15.4.10,16)"
 ordering="AFTER"
 side="BOTH"
 
