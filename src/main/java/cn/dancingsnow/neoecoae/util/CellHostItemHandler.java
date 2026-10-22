@@ -33,6 +33,7 @@ public class CellHostItemHandler implements IItemHandler {
             }
             if (!simulate) {
                 host.setCellStack(stack.copyWithCount(1));
+                if (host.getCellStack() == null) return stack;
             }
             ItemStack copy = stack.copy();
             copy.shrink(1);
@@ -51,11 +52,12 @@ public class CellHostItemHandler implements IItemHandler {
         if (!host.canExtractCell()) {
             return ItemStack.EMPTY;
         }
-        ItemStack copy = host.getCellStack().copyWithCount(1);
+        ItemStack installed = host.getCellStack();
         if (!simulate) {
             host.setCellStack(null);
+            if (host.getCellStack() != null) return ItemStack.EMPTY;
         }
-        return copy;
+        return installed.copyWithCount(1);
     }
 
     @Override

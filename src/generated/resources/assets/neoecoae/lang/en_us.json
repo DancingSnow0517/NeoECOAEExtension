@@ -1246,5 +1246,6 @@
   "item.neoecoae.structure_terminal": "Structure Terminal",
   "recipe_type.neoecoae.expatternprovider.crystal_assembler": "ExtendedAE: Crystal Assembling",
   "gui.neoecoae.computation.pause": "Pause",
-  "gui.neoecoae.computation.resume": "Resume"
+  "gui.neoecoae.computation.resume": "Resume",
+  "tooltip.neoecoae.storage.persistence_failed": "Storage data could not be saved; cell extraction is temporarily locked."
 }

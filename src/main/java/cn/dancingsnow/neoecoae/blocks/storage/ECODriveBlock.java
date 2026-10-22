@@ -38,6 +38,7 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
             && be.isItemValid(heldItem)) {
             if (level.isClientSide) return InteractionResult.SUCCESS;
             be.setCellStack(heldItem.copyWithCount(1));
+            if (be.getCellStack() == null) return InteractionResult.FAIL;
             if (!player.isCreative()) {
                 heldItem.shrink(1);
                 if (heldItem.isEmpty()) {
@@ -61,6 +62,7 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
                 }
                 ItemStack cellStack = be.getCellStack();
                 be.setCellStack(null);
+                if (be.getCellStack() != null) return InteractionResult.FAIL;
                 player.setItemInHand(InteractionHand.MAIN_HAND, cellStack);
                 return InteractionResult.sidedSuccess(level.isClientSide());
             }

@@ -21,7 +21,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 
 /** ECO-only view of an AE2 creative cell; AE2 remains responsible for all storage operations. */
-public final class ECOCreativeCell implements IECOStorageCell {
+public final class ECOCreativeCell implements IECOStorageCell, cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage {
     private static final ECOCellType TYPE = new ECOCellType(
         Component.translatable("item.ae2.creative_cell"), 1, false);
     private final StorageCell delegate;
@@ -42,6 +42,17 @@ public final class ECOCreativeCell implements IECOStorageCell {
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
         return delegate.extract(what, amount, mode, source);
+    }
+
+    @Override public java.math.BigInteger insertBigInteger(AEKey key, java.math.BigInteger amount,
+            Actionable mode, IActionSource source) {
+        return amount != null && amount.signum() > 0 && delegate.insert(key, 1, Actionable.SIMULATE, source) == 1
+            ? amount : java.math.BigInteger.ZERO;
+    }
+    @Override public java.math.BigInteger extractBigInteger(AEKey key, java.math.BigInteger amount,
+            Actionable mode, IActionSource source) {
+        return amount != null && amount.signum() > 0 && delegate.extract(key, 1, Actionable.SIMULATE, source) == 1
+            ? amount : java.math.BigInteger.ZERO;
     }
 
     @Override

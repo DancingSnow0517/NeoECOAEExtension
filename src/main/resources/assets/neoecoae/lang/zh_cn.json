@@ -1248,5 +1248,6 @@
   "item.neoecoae.structure_terminal": "ECO 结构终端",
   "recipe_type.neoecoae.expatternprovider.crystal_assembler": "ExtendedAE：水晶装配",
   "gui.neoecoae.computation.pause": "暂停",
-  "gui.neoecoae.computation.resume": "继续"
+  "gui.neoecoae.computation.resume": "继续",
+  "tooltip.neoecoae.storage.persistence_failed": "存储数据尚未成功保存，暂时无法取出存储盘。"
 }

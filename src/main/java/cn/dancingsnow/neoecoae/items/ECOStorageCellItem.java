@@ -220,7 +220,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
             // Sort by amount descending
             content.sort(Comparator.comparingLong(GenericStack::amount).reversed());
 
-            hasMoreContent = content.size() > maxCountShown;
+            hasMoreContent = content.size() > maxCountShown || handler.getStoredItemTypes() > maxCountShown;
             if (content.size() > maxCountShown) {
                 content.subList(maxCountShown, content.size()).clear();
             }
@@ -314,7 +314,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         }
 
         ECOStorageCell cellInventory = getCellInventory(stack);
-        if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()) {
+        if (cellInventory == null || !cellInventory.storageData().canMutate() || cellInventory.getStoredItemTypes() != 0) {
             player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;
         }
@@ -333,6 +333,10 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     public static class Handler implements IECOCellHandler {
+        @Override public void releaseCellInventory(ItemStack stack, ISaveProvider host) {
+            cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.release(stack, host);
+        }
+
 
         public static final Handler INSTANCE = new Handler();
 

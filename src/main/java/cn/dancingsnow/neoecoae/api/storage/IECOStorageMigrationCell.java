@@ -22,6 +22,16 @@ public interface IECOStorageMigrationCell extends IECOStorageCell {
         return contents.get(key);
     }
 
+    default java.math.BigInteger getMigrationAmountBigInteger(AEKey key) {
+        return java.math.BigInteger.valueOf(getMigrationAmount(key));
+    }
+
+    default java.math.BigInteger insertForMigrationBigInteger(AEKey key, java.math.BigInteger amount,
+            Actionable mode, IActionSource source) {
+        return java.math.BigInteger.valueOf(insertForMigration(key,
+            amount.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact(), mode, source));
+    }
+
     /** Flushes contents before the controller saves the source seal or destination receipt to its chunk. */
     default void persistMigrationContents(ServerLevel level) { persist(); }
 

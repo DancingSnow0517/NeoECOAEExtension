@@ -32,8 +32,8 @@ import org.slf4j.LoggerFactory;
  * World-owned inventory and transfer receipts, saved together in one atomic snapshot by the vanilla
  * {@link net.minecraft.world.level.storage.DimensionDataStorage} cycle (autosave, {@code /save-all}, shutdown).
  */
-public final class ECOInfiniteStorageData extends SavedData {
-    public static final int CURRENT_VERSION = 3;
+public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.impl.storage.persistence.StorageSavedData {
+    public static final int CURRENT_VERSION = 4;
 
     public enum DomainStatus {HEALTHY, DEGRADED, RECOVERY_READ_ONLY, UNAVAILABLE}
 
@@ -57,11 +57,12 @@ public final class ECOInfiniteStorageData extends SavedData {
     private boolean mountedStorageAvailable = true;
     private String failure;
     // A failed snapshot stays dirty and is retried by the next vanilla save.
-    private String writeFailure;
     private long revision;
     // Last sequence of the retired write-ahead journal already folded into this snapshot.
     private long journalSequence;
     private KeyCodec codec;
+    private UUID domainIdentity;
+    private final Map<AEKey, CompoundTag> encodedKeys = new HashMap<>();
 
     public static ECOInfiniteStorageData createNew() {
         return new ECOInfiniteStorageData();
@@ -77,7 +78,7 @@ public final class ECOInfiniteStorageData extends SavedData {
     public static LoadFactory factory(Path dataFile,
                                                                     java.util.function.Supplier<ECOInfiniteStorageData> fresh) {
         return new LoadFactory(() -> {
-            if (Files.exists(dataFile)) {
+            if (Files.exists(dataFile) || Files.exists(dataFile.resolveSibling(dataFile.getFileName() + ".bak"))) {
                 ECOInfiniteStorageData data = createNew();
                 data.markUnreadable("Cannot read authoritative domain snapshot " + dataFile.getFileName()
                         + "; original file retained");
@@ -106,6 +107,11 @@ public final class ECOInfiniteStorageData extends SavedData {
     static ECOInfiniteStorageData load(CompoundTag tag, KeyCodec codec) {
         ECOInfiniteStorageData data = createNew();
         data.codec = codec;
+        data.loadPersistence(tag);
+        if (tag.contains("domainIdentity")) {
+            if (!tag.hasUUID("domainIdentity")) { data.markUnreadable("Invalid domain identity"); return data; }
+            data.domainIdentity = tag.getUUID("domainIdentity");
+        }
         int version = tag.getInt("version");
         if (version < 1 || version > CURRENT_VERSION || tag.getBoolean("journal")) {
             data.markUnreadable("Unsupported or unresolved infinite storage format: " + version);
@@ -144,12 +150,12 @@ public final class ECOInfiniteStorageData extends SavedData {
                             throw new IllegalArgumentException("Invalid restore plan");
                         for (Tag value : entry.getList("restorePlan", Tag.TAG_COMPOUND)) {
                             CompoundTag target = (CompoundTag) value;
-                            if (!target.hasUUID("target") || !target.contains("before", Tag.TAG_LONG)
-                                    || !target.contains("after", Tag.TAG_LONG) || !target.contains("transferred", Tag.TAG_LONG)) {
+                            if (!target.hasUUID("target") || !validExactAmount(target, "before")
+                                    || !validExactAmount(target, "after") || !validExactAmount(target, "transferred")) {
                                 throw new IllegalArgumentException("Incomplete restore target");
                             }
                             if (plan.put(target.getUUID("target"), new ECOInfiniteStorageEngine.RestoreTargetAmounts(
-                                    target.getLong("before"), target.getLong("after"), target.getLong("transferred"))) != null) {
+                                    readExactAmount(target, "before"), readExactAmount(target, "after"), readExactAmount(target, "transferred"))) != null) {
                                 throw new IllegalArgumentException("Duplicate restore target");
                             }
                         }
@@ -183,6 +189,18 @@ public final class ECOInfiniteStorageData extends SavedData {
         return data;
     }
 
+    private static boolean validExactAmount(CompoundTag tag, String name) {
+        if (tag.contains(name, Tag.TAG_LONG)) return true;
+        CompoundTag amount = tag.getCompound(name);
+        return amount.contains("long", Tag.TAG_LONG) || amount.contains("big", Tag.TAG_STRING);
+    }
+    private static BigInteger readExactAmount(CompoundTag tag, String name) {
+        return tag.contains(name, Tag.TAG_LONG) ? BigInteger.valueOf(tag.getLong(name)) : HugeAmount.read(tag.getCompound(name)).toBigInteger();
+    }
+    private static void writeExactAmount(CompoundTag tag, String name, BigInteger amount) {
+        if (amount.bitLength() < 64) tag.putLong(name, amount.longValueExact()); else tag.put(name, HugeAmount.of(amount).write());
+    }
+
     private static boolean validList(CompoundTag tag, String name, int type) {
         return tag.get(name) instanceof ListTag list && (list.isEmpty() || list.getElementType() == type);
     }
@@ -191,10 +209,12 @@ public final class ECOInfiniteStorageData extends SavedData {
     public CompoundTag save(CompoundTag tag) {
         if (unreadable || incompleteLegacy) throw new IllegalStateException("Refusing to save an incomplete domain");
         tag.putInt("version", CURRENT_VERSION);
+        if (domainIdentity != null) tag.putUUID("domainIdentity", domainIdentity);
+        encodedKeys.keySet().removeIf(key -> amounts.visible(key) == 0);
         ListTag entries = new ListTag();
         amounts.forEach((key, amount) -> {
             CompoundTag entry = new CompoundTag();
-            entry.put("key", codec == null ? key.toTagGeneric() : codec.encode(key));
+            entry.put("key", encodedKeys.computeIfAbsent(key, k -> codec == null ? k.toTagGeneric() : codec.encode(k)).copy());
             entry.put("amount", amount.write());
             Restore restore = restores.get(key);
             if (restore != null) {
@@ -206,9 +226,9 @@ public final class ECOInfiniteStorageData extends SavedData {
                 restore.plan().forEach((id, amounts) -> {
                     CompoundTag target = new CompoundTag();
                     target.putUUID("target", id);
-                    target.putLong("before", amounts.before());
-                    target.putLong("after", amounts.after());
-                    target.putLong("transferred", amounts.transferred());
+                    writeExactAmount(target, "before", amounts.beforeExact());
+                    writeExactAmount(target, "after", amounts.afterExact());
+                    writeExactAmount(target, "transferred", amounts.transferredExact());
                     plan.add(target);
                 });
                 entry.put("restorePlan", plan);
@@ -226,36 +246,10 @@ public final class ECOInfiniteStorageData extends SavedData {
         return tag;
     }
 
-    /**
-     * Runs in the 1.20.1 vanilla {@link SavedData#save(File)} cycle. The server thread writes a complete temporary
-     * snapshot and atomically replaces the old file. Unreadable or partially imported domains are never written;
-     * serialization, write or journal-cleanup failures keep the domain due for the next save.
-     */
-    @Override
-    public void save(File file) {
-        if (unreadable || incompleteLegacy) return;
-        if (!isDirty() && writeFailure == null) return;
-        CompoundTag root = new CompoundTag();
-        try {
-            root.put("data", save(new CompoundTag()));
-        } catch (RuntimeException e) {
-            LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot serialize infinite domain {}", file, e);
-            writeFailure = e.toString();
-            return;
-        }
-        NbtUtils.addCurrentDataVersion(root);
-        Path target = file.toPath();
-        try {
-            NEAtomicNbtFile.write(root, target);
-            // The snapshot records journalSequence, so a journal left behind by a crash here is harmless.
-            Files.deleteIfExists(journalPath(target.toAbsolutePath()));
-            writeFailure = null;
-            setDirty(false);
-        } catch (IOException | RuntimeException e) {
-            if (writeFailure == null)
-                LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot save infinite domain {}", file, e);
-            writeFailure = e.toString();
-        }
+    @Override protected boolean canSaveSnapshot() { return !unreadable && !incompleteLegacy; }
+
+    @Override protected void snapshotSaved() throws IOException {
+        Files.deleteIfExists(journalPath(dataFile()));
     }
 
     /** Structural change: also advances {@link #revision()} so revision-keyed caches refresh. */
@@ -277,7 +271,7 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     public String lastFailureReason() {
-        String write = writeFailure;
+        String write = writeFailure();
         return write != null ? write : failure;
     }
 
@@ -291,6 +285,12 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     public boolean canRead() {
         return !unreadable;
+    }
+
+    public void bindDomain(UUID identity) {
+        if (domainIdentity != null && !domainIdentity.equals(identity)) {
+            markUnreadable("Infinite domain identity differs from its SavedData name");
+        } else if (domainIdentity == null && canRead()) { domainIdentity = identity; setDirty(); }
     }
 
     public boolean canRead(AEKey key) {
@@ -307,7 +307,7 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     public boolean canExitOrRestore() {
         // Leaving infinite mode relies on the next snapshot landing; wait until a failed write has recovered.
-        return canWrite() && writeFailure == null && rawEntries.isEmpty() && unresolvedMetadata.isEmpty();
+        return canWrite() && writeFailure() == null && rawEntries.isEmpty() && unresolvedMetadata.isEmpty();
     }
 
     public boolean canMigrate() {
@@ -400,14 +400,14 @@ public final class ECOInfiniteStorageData extends SavedData {
     public DomainStatus status() {
         if (unreadable) return DomainStatus.UNAVAILABLE;
         if (incompleteLegacy) return DomainStatus.RECOVERY_READ_ONLY;
-        if (writeFailure != null || !rawEntries.isEmpty() || !unresolvedMetadata.isEmpty()
+        if (writeFailure() != null || !rawEntries.isEmpty() || !unresolvedMetadata.isEmpty()
                 || restores.values().stream().anyMatch(r -> !r.failure().isEmpty())) return DomainStatus.DEGRADED;
         return DomainStatus.HEALTHY;
     }
 
     public List<String> failures() {
         List<String> result = new ArrayList<>();
-        String write = writeFailure;
+        String write = writeFailure();
         if (write != null) result.add("Last snapshot write failed, retrying on next save: " + write);
         if (failure != null) result.add(failure);
         if (!rawEntries.isEmpty()) result.add("Unresolved entries retained: " + rawEntries.size());
@@ -454,8 +454,8 @@ public final class ECOInfiniteStorageData extends SavedData {
         if (plan.isEmpty()) return true; // v1/v2 reservation, upgraded before the next target mutation
         if (!targets.containsAll(plan.keySet())) return false;
         java.math.BigInteger allocated = java.math.BigInteger.ZERO;
-        for (var target : plan.values()) allocated = allocated.add(java.math.BigInteger.valueOf(target.transferred()));
-        return allocated.equals(amount.toBigInteger().min(java.math.BigInteger.valueOf(Long.MAX_VALUE)));
+        for (var target : plan.values()) allocated = allocated.add(target.transferredExact());
+        return allocated.equals(amount.toBigInteger());
     }
 
     public Set<UUID> restoreTargetIds(AEKey key) {
@@ -487,12 +487,12 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     public boolean finishRestore(AEKey key, UUID transaction) {
         if (!canFinishRestore(key, transaction)) return false;
-        Restore restore = restores.remove(key);
-        long transferred = 0L;
-        for (var target : restore.plan().values()) {
-            transferred = Math.addExact(transferred, target.transferred());
-        }
-        amounts.subtract(key, transferred);
+        Restore restore = restores.get(key);
+        BigInteger transferred = BigInteger.ZERO;
+        for (var target : restore.plan().values()) transferred = transferred.add(target.transferredExact());
+        HugeAmount remaining = HugeAmount.of(amounts.get(key).toBigInteger().subtract(transferred));
+        amounts.set(key, remaining);
+        restores.remove(key);
         setDirty();
         return true;
     }

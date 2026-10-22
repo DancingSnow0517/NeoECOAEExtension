@@ -872,5 +872,6 @@
   "item.neoecoae.structure_terminal": "ןɐuıɯɹǝ⟘ ǝɹnʇɔnɹʇS",
   "recipe_type.neoecoae.expatternprovider.crystal_assembler": "buıןqɯǝssⱯ ןɐʇsʎɹƆ :ƎⱯpǝpuǝʇxƎ",
   "gui.neoecoae.computation.pause": "ǝsnɐԀ",
-  "gui.neoecoae.computation.resume": "ǝɯnsǝᴚ"
+  "gui.neoecoae.computation.resume": "ǝɯnsǝᴚ",
+  "tooltip.neoecoae.storage.persistence_failed": "Storage data could not be saved; cell extraction is temporarily locked."
 }

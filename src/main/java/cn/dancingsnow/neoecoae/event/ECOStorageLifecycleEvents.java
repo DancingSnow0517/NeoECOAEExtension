@@ -21,6 +21,14 @@ public final class ECOStorageLifecycleEvents {
     /**
      * Release integrated-server state. World data, including infinite domains, was already saved by vanilla shutdown.
      */
+    public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+        ECOCellMutationBatch.clearThreadState();
+        ECOCellMutationBatch.drainRetries();
+        try { cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.flush(event.getServer()); }
+        catch (RuntimeException failure) { org.slf4j.LoggerFactory.getLogger(ECOStorageLifecycleEvents.class)
+            .error("ECO shutdown checkpoint failed; vanilla world save will retry dirty records", failure); }
+    }
+
     public static void onServerStopped(ServerStoppedEvent event) {
         MinecraftServer server = event.getServer();
         PatternBusUpdateScheduler.clear(server);
@@ -31,6 +39,7 @@ public final class ECOStorageLifecycleEvents {
         ECOCellMutationBatch.drainRetries();
         ECOStorageCells.clearRuntimeState();
         ECOInfiniteStorageDomains.onServerStopped(server);
+        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.stopped(server);
     }
 
     public static void onLevelUnload(LevelEvent.Unload event) {
@@ -45,6 +54,7 @@ public final class ECOStorageLifecycleEvents {
             NELogicalNetworkManager.tick(level);
         }
         ECOCellMutationBatch.retry();
+        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.tick(event.getServer(), event.getServer().getTickCount());
         PatternBusUpdateScheduler.tick(event.getServer());
         if (!FMLEnvironment.production) {
             ECOCellMutationBatch.assertClean();

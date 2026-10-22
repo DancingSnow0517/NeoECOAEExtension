@@ -74,7 +74,7 @@ public final class ECOCellMutationBatch implements AutoCloseable {
         }
     }
 
-    private static void flush(ECOStorageCell cell) {
+    static void flush(ECOStorageCell cell) {
         try {
             cell.flushBatchedChanges();
             RETRY.remove(cell);

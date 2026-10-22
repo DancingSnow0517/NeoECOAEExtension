@@ -109,6 +109,9 @@ legacyForge {
         server {
             server()
             programArgument '--nogui'
+            if (providers.gradleProperty('storageAcceptanceWorld').isPresent()) {
+                programArguments.addAll '--world', providers.gradleProperty('storageAcceptanceWorld').get(), '--port', '25596'
+            }
         }
         data {
             data()
@@ -125,6 +128,7 @@ legacyForge {
             systemProperty 'neoecoae.clientSmokeInventories', providers.gradleProperty('clientSmokeInventories').getOrElse('false')
             systemProperty 'neoecoae.workstationModelSmoke', providers.gradleProperty('workstationModelSmoke').getOrElse('')
             systemProperty 'neoecoae.clientSmokeEnergy', providers.gradleProperty('clientSmokeEnergy').getOrElse('false')
+            systemProperty 'neoecoae.storageSavedDataSmoke', providers.gradleProperty('storageSavedDataSmoke').getOrElse('')
         }
     }
     mods {
@@ -181,6 +185,10 @@ sourceSets {
         java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipeAdapters.java'
         java.include 'cn/dancingsnow/neoecoae/mixins/minecraft/RecipeManagerAccessor.java'
         java.include 'cn/dancingsnow/neoecoae/gui/common/FluidHatchUI.java'
+        java.include 'cn/dancingsnow/neoecoae/impl/storage/persistence/**'
+        java.include 'cn/dancingsnow/neoecoae/util/CellHostItemHandler.java'
+        java.include 'cn/dancingsnow/neoecoae/util/ICellHost.java'
+        java.include 'cn/dancingsnow/neoecoae/api/storage/ICellHost.java'
         java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageData.java'
         java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageDomains.java'
         java.include 'cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageEngine.java'

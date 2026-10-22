@@ -11,6 +11,20 @@ import java.util.Objects;
 public interface ECOBigIntegerStorage {
     BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source);
 
+    default BigInteger extractBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
+        if (!(this instanceof MEStorage storage) || amount == null || amount.signum() <= 0) return BigInteger.ZERO;
+        return BigInteger.valueOf(storage.extract(what, amount.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact(), mode, source));
+    }
+
+    static BigInteger extract(MEStorage storage, AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
+        Objects.requireNonNull(amount, "amount");
+        if (amount.signum() < 0) throw new IllegalArgumentException("Amount must not be negative");
+        BigInteger extracted = storage instanceof ECOBigIntegerStorage exact
+            ? exact.extractBigInteger(what, amount, mode, source)
+            : BigInteger.valueOf(storage.extract(what, amount.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact(), mode, source));
+        return checkedResult(amount, extracted);
+    }
+
     /** Inserts through the regular long API unless this is a request the long API cannot represent. */
     static BigInteger insert(MEStorage storage, AEKey what, BigInteger amount,
             Actionable mode, IActionSource source) {

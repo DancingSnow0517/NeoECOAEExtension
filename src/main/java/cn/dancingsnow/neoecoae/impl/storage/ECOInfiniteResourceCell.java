@@ -66,6 +66,13 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
         return amount > 0L && isServable(what) ? amount : 0L;
     }
 
+    @Override public java.math.BigInteger insertBigInteger(AEKey key, java.math.BigInteger amount,
+            Actionable mode, IActionSource source) {
+        return amount != null && amount.signum() > 0 && isServable(key) ? amount : java.math.BigInteger.ZERO;
+    }
+    @Override public java.math.BigInteger extractBigInteger(AEKey key, java.math.BigInteger amount,
+            Actionable mode, IActionSource source) { return insertBigInteger(key, amount, mode, source); }
+
     @Override
     public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {
         return insert(what, amount, Actionable.SIMULATE, null);

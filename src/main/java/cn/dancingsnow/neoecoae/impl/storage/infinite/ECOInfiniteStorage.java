@@ -81,6 +81,11 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
         return engine.extract(what, amount, mode);
     }
 
+    @Override public BigInteger extractBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
+        if (what == null || amount == null || amount.signum() <= 0 || !allowInsert.getAsBoolean()) return BigInteger.ZERO;
+        return engine.extract(what, amount, mode);
+    }
+
     @Override
     public void getAvailableStacks(KeyCounter out) {
         if (!allowInsert.getAsBoolean()) return;

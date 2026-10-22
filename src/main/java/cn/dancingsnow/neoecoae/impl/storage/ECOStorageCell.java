@@ -3,6 +3,11 @@ package cn.dancingsnow.neoecoae.impl.storage;
 import appeng.api.config.Actionable;
 import appeng.api.config.IncludeExclude;
 import cn.dancingsnow.neoecoae.platform.nbt.NECellNbt;
+import cn.dancingsnow.neoecoae.platform.nbt.NEItemData;
+import cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository;
+import cn.dancingsnow.neoecoae.impl.storage.persistence.ECOCellReference;
+import cn.dancingsnow.neoecoae.impl.storage.persistence.ECOCellSavedData;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -33,10 +38,14 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ECOStorageCell implements IECOStorageMigrationCell {
+public class ECOStorageCell implements IECOStorageMigrationCell,
+        cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage,
+        cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource {
+    private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     @Nullable
@@ -55,14 +64,26 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     protected final ItemStack cellStack;
 
     private final int maxItemTypes;
-    private int storedItems;
-    @Getter
-    private long storedItemCount;
-    private Object2LongMap<AEKey> storedAmounts;
-    private long contentRevision;
-
-    public long contentRevision() { return contentRevision; }
+    private final ECOStorageRepository.Access storageAccess;
+    public ECOCellSavedData storageData() { return storageAccess.data(); }
+    public ECOStorageRepository.Session storageSession() { return storageAccess.session(); }
+    public boolean storageWritable() { return storageAccess.writable(); }
+    @Override public boolean isInfiniteStorageEligible() { return storageWritable(); }
+    public long contentRevision() { return storageData().contentRevision(); }
+    public long getStoredItemCount() {
+        return storageAccess.session() == null && ECOCellReference.id(cellStack) != null
+            ? NEItemData.read(cellStack).getCompound(ECOCellReference.TAG).getLong("amount")
+            : storageData().amounts().totalVisible();
+    }
+    public BigInteger getStoredItemCountExact() {
+        if (storageAccess.session() == null && ECOCellReference.id(cellStack) != null) {
+            var ref = NEItemData.read(cellStack).getCompound(ECOCellReference.TAG);
+            return ref.contains("exactAmount") ? new BigInteger(ref.getString("exactAmount")) : BigInteger.valueOf(ref.getLong("amount"));
+        }
+        return storageData().amounts().totalExact();
+    }
     private boolean isPersisted = true;
+    private final Runnable persistenceNotification = () -> ECOCellMutationBatch.flush(this);
     @Getter
     private final IECOTier tier;
 
@@ -73,11 +94,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
         if (cellStack.getItem() instanceof IBasicECOCellItem c) {
             keyType = c.getKeyType();
             maxItemTypes = c.getTotalTypes();
-            var storedStacks = getStoredStacks();
-            this.storedItems = (int) storedStacks.stream().filter(stack -> stack.amount() > 0L).count();
-            this.storedItemCount = storedStacks.stream().filter(stack -> stack.amount() > 0L)
-                .mapToLong(GenericStack::amount).reduce(0L, NEMath::saturatingAdd);
-            this.storedAmounts = null;
+            this.storageAccess = ECOStorageRepository.open(cellStack, container);
             this.cellType = c;
             this.tier = c.getTier();
 
@@ -106,6 +123,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public CellState getStatus() {
+        if (!storageData().canMutate() || storageAccess.session() != null && !storageAccess.claimed()) return CellState.FULL;
         if (this.getStoredItemTypes() == 0) {
             return CellState.EMPTY;
         }
@@ -130,6 +148,10 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     public int getUnusedItemCount() {
         int amountPerByte = Math.max(1, keyType.getAmountPerByte());
+        if (getStoredItemCount() == Long.MAX_VALUE) {
+            int remainder = getStoredItemCountExact().mod(BigInteger.valueOf(amountPerByte)).intValue();
+            return remainder == 0 ? 0 : amountPerByte - remainder;
+        }
         final int div = (int) (this.getStoredItemCount() % amountPerByte);
 
         if (div == 0) {
@@ -144,6 +166,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     public long getUsedBytes() {
+        if (getStoredItemCount() == Long.MAX_VALUE) return exactUsedBytes(getStoredItemTypes(), getStoredItemCountExact()).min(MAX_LONG).longValue();
         long storedAmount = Math.max(0L, getStoredItemCount());
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
         long bytesForItems = ceilDivide(storedAmount, amountPerByte);
@@ -173,7 +196,9 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     public long getStoredItemTypes() {
-        return storedItems;
+        return storageAccess.session() == null && ECOCellReference.id(cellStack) != null
+            ? NEItemData.read(cellStack).getCompound(ECOCellReference.TAG).getInt("types")
+            : storageData().amounts().size();
     }
 
     private List<GenericStack> getStoredStacks() {
@@ -189,26 +214,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
         return true;
     }
 
-    protected Object2LongMap<AEKey> getCellItems() {
-        if (this.storedAmounts == null) {
-            this.storedAmounts = new Object2LongOpenHashMap<>(maxItemTypes);
-            this.loadCellItems();
-        }
-
-        return this.storedAmounts;
-    }
-
-    private void loadCellItems() {
-        var stacks = getStoredStacks();
-        for (var stack : stacks) {
-            if (stack.what() != null && stack.amount() > 0L) {
-                storedAmounts.put(stack.what(), NEMath.saturatingAdd(
-                    storedAmounts.getLong(stack.what()), stack.amount()));
-            }
-        }
-        storedItems = storedAmounts.size();
-        storedItemCount = storedAmounts.values().longStream().reduce(0L, NEMath::saturatingAdd);
-    }
+    protected Object2LongMap<AEKey> getCellItems() { return storageData().amounts().visibleAmounts(); }
 
     @Override
     public double getIdleDrain() {
@@ -217,52 +223,32 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public void persist() {
-        if (this.isPersisted) {
-            return;
-        }
-
-        var itemCount = 0L;
-        var stacks = new ArrayList<GenericStack>(storedAmounts.size());
-
-        for (var entry : this.storedAmounts.object2LongEntrySet()) {
-            long amount = entry.getLongValue();
-            itemCount = NEMath.saturatingAdd(itemCount, amount);
-
-            if (amount > 0) {
-                stacks.add(new GenericStack(entry.getKey(), amount));
-            }
-        }
-
-        NECellNbt.writeStacks(cellStack, stacks);
-
-        int actualTypes = this.storedAmounts.size();
-        if (actualTypes > this.maxItemTypes) {
-            LOGGER.warn(
-                    "ECO storage cell contains more types than allowed: actual={} max={} stack={}",
-                    actualTypes,
-                    this.maxItemTypes,
-                    cellStack);
-        }
-        this.storedItems = actualTypes;
-
-        this.storedItemCount = itemCount;
+        if (storageAccess.session() == null) return;
+        if (this.isPersisted && NEItemData.read(cellStack).getCompound(ECOCellReference.TAG)
+                .getLong("revision") == storageData().contentRevision()) return;
+        ECOCellReference.update(cellStack, storageData());
         this.isPersisted = true;
     }
 
+    @Override
+    public void persistMigrationContents(net.minecraft.server.level.ServerLevel level) {
+        if (!storageWritable()) throw new IllegalStateException("ECO disk is unavailable or mounted twice");
+        storageData().metadata(ECOCellReference.metadata(cellStack));
+        if (!storageData().flush()) throw new IllegalStateException("Cannot persist ECO migration: " + storageData().failure());
+        this.isPersisted = false;
+        persist();
+    }
+
     protected void saveChanges() {
-        contentRevision++;
+        storageData().setDirty();
         this.isPersisted = false;
         if (ECOCellMutationBatch.defer(this)) return;
-        flushBatchedChanges();
+        if (storageAccess.session() != null) storageAccess.session().schedule(cellStack, persistenceNotification);
     }
 
     void flushBatchedChanges() {
-        // The host only marks its block entity dirty; it does not serialize this
-        // transient inventory instance back into the cell stack for us.
         this.persist();
-        if (this.container != null) {
-            this.container.saveChanges();
-        }
+        if (this.container != null) this.container.saveChanges();
     }
 
     /** Specialized cells may accept multiple channels with the same amount-per-byte accounting. */
@@ -273,7 +259,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
         if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
-        if (amount == 0 || !acceptsKey(what)) {
+        if (!storageWritable() || amount <= 0 || what == null || !acceptsKey(what)) {
             return 0;
         }
 
@@ -298,7 +284,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     /** Inserts for a lossless migration without applying the void upgrade's reported acceptance. */
     public long insertForMigration(AEKey what, long amount, Actionable mode) {
-        if (amount <= 0 || !acceptsKey(what)) {
+        if (!storageWritable() || amount <= 0 || what == null || !acceptsKey(what)) {
             return 0;
         }
         if (!partitionList.matchesFilter(what, partitionListMode) || cellType.isBlackListed(cellStack, what)) {
@@ -309,7 +295,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     /** Marks an in-memory mutation from a specialised cell implementation. */
     protected final void markContentChanged() {
-        contentRevision = contentRevision == Long.MAX_VALUE ? 0L : contentRevision + 1L;
+        storageData().setDirty();
     }
 
     /** Joins the current controller mutation batch, if one is active. */
@@ -419,6 +405,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {
+        if (getStoredItemCount() == Long.MAX_VALUE) return insertExact(what, BigInteger.valueOf(amount), mode).longValueExact();
         var currentAmount = this.getCellItems().getLong(what);
         long remainingItemCount = this.getRemainingItemCount();
 
@@ -449,11 +436,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
         if (mode == Actionable.MODULATE) {
             long newAmount = currentAmount + amount;
-            getCellItems().put(what, newAmount);
-            if (currentAmount <= 0) {
-                storedItems++;
-            }
-            storedItemCount = NEMath.saturatingAdd(storedItemCount, amount);
+            storageData().amounts().setLong(what, newAmount);
             this.saveChanges();
         }
 
@@ -462,22 +445,23 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (amount <= 0L || cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
+        if (!storageWritable() || amount <= 0L || cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
+        if (storageData().amounts().isBig(what)) {
+            if (mode == Actionable.MODULATE) { storageData().amounts().subtract(what, amount); saveChanges(); }
+            return amount;
+        }
         var currentAmount = getCellItems().getLong(what);
         if (currentAmount > 0) {
             if (amount >= currentAmount) {
                 if (mode == Actionable.MODULATE) {
-                    getCellItems().remove(what, currentAmount);
-                    storedItems = Math.max(0, storedItems - 1);
-                    storedItemCount = Math.max(0, storedItemCount - currentAmount);
+                    storageData().amounts().setLong(what, 0);
                     this.saveChanges();
                 }
 
                 return currentAmount;
             } else {
                 if (mode == Actionable.MODULATE) {
-                    getCellItems().put(what, currentAmount - amount);
-                    storedItemCount = Math.max(0, storedItemCount - amount);
+                    storageData().amounts().setLong(what, currentAmount - amount);
                     this.saveChanges();
                 }
 
@@ -491,19 +475,21 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     @Override
     public boolean canFitInsideCell() {
         return !cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
-            && getAvailableStacks().isEmpty();
+            && storageData().canMutate() && getStoredItemTypes() == 0;
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
         if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return;
+        if (!storageData().canRead() || !storageAccess.claimed() && storageAccess.session() != null) return;
         getMigrationStacks(out);
     }
 
     @Override
     public void getMigrationStacks(KeyCounter out) {
         for (var entry : Object2LongMaps.fastIterable(this.getCellItems())) {
-            out.add(entry.getKey(), entry.getLongValue());
+            long existing = out.get(entry.getKey()), value = entry.getLongValue();
+            out.set(entry.getKey(), existing <= 0 ? value : NEMath.saturatingAdd(existing, value));
         }
     }
 
@@ -514,6 +500,77 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public long getMigrationAmount(AEKey key) { return getCellItems().getLong(key); }
+
+    @Override public BigInteger getMigrationAmountBigInteger(AEKey key) { return storageData().amounts().get(key).toBigInteger(); }
+
+    private BigInteger exactUsedBytes(long types, BigInteger amount) {
+        BigInteger perByte = BigInteger.valueOf(Math.max(1, keyType.getAmountPerByte()));
+        return amount.add(perByte).subtract(BigInteger.ONE).divide(perByte)
+            .add(BigInteger.valueOf(types).multiply(BigInteger.valueOf(getBytesPerType())));
+    }
+
+    public BigInteger simulateInsertForMigrationBigInteger(AEKey key, BigInteger offered,
+            BigInteger current, long types, BigInteger total) {
+        if (key == null || offered == null || offered.signum() <= 0 || !acceptsKey(key)
+            || !partitionList.matchesFilter(key, partitionListMode) || cellType.isBlackListed(cellStack, key)) return BigInteger.ZERO;
+        if (current.signum() == 0 && !canStoreKeyInsideStorageCell(key)) return BigInteger.ZERO;
+        BigInteger perByte = BigInteger.valueOf(Math.max(1, keyType.getAmountPerByte()));
+        BigInteger free = BigInteger.valueOf(getTotalBytes()).subtract(exactUsedBytes(types, total)).max(BigInteger.ZERO);
+        BigInteger unused = total.mod(perByte).signum() == 0 ? BigInteger.ZERO : perByte.subtract(total.mod(perByte));
+        BigInteger remaining = free.multiply(perByte).add(unused);
+        if (current.signum() == 0) {
+            BigInteger typeBytes = BigInteger.valueOf(getBytesPerType());
+            if (types >= getTotalItemTypes() || free.compareTo(typeBytes) < 0
+                || free.equals(typeBytes) && unused.signum() == 0) return BigInteger.ZERO;
+            remaining = remaining.subtract(typeBytes.multiply(perByte)).max(BigInteger.ZERO);
+        }
+        return offered.min(remaining);
+    }
+
+    private BigInteger insertExact(AEKey key, BigInteger amount, Actionable mode) {
+        BigInteger current = getMigrationAmountBigInteger(key);
+        BigInteger inserted = simulateInsertForMigrationBigInteger(key, amount, current,
+            getStoredItemTypes(), getStoredItemCountExact());
+        if (mode == Actionable.MODULATE && inserted.signum() > 0) {
+            storageData().amounts().set(key, HugeAmount.of(current.add(inserted))); saveChanges();
+        }
+        return inserted;
+    }
+
+    @Override public BigInteger insertBigInteger(AEKey key, BigInteger amount, Actionable mode, IActionSource source) {
+        if (!storageWritable() || key == null || amount == null || amount.signum() <= 0
+            || cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
+            || !acceptsKey(key) || !partitionList.matchesFilter(key, partitionListMode)
+            || cellType.isBlackListed(cellStack, key)) return BigInteger.ZERO;
+        if (amount.compareTo(MAX_LONG) <= 0 && getStoredItemCount() < Long.MAX_VALUE)
+            return BigInteger.valueOf(insert(key, amount.longValueExact(), mode, source));
+        BigInteger inserted = insertExact(key, amount, mode);
+        if (!hasVoidUpgrade) return inserted;
+        return partitionList.isEmpty() && !canHoldNewItem() && getMigrationAmountBigInteger(key).signum() == 0 ? inserted : amount;
+    }
+
+    @Override public BigInteger insertForMigrationBigInteger(AEKey key, BigInteger amount, Actionable mode, IActionSource source) {
+        if (!storageWritable() || key == null || amount == null || amount.signum() <= 0) return BigInteger.ZERO;
+        return insertExact(key, amount, mode);
+    }
+
+    @Override public BigInteger extractBigInteger(AEKey key, BigInteger amount, Actionable mode, IActionSource source) {
+        if (!storageWritable() || key == null || amount == null || amount.signum() <= 0
+            || cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return BigInteger.ZERO;
+        BigInteger current = getMigrationAmountBigInteger(key), extracted = current.min(amount);
+        if (mode == Actionable.MODULATE && extracted.signum() > 0) {
+            storageData().amounts().set(key, HugeAmount.of(current.subtract(extracted))); saveChanges();
+        }
+        return extracted;
+    }
+
+    @Override public void neoecoae$visitExactAmounts(java.util.function.BiConsumer<AEKey,
+            cn.dancingsnow.neoecoae.crafting.amount.ExactAmount> visitor) {
+        if (!storageData().canRead() || storageAccess.session() != null && !storageAccess.claimed()
+            || cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return;
+        storageData().amounts().visitExact((key, amount) -> visitor.accept(key,
+            cn.dancingsnow.neoecoae.crafting.amount.ExactAmount.finite(amount)));
+    }
 
     @Override
     public Component getDescription() {
@@ -541,9 +598,9 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     public void clearAllStoredStacks() {
-        getCellItems().clear();
-        storedItems = 0;
-        storedItemCount = 0;
+        if (!storageWritable()) throw new IllegalStateException("Cannot clear unavailable ECO disk");
+        if (storageData().amounts().isEmpty()) return;
+        storageData().amounts().clear();
         saveChanges();
     }
 

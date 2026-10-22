@@ -37,6 +37,23 @@ public final class ECOInfiniteStorageTransfer {
                         ECOInfiniteStorageEngine engine, Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt) {
         if (!isEligible(cell) || !engine.isHealthy()) return false;
         UUID migration = ECOInfiniteStorageMember.beginMigration(source, domain);
+        if (cell instanceof cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell ordinary
+            && engine instanceof SavedDataInfiniteStorageEngine saved && ordinary.storageSession() != null) {
+            if (!ordinary.storageWritable()) return false;
+            ordinary.storageData().metadata(cn.dancingsnow.neoecoae.impl.storage.persistence.ECOCellReference.metadata(source));
+            Map<AEKey, java.util.Set<UUID>> compatibility = new HashMap<>();
+            if (ordinary.storageData().legacyMigration()) ordinary.storageData().amounts().visitVisible((key, amount) -> {
+                UUID legacy = legacyReceipt.apply(key, amount);
+                UUID sealed = UUID.nameUUIDFromBytes((migration + ":" + key.toTagGeneric()).getBytes(StandardCharsets.UTF_8));
+                java.util.Set<UUID> ids = new java.util.HashSet<>(); if (legacy != null) ids.add(legacy); ids.add(sealed);
+                compatibility.put(key, java.util.Set.copyOf(ids));
+            });
+            if (!cn.dancingsnow.neoecoae.impl.storage.persistence.StorageTransferCoordinator.transfer(
+                ordinary.storageSession(), ordinary.storageData(), domain, saved, migration, compatibility)) return false;
+            cn.dancingsnow.neoecoae.impl.storage.persistence.ECOCellReference.applyMetadata(source, ordinary.storageData().metadata());
+            complete.run();
+            return true;
+        }
         return step(migration, source, cell, engine, persistSeal, complete, legacyReceipt);
     }
 
@@ -69,7 +86,7 @@ public final class ECOInfiniteStorageTransfer {
             cursor.key = null;
             visited++;
         }
-        if (cursor.key != null || cursor.entries.hasNext() || !engine.commit().successful()) return false;
+        if (cursor.key != null || cursor.entries.hasNext() || !engine.acceptChanges().successful() || !engine.flush()) return false;
         complete.run();
         cursors.remove(migration);
         return true;
@@ -84,14 +101,14 @@ public final class ECOInfiniteStorageTransfer {
      */
     public static boolean restoreTarget(IECOStorageMigrationCell cell, AEKey key,
                                         ECOInfiniteStorageEngine.RestoreTargetAmounts goal, IActionSource source) {
-        long current = cell.getMigrationAmount(key);
-        if (current < goal.before() || current > goal.after()) {
+        java.math.BigInteger current = cell.getMigrationAmountBigInteger(key);
+        if (current.compareTo(goal.beforeExact()) < 0 || current.compareTo(goal.afterExact()) > 0) {
             throw new IllegalStateException("Restore target quantity differs from its saved plan");
         }
-        long remaining = goal.after() - current;
-        if (remaining == 0) return true;
-        long inserted = cell.insertForMigration(key, remaining, Actionable.MODULATE, source);
-        return inserted == remaining && cell.getMigrationAmount(key) == goal.after();
+        java.math.BigInteger remaining = goal.afterExact().subtract(current);
+        if (remaining.signum() == 0) return true;
+        java.math.BigInteger inserted = cell.insertForMigrationBigInteger(key, remaining, Actionable.MODULATE, source);
+        return inserted.equals(remaining) && cell.getMigrationAmountBigInteger(key).equals(goal.afterExact());
     }
 
     private static final class Cursor {

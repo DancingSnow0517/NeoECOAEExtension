@@ -206,6 +206,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.storage.members_missing", "Missing %s member matrices");
         provider.add("gui.neoecoae.storage.members_return", "Please insert them again");
         provider.add("jade.neoecoae.storage.infinite_enabled", "Infinite storage enabled");
+        provider.add("tooltip.neoecoae.storage.persistence_failed", "Storage data could not be saved; cell extraction is temporarily locked.");
         provider.add("tooltip.neoecoae.storage.infinite_migration_locked", "Cannot remove this matrix while infinite storage migration is in progress");
         provider.add("tooltip.neoecoae.infinite_component.header", "Infinite Storage: Activation Requirements");
         provider.add("tooltip.neoecoae.infinite_component.components",

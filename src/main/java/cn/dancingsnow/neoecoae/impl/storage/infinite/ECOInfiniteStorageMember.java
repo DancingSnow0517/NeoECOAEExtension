@@ -48,6 +48,7 @@ public final class ECOInfiniteStorageMember {
         UUID identity = UUID.randomUUID();
         tag.putUUID(IDENTITY_TAG, identity);
         NEItemData.write(stack, tag);
+        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.persistMetadata(stack, true);
         return identity;
     }
 
@@ -89,6 +90,7 @@ public final class ECOInfiniteStorageMember {
         tag.putUUID(MIGRATION_TAG, id);
         tag.putUUID(MIGRATION_DOMAIN_TAG, domain);
         NEItemData.write(stack, tag);
+        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.persistMetadata(stack, true);
         return id;
     }
 
@@ -132,6 +134,7 @@ public final class ECOInfiniteStorageMember {
         tag.putUUID(DOMAIN_TAG, domainId);
         if (!tag.hasUUID(IDENTITY_TAG)) tag.putUUID(IDENTITY_TAG, UUID.randomUUID());
         NEItemData.write(stack, tag);
+        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.persistMetadata(stack, true);
     }
 
     public static void clearMember(@Nullable ItemStack stack) {
@@ -149,6 +152,7 @@ public final class ECOInfiniteStorageMember {
         } else {
             NEItemData.write(stack, tag);
         }
+        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.persistMetadata(stack, true);
     }
 
     public static void clearStoredContents(@Nullable ItemStack stack) {

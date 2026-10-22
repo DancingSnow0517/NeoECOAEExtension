@@ -26,6 +26,32 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     private boolean statisticsDirty = true;
     private AEKeyType lastType;
     private MutableTypeStats lastStats;
+    private final Set<UUID> pendingTransfers = new java.util.HashSet<>();
+
+    public void beginTransfer(UUID transaction) { pendingTransfers.add(transaction); }
+    public void endTransfer(UUID transaction) { pendingTransfers.remove(transaction); }
+    public boolean flush() { return data.flush(); }
+    public long contentRevision() { return data.contentRevision(); }
+    public long durableRevision() { return data.durableRevision(); }
+    public boolean importOnce(UUID transaction, cn.dancingsnow.neoecoae.impl.storage.persistence.StorageAmounts contents) {
+        return importOnce(transaction, contents, Map.of());
+    }
+    public boolean importOnce(UUID transaction, cn.dancingsnow.neoecoae.impl.storage.persistence.StorageAmounts contents,
+            Map<AEKey, Set<UUID>> compatibility) {
+        if (data.hasMigrationReceipt(transaction)) return true;
+        if (!data.canMigrate()) return false;
+        for (var entry : it.unimi.dsi.fastutil.objects.Object2LongMaps.fastIterable(contents.visibleAmounts())) {
+            if (entry.getKey() == null || entry.getLongValue() <= 0 || !data.canWrite(entry.getKey())) return false;
+        }
+        contents.forEach((key, amount) -> {
+            Set<UUID> aliases = compatibility.get(key);
+            if (aliases != null && aliases.stream().anyMatch(data::hasMigrationReceipt)) return;
+            if (amount.isBig()) change(key, amount.toBigInteger());
+            else insertAmount(key, data.amounts.visible(key), amount.toLongSaturated());
+        });
+        data.addMigrationReceipt(transaction);
+        return true;
+    }
 
     public SavedDataInfiniteStorageEngine(ECOInfiniteStorageData data) {
         this.data = data;
@@ -95,6 +121,19 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         return extracted;
     }
 
+    @Override public BigInteger extract(AEKey key, BigInteger amount, Actionable mode) {
+        if (key == null || amount == null || amount.signum() <= 0 || !data.canRead(key)) return BigInteger.ZERO;
+        if (amount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0)
+            return BigInteger.valueOf(extract(key, amount.longValueExact(), mode));
+        BigInteger available = data.getAmount(key).toBigInteger(), taken = available.min(amount);
+        if (taken.signum() == 0 || mode == Actionable.SIMULATE) return taken;
+        if (!data.canWrite()) return BigInteger.ZERO;
+        data.amounts.set(key, HugeAmount.of(available.subtract(taken)));
+        MutableTypeStats stats = statsFor(key.getType()); stats.total.subtract(taken);
+        if (available.equals(taken) && --stats.types == 0) removeStats(key.getType());
+        data.setDirty(); statisticsDirty = true; return taken;
+    }
+
     private MutableTypeStats statsFor(AEKeyType type) {
         if (type != lastType || lastStats == null) {
             lastType = type;
@@ -142,7 +181,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     @Override
-    public boolean canUseMountedStorage() { return data.canUseMountedStorage(); }
+    public boolean canUseMountedStorage() { return pendingTransfers.isEmpty() && data.canUseMountedStorage(); }
 
     @Override
     public void visitExactAmounts(java.util.function.BiConsumer<AEKey, BigInteger> visitor) {
@@ -242,7 +281,9 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     public String persistenceSummary() {
-        return "SavedData revision: " + data.revision() + "; unsaved changes: " + data.isDirty();
+        return "SavedData revision: " + data.contentRevision() + "; durable: " + data.durableRevision()
+            + "; unsaved changes: " + data.isDirty() + "; snapshots: " + data.savedSnapshots()
+            + "; last save ns: " + data.lastSaveNanos() + "; max save ns: " + data.maximumSaveNanos();
     }
 
     @Override

@@ -39,6 +39,10 @@ public interface ECOInfiniteStorageEngine {
 
     long extract(AEKey key, long amount, Actionable mode);
 
+    default BigInteger extract(AEKey key, BigInteger amount, Actionable mode) {
+        return BigInteger.valueOf(extract(key, amount.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact(), mode));
+    }
+
     HugeAmount getAmount(AEKey key);
 
     default boolean contains(AEKey key) { return !getAmount(key).isZero(); }
@@ -99,6 +103,12 @@ public interface ECOInfiniteStorageEngine {
 
     CommitResult commit();
 
+    /** Accepted in memory; use flush() before retiring another independently saved inventory. */
+    default CommitResult acceptChanges() { return commit(); }
+
+    /** True only after the current accepted revision reached the authoritative snapshot. */
+    default boolean flush() { return false; }
+
     default long revision() {
         return 0L;
     }
@@ -130,12 +140,18 @@ public interface ECOInfiniteStorageEngine {
         return false;
     }
 
-    record RestoreTargetAmounts(long before, long after, long transferred) {
-        public RestoreTargetAmounts {
-            if (before < 0 || after < before || transferred < after - before || transferred > after) {
-                throw new IllegalArgumentException("Invalid restore target amounts");
-            }
+    record RestoreTargetAmounts(BigInteger beforeExact, BigInteger afterExact, BigInteger transferredExact) {
+        public RestoreTargetAmounts(long before, long after, long transferred) {
+            this(BigInteger.valueOf(before), BigInteger.valueOf(after), BigInteger.valueOf(transferred));
         }
+        public RestoreTargetAmounts {
+            if (beforeExact == null || afterExact == null || transferredExact == null || beforeExact.signum() < 0
+                || afterExact.compareTo(beforeExact) < 0 || transferredExact.compareTo(afterExact.subtract(beforeExact)) < 0
+                || transferredExact.compareTo(afterExact) > 0) throw new IllegalArgumentException("Invalid restore target amounts");
+        }
+        public long before() { return beforeExact.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue(); }
+        public long after() { return afterExact.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue(); }
+        public long transferred() { return transferredExact.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue(); }
     }
 
     boolean reserveRestores(java.util.Map<AEKey, UUID> transactions, java.util.Set<UUID> targets,

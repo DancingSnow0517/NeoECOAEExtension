@@ -100,9 +100,24 @@ public final class ECOInfiniteStorageDomains {
         Path dataDir = server.getWorldPath(LevelResource.ROOT).resolve("data");
         Path dataFile = dataDir.resolve(dataName + ".dat");
         Path legacyFile = dataDir.resolve(legacyName + ".dat");
-        var factory = ECOInfiniteStorageData.factory(dataFile, () -> importLegacy(domainId, legacyFile));
+        var catalog = cn.dancingsnow.neoecoae.impl.storage.persistence.StorageCatalogSavedData
+            .open(cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.session(server));
+        var factory = ECOInfiniteStorageData.factory(dataFile, () -> {
+            if (!catalog.readable() || catalog.contains(domainId)) {
+                var unavailable = ECOInfiniteStorageData.createNew();
+                unavailable.markUnreadable("Published infinite domain snapshot is missing; identity retained: " + domainId);
+                return unavailable;
+            }
+            return importLegacy(domainId, legacyFile);
+        });
         ECOInfiniteStorageData data = overworld.getDataStorage().computeIfAbsent(
                 factory.deserializer(), factory.constructor(), dataName);
+        data.bind(dataFile);
+        data.bindDomain(domainId);
+        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.register(server, data);
+        if (!catalog.contains(domainId) && data.canMigrate() && (!data.flush() || !catalog.publish(domainId))) {
+            data.markUnreadable("Cannot publish the durable infinite domain identity");
+        }
         if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
             LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
         }

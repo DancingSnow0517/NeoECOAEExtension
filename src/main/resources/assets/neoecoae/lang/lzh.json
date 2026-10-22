@@ -987,5 +987,6 @@
   "item.neoecoae.structure_terminal": "ECO 結構終端",
   "recipe_type.neoecoae.expatternprovider.crystal_assembler": "ExtendedAE：水晶組裝",
   "gui.neoecoae.computation.pause": "暫止",
-  "gui.neoecoae.computation.resume": "復行"
+  "gui.neoecoae.computation.resume": "復行",
+  "tooltip.neoecoae.storage.persistence_failed": "儲物未存，暫禁取盤。"
 }
