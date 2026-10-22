@@ -1,0 +1,15 @@
+{
+  "phase": "write",
+  "migrationAndRestore": "PASS",
+  "productionOperations": 500000,
+  "productionElapsedMs": 44.4037,
+  "productionNsPerOperation": 88.8074,
+  "productionAllocatedBytesPerOperation": 0.016448,
+  "hotPathSnapshotWrites": 0,
+  "diskId": "0b5e7ba4-3db5-44cb-944f-3c7969ce737c",
+  "bigIntegerOperations": 500000,
+  "bigIntegerElapsedMs": 16.5374,
+  "bigIntegerAllocatedBytesPerOperation": 0.0,
+  "bigIntegerDiskMigrationRestoreAndListing": "PASS",
+  "exactAmountsAndIdentity": "PASS"
+}

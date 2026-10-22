@@ -1,0 +1,16 @@
+{
+  "saveddata-server-verified-write.log": [
+    "[21:58:21] [Server thread/INFO] [cn.da.ne.pl.di.StorageSavedDataServerProbe/]: SAVEDDATA_ACCEPTANCE_PASS phase=write",
+    "BUILD SUCCESSFUL in 40s"
+  ],
+  "saveddata-server-verified-read.log": [
+    "[21:58:52] [Server thread/WARN] [cn.da.ne.im.st.in.ECOInfiniteStorageDomains/]: ECO domain b8fd39d7-689e-418f-9a31-f9ece9fd6d54 opened with status UNAVAILABLE: [Published infinite domain snapshot is missing; identity retained: b8fd39d7-689e-418f-9a31-f9ece9fd6d54]",
+    "[21:58:52] [Server thread/INFO] [cn.da.ne.pl.di.StorageSavedDataServerProbe/]: SAVEDDATA_ACCEPTANCE_PASS phase=read",
+    "BUILD SUCCESSFUL in 30s"
+  ],
+  "saveddata-delivery-server-read.log": [
+    "[22:07:40] [Server thread/WARN] [cn.da.ne.im.st.in.ECOInfiniteStorageDomains/]: ECO domain b8fd39d7-689e-418f-9a31-f9ece9fd6d54 opened with status UNAVAILABLE: [Published infinite domain snapshot is missing; identity retained: b8fd39d7-689e-418f-9a31-f9ece9fd6d54]",
+    "[22:07:40] [Server thread/INFO] [cn.da.ne.pl.di.StorageSavedDataServerProbe/]: SAVEDDATA_ACCEPTANCE_PASS phase=read",
+    "BUILD SUCCESSFUL in 30s"
+  ]
+}

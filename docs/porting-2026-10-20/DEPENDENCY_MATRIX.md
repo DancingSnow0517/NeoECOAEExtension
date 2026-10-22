@@ -91,7 +91,7 @@
 
 | 项目 | 目标/状态 | 直接原因 | 处理方式与证据 |
 |---|---|---|---|
-| AE2 | 15.4.11 Forge Release | 核心网络、CPU、key、存储和菜单 | 严格锁定；[官方版本](https://modrinth.com/mod/ae2/versions)；两端源码与缺失导入清单 |
+| AE2 | 15.4.11 Forge Release；最低运行版本 15.4.10 | 核心网络、CPU、key、存储和菜单 | 开发依赖锁定 15.4.11，运行范围 `[15.4.10,16)`；旧版单位表修复与验证见 [15.4.10 兼容记录](AE2_15_4_10_COMPATIBILITY.md)；[官方版本](https://modrinth.com/mod/ae2/versions)；两端源码与缺失导入清单 |
 | GuideME | 20.1.15 Forge Release | AE2/ExtendedAE/AE2LT要求，核心指南按钮 | 显式Legacy mod依赖；[GuidesCommon.java](https://github.com/AppliedEnergistics/GuideME/blob/c2bc0b0c1996cf11fb71c4de348a9cbb004fc0a3/src/main/java/guideme/GuidesCommon.java) |
 | LDLib | 1.0.52.a Forge Release | GUI、同步、预览 | 优先验证本项目所用 LDLib2 UI API 子集的兼容层，底层由 LDLib1 承载；允许调整 import/自定义组件后重编译，未覆盖项局部改写；设备同步与预览另核对。方案及原型验收见[主方案第 6.9 节](../../PORTING_1_20_1_PLAN_ZH_CN.md)。[LDLib1 源码](https://github.com/Low-Drag-MC/LDLib-MultiLoader/tree/1d4e4390ae58d16038845c651e122185c29f334b)；ldlib-api-compare.json |
 | Registrate | MC1.20-1.3.11 Maven工件 | 核心注册DSL/数据生成 | 以对应sources JAR核对；[作者Maven](https://maven.tterrag.com/com/tterrag/registrate/Registrate/MC1.20-1.3.11/) |

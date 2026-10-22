@@ -6,6 +6,7 @@ runs/
 .vscode/
 *.iml
 *.log
+logs/
 validation/
 .porting/
 libs/

@@ -1,0 +1,500 @@
+{
+  "checked_at_utc": "2026-10-22T04:16:03.755792+00:00",
+  "working_tree_parent": "a09e0181c9f78af38f1c4cb446e2c2d3eeed2079",
+  "approved_main_baseline": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "source_lock_changed": false,
+  "validation_scope": "Complete working tree; intermediate commits were not built separately. No client, dedicated-server or ordinary installation acceptance rerun in this commit pass.",
+  "code_commits": [
+    {
+      "commit": "96947b92dde8f6043a16d37489ea18d26266d3ab",
+      "subject": "fix: 修复 Forge 发布环境的 AE2 菜单与终端 Mixin 挂点"
+    },
+    {
+      "commit": "2b2516abf6dd1b9f95d1480becffa7f1f73c1c7a",
+      "subject": "feat: 统一存储盘与无限域的 SavedData 持久化及迁移恢复"
+    },
+    {
+      "commit": "897f0371b08f6a3b9f8831d496f8e150385686b9",
+      "subject": "fix: 支持 AE2 15.4.10 并补齐大容量字节提示单位"
+    },
+    {
+      "commit": "bd0cf4f542c6f96a48404da7ecc5bc41197a5095",
+      "subject": "fix: 恢复多方块额外模型与同步重绘并动态读取长度配置"
+    }
+  ],
+  "main_build": {
+    "command": ".\\build-local.ps1 compileJava portingContractsTest portingPlatformTest multiblockAlignmentTest jar --init-script tools/porting/multiblock_alignment.init.gradle --offline --console=plain",
+    "java_target": 17,
+    "result": "success",
+    "gradle_result": "BUILD SUCCESSFUL in 10s",
+    "actionable_tasks": 15,
+    "executed": 1,
+    "from_cache": 3,
+    "up_to_date": 11,
+    "rerun_tasks": false,
+    "valid_cached_results_reused": true
+  },
+  "tests": {
+    "portingContractsTest": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "reports": [
+        {
+          "path": "build/test-results/portingContractsTest/TEST-cn.dancingsnow.neoecoae.platform.JdkCompatTest.xml",
+          "sha256": "bcda976da19d5f684b93e7fbe5f15eb2c6817d042aae21dc388d2af05cba9c0a"
+        }
+      ]
+    },
+    "portingPlatformTest": {
+      "tests": 139,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "reports": [
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.blocks.entity.ForgeCoolingRemainderPersistenceTest.xml",
+          "sha256": "c9a5b1a4131c7f4c0fc03c0564566076e965c6097cdcc9055af8e6208518455a"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.fastpath.ForgeFastPathStateBoundaryTest.xml",
+          "sha256": "62eed3e340ebceecd2bb5c3bf89391908b8aa1770fb3fabea8807e758dbb8563"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.worker.ForgeExactLedgerPersistenceTest.xml",
+          "sha256": "284859301640dd06021b9edc0821affa97ddcb8e4c666c76e58f60af3f2a8260"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.ForgeStorageFilterTest.xml",
+          "sha256": "be16c4de75e6bc63feb98d13c6b053d838a6a13ace8c57dba792b3bce9365417"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.infinite.ForgeInfiniteStoragePersistenceTest.xml",
+          "sha256": "3dce203604359cb5509f031d0e9f927ef73bffcdbdb2f190ec52685f67e7644a"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.persistence.CellEjectionPersistenceBoundaryTest.xml",
+          "sha256": "cfc67b7398a66c1d1d5cff050a4c53aedf286ac32151cb500a3ba73d585b9ad5"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.persistence.SavedDataStorageArchitectureTest.xml",
+          "sha256": "6d9f64e44224cc54f1752659c87730d5aab1acecc7b37c1b6f31b95c6c22f52e"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilitiesTest.xml",
+          "sha256": "3ffe96e3607f4c6e5ff05d7016133fcd1f9c9c1b0bfe00abb4738f3c07ad92f6"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.nbt.NEItemNbtTest.xml",
+          "sha256": "28434b9eea73af5cbc8d294e0ca8ecc2a0f9466daca0575ca50567d56285c377"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedBlockEntityFieldsTest.xml",
+          "sha256": "5e55dabeeb9faff58bffd4941436d48e3fa323e70e9ef09aebc833460d97fb0e"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedInitialSyncTest.xml",
+          "sha256": "8d8770588493e069d6729f4f37a44a7bd84e4387942d048fe820a8598976413a"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedRenderUpdateTest.xml",
+          "sha256": "56c75ce12c4f80bd9ba6c14c4e58788e8bcdb4b80a912484083a88ab3ca0b5aa"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.NEFluidStackAccessorTest.xml",
+          "sha256": "81f100644fc11a4abb388e52db909cfe7dfa872e8796a7a6d71fb517c98b39fb"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.NERegistryAccessorTest.xml",
+          "sha256": "6fc8068227f0517d6cc3004566c99adcebf91e347ae8333fa3c34b040a32be75"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.NEUiJsonBridgeTest.xml",
+          "sha256": "127524cfd2dc0666748a8ac20ac1b046aafc345fb91695ef451ef7cbeb89d7d1"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.RetainedUiRenderingTest.xml",
+          "sha256": "26c9f0eb46e2585167dc031e9e352e4688e585a5641a4403ee44e007cfe79aae"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.RetainedUiRuntimeTest.xml",
+          "sha256": "a61db7a479f5f5b56862fdd85325983e222e19bd5777fc35a830acb87f182e40"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.RetainedUiSyncTest.xml",
+          "sha256": "560ef10af65a207729e9e9859c0a3c875aadfb7528cf236355f8238b16f96c9e"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.UiLayoutTest.xml",
+          "sha256": "8c2aa3c36d54c155b3995cbbf0eaf390bc6f6e85c3667f6598ea92c39e4cb782"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.ForgeRecipeAdapterTest.xml",
+          "sha256": "d47f99acb4d26357eff8d45e90d2594b288ce098e3fdca09a1e4d67456bb7c88"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.ForgeRecipeBoundaryTest.xml",
+          "sha256": "18a1a1801bb4a902db0bc317357f4946f876bee0ef36a27bcf76234d94ff8a76"
+        },
+        {
+          "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.StorageCellDisassemblyBoundaryTest.xml",
+          "sha256": "271c6418239dbc763e1bf9050a45911ce84eb5ee4516b9eb6768921b070b4d30"
+        }
+      ]
+    },
+    "multiblockAlignmentTest": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "reports": [
+        {
+          "path": "build/test-results/multiblockAlignmentTest/TEST-cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinitionLimitTest.xml",
+          "sha256": "1f8b39f5b5fb49f63f66ecd0d88735372073e66bbfab05a33dc6ea92fff76156"
+        },
+        {
+          "path": "build/test-results/multiblockAlignmentTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedInitialSyncTest.xml",
+          "sha256": "ef35ef9add39e9d0447844131790fb41aad05d3b7eff4c08dddfd85d1dae3292"
+        },
+        {
+          "path": "build/test-results/multiblockAlignmentTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedRenderUpdateTest.xml",
+          "sha256": "78b74cb956825da3b0b7fe3ecfc07e9430c07d3cef78cdb55414ffafe6f9fb0a"
+        }
+      ]
+    }
+  },
+  "suite_overlap": "multiblockAlignmentTest includes synchronization cases also run by portingPlatformTest; counts are per task, not unique tests.",
+  "package_audit": {
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "9fd16dc833b8fdc27f664f6280af07e41be54e78c523e646852496de11f6e252",
+    "bytes": 6864323,
+    "source_files_checked": 947,
+    "packaged_classes": 1557,
+    "class_major_versions": {
+      "61": 1557
+    },
+    "registered_mixins": 60,
+    "registered_mixin_configs": [
+      "neoecoae.compat.advanced_ae.mixins.json",
+      "neoecoae.compat.extendedae.mixins.json",
+      "neoecoae.compat.thunderbolt.mixins.json",
+      "neoecoae.mixins.json",
+      "neoecoae.terminal_big_amount.mixins.json"
+    ],
+    "refmap_classes": 6,
+    "nested_jars": [
+      "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+      "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+    ],
+    "problems": {
+      "missing_source_classes": [],
+      "missing_required_resources": [],
+      "missing_registered_mixins": [],
+      "missing_mixin_plugins": [],
+      "unregistered_mixin_configs": [],
+      "missing_nested_jars": [],
+      "missing_translations": [],
+      "fake_upstream_classes": [],
+      "duplicate_entries": []
+    },
+    "result": "success",
+    "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+  },
+  "historical_evidence_recheck": {
+    "captured_worktree_entries": 79,
+    "captured_worktree_files_unchanged": true,
+    "source_lock_unchanged": true,
+    "verified_historical_runtime_artifacts": [
+      {
+        "ledger": "porting/ae2-15-compatibility-validation.json",
+        "path": "run/ae2-compatibility/15.4.10/base/logs/latest.log",
+        "sha256": "be05ff7927e1778b5a6c5cd3173d6ec3a2c879322cab2321fe972be2b15917a1"
+      },
+      {
+        "ledger": "porting/ae2-15-compatibility-validation.json",
+        "path": "run/ae2-compatibility/15.4.11/base/logs/latest.log",
+        "sha256": "ff74825a4f78282c98edb33e67080100a0ec35205e7430770b049583eb93507c"
+      },
+      {
+        "ledger": "porting/ae2-15-compatibility-validation.json",
+        "path": "run/ae2-compatibility/15.4.10/combined/logs/latest.log",
+        "sha256": "2716076ce7977ac2ecc9c602bb89c26dd53e53f9745f4b2d36e960237cfd2f8e"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment-before.log",
+        "sha256": "b4e6f0062370b44d1807c6595fbdb5d6de0bb01dce946e00b5cf76a07fcb2b47"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment-fixed-base.log",
+        "sha256": "7a781e48aa9428299a4b3074331a841c68295d9decd1d1b93128a563f363154c"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/base-client.log",
+        "sha256": "2a817b14f92916a56d52ac0b6724eb1a7a9e37cd1b2f23baeb9a79509254b284"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment-snapshot-fixed-base.log",
+        "sha256": "dfb6d41853af6f3dfc7fe69d4f5f221f7cf8c79ed136b748210cd6657840be5b"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined-client.log",
+        "sha256": "91c45ad7c0cc2d82d6a0df6c43950972e1485894063df6f28a74b3f9e5d2f140"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment-verified-combined.log",
+        "sha256": "5369c907fd00f2cd6c41792d647cb0be000b781cbbebe2c2327c0b348bce140f"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-computation_system_l4-mirrored.png",
+        "sha256": "35eb5f2d8235e246df3814947d77016f074dd3c969140950d7cec3650446b32f"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-computation_system_l4-normal.png",
+        "sha256": "bbede11c6da2de12c1a83c6145b65c7aa5d308d54c0f81cff65f51fd7318c434"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-computation_system_l6-mirrored.png",
+        "sha256": "62d8db3ae4b9357241dbbfcf38522f3325bd1de01909a6c0dd717e75c690e7ce"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-computation_system_l6-normal.png",
+        "sha256": "81005331b616c93e6c5bad12132cfbc4801ba6b3cfa40f79238e06cab3e0711e"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-computation_system_l9-mirrored.png",
+        "sha256": "f03b3fb9f44c142af6bf602050081c51116be56017e26fbeaa238ec105e32add"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-computation_system_l9-normal.png",
+        "sha256": "36009056dcd14938f8d2650857409a4b3d4142bcc9134cad7e762ca2dd7f08a7"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-crafting_system_l4-mirrored.png",
+        "sha256": "65983068f8133e1daab0d031d7a308ad88bab86b12d10c89cd1030d2783bb4a6"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-crafting_system_l4-normal.png",
+        "sha256": "ce9d53d9b5a9c75a47b44194557a327f2194794017b171a6c53b502602ac05a9"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-crafting_system_l6-mirrored.png",
+        "sha256": "c107d9b6e342a54cc73a8552ab2e84b77b8a0974956f194ee5e7b319fab3d5fa"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-crafting_system_l6-normal.png",
+        "sha256": "57e645d6bf31ee242c24477508cdd4969cfe89ce67948a1747885348e246ac54"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-crafting_system_l9-mirrored.png",
+        "sha256": "bd8d29d9facda90e534db6ded462add916d1036dc9a70dac349a4ce22fc27417"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-crafting_system_l9-normal.png",
+        "sha256": "bd5735e604431cd99a2084b20aa5a3fc7b24f3e762b080be514719a707a5a4a6"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-storage_system_l4-mirrored.png",
+        "sha256": "d10d244421707249f7cf7de10f6cb3783bcba467e3701a7dff74e75b3e34a18b"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-storage_system_l4-normal.png",
+        "sha256": "1a76638cb458174aaac74f905959eadf5e94dabb0d1b341c882913356d6e1653"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-storage_system_l6-mirrored.png",
+        "sha256": "9d7a37754771ef7ce971cce1bceb11ba3174f97872c01dd40e68cad6de6c696d"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-storage_system_l6-normal.png",
+        "sha256": "1b268895099fdd656c079e14aaaca9906ac9dd1487ee0fd853698e5a5b8e10de"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-storage_system_l9-mirrored.png",
+        "sha256": "e3c9bbfd3174b6fac469463e5447e5782defe64a54e11a7eda27572c3cd8c238"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/combined/multiblock-verified-combined-storage_system_l9-normal.png",
+        "sha256": "eab8bbf4f085633b5ff276c26893c95890590de8b8eb0216316eb700a7344736"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/nine-structures.png",
+        "sha256": "6dd5e5e58d78633601890259d16048d5ff81b79a1795ee27e2fe66a354c95367"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/nine-structures-mirrored.png",
+        "sha256": "7d37515c6fbf9a008524f8083217bf178981c46a6ced9edf946b904eb9c333f6"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "validation/multiblock-alignment/l9-mirrors.png",
+        "sha256": "4b57472ce5e85783555129b3659abed53c5e2fdd24a055db3a41613673ee3fe6"
+      }
+    ],
+    "historical_build_artifacts_not_compared": [
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/multiblockAlignmentTest/TEST-cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinitionLimitTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/multiblockAlignmentTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedInitialSyncTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/multiblockAlignmentTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedRenderUpdateTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.blocks.entity.ForgeCoolingRemainderPersistenceTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.fastpath.ForgeFastPathStateBoundaryTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.crafting.execution.worker.ForgeExactLedgerPersistenceTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.ForgeStorageFilterTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.infinite.ForgeInfiniteStoragePersistenceTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.persistence.CellEjectionPersistenceBoundaryTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.impl.storage.persistence.SavedDataStorageArchitectureTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilitiesTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.nbt.NEItemNbtTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedBlockEntityFieldsTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedInitialSyncTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.ManagedRenderUpdateTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.NEFluidStackAccessorTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.sync.NERegistryAccessorTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.NEUiJsonBridgeTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.RetainedUiRenderingTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.RetainedUiRuntimeTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.RetainedUiSyncTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.platform.ui.UiLayoutTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.ForgeRecipeAdapterTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.ForgeRecipeBoundaryTest.xml",
+        "reason": "historical_build_output"
+      },
+      {
+        "ledger": "porting/multiblock-alignment-validation.json",
+        "path": "build/test-results/portingPlatformTest/TEST-cn.dancingsnow.neoecoae.recipe.StorageCellDisassemblyBoundaryTest.xml",
+        "reason": "historical_build_output"
+      }
+    ],
+    "problems": []
+  },
+  "full_business_test_suite": {
+    "status": "not_rerun_known_unported_test_api_blocker",
+    "existing_compilation_errors": 114,
+    "evidence": "porting/multiblock-alignment-validation.json",
+    "existing_failure_log": "validation/multiblock-alignment-fixed-base.log",
+    "full_test_or_build_pass_claimed": false
+  },
+  "runtime_evidence_is_historical": true,
+  "runtime_logs_retained_locally": true,
+  "generated_root_logs_ignored": true,
+  "pushed": false
+}

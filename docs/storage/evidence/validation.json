@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-21",
+  "minecraft": "1.20.1",
+  "loader": "Forge",
+  "java_target": 17,
+  "approved_main_baseline": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "compilation": "PASS: full compileJava, no main source exclusions added",
+  "unit_suites": {
+    "portingContractsTest": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "portingPlatformTest": {
+      "tests": 137,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "unit_total": 143,
+  "development_server": {
+    "profile": "base",
+    "isolated_world": "saveddata-architecture-20261021-verified",
+    "write": "PASS",
+    "cold_restart_read": "PASS",
+    "delivery_build_read": "PASS",
+    "interrupted_big_integer_migration": "PASS",
+    "missing_disk_and_published_domain": "PASS"
+  },
+  "package": {
+    "result": "success",
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "2b31f75633838289a74a418f747672f66e064b23e00115e6aec05843dbbd2dee",
+    "bytes": 6843703,
+    "source_files_checked": 944,
+    "packaged_classes": 1552
+  },
+  "performance": {
+    "write": {
+      "phase": "write",
+      "migrationAndRestore": "PASS",
+      "productionOperations": 500000,
+      "productionElapsedMs": 44.4037,
+      "productionNsPerOperation": 88.8074,
+      "productionAllocatedBytesPerOperation": 0.016448,
+      "hotPathSnapshotWrites": 0,
+      "diskId": "0b5e7ba4-3db5-44cb-944f-3c7969ce737c",
+      "bigIntegerOperations": 500000,
+      "bigIntegerElapsedMs": 16.5374,
+      "bigIntegerAllocatedBytesPerOperation": 0.0,
+      "bigIntegerDiskMigrationRestoreAndListing": "PASS",
+      "exactAmountsAndIdentity": "PASS"
+    },
+    "read": {
+      "phase": "read",
+      "coldRestartRecoveryAndMissingFiles": "PASS",
+      "productionOperations": 500000,
+      "productionElapsedMs": 43.9079,
+      "productionNsPerOperation": 87.8158,
+      "productionAllocatedBytesPerOperation": 0.019904,
+      "hotPathSnapshotWrites": 0,
+      "diskId": "0b5e7ba4-3db5-44cb-944f-3c7969ce737c",
+      "bigIntegerOperations": 500000,
+      "bigIntegerElapsedMs": 17.8386,
+      "bigIntegerAllocatedBytesPerOperation": 0.0,
+      "bigIntegerDiskMigrationRestoreAndListing": "PASS",
+      "exactAmountsAndIdentity": "PASS"
+    },
+    "delivery-read": {
+      "phase": "read",
+      "coldRestartRecoveryAndMissingFiles": "PASS",
+      "productionOperations": 500000,
+      "productionElapsedMs": 51.3047,
+      "productionNsPerOperation": 102.6094,
+      "productionAllocatedBytesPerOperation": 0.019904,
+      "hotPathSnapshotWrites": 0,
+      "diskId": "0b5e7ba4-3db5-44cb-944f-3c7969ce737c",
+      "bigIntegerOperations": 500000,
+      "bigIntegerElapsedMs": 17.74,
+      "bigIntegerAllocatedBytesPerOperation": 0.0,
+      "bigIntegerDiskMigrationRestoreAndListing": "PASS",
+      "exactAmountsAndIdentity": "PASS"
+    }
+  },
+  "coverage_limits": [
+    "Development-server functional acceptance is programmatic, not manual client interaction.",
+    "Addon-sized finite capacity in the probe does not change registered gameplay capacities.",
+    "Microbenchmark results are not whole-server TPS or large-snapshot latency guarantees.",
+    "No ordinary modpack installation acceptance was performed.",
+    "No global crash-atomic guarantee is claimed across third-party inventories, player saves and chunks."
+  ],
+  "git_diff_check": "PASS",
+  "remote_publication": "not requested; not performed"
+}

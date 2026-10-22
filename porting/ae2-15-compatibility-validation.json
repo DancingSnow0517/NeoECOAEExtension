@@ -1,0 +1,95 @@
+{
+  "checked_at": "2026-10-21",
+  "minecraft": "1.20.1",
+  "forge": "47.4.28",
+  "java": 17,
+  "minimum_ae2": "15.4.10",
+  "recommended_and_default_compile_ae2": "15.4.11",
+  "range": "[15.4.10,16)",
+  "source_lock_changed": false,
+  "ae2_15_4_10_sha256": "fbfee05c6674cb6b00fe425e945ca4818d41eb34069b60dcb4a36221a0390fcc",
+  "ae2_15_4_10_modrinth_id": "7KVs6HMQ",
+  "compile_and_package": {
+    "status": "passed",
+    "initial_compile_log": "build/ae2-compatibility-build.log",
+    "final_build_log": "build/ae2-compatibility-final-build.log"
+  },
+  "runtime_regressions": [
+    {
+      "ae2": "15.4.10",
+      "profile": "base",
+      "status": "passed",
+      "capacity_cases": 14,
+      "task_tooltip": "passed",
+      "maximum_display": "8E",
+      "maximum_finite_display": "8E",
+      "thunderbolt": false,
+      "log": "build/ae2-15.4.10-base-validation.log",
+      "runtime_log": "run/ae2-compatibility/15.4.10/base/logs/latest.log",
+      "runtime_log_sha256": "be05ff7927e1778b5a6c5cd3173d6ec3a2c879322cab2321fe972be2b15917a1"
+    },
+    {
+      "ae2": "15.4.11",
+      "profile": "base",
+      "status": "passed",
+      "capacity_cases": 14,
+      "task_tooltip": "passed",
+      "maximum_display": "8E",
+      "maximum_finite_display": "8E",
+      "thunderbolt": false,
+      "log": "build/ae2-15.4.11-base-validation.log",
+      "runtime_log": "run/ae2-compatibility/15.4.11/base/logs/latest.log",
+      "runtime_log_sha256": "ff74825a4f78282c98edb33e67080100a0ec35205e7430770b049583eb93507c"
+    },
+    {
+      "ae2": "15.4.10",
+      "profile": "combined",
+      "status": "passed",
+      "capacity_cases": 14,
+      "task_tooltip": "passed",
+      "maximum_display": "infinity",
+      "maximum_finite_display": "8E",
+      "thunderbolt": true,
+      "log": "build/ae2-15.4.10-combined-validation.log",
+      "runtime_log": "run/ae2-compatibility/15.4.10/combined/logs/latest.log",
+      "runtime_log_sha256": "2716076ce7977ac2ecc9c602bb89c26dd53e53f9745f4b2d36e960237cfd2f8e"
+    }
+  ],
+  "package_audit": {
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "fcf660c4dff7348632fa95a91e7ff91e1fa4664e287c56cd9305055029459d04",
+    "bytes": 6849649,
+    "source_files_checked": 946,
+    "packaged_classes": 1555,
+    "class_major_versions": {
+      "61": 1555
+    },
+    "registered_mixins": 60,
+    "registered_mixin_configs": [
+      "neoecoae.compat.advanced_ae.mixins.json",
+      "neoecoae.compat.extendedae.mixins.json",
+      "neoecoae.compat.thunderbolt.mixins.json",
+      "neoecoae.mixins.json",
+      "neoecoae.terminal_big_amount.mixins.json"
+    ],
+    "refmap_classes": 5,
+    "nested_jars": [
+      "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+      "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+    ],
+    "problems": {
+      "missing_source_classes": [],
+      "missing_required_resources": [],
+      "missing_registered_mixins": [],
+      "missing_mixin_plugins": [],
+      "unregistered_mixin_configs": [],
+      "missing_nested_jars": [],
+      "missing_translations": [],
+      "fake_upstream_classes": [],
+      "duplicate_entries": []
+    },
+    "result": "success",
+    "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+  },
+  "acceptance": "Development client startup and real transformed AE2/ECO tooltip generation only; ordinary installation and mouse hover in the supplied modpack were not performed."
+}
