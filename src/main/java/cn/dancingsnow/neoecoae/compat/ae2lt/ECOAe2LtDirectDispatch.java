@@ -87,58 +87,154 @@ public final class ECOAe2LtDirectDispatch {
                 List<?> targets = wireless ? (List<?>) a.connections.invoke(logic, level, level.getGameTime())
                         : (List<?>) a.directions.invoke(logic);
                 double cost = ((Number) a.cost.invoke(null, (Object) prototype)).doubleValue();
-                // Rotate only ECO calls. Native target scheduling/adaptive history remains untouched.
                 if (targets.isEmpty()) return ECOBatchAdmission.rejected();
-                int start = Math.floorMod(level.getGameTime(), targets.size());
-                for (int i = 0; i < targets.size(); i++) {
-                    Object target;
-                    Object context;
-                    ServerLevel targetLevel;
-                    if (wireless) {
-                        target = targets.get((start + i) % targets.size());
-                        if ((boolean) a.contains.invoke(overflow, target)) continue;
-                        targetLevel = level.getServer().getLevel((net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>)
-                                a.dimension.invoke(target));
-                        if (targetLevel == null || !targetLevel.isLoaded((net.minecraft.core.BlockPos) a.pos.invoke(target))) continue;
-                        if (!(boolean) a.canAccept.invoke(target, targetLevel, pattern, a.source.get(logic))) continue;
-                        context = a.context.newInstance(targetLevel, target);
-                    } else {
-                        context = a.normalTarget.invoke(logic, level, targets.get((start + i) % targets.size()), pattern);
-                        if (context == null) continue;
-                        target = a.contextTarget.invoke(context);
-                        targetLevel = level;
+                if (!wireless) {
+                    var resolved = new ArrayList<Target>();
+                    for (Object direction : (List<?>) a.normalOrder.invoke(a.normalDispatch.get(logic), targets)) {
+                        Object context = a.normalTarget.invoke(logic, level, direction, pattern);
+                        if (context != null) resolved.add(new Target(level, a.contextTarget.invoke(context), context));
                     }
-                    if ((boolean) a.blocked.invoke(logic, context, canonical)) continue;
-                    a.before.invoke(a.autoReturn.get(logic), targetLevel, target);
-                    int count = (int) Math.min(Integer.MAX_VALUE, copies);
-                    // A machine lacking a counted transport can only own one physical transaction.
-                    if (!(boolean) a.supportsBatch.invoke(target, targetLevel, pattern)) count = 1;
-                    a.setBypass.invoke(null, true);
-                    try {
-                        Object receipt = a.chunk.invoke(logic, context, pattern, canonical, copy(prototype), count, cost, a.complete);
-                        long accepted = ((Number) a.owned.invoke(receipt)).longValue();
-                        if (accepted < 0 || accepted > count) return ECOBatchAdmission.indeterminate();
-                        if (accepted == 0) {
-                            if ((boolean) a.abort.invoke(receipt)) return ECOBatchAdmission.rejected();
-                            continue;
-                        }
-                        if (!wireless) {
-                            a.sendDirection.invoke(logic, ((Direction) a.face.invoke(target)).getOpposite());
-                            a.send.invoke(logic);
-                        }
-                        a.wake.invoke(logic);
-                        a.save.invoke(logic);
-                        return ECOBatchAdmission.accepted(accepted,
-                                accepted == copies && (boolean) a.inserted.invoke(receipt) && drained());
-                    } finally {
-                        a.setBypass.invoke(null, false);
-                    }
+                    return submitDistributed(pattern, canonical, prototype, copies, cost, level, resolved, null);
                 }
-                return ECOBatchAdmission.rejected();
+                Object scheduler = a.wirelessDispatch.get(logic);
+                boolean fast = a.speed.invoke(host).toString().equals("FAST");
+                Object mode = a.dispatchMode.invoke(host);
+                Object[] preparation = a.prepare.getParameterCount() == 3
+                        ? new Object[]{targets, level.getGameTime(), fast}
+                        : new Object[]{targets, level.getGameTime(), fast, mode};
+                a.prepare.invoke(scheduler, preparation);
+                if (mode.toString().equals("SINGLE_TARGET")) {
+                    return submitSingleTarget(pattern, canonical, prototype, copies, cost, level,
+                            scheduler, mode, fast, targets.size());
+                }
+                // Reuse provider-owned, pattern-scoped fairness across CPU visits. ECO still owns
+                // batch growth; only physical target selection and accepted-copy counts are shared.
+                Object pass = a.fairPass.invoke(scheduler, canonical, level.getGameTime());
+                try {
+                    return submitDistributed(pattern, canonical, prototype, copies, cost, level, List.of(), pass);
+                } finally {
+                    a.closePass.invoke(pass);
+                }
             } catch (ReflectiveOperationException failure) {
                 // A callback/save can fail after insertion; never refund or replay unknown custody.
                 throw new IllegalStateException("AE2LT direct batch custody is unknown", failure);
             }
+        }
+
+        private ECOBatchAdmission submitDistributed(IPatternDetails pattern, Object canonical, KeyCounter[] prototype,
+                long copies, double cost, ServerLevel level, List<Target> targets, @Nullable Object pass)
+                throws ReflectiveOperationException {
+            int targetCount = pass == null ? targets.size() : ((Number) a.fairSize.invoke(pass)).intValue();
+            long accepted = 0;
+            boolean complete = true;
+            for (int i = 0; i < targetCount && accepted < copies; i++) {
+                Object connection = pass == null ? null : a.fairPoll.invoke(pass);
+                if (pass != null && connection == null) break;
+                Target target = pass == null ? targets.get(i) : wirelessTarget(level, connection, pattern);
+                if (target == null) {
+                    a.fairCooldown.invoke(pass, connection, level.getGameTime() + 1L);
+                    complete = false;
+                    continue;
+                }
+                long remaining = copies - accepted;
+                long share = 1L + (remaining - 1L) / (targetCount - i);
+                if (pass != null) {
+                    // Let under-served machines catch up, while splitting a fresh batch among
+                    // all ready targets instead of handing the complete offer to its first target.
+                    share = Math.min(remaining, Math.max(share,
+                            ((Number) a.fairAllowance.invoke(pass, connection)).longValue()));
+                    a.fairRaise.invoke(pass, connection, share);
+                }
+                Chunk chunk = pushChunk(target, pattern, canonical, prototype, share, cost, pass != null);
+                if (!chunk.valid()) return ECOBatchAdmission.indeterminate();
+                accepted += chunk.accepted;
+                complete &= chunk.accepted == chunk.offered && chunk.inserted && !chunk.abort;
+                if (pass != null) {
+                    if (chunk.accepted > 0) a.fairSuccess.invoke(pass, connection, chunk.accepted);
+                    else a.fairCooldown.invoke(pass, connection, level.getGameTime() + 1L);
+                }
+                // In particular, a local send list belongs to the last target's send direction.
+                // Never switch that direction while the provider still owns buffered inputs.
+                if (chunk.abort || !drained()) break;
+            }
+            return accepted == 0 ? ECOBatchAdmission.rejected()
+                    : ECOBatchAdmission.accepted(accepted, accepted == copies && complete && drained());
+        }
+
+        private ECOBatchAdmission submitSingleTarget(IPatternDetails pattern, Object canonical, KeyCounter[] prototype,
+                long copies, double cost, ServerLevel level, Object scheduler, Object mode, boolean fast, int targets)
+                throws ReflectiveOperationException {
+            var receipt = new Chunk[1];
+            Class<?> callback = a.single.getParameterTypes()[5];
+            Object attempt = Proxy.newProxyInstance(callback.getClassLoader(), new Class<?>[]{callback},
+                    (proxy, method, arguments) -> {
+                        Target target = wirelessTarget(level, arguments[0], pattern);
+                        if (target == null) return a.hardFail;
+                        Chunk chunk = pushChunk(target, pattern, canonical, prototype, copies, cost, true);
+                        receipt[0] = chunk;
+                        if (!chunk.valid()) return a.globalAbort;
+                        return chunk.accepted > 0 ? a.success : chunk.abort ? a.globalAbort : a.softFail;
+                    });
+            java.util.function.Predicate<Object> alive = connection -> {
+                try {
+                    var targetLevel = level.getServer().getLevel(
+                            (net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>) a.dimension.invoke(connection));
+                    return targetLevel != null && (boolean) a.alive.invoke(connection, targetLevel);
+                } catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+            };
+            java.util.function.Consumer<Object> removed = connection -> {
+                try { a.connectionsDirty.setBoolean(logic, true); }
+                catch (IllegalAccessException failure) { throw new IllegalStateException(failure); }
+            };
+            a.single.invoke(scheduler, mode, canonical, level.getGameTime(), fast, targets, attempt, alive, removed);
+            Chunk chunk = receipt[0];
+            if (chunk == null) return ECOBatchAdmission.rejected();
+            if (!chunk.valid()) return ECOBatchAdmission.indeterminate();
+            return chunk.accepted == 0 ? ECOBatchAdmission.rejected()
+                    : ECOBatchAdmission.accepted(chunk.accepted,
+                            chunk.accepted == copies && chunk.inserted && !chunk.abort && drained());
+        }
+
+        @Nullable private Target wirelessTarget(ServerLevel level, Object connection, IPatternDetails pattern)
+                throws ReflectiveOperationException {
+            if ((boolean) a.contains.invoke(a.overflow.get(logic), connection)) return null;
+            var targetLevel = level.getServer().getLevel(
+                    (net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>) a.dimension.invoke(connection));
+            if (targetLevel == null || !targetLevel.isLoaded((net.minecraft.core.BlockPos) a.pos.invoke(connection))
+                    || !(boolean) a.canAccept.invoke(connection, targetLevel, pattern, a.source.get(logic))) return null;
+            return new Target(targetLevel, connection, a.context.newInstance(targetLevel, connection));
+        }
+
+        private Chunk pushChunk(Target target, IPatternDetails pattern, Object canonical, KeyCounter[] prototype,
+                long copies, double cost, boolean wireless) throws ReflectiveOperationException {
+            int count = (int) Math.min(Integer.MAX_VALUE, copies);
+            if ((boolean) a.blocked.invoke(logic, target.context, canonical)) return new Chunk(count, 0, false, false);
+            a.before.invoke(a.autoReturn.get(logic), target.level, target.address);
+            // A machine lacking a counted transport can only own one physical transaction.
+            if (!(boolean) a.supportsBatch.invoke(target.address, target.level, pattern)) count = 1;
+            a.setBypass.invoke(null, true);
+            try {
+                Object receipt = a.chunk.invoke(logic, target.context, pattern, canonical,
+                        copy(prototype), count, cost, a.complete);
+                long accepted = ((Number) a.owned.invoke(receipt)).longValue();
+                var chunk = new Chunk(count, accepted, (boolean) a.inserted.invoke(receipt), (boolean) a.abort.invoke(receipt));
+                if (chunk.valid() && accepted > 0) {
+                    if (!wireless) {
+                        a.sendDirection.invoke(logic, ((Direction) a.face.invoke(target.address)).getOpposite());
+                        a.send.invoke(logic);
+                    }
+                    a.wake.invoke(logic);
+                    a.save.invoke(logic);
+                }
+                return chunk;
+            } finally {
+                a.setBypass.invoke(null, false);
+            }
+        }
+
+        private record Target(ServerLevel level, Object address, Object context) {}
+        private record Chunk(int offered, long accepted, boolean inserted, boolean abort) {
+            boolean valid() { return accepted >= 0 && accepted <= offered; }
         }
 
         private boolean drained() throws ReflectiveOperationException {
@@ -163,16 +259,40 @@ public final class ECOAe2LtDirectDispatch {
 
     /** Resolve the complete transport contract before claiming the provider; no game types are optional links. */
     private static final class Access {
-        final Field node, host, catalog, overflow, source, autoReturn;
+        final Field node, host, catalog, overflow, source, autoReturn, normalDispatch, wirelessDispatch, connectionsDirty;
         final Constructor<?> context;
-        final Object complete;
+        final Object complete, success, softFail, hardFail, globalAbort;
         final Method flush, flushLocal, localOverflow, sendList, lock, resolve, level, mode, refresh, backpressure,
                 connections, directions, cost, contains, dimension, pos, canAccept, normalTarget, contextTarget,
-                blocked, before, supportsBatch, chunk, owned, abort, inserted, sendDirection, face, send, wake, save, empty, setBypass;
+                blocked, before, supportsBatch, chunk, owned, abort, inserted, sendDirection, face, send, wake, save, empty, setBypass,
+                normalOrder, dispatchMode, speed, prepare, fairPass, fairSize, fairPoll, fairAllowance, fairRaise, fairSuccess,
+                fairCooldown, closePass, single, alive;
         Access(Class<?> type) throws ReflectiveOperationException {
             node = field(type, "gridNode"); host = field(type, "overloadedHost");
             catalog = field(type, "patternCatalog"); overflow = field(type, "wirelessOverflow");
             source = field(type, "wirelessSource"); autoReturn = field(type, "autoReturn");
+            normalDispatch = field(type, "normalDispatch"); wirelessDispatch = field(type, "wirelessDispatch");
+            connectionsDirty = field(type, "connectionsDirty");
+            normalOrder = method(normalDispatch.getType(), "dispatchOrder", 1);
+            dispatchMode = method(host.getType(), "getWirelessDispatchMode", 0);
+            speed = method(host.getType(), "getWirelessSpeedMode", 0);
+            // Released 2.1.2-beta3 includes the dispatch mode; newer source derives it later.
+            Method preparation;
+            try { preparation = method(wirelessDispatch.getType(), "prepare", 3); }
+            catch (NoSuchMethodException olderContract) {
+                preparation = method(wirelessDispatch.getType(), "prepare", 4);
+            }
+            prepare = preparation;
+            fairPass = method(wirelessDispatch.getType(), "beginFairPass", 2);
+            Class<?> passType = fairPass.getReturnType();
+            fairSize = method(passType, "activeTargetsAtStart", 0); fairPoll = method(passType, "poll", 0);
+            fairAllowance = method(passType, "allowance", 1); fairRaise = method(passType, "raiseAllowance", 2);
+            fairSuccess = method(passType, "success", 2); fairCooldown = method(passType, "cooldown", 2);
+            closePass = method(passType, "close", 0);
+            single = method(wirelessDispatch.getType(), "dispatchSingleCopy", 8);
+            Class<?> outcome = method(single.getParameterTypes()[5], "push", 1).getReturnType();
+            success = enumValue(outcome, "SUCCESS"); softFail = enumValue(outcome, "SOFT_FAIL");
+            hardFail = enumValue(outcome, "HARD_FAIL"); globalAbort = enumValue(outcome, "GLOBAL_ABORT");
             flush = method(type, "flushWirelessSends", 0); flushLocal = method(type, "flushLocalDirectionalOverflow", 0);
             localOverflow = method(type, "hasLocalDirectionalOverflow", 0);
             sendList = method(type, "getSendList", 0); lock = method(type, "getCraftingLockedReason", 0);
@@ -194,6 +314,7 @@ public final class ECOAe2LtDirectDispatch {
             dimension = method(connection, "dimension", 0); pos = method(target, "pos", 0);
             face = method(target, "boundFace", 0); canAccept = method(target, "canAccept", 3);
             supportsBatch = method(target, "supportsBatch", 2);
+            alive = method(target, "isAlive", 1);
             blocked = method(type, "isBatchTargetBlocked", 2);
             before = method(autoReturn.getType(), "beforeDispatch", 2);
             chunk = method(type, "pushBatchChunk", 7);
@@ -210,6 +331,10 @@ public final class ECOAe2LtDirectDispatch {
             Class<?> registry = Class.forName("com.moakiee.ae2lt.logic.provider.EjectModeRegistry", false, type.getClassLoader());
             setBypass = method(registry, "setBypass", 1);
         }
+    }
+    private static Object enumValue(Class<?> type, String name) throws NoSuchFieldException {
+        return Arrays.stream(type.getEnumConstants()).filter(value -> value.toString().equals(name))
+                .findFirst().orElseThrow(() -> new NoSuchFieldException(type.getName() + "." + name));
     }
     private static Field field(Class<?> type, String name) throws NoSuchFieldException {
         for (Class<?> c = type; c != null; c = c.getSuperclass()) {
