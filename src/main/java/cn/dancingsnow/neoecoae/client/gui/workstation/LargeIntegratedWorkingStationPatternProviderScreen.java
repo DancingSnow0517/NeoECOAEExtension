@@ -4,7 +4,8 @@ import appeng.client.gui.implementations.PatternProviderScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.Scrollbar;
-import appeng.client.gui.widgets.UpgradesPanel;
+import cn.dancingsnow.neoecoae.client.gui.widget.WorkstationInterfaceUpgradesPanel;
+import cn.dancingsnow.neoecoae.mixins.client.ae2.WorkstationInterfaceWidgetContainerAccessor;
 import appeng.api.upgrades.Upgrades;
 import appeng.menu.SlotSemantics;
 import appeng.menu.slot.AppEngSlot;
@@ -28,18 +29,22 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     private final Set<Integer> shiftDraggedSlots = new HashSet<>();
     private final WorkstationPatternScroll patternScroll = new WorkstationPatternScroll();
     private final Scrollbar patternScrollbar;
+    private final Component defaultHeading;
     private boolean shiftDragging;
     private boolean scrollbarDragging;
     private double scrollbarGrabOffset;
     private long lastScrollFrame;
 
-    private static final int PATTERN_LEFT = 7;
+    public static final int PANEL_WIDTH = 228;
+    public static final int CONTENT_OFFSET_X = 20;
+    public static final int SCROLLBAR_LEFT = 174 + CONTENT_OFFSET_X;
+    private static final int PATTERN_LEFT = 7 + CONTENT_OFFSET_X;
     private static final int PATTERN_TOP = 22;
     private static final int PATTERN_WIDTH = 162;
     // The middle inventory row has matching horizontal and vertical separators between all nine cells.
     private static final Blitter PATTERN_ROW_BACKGROUND = Blitter
-        .texture("guis/large_integrated_working_station_interface.png", 256, 256)
-        .src(7, 178, PATTERN_WIDTH, WorkstationPatternScroll.ROW_HEIGHT);
+        .texture("guis/large_integrated_working_station_interface_integrated.png", 256, 256)
+        .src(PATTERN_LEFT, 178, PATTERN_WIDTH, WorkstationPatternScroll.ROW_HEIGHT);
 
     public LargeIntegratedWorkingStationPatternProviderScreen(
         LargeIntegratedWorkingStationPatternProviderMenu menu,
@@ -48,18 +53,16 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         ScreenStyle style
     ) {
         super(menu, playerInventory, title, style);
+        defaultHeading = style.getText().get(TEXT_ID_DIALOG_TITLE).getText();
         patternScroll.setSlotCount(menu.getPatternSlotCount());
         patternScrollbar = new PatternScrollbar();
         patternScrollbar.setCaptureMouseWheel(false);
         patternScrollbar.setRange(0, (int) patternScroll.maximum(), WorkstationPatternScroll.ROW_HEIGHT);
         widgets.add("patternScrollbar", patternScrollbar);
-        try {
-            widgets.add("upgrades", new UpgradesPanel(menu.getSlots(SlotSemantics.UPGRADE),
-                () -> Upgrades.getTooltipLinesForMachine(menu.getCapacityUpgrades().getUpgradableItem())));
-        } catch (IllegalStateException existingPanel) {
-            if (!"Duplicate id: upgrades".equals(existingPanel.getMessage())) throw existingPanel;
-            // AE2 provider addons may already supply this native panel with the same workstation upgrade slots.
-        }
+        // Keep the native upgrade slots while integrating addon-created presentation into the shared panel.
+        ((WorkstationInterfaceWidgetContainerAccessor) widgets).neoecoae$compositeWidgets().remove("upgrades");
+        widgets.add("upgrades", new WorkstationInterfaceUpgradesPanel(menu.getSlots(SlotSemantics.UPGRADE),
+            () -> Upgrades.getTooltipLinesForMachine(menu.getCapacityUpgrades().getUpgradableItem())));
     }
 
     @Override
@@ -72,6 +75,17 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
+        Component heading = getTitle().getString().isEmpty() ? defaultHeading : getTitle();
+        // AE2 15 does not constrain dialog titles; leave space for the raised priority tab.
+        if (font.width(heading) > 152) {
+            var clipped = Component.empty();
+            font.substrByWidth(heading, 152 - font.width("…")).visit((style, text) -> {
+                clipped.append(Component.literal(text).withStyle(style));
+                return java.util.Optional.empty();
+            }, net.minecraft.network.chat.Style.EMPTY);
+            heading = clipped.append("…");
+        }
+        setTextContent(TEXT_ID_DIALOG_TITLE, heading);
         long now = System.nanoTime();
         if (lastScrollFrame != 0) patternScroll.advance((now - lastScrollFrame) / 1_000_000_000.0);
         lastScrollFrame = now;
@@ -137,7 +151,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         graphics.pose().pushPose();
         try {
             graphics.pose().translate(offsetX, offsetY - fractionalOffset(), 0);
-            // Keep the complete five-row AE2-style grid visible even when capacity cards have not
+            // Keep the complete seven-row AE2-style grid visible even when capacity cards have not
             // unlocked every row yet. Locked rows remain visual placeholders because their slots stay
             // inactive in updatePatternSlots(), but the fixed viewport must not collapse into a blank area.
             int pixels = (int) Math.floor(patternScroll.offset());
@@ -232,13 +246,21 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         }
 
         @Override
+        public Rect2i getBounds() {
+            var bounds = super.getBounds();
+            // The supplied track has one more inner pixel to the left than AE2's small thumb.
+            return new Rect2i(bounds.getX(), bounds.getY(), bounds.getWidth() + 1, bounds.getHeight());
+        }
+
+        @Override
         public void drawForegroundLayer(GuiGraphics graphics, Rect2i bounds, Point mouse) {
             graphics.pose().pushPose();
             try {
                 graphics.pose().translate(0, scrollbarThumbOffset(), 0);
-                var sprite = patternScroll.maximum() == 0
-                    ? cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.SMALL.disabledBlitter() : cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.SMALL.enabledBlitter();
-                sprite.dest(getBounds().getX(), getBounds().getY()).blit(graphics);
+                var sprite = cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.smallHandle(patternScroll.maximum() != 0);
+                var track = getBounds();
+                sprite.dest(track.getX(), track.getY(), track.getWidth(),
+                    cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.SMALL.handleHeight()).blit(graphics);
             } finally {
                 graphics.pose().popPose();
             }

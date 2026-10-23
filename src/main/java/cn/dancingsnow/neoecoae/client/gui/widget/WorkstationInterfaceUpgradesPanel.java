@@ -1,0 +1,220 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
+package cn.dancingsnow.neoecoae.client.gui.widget;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+import org.jetbrains.annotations.Nullable;
+
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.Slot;
+
+import appeng.api.upgrades.IUpgradeableObject;
+import appeng.api.upgrades.Upgrades;
+import appeng.client.Point;
+import appeng.client.gui.AEBaseScreen;
+import appeng.client.gui.ICompositeWidget;
+import appeng.client.gui.Rects;
+import appeng.client.gui.Tooltip;
+import appeng.client.gui.style.Blitter;
+import appeng.menu.slot.AppEngSlot;
+
+/**
+ * Native upgrade slots using the same 1.21.1 cells as the shared main panel.
+ */
+public final class WorkstationInterfaceUpgradesPanel implements ICompositeWidget {
+
+    private static final int SLOT_SIZE = 18;
+    private static final int PADDING = 5;
+    private static final int MAX_ROWS = 8;
+
+    private static final Blitter SLOT_BACKGROUND = Blitter
+            .texture("guis/large_integrated_working_station_interface_integrated.png", 256, 256)
+            .src(27, 178, SLOT_SIZE, SLOT_SIZE);
+
+    private final List<Slot> slots;
+
+    // The screen origin in window space (used to layout slots)
+    private Point screenOrigin = Point.ZERO;
+
+    // Relative to current screen origin (not window)
+    private int x;
+    private int y;
+
+    private final Supplier<List<Component>> tooltipSupplier;
+
+    public WorkstationInterfaceUpgradesPanel(List<Slot> slots) {
+        this(slots, Collections::emptyList);
+    }
+
+    public WorkstationInterfaceUpgradesPanel(List<Slot> slots, IUpgradeableObject upgradeableObject) {
+        this(slots, () -> Upgrades.getTooltipLinesForMachine(upgradeableObject.getUpgrades().getUpgradableItem()));
+    }
+
+    public WorkstationInterfaceUpgradesPanel(List<Slot> slots, Supplier<List<Component>> tooltipSupplier) {
+        this.slots = slots;
+        this.tooltipSupplier = tooltipSupplier;
+    }
+
+    @Override
+    public void setPosition(Point position) {
+        x = position.getX();
+        y = position.getY();
+    }
+
+    /**
+     * Changes where the panel is positioned. Coordinates are relative to the current screen's origin.
+     */
+    @Override
+    public void setSize(int width, int height) {
+        // Size of upgrades panel cannot be set via JSON
+    }
+
+    /**
+     * The overall bounding box in screen coordinates.
+     */
+    @Override
+    public Rect2i getBounds() {
+        int slotCount = getUpgradeSlotCount();
+
+        int height = 2 * PADDING + Math.min(MAX_ROWS, slotCount) * SLOT_SIZE;
+        int width = 6 + (slotCount + MAX_ROWS - 1) / MAX_ROWS * SLOT_SIZE;
+        return new Rect2i(x - 2, y, width, height);
+    }
+
+    @Override
+    public void populateScreen(Consumer<AbstractWidget> addWidget, Rect2i bounds, AEBaseScreen<?> screen) {
+        this.screenOrigin = Point.fromTopLeft(bounds);
+    }
+
+    @Override
+    public void updateBeforeRender() {
+        int index = 0;
+        for (Slot slot : slots) {
+            if (!slot.isActive()) {
+                continue;
+            }
+
+            slot.x = x + index / MAX_ROWS * SLOT_SIZE + 1;
+            slot.y = y + PADDING + index % MAX_ROWS * SLOT_SIZE + 1;
+            index++;
+        }
+    }
+
+    @Override
+    public void drawBackgroundLayer(GuiGraphics guiGraphics, Rect2i bounds, Point mouse) {
+        int slotCount = getUpgradeSlotCount();
+        if (slotCount <= 0) {
+            return;
+        }
+
+        int slotOriginX = screenOrigin.getX() + this.x;
+        int slotOriginY = screenOrigin.getY() + this.y + PADDING;
+
+        for (int i = 0; i < slotCount; i++) {
+            // Unlike other UIs, this is drawn top-to-bottom,left-to-right
+            int row = i % MAX_ROWS;
+            int col = i / MAX_ROWS;
+
+            int x = slotOriginX + col * SLOT_SIZE;
+            int y = slotOriginY + row * SLOT_SIZE;
+
+            SLOT_BACKGROUND.dest(x, y).blit(guiGraphics);
+            // A crop of the main grid's first column contains its left edge only.
+            // Close the shared column with the same frame color as the source artwork.
+            if (row == 0) guiGraphics.hLine(x, x + SLOT_SIZE - 1, y, 0xFFF2F2F2);
+            if (row == MAX_ROWS - 1 || i == slotCount - 1) {
+                guiGraphics.hLine(x, x + SLOT_SIZE - 1, y + SLOT_SIZE - 1, 0xFFF2F2F2);
+            }
+            guiGraphics.vLine(x + SLOT_SIZE - 1, y - 1, y + SLOT_SIZE, 0xFFF2F2F2);
+        }
+    }
+
+    @Override
+    public void addExclusionZones(List<Rect2i> exclusionZones, Rect2i screenBounds) {
+        int offsetX = screenBounds.getX();
+        int offsetY = screenBounds.getY();
+
+        int slotCount = getUpgradeSlotCount();
+
+        // Use a bit of a margin around the zone to avoid things looking too cramped
+        final int margin = 2;
+
+        // Add a single bounding rectangle for as many columns as are fully populated
+        int fullCols = slotCount / MAX_ROWS;
+        int rightEdge = offsetX + x - 2;
+        if (fullCols > 0) {
+            int fullColWidth = 6 + fullCols * SLOT_SIZE;
+            exclusionZones.add(Rects.expand(new Rect2i(
+                    rightEdge,
+                    offsetY + y,
+                    fullColWidth,
+                    PADDING * 2 + MAX_ROWS * SLOT_SIZE), margin));
+            rightEdge += fullColWidth;
+        }
+
+        // If there's a partially populated row at the end, add a smaller rectangle for it
+        int remaining = slotCount - fullCols * MAX_ROWS;
+        if (remaining > 0) {
+            exclusionZones.add(Rects.expand(new Rect2i(
+                    rightEdge,
+                    offsetY + y,
+                    // We need to add padding in case there's no full column that already includes it
+                    SLOT_SIZE + (fullCols > 0 ? 0 : 6),
+                    PADDING * 2 + remaining * SLOT_SIZE), margin));
+        }
+
+    }
+
+    @Nullable
+    @Override
+    public Tooltip getTooltip(int mouseX, int mouseY) {
+        if (getUpgradeSlotCount() == 0) {
+            return null;
+        }
+
+        List<Component> tooltip = this.tooltipSupplier.get();
+        if (tooltip.isEmpty()) {
+            return null;
+        }
+
+        return new Tooltip(tooltip);
+    }
+
+    /**
+     * We need this function since the cell workbench can dynamically change how many upgrade slots are active based on
+     * the cell in the workbench.
+     */
+    private int getUpgradeSlotCount() {
+        int count = 0;
+        for (Slot slot : slots) {
+            if (slot instanceof AppEngSlot && ((AppEngSlot) slot).isSlotEnabled()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+}

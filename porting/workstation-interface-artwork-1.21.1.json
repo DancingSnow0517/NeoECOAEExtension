@@ -1,0 +1,76 @@
+{
+  "repository": "https://github.com/AppliedEnergistics/Applied-Energistics-2.git",
+  "tag": "neoforge/v19.2.18",
+  "commit": "db17504a86128fdf3dae31f5fb7a112a646e0b93",
+  "assets": [
+    {
+      "source": "src/main/resources/assets/ae2/textures/gui/sprites/small_scroller.png",
+      "target": "src/main/resources/assets/neoecoae/textures/gui/vendor/ae2/v19_2_18/small_scroller.png",
+      "sha256": "d06e44c1602297ecf6c700b52b01c3acface2f49e2b92a2570d1a6830d5ebc74"
+    },
+    {
+      "source": "src/main/resources/assets/ae2/textures/gui/sprites/small_scroller_disabled.png",
+      "target": "src/main/resources/assets/neoecoae/textures/gui/vendor/ae2/v19_2_18/small_scroller_disabled.png",
+      "sha256": "9379cff1db6c1e56c14745af6cfd8e48bf939f16a9b2d46ac1848e6fdb654b72"
+    }
+  ],
+  "existing_states_atlas": {
+    "path": "src/main/resources/assets/neoecoae/textures/gui/vendor/ae2/states.png",
+    "sha256": "0996b0084c7bf37f65a97a745982ab681ebd86f142fade526f14c823c4727e55"
+  },
+  "scope": "Workstation communication screen; original body and connected side wings use one continuous frame and palette, with AE2 15 menus and packets",
+  "ported_presentation_sources": [
+    {
+      "source": "src/main/java/appeng/client/gui/widgets/UpgradesPanel.java",
+      "target": "src/main/java/cn/dancingsnow/neoecoae/client/gui/widget/WorkstationInterfaceUpgradesPanel.java"
+    },
+    {
+      "source": "src/main/java/appeng/client/gui/widgets/VerticalButtonBar.java",
+      "target": "src/main/java/cn/dancingsnow/neoecoae/client/gui/widget/WorkstationInterfaceButtonBar.java"
+    }
+  ],
+  "ported_button_presentation": "IconButton normal/hover/focus frames and one-pixel hover offset; preserve AE2 15 actions and tooltips",
+  "license_file": "src/main/resources/META-INF/licenses/ae2-v19.2.18-LGPL-3.0.txt",
+  "artwork_license": "CC-BY-NC-SA-3.0",
+  "presentation_code_license": "LGPL-3.0-or-later",
+  "license_source": "README.md at neoforge/v19.2.18, License section",
+  "artwork_notice": "src/main/resources/META-INF/licenses/ae2-v19.2.18-NOTICE.txt",
+  "integrated_panel": {
+    "source_repository": "https://github.com/DancingSnow0517/NeoECOAEExtension.git",
+    "source_commit": "c95684c93fd68f55315379ca2282675a01eb87fa",
+    "source": "src/main/resources/assets/ae2/textures/guis/large_integrated_working_station_interface.png",
+    "source_sha256": "03970a54d53c5d0bde792573abd1c6cd9a0b18b68dd9b25bbca072c1e88e012e",
+    "target": "src/main/resources/assets/ae2/textures/guis/large_integrated_working_station_interface_integrated.png",
+    "target_sha256": "0b6f7830172b8ef6a0313d09d3e803817d712718637b4ec293a9514e2a2ecb56",
+    "generator": "tools/porting/compose_workstation_interface_artwork.py",
+    "visible_size": [
+      228,
+      245
+    ],
+    "body_offset_x": 20,
+    "adaptation": "User-reference stepped outline; side wings share the original body frame and palette; priority tab raised over the header",
+    "source_license": "See LICENSE in the NeoECOAE source repository at the pinned increment",
+    "body_size": [
+      188,
+      245
+    ],
+    "toolbar_wing_atlas": {
+      "target": "src/main/resources/assets/ae2/textures/guis/large_integrated_working_station_interface_controls.png",
+      "sha256": "63bd92fc23ecc76f5340f5de2724b65e323407be311e84d1e22b2cb2e39f5b81",
+      "sprite_width": 24,
+      "sprite_height": "22 * visible_buttons + 10",
+      "counts": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    }
+  }
+}

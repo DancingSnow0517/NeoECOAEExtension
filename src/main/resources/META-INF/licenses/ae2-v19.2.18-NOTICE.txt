@@ -1,0 +1,28 @@
+Applied Energistics 2 - 1.21.1 workstation interface presentation
+
+Source repository: https://github.com/AppliedEnergistics/Applied-Energistics-2
+Source tag: neoforge/v19.2.18
+Source commit: db17504a86128fdf3dae31f5fb7a112a646e0b93
+
+Textures and models:
+Copyright (c) 2020 Ridanisaurus Rid.
+Copyright (c) 2013-2020 AlgorithmX2 et al.
+License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported.
+License URI: https://creativecommons.org/licenses/by-nc-sa/3.0/
+The copied states and small_scroller images
+retain their original bytes. Their source paths and SHA-256 values are recorded
+in porting/workstation-interface-artwork-1.21.1.json in the source distribution.
+Only their resource namespace and loading paths have changed for the backport.
+
+Presentation code:
+Copyright (c) 2021 TeamAppliedEnergistics, All rights reserved.
+The adapted UpgradesPanel and VerticalButtonBar presentation is licensed under
+LGPL version 3 or, at your option, any later version. The accompanying license
+is ae2-v19.2.18-LGPL-3.0.txt. Original source headers are retained.
+Changes: Forge 1.20.1 resource access, local class names and placement inside
+a shared NeoECOAE panel; upgrade cells use the main panel artwork instead of
+the independent AE2 upgrade frame, and the toolbar rail is replaced by a
+connected wing derived from the NeoECOAE main panel;
+native AE2 15 menu actions, slot ownership and network packets remain in use.
+
+License categories follow the pinned source README.md, section "License".
