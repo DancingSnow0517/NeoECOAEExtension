@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
@@ -491,17 +493,28 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     @Override
     public AEItemKey getTerminalIcon() {
+        var module = terminalModuleDescription();
+        if (module.custom()) {
+            var card = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(module.upgradeCard());
+            if (card != net.minecraft.world.item.Items.AIR) return AEItemKey.of(new ItemStack(card));
+        }
         return terminalIcon(terminalModule());
     }
 
     @Override
     public PatternContainerGroup getTerminalGroup() {
-        LargeWorkstationModule module = terminalModule();
+        var module = terminalModuleDescription();
         // Upload selectors can group by name alone, so the module must be in the name as well as the tooltip.
         // Keep it first: narrow provider lists truncate the long interface name.
         Component name = Component.empty().append(module.shortTitle()).append(" · ").append(getName());
-        return new PatternContainerGroup(terminalIcon(module), name,
+        return new PatternContainerGroup(getTerminalIcon(), name,
             List.of(Component.translatable("gui.neoecoae.workstation.module_current", module.title())));
+    }
+
+    private ECOWorkstationModules.Module terminalModuleDescription() {
+        var currentCluster = getCluster();
+        var controller = currentCluster == null ? null : currentCluster.getController();
+        return ECOWorkstationModules.installed(controller);
     }
 
     private LargeWorkstationModule terminalModule() {

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -49,6 +51,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
 
     public static boolean isUpgradeCard(ItemStack stack) {
         if (stack.isEmpty()) return false;
+        if (ECOWorkstationModules.customFromCard(stack) != null) return true;
         ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         for (var module : values()) if (module.hasUpgradeCard() && module.upgradeCardId().equals(id)) return true;
         return false;
@@ -56,6 +59,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
 
     public static LargeWorkstationModule fromUpgradeCard(ItemStack stack) {
         if (!stack.isEmpty()) {
+            if (ECOWorkstationModules.customFromCard(stack) != null) return OTHER;
             ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
             for (var module : values()) if (module.hasUpgradeCard() && module.upgradeCardId().equals(id)) return module;
         }

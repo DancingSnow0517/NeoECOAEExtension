@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
+import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationRecipeAdapters;
+
 import appeng.api.config.PowerUnit;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
@@ -73,7 +76,9 @@ public final class LargeWorkstationRecipes {
         // Its values view is stable between reloads, including for unregistered RecipeType.simple types.
         Collection<RecipeHolder<?>> sources = manager.getRecipes();
         var previous = CACHE.get(manager);
-        if (previous != null && previous.sources == sources) return previous.recipes;
+        if (previous != null && previous.sources == sources
+            && previous.adapterRevision == ECOWorkstationRecipeAdapters.revision()
+            && previous.moduleRevision == ECOWorkstationModules.revision()) return previous.recipes;
         List<LargeWorkstationRecipe> recipes = new ArrayList<>();
         DynamicOps<JsonElement> ops = registries.createSerializationContext(JsonOps.INSTANCE);
         for (var holder : sources) {
@@ -85,8 +90,12 @@ public final class LargeWorkstationRecipes {
                     recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
                 } else {
                     String type = typeId(holder.value().getType());
-                    if (!COMPAT_TYPES.contains(type)) continue;
-                    recipes.add(decode(holder.id(), type, encode(holder.value(), ops), ops));
+                    var sourceType = ResourceLocation.tryParse(type);
+                    if (sourceType == null) continue;
+                    var adapted = ECOWorkstationRecipeAdapters.adapt(
+                        sourceType, holder, registries);
+                    if (adapted != null) recipes.add(adapted);
+                    else if (COMPAT_TYPES.contains(type)) recipes.add(decode(holder.id(), type, encode(holder.value(), ops), ops));
                 }
             } catch (RuntimeException failure) {
                 // A changed upstream format must fail closed, never silently omit a cost or result.
@@ -97,8 +106,23 @@ public final class LargeWorkstationRecipes {
         Map<ResourceLocation, LargeWorkstationRecipe> recipesById = new HashMap<>();
         for (var recipe : recipes) recipesById.put(recipe.id(), recipe);
         CACHE.put(manager, new Cache(sources, result, Map.copyOf(recipesById),
-            new EnumMap<>(LargeWorkstationModule.class)));
+            new EnumMap<>(LargeWorkstationModule.class), new HashMap<>(),
+            ECOWorkstationRecipeAdapters.revision(),
+            ECOWorkstationModules.revision()));
         return result;
+    }
+
+    public static synchronized List<LargeWorkstationRecipe> getAvailable(Level level, ResourceLocation moduleId) {
+        var description = ECOWorkstationModules.resolve(moduleId);
+        if (!description.custom()) return getAvailable(level, description.legacy());
+        var manager = level.getRecipeManager();
+        getAll(manager, level.registryAccess());
+        Cache cache = CACHE.get(manager);
+        if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.recipes;
+        return cache.customModuleRecipes.computeIfAbsent(moduleId, installed -> deduplicate(
+            cache.recipesById.values().stream().filter(recipe ->
+                ECOWorkstationModules.unlocks(installed, recipe.sourceType())).toList(),
+            level.registryAccess().createSerializationContext(JsonOps.INSTANCE)));
     }
 
     public static List<LargeWorkstationRecipe> getAvailable(Level level, LargeWorkstationModule module) {
@@ -117,7 +141,8 @@ public final class LargeWorkstationRecipes {
     /** Filter before deduplication: a locked cheaper adapter must not hide an unlocked native recipe. */
     static List<LargeWorkstationRecipe> selectForModule(Collection<LargeWorkstationRecipe> recipes,
             LargeWorkstationModule module, DynamicOps<JsonElement> ops) {
-        return deduplicate(recipes.stream().filter(recipe -> module.unlocks(recipe.sourceType())).toList(), ops);
+        return deduplicate(recipes.stream().filter(recipe -> ECOWorkstationModules.unlocks(
+            ECOWorkstationModules.builtin(module).id(), recipe.sourceType())).toList(), ops);
     }
 
     /** Keeps original recipes addressable for batches saved before equivalent recipes were merged. */
@@ -221,6 +246,13 @@ public final class LargeWorkstationRecipes {
     @Nullable
     public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs) {
         return findScaled(getAll(level), inputs, outputs);
+    }
+
+    @Nullable
+    public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs, ResourceLocation moduleId) {
+        var description = ECOWorkstationModules.resolve(moduleId);
+        if (!description.custom()) return findScaled(level, inputs, outputs, description.legacy());
+        return findScaled(getAvailable(level, moduleId), inputs, outputs);
     }
 
     @Nullable
@@ -352,5 +384,7 @@ public final class LargeWorkstationRecipes {
 
     private record Cache(Collection<RecipeHolder<?>> sources, List<LargeWorkstationRecipe> recipes,
                          Map<ResourceLocation, LargeWorkstationRecipe> recipesById,
-                         Map<LargeWorkstationModule, List<LargeWorkstationRecipe>> moduleRecipes) {}
+                         Map<LargeWorkstationModule, List<LargeWorkstationRecipe>> moduleRecipes,
+                         Map<ResourceLocation, List<LargeWorkstationRecipe>> customModuleRecipes,
+                         long adapterRevision, long moduleRevision) {}
 }

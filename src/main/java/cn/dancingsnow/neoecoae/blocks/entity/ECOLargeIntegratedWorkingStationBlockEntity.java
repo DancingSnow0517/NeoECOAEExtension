@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
+
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.crafting.IPatternDetails;
@@ -101,6 +103,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private final NEIntegratedWorkingStationControllerCalculator calculator;
     private final LargeWorkstationCoolingOutput coolingOutput = new LargeWorkstationCoolingOutput();
+    @DescSynced
+    @com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender
+    @lombok.Getter
+    private ResourceLocation moduleAppearanceId = ResourceLocation.parse("neoecoae:regular");
     private final LargeWorkstationModuleInventory moduleInventory = new LargeWorkstationModuleInventory(this::moduleChanged);
     /** Accepted ordinary-path batches, bounded by MAX_PENDING_BATCHES backpressure. */
     private final Deque<PendingBatch> pendingBatches = new ArrayDeque<>();
@@ -446,9 +452,18 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             : LargeWorkstationModule.fromUpgradeCard(moduleInventory.getStackInSlot(0));
     }
 
+    public ECOWorkstationModules.Module getInstalledModuleDescription() {
+        var custom = ECOWorkstationModules.customFromCard(
+            moduleInventory == null ? ItemStack.EMPTY : moduleInventory.getStackInSlot(0));
+        return custom != null ? custom : ECOWorkstationModules.builtin(getInstalledModule());
+    }
+
+    public ResourceLocation getInstalledModuleId() { return getInstalledModuleDescription().id(); }
+
     public IItemHandlerModifiable getModuleInventory() { return moduleInventory; }
 
     private void moduleChanged() {
+        cachedTask = null;
         if (level == null || level.isClientSide) return;
         refreshModuleAppearance();
         settingsChanged();
@@ -601,6 +616,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     /** The installed card selects the screen and formed-controller theme, including while idle. */
     private void refreshModuleAppearance() {
+        if (level != null && !level.isClientSide) moduleAppearanceId = getInstalledModuleId();
         if (level == null || level.isClientSide || !formed
             || !(getBlockState().getBlock() instanceof ECOIntegratedWorkingStation)) return;
         LargeWorkstationModule module = getInstalledModule();
@@ -687,7 +703,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             if (adapted != null) module = LargeWorkstationModule.fromSourceType(adapted.sourceType());
         }
         snapshot.putString("recipeModule", module.getSerializedName());
+        if (head != null && head.recipeId != null && level != null) {
+            var recipe = LargeWorkstationRecipes.getById(level, head.recipeId);
+            if (recipe != null) snapshot.putString("recipeModuleId",
+                ECOWorkstationModules.fromSourceType(recipe.sourceType()).id().toString());
+        }
         snapshot.putString("module", getInstalledModule().getSerializedName());
+        snapshot.putString("moduleId", getInstalledModuleId().toString());
         snapshot.putBoolean("moduleInstalled", !moduleInventory.getStackInSlot(0).isEmpty());
         snapshot.putString("pause", pauseTranslationKey());
         snapshot.putString("coolingProblem", PauseReason.values()[Math.clamp(coolingProblemId, 0, PauseReason.values().length - 1)].translationKey);
@@ -712,6 +734,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             var source = batch.recipeId == null || level == null ? null : LargeWorkstationRecipes.getById(level, batch.recipeId);
             entry.putString("module", (source == null ? LargeWorkstationModule.REGULAR
                 : LargeWorkstationModule.fromSourceType(source.sourceType())).getSerializedName());
+            if (source != null) entry.putString("moduleId",
+                ECOWorkstationModules.fromSourceType(source.sourceType()).id().toString());
             GenericStack output = firstPositive(batch.outputTotal);
             if (output != null) {
                 entry.putLong("amount", output.amount());
@@ -1625,7 +1649,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
         KeyCounter outputPerCraft = collectPatternOutputs(pattern);
         if (outputPerCraft == null) return null;
-        var match = LargeWorkstationRecipes.findScaled(level, perCraftInputs, outputPerCraft, getInstalledModule());
+        var match = LargeWorkstationRecipes.findScaled(level, perCraftInputs, outputPerCraft, getInstalledModuleId());
         if (match == null) return null;
         var adapted = match.recipe();
 

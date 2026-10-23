@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
+
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.BuddingEnergizedCrystalBlock;
@@ -45,12 +47,12 @@ public class NETooltips {
         List<Component> tooltip = event.getToolTip();
         TooltipFlag flags = event.getFlags();
         if (LargeWorkstationModule.isUpgradeCard(stack)) {
-            LargeWorkstationModule module = LargeWorkstationModule.fromUpgradeCard(stack);
+            var module = ECOWorkstationModules.fromCard(stack);
             tooltip.add(Component.translatable("gui.neoecoae.workstation.module_card_install").withStyle(ChatFormatting.GRAY));
-            tooltip.add(Component.translatable(module == LargeWorkstationModule.REGULAR
+            tooltip.add(Component.translatable(module.legacy() == LargeWorkstationModule.REGULAR
                 ? "gui.neoecoae.workstation.module_card_blank" : "gui.neoecoae.workstation.module_card_unlock", module.title())
                 .withStyle(ChatFormatting.GRAY));
-            if (module != LargeWorkstationModule.REGULAR) {
+            if (module.legacy() != LargeWorkstationModule.REGULAR) {
                 tooltip.add(Component.translatable("gui.neoecoae.workstation.module_card_config").withStyle(ChatFormatting.DARK_GRAY));
             }
         }

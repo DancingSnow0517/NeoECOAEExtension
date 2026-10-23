@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
+
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationOverclock;
@@ -175,7 +177,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         if (hasProblem()) lines.add(pauseText());
         lines.add(tr("task_count", state.getInt("totalTasks")));
         if (state.getInt("totalTasks") > 0) lines.add(tr("task_source",
-            LargeWorkstationModule.byName(state.getString("recipeModule")).title()));
+            moduleDescription("recipeModuleId", "recipeModule").title()));
         if (state.getBoolean("ignoreUpgradeCards")) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GRAY));
         return lines;
     }
@@ -192,7 +194,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                 : ItemStack.parseOptional(registries, entry.getCompound("item")), registries == null ? FluidStack.EMPTY
                 : FluidStack.parseOptional(registries, entry.getCompound("fluid")), entry.getLong("amount"),
                 entry.getInt("progress"), entry.getString("status"), entry.getString("detail"), entry.getBoolean("returnable"),
-                entry.getBoolean("current"), LargeWorkstationModule.byName(entry.getString("module"))));
+                entry.getBoolean("current"), moduleDescription(entry, "moduleId", "module")));
         }
         int first = state.contains("taskOffset") ? state.getInt("taskOffset") : state.getInt("offset");
         if (taskScroll.receive(state.getInt("totalTasks"), first, decoded.size())) tasks = List.copyOf(decoded);
@@ -307,11 +309,11 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     }
 
     private List<Component> moduleTooltip() {
-        var selected = module();
+        var selected = moduleDescription("moduleId", "module");
         List<Component> lines = new ArrayList<>();
         lines.add(title("module_slot"));
         lines.add(tr("module_current", selected.title()).withColor(selected.color()));
-        lines.add(tr("task_source", LargeWorkstationModule.byName(state.getString("recipeModule")).title()));
+        lines.add(tr("task_source", moduleDescription("recipeModuleId", "recipeModule").title()));
         lines.add(hint("module_slot_hint"));
         lines.add(hint("module_swap_hint"));
         lines.add(tr("module_cards"));
@@ -319,6 +321,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             if (module.hasUpgradeCard()) lines.add(Component.translatable("item.neoecoae." + module.upgradeCardId().getPath())
                 .withColor(module.color()));
         }
+        for (var custom : ECOWorkstationModules.registered())
+            lines.add(custom.title().copy().withColor(custom.color()));
         if (state.getBoolean("ignoreUpgradeCards")) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GREEN));
         return lines;
     }
@@ -408,6 +412,18 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     }
 
     private LargeWorkstationModule module() { return LargeWorkstationModule.byName(state.getString("module")); }
+
+    private ECOWorkstationModules.Module moduleDescription(String id, String legacy) {
+        return moduleDescription(state, id, legacy);
+    }
+
+    private static ECOWorkstationModules.Module moduleDescription(
+        CompoundTag tag, String id, String legacy) {
+        var parsed = tag.contains(id) ? net.minecraft.resources.ResourceLocation.tryParse(tag.getString(id)) : null;
+        return parsed == null ? ECOWorkstationModules.builtin(
+            LargeWorkstationModule.byName(tag.getString(legacy)))
+            : ECOWorkstationModules.resolve(parsed);
+    }
     private boolean temperatureEnabled() {
         return !state.contains("temperatureEnabled") || state.getBoolean("temperatureEnabled");
     }
@@ -454,15 +470,19 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     @Override
     public void drawBackgroundAdditional(GUIContext context) {
         var module = module();
-        if (module != LargeWorkstationModule.REGULAR) sprite(context, WorkstationTextures.module(module), 6, 6, 15, 15);
+        var description = moduleDescription("moduleId", "module");
+        if (module != LargeWorkstationModule.REGULAR) sprite(context, description.icon() == null ? WorkstationTextures.module(module)
+            : com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture.of(description.icon()).setSprite(0, 0, 15, 15), 6, 6, 15, 15);
         text(context, Component.translatable("block.neoecoae.large_integrated_working_station"), 25, 9, 115, 0.85f, TEXT);
         text(context, tr("queue_heading"), 9, 28, 72, 0.7f, TEXT);
         text(context, tr("module_slot"), 176, 28, 69, 0.7f, TEXT);
         // The atlas alpha matches the baked circuit exactly; retain the chip and its original shadow.
         if (module != LargeWorkstationModule.REGULAR) {
-            sprite(context, WorkstationTextures.circuit(module), WorkstationTextures.CIRCUIT_X, WorkstationTextures.CIRCUIT_Y, 28, 28);
+            sprite(context, description.circuit() == null ? WorkstationTextures.circuit(module)
+                : com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture.of(description.circuit()).setSprite(0, 0, 28, 28),
+                WorkstationTextures.CIRCUIT_X, WorkstationTextures.CIRCUIT_Y, 28, 28);
         }
-        text(context, module.shortTitle(), 181, 41, 35, 0.75f, 0xFFF2F2F2);
+        text(context, description.shortTitle(), 181, 41, 35, 0.75f, 0xFFF2F2F2);
         text(context, tr(!state.getBoolean("moduleInstalled") ? "module_empty" : "module_installed"),
             181, 53, 35, 0.65f, 0xFFBEC6DD);
         if (tasks.isEmpty()) {
@@ -599,7 +619,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     }
 
     private record Task(UUID id, ItemStack item, FluidStack fluid, long amount, int progress, String status, String detail,
-                        boolean returnable, boolean current, LargeWorkstationModule module) {
+                        boolean returnable, boolean current, ECOWorkstationModules.Module module) {
         Component title() { return !item.isEmpty() ? item.getHoverName() : !fluid.isEmpty() ? fluid.getHoverName() : tr("empty_task"); }
         boolean problem() { return current && !status.isEmpty() && !status.endsWith(".none") && !status.equals(PREFIX + "task_output"); }
         int statusColor() {
