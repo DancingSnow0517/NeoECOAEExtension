@@ -76,6 +76,7 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
             ECOCraftingJobLifecycle.cancelAndRecover(cpu.getLevel(), craftingJobId);
             return;
         }
+        ECOCraftingJobLifecycle.finish(cpu.getLevel(), craftingJobId, true);
         var grid = cpu.getGrid();
         if (grid == null) return;
         for (var worker : grid.getMachines(ECOCraftingWorkerBlockEntity.class)) {

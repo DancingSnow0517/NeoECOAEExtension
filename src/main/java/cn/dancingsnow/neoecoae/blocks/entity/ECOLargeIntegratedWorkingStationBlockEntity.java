@@ -1504,31 +1504,37 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
         MEStorage storage = grid.getStorageService().getInventory();
         Object craftingService = grid.getCraftingService();
-        boolean terminal = batch.craftingJobId != null
-            && ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId);
-        ECOCraftingOutputRouter ownerRouter = null;
-        if (batch.craftingJobId != null && !terminal) {
-            if (!(craftingService instanceof ECOCraftingOutputRouter router)) {
-                setOutputBlockedReason(OutputBlockedReason.CPU_ROUTE);
-                return false;
-            }
-            ownerRouter = router;
-        }
-
         for (GenericStack stack : counterEntries(batch.pendingOutput)) {
             long requested = stack.amount();
-            long inserted = ownerRouter != null
-                ? ownerRouter.neoecoae$insertIntoCpuForJob(
-                    batch.craftingJobId, stack.what(), requested, Actionable.MODULATE)
-                : storage.insert(stack.what(), requested, Actionable.MODULATE, IActionSource.ofMachine(this));
+            if (batch.craftingJobId != null && !ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId)) {
+                if (!(craftingService instanceof ECOCraftingOutputRouter ownerRouter)) {
+                    setOutputBlockedReason(OutputBlockedReason.CPU_ROUTE);
+                    return false;
+                }
+                long inserted = ownerRouter.neoecoae$insertIntoCpuForJob(
+                    batch.craftingJobId, stack.what(), requested, Actionable.MODULATE);
+                if (inserted < 0L || inserted > requested) {
+                    throw new IllegalStateException(
+                        "Invalid large workstation output insertion amount: " + inserted + " for " + requested);
+                }
+                if (inserted > 0L) batch.pendingOutput.remove(stack.what(), inserted);
+                requested -= inserted;
+                if (requested == 0L) continue;
+                // An external CPU can finish while accepting the final output. Its remaining
+                // byproducts and surplus now belong in storage, including the rest of this stack.
+                if (!ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId)) {
+                    setOutputBlockedReason(OutputBlockedReason.CPU_INSERT);
+                    return false;
+                }
+            }
+            long inserted = storage.insert(stack.what(), requested, Actionable.MODULATE, IActionSource.ofMachine(this));
             if (inserted < 0L || inserted > requested) {
                 throw new IllegalStateException(
                     "Invalid large workstation output insertion amount: " + inserted + " for " + requested);
             }
             if (inserted > 0L) batch.pendingOutput.remove(stack.what(), inserted);
             if (inserted < requested) {
-                setOutputBlockedReason(ownerRouter == null
-                    ? OutputBlockedReason.NETWORK_INSERT : OutputBlockedReason.CPU_INSERT);
+                setOutputBlockedReason(OutputBlockedReason.NETWORK_INSERT);
                 return false;
             }
         }

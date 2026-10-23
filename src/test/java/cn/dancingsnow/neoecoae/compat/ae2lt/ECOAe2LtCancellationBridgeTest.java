@@ -100,8 +100,21 @@ class ECOAe2LtCancellationBridgeTest {
     }
 
     @Test
+    void completionPublishesACompletedDecisionWithoutCancellingWorkers() {
+        var level = mock(Level.class);
+        var jobId = UUID.randomUUID();
+        var logic = new FakeLogic(new FakeCpu(level), new FakeJob(new FakeLink(jobId)));
+        try (var lifecycle = mockStatic(ECOCraftingJobLifecycle.class)) {
+            ECOAe2LtCancellationBridge.complete(logic);
+            lifecycle.verify(() -> ECOCraftingJobLifecycle.finish(level, jobId, true));
+            lifecycle.verifyNoMoreInteractions();
+        }
+    }
+
+    @Test
     void anAlreadyClearedJobIsAQuietNoOp() {
         assertDoesNotThrow(() -> ECOAe2LtCancellationBridge.cancel(new FakeLogic(new FakeCpu(null), null)));
+        assertDoesNotThrow(() -> ECOAe2LtCancellationBridge.complete(new FakeLogic(new FakeCpu(null), null)));
     }
 
     private static final class FakeLogic {

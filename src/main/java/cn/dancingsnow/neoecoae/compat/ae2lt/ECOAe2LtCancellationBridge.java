@@ -8,7 +8,7 @@ import java.util.UUID;
 import net.minecraft.world.level.Level;
 
 /**
- * Reflective cancellation bridge for AE2-Lightning-Tech's time-wheel CPU.
+ * Reflective terminal-job bridge for AE2-Lightning-Tech's time-wheel CPU.
  *
  * <p>The time-wheel logic owns a private job type and does not expose a stable
  * cancellation callback. Keeping those details here lets the optional mixin
@@ -49,6 +49,15 @@ public final class ECOAe2LtCancellationBridge {
 
     /** Publishes the terminal decision before the time-wheel logic clears its private job. */
     public static void cancel(Object logic) {
+        finish(logic, false);
+    }
+
+    /** Lets workstation byproducts return to storage after the time-wheel CPU completes its job. */
+    public static void complete(Object logic) {
+        finish(logic, true);
+    }
+
+    private static void finish(Object logic, boolean completed) {
         if (logic == null) {
             return;
         }
@@ -65,8 +74,12 @@ public final class ECOAe2LtCancellationBridge {
             }
             Object cpu = access.cpu.get(logic);
             Level level = cpu == null ? null : (Level) access.level.invoke(cpu);
-            // The live CPU normally always supplies a server level; otherwise let cancellation proceed quietly.
-            ECOCraftingJobLifecycle.cancelAndRecover(level, jobId);
+            // The live CPU normally always supplies a server level; otherwise let termination proceed quietly.
+            if (completed) {
+                ECOCraftingJobLifecycle.finish(level, jobId, true);
+            } else {
+                ECOCraftingJobLifecycle.cancelAndRecover(level, jobId);
+            }
         } catch (ReflectiveOperationException | ClassCastException ignored) {
             // Private AE2LT details are optional and version-sensitive. A failed bridge must not cancel the CPU.
         }

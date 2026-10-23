@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Notifies ECO workers when AE2LT's independent time-wheel CPU is cancelled. */
+/** Publishes terminal decisions from AE2LT's independent time-wheel CPU to ECO workers and workstations. */
 @Pseudo
 @Mixin(targets = "com.moakiee.ae2lt.crafting.timewheel.Ae2LtTimeWheelCraftingCpuLogic", remap = false)
 public abstract class Ae2LtTimeWheelCraftingCpuLogicMixin {
@@ -26,7 +26,9 @@ public abstract class Ae2LtTimeWheelCraftingCpuLogicMixin {
 
     @Inject(method = "finishJob", at = @At("HEAD"), require = 0)
     private void neoecoae$recoverCancelledWorkers(boolean success, CallbackInfo ci) {
-        if (!success) {
+        if (success) {
+            ECOAe2LtCancellationBridge.complete(this);
+        } else {
             ECOAe2LtCancellationBridge.cancel(this);
         }
     }
