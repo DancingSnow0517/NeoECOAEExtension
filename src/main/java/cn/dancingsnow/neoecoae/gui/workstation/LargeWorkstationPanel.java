@@ -239,13 +239,14 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             public void drawBackgroundAdditional(GUIContext context) {
                 int max = maxOffset();
                 float y = max == 0 ? 0 : (float) (62 * taskScroll.thumbOffset() / taskScroll.maximum());
-                context.drawTexture(WorkstationTextures.widget(max == 0 ? 75 : 69, 62, 6, 15).setBorder(2, 0, 2, 0),
-                    getPositionX(), getPositionY() + y, getSizeWidth(), 15);
+                // Keep the artist's six-pixel handle centered on the baked track.
+                context.drawTexture(WorkstationTextures.taskScrollThumb(max > 0),
+                    getPositionX() + 1, getPositionY() + y, 6, 15);
             }
         };
         track.setId("large-workstation-scrollbar");
         track.style(style -> style.zIndex(1));
-        absolute(track, 76, 37, 13, 77);
+        absolute(track, 79, 37, 8, 77);
         track.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button != 0 || maxOffset() == 0) return;
             float localY = event.y - track.getPositionY();

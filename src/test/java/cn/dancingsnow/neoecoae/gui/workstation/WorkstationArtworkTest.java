@@ -32,9 +32,11 @@ class WorkstationArtworkTest {
         for (int y = 0; y < 28; y++) {
             for (int x = 0; x < 28; x++) {
                 int baked = background.getRGB(WorkstationTextures.CIRCUIT_X + x, WorkstationTextures.CIRCUIT_Y + y);
-                boolean wire = baked == 0xFF696D88;
+                // The chip now uses the wire color too; only the surrounding wires are recolored.
+                boolean chip = x >= 10 && x < 26 && y >= 5 && y < 21;
+                boolean wire = !chip && baked == 0xFF696D88;
                 if (wire) assertEquals(baked, atlas.getRGB(x, 34 + y),
-                    "The neutral circuit wires must share the baked origin; chip artwork may be replaced");
+                    "The neutral circuit wires must share the baked origin");
                 if (wire) coveredWires++;
                 for (LargeWorkstationModule module : LargeWorkstationModule.values()) {
                     if (module == LargeWorkstationModule.REGULAR) continue;
@@ -46,17 +48,66 @@ class WorkstationArtworkTest {
             }
         }
         assertTrue(coveredWires > 0);
+        int chipDetails = 0;
+        for (int y = 42; y < 58; y++) for (int x = 227; x < 243; x++) {
+            if (background.getRGB(x, y) == 0xFF696D88) chipDetails++;
+            for (LargeWorkstationModule module : LargeWorkstationModule.values()) {
+                if (module == LargeWorkstationModule.REGULAR) continue;
+                var sprite = WorkstationTextures.circuit(module);
+                assertEquals(0, atlas.getRGB(sprite.spritePosition.getX() + x - WorkstationTextures.CIRCUIT_X,
+                    sprite.spritePosition.getY() + y - WorkstationTextures.CIRCUIT_Y) >>> 24,
+                    "Module recoloring must preserve the baked chip details");
+            }
+        }
+        assertTrue(chipDetails > 0, "The module slot must retain the artist's chip texture");
     }
 
     @Test
-    void artistAtlasPlacesDataBeforeOtherWithoutChangingTheExistingFamilies() {
+    void artistAtlasPlacesAppliedGeneratorsBeforeOtherWithoutChangingTheExistingFamilies() {
         assertEquals(75, WorkstationTextures.module(LargeWorkstationModule.DATA_ENERGISTICS).spritePosition.getX());
         assertEquals(140, WorkstationTextures.circuit(LargeWorkstationModule.DATA_ENERGISTICS).spritePosition.getX());
-        assertEquals(90, WorkstationTextures.module(LargeWorkstationModule.OTHER).spritePosition.getX());
-        assertEquals(168, WorkstationTextures.circuit(LargeWorkstationModule.OTHER).spritePosition.getX());
+        assertEquals(105, WorkstationTextures.module(LargeWorkstationModule.OTHER).spritePosition.getX());
+        assertEquals(196, WorkstationTextures.circuit(LargeWorkstationModule.OTHER).spritePosition.getX());
         assertEquals(60, WorkstationTextures.module(LargeWorkstationModule.LIGHTNING_TECH).spritePosition.getX());
-        assertEquals(105, WorkstationTextures.module(LargeWorkstationModule.APPLIED_GENERATORS).spritePosition.getX());
-        assertEquals(196, WorkstationTextures.circuit(LargeWorkstationModule.APPLIED_GENERATORS).spritePosition.getX());
+        assertEquals(90, WorkstationTextures.module(LargeWorkstationModule.APPLIED_GENERATORS).spritePosition.getX());
+        assertEquals(168, WorkstationTextures.circuit(LargeWorkstationModule.APPLIED_GENERATORS).spritePosition.getX());
+    }
+
+    @Test
+    void dataEnergisticsCardUsesTheSingleStaticArtistImage() throws IOException {
+        String path = "/assets/neoecoae/textures/item/integrated_working_station_modules/data_energistics.png";
+        try (var stream = getClass().getResourceAsStream(path)) {
+            assertNotNull(stream);
+            var card = ImageIO.read(stream);
+            assertEquals(16, card.getWidth());
+            assertEquals(16, card.getHeight());
+        }
+        assertNull(getClass().getResource(path + ".mcmeta"), "The obsolete second animation frame must not be referenced");
+    }
+
+    @Test
+    void everyCompatibilityModelResolvesItsTextureAndAnimation() throws IOException {
+        for (LargeWorkstationModule module : LargeWorkstationModule.values()) {
+            for (boolean working : new boolean[] {false, true}) {
+                String model = "/assets/neoecoae/models/" + module.modelPath(working) + ".json";
+                try (var stream = getClass().getResourceAsStream(model)) {
+                    assertNotNull(stream, model);
+                    var textures = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8))
+                        .getAsJsonObject().getAsJsonObject("textures");
+                    for (var entry : textures.entrySet()) {
+                        String[] id = entry.getValue().getAsString().split(":", 2);
+                        String path = "/assets/" + id[0] + "/textures/" + id[1] + ".png";
+                        try (var texture = getClass().getResourceAsStream(path)) {
+                            assertNotNull(texture, model + " references missing texture " + path);
+                            var image = ImageIO.read(texture);
+                            if (image.getHeight() > image.getWidth()) {
+                                assertNotNull(getClass().getResource(path + ".mcmeta"), path + " needs animation metadata");
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Test

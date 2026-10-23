@@ -29,6 +29,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -230,9 +231,9 @@ class WorkstationUIInteractionTest {
                 }
                 UIElement scrollbar = collect(root, UIElement.class).stream()
                     .filter(element -> "large-workstation-scrollbar".equals(element.getId())).findFirst().orElseThrow();
-                assertEquals(root.getPositionX() + 76, scrollbar.getPositionX());
+                assertEquals(root.getPositionX() + 79, scrollbar.getPositionX());
                 assertEquals(root.getPositionY() + 37, scrollbar.getPositionY());
-                assertEquals(13, scrollbar.getSizeWidth());
+                assertEquals(8, scrollbar.getSizeWidth());
                 assertEquals(77, scrollbar.getSizeHeight());
                 for (String id : List.of("overclock", "cooling", "temperature-setting",
                     "parallel", "temperature", "energy", "module-logo", "module-info", "task-0", "scrollbar", "status",
@@ -380,6 +381,27 @@ class WorkstationUIInteractionTest {
             panel.advanceScroll(1);
             computeStyles(panel);
             assertEquals(shift, row.getStyle().transform2D().translate().resolveY(row.getSizeHeight()));
+        }
+    }
+
+    @Test
+    void largeTaskScrollbarDrawsTheNativeHandleInsideTheBakedTrack() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            for (int total : List.of(0, 12)) {
+                var panel = taskPanel(taskSnapshot(total));
+                new ModularUI(UI.of(panel)).init(640, 480);
+                UIElement scrollbar = taskRegion(panel, "scrollbar");
+                var context = mock(GUIContext.class);
+                scrollbar.drawBackgroundAdditional(context);
+                verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                        && sprite.spritePosition.getX() == (total > 3 ? 69 : 75)
+                        && sprite.spritePosition.getY() == 62),
+                    eq(panel.getPositionX() + 80), eq(panel.getPositionY() + 37), eq(6F), eq(15F));
+                assertTrue(scrollbar.getPositionX() >= panel.getPositionX() + 78,
+                    "The scrollbar must not cover task cards or their return buttons");
+            }
         }
     }
 

@@ -31,14 +31,18 @@ public final class WorkstationTextures {
     private static int moduleColumn(LargeWorkstationModule module) {
         return switch (module) {
             case DATA_ENERGISTICS -> 5;
-            case OTHER -> 6;
-            case APPLIED_GENERATORS -> 7;
+            case APPLIED_GENERATORS -> 6;
+            case OTHER -> 7;
             default -> module.ordinal();
         };
     }
 
     public static SpriteTexture toggle(boolean on, boolean hover) {
         return widget((on ? 0 : 30) + (hover ? 15 : 0), 135, 15, 26);
+    }
+
+    public static SpriteTexture taskScrollThumb(boolean active) {
+        return widget(active ? 69 : 75, 62, 6, 15);
     }
 
     /** The labels 4/6/9 name temperature bands, not multipliers or coolant recipe IDs. */
