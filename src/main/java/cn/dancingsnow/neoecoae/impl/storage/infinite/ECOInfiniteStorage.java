@@ -88,6 +88,9 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     }
 
     @Override
+    public boolean neoecoae$hasSaturatingListing() { return engine instanceof SavedDataInfiniteStorageEngine; }
+
+    @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
         return what != null && allowInsert.getAsBoolean() && engine.contains(what);
     }

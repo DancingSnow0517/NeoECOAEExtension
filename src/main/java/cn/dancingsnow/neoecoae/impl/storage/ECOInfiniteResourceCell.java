@@ -107,4 +107,7 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
             for (AEKey key : ECOInfiniteResourceCellItem.lockedKeys()) visitor.accept(key, ExactAmount.unbounded());
         }
     }
+
+    @Override
+    public boolean neoecoae$hasSaturatingListing() { return true; }
 }

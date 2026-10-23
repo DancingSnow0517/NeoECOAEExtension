@@ -117,6 +117,9 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
         if (!ECOInfiniteStorageMember.isSealed(cellStack)) amounts.forEach((key, amount) -> addVisible(out, key, amount));
     }
 
+    @Override
+    public boolean neoecoae$hasSaturatingListing() { return true; }
+
     /** Shares the ECO infinite storage terminal path without reading each cell's contents twice. */
     @Override
     public void neoecoae$listWithExactAmounts(KeyCounter out, BiConsumer<AEKey, ExactAmount> visitor) {

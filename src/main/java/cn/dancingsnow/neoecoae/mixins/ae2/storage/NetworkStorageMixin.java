@@ -7,13 +7,13 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.NetworkStorage;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
-import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import java.math.BigInteger;
 import java.util.List;
@@ -24,6 +24,8 @@ import java.util.Objects;
 @Mixin(NetworkStorage.class)
 public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
+
+    @Unique private final StorageListingAccumulator neoecoae$listing = new StorageListingAccumulator();
 
     @Shadow private boolean mountsInUse;
     @Shadow @Final private NavigableMap<Integer, List<MEStorage>> priorityInventory;
@@ -118,11 +120,9 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
     private void neoecoae$getAvailableStacksSaturated(
         MEStorage storage, KeyCounter output, Operation<Void> original
     ) {
-        // Each mounted inventory writes into an isolated counter. Merging it ourselves makes
-        // Long.MAX_VALUE + a normal disk amount saturate instead of wrapping negative, regardless
-        // of mount order (the infinite resource matrix may be visited first or last).
-        KeyCounter contribution = new KeyCounter();
-        ExactAmountCollector.collect(storage, contribution, counter -> original.call(storage, counter));
-        SaturatingStackAccumulator.addAll(output, contribution);
+        // Reuse an isolated counter for sources without a saturating listing. This keeps
+        // Long.MAX_VALUE + ordinary stock safe in either mount order, while trusted ECO
+        // sources can append directly without copying their entire inventory.
+        neoecoae$listing.append(storage, output, counter -> original.call(storage, counter));
     }
 }

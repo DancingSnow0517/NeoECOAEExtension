@@ -9,12 +9,12 @@ import appeng.api.storage.MEStorage;
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
 /** Scoped server-thread exact totals, with invalid storage projections sanitized on every listing. */
 public final class ExactAmountCollector {
@@ -25,10 +25,12 @@ public final class ExactAmountCollector {
 
     public static void begin() { ACTIVE.set(new State()); }
 
+    public static boolean isActive() { return ACTIVE.get() != null; }
+
     /** Isolates child-network totals so a storage bus is counted once, after its visibility filter. */
     public static void collect(MEStorage storage, KeyCounter contribution, Consumer<KeyCounter> listing) {
         State parent = ACTIVE.get();
-        State nested = parent == null ? null : new State();
+        State nested = parent == null ? null : parent.child();
         if (nested != null) ACTIVE.set(nested);
         try {
             if (!collectCombined(storage, contribution)) listing.accept(contribution);
@@ -42,10 +44,7 @@ public final class ExactAmountCollector {
     public static boolean collectCombined(MEStorage storage, KeyCounter contribution) {
         State state = ACTIVE.get();
         if (state == null || !(storage instanceof CombinedExactAmountSource source)) return false;
-        source.neoecoae$listWithExactAmounts(contribution, (key, exact) -> {
-            state.exactKeys.add(key);
-            state.totals.merge(key, exact, ExactAmount::add);
-        });
+        source.neoecoae$listWithExactAmounts(contribution, state::addExact);
         return true;
     }
 
@@ -61,37 +60,26 @@ public final class ExactAmountCollector {
             for (var entry : contribution) negative |= entry.getLongValue() < 0;
             if (!negative) return;
         }
-        visitAmounts(storage, contribution, nested, (key, exact, known) -> {
-            if (state != null) {
-                if (known) state.exactKeys.add(key);
-                state.totals.merge(key, exact, ExactAmount::add);
-            }
-        });
+        visitAmounts(storage, contribution, nested, state, null);
     }
 
     /** Reads only listed keys and repairs their legacy projection when an exact source is available. */
     public static void visitAmounts(MEStorage storage, KeyCounter contribution,
             BiConsumer<AEKey, ExactAmount> visitor) {
-        visitAmounts(storage, contribution, null, (key, amount, known) -> visitor.accept(key, amount));
+        visitAmounts(storage, contribution, null, null, visitor);
     }
 
     private static void visitAmounts(MEStorage storage, KeyCounter contribution, State nested,
-            AmountVisitor visitor) {
-        Map<AEKey, ExactAmount> sourceAmounts = Map.of();
-        ExactAmountSource source = findExactSource(storage);
+            State state, BiConsumer<AEKey, ExactAmount> visitor) {
         // A direct combined source already emitted its authoritative values in this frame.
-        if (source != null && !(nested != null && storage instanceof CombinedExactAmountSource)) {
-            sourceAmounts = new HashMap<>();
-            source.neoecoae$visitExactAmounts(sourceAmounts::put);
-        }
+        Map<AEKey, ExactAmount> sourceAmounts = nested != null && storage instanceof CombinedExactAmountSource
+            ? Map.of() : sourceAmounts(storage);
         boolean repaired = false;
         for (var entry : contribution) {
             AEKey key = entry.getKey();
             ExactAmount exact = sourceAmounts.get(key);
-            boolean known = exact != null;
             if (exact == null && nested != null) {
                 exact = nested.totals.get(key);
-                known = nested.exactKeys.contains(key);
             }
             long amount = entry.getLongValue();
             if (exact != null) {
@@ -99,18 +87,30 @@ public final class ExactAmountCollector {
                     contribution.set(key, exact.infinite() ? Long.MAX_VALUE : exact.value().min(MAX_LONG).longValueExact());
                     repaired = true;
                 }
+                if (state != null) state.addExact(key, exact);
+                if (visitor != null) visitor.accept(key, exact);
             } else if (amount < 0) {
                 // An already-wrapped signed long cannot reveal the real stock. Do not invent
                 // an infinite supply or let it cancel another inventory's valid contribution.
                 contribution.set(key, 0);
                 repaired = true;
-                continue;
-            } else {
-                exact = ExactAmount.finite(BigInteger.valueOf(amount));
+            } else if (state != null || visitor != null) {
+                // Keep ordinary stock in primitive longs. BigInteger is needed only for an
+                // exact source or when several otherwise ordinary inventories overflow.
+                long value = nested != null && nested.longs.containsKey(key) ? nested.longs.getLong(key) : amount;
+                if (state != null) state.addLong(key, value);
+                if (visitor != null) visitor.accept(key, ExactAmount.finite(BigInteger.valueOf(value)));
             }
-            visitor.accept(key, exact, known);
         }
         if (repaired) contribution.removeZeros();
+    }
+
+    static Map<AEKey, ExactAmount> sourceAmounts(MEStorage storage) {
+        ExactAmountSource source = findExactSource(storage);
+        if (source == null) return Map.of();
+        Map<AEKey, ExactAmount> amounts = new HashMap<>();
+        source.neoecoae$visitExactAmounts(amounts::put);
+        return amounts;
     }
 
     private static ExactAmountSource findExactSource(MEStorage storage) {
@@ -129,26 +129,44 @@ public final class ExactAmountCollector {
         State state = ACTIVE.get();
         ACTIVE.remove();
         if (state == null) return Map.of();
-        Map<AEKey, ExactAmount> result = new HashMap<>();
         // Individually long-sized disks/hosts can overflow when combined. Their total also
         // needs the side channel, even when no mounted inventory implements ExactAmountSource.
-        state.totals.forEach((key, amount) -> {
-            if (state.exactKeys.contains(key) || amount.infinite() || amount.value().compareTo(MAX_LONG) > 0) {
-                result.put(key, amount);
-            }
-        });
-        return result;
+        return state.totals;
     }
 
     public static void abort() { ACTIVE.remove(); }
 
-    @FunctionalInterface
-    private interface AmountVisitor {
-        void accept(AEKey key, ExactAmount amount, boolean known);
-    }
-
     private static final class State {
+        private final Object2LongOpenHashMap<AEKey> longs = new Object2LongOpenHashMap<>();
         private final Map<AEKey, ExactAmount> totals = new HashMap<>();
-        private final Set<AEKey> exactKeys = new HashSet<>();
+        private State child;
+
+        State child() {
+            if (child == null) child = new State();
+            child.longs.clear();
+            child.totals.clear();
+            return child;
+        }
+
+        void addLong(AEKey key, long amount) {
+            ExactAmount exact = totals.get(key);
+            if (exact != null) {
+                totals.put(key, exact.add(amount));
+                return;
+            }
+            long previous = longs.getLong(key);
+            if (previous > Long.MAX_VALUE - amount) {
+                longs.removeLong(key);
+                totals.put(key, ExactAmount.finite(BigInteger.valueOf(previous).add(BigInteger.valueOf(amount))));
+            } else {
+                longs.put(key, previous + amount);
+            }
+        }
+
+        void addExact(AEKey key, ExactAmount amount) {
+            long previous = longs.removeLong(key);
+            if (previous != 0) amount = amount.add(previous);
+            totals.merge(key, amount, ExactAmount::add);
+        }
     }
 }

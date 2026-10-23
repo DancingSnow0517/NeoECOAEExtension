@@ -13,7 +13,7 @@ public final class SaturatingStackAccumulator {
         }
     }
 
-    static void add(KeyCounter target, AEKey key, long amount) {
+    public static void add(KeyCounter target, AEKey key, long amount) {
         long current = target.get(key);
         if (amount > 0L && current > Long.MAX_VALUE - amount) {
             target.set(key, Long.MAX_VALUE);
