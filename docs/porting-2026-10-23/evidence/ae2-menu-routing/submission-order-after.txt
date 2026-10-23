@@ -1,0 +1,172 @@
+public appeng.api.networking.crafting.ICraftingSubmitResult submitJob(appeng.api.networking.crafting.ICraftingPlan, appeng.api.networking.crafting.ICraftingRequester, appeng.api.networking.crafting.ICraftingCPU, boolean, appeng.api.networking.security.IActionSource);
+    descriptor: (Lappeng/api/networking/crafting/ICraftingPlan;Lappeng/api/networking/crafting/ICraftingRequester;Lappeng/api/networking/crafting/ICraftingCPU;ZLappeng/api/networking/security/IActionSource;)Lappeng/api/networking/crafting/ICraftingSubmitResult;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: iload         4
+       6: aload         5
+       8: new           #532                // class org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable
+      11: dup
+      12: ldc_w         #648                // String submitJob
+      15: iconst_0
+      16: invokespecial #534                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable."<init>":(Ljava/lang/String;Z)V
+      19: invokespecial #652                // Method handler$cko000$neoecoae$traceSubmissionEntry:(Lappeng/api/networking/crafting/ICraftingPlan;Lappeng/api/networking/crafting/ICraftingRequester;Lappeng/api/networking/crafting/ICraftingCPU;ZLappeng/api/networking/security/IActionSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V
+      22: aload_1
+      23: invokeinterface #657,  1          // InterfaceMethod appeng/api/networking/crafting/ICraftingPlan.simulation:()Z
+      28: ifeq          66
+      31: getstatic     #663                // Field appeng/crafting/execution/CraftingSubmitResult.INCOMPLETE_PLAN:Lappeng/api/networking/crafting/ICraftingSubmitResult;
+      34: dup
+      35: astore        10
+      37: new           #532                // class org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable
+      40: dup
+      41: ldc_w         #648                // String submitJob
+      44: iconst_0
+      45: aload         10
+      47: invokespecial #666                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable."<init>":(Ljava/lang/String;ZLjava/lang/Object;)V
+      50: astore        10
+      52: aload_0
+      53: aload_1
+      54: aload_2
+      55: aload_3
+      56: iload         4
+      58: aload         5
+      60: aload         10
+      62: invokespecial #669                // Method handler$cko000$neoecoae$traceSubmissionReturn:(Lappeng/api/networking/crafting/ICraftingPlan;Lappeng/api/networking/crafting/ICraftingRequester;Lappeng/api/networking/crafting/ICraftingCPU;ZLappeng/api/networking/security/IActionSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V
+      65: areturn
+      66: aload_3
+      67: instanceof    #260                // class appeng/me/cluster/implementations/CraftingCPUCluster
+      70: ifeq          82
+      73: aload_3
+      74: checkcast     #260                // class appeng/me/cluster/implementations/CraftingCPUCluster
+      77: astore        6
+      79: goto          288
+      82: new           #671                // class org/apache/commons/lang3/mutable/MutableObject
+      85: dup
+      86: invokespecial #672                // Method org/apache/commons/lang3/mutable/MutableObject."<init>":()V
+      89: astore        7
+      91: aload_0
+      92: aload_1
+      93: iload         4
+      95: aload         5
+      97: aload         7
+      99: new           #532                // class org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable
+     102: dup
+     103: ldc_w         #648                // String submitJob
+     106: iconst_1
+     107: invokespecial #534                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable."<init>":(Ljava/lang/String;Z)V
+     110: astore        15
+     112: aload_0
+     113: aload_1
+     114: aload_2
+     115: aload_3
+     116: iload         4
+     118: aload         5
+     120: aload         15
+     122: aload         7
+     124: invokespecial #676                // Method handler$ckp000$neoecoae$submit:(Lappeng/api/networking/crafting/ICraftingPlan;Lappeng/api/networking/crafting/ICraftingRequester;Lappeng/api/networking/crafting/ICraftingCPU;ZLappeng/api/networking/security/IActionSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;Lorg/apache/commons/lang3/mutable/MutableObject;)V
+     127: aload         15
+     129: invokevirtual #556                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable.isCancelled:()Z
+     132: ifeq          144
+     135: aload         15
+     137: invokevirtual #593                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable.getReturnValue:()Ljava/lang/Object;
+     140: checkcast     #678                // class appeng/api/networking/crafting/ICraftingSubmitResult
+     143: areturn
+     144: invokevirtual #682                // Method findSuitableCraftingCPU:(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;Lorg/apache/commons/lang3/mutable/MutableObject;)Lappeng/me/cluster/implementations/CraftingCPUCluster;
+     147: astore        6
+     149: new           #532                // class org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable
+     152: dup
+     153: ldc_w         #648                // String submitJob
+     156: iconst_1
+     157: invokespecial #534                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable."<init>":(Ljava/lang/String;Z)V
+     160: astore        14
+     162: aload_0
+     163: aload_1
+     164: aload_2
+     165: aload_3
+     166: iload         4
+     168: aload         5
+     170: aload         14
+     172: aload         6
+     174: aload         7
+     176: invokespecial #686                // Method handler$edb000$gtlcore$submitToTransfiniteCpu:(Lappeng/api/networking/crafting/ICraftingPlan;Lappeng/api/networking/crafting/ICraftingRequester;Lappeng/api/networking/crafting/ICraftingCPU;ZLappeng/api/networking/security/IActionSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;Lappeng/me/cluster/implementations/CraftingCPUCluster;Lorg/apache/commons/lang3/mutable/MutableObject;)V
+     179: aload         14
+     181: invokevirtual #556                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable.isCancelled:()Z
+     184: ifeq          196
+     187: aload         14
+     189: invokevirtual #593                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable.getReturnValue:()Ljava/lang/Object;
+     192: checkcast     #678                // class appeng/api/networking/crafting/ICraftingSubmitResult
+     195: areturn
+     196: aload         6
+     198: ifnonnull     288
+     201: aload         7
+     203: invokevirtual #689                // Method org/apache/commons/lang3/mutable/MutableObject.getValue:()Ljava/lang/Object;
+     206: checkcast     #691                // class appeng/api/networking/crafting/UnsuitableCpus
+     209: astore        8
+     211: aload         8
+     213: ifnonnull     251
+     216: getstatic     #694                // Field appeng/crafting/execution/CraftingSubmitResult.NO_CPU_FOUND:Lappeng/api/networking/crafting/ICraftingSubmitResult;
+     219: dup
+     220: astore        11
+     222: new           #532                // class org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable
+     225: dup
+     226: ldc_w         #648                // String submitJob
+     229: iconst_0
+     230: aload         11
+     232: invokespecial #666                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable."<init>":(Ljava/lang/String;ZLjava/lang/Object;)V
+     235: astore        11
+     237: aload_0
+     238: aload_1
+     239: aload_2
+     240: aload_3
+     241: iload         4
+     243: aload         5
+     245: aload         11
+     247: invokespecial #669                // Method handler$cko000$neoecoae$traceSubmissionReturn:(Lappeng/api/networking/crafting/ICraftingPlan;Lappeng/api/networking/crafting/ICraftingRequester;Lappeng/api/networking/crafting/ICraftingCPU;ZLappeng/api/networking/security/IActionSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V
+     250: areturn
+     251: aload         8
+     253: invokestatic  #698                // Method appeng/crafting/execution/CraftingSubmitResult.noSuitableCpu:(Lappeng/api/networking/crafting/UnsuitableCpus;)Lappeng/api/networking/crafting/ICraftingSubmitResult;
+     256: dup
+     257: astore        12
+     259: new           #532                // class org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable
+     262: dup
+     263: ldc_w         #648                // String submitJob
+     266: iconst_0
+     267: aload         12
+     269: invokespecial #666                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable."<init>":(Ljava/lang/String;ZLjava/lang/Object;)V
+     272: astore        12
+     274: aload_0
+     275: aload_1
+     276: aload_2
+     277: aload_3
+     278: iload         4
+     280: aload         5
+     282: aload         12
+     284: invokespecial #669                // Method handler$cko000$neoecoae$traceSubmissionReturn:(Lappeng/api/networking/crafting/ICraftingPlan;Lappeng/api/networking/crafting/ICraftingRequester;Lappeng/api/networking/crafting/ICraftingCPU;ZLappeng/api/networking/security/IActionSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V
+     287: areturn
+     288: aload         6
+     290: aload_0
+     291: getfield      #156                // Field grid:Lappeng/api/networking/IGrid;
+     294: aload_1
+     295: aload         5
+     297: aload_2
+     298: invokevirtual #701                // Method appeng/me/cluster/implementations/CraftingCPUCluster.submitJob:(Lappeng/api/networking/IGrid;Lappeng/api/networking/crafting/ICraftingPlan;Lappeng/api/networking/security/IActionSource;Lappeng/api/networking/crafting/ICraftingRequester;)Lappeng/api/networking/crafting/ICraftingSubmitResult;
+     301: dup
+     302: astore        13
+     304: new           #532                // class org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable
+     307: dup
+     308: ldc_w         #648                // String submitJob
+     311: iconst_0
+     312: aload         13
+     314: invokespecial #666                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable."<init>":(Ljava/lang/String;ZLjava/lang/Object;)V
+     317: astore        13
+     319: aload_0
+     320: aload_1
+     321: aload_2
+     322: aload_3
+     323: iload         4
+     325: aload         5
+     327: aload         13
+     329: invokespecial #669                // Method handler$cko000$neoecoae$traceSubmissionReturn:(Lappeng/api/networking/crafting/ICraftingPlan;Lappeng/api/networking/crafting/ICraftingRequester;Lappeng/api/networking/crafting/ICraftingCPU;ZLappeng/api/networking/security/IActionSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V
+     332: areturn

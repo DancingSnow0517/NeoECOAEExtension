@@ -1,0 +1,105 @@
+{
+  "time": "2026-10-24T01:26:48.667893+08:00",
+  "installation": {
+    "status": "already_installed_and_verified",
+    "installed_new_package": true,
+    "installed": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\mods\\neoecoae-20.6.0-dev.jar",
+    "installed_sha256": "1bf9824aa32e71e8094f8068065824c154b434dceb1d49690193c3112bd6c4be",
+    "bytes": 6951917,
+    "snapshot": "build/release/ae2-menu-routing/current-installed/neoecoae-20.6.0-dev.jar",
+    "replacement_performed_this_run": false,
+    "reason": "Another workspace build installed a combined package containing these fixes and the updated structure terminal. Preserve that combined package."
+  },
+  "byte_identical_units": {
+    "cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingServiceEarlyMixin.class": "525507e10b65c9f82e6df83a36049a440c068e2beade6b89ee1aa7c140f91db0",
+    "cn/dancingsnow/neoecoae/platform/mixin/CraftConfirmPlanningBridge.class": "b142f9e65d48301a85d82ffe1935448043cbf3440566097ff2d860445ba8fc6a",
+    "cn/dancingsnow/neoecoae/platform/mixin/CraftingMenuPlanningMixinPlugin.class": "c63a1e1ed02cd3bae225e70ee4340c535f4de6b72133916217bbfd4feb5562cd",
+    "neoecoae.mixins.json": "98ea9989b5fa05109b200da34a177189c928b7d5ea830ca8acb024f6762b88bb"
+  },
+  "matching_routing_methods": [
+    {
+      "class": "CraftingServiceMixin",
+      "method": "neoecoae$earlySubmitJob",
+      "equal_except_constant_pool_indices_and_spacing": true
+    },
+    {
+      "class": "CraftingServiceMixin",
+      "method": "neoecoae$findSuitableAdvCraftingCPU",
+      "equal_except_constant_pool_indices_and_spacing": true
+    },
+    {
+      "class": "CraftConfirmMenuMixin",
+      "method": "neoecoae$routeEcoPlanningRequest",
+      "equal_except_constant_pool_indices_and_spacing": true
+    },
+    {
+      "class": "CraftConfirmMenuMixin",
+      "method": "resetPlannerDiagnostics",
+      "equal_except_constant_pool_indices_and_spacing": true
+    },
+    {
+      "class": "CraftConfirmMenuMixin",
+      "method": "capturePlannerDiagnostics",
+      "equal_except_constant_pool_indices_and_spacing": true
+    }
+  ],
+  "package_audit": {
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "1bf9824aa32e71e8094f8068065824c154b434dceb1d49690193c3112bd6c4be",
+    "bytes": 6951917,
+    "source_files_checked": 949,
+    "packaged_classes": 1567,
+    "class_major_versions": {
+      "61": 1567
+    },
+    "registered_mixins": 64,
+    "registered_mixin_configs": [
+      "neoecoae.compat.advanced_ae.mixins.json",
+      "neoecoae.compat.extendedae.mixins.json",
+      "neoecoae.compat.thunderbolt.mixins.json",
+      "neoecoae.mixins.json",
+      "neoecoae.terminal_big_amount.mixins.json"
+    ],
+    "refmap_classes": 8,
+    "nested_jars": [
+      "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+      "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+    ],
+    "problems": {
+      "missing_source_classes": [],
+      "missing_required_resources": [],
+      "missing_registered_mixins": [],
+      "missing_mixin_plugins": [],
+      "unregistered_mixin_configs": [],
+      "missing_nested_jars": [],
+      "missing_translations": [],
+      "fake_upstream_classes": [],
+      "duplicate_entries": []
+    },
+    "result": "success",
+    "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+  },
+  "live_game_pid": 25708,
+  "loaded_submission_offsets": {
+    "simulation": 23,
+    "eco": 124,
+    "native_scan": 144,
+    "addon": 176
+  },
+  "loaded_planning_routes": [
+    {
+      "method": "public boolean planJob(appeng.api.stacks.AEKey, int, appeng.api.networking.crafting.CalculationStrategy);",
+      "routes_to_eco_bridge": true
+    },
+    {
+      "method": "private boolean gtlcore$planLongAmountJob(appeng.api.stacks.AEKey, long, appeng.api.networking.crafting.CalculationStrategy, boolean);",
+      "routes_to_eco_bridge": true
+    }
+  ],
+  "routing_hooks_loaded_in_active_game": true,
+  "bytecode_captures_returned_no_replacement_bytes": true,
+  "graph_click_verified": false,
+  "actual_crafting_cpu_ownership_verified": false,
+  "screen_at_inspection": "net.minecraft.client.gui.screens.PauseScreen",
+  "real_crafting_jobs_created_or_cancelled": false
+}

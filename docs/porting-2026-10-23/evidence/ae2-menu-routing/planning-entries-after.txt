@@ -1,0 +1,133 @@
+public boolean planJob(appeng.api.stacks.AEKey, int, appeng.api.networking.crafting.CalculationStrategy);
+    descriptor: (Lappeng/api/stacks/AEKey;ILappeng/api/networking/crafting/CalculationStrategy;)Z
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: aload_3
+       4: new           #441                // class org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable
+       7: dup
+       8: ldc_w         #442                // String planJob
+      11: iconst_0
+      12: invokespecial #443                // Method org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable."<init>":(Ljava/lang/String;Z)V
+      15: invokespecial #447                // Method handler$eca000$gtlcore$prepareForPlan:(Lappeng/api/stacks/AEKey;ILappeng/api/networking/crafting/CalculationStrategy;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V
+      18: aload_0
+      19: getfield      #449                // Field job:Ljava/util/concurrent/Future;
+      22: ifnull        36
+      25: aload_0
+      26: getfield      #449                // Field job:Ljava/util/concurrent/Future;
+      29: iconst_1
+      30: invokeinterface #455,  2          // InterfaceMethod java/util/concurrent/Future.cancel:(Z)Z
+      35: pop
+      36: aload_0
+      37: aconst_null
+      38: putfield      #457                // Field result:Lappeng/api/networking/crafting/ICraftingPlan;
+      41: aload_0
+      42: invokevirtual #460                // Method clearError:()V
+      45: aload_0
+      46: aload_1
+      47: putfield      #462                // Field whatToCraft:Lappeng/api/stacks/AEKey;
+      50: aload_0
+      51: iload_2
+      52: putfield      #464                // Field amount:I
+      55: aload_0
+      56: invokevirtual #468                // Method getPlayer:()Lnet/minecraft/world/entity/player/Player;
+      59: astore        4
+      61: aload_0
+      62: invokevirtual #472                // Method getGrid:()Lappeng/api/networking/IGrid;
+      65: astore        5
+      67: aload         5
+      69: ifnonnull     74
+      72: iconst_0
+      73: ireturn
+      74: aload         5
+      76: invokeinterface #478,  1          // InterfaceMethod appeng/api/networking/IGrid.getCraftingService:()Lappeng/api/networking/crafting/ICraftingService;
+      81: astore        6
+      83: aload_0
+      84: aload         6
+      86: aload         4
+      88: invokevirtual #484                // Method net/minecraft/world/entity/player/Player.m_9236_:()Lnet/minecraft/world/level/Level;
+      91: aload_0
+      92: invokedynamic #494,  0            // InvokeDynamic #6:getActionSource:(Lappeng/menu/me/crafting/CraftConfirmMenu;)Lappeng/api/networking/crafting/ICraftingSimulationRequester;
+      97: aload_1
+      98: iload_2
+      99: i2l
+     100: aload_3
+     101: aload_0
+     102: invokestatic  #498                // InterfaceMethod cn/dancingsnow/neoecoae/platform/mixin/CraftConfirmPlanningBridge.routePlanningRequest:(Lappeng/api/networking/crafting/ICraftingService;Lnet/minecraft/world/level/Level;Lappeng/api/networking/crafting/ICraftingSimulationRequester;Lappeng/api/stacks/AEKey;JLappeng/api/networking/crafting/CalculationStrategy;Lcn/dancingsnow/neoecoae/platform/mixin/CraftConfirmPlanningBridge;)Ljava/util/concurrent/Future;
+     105: putfield      #449                // Field job:Ljava/util/concurrent/Future;
+     108: iconst_1
+     109: ireturn
+
+private boolean gtlcore$planLongAmountJob(appeng.api.stacks.AEKey, long, appeng.api.networking.crafting.CalculationStrategy, boolean);
+    descriptor: (Lappeng/api/stacks/AEKey;JLappeng/api/networking/crafting/CalculationStrategy;Z)Z
+    Code:
+       0: aload_0
+       1: invokevirtual #1083               // Method gtlcore$releaseInventoryReservation:()V
+       4: aload_0
+       5: iconst_0
+       6: putfield      #1258               // Field gtlcore$submitting:Z
+       9: aload_0
+      10: iconst_0
+      11: putfield      #1264               // Field gtlcore$refreshAfterSubmit:Z
+      14: aload_0
+      15: aload         4
+      17: putfield      #252                // Field gtlcore$calculationStrategy:Lappeng/api/networking/crafting/CalculationStrategy;
+      20: aload_0
+      21: getfield      #449                // Field job:Ljava/util/concurrent/Future;
+      24: ifnull        38
+      27: aload_0
+      28: getfield      #449                // Field job:Ljava/util/concurrent/Future;
+      31: iconst_1
+      32: invokeinterface #455,  2          // InterfaceMethod java/util/concurrent/Future.cancel:(Z)Z
+      37: pop
+      38: aload_0
+      39: aconst_null
+      40: putfield      #457                // Field result:Lappeng/api/networking/crafting/ICraftingPlan;
+      43: aload_0
+      44: aconst_null
+      45: putfield      #575                // Field plan:Lappeng/menu/me/crafting/CraftingPlanSummary;
+      48: aload_0
+      49: invokevirtual #460                // Method clearError:()V
+      52: aload_0
+      53: aload_1
+      54: putfield      #462                // Field whatToCraft:Lappeng/api/stacks/AEKey;
+      57: aload_0
+      58: lload_2
+      59: invokestatic  #1268               // Method org/gtlcore/gtlcore/integration/ae2/common/CraftAmountReturnState.legacyAmount:(J)I
+      62: putfield      #464                // Field amount:I
+      65: aload_0
+      66: lload_2
+      67: invokestatic  #1272               // Method org/gtlcore/gtlcore/integration/ae2/common/CraftAmountReturnState.rememberedAmount:(J)J
+      70: putfield      #245                // Field gtlcore$longAmount:J
+      73: aload_0
+      74: invokevirtual #472                // Method getGrid:()Lappeng/api/networking/IGrid;
+      77: astore        6
+      79: aload         6
+      81: ifnonnull     86
+      84: iconst_0
+      85: ireturn
+      86: aload_0
+      87: invokevirtual #468                // Method getPlayer:()Lnet/minecraft/world/entity/player/Player;
+      90: astore        7
+      92: aload_0
+      93: aload         6
+      95: invokeinterface #478,  1          // InterfaceMethod appeng/api/networking/IGrid.getCraftingService:()Lappeng/api/networking/crafting/ICraftingService;
+     100: aload         7
+     102: invokevirtual #484                // Method net/minecraft/world/entity/player/Player.m_9236_:()Lnet/minecraft/world/level/Level;
+     105: iload         5
+     107: ifeq          120
+     110: aload_0
+     111: invokevirtual #1274               // Method getActionSource:()Lappeng/api/networking/security/IActionSource;
+     114: invokestatic  #1279               // Method org/gtlcore/gtlcore/integration/ae2/graph/CraftingEngineRouter.submissionRefresh:(Lappeng/api/networking/security/IActionSource;)Lappeng/api/networking/crafting/ICraftingSimulationRequester;
+     117: goto          126
+     120: aload_0
+     121: invokedynamic #1282,  0           // InvokeDynamic #15:getActionSource:(Lappeng/menu/me/crafting/CraftConfirmMenu;)Lappeng/api/networking/crafting/ICraftingSimulationRequester;
+     126: aload_1
+     127: lload_2
+     128: aload         4
+     130: aload_0
+     131: invokestatic  #498                // InterfaceMethod cn/dancingsnow/neoecoae/platform/mixin/CraftConfirmPlanningBridge.routePlanningRequest:(Lappeng/api/networking/crafting/ICraftingService;Lnet/minecraft/world/level/Level;Lappeng/api/networking/crafting/ICraftingSimulationRequester;Lappeng/api/stacks/AEKey;JLappeng/api/networking/crafting/CalculationStrategy;Lcn/dancingsnow/neoecoae/platform/mixin/CraftConfirmPlanningBridge;)Ljava/util/concurrent/Future;
+     134: putfield      #449                // Field job:Ljava/util/concurrent/Future;
+     137: iconst_1
+     138: ireturn
