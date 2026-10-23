@@ -6,7 +6,7 @@
 
 ## 1. 依赖配置与 API 边界
 
-API 随完整模组 JAR 分发，目前没有独立的 `-api` 产物，也没有长期 API 兼容性承诺。构建中的 Maven 发布地址是本地 `repo/`，没有声明公共 NeoECOAE Maven 仓库。请固定接入方实际拿到的 JAR 及其 Minecraft、NeoForge、AE2 依赖版本。项目许可证为 GPLv3。
+API 随完整模组 JAR 分发，目前没有独立的 `-api` 产物。[附属扩展 API v1](ADDON_API_ZH_CN.md) 列出本轮公开能力及其兼容边界；其他公开实现类不自动获得兼容承诺。构建中的 Maven 发布地址是本地 `repo/`，没有声明公共 NeoECOAE Maven 仓库。请固定接入方实际拿到的 JAR 及其 Minecraft、NeoForge、AE2 依赖版本。项目许可证为 GPLv3。
 
 在已经配置 NeoForge、AE2 和 Java 21 的附属模组项目中，将对应 JAR 放入 `libs/`：
 
@@ -565,6 +565,17 @@ public final class EcoPatternExample {
 `IECOPatternStorage` 是供可写目标使用的 AE2 节点服务，在 managed node 上注册。它的 `KnownUnique` 方法要求调用方已经证明没有重复，不是通用快速插入入口。`canAcceptIntoAuxiliary` 不得有副作用。目录索引的主机实现 `PatternStorageHost` 和 `AuxiliaryPatternHolder`，提供真实槽位、便宜的修订号、稳定的容器内容顺序和刷新后的公布样板。
 
 外部迁移通过 `claimExternalPatternCandidates` 使用 owner UUID 认领候选。扫描的 `ready` 为 false 时也可以处理已经发现的候选。所有退出路径释放认领；临时无空间时释放单个候选，源槽清空后删除候选。不要在拓扑变化后继续使用旧的源槽引用。
+
+`PatternStorageHost` 默认不作为“迁移网络样板”的来源，保留宿主已安装的样板。附属宿主若同时实现 AE2 的 `PatternContainer`，可覆写以下方法主动加入来源池；宿主仍须是同一 AE2 网络中的活动机器：
+
+```java
+@Override
+public boolean allowsPatternMigrationSource() {
+    return true;
+}
+```
+
+迁移读取 `getPatternSlotInventory()` 的真实槽位，不会抽取终端视图追加的容器配方。此开关只决定来源资格，目标路由、去重和网络范围仍遵循原有规则。
 
 源码：[导入报告](../src/main/java/cn/dancingsnow/neoecoae/api/ECOPatternInsertion.java)、[可写样板存储](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java)、[目录主机](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java)。
 

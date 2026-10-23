@@ -6,7 +6,7 @@ Scope: **Minecraft 1.21.1 / NeoForge**. Use the guide from the same revision as 
 
 ## 1. Dependency setup and API boundaries
 
-The API is in the full mod JAR. There is no separate `-api` artifact or declared long-term API compatibility policy. The build publishes to the local `repo/` directory; it does not declare a public NeoECOAE Maven endpoint. Pin the supplied artifact and its Minecraft/NeoForge/AE2 dependencies. The project license is GPLv3.
+The API is in the full mod JAR; there is no separate `-api` artifact. [Addon API v1](ADDON_API_ZH_CN.md) documents the supported extension families and their compatibility policy. Other public implementation classes do not automatically carry that guarantee. The build publishes to the local `repo/` directory; it does not declare a public NeoECOAE Maven endpoint. Pin the supplied artifact and its Minecraft/NeoForge/AE2 dependencies. The project license is GPLv3.
 
 In an existing NeoForge Java 21 addon project, copy the matching JAR to `libs/`:
 
@@ -565,6 +565,17 @@ When the destination stores the encoded **item**, no blank is owed. When `consum
 `IECOPatternStorage` is an AE2 node service for writable destinations. Register it on the managed node. Its `KnownUnique` methods require a prior duplicate proof; they are not general insertion shortcuts. `canAcceptIntoAuxiliary` must be side-effect-free. Hosts indexed by the catalog expose `PatternStorageHost` and `AuxiliaryPatternHolder`: use real slot inventories, cheap revision tokens, stable auxiliary ordering, and refreshed advertised patterns.
 
 External migration uses owner UUID claims from `claimExternalPatternCandidates`. Candidates can be processed before the scan's `ready` flag becomes true. Release claims on every exit; release one candidate for a temporary no-space result and remove a candidate after its source is emptied. Do not retain source-slot references through topology changes.
+
+`PatternStorageHost` is excluded from network pattern migration sources by default, preserving the host's installed patterns. An addon host that also implements AE2's `PatternContainer` can override this method to opt in; it must still be an active machine on the same AE2 network:
+
+```java
+@Override
+public boolean allowsPatternMigrationSource() {
+    return true;
+}
+```
+
+Migration reads the physical slots from `getPatternSlotInventory()`, leaving auxiliary recipes appended by the terminal view alone. This switch controls source eligibility; destination routing, duplicate detection, and network scope keep their existing rules.
 
 Source: [reporting result](../src/main/java/cn/dancingsnow/neoecoae/api/ECOPatternInsertion.java), [writable storage](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java), [catalog host](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java).
 

@@ -9,6 +9,7 @@ These guides cover the Minecraft 1.21.1 / NeoForge source tree. Build versions a
 | Read about / 内容 | English | 简体中文 |
 | --- | --- | --- |
 | API calls and integration contracts / API 调用与接入约定 | [API guide](API.md) | [API 调用指南](API_ZH_CN.md) |
+| Addon contracts: power, structures, parts, cells and workstations / 附属扩展契约 | — | [附属 API v1](ADDON_API_ZH_CN.md) |
 | ECO planner behavior and diagnostics / ECO 规划器行为与诊断 | [ECO planner](ECO_PLANNER.md) | [ECO 规划器说明](ECO_PLANNER_ZH_CN.md) |
 | Host panel appearance extensions / 主机面板外观扩展 | — | [主机面板 API](HOST_PANEL_API_ZH_CN.md) |
 | JSON UI resources / JSON 界面资源 | — | [UI JSON](UI_JSON_ZH_CN.md) |
