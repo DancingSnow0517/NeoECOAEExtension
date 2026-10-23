@@ -14,6 +14,8 @@ import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.logic.provider.OverloadedPatternProviderLogic;
 import com.moakiee.ae2lt.logic.provider.ProviderTarget;
 import com.moakiee.ae2lt.mixin.PatternProviderLogicAccessor;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.lang.reflect.Field;
 import java.util.*;
 import net.minecraft.core.Direction;
@@ -309,7 +311,7 @@ class ECOAe2LtDirectDispatchTest {
         final List<ProviderTarget> targets = new ArrayList<>();
         final IEnergyService energy = mock(IEnergyService.class);
         final Map<IPatternDetails, IPatternDetails> canonicalPatterns = new IdentityHashMap<>();
-        final Set<IPatternDetails> blockedPatterns = Collections.newSetFromMap(new IdentityHashMap<>());
+        final ReferenceSet<IPatternDetails> blockedPatterns = new ReferenceOpenHashSet<>();
         final List<BlockingCheck> blockingChecks = new ArrayList<>();
         final long[] capacities;
         final long[] received;

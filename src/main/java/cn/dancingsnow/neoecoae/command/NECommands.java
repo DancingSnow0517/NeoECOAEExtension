@@ -7,8 +7,9 @@ import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
@@ -60,7 +61,7 @@ public final class NECommands {
     }
 
     private static int clearFxWorkers(net.minecraft.commands.CommandSourceStack source) {
-        Set<IGrid> affectedGrids = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IGrid> affectedGrids = new ReferenceOpenHashSet<>();
         Set<UUID> affectedJobs = new HashSet<>();
         int clearedWorkers = 0;
         int clearedThreads = 0;
@@ -94,7 +95,7 @@ public final class NECommands {
         if (affectedJobs.isEmpty()) {
             return 0;
         }
-        Set<NEComputationCluster> clusters = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<NEComputationCluster> clusters = new ReferenceOpenHashSet<>();
         for (IGrid grid : grids) {
             for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
                 if (host.getCluster() != null) {

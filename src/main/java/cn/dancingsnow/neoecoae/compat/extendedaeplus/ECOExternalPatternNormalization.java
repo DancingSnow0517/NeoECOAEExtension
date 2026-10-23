@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.compat.extendedaeplus;
 
 import appeng.api.crafting.IPatternDetails;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.math.BigInteger;
 import java.util.*;
 
@@ -17,8 +19,9 @@ public final class ECOExternalPatternNormalization {
         tasks.forEach((pattern, count) -> {
             if (count <= 0) return;
             BigInteger copies = BigInteger.valueOf(count);
-            Set<IPatternDetails> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+            ReferenceSet<IPatternDetails> seen = null;
             while (TYPES.contains(pattern.getClass().getName())) {
+                if (seen == null) seen = new ReferenceOpenHashSet<>();
                 if (!seen.add(pattern)) throw new IllegalArgumentException("Cyclic EAEP wrapper");
                 try {
                     var original = (IPatternDetails) pattern.getClass().getMethod("getOriginal").invoke(pattern);

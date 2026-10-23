@@ -15,11 +15,10 @@ import appeng.hooks.ticking.TickHandler;
 import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Set;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
@@ -40,8 +39,8 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     private final ECOCraftingFastPathCache localFastPathCache = new ECOCraftingFastPathCache();
     private long localPatternDomainGeneration;
-    private final Set<ECOCraftingWorkerBlockEntity> localAvailableWorkers =
-        Collections.newSetFromMap(new IdentityHashMap<>());
+    private final ReferenceSet<ECOCraftingWorkerBlockEntity> localAvailableWorkers =
+        new ReferenceOpenHashSet<>();
     private long localAvailabilityTick = Long.MIN_VALUE;
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {

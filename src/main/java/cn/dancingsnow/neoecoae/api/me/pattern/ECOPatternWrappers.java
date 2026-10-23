@@ -1,13 +1,12 @@
 package cn.dancingsnow.neoecoae.api.me.pattern;
 
 import appeng.api.crafting.IPatternDetails;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
@@ -61,7 +60,7 @@ public final class ECOPatternWrappers {
     private static List<Object> trace(@Nullable Object original) {
         List<Entry> snapshot = entries;
         List<Object> result = new ArrayList<>();
-        Set<Object> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<Object> seen = new ReferenceOpenHashSet<>();
         Object current = original;
         while (current != null && seen.add(current) && result.size() < MAX_DEPTH) {
             result.add(current);

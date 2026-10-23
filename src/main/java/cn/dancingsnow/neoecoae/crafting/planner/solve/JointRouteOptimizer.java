@@ -23,11 +23,11 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -90,7 +90,7 @@ public final class JointRouteOptimizer {
             long amount, boolean firstFeasible, boolean allowOrdered, ECOCancellation cancellation) throws InterruptedException {
         Set<AEKey> demanded = new LinkedHashSet<>();
         var pending = new java.util.ArrayDeque<AEKey>(); pending.add(network.goal());
-        Set<IPatternDetails> demandedPatterns = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IPatternDetails> demandedPatterns = new ReferenceOpenHashSet<>();
         while (!pending.isEmpty()) {
             cancellation.checkpoint();
             AEKey key = pending.removeFirst();
@@ -101,7 +101,7 @@ public final class JointRouteOptimizer {
             }
         }
         List<CompiledPattern> candidates = new ArrayList<>();
-        Set<IPatternDetails> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IPatternDetails> seen = new ReferenceOpenHashSet<>();
         boolean competition = false;
         for (var producers : network.producers().values()) {
             cancellation.checkpoint();
@@ -196,7 +196,7 @@ public final class JointRouteOptimizer {
                 if (ordered != null) return ordered;
                 if (prefixRequired.isEmpty()) return null;
                 var cycle = new CycleComponent(0, List.of(network.goal()), List.of(), List.of(), List.of(), List.of());
-                Set<IPatternDetails> allowedStartup = Collections.newSetFromMap(new IdentityHashMap<>());
+                ReferenceSet<IPatternDetails> allowedStartup = new ReferenceOpenHashSet<>();
                 var bootstrap = bootstrapNetwork(network, inventory, prefixRequired.keySet(), cancellation);
                 bootstrap.producers().values().forEach(views -> views.forEach(pattern -> allowedStartup.add(pattern.details())));
                 Map<Integer, PlannerAmount> repaired = new LinkedHashMap<>();
@@ -280,7 +280,7 @@ public final class JointRouteOptimizer {
         }
         // Restrict physical candidates without discarding their real advertised output views.
         // The ordered verifier must see the same AE activation contract as the original graph.
-        Set<IPatternDetails> retained = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IPatternDetails> retained = new ReferenceOpenHashSet<>();
         producers.values().forEach(views -> views.forEach(pattern -> retained.add(pattern.details())));
         network.producers().forEach((key, views) -> {
             var advertised = views.stream().filter(pattern -> retained.contains(pattern.details())).toList();
@@ -418,7 +418,7 @@ public final class JointRouteOptimizer {
         stockCredits.forEach((key, held) -> demand.computeIfPresent(key,
             (ignored, needed) -> needed.subtract(PlannerAmount.of(held)).max(PlannerAmount.ZERO)));
         Set<AEKey> useful = new LinkedHashSet<>(); useful.add(network.goal());
-        Set<IPatternDetails> activated = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IPatternDetails> activated = new ReferenceOpenHashSet<>();
         boolean progress;
         do {
             progress = false;

@@ -1,11 +1,10 @@
 package cn.dancingsnow.neoecoae.compat.useless;
 
 import appeng.api.crafting.IPatternDetails;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.Set;
 import org.jetbrains.annotations.Nullable;
 
 /** Reads Useless's public pattern contracts without requiring the optional mod or applied mixins. */
@@ -22,7 +21,7 @@ final class UselessPatternApi {
 
     @Nullable
     static UselessDynamicPatternView dynamicView(IPatternDetails pattern) {
-        Set<IPatternDetails> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IPatternDetails> visited = new ReferenceOpenHashSet<>();
         IPatternDetails current = pattern;
         while (current != null && visited.add(current)) {
             if (current instanceof UselessDynamicPatternView view) return view;

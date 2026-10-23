@@ -9,10 +9,10 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Set;
 
 /** Counts usable installed matrices independently of power, so an overloaded grid stays offline. */
 public final class BiggerAE2SingularityPowerService implements IGridService, IGridServiceProvider {
@@ -64,7 +64,7 @@ public final class BiggerAE2SingularityPowerService implements IGridService, IGr
             additionalIdleDrain = 0;
             return;
         }
-        Set<ECODriveBlockEntity> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<ECODriveBlockEntity> seen = new ReferenceOpenHashSet<>();
         for (ECODriveBlockEntity drive : nodes.values()) {
             if (!seen.add(drive)) continue;
             var stack = drive.getCellStack();

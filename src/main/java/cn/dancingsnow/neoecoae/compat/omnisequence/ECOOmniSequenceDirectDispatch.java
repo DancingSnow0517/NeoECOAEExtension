@@ -18,12 +18,11 @@ import com.atir.molecularmanipulator.integration.ae2.MolecularBatchCraftingProvi
 import net.neoforged.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,8 +37,8 @@ import org.slf4j.LoggerFactory;
 public final class ECOOmniSequenceDirectDispatch {
     public static final String MOD_ID = "molecularmanipulator";
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
-    private static final ThreadLocal<Set<ICraftingProvider>> FLUSHING =
-            ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
+    private static final ThreadLocal<ReferenceSet<ICraftingProvider>> FLUSHING =
+            ThreadLocal.withInitial(ReferenceOpenHashSet::new);
 
     private ECOOmniSequenceDirectDispatch() {}
 

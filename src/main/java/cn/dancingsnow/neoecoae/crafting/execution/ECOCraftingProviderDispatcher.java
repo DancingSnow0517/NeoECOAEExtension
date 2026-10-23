@@ -4,8 +4,8 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOPatternPushDiagnostics;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.*;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.util.List;
-import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -316,7 +316,7 @@ final class ECOCraftingProviderDispatcher {
             }
             if (omni.shouldDeferFurtherDispatch()) {
                 omniDeferredPatterns.computeIfAbsent(provider,
-                        ignored -> Collections.newSetFromMap(new IdentityHashMap<>())).add(request.pattern());
+                        ignored -> new ReferenceOpenHashSet<>()).add(request.pattern());
             }
             if (admission.status() != ECOBatchAdmission.Status.ACCEPTED) {
                 diagnostics.pushRejected(request.pattern(), provider);

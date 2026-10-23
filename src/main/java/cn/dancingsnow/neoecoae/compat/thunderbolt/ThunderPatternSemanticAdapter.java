@@ -7,9 +7,8 @@ import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.AE2PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.Set;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.lang.reflect.Method;
 
 /** Normalizes AE2 Lightning Technology overload patterns for ECO's static planner. */
@@ -85,9 +84,10 @@ public final class ThunderPatternSemanticAdapter implements ECOPatternSemanticAd
     }
 
     private static IPatternDetails unwrap(IPatternDetails pattern) {
-        Set<IPatternDetails> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IPatternDetails> visited = null;
         IPatternDetails current = pattern;
         while (ThunderboltApi.isInstance(ThunderboltApi.WRAPPER, current)) {
+            if (visited == null) visited = new ReferenceOpenHashSet<>();
             if (!visited.add(current)) throw new IllegalArgumentException("Cyclic Thunder pattern wrapper");
             IPatternDetails next = (IPatternDetails) ThunderboltApi.invoke(WRAPPED_PATTERN, current);
             if (next == null) throw new IllegalArgumentException("Null Thunder wrapped pattern");

@@ -14,6 +14,8 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionRequirement;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,7 +24,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
@@ -353,7 +354,7 @@ public final class ECOPlanningResultRegistry {
         if (sourceTasks.size() != submittedTasks.size()
                 || !PlanIdentity.sameTaskCounts(sourceTasks, submittedTasks)) return null;
         Map<IPatternDetails, IPatternDetails> mapping = new HashMap<>();
-        Set<IPatternDetails> usedTargets = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IPatternDetails> usedTargets = new ReferenceOpenHashSet<>();
         for (var sourceTask : sourceTasks.entrySet()) {
             List<IPatternDetails> matches = submittedTasks.entrySet().stream()
                 .filter(target -> !usedTargets.contains(target.getKey()))

@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.network;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -12,7 +14,6 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -401,6 +402,6 @@ public final class NELogicalNetworkManager {
         private final Set<NEComputationCluster> computation = new HashSet<>();
         private final Map<NetworkPartitionKey, NECraftingNetworkCluster> craftingNetworks = new HashMap<>();
         private final Map<NetworkPartitionKey, NEComputationNetworkCluster> computationNetworks = new HashMap<>();
-        private final Set<NECluster<?>> pendingGridRefresh = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final ReferenceSet<NECluster<?>> pendingGridRefresh = new ReferenceOpenHashSet<>();
     }
 }

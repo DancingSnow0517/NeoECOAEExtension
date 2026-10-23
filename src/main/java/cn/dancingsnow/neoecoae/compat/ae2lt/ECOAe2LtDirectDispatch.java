@@ -6,6 +6,8 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.lang.reflect.*;
 import java.util.*;
 import net.minecraft.core.Direction;
@@ -37,9 +39,9 @@ public final class ECOAe2LtDirectDispatch {
         return session != null && session.canBatchWhileBlocking();
     }
     @Nullable private static Object logic(Object provider) {
-        return logic(provider, Collections.newSetFromMap(new IdentityHashMap<>()));
+        return logic(provider, new ReferenceOpenHashSet<>());
     }
-    @Nullable private static Object logic(Object provider, Set<Object> visited) {
+    @Nullable private static Object logic(Object provider, ReferenceSet<Object> visited) {
         if (provider == null) return null;
         if (!visited.add(provider)) return null;
         for (Class<?> type = provider.getClass(); type != null; type = type.getSuperclass()) {

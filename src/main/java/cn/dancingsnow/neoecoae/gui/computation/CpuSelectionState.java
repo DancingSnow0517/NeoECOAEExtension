@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -27,10 +29,10 @@ final class CpuSelectionState<T> {
     }
 
     void update(List<T> cpus, Predicate<T> busy, Function<T, String> name) {
-        Map<T, Boolean> present = new IdentityHashMap<>();
+        ReferenceSet<T> present = new ReferenceOpenHashSet<>(cpus.size());
         List<T> next = new ArrayList<>();
         for (T cpu : cpus) {
-            if (present.put(cpu, true) == null) {
+            if (present.add(cpu)) {
                 identities.register(cpu);
                 next.add(cpu);
             }

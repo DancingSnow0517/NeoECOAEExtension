@@ -7,14 +7,13 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import java.math.BigInteger;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 
 /** Scoped server-thread exact totals, with invalid storage projections sanitized on every listing. */
 public final class ExactAmountCollector {
@@ -116,7 +115,7 @@ public final class ExactAmountCollector {
     private static ExactAmountSource findExactSource(MEStorage storage) {
         if (storage instanceof ExactAmountSource source) return source;
         if (!(storage instanceof DelegatingMEInventoryAccessor)) return null;
-        Set<MEStorage> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<MEStorage> visited = new ReferenceOpenHashSet<>();
         while (storage != null && visited.add(storage)) {
             if (storage instanceof ExactAmountSource source) return source;
             if (!(storage instanceof DelegatingMEInventoryAccessor wrapper)) break;

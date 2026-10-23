@@ -19,6 +19,8 @@ import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -109,7 +111,7 @@ public final class CraftingGraphSnapshotFactory {
         List<PatternNode> patterns = new ArrayList<>();
         List<Edge> edges = new ArrayList<>();
         Map<IPatternDetails, Integer> patternIds = new IdentityHashMap<>();
-        var cyclePatterns = java.util.Collections.newSetFromMap(new IdentityHashMap<IPatternDetails, Boolean>());
+        ReferenceSet<IPatternDetails> cyclePatterns = new ReferenceOpenHashSet<>();
         for (var cycle : trace.cycles()) {
             for (var edge : cycle.internalEdges()) cyclePatterns.add(edge.pattern().details());
         }
