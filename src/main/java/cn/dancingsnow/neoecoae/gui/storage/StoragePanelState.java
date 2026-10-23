@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageChannelDisplays;
+
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.CellEntry;
 import appeng.api.storage.cells.CellState;
@@ -38,7 +40,13 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         0, 0, 0, "0", 0, 0, 0, List.of(), List.of(), "", 0, false);
 
     record TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
-        long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes) {
+        long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes,
+        net.minecraft.resources.ResourceLocation channel, net.minecraft.resources.ResourceLocation icon,
+        net.minecraft.resources.ResourceLocation swatchTexture) {
+        TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
+            long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes) {
+            this(id, name, color, usedTypes, totalTypes, usedBytes, totalBytes, bytesText, swatch, exactUsedBytes, null, null, null);
+        }
         TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
             long usedBytes, long totalBytes, String bytesText) {
             this(id, name, color, usedTypes, totalTypes, usedBytes, totalBytes, bytesText,
@@ -53,6 +61,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         boolean infinite = config.infiniteStorage().getAsBoolean();
         boolean migrating = config.migratingToInfinite().getAsBoolean();
         List<TypeLine> types = new ArrayList<>();
+        java.util.Map<Integer, Integer> orders = new java.util.HashMap<>();
         for (StorageHostUI.StorageTypeLine line : config.storageTypes()) {
             if (!line.visible().getAsBoolean()) continue;
             long usedTypes = line.usedTypes().getAsLong(), totalTypes = line.totalTypes().getAsLong();
@@ -63,11 +72,19 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             int swatch = StoragePanelTextures.swatchIndex(line.resourceId());
             int color = swatch < StoragePanelTextures.FALLBACK_SWATCH ? StoragePanelTextures.COLORS[swatch]
                 : HostText.storageTypeAccentColor(line.type(), line.registryIndex());
-            types.add(new TypeLine(line.registryIndex(), line.displayName().get(), color,
+            var display = ECOStorageChannelDisplays.resolve(line.resourceId());
+            if (display != null) {
+                orders.put(line.registryIndex(), display.order());
+                swatch = StoragePanelTextures.FALLBACK_SWATCH;
+            }
+            types.add(new TypeLine(line.registryIndex(), display == null ? line.displayName().get() : display.name(),
+                display == null ? color : display.color(),
                 usedTypes, totalTypes, usedBytes, totalBytes,
                 infinite || migrating || totalBytes < 0 ? line.infiniteBytesText().get() : HostText.ae2Amount(usedBytes),
-                swatch, line.exactUsedBytes().get().max(BigInteger.ZERO)));
+                swatch, line.exactUsedBytes().get().max(BigInteger.ZERO), display == null ? null : display.channel(),
+                display == null ? null : display.icon(), display == null ? null : display.swatch()));
         }
+        types.sort(java.util.Comparator.comparingInt(type -> orders.getOrDefault(type.id(), 0)));
         return new StoragePanelState(config.title().get(), config.tier().getAsInt(), config.formed().getAsBoolean(),
             infinite, migrating, config.storedEnergy().getAsLong(), config.maxEnergy().getAsLong(),
             config.energyConsumePerTick().getAsLong(), config.totalUsedBytesText().get(), usage(all), all.size(), offset,
@@ -161,6 +178,9 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             entry.putLong("ub", type.usedBytes()); entry.putLong("tb", type.totalBytes());
             entry.putString("text", type.bytesText()); lines.add(entry);
             entry.putInt("swatch", type.swatch()); entry.putString("exactBytes", type.exactUsedBytes().toString());
+            if (type.channel() != null) entry.putString("channel", type.channel().toString());
+            if (type.icon() != null) entry.putString("icon", type.icon().toString());
+            if (type.swatchTexture() != null) entry.putString("swatchTexture", type.swatchTexture().toString());
         }
         tag.put("types", lines);
         return tag;
@@ -191,7 +211,10 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
                 type.getLong("ut"), type.getLong("tt"), type.getLong("ub"), type.getLong("tb"), type.getString("text"),
                 type.contains("swatch") ? type.getInt("swatch") : StoragePanelTextures.FALLBACK_SWATCH,
                 type.contains("exactBytes") ? new BigInteger(type.getString("exactBytes"))
-                    : BigInteger.valueOf(Math.max(0, type.getLong("ub")))));
+                    : BigInteger.valueOf(Math.max(0, type.getLong("ub"))),
+                type.contains("channel") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("channel")) : null,
+                type.contains("icon") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("icon")) : null,
+                type.contains("swatchTexture") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("swatchTexture")) : null));
         }
         return new StoragePanelState(component(tag, "title"), tag.getInt("tier"), tag.getBoolean("formed"),
             tag.getBoolean("infinite"), tag.getBoolean("migrating"), tag.getLong("energy"), tag.getLong("maxEnergy"),

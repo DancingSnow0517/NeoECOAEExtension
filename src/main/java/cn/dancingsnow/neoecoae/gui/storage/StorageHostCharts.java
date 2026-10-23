@@ -334,7 +334,8 @@ final class StorageHostCharts {
             for (CapacitySegment segment : segments) {
                 int width = Math.min(segment.width(), revealedWidth - x);
                 if (width <= 0) break;
-                context.drawTexture(panelTexture(StoragePanelTextures.swatch(segment.swatch(), segment.color())),
+                context.drawTexture(segment.texture() == null ? panelTexture(StoragePanelTextures.swatch(segment.swatch(), segment.color()))
+                    : SpriteTexture.of(segment.texture()).setSprite(0, 0, 8, 8).setBorder(1, 0, 1, 0),
                     getPositionX() + x, getPositionY(), width, getSizeHeight());
                 if (mouseX >= x && mouseX < x + width && mouseY >= 0 && mouseY < getSizeHeight()) {
                     context.drawTexture(panelTexture(StoragePanelTextures.RESOURCE_HOVER),
@@ -407,7 +408,8 @@ final class StorageHostCharts {
                 if (index >= state().types().size()) continue;
                 context.drawTexture(panelTexture(StoragePanelTextures.TYPE_PANEL), getPositionX(), y, 68, 29);
                 StoragePanelState.TypeLine type = state().types().get(index);
-                context.drawTexture(panelTexture(StoragePanelTextures.resourceIcon(type.swatch(), type.color())),
+                context.drawTexture(type.icon() == null ? panelTexture(StoragePanelTextures.resourceIcon(type.swatch(), type.color()))
+                    : SpriteTexture.of(type.icon()).setSprite(0, 0, 8, 8),
                     getPositionX() + 2, y + 2, 6, 6);
                 // Mod-provided name styles can disagree with the resource icon's palette.
                 text(context, Component.literal(type.name().getString()), 10, row * 29 + 2,
@@ -492,8 +494,12 @@ final class StorageHostCharts {
         }
     }
 
-    record CapacitySegment(int swatch, int color, int width) {}
-    private record ResourceColor(int swatch, int color) {}
+    record CapacitySegment(int swatch, int color, int width,
+        net.minecraft.resources.ResourceLocation channel, net.minecraft.resources.ResourceLocation texture) {
+        CapacitySegment(int swatch, int color, int width) { this(swatch, color, width, null, null); }
+    }
+    private record ResourceColor(int swatch, int color,
+        net.minecraft.resources.ResourceLocation channel, net.minecraft.resources.ResourceLocation texture) {}
 
     /** Divide the supplied filled width by exact stored bytes, merging aliases and preserving amounts beyond long. */
     static List<CapacitySegment> capacitySegments(StoragePanelState state, int availableWidth) {
@@ -502,20 +508,21 @@ final class StorageHostCharts {
         Map<ResourceColor, BigInteger> amounts = new LinkedHashMap<>();
         for (StoragePanelState.TypeLine type : state.types()) {
             if (type.exactUsedBytes().signum() <= 0) continue;
-            amounts.merge(new ResourceColor(type.swatch(), type.color()), type.exactUsedBytes(), BigInteger::add);
+            amounts.merge(new ResourceColor(type.swatch(), type.color(), type.channel(), type.swatchTexture()), type.exactUsedBytes(), BigInteger::add);
         }
         BigInteger total = amounts.values().stream().reduce(BigInteger.ZERO, BigInteger::add);
         if (total.signum() <= 0) return List.of();
         var resources = amounts.entrySet().stream().sorted(
             Comparator.<Map.Entry<ResourceColor, BigInteger>, BigInteger>comparing(Map.Entry::getValue).reversed()
-                .thenComparingInt(entry -> entry.getKey().swatch()).thenComparingInt(entry -> entry.getKey().color())).toList();
+                .thenComparingInt(entry -> entry.getKey().swatch()).thenComparingInt(entry -> entry.getKey().color())
+                .thenComparing(entry -> String.valueOf(entry.getKey().channel()))).toList();
         List<CapacitySegment> segments = new ArrayList<>();
         BigInteger accumulated = BigInteger.ZERO;
         int previous = 0;
         for (var resource : resources) {
             accumulated = accumulated.add(resource.getValue());
             int end = accumulated.multiply(BigInteger.valueOf(width)).add(total.shiftRight(1)).divide(total).intValue();
-            if (end > previous) segments.add(new CapacitySegment(resource.getKey().swatch(), resource.getKey().color(), end - previous));
+            if (end > previous) segments.add(new CapacitySegment(resource.getKey().swatch(), resource.getKey().color(), end - previous, resource.getKey().channel(), resource.getKey().texture()));
             previous = end;
         }
         return List.copyOf(segments);
@@ -575,7 +582,9 @@ final class StorageHostCharts {
 
     private List<Component> resourceTooltip(StoragePanelState snapshot, CapacitySegment segment) {
         var types = snapshot.types().stream().filter(type -> type.exactUsedBytes().signum() > 0
-            && type.swatch() == segment.swatch() && type.color() == segment.color()).toList();
+            && type.swatch() == segment.swatch() && type.color() == segment.color()
+            && java.util.Objects.equals(type.channel(), segment.channel())
+            && java.util.Objects.equals(type.swatchTexture(), segment.texture())).toList();
         if (types.isEmpty()) return List.of();
         BigInteger used = types.stream().map(StoragePanelState.TypeLine::exactUsedBytes)
             .reduce(BigInteger.ZERO, BigInteger::add);
