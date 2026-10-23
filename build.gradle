@@ -131,6 +131,7 @@ legacyForge {
             systemProperty 'neoecoae.multiblockAlignmentSmoke', providers.gradleProperty('multiblockAlignmentSmoke').getOrElse('')
             systemProperty 'neoecoae.clientSmokeEnergy', providers.gradleProperty('clientSmokeEnergy').getOrElse('false')
             systemProperty 'neoecoae.storageSavedDataSmoke', providers.gradleProperty('storageSavedDataSmoke').getOrElse('')
+            systemProperty 'neoecoae.legacy2042Smoke', providers.gradleProperty('legacy2042Smoke').getOrElse('')
         }
     }
     mods {

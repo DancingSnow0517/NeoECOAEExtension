@@ -50,6 +50,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @RequireRerender
     @Nullable
     private ItemStack cellStack = null;
+    @Persisted
+    private CompoundTag legacy2042RestoreData = new CompoundTag();
 
     // UI requests identify this installation, independently of mutable or transient item components.
     // Recreated on load; no persistent disk data or save migration is needed.
@@ -212,7 +214,34 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             cachedCellStack = cellStack;
             cachedCellInventory = ECOStorageCells.getCellInventory(cellStack, this);
         }
+        if (hasLegacyRestoreReceipts() && cachedCellInventory instanceof cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell ordinary) {
+            CompoundTag metadata = ordinary.storageData().metadata();
+            String key = cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.RESTORE_BARRIER;
+            if (!metadata.contains(key)) {
+                metadata.put(key, legacy2042RestoreData.copy()); ordinary.storageData().metadata(metadata);
+                ordinary.storageData().flush();
+                NEItemData.update(cellStack, tag -> tag.put(key, legacy2042RestoreData.copy()));
+            }
+        }
         return cachedCellInventory;
+    }
+
+    public boolean hasLegacyRestoreReceipts() { return !legacy2042RestoreData.isEmpty()
+        || cellStack != null && NEItemData.read(cellStack).contains(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.RESTORE_BARRIER); }
+
+    @Override
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        if (data.contains("ecoRestoreReceipts") && (!(data.get("ecoRestoreReceipts") instanceof net.minecraft.nbt.ListTag list)
+            || !list.isEmpty())) {
+            legacy2042RestoreData.put("receipts", data.get("ecoRestoreReceipts").copy());
+            org.slf4j.LoggerFactory.getLogger(ECODriveBlockEntity.class)
+                .error("20.4.2 restore receipts at {} require reconciliation; disk and domain will remain locked", worldPosition);
+        }
+        if (cellStack != null && !legacy2042RestoreData.isEmpty())
+            NEItemData.update(cellStack, tag -> tag.put(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.RESTORE_BARRIER,
+                legacy2042RestoreData.copy()));
+        invalidateCellInventoryCache();
     }
 
     private void invalidateCellInventoryCache() {

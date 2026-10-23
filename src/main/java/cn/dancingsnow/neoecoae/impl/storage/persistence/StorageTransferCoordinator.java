@@ -41,7 +41,7 @@ public final class StorageTransferCoordinator {
                             UUID domain, SavedDataInfiniteStorageEngine target, UUID transaction, Consumer<Phase> observer) {
         return transfer(session, source, domain, target, transaction, observer, java.util.Map.of());
     }
-    private static boolean transfer(ECOStorageRepository.Session session, ECOCellSavedData source,
+    static boolean transfer(ECOStorageRepository.Session session, ECOCellSavedData source,
             UUID domain, SavedDataInfiniteStorageEngine target, UUID transaction, Consumer<Phase> observer,
             java.util.Map<appeng.api.stacks.AEKey, java.util.Set<UUID>> compatibility) {
         if (!source.canMutate() || !target.isHealthy()) return false;
@@ -87,6 +87,7 @@ public final class StorageTransferCoordinator {
             observer.accept(Phase.DESTINATION_SAVED);
             source.amounts().clear();
             source.legacyMigration(false);
+            source.clearLegacy2042();
             metadata.putBoolean("neoecoae_infinite_member", true);
             metadata.putUUID("neoecoae_infinite_domain", domain);
             metadata.putUUID("neoecoae_member_identity", transaction);
@@ -112,7 +113,7 @@ public final class StorageTransferCoordinator {
         if (session.server() == null) return;
         var server = session.server();
         try {
-            var target = ECOInfiniteStorageDomains.acquire(server.overworld(), journal.domain());
+            var target = ECOInfiniteStorageDomains.acquireExisting(server.overworld(), journal.domain());
             if (!(target instanceof SavedDataInfiniteStorageEngine saved)
                 || !transfer(session, source, journal.domain(), saved, journal.transaction())) {
                 source.unavailable("ECO transfer recovery did not complete; original records retained");

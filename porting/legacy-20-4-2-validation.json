@@ -1,0 +1,232 @@
+{
+  "date": "2026-10-22",
+  "generated_at": "2026-10-22T06:15:40.391399+00:00",
+  "minecraft": "1.20.1",
+  "loader": "Forge",
+  "java": 17,
+  "source": {
+    "tag": "20.4.2",
+    "commit": "f1739d1f1d23b889649aa2804a3d7e493c919c4e",
+    "reference_files": [
+      {
+        "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/ECOCellHandle.java",
+        "sha256": "2afda5c71e762510b544a446b69f60e84cfb102bbab4d28affaa0b91261b8859"
+      },
+      {
+        "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/SavedDataECOStorageBackend.java",
+        "sha256": "e82e66958f97b2bc49b80c99193b176e5e98d9a9cd26575d5db3ba651a441f75"
+      },
+      {
+        "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorageDomains.java",
+        "sha256": "3ff4770c28adaf0a9d188e3a0e7cc153ee4221fbd00d3e8fe1b1676d72840519"
+      },
+      {
+        "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/infinite/SavedDataInfiniteStorageEngine.java",
+        "sha256": "d8652fdc2341690ba933730ddbadb639589b345d64135dc992fbac2323401203"
+      },
+      {
+        "path": "src/main/java/cn/dancingsnow/neoecoae/impl/storage/ECOStorageKeyHash.java",
+        "sha256": "ea47452647b4eb225bf47d24820e33d39a544e38fe725ae5ff8d22c5349ee90e"
+      },
+      {
+        "path": "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOCraftingPatternBusBlockEntity.java",
+        "sha256": "73145328d4e036403b0acb67d7d9072c1ad8a18e87e06fc3f408c90c972640f0"
+      }
+    ]
+  },
+  "approved_main_baseline": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "status": "implemented regular-format compatibility; remaining legacy restore and player-world acceptance gaps documented",
+  "compile_java": "PASS: full main sources; no source exclusions added",
+  "tests": {
+    "portingPlatformTest": {
+      "tests": 176,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "legacy_2042_suites": [
+        {
+          "name": "cn.dancingsnow.neoecoae.impl.storage.infinite.Legacy2042InfiniteStorageTest",
+          "tests": 8
+        },
+        {
+          "name": "cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042StorageTest",
+          "tests": 14
+        },
+        {
+          "name": "cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042TransfersTest",
+          "tests": 9
+        },
+        {
+          "name": "cn.dancingsnow.neoecoae.platform.nbt.Legacy2042InventoryTest",
+          "tests": 6
+        }
+      ]
+    },
+    "portingContractsTest": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "legacy_2042_suites": []
+    }
+  },
+  "unit_total": 182,
+  "legacy_2042_test_total": 37,
+  "test_log": "validation/legacy-2042-final-tests.log",
+  "development_servers": [
+    {
+      "profile": "base",
+      "phase": "upgrade",
+      "world": "legacy-2042-acceptance-20261022-final",
+      "result": "PASS",
+      "log": "validation/legacy-2042-base-final-upgrade.log",
+      "report": "docs/storage/evidence/legacy-20-4-2/base-upgrade.json",
+      "fixture_kind": "source-backed old-format NBT in actual Forge world; not a player world"
+    },
+    {
+      "profile": "base",
+      "phase": "read",
+      "world": "legacy-2042-acceptance-20261022-final",
+      "result": "PASS",
+      "log": "validation/legacy-2042-base-final-read.log",
+      "report": "docs/storage/evidence/legacy-20-4-2/base-read.json",
+      "fixture_kind": "source-backed old-format NBT in actual Forge world; not a player world"
+    },
+    {
+      "profile": "combined",
+      "phase": "upgrade",
+      "world": "legacy-2042-acceptance-20261022-combined",
+      "result": "PASS",
+      "log": "validation/legacy-2042-combined-upgrade.log",
+      "report": "docs/storage/evidence/legacy-20-4-2/combined-upgrade.json",
+      "fixture_kind": "source-backed old-format NBT in actual Forge world; not a player world"
+    },
+    {
+      "profile": "combined",
+      "phase": "read",
+      "world": "legacy-2042-acceptance-20261022-combined",
+      "result": "PASS",
+      "log": "validation/legacy-2042-combined-read.log",
+      "report": "docs/storage/evidence/legacy-20-4-2/combined-read.json",
+      "fixture_kind": "source-backed old-format NBT in actual Forge world; not a player world"
+    }
+  ],
+  "current_storage_regression": {
+    "result": "PASS",
+    "world": "saveddata-architecture-20261021-verified",
+    "log": "validation/legacy-2042-current-storage-regression.log",
+    "report": "docs/storage/evidence/legacy-20-4-2/current-storage-regression.json"
+  },
+  "package": {
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "6ca459db8b1a3e1c350a5e5158e33573318abe709788becc34246709ffea1972",
+    "bytes": 6894654,
+    "source_files_checked": 951,
+    "packaged_classes": 1561,
+    "class_major_versions": {
+      "61": 1561
+    },
+    "registered_mixins": 60,
+    "registered_mixin_configs": [
+      "neoecoae.compat.advanced_ae.mixins.json",
+      "neoecoae.compat.extendedae.mixins.json",
+      "neoecoae.compat.thunderbolt.mixins.json",
+      "neoecoae.mixins.json",
+      "neoecoae.terminal_big_amount.mixins.json"
+    ],
+    "refmap_classes": 6,
+    "nested_jars": [
+      "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+      "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+    ],
+    "problems": {
+      "missing_source_classes": [],
+      "missing_required_resources": [],
+      "missing_registered_mixins": [],
+      "missing_mixin_plugins": [],
+      "unregistered_mixin_configs": [],
+      "missing_nested_jars": [],
+      "missing_translations": [],
+      "fake_upstream_classes": [],
+      "duplicate_entries": []
+    },
+    "result": "success",
+    "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+  },
+  "expected_diagnostics": [
+    "Unknown pattern quarantine is intentionally exercised in upgrade phases.",
+    "Fault-injection unit tests intentionally log damaged snapshots and failed writes.",
+    "Combined-profile optional upstream Mixin/data warnings remain separate from acceptance markers."
+  ],
+  "limitations": [
+    "Source-backed 20.4.2 format fixtures in actual Forge worlds; no old release JAR or real player-world conversion was run.",
+    "Old partial domain-to-cell restores retain their original receipts and persistent read-only barriers; automatic reconciliation is not implemented.",
+    "Older File/WAL sources not yet converted by 20.4.2 are not imported by this adapter.",
+    "Client manual interaction, ordinary modpack installation and the broader imported business test suite were not accepted by these checks."
+  ],
+  "git_commit": "Included in scoped local commit; no push. Commit identity is available in Git history.",
+  "precommit_recheck": {
+    "date": "2026-10-23",
+    "java": 17,
+    "command": "./build-local.ps1 compileJava portingPlatformTest portingContractsTest jar --offline --rerun-tasks --console=plain",
+    "result": "PASS",
+    "executed_tasks": 13,
+    "elapsed": "2m 27s",
+    "tests": {
+      "portingPlatformTest": {
+        "tests": 176,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "portingContractsTest": {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "unit_total": 182,
+    "legacy_2042_test_total": 37,
+    "log": "validation/precommit-20261023.log",
+    "package_audit": "docs/storage/evidence/legacy-20-4-2/precommit-package-audit-2026-10-23.json",
+    "package": {
+      "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+      "sha256": "a7a509a5ac4641eadcbfc1fc2aa412639e6ff0d655b12ecf3a94b35d2358b6f5",
+      "bytes": 6894654,
+      "source_files_checked": 951,
+      "packaged_classes": 1561,
+      "class_major_versions": {
+        "61": 1561
+      },
+      "registered_mixins": 60,
+      "registered_mixin_configs": [
+        "neoecoae.compat.advanced_ae.mixins.json",
+        "neoecoae.compat.extendedae.mixins.json",
+        "neoecoae.compat.thunderbolt.mixins.json",
+        "neoecoae.mixins.json",
+        "neoecoae.terminal_big_amount.mixins.json"
+      ],
+      "refmap_classes": 6,
+      "nested_jars": [
+        "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+        "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+      ],
+      "problems": {
+        "missing_source_classes": [],
+        "missing_required_resources": [],
+        "missing_registered_mixins": [],
+        "missing_mixin_plugins": [],
+        "unregistered_mixin_configs": [],
+        "missing_nested_jars": [],
+        "missing_translations": [],
+        "fake_upstream_classes": [],
+        "duplicate_entries": []
+      },
+      "result": "success",
+      "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+    },
+    "runtime_repeated": false,
+    "acceptance": "Full main compile, focused tests and static JAR audit only; historical server checks remain dated 2026-10-22."
+  }
+}

@@ -116,6 +116,7 @@ public class NeoECOAE {
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.platform.diagnostics.StorageSavedDataServerProbe::started);
+        MinecraftForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.platform.diagnostics.Legacy2042ServerProbe::started);
     }
 
     public static ResourceLocation id(String path) {

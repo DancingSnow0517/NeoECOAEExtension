@@ -45,7 +45,8 @@ public final class ECOInfiniteStorageMember {
     public static UUID identity(ItemStack stack) {
         CompoundTag tag = NEItemData.copy(stack);
         if (tag.hasUUID(IDENTITY_TAG)) return tag.getUUID(IDENTITY_TAG);
-        UUID identity = UUID.randomUUID();
+        UUID identity = tag.hasUUID(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.MATRIX_ID)
+            ? tag.getUUID(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.MATRIX_ID) : UUID.randomUUID();
         tag.putUUID(IDENTITY_TAG, identity);
         NEItemData.write(stack, tag);
         cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.persistMetadata(stack, true);
@@ -55,7 +56,9 @@ public final class ECOInfiniteStorageMember {
     public static Optional<UUID> getIdentity(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) return Optional.empty();
         CompoundTag tag = readTag(NEItemData.read(stack));
-        return tag.hasUUID(IDENTITY_TAG) ? Optional.of(tag.getUUID(IDENTITY_TAG)) : Optional.empty();
+        if (tag.hasUUID(IDENTITY_TAG)) return Optional.of(tag.getUUID(IDENTITY_TAG));
+        String old = cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.MATRIX_ID;
+        return tag.hasUUID(old) ? Optional.of(tag.getUUID(old)) : Optional.empty();
     }
 
     public static boolean isMigrating(@Nullable ItemStack stack) {
@@ -147,6 +150,7 @@ public final class ECOInfiniteStorageMember {
         // Identities identify one membership lifetime. Keeping them on an ordinary cell makes
         // creative/NBT copies indistinguishable during the next restore.
         tag.remove(IDENTITY_TAG);
+        tag.remove(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.MATRIX_ID);
         if (tag.isEmpty()) {
             stack.setTag(null);
         } else {

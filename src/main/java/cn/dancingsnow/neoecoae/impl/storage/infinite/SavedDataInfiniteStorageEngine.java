@@ -31,6 +31,9 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     public void beginTransfer(UUID transaction) { pendingTransfers.add(transaction); }
     public void endTransfer(UUID transaction) { pendingTransfers.remove(transaction); }
     public boolean flush() { return data.flush(); }
+    public boolean imported2042() { return data.imported2042(); }
+    public net.minecraft.nbt.CompoundTag receipt2042(UUID id) { return data.receipt2042(id); }
+    public void blockLegacyRestore() { data.blockLegacyRestore(); }
     public long contentRevision() { return data.contentRevision(); }
     public long durableRevision() { return data.durableRevision(); }
     public boolean importOnce(UUID transaction, cn.dancingsnow.neoecoae.impl.storage.persistence.StorageAmounts contents) {

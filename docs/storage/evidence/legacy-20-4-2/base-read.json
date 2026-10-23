@@ -1,0 +1,13 @@
+{
+  "phase": "read",
+  "sourceTag": "20.4.2",
+  "sourceCommit": "f1739d1f1d23b889649aa2804a3d7e493c919c4e",
+  "fixtureKind": "source-backed old-format NBT in actual Forge world; not a player world",
+  "ordinaryUuidNbtAndAmounts": "PASS",
+  "infiniteExactAmountsAndReceipts": "PASS",
+  "patternNbtHighSlotsPagesAndProvider": "PASS",
+  "controllerDomainComponentsPriority": "PASS",
+  "sourceBytesAndStaleItems": "PASS",
+  "dismantledBusAndQuarantine": "verified in upgrade phase",
+  "interruptedRestoreBarrier": "PASS"
+}

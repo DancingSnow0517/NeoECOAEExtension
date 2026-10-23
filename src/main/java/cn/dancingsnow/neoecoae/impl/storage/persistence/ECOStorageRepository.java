@@ -99,32 +99,62 @@ public final class ECOStorageRepository {
                 invalid.unavailable("Invalid ECO disk reference; item data retained");
                 return new Access(invalid, this, owner, false);
             }
+            if (!root.contains(ECOCellReference.TAG) && root.contains(Legacy2042Storage.CELL_ID)
+                && !root.hasUUID(Legacy2042Storage.CELL_ID)) {
+                var invalid = new ECOCellSavedData(new UUID(0, 0));
+                invalid.unavailable("Invalid 20.4.2 disk identity; item retained");
+                return new Access(invalid, this, owner, false);
+            }
             UUID id = ECOCellReference.id(stack);
             boolean fresh = id == null;
             if (fresh) id = UUID.randomUUID();
             final UUID identity = id;
             ECOCellSavedData data = cells.get(id);
+            boolean openedNow = data == null;
             if (data == null) {
                 String key = "neoecoae_cells/" + id;
                 Path file = directory.resolve(key + ".dat");
                 data = storage.get(tag -> ECOCellSavedData.load(tag, identity), key);
                 if (data == null) {
                     data = new ECOCellSavedData(id);
-                    if (!fresh || Files.exists(file) || Files.exists(file.resolveSibling(file.getFileName() + ".bak"))) {
+                    boolean inlineLegacy = !root.contains(ECOCellReference.TAG) && root.contains(Legacy2042Storage.CONTENTS);
+                    if ((!fresh && !inlineLegacy) || Files.exists(file) || Files.exists(file.resolveSibling(file.getFileName() + ".bak"))
+                        || Files.exists(directory.resolve("neoecoae_20_4_2_archive/cells/" + id + ".dat"))
+                        || Files.exists(directory.resolve("neoecoae_20_4_2_archive/items/" + id + ".dat"))) {
                         data.unavailable("ECO disk SavedData missing or unreadable; identity retained: " + id);
                     } else {
                         data.importLegacy(NECellNbt.readStacks(stack));
                         data.metadata(ECOCellReference.metadata(stack));
                         data.legacyMigration(NEItemData.read(stack).hasUUID("neoecoae_migration_id"));
+                        if (inlineLegacy) data.beginLegacy2042();
                     }
                     storage.set(key, data);
                 }
                 data.bind(file); track(data); cells.put(id, data);
-                if (fresh && (!data.canMutate() || !data.flush())) {
+                if (fresh && !data.legacy2042Pending() && (!data.canMutate() || !data.flush())) {
                     throw new IllegalStateException("Cannot import ECO disk; original item contents retained: " + data.failure());
                 }
-                if (!fresh && data.canMutate()) StorageTransferCoordinator.recover(this, data);
             }
+            if (data.legacy2042Pending()) {
+                if (data.legacy2042Decodable()) {
+                    try {
+                        Path archive = directory.resolve("neoecoae_20_4_2_archive");
+                        if (!data.legacy2042Archived()) {
+                            if (Files.exists(data.dataFile()))
+                                Legacy2042Storage.archive(data.dataFile(), archive.resolve("cells/" + id + ".dat"));
+                            else Legacy2042Storage.archiveItem(stack.save(new net.minecraft.nbt.CompoundTag()), archive.resolve("items/" + id + ".dat"));
+                        }
+                        data.prepareLegacy2042(ECOCellReference.metadata(stack));
+                        if (data.flush()) data.finishLegacy2042();
+                    } catch (java.io.IOException | RuntimeException failure) {
+                        data.failLegacy2042(failure.toString());
+                        org.slf4j.LoggerFactory.getLogger(ECOStorageRepository.class)
+                            .error("Cannot convert 20.4.2 disk {}; original data retained", id, failure);
+                    }
+                }
+                if (data.legacy2042Pending()) return new Access(data, this, owner, false);
+            }
+            if (!fresh && openedNow && data.canMutate()) StorageTransferCoordinator.recover(this, data);
             if (data.canRead()) ECOCellReference.applyMetadata(stack, data.metadata());
             ISaveProvider existing = owners.get(id);
             if (existing instanceof BlockEntity block && block.isRemoved()) { owners.remove(id); existing = null; }

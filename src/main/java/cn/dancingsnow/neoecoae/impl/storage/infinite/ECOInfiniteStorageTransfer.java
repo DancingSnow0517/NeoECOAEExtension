@@ -35,6 +35,12 @@ public final class ECOInfiniteStorageTransfer {
      */
     public boolean step(ItemStack source, IECOStorageMigrationCell cell, UUID domain,
                         ECOInfiniteStorageEngine engine, Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt) {
+        return step(source, cell, domain, engine, persistSeal, complete, legacyReceipt, Map.of());
+    }
+
+    public boolean step(ItemStack source, IECOStorageMigrationCell cell, UUID domain,
+                        ECOInfiniteStorageEngine engine, Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt,
+                        Map<AEKey, java.util.Set<UUID>> releaseCompatibility) {
         if (!isEligible(cell) || !engine.isHealthy()) return false;
         UUID migration = ECOInfiniteStorageMember.beginMigration(source, domain);
         if (cell instanceof cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell ordinary
@@ -47,6 +53,10 @@ public final class ECOInfiniteStorageTransfer {
                 UUID sealed = UUID.nameUUIDFromBytes((migration + ":" + key.toTagGeneric()).getBytes(StandardCharsets.UTF_8));
                 java.util.Set<UUID> ids = new java.util.HashSet<>(); if (legacy != null) ids.add(legacy); ids.add(sealed);
                 compatibility.put(key, java.util.Set.copyOf(ids));
+            });
+            releaseCompatibility.forEach((key, ids) -> {
+                var combined = new java.util.HashSet<>(compatibility.getOrDefault(key, java.util.Set.of()));
+                combined.addAll(ids); compatibility.put(key, java.util.Set.copyOf(combined));
             });
             if (!cn.dancingsnow.neoecoae.impl.storage.persistence.StorageTransferCoordinator.transfer(
                 ordinary.storageSession(), ordinary.storageData(), domain, saved, migration, compatibility)) return false;

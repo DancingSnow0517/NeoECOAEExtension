@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.platform.nbt;
 
 import appeng.api.config.FuzzyMode;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -17,7 +18,20 @@ public final class NECellNbt {
 
     public static List<GenericStack> readStacks(ItemStack cell) {
         CompoundTag root = NEItemData.read(cell);
-        if (!root.contains(CONTENTS)) return List.of();
+        if (!root.contains(CONTENTS)) {
+            if (!root.contains(Legacy2042Storage.CONTENTS)) return List.of();
+            List<GenericStack> result = new ArrayList<>();
+            var seen = new java.util.HashSet<appeng.api.stacks.AEKey>();
+            for (Tag raw : Legacy2042Storage.compounds(root, Legacy2042Storage.CONTENTS)) {
+                GenericStack value = GenericStack.readTag((CompoundTag) raw);
+                if (value == null || !Legacy2042Storage.resolved(value.what()) || value.amount() <= 0 || !seen.add(value.what()))
+                    throw new IllegalStateException("Invalid 20.4.2 item inventory; original contents retained");
+                result.add(value);
+            }
+            return List.copyOf(result);
+        }
+        if (root.contains(Legacy2042Storage.CONTENTS))
+            throw new IllegalStateException("Conflicting ECO item inventory formats; original contents retained");
         if (!root.contains(CONTENTS, Tag.TAG_COMPOUND)) throw new IllegalStateException("Malformed ECO cell contents");
         CompoundTag data = root.getCompound(CONTENTS);
         if (data.getInt("format") != 1 || !data.contains("stacks", Tag.TAG_LIST)) {
@@ -55,6 +69,8 @@ public final class NECellNbt {
 
     public static FuzzyMode fuzzyMode(ItemStack cell) {
         String value = NEItemData.read(cell).getString(FUZZY);
+        if (value.isEmpty()) value = NEItemData.read(cell).getString("FuzzyMode");
+        if (value.isEmpty()) value = NEItemData.read(cell).getString("fuzzyMode");
         if (value.isEmpty()) return FuzzyMode.IGNORE_ALL;
         try { return FuzzyMode.valueOf(value); }
         catch (IllegalArgumentException unknown) { return FuzzyMode.IGNORE_ALL; }

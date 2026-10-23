@@ -2,12 +2,14 @@ package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.LevelResource;
 import org.slf4j.Logger;
@@ -31,9 +33,17 @@ public final class ECOInfiniteStorageDomains {
      * Mounts one host on a domain. Every successful acquire must be paired with {@link #release}.
      */
     public static synchronized ECOInfiniteStorageEngine acquire(ServerLevel level, UUID domainId) {
+        return acquire(level, domainId, false);
+    }
+
+    public static synchronized ECOInfiniteStorageEngine acquireExisting(ServerLevel level, UUID domainId) {
+        return acquire(level, domainId, true);
+    }
+
+    private static ECOInfiniteStorageEngine acquire(ServerLevel level, UUID domainId, boolean requireExisting) {
         MinecraftServer server = level.getServer();
         DomainEntry entry = ENGINES.computeIfAbsent(server, ignored -> new Object2ObjectOpenHashMap<>())
-                .computeIfAbsent(domainId, ignored -> new DomainEntry(create(server, domainId)));
+                .computeIfAbsent(domainId, ignored -> new DomainEntry(create(server, domainId, requireExisting)));
         entry.mountCount++;
         return entry.engine;
     }
@@ -88,7 +98,7 @@ public final class ECOInfiniteStorageDomains {
         }
     }
 
-    private static ECOInfiniteStorageEngine create(MinecraftServer server, UUID domainId) {
+    private static ECOInfiniteStorageEngine create(MinecraftServer server, UUID domainId, boolean requireExisting) {
         ServerLevel overworld = server.getLevel(Level.OVERWORLD);
         if (overworld == null) {
             throw new IllegalStateException("Cannot open ECO infinite storage domain " + domainId + " without a level");
@@ -108,7 +118,7 @@ public final class ECOInfiniteStorageDomains {
                 unavailable.markUnreadable("Published infinite domain snapshot is missing; identity retained: " + domainId);
                 return unavailable;
             }
-            return importLegacy(domainId, legacyFile);
+            return importLegacy(domainId, legacyFile, requireExisting);
         });
         ECOInfiniteStorageData data = overworld.getDataStorage().computeIfAbsent(
                 factory.deserializer(), factory.constructor(), dataName);
@@ -124,10 +134,26 @@ public final class ECOInfiniteStorageDomains {
         return new SavedDataInfiniteStorageEngine(data);
     }
 
-    private static ECOInfiniteStorageData importLegacy(UUID domainId, Path legacyFile) {
+    static ECOInfiniteStorageData importLegacy(UUID domainId, Path legacyFile, boolean requireExisting) {
         ECOInfiniteStorageData data = ECOInfiniteStorageData.createNew();
         try {
-            if (!LegacyInfiniteStorageReader.exists(legacyFile)) return data;
+            Path releaseFile = legacyFile.getParent().resolve("neoecoae_infinite/domain_" + domainId + ".dat");
+            boolean releasePresent = Files.exists(releaseFile)
+                || Files.exists(releaseFile.resolveSibling(releaseFile.getFileName() + ".bak"));
+            if (releasePresent) {
+                if (LegacyInfiniteStorageReader.exists(legacyFile))
+                    throw new java.io.IOException("Conflicting 20.4.2 and main legacy domain sources");
+                CompoundTag root = net.minecraft.nbt.NbtIo.readCompressed(releaseFile.toFile());
+                data = ECOInfiniteStorageData.load(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage
+                    .domain(root.getCompound("data"), domainId));
+                if (data.canMigrate()) data.setDirty();
+                else data.markIncompleteLegacy(java.util.List.of("Unresolved 20.4.2 inventory; original domain retained"));
+                return data;
+            }
+            if (!LegacyInfiniteStorageReader.exists(legacyFile)) {
+                if (requireExisting) data.markUnreadable("Existing infinite domain is missing; refusing to create an empty domain: " + domainId);
+                return data;
+            }
             var recovered = LegacyInfiniteStorageReader.readAvailable(legacyFile);
             data = ECOInfiniteStorageData.load(recovered.data());
             if (!recovered.failures().isEmpty()) data.markIncompleteLegacy(recovered.failures());
