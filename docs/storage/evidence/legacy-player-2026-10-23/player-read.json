@@ -1,0 +1,86 @@
+{
+  "phase": "player-read",
+  "fixture_kind": "actual player storage file copies in independent development world; not full player-world or client acceptance",
+  "original_world_modified": false,
+  "cells": [
+    {
+      "cell": "0bb1e818-0aa9-4888-aee4-325fa7fcf8fd",
+      "writable": true,
+      "extraction_reinsertion": true,
+      "entries": 0
+    },
+    {
+      "cell": "23cf01dd-2cc4-4b22-aa4e-befbe9ecc4f6",
+      "writable": true,
+      "extraction_reinsertion": true,
+      "entries": 0
+    },
+    {
+      "cell": "326ce289-1d25-4683-974e-91b05cb215b7",
+      "writable": true,
+      "extraction_reinsertion": true,
+      "entries": 0
+    },
+    {
+      "cell": "372b9b69-5023-49a6-81a2-5e9dc45f5930",
+      "writable": true,
+      "extraction_reinsertion": true,
+      "entries": 0
+    },
+    {
+      "cell": "461ef69f-5fd8-46fd-b3d6-8076718d0e63",
+      "writable": true,
+      "extraction_reinsertion": true,
+      "entries": 0
+    },
+    {
+      "cell": "7d330dc4-ead6-4f2c-9191-e161bd2a05c3",
+      "writable": true,
+      "extraction_reinsertion": true,
+      "entries": 0
+    },
+    {
+      "cell": "a25174d0-8c3a-4741-be8d-ed851585e99a",
+      "writable": true,
+      "extraction_reinsertion": true,
+      "entries": 0
+    },
+    {
+      "cell": "ca5698f9-c34d-4f25-887d-ef9f36aac709",
+      "writable": true,
+      "extraction_reinsertion": true,
+      "entries": 0
+    },
+    {
+      "cell": "d76a9b14-75e5-4ef8-bbb0-07f413a3a004",
+      "writable": true,
+      "extraction_reinsertion": true,
+      "entries": 0
+    }
+  ],
+  "domains": [
+    {
+      "domain": "06f40bfb-1fe0-4db9-a38a-7991dab389d4",
+      "source": "neoecoae_infinite/domain_06f40bfb-1fe0-4db9-a38a-7991dab389d4.dat",
+      "healthy": true
+    },
+    {
+      "domain": "5dac700d-59a8-475c-81fd-dd2c9903a043",
+      "source": "neoecoae_infinite/domain_5dac700d-59a8-475c-81fd-dd2c9903a043.dat",
+      "healthy": true
+    },
+    {
+      "domain": "69c1104e-21ff-4f17-8d87-d370779a3110",
+      "source": "neoecoae_infinite/domain_69c1104e-21ff-4f17-8d87-d370779a3110.dat",
+      "healthy": false
+    },
+    {
+      "domain": "5dac700d-59a8-475c-81fd-dd2c9903a043",
+      "source": "neoecoae_infinite_5dac700d-59a8-475c-81fd-dd2c9903a043_v3.dat",
+      "healthy": true
+    }
+  ],
+  "repaired_headers": 3,
+  "unreadable_domains_retained": 1,
+  "result": "PASS"
+}

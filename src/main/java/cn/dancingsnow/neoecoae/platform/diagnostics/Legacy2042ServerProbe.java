@@ -72,6 +72,10 @@ public final class Legacy2042ServerProbe {
     private static void check(boolean value, String message) { if (!value) throw new IllegalStateException(message); }
 
     private static void run(MinecraftServer server, String phase, Path root) throws Exception {
+        if (phase.startsWith("player-")) {
+            LegacyPlayerStorageProbe.run(server, root, phase);
+            return;
+        }
         check(phase.equals("upgrade") || phase.equals("read"), "Unknown phase");
         Path fixtureFile = root.resolve("legacy-2042-fixture.dat");
         ServerLevel world = server.overworld(); CompoundTag fixture;

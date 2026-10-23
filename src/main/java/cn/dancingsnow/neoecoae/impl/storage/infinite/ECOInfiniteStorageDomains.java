@@ -138,14 +138,12 @@ public final class ECOInfiniteStorageDomains {
         ECOInfiniteStorageData data = ECOInfiniteStorageData.createNew();
         try {
             Path releaseFile = legacyFile.getParent().resolve("neoecoae_infinite/domain_" + domainId + ".dat");
-            boolean releasePresent = Files.exists(releaseFile)
-                || Files.exists(releaseFile.resolveSibling(releaseFile.getFileName() + ".bak"));
+            boolean releasePresent = cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042DomainSnapshot.exists(releaseFile);
             if (releasePresent) {
                 if (LegacyInfiniteStorageReader.exists(legacyFile))
                     throw new java.io.IOException("Conflicting 20.4.2 and main legacy domain sources");
-                CompoundTag root = net.minecraft.nbt.NbtIo.readCompressed(releaseFile.toFile());
                 data = ECOInfiniteStorageData.load(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage
-                    .domain(root.getCompound("data"), domainId));
+                    .domain(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042DomainSnapshot.read(releaseFile), domainId));
                 if (data.canMigrate()) data.setDirty();
                 else data.markIncompleteLegacy(java.util.List.of("Unresolved 20.4.2 inventory; original domain retained"));
                 return data;

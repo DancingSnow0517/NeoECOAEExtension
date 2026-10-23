@@ -64,14 +64,18 @@ public final class Legacy2042Transfers {
     public static String digest(ECOCellSavedData source, Map<AEKey, BigInteger> contents) {
         List<String> records = new ArrayList<>();
         contents.forEach((key, amount) -> {
-            MessageDigest keyDigest = sha256();
-            hashTag(keyDigest, source.encodedKey(key));
-            records.add(HexFormat.of().formatHex(keyDigest.digest()) + ":" + amount);
+            records.add(keyFingerprint(source.encodedKey(key)) + ":" + amount);
         });
         records.sort(String::compareTo);
         MessageDigest digest = sha256();
         integer(digest, records.size());
         for (String record : records) string(digest, record);
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    public static String keyFingerprint(CompoundTag key) {
+        MessageDigest digest = sha256();
+        hashTag(digest, key);
         return HexFormat.of().formatHex(digest.digest());
     }
 
