@@ -21,14 +21,14 @@ GTLCore 的 `CraftingCpuLogicMixin` 以优先级 1100 覆盖 `executeCrafting`�
 可选验证入口如下；测试源码和第三方输入不会打进发布 JAR：
 
 ```powershell
-.\build-local.ps1 gtlCpuCompatibilityTest `
-  --init-script tools/porting/gtl_cpu_compatibility.init.gradle `
-  '-PgtlCpuCompatibilityJar=<实例的 GTLCore JAR 绝对路径>' `
-  '-PgtlCpuCompatibilityAe2Jar=<实例的 AE2 JAR 绝对路径>' `
+.\build-local.ps1 ae2AddonCompatibilityTest `
+  --init-script tools/porting/ae2_addon_compatibility.init.gradle `
+  '-Pae2AddonCompatibilityJar=<实例的 GTLCore JAR 绝对路径>' `
+  '-Pae2AddonCompatibilityAe2Jar=<实例的 AE2 JAR 绝对路径>' `
   --offline --console=plain
 ```
 
-省略 `gtlCpuCompatibilityAe2Jar` 时使用当前工程开发依赖中的 AE2。结果分别位于 `build/gtl-cpu-compatibility/installed-ae2` 和 `build/gtl-cpu-compatibility/development-ae2`。完整记录见 `porting/gtl-cpu-compatibility-validation.json` 和 `porting/gtl-cpu-compatibility-package-validation.json`。
+省略 `ae2AddonCompatibilityAe2Jar` 时使用当前工程开发依赖中的 AE2。结果分别位于 `build/ae2-addon-compatibility/installed-ae2` 和 `build/ae2-addon-compatibility/development-ae2`。完整记录见 `porting/gtl-cpu-compatibility-validation.json` 和 `porting/gtl-cpu-compatibility-package-validation.json`。
 
 ## 安装实例
 

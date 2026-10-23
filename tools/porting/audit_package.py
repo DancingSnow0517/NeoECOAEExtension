@@ -26,6 +26,8 @@ def audit(jar: Path) -> dict:
             "META-INF/jarjar/metadata.json", "neoecoae.mixins.json", "neoecoae.refmap.json",
             "assets/neoecoae/lss/eco.lss", "assets/neoecoae/screens/storage/storage_interface.json",
             "assets/ae2/screens/large_integrated_working_station_interface.json",
+            "assets/ae2/screens/eco_crafting_report.json",
+            "assets/neoecoae/textures/guis/eco_craftingreport_cycle.png",
             "assets/neoecoae/textures/gui/vendor/ae2/scrollbars.png",
         ]
         missing_resources = sorted(set(required) - entries)

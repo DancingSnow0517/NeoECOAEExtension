@@ -16,6 +16,9 @@ import org.slf4j.LoggerFactory;
 /** Routes ECO-owned crafting confirmation menus to the ECO report screen. */
 public final class ECOCraftConfirmScreenIntegration {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    // Addons may redirect paths containing the native confirmation filename by substring.
+    // The ECO report needs its own cycle images, widgets, and wider background.
+    static final String REPORT_STYLE_PATH = "/screens/eco_crafting_report.json";
 
     private ECOCraftConfirmScreenIntegration() {
     }
@@ -45,7 +48,7 @@ public final class ECOCraftConfirmScreenIntegration {
             return;
         }
 
-        ScreenStyle style = StyleManager.loadStyleDoc("/screens/eco_craft_confirm.json");
+        ScreenStyle style = StyleManager.loadStyleDoc(REPORT_STYLE_PATH);
         if (NEConfig.ecoCraftSubmissionDebug) {
             LOGGER.info("[ECO-CRAFT-SUBMIT] Client opening ECO screen directly; plannerAvailable={}, reportReady={}",
                 mode.neoecoae$isEcoPlannerAvailable(), mode.neoecoae$isEcoReportReady());

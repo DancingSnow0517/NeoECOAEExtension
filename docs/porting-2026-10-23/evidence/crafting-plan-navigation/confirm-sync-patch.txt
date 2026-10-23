@@ -1,0 +1,15 @@
+neoecoae$showFastPlannerReport=99->12000
+neoecoae$ecoPlannerAvailable=106->12005
+neoecoae$ecoReportReady=107->12006
+neoecoae$cyclePlanningEnabled=104->12003
+neoecoae$calculationNanos=100->12001
+neoecoae$theoreticalBytes=105->12004
+neoecoae$planningStatusCode=101->12002
+neoecoae$bigOrderCpu=108->12007
+neoecoae$planningDiagnostic=109->12008
+neoecoae$selectedCpuTier=111->12010
+neoecoae$selectedCpuEco=112->12011
+neoecoae$diagnosticsVersion=110->12009
+uniqueFields=21
+classRedefined=false
+worldDataModified=false

@@ -25,14 +25,14 @@ CPU 贴图叠加仍为必需注入；没有通过允许零命中绕过错误。�
 
 当前会话的在线验证没有重定义游戏类，也未使用未就绪的 mcpfabric 桥接。临时诊断文件位于 `build/live-terminal-probe`，不会打进发布包；关键文本证据保存在 `evidence/crafting-status-navigation`。
 
-四组列表转换检查的入口如下，省略 `gtlCpuCompatibilityAe2Jar` 即验证开发依赖：
+四组列表转换检查的入口如下，省略 `ae2AddonCompatibilityAe2Jar` 即验证开发依赖：
 
 ```powershell
-.\build-local.ps1 gtlCpuCompatibilityTest `
-  --init-script tools/porting/gtl_cpu_compatibility.init.gradle `
-  '-PgtlCpuCompatibilityTarget=selection-list' `
-  '-PgtlCpuCompatibilityJar=<GTLCore JAR 绝对路径>' `
-  '-PgtlCpuCompatibilityAe2Jar=<AE2 发布 JAR 绝对路径>' `
+.\build-local.ps1 ae2AddonCompatibilityTest `
+  --init-script tools/porting/ae2_addon_compatibility.init.gradle `
+  '-Pae2AddonCompatibilityTarget=selection-list' `
+  '-Pae2AddonCompatibilityJar=<GTLCore JAR 绝对路径>' `
+  '-Pae2AddonCompatibilityAe2Jar=<AE2 发布 JAR 绝对路径>' `
   --offline --console=plain
 ```
 

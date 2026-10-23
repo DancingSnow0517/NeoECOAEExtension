@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-// GTLCore overwrites executeCrafting at priority 1100. Keep the INVOKE wrapper
+// Addons overwrite executeCrafting above the default priority. Keep the INVOKE wrapper
 // above that overwrite so job ownership also reaches its retained pushPattern call.
 @Mixin(value = CraftingCpuLogic.class, remap = false, priority = 1200)
 public abstract class Ae2CraftingCpuFastPathMixin {

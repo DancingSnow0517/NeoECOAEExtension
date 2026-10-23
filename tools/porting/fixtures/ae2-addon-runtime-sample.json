@@ -1,0 +1,27 @@
+{
+  "description": "Installed runtime regression sample: GTLCore 1.2.3.2-fix4. Not a production dependency.",
+  "mixin_package": "org.gtlcore.gtlcore.mixin",
+  "targets": {
+    "logic": {
+      "mixin": "ae2.logic.CraftingCpuLogicMixin",
+      "overwrite_priority": 1100
+    },
+    "selection-list": {
+      "mixin": "ae2.CPUSelectionListMixin",
+      "interface": "org.gtlcore.gtlcore.client.ae2.CraftingCpuSearchTarget"
+    },
+    "craft-confirm": {
+      "mixin": "ae2.gui.CraftConfirmMenuMixin",
+      "field_prefix": "gtlcore$",
+      "failure_field": "gtlcore$planningFailure",
+      "availability_field": "gtlcore$missingCraftAvailable",
+      "legacy_collisions": [100, 101]
+    },
+    "crafting-style": {
+      "mixin": "ae2.gui.StyleManagerMixin",
+      "hook": "loadStyleDocHooks",
+      "native_path": "/screens/craft_confirm.json",
+      "native_redirect": "/screens/modify_craft_confirm.json"
+    }
+  }
+}

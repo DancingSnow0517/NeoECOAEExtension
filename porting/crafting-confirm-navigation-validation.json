@@ -1,0 +1,236 @@
+{
+  "date": "2026-10-23",
+  "scope": "Generic AE2 addon interoperability; installed addon is a regression sample only",
+  "fixes": {
+    "menu_sync_ids": [
+      12000,
+      12001,
+      12002,
+      12003,
+      12004,
+      12005,
+      12006,
+      12007,
+      12008,
+      12009,
+      12010,
+      12011
+    ],
+    "report_style": "/screens/eco_crafting_report.json",
+    "runtime_addon_presence_branch_added": false,
+    "runtime_third_party_class_dependency_added": false
+  },
+  "verification_tool": {
+    "main_class": "cn.dancingsnow.neoecoae.verification.bootstrap.Ae2AddonCompatibility",
+    "init_script": "tools/porting/ae2_addon_compatibility.init.gradle",
+    "sample": "tools/porting/fixtures/ae2-addon-runtime-sample.json",
+    "sample_sha256": "fb205114ff97753095b731354acf2357619cb92a14580791fe8ed877d5635498",
+    "old_class_removed": true,
+    "own_addon_named_java_classes": []
+  },
+  "unit_tests": {
+    "total": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suites": [
+      {
+        "name": "cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreenStyleTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "build/test-results/test/TEST-cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreenStyleTest.xml",
+        "sha256": "f3b9a2e43c709100ddafa7c3542c22d6f6389423f03b36d7a1353d679b2fc37b"
+      },
+      {
+        "name": "cn.dancingsnow.neoecoae.mixins.ae2.menu.CraftConfirmMenuSynchronizationTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "build/test-results/test/TEST-cn.dancingsnow.neoecoae.mixins.ae2.menu.CraftConfirmMenuSynchronizationTest.xml",
+        "sha256": "5f295f32848c280dfaa3819a13db9ed616a30e807365f6cf6f44d11f4f4385f0"
+      },
+      {
+        "name": "cn.dancingsnow.neoecoae.mixins.client.ae2.CpuFormattingOwnershipTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "build/test-results/test/TEST-cn.dancingsnow.neoecoae.mixins.client.ae2.CpuFormattingOwnershipTest.xml",
+        "sha256": "bc53ae088e6aec0175371fd4471c45162fc622a986c8290ea07fa7d1dffea0da"
+      },
+      {
+        "name": "cn.dancingsnow.neoecoae.mixins.client.ae2.CpuSelectionListMixinContractTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "build/test-results/test/TEST-cn.dancingsnow.neoecoae.mixins.client.ae2.CpuSelectionListMixinContractTest.xml",
+        "sha256": "95a8dcc75325d7680bea641b9c57b4271fe6b5e669e85964f594516b4427f453"
+      },
+      {
+        "name": "cn.dancingsnow.neoecoae.network.MenuDataTransportTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "build/test-results/test/TEST-cn.dancingsnow.neoecoae.network.MenuDataTransportTest.xml",
+        "sha256": "bf90634be06a0acb4d0fd4a9289af8e4391ea758486676f0c993a25e13007842"
+      }
+    ],
+    "generic_foreign_addon_ids": [
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      23456
+    ],
+    "full_and_incremental_sync": true,
+    "ae2_duplicate_rejection_preserved": true
+  },
+  "transformation_case_count": 19,
+  "transformation_runs": [
+    {
+      "target": "craft-confirm",
+      "ae2": "15.4.10",
+      "log": "build/crafting-confirm-installed-transform.log",
+      "sha256": "13e4836b140d61bc07a91f251aced171a27afff44f19df0ef12be0dcdf0db79a",
+      "results": [
+        "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=before reproduced=duplicate_sync_ids_[100, 101]",
+        "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=addon fields=21 eco=12 addon=3 synchronization=true roundTrip=requires_named_or_live_runtime",
+        "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=base fields=18 eco=12 addon=0 synchronization=true roundTrip=requires_named_or_live_runtime"
+      ]
+    },
+    {
+      "target": "craft-confirm",
+      "ae2": "15.4.11",
+      "log": "build/crafting-confirm-development-transform.log",
+      "sha256": "2404d3ee9812224b3bc148dee587cc6005d204a37394aa7e5bb5736acd8d0781",
+      "results": [
+        "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=before reproduced=duplicate_sync_ids_[100, 101]",
+        "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=addon fields=21 eco=12 addon=3 synchronization=true roundTrip=true",
+        "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=base fields=18 eco=12 addon=0 synchronization=true roundTrip=true"
+      ]
+    },
+    {
+      "target": "crafting-style",
+      "ae2": "15.4.10",
+      "log": "build/crafting-confirm-style-installed-transform.log",
+      "sha256": "3ee4eab0ff5cc79837b84e075db98e56404d221bb02391019b96fc0d5a6eb5d3",
+      "results": [
+        "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=before requested=/screens/eco_craft_confirm.json effective=/screens/modify_craft_confirm.json cycleImages=false",
+        "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=addon requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true",
+        "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=base requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true"
+      ]
+    },
+    {
+      "target": "crafting-style",
+      "ae2": "15.4.11",
+      "log": "build/crafting-confirm-style-development-transform.log",
+      "sha256": "3ee4eab0ff5cc79837b84e075db98e56404d221bb02391019b96fc0d5a6eb5d3",
+      "results": [
+        "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=before requested=/screens/eco_craft_confirm.json effective=/screens/modify_craft_confirm.json cycleImages=false",
+        "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=addon requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true",
+        "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=base requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true"
+      ]
+    },
+    {
+      "target": "logic",
+      "ae2": "15.4.10",
+      "log": "build/crafting-confirm-logic-regression.log",
+      "sha256": "53921b7c2980594fbb2df6c8c1cc1bfa6788b0d530bba3f5bbf24d0d2a09d4b6",
+      "results": [
+        "AE2_ADDON_CPU_COMPAT PASS mode=before reproduced=InvalidInjectionException priority1000_vs_1100",
+        "AE2_ADDON_CPU_COMPAT PASS mode=addon transformed=true jobWrapper=true dispatch=true lifecycle=true",
+        "AE2_ADDON_CPU_COMPAT PASS mode=base transformed=true jobWrapper=true dispatch=true lifecycle=true"
+      ]
+    },
+    {
+      "target": "selection-list",
+      "ae2": "15.4.10",
+      "log": "build/crafting-confirm-cpu-list-regression.log",
+      "sha256": "e5d7f9fef6027c2585544b0ab3de20083264c73e6e213d0314cdcce10ec8b9d1",
+      "results": [
+        "AE2_ADDON_CPU_LIST_COMPAT PASS mode=addon transformed=true overlay=true storage=true coprocessors=true tooltip=true",
+        "AE2_ADDON_CPU_LIST_COMPAT PASS mode=base transformed=true overlay=true storage=true coprocessors=true tooltip=true"
+      ]
+    },
+    {
+      "target": "selection-list",
+      "ae2": "15.4.11",
+      "log": "build/crafting-confirm-cpu-list-development.log",
+      "sha256": "a14a22b1826c3a8465bad314516a11385ae4309f62431c2a18d4b3223da9af4b",
+      "results": [
+        "AE2_ADDON_CPU_LIST_COMPAT PASS mode=addon transformed=true overlay=true storage=true coprocessors=true tooltip=true",
+        "AE2_ADDON_CPU_LIST_COMPAT PASS mode=base transformed=true overlay=true storage=true coprocessors=true tooltip=true"
+      ]
+    }
+  ],
+  "live_verification": {
+    "original_error": "Duplicate sync IDs 100 and 101; actual AE2 constructor rejected 100",
+    "temporary_annotation_cache_patch_applied": true,
+    "classes_redefined": false,
+    "client_and_server_menu_constructors_passed": true,
+    "actual_release_runtime_packet_round_trip_passed": true,
+    "temporary_test_menus_installed_on_players": false,
+    "world_data_changed_by_diagnostics": false,
+    "subsequent_real_click_crash": "2026-10-23 23:48:18: ECO report style redirected to native addon layout; cycleItem missing",
+    "style_fix_fresh_restart_verified": false,
+    "full_fixed_plan_screen_interaction_verified": false
+  },
+  "evidence": [
+    {
+      "path": "docs/porting-2026-10-23/evidence/crafting-plan-navigation/confirm-sync-patch.txt",
+      "sha256": "b50fdc044529c9d2712e55a1bfc9dbb63ae93d4ac47e4c0c6d621ad7a2b5fedb"
+    },
+    {
+      "path": "docs/porting-2026-10-23/evidence/crafting-plan-navigation/confirm-sync-verification.txt",
+      "sha256": "efe0ca06b786b00ce215e8f0043dbab91232e21a20b2867734b53349e5e316fe"
+    },
+    {
+      "path": "docs/porting-2026-10-23/evidence/crafting-plan-navigation/crash-2026-10-23_23.48.18-excerpt.txt",
+      "sha256": "b7cf44df4e1418c64b290192d4e2f3e3d358d859acbf2dcb9094469affbc696c"
+    },
+    {
+      "path": "docs/porting-2026-10-23/evidence/crafting-plan-navigation/planning-inspect.txt",
+      "sha256": "2de0020ad3e119781c9e0204c29991d46ec74b57c4fc0c5aa126990cfb6f51bb"
+    },
+    {
+      "path": "docs/porting-2026-10-23/evidence/crafting-plan-navigation/planning-sync-fields.txt",
+      "sha256": "3e69a3467bc6656d00bd1d083d4eb4e2ef6d87a90490e1ef21cd43887954142d"
+    }
+  ],
+  "previous_cpu_fixes": {
+    "priority": 1200,
+    "pop_pose_refmap_preserved_in_default_and_searge": true
+  },
+  "installation": {
+    "time": "2026-10-24T00:01:58.9490700+08:00",
+    "artifact": "E:\\NeoECOAEExtension-1.20.1\\build\\libs\\neoecoae-20.6.0-dev.jar",
+    "installed": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\mods\\neoecoae-20.6.0-dev.jar",
+    "backup": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\neoecoae-backups\\crafting-plan-20261024-000158\\neoecoae-20.6.0-dev.jar",
+    "previous_sha256": "9c6d841056acd802caa749c52827d216844eb0cd1dcb93229bf4fa97dd1e44f8",
+    "installed_sha256": "0f1c1072153a5eb044bc2741bf96f27c863d54e070ee569ad7b645df70689839",
+    "bytes": 7040332,
+    "fixes": [
+      "CraftConfirmMenu ECO synchronization IDs 12000..12011",
+      "Independent eco_crafting_report.json style path"
+    ],
+    "previous_cpu_fixes_retained": true,
+    "game_running_during_replacement": false,
+    "restart_verified": false
+  },
+  "acceptance": "Compilation, 17 unit tests, 19 actual Mixin cases, live menu/sync diagnosis, package audit and installation verified; fresh client restart and complete ECO report interaction remain unverified"
+}
