@@ -1,0 +1,10 @@
+screen=appeng.client.gui.me.crafting.CraftingStatusScreen
+clientPlayerLoaded=true
+clientMenu=appeng.menu.me.crafting.CraftingStatusMenu
+clientLocator=null
+clientHost=appeng.parts.reporting.CraftingTerminalPart
+button=absent
+serverPlayers=1
+serverMenu=appeng.menu.me.crafting.CraftingStatusMenu
+serverLocator=PartLocator[pos=BlockPos{x=37, y=65, z=38}, side=west]
+serverHost=appeng.parts.reporting.CraftingTerminalPart

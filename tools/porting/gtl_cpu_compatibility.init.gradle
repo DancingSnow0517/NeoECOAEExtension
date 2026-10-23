@@ -12,6 +12,8 @@ gradle.afterProject { project ->
     def ae2Jar = ae2JarProperty.isPresent() ? project.file(ae2JarProperty.get()) : null
     if (ae2Jar != null && !ae2Jar.isFile()) throw new GradleException("Missing AE2 JAR: ${ae2Jar}")
     def label = ae2Jar == null ? 'development-ae2' : 'installed-ae2'
+    def selectionList = project.providers.gradleProperty('gtlCpuCompatibilityTarget').getOrElse('logic') == 'selection-list'
+    if (selectionList) label += '/selection-list'
 
     project.sourceSets.create('gtlCpuCompatibility') {
         java.srcDir 'tools/porting/gtl_cpu_compatibility'
@@ -28,22 +30,23 @@ gradle.afterProject { project ->
         options.compilerArgs += ['-proc:none']
     }
     def runs = []
-    ['before', 'gtl', 'base'].each { mode ->
+    (selectionList ? ['gtl', 'base'] : ['before', 'gtl', 'base']).each { mode ->
         def run = project.tasks.register("gtlCpuCompatibility_${mode}", JavaExec) {
             group = 'verification'
             dependsOn project.tasks.named('classes'), project.tasks.named('gtlCpuCompatibilityClasses')
             classpath = project.files(ae2Jar == null ? [] : [ae2Jar]) +
-                project.sourceSets.gtlCpuCompatibility.runtimeClasspath + project.files(gtlJar)
+                project.sourceSets.gtlCpuCompatibility.runtimeClasspath +
+                project.files(project.layout.buildDirectory.dir('mixin'), gtlJar)
             mainClass = 'cn.dancingsnow.neoecoae.verification.bootstrap.GtlCpuCompatibility'
             javaLauncher = project.javaToolchains.launcherFor {
                 languageVersion = JavaLanguageVersion.of(17)
             }
             systemProperty 'mixin.debug.export', 'true'
             systemProperty 'mixin.debug.export.decompile', 'false'
-            systemProperty 'mixin.env.disableRefMap', 'true'
+            systemProperty 'mixin.env.disableRefMap', selectionList && ae2Jar != null ? 'false' : 'true'
             def directory = project.layout.buildDirectory.dir("gtl-cpu-compatibility/${label}/${mode}")
             workingDir = directory
-            args mode
+            args mode, selectionList ? 'selection-list' : 'logic', ae2Jar == null ? 'named' : 'searge'
             doFirst { directory.get().asFile.mkdirs() }
         }
         if (!runs.isEmpty()) {
@@ -53,7 +56,8 @@ gradle.afterProject { project ->
         runs.add(run)
     }
     project.tasks.register('gtlCpuCompatibilityTest') {
-        description = 'Reproduces the old priority failure, then transforms the real AE2 class with and without GTLCore.'
+        description = selectionList ? 'Transforms the CPU selection list with all required overlay and formatting hooks.' :
+            'Reproduces the old priority failure, then transforms the real AE2 class with and without GTLCore.'
         group = 'verification'
         dependsOn runs
     }

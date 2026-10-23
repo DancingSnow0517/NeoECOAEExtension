@@ -1,0 +1,18 @@
+screen=appeng.client.gui.me.items.CraftingTermScreen
+clientPlayerLoaded=true
+clientMenu=appeng.menu.me.items.CraftingTermMenu
+clientLocator=null
+clientHost=appeng.parts.reporting.CraftingTerminalPart
+button=appeng.client.gui.widgets.TabButton
+getX=647
+getY=23
+getWidth=20
+getHeight=20
+buttonActive=true
+buttonVisible=true
+clickResult=true
+releaseResult=true
+serverPlayers=1
+serverMenu=appeng.menu.me.crafting.CraftingStatusMenu
+serverLocator=PartLocator[pos=BlockPos{x=37, y=65, z=38}, side=west]
+serverHost=appeng.parts.reporting.CraftingTerminalPart

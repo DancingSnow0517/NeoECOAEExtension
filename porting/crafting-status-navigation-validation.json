@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-23",
+  "root_cause": "Missing SRG mapping for required PoseStack.popPose invocation injection in CPUSelectionList",
+  "source_fix": "Enable remap on the Minecraft invocation only; retain AE2 method name and required injection count",
+  "packaged_reference_mapping": {
+    "owner": "cn/dancingsnow/neoecoae/mixins/client/ae2/CpuSelectionListMixin",
+    "reference": "Lcom/mojang/blaze3d/vertex/PoseStack;popPose()V",
+    "target": "Lcom/mojang/blaze3d/vertex/PoseStack;m_85849_()V",
+    "contexts_verified": [
+      "default",
+      "searge"
+    ]
+  },
+  "unit_tests": {
+    "tests": 11,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "cpu_list_transformation_cases": [
+    {
+      "ae2": "15.4.10",
+      "mode": "gtl",
+      "result": "passed",
+      "overlay_injection_verified": true,
+      "storage_and_coprocessor_wrappers_verified": true,
+      "tooltip_wrapper_verified": true,
+      "log": "build/crafting-status-installed-transform.log",
+      "log_sha256": "255ea341adc0c38bbbaf5c68a6dc7378635faf2893924ddf756ab6e3c2b170e8",
+      "exported_class_sha256": "627bcaf2f16c9318f0e858befb0f5249ebdf5bd32be99e6ae6bc656d3de67a9c"
+    },
+    {
+      "ae2": "15.4.10",
+      "mode": "base",
+      "result": "passed",
+      "overlay_injection_verified": true,
+      "storage_and_coprocessor_wrappers_verified": true,
+      "tooltip_wrapper_verified": true,
+      "log": "build/crafting-status-installed-transform.log",
+      "log_sha256": "255ea341adc0c38bbbaf5c68a6dc7378635faf2893924ddf756ab6e3c2b170e8",
+      "exported_class_sha256": "17f755d07f30c690ced9d21347511a889a3df2dbc23e13ac63165c285bf79754"
+    },
+    {
+      "ae2": "15.4.11",
+      "mode": "gtl",
+      "result": "passed",
+      "overlay_injection_verified": true,
+      "storage_and_coprocessor_wrappers_verified": true,
+      "tooltip_wrapper_verified": true,
+      "log": "build/crafting-status-development-transform.log",
+      "log_sha256": "cd9c24727c02805a21e8092ba6726f1e16994492c72540e2a7e8d5918d4cf242",
+      "exported_class_sha256": "c5a04b67de985aa3ed6bb182cb683a55a6375a96b02d6648da5acb5272e7732f"
+    },
+    {
+      "ae2": "15.4.11",
+      "mode": "base",
+      "result": "passed",
+      "overlay_injection_verified": true,
+      "storage_and_coprocessor_wrappers_verified": true,
+      "tooltip_wrapper_verified": true,
+      "log": "build/crafting-status-development-transform.log",
+      "log_sha256": "cd9c24727c02805a21e8092ba6726f1e16994492c72540e2a7e8d5918d4cf242",
+      "exported_class_sha256": "080019ad5d46d937c1d2ebef18a7bc6631111da5318a6e59f487c640c8157650"
+    }
+  ],
+  "previous_cpu_logic_regression": {
+    "cases_passed": 3,
+    "log": "build/crafting-status-logic-regression.log"
+  },
+  "live_client_verification": {
+    "actual_user_modpack": true,
+    "mcpfabric_used": false,
+    "windows_ui_automation_used": false,
+    "method": "Read live menus, capture registered screen-factory failure, patch the exact reference mapping in the current session, then call actual screen mouseClicked and mouseReleased at the status button",
+    "before_client_screen": "CraftingTermScreen",
+    "before_server_menu": "CraftingStatusMenu",
+    "after_client_screen": "CraftingStatusScreen",
+    "after_client_menu": "CraftingStatusMenu",
+    "after_server_menu": "CraftingStatusMenu",
+    "result": "passed",
+    "evidence": [
+      {
+        "path": "docs/porting-2026-10-23/evidence/crafting-status-navigation/after-fix.txt",
+        "sha256": "ec83993bd361d6cd66a503dd0201eb86892a4109b0461a4d6aaeb57511c745d5"
+      },
+      {
+        "path": "docs/porting-2026-10-23/evidence/crafting-status-navigation/click-after-fix.txt",
+        "sha256": "264635dd82b84618cbff468b386e12929938cce864f73bc232b2a3ba503c41c5"
+      },
+      {
+        "path": "docs/porting-2026-10-23/evidence/crafting-status-navigation/constructor.txt",
+        "sha256": "5e04d3fb745794585c81d8ed02d1cb787c00c30b81220f38eb318da08c736dfa"
+      },
+      {
+        "path": "docs/porting-2026-10-23/evidence/crafting-status-navigation/inspect-after-user-click.txt",
+        "sha256": "7a1a39ecaa08f9f75eec57089769c51292b4b6ebd3d840aea5f4af93130e205b"
+      },
+      {
+        "path": "docs/porting-2026-10-23/evidence/crafting-status-navigation/refmap-patch.txt",
+        "sha256": "da8a1ef01236c0a83752dc6500fb74b3cbe5a7bd3e4a2106eff52e53aaf32fd8"
+      }
+    ]
+  },
+  "package_audit": "porting/crafting-status-navigation-package-validation.json",
+  "installation": {
+    "installed_jar": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\mods\\neoecoae-20.6.0-dev.jar",
+    "backup_jar": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\neoecoae-backups\\crafting-status-20261023-231924\\neoecoae-20.6.0-dev.jar",
+    "previous_sha256": "b65a3988c8de16f694ad391369b0274651198bd5fb41f409147272e4222b9665",
+    "installed_sha256": "9c6d841056acd802caa749c52827d216844eb0cd1dcb93229bf4fa97dd1e44f8",
+    "replacement_verified": true,
+    "live_session_navigation_verified": true,
+    "new_jar_restart_verified": false
+  },
+  "acceptance": "Actual live button navigation succeeded after applying the identical mapping in memory; rebuilt JAR was installed after clean game exit. Restart with the installed new JAR has not been revalidated."
+}

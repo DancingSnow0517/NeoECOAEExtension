@@ -36,7 +36,9 @@ public class CpuSelectionListMixin {
         at = @At(
             value = "INVOKE",
             target = "Lcom/mojang/blaze3d/vertex/PoseStack;popPose()V",
-            shift = At.Shift.AFTER
+            shift = At.Shift.AFTER,
+            // The AE2 method keeps its name, but this Minecraft invocation is SRG in release JARs.
+            remap = true
         )
     )
     private void onDrawBackgroundLayer(

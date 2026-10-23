@@ -30,6 +30,8 @@ public final class GtlCpuCompatibility {
 
     public static void main(String[] args) throws Exception {
         String mode = args[0];
+        boolean selectionList = args.length > 1 && args[1].equals("selection-list");
+        String target = selectionList ? "appeng.client.gui.widgets.CPUSelectionList" : TARGET;
         var urls = new ArrayList<URL>();
         Path overrides = Path.of("overrides").toAbsolutePath();
         Files.createDirectories(overrides);
@@ -47,10 +49,10 @@ public final class GtlCpuCompatibility {
               "required": true,
               "minVersion": "0.8",
               "compatibilityLevel": "JAVA_17",
-              "package": "org.gtlcore.gtlcore.mixin.ae2.logic",
-              "mixins": ["CraftingCpuLogicMixin"]
+              "package": "org.gtlcore.gtlcore.mixin",
+              "mixins": ["%s"]
             }
-            """);
+            """.formatted(selectionList ? "ae2.CPUSelectionListMixin" : "ae2.logic.CraftingCpuLogicMixin"));
         urls.add(overrides.toUri().toURL());
         for (String entry : System.getProperty("java.class.path").split(File.pathSeparator)) {
             urls.add(Path.of(entry).toUri().toURL());
@@ -74,7 +76,9 @@ public final class GtlCpuCompatibility {
         }
         Thread.currentThread().setContextClassLoader(Launch.classLoader);
         MixinBootstrap.init();
-        MixinEnvironment.getDefaultEnvironment().setSide(MixinEnvironment.Side.SERVER);
+        var environment = MixinEnvironment.getDefaultEnvironment();
+        environment.setSide(selectionList ? MixinEnvironment.Side.CLIENT : MixinEnvironment.Side.SERVER);
+        if (selectionList && args.length > 2 && args[2].equals("searge")) environment.setObfuscationContext("searge");
         MixinExtrasBootstrap.init();
         Mixins.addConfiguration("neoecoae.mixins.json");
         if (!mode.equals("base")) Mixins.addConfiguration("gtl-cpu-regression.mixins.json");
@@ -84,14 +88,21 @@ public final class GtlCpuCompatibility {
         changePhase.invoke(null, MixinEnvironment.Phase.DEFAULT);
 
         try {
-            var transformed = Class.forName(TARGET, false, Launch.classLoader);
+            var transformed = Class.forName(target, false, Launch.classLoader);
             if (mode.equals("before")) throw new AssertionError("Old priority unexpectedly accepted the GTLCore overwrite");
             var names = Arrays.stream(transformed.getDeclaredMethods()).map(java.lang.reflect.Method::getName).toList();
-            for (String hook : List.of("neoecoae$dispatch", "neoecoae$pushWithJob", "neoecoae$releaseWorkerOutput")) {
+            var hooks = selectionList ? List.of("onDrawBackgroundLayer", "wrapStorageAdd", "wrapStorageTooltip", "wrapAdd")
+                : List.of("neoecoae$dispatch", "neoecoae$pushWithJob", "neoecoae$releaseWorkerOutput");
+            for (String hook : hooks) {
                 require(names.stream().anyMatch(name -> name.contains(hook)), "Missing transformed hook: " + hook);
             }
-            verifyExport(mode);
-            System.out.println("GTL_CPU_COMPAT PASS mode=" + mode + " transformed=true jobWrapper=true dispatch=true lifecycle=true");
+            if (selectionList) {
+                verifySelectionListExport(mode, target);
+                System.out.println("GTL_CPU_LIST_COMPAT PASS mode=" + mode + " transformed=true overlay=true storage=true coprocessors=true tooltip=true");
+            } else {
+                verifyExport(mode);
+                System.out.println("GTL_CPU_COMPAT PASS mode=" + mode + " transformed=true jobWrapper=true dispatch=true lifecycle=true");
+            }
         } catch (Throwable failure) {
             if (!mode.equals("before") || !isOriginalFailure(failure)) throw failure;
             System.out.println("GTL_CPU_COMPAT PASS mode=before reproduced=InvalidInjectionException priority1000_vs_1100");
@@ -143,6 +154,22 @@ public final class GtlCpuCompatibility {
                     && message.contains(GTL_MIXIN) && message.contains("priority 1100")) return true;
         }
         return false;
+    }
+
+    private static void verifySelectionListExport(String mode, String target) throws Exception {
+        var node = new ClassNode();
+        new ClassReader(Files.readAllBytes(Path.of(".mixin.out/class", target.replace('.', '/') + ".class"))).accept(node, 0);
+        for (String hook : List.of("onDrawBackgroundLayer", "wrapStorageAdd", "wrapAdd", "wrapStorageTooltip")) {
+            String methodName = hook.equals("wrapStorageTooltip") ? "getTooltip" : "drawBackgroundLayer";
+            var method = node.methods.stream().filter(value -> value.name.equals(methodName)).findFirst().orElseThrow();
+            boolean called = false;
+            for (var instruction : method.instructions) {
+                called |= instruction instanceof MethodInsnNode call && call.name.contains(hook);
+            }
+            require(called, "Missing live CPU-list call: " + hook);
+        }
+        boolean gtlSearch = node.interfaces.contains("org/gtlcore/gtlcore/client/ae2/CraftingCpuSearchTarget");
+        require(gtlSearch == mode.equals("gtl"), "Unexpected GTLCore CPU search integration");
     }
 
     private static void require(boolean condition, String message) {
