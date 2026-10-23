@@ -455,6 +455,15 @@ final class ECOInfiniteStorageModeController {
         refreshHostAccess();
     }
 
+    void membersChanged() {
+        boolean previouslyAccessible = hostAccess;
+        refreshHostAccess();
+        if (previouslyAccessible != hostAccess && host.getLevel() != null
+                && !host.getLevel().isClientSide && !host.isStorageServerStopping()) {
+            host.refreshDriveStorageProviders();
+        }
+    }
+
     /** Called synchronously by host transitions; domain health and restore locks are engine-owned. */
     void refreshHostAccess() {
         hostAccess = host.isFormed()
@@ -463,7 +472,8 @@ final class ECOInfiniteStorageModeController {
                 && host.infiniteDomainId() != null
                 && !host.isInfiniteExitRequested()
                 && !host.infiniteRestore().isRestoring()
-                && mountedEngine != null;
+                && mountedEngine != null
+                && host.getMissingInfiniteMembers() == 0;
     }
 
     boolean canInsertIntoDomain() {

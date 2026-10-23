@@ -32,7 +32,7 @@ class ECOAe2LtCancellationBridgeTest {
         when(level.getServer()).thenReturn(server);
         when(server.overworld()).thenReturn(level);
         when(level.getDataStorage()).thenReturn(storage);
-        doReturn(decisions).when(storage).computeIfAbsent(any(), eq("neoecoae_crafting_job_lifecycle"));
+        doReturn(decisions).when(storage).computeIfAbsent(any(), any(), eq("neoecoae_crafting_job_lifecycle"));
         var cpu = mock(TimeWheelCraftingCPU.class);
         when(cpu.getLevel()).thenReturn(level);
         var logic = mock(Ae2LtTimeWheelCraftingCpuLogic.class);
@@ -100,8 +100,21 @@ class ECOAe2LtCancellationBridgeTest {
     }
 
     @Test
+    void completionPublishesACompletedDecisionWithoutCancellingWorkers() {
+        var level = mock(Level.class);
+        var jobId = UUID.randomUUID();
+        var logic = new FakeLogic(new FakeCpu(level), new FakeJob(new FakeLink(jobId)));
+        try (var lifecycle = mockStatic(ECOCraftingJobLifecycle.class)) {
+            ECOAe2LtCancellationBridge.complete(logic);
+            lifecycle.verify(() -> ECOCraftingJobLifecycle.finish(level, jobId, true));
+            lifecycle.verifyNoMoreInteractions();
+        }
+    }
+
+    @Test
     void anAlreadyClearedJobIsAQuietNoOp() {
         assertDoesNotThrow(() -> ECOAe2LtCancellationBridge.cancel(new FakeLogic(new FakeCpu(null), null)));
+        assertDoesNotThrow(() -> ECOAe2LtCancellationBridge.complete(new FakeLogic(new FakeCpu(null), null)));
     }
 
     private static final class FakeLogic {

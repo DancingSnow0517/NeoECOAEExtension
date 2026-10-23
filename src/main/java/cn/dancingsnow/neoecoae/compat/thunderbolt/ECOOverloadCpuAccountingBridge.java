@@ -41,12 +41,13 @@ public final class ECOOverloadCpuAccountingBridge {
     private static final @Nullable Method LOAD = method("loadOverloadState", Object.class,
             UUID.class, CompoundTag.class);
     private static final @Nullable Method CLEAR = method("clearOverloadState", Object.class);
+    private static final @Nullable ECOAe2LtReleasedAccounting RELEASED = releasedAccounting();
     private static boolean initialized;
 
     private ECOOverloadCpuAccountingBridge() { }
 
     public static synchronized void initialize() {
-        if (initialized || CLAIM == null || SAVE == null || LOAD == null || CLEAR == null) return;
+        if (initialized || RELEASED == null && (CLAIM == null || SAVE == null || LOAD == null || CLEAR == null)) return;
         ECOCraftingJobAttachmentRegistry.register(ATTACHMENT, context -> {
             if (!(context.cpu() instanceof cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU cpu)) return null;
             var sink = cpu.getOutputClaimSink();
@@ -66,6 +67,7 @@ public final class ECOOverloadCpuAccountingBridge {
 
     public static Registration prepare(Object owner, IPatternDetails pattern, UUID jobId,
             @Nullable AEKey output, @Nullable KeyCounter waiting) {
+        if (RELEASED != null) return RELEASED.prepare(owner, pattern, jobId, output, waiting);
         if (PREPARE == null) return ORDINARY;
         Object registration = owner != null && waiting != null && PREPARE_WITH_WAITING != null
                 ? invoke(PREPARE_WITH_WAITING, null, owner, pattern, jobId, output, waiting)
@@ -86,29 +88,34 @@ public final class ECOOverloadCpuAccountingBridge {
     }
 
     public static long strictMatch(Object owner, AEKey actual, long rawMatch, long exactWaiting) {
+        if (RELEASED != null) return RELEASED.strictMatch(owner, actual, rawMatch, exactWaiting);
         return STRICT == null ? rawMatch : (long) invoke(STRICT, null, owner, actual, rawMatch, exactWaiting);
     }
 
     public static long claim(ECOCraftingOutputClaimSink owner, UUID jobId, AEKey actual,
             long amount, Actionable mode) {
-        if (CLAIM == null || amount <= 0) return 0;
+        if (amount <= 0 || CLAIM == null && RELEASED == null) return 0;
         BiFunction<GenericStack, Actionable, Long> receiver = (expected, action) -> owner.claimCraftingOutput(
                 new ECOCraftingOutputClaimRequest(jobId, expected.what(), actual, expected.amount(), action)).claimedAmount();
-        return (long) invoke(CLAIM, null, owner, jobId, actual, amount, mode, receiver);
+        return RELEASED != null ? RELEASED.claim(owner, jobId, actual, amount, mode, receiver)
+            : (long) invoke(CLAIM, null, owner, jobId, actual, amount, mode, receiver);
     }
 
     /** Discards live state before replacing a checkpoint; the attachment restores the new job afterward. */
     public static void clear(Object owner) {
-        if (CLEAR != null) invoke(CLEAR, null, owner);
+        if (RELEASED != null) RELEASED.clear(owner);
+        else if (CLEAR != null) invoke(CLEAR, null, owner);
     }
 
     private record Attachment(ECOCraftingOutputClaimSink owner, UUID jobId) implements ECOCraftingJobAttachment {
         public ResourceLocation id() { return ATTACHMENT; }
         public CompoundTag save() {
-            return (CompoundTag) invoke(SAVE, null, owner, jobId);
+            return RELEASED != null ? RELEASED.save(owner, jobId)
+                : (CompoundTag) invoke(SAVE, null, owner, jobId);
         }
         public void load(CompoundTag tag) {
-            invoke(LOAD, null, owner, jobId, tag);
+            if (RELEASED != null) RELEASED.load(owner, jobId, tag);
+            else invoke(LOAD, null, owner, jobId, tag);
         }
         public void clear(ECOCraftingJobResult result) { ECOOverloadCpuAccountingBridge.clear(owner); }
     }
@@ -121,6 +128,13 @@ public final class ECOOverloadCpuAccountingBridge {
     private static @Nullable Method method(String name, Class<?>... types) {
         try { return API_CLASS == null ? null : API_CLASS.getMethod(name, types); }
         catch (NoSuchMethodException | LinkageError unavailable) { return null; }
+    }
+
+    private static @Nullable ECOAe2LtReleasedAccounting releasedAccounting() {
+        if (API_CLASS == null || PREPARE_WITH_WAITING != null && STRICT != null && CLAIM != null
+            && SAVE != null && LOAD != null && CLEAR != null) return null;
+        try { return new ECOAe2LtReleasedAccounting(); }
+        catch (LinkageError unavailable) { return null; }
     }
 
     private static Object invoke(Method method, Object target, Object... args) {

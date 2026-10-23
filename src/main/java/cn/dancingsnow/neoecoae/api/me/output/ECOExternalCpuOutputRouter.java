@@ -12,20 +12,22 @@ public final class ECOExternalCpuOutputRouter {
     private ECOExternalCpuOutputRouter() {}
 
     public static long insert(ICraftingCPU cpu, UUID jobId, AEKey key, long amount, Actionable mode) {
+        if (jobId == null || key == null || amount <= 0L) return 0L;
         if (cpu instanceof CraftingCPUCluster cluster) {
             var logic = cluster.craftingLogic;
             var link = logic.getLastLink();
             if (link == null || !jobId.equals(link.getCraftingID())) return 0;
-            long offered = Math.min(amount, logic.getWaitingFor(key));
-            if (offered <= 0) return 0;
-            long inserted = logic.insert(key, offered, mode);
-            if (mode == Actionable.MODULATE && inserted < offered) {
-                // AE2 retires final output even when the requester rejects it. Keep that remainder locally.
-                logic.getInventory().insert(key, offered - inserted, mode);
-                cluster.markDirty();
-                return offered;
+            long inserted = logic.insert(key, amount, mode);
+            if (inserted < 0L || inserted > amount) {
+                throw new IllegalStateException("Invalid native CPU insertion amount: " + inserted + " for " + amount);
             }
-            return inserted;
+            if (mode == Actionable.MODULATE && inserted < amount) {
+                // Directed surplus belongs to this CPU too. AE2 may also retire final output
+                // even when the requester rejects it, so retain every physical remainder locally.
+                logic.getInventory().insert(key, amount - inserted, mode);
+                cluster.markDirty();
+            }
+            return amount;
         }
         return ECOAe2LtCraftingAdapter.insertCpuOutput(cpu, jobId, key, amount, mode);
     }

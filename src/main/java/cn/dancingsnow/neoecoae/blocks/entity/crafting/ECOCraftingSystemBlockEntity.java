@@ -841,7 +841,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public void applyNetworkActiveCooling(boolean value) {
         if (activeCooling == value) return;
         activeCooling = value;
-        invalidateCapabilitySnapshot();
+        // Cooling also gates unlimited virtual admission, so dispatch capacity must change with the mode.
+        invalidateCapabilityCapacity();
         setChanged();
         markForUpdate();
     }

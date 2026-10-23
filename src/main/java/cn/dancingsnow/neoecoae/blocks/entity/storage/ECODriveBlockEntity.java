@@ -269,6 +269,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             if (cellInventory != null
                 && mainTier.compareTo(cellInventory.getTier()) >= 0
                 && !cluster.getController().isStorageInterfaceTransferMode()
+                && (!cluster.getController().isInfiniteMode()
+                    || cluster.getController().canUseHostDomainStorage())
                 && !ECOInfiniteStorageMember.isMigrating(cellStack)
                 && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 int priority = cn.dancingsnow.neoecoae.gui.storage.StoragePriority.mountPriority(

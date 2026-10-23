@@ -75,6 +75,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
             ECOCraftingJobLifecycle.cancelAndRecover(cluster.getLevel(), craftingJobId);
             return;
         }
+        ECOCraftingJobLifecycle.finish(cluster.getLevel(), craftingJobId, true);
         var grid = cluster.getGrid();
         if (grid == null) return;
         for (var worker : grid.getMachines(cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity.class))
