@@ -1,0 +1,181 @@
+{
+  "checked_at": "2026-10-23T13:45:07.122906+00:00",
+  "environment": {
+    "java": 17,
+    "minecraft": "1.20.1",
+    "forge": "47.4.28"
+  },
+  "main_baseline": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "minimum_versions": {
+    "ldlib": "1.0.33.b",
+    "guideme": "20.1.14"
+  },
+  "development_versions": {
+    "ldlib": "1.0.52.a",
+    "guideme": "20.1.15"
+  },
+  "official_minimum_artifacts": [
+    {
+      "version_id": "FX8CaaJ8",
+      "filename": "ldlib-forge-1.20.1-1.0.33.b.jar",
+      "sha256": "5b1c73e63cd665249c79bd28146eac32a9f0838e1643e75b031d7062c393b86a",
+      "sha512": "dc35720db23003c41d5df7c8365c5a2962e952b45da1349f3e3896864aa1b9c6b5871eb8d2e662583c5297ee1539c914f6530e845e9a015f6eaf97c67e4dd602",
+      "url": "https://cdn.modrinth.com/data/B1CBVXHX/versions/FX8CaaJ8/ldlib-forge-1.20.1-1.0.33.b.jar",
+      "bytes": 3017913
+    },
+    {
+      "version_id": "9YGnKYDF",
+      "filename": "guideme-20.1.14.jar",
+      "sha256": "a0ba5a0288dab6e413f1456de8dd162f9479146ee681569837f6d6b17930a0e2",
+      "sha512": "15311cb0607205d2da3eb369499b8523bd0d8fa41e30c87c0b0e5756df5ea2123389262e6883f66e6c7b1d43d68e20cdfec73b31c202df8fbb99fa80d4fe7b1d",
+      "url": "https://cdn.modrinth.com/data/Ck4E7v7R/versions/9YGnKYDF/guideme-20.1.14.jar",
+      "bytes": 9413204
+    }
+  ],
+  "profiles": {
+    "minimum": {
+      "compile_and_jar": "success",
+      "tests": {
+        "portingPlatformTest": {
+          "tests": 180,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 180
+        },
+        "upstreamSyncTest": {
+          "tests": 333,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 9,
+          "passed": 324
+        }
+      },
+      "jar": ".porting/ui-dependency-compatibility/minimum/libs/neoecoae-20.6.0-dev.jar",
+      "jar_sha256": "c0f2e0662e4892e97890ac574da16d5b49df3ad90eb8ad66d2eaf1d6c43f8cb5",
+      "dependency_ranges": {
+        "ldlib": "[1.0.33.b,1.1)",
+        "guideme": "[20.1.14,20.2.0)"
+      },
+      "log": "validation/ui-dependencies-minimum.log",
+      "log_sha256": "8cb06da41cb1bbfa17d4bd870fc4d0d672c45f7e1c344df26e8350db9fa9bae9"
+    },
+    "recommended": {
+      "compile_and_jar": "success",
+      "tests": {
+        "portingPlatformTest": {
+          "tests": 188,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 188
+        },
+        "upstreamSyncTest": {
+          "tests": 333,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 9,
+          "passed": 324
+        }
+      },
+      "jar": ".porting/ui-dependency-compatibility/recommended/libs/neoecoae-20.6.0-dev.jar",
+      "jar_sha256": "010b86f8edf6c97644c2977a70b0f4aaeee82485d0bdd919c66f40aa7a470e3a",
+      "dependency_ranges": {
+        "ldlib": "[1.0.33.b,1.1)",
+        "guideme": "[20.1.14,20.2.0)"
+      },
+      "log": "validation/ui-dependencies-recommended.log",
+      "log_sha256": "0b23d1b13a0442f0cf429e699b8ff2175658eda359186836021614e05eb6b5d4"
+    }
+  },
+  "final_package_audit": {
+    "jar": ".porting/ui-dependency-compatibility/recommended/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "010b86f8edf6c97644c2977a70b0f4aaeee82485d0bdd919c66f40aa7a470e3a",
+    "bytes": 7025988,
+    "source_files_checked": 972,
+    "packaged_classes": 1600,
+    "class_major_versions": {
+      "61": 1600
+    },
+    "registered_mixins": 64,
+    "registered_mixin_configs": [
+      "neoecoae.compat.advanced_ae.mixins.json",
+      "neoecoae.compat.extendedae.mixins.json",
+      "neoecoae.compat.thunderbolt.mixins.json",
+      "neoecoae.mixins.json",
+      "neoecoae.terminal_big_amount.mixins.json"
+    ],
+    "refmap_classes": 7,
+    "nested_jars": [
+      "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+      "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+    ],
+    "problems": {
+      "missing_source_classes": [],
+      "missing_required_resources": [],
+      "missing_registered_mixins": [],
+      "missing_mixin_plugins": [],
+      "unregistered_mixin_configs": [],
+      "missing_nested_jars": [],
+      "missing_translations": [],
+      "fake_upstream_classes": [],
+      "duplicate_entries": []
+    },
+    "result": "success",
+    "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+  },
+  "final_jar_links": {
+    "minimum": {
+      "classes_checked": 75,
+      "members_checked": 503,
+      "missing": [],
+      "unresolved_inherited_members": [
+        [
+          "field",
+          "com/lowdragmc/lowdraglib/gui/modular/ModularUIContainer",
+          "f_38840_",
+          "I"
+        ]
+      ]
+    },
+    "recommended": {
+      "classes_checked": 75,
+      "members_checked": 503,
+      "missing": [],
+      "unresolved_inherited_members": [
+        [
+          "field",
+          "com/lowdragmc/lowdraglib/gui/modular/ModularUIContainer",
+          "f_38840_",
+          "I"
+        ]
+      ]
+    }
+  },
+  "delivered_jar": {
+    "path": "validation/ui-dependency-compatibility/neoecoae-20.6.0-dev.jar",
+    "sha256": "010b86f8edf6c97644c2977a70b0f4aaeee82485d0bdd919c66f40aa7a470e3a",
+    "bytes": 7025988
+  },
+  "scope": [
+    "Full production compilation with both dependency sets",
+    "Platform and selected upstream regressions with both dependency sets",
+    "Final recommended-dependency build statically checked against the minimum and recommended API classfiles"
+  ],
+  "limits": [
+    "No game client, dedicated server, player interactions or ordinary modpack installation were run",
+    "Other tasks edited the workspace during validation; test totals reflect the suites present at each run"
+  ],
+  "result": "success",
+  "vanilla_inherited_field_check": {
+    "declaring_class": "net.minecraft.world.inventory.AbstractContainerMenu",
+    "declaration_verified_with_javap": "public final int containerId;",
+    "named_field": "containerId",
+    "runtime_field": "f_38840_",
+    "descriptor": "I",
+    "mapping_file": ".porting/ui-dependency-compatibility/recommended/moddev/artifacts/namedToIntermediate.tsrg",
+    "mapping_line": 72986,
+    "mapping_sha256": "1d4076bbec508f9407b0528847e8033ae1600a8b657bdc03aa577562761f2196",
+    "result": "verified"
+  }
+}

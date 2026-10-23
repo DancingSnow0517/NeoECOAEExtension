@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import cn.dancingsnow.neoecoae.platform.ui.NEBlockEntityUI;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.core.BlockPos;
@@ -16,7 +16,7 @@ import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 
-public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidInputHatchBlockEntity> implements IUIHolder.BlockEntityUI {
+public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidInputHatchBlockEntity> implements NEBlockEntityUI {
 
     public FluidTank tank = new FluidTank(16000) {
         @Override

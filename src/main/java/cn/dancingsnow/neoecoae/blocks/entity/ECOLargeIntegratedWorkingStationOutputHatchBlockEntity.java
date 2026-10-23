@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import cn.dancingsnow.neoecoae.platform.ui.NEBlockEntityUI;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.core.BlockPos;
@@ -19,7 +19,7 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 
 public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
-    extends NEBlockEntity<NEIntegratedWorkingStationCluster, ECOLargeIntegratedWorkingStationOutputHatchBlockEntity> implements IUIHolder.BlockEntityUI {
+    extends NEBlockEntity<NEIntegratedWorkingStationCluster, ECOLargeIntegratedWorkingStationOutputHatchBlockEntity> implements NEBlockEntityUI {
     public static final int CAPACITY = 1_024_000;
 
     public final FluidTank tank = new FluidTank(CAPACITY) {

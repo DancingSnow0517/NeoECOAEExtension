@@ -72,6 +72,8 @@ public class UIElement extends WidgetGroup {
     public boolean isDisplayed(){return display&&getLayoutStyle().display!=cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyDisplay.NONE;}
     public boolean effectivelyVisible(){for(UIElement element=this;element!=null;element=element.getParentElement())if(!element.isVisible()||!element.isActive()||!element.isDisplayed())return false;return true;}
     public boolean isFocused(){return isFocus();}
+    /** Use this menu's pointer state; older LDLib releases have no Widget.isMouseDown helper. */
+    public boolean isMouseDown(int button){return modularUI!=null&&modularUI.getLastMouseDownButton()==button;}
     public UIElement setAllowHitTest(boolean value){allowHitTest=value;return this;}
     public UIElement getParentElement(){return parent instanceof UIElement p?p:null;}
     public <T extends UIElement>T getFirstAncestorOfType(Class<T> type){for(UIElement e=this;e!=null;e=e.getParentElement())if(type.isInstance(e))return type.cast(e);return null;}

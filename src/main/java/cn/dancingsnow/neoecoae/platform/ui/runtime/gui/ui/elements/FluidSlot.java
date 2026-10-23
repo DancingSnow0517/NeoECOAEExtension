@@ -25,6 +25,8 @@ public class FluidSlot extends UIElement {
     private final NativeTank tank=new NativeTank();
     /** Native transfer/sync stays in the tree; its pixels belong to this element's background hook. */
     private static final class NativeTank extends TankWidget {
+        com.lowdragmc.lowdraglib.side.fluid.FluidStack syncedFluid(){return lastFluidInTank;}
+        long syncedCapacity(){return lastTankCapacity;}
         @Override public void drawInBackground(GuiGraphics graphics,int mouseX,int mouseY,float partialTicks){}
         void drawTank(GUIContext context){super.drawInBackground(context.graphics,(int)context.mouseX,(int)context.mouseY,context.partialTicks);}
     }
@@ -53,12 +55,12 @@ public class FluidSlot extends UIElement {
     public FluidSlot slotStyle(Consumer<SlotStyle> action){action.accept(slotStyle);
         tank.setFillDirection(com.lowdragmc.lowdraglib.gui.texture.ProgressTexture.FillDirection.valueOf(slotStyle.direction.name()));return this;}
     public FluidStack getValue(){
-        var value=tank.getLastFluidInTank();
+        var value=tank.syncedFluid();
         if(isRemote()&&value!=null)return value.isEmpty()?FluidStack.EMPTY:new FluidStack(value.getFluid(),(int)Math.min(Integer.MAX_VALUE,value.getAmount()),value.getTag());
         return handler==null?FluidStack.EMPTY:handler.getFluidInTank(tankIndex);
     }
     public List<Component> getFullTooltipTexts(){
-        var value=getValue();long capacity=handler==null?tank.getLastTankCapacity():handler.getTankCapacity(tankIndex);
+        var value=getValue();long capacity=handler==null?tank.syncedCapacity():handler.getTankCapacity(tankIndex);
         var result=new ArrayList<Component>();
         result.add(value.isEmpty()?Component.translatable("ldlib.fluid.empty"):value.getDisplayName());
         result.add(Component.literal(value.getAmount()+" / "+capacity+" mB"));return result;
