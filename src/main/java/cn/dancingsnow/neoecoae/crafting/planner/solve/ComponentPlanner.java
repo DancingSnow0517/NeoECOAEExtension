@@ -150,7 +150,8 @@ public final class ComponentPlanner {
                          boolean stopAtFirstFailure) throws InterruptedException {
         Outcome plain = planRoute(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
                 ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner, false, stopAtFirstFailure);
-        if (plain.status() != PlanningStatus.SUCCESS || plain.components().stream().noneMatch(component ->
+        if (!cancellation.improveCompletedPlans() || plain.status() != PlanningStatus.SUCCESS
+                || plain.components().stream().noneMatch(component ->
                 component.cycleResult() != null && component.cycleResult().requiredSeed().entrySet().stream()
                     .anyMatch(seed -> seed.getValue() > 0 && inventory.get(seed.getKey()) > 0))) return plain;
         // Only improve after the entire original order, including shared upstream supply, has succeeded.

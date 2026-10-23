@@ -53,6 +53,7 @@ public final class JointRouteOptimizer {
         budgetExhausted = false;
         if (amount <= 0) return preferred;
         boolean completed = preferred != null && preferred.status() == PlanningStatus.SUCCESS;
+        if (completed && !cancellation.improveCompletedPlans()) return preferred;
         // The optional firing-count objective does not include the component planner's seed floors.
         // Do not replace a verified seed-retaining order with a cheaper order that consumes that seed.
         if (completed && preferred.trace().diagnostics().stream()

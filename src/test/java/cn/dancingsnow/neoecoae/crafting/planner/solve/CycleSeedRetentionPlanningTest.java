@@ -48,6 +48,26 @@ class CycleSeedRetentionPlanningTest {
     }
 
     @Test
+    void firstSolutionDoesNotWaitForOptionalWholeOrderSeedRetention() throws Exception {
+        var network = new CompiledNetwork(b, Map.of(b, List.of(p1), a, List.of(p2), f, List.of()), Set.of(), 2, 3);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+                new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = inventory(a, 1, f, 2);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var first = planner.planWithCycleFallback(network, condensation,
+                planner.selectRoutes(condensation, true, ECOCancellation.NONE), stock,
+                PlannerInventorySnapshot.of(stock), 2, false, ECOCancellation.firstSolution(ECOCancellation.NONE));
+        assertEquals(PlanningStatus.SUCCESS, first.status(), describe(first));
+        assertEquals(Map.of(p1.details(), 1L), first.state().patternTimes());
+        assertNoDiagnostic(first, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+        assertEquals(2, replay(cycle(first).cycleResult(), counts(a, 1, f, 1)).get(b));
+        var optimized = planSeedCycle(stock, 2);
+        assertHasDiagnostic(optimized, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+        assertEquals(Map.of(p1.details(), 2L, p2.details(), 2L), optimized.state().patternTimes());
+    }
+
+    @Test
     void concurrentOrdersBorrowOneSeedEachAndReturnTheirOwnSeed() throws Exception {
         var first = planSeedCycle(inventory(a, 64, f, 4000), 1000);
         assertEquals(PlanningStatus.SUCCESS, first.status(), describe(first));

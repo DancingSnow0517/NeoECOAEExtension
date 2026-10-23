@@ -64,6 +64,7 @@ public final class ECOCraftingPlannerService {
         private volatile CondensationGraph condensation;
         private volatile ActiveRouteSelector.Selection activeSelection;
         private volatile long compiledContractGeneration = -1L;
+        private volatile long compiledProviderRevision = -1L;
         private final Object initializationLock = new Object();
 
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
@@ -92,7 +93,15 @@ public final class ECOCraftingPlannerService {
                 if (planningBudget == null) planningBudget = new ECOPlanningBudget(ECOCancellation.NONE);
             }
             ECOPlanningBudget sharedBudget = planningBudget;
-            cancellation = () -> { callerCancellation.checkpoint(); sharedBudget.checkpoint(); };
+            cancellation = new ECOCancellation() {
+                @Override public void checkpoint() throws InterruptedException {
+                    callerCancellation.checkpoint();
+                    sharedBudget.checkpoint();
+                }
+                @Override public boolean improveCompletedPlans() {
+                    return callerCancellation.improveCompletedPlans();
+                }
+            };
             long startedNanos = System.nanoTime();
             String budgetStage = "structural_initialization";
             try (var ignored = ECOPlanningStageLogger.open(
@@ -238,6 +247,7 @@ public final class ECOCraftingPlannerService {
                     compiled = cached.network();
                     condensation = cached.condensation();
                     compiledContractGeneration = contractGeneration;
+                    compiledProviderRevision = providerRevision;
                     ECOPlanningStageLogger.finish("structural_initialization", ECOPlanningStageLogger.start(),
                             true, "CACHED_PROVIDER_REVISION=" + providerRevision);
                     return;
@@ -271,9 +281,35 @@ public final class ECOCraftingPlannerService {
                     throw new IllegalStateException("PATTERN_CONTRACT_CHANGED_DURING_COMPILATION");
                 }
                 compiledContractGeneration = contractGeneration;
+                compiledProviderRevision = providerRevision;
                 CompiledStructureCache.put(craftingService, providerRevision, contractGeneration, goal, cyclePlanningEnabled,
                         fuzzyPlanningItemIds, new CompiledStructureCache.Structure(compiled, condensation));
             }
+        }
+
+        /** Frozen recipe structure, independent stock and allowance for each optional search. */
+        Session fork(PlannerInventorySnapshot stock, ECOCancellation cancellation, boolean remaining) {
+            if (!isStructureCurrent()) throw new IllegalStateException("STALE_PLANNING_STRUCTURE");
+            Session fork = new Session(craftingService, goal, stock, cyclePlanningEnabled,
+                    ignorePatternSubstitutions, fuzzyPlanningItemIds);
+            // A running CPU can use only its own stock; emitters would create new, unconfirmed requests.
+            fork.compiled = remaining ? new CompiledNetwork(goal, compiled.producers(), Set.of(),
+                    compiled.reachablePatternCount(), compiled.edgeCount()) : compiled;
+            fork.condensation = condensation;
+            fork.compiledContractGeneration = compiledContractGeneration;
+            fork.compiledProviderRevision = compiledProviderRevision;
+            fork.planningBudget = new ECOPlanningBudget(cancellation,
+                    ECOPlanningImprovements.MAX_WORK, ECOPlanningImprovements.MAX_NANOS, System::nanoTime);
+            return fork;
+        }
+
+        PlannerInventorySnapshot initialInventory() { return inventorySnapshot; }
+        boolean belongsTo(ICraftingService service) { return craftingService == service; }
+
+        boolean isStructureCurrent() {
+            return compiled != null && condensation != null && compiledProviderRevision >= 0
+                    && compiledProviderRevision == CompiledStructureCache.revision(craftingService)
+                    && compiledContractGeneration == AE2PatternIntrospection.reloadGeneration();
         }
 
         private void logTotal(long startedNanos, ECOPlanningResult result) {

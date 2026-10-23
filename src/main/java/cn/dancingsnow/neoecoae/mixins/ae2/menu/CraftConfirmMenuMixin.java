@@ -43,8 +43,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -310,6 +312,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private ICraftingPlan result;
 
     @Shadow
+    private Future<ICraftingPlan> job;
+
+    @Shadow
     private CraftingPlanSummary plan;
 
     @Shadow
@@ -357,6 +362,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         require = 0
     )
     private void resetPlannerDiagnostics(CallbackInfoReturnable<Boolean> cir) {
+        neoecoae$closePlanImprovements();
         neoecoae$planningDiagnostic = "";
         neoecoae$showFastPlannerReport = false;
         neoecoae$ecoReportReady = false;
@@ -369,6 +375,41 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$originalOptions = null;
         neoecoae$lastStartDiagnostic = null;
         neoecoae$nextStartDiagnosticTick = 0;
+    }
+
+    @Inject(method = "broadcastChanges", at = @At("HEAD"))
+    private void neoecoae$adoptImprovedPlan(CallbackInfo ci) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        if (menu.isClientSide() || result == null || job != null) return;
+        var displayed = neoecoae$resolveOwnedPlanningResult(result);
+        if (displayed == null || displayed.improvements() == null) return;
+        var grid = getGrid();
+        if (grid == null || !displayed.improvements().belongsTo(grid.getCraftingService())) {
+            displayed.improvements().close();
+            return;
+        }
+        var better = displayed.improvements().latest(displayed);
+        if (better == null) return;
+        // Feed the new immutable plan through AE2's normal summary/CPU and ECO diagnostics sync path.
+        // Submission keeps using the displayed result until broadcastChanges consumes this future.
+        menu.setJob(CompletableFuture.completedFuture(better.plan()));
+    }
+
+    @Inject(method = "removed", at = @At("HEAD"))
+    private void neoecoae$cancelPlanImprovements(Player player, CallbackInfo ci) {
+        neoecoae$closePlanImprovements();
+    }
+
+    @Inject(method = "startJob", at = @At("HEAD"))
+    private void neoecoae$freezeDisplayedPlan(CallbackInfo ci) {
+        if (!((CraftConfirmMenu) (Object) this).isClientSide()) neoecoae$closePlanImprovements();
+    }
+
+    @Unique
+    private void neoecoae$closePlanImprovements() {
+        var owned = neoecoae$resolveOwnedPlanningResult(result);
+        if (owned == null) owned = neoecoae$confirmedPlanningResult;
+        if (owned != null && owned.improvements() != null) owned.improvements().close();
     }
 
     /**

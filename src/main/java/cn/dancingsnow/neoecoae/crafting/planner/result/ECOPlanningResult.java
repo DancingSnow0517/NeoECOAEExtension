@@ -36,6 +36,15 @@ public final class ECOPlanningResult {
     private final Object executionPlanLock = new Object();
     private volatile boolean executionPlanResolved;
     private final @Nullable ExecutionProvenance provenance;
+    private volatile @Nullable cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningImprovements improvements;
+
+    public @Nullable cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningImprovements improvements() {
+        return improvements;
+    }
+
+    public void setImprovements(cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningImprovements improvements) {
+        this.improvements = improvements;
+    }
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
             List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,

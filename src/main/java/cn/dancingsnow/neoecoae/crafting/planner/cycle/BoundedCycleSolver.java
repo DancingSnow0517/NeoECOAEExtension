@@ -406,13 +406,15 @@ public final class BoundedCycleSolver implements CycleSolver {
             if (best == null) return null;
             // The fixed lap already proves feasibility with a small startup seed. Re-batch from that seed,
             // not from every copy in ME storage: newly grown stock can increase concurrency within this job.
-            CircuitSummary proven = summarize(model, best);
-            try {
-                List<BatchFiring> batched = equationWitness(model, proven.counts,
-                    searchSlice(probe, 25_000L, 50_000_000L), memory, false, proven.required, true);
-                if (batched != null && dominates(summarize(model, batched).required, proven.required)) best = batched;
-            } catch (ECOPlanningBudget.Exhausted | CycleMemoryBudget.Exhausted exhausted) {
-                // Reordering is optional; the fixed-lap certificate is already complete and must survive.
+            if (cancellation.improveCompletedPlans()) {
+                CircuitSummary proven = summarize(model, best);
+                try {
+                    List<BatchFiring> batched = equationWitness(model, proven.counts,
+                        searchSlice(probe, 25_000L, 50_000_000L), memory, false, proven.required, true);
+                    if (batched != null && dominates(summarize(model, batched).required, proven.required)) best = batched;
+                } catch (ECOPlanningBudget.Exhausted | CycleMemoryBudget.Exhausted exhausted) {
+                    // Reordering is optional; the fixed-lap certificate is already complete and must survive.
+                }
             }
             var diagnostics = new ArrayList<CycleSolveDiagnostic>();
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.REPEATABLE_NET_GROWTH,

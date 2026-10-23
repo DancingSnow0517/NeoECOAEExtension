@@ -27,6 +27,9 @@ public final class ECOPlanningBudget implements ECOCancellation {
     }
 
     @Override
+    public boolean improveCompletedPlans() { return cancellation.improveCompletedPlans(); }
+
+    @Override
     public synchronized void checkpoint() throws InterruptedException {
         cancellation.checkpoint();
         long elapsed = clock.getAsLong() - started;

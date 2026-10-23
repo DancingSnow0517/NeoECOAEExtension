@@ -13,6 +13,8 @@ import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerRequest;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
@@ -126,7 +128,8 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
             fallbackBypassLocal.remove();
             return;
         }
-        ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::neoecoae$checkpointExternal);
+        ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate,
+                ECOCancellation.firstSolution(this::neoecoae$checkpointExternal));
         attemptResultLocal.set(result);
         neoecoae$lastPlanningResult = result;
         switch (result.status()) {
@@ -219,6 +222,7 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         }
         if (selected != null && PlanIdentity.matches(plan, selected.plan())) {
             ECOPlanningResultRegistry.register(plan, selected);
+            if (neoecoae$plannerSession != null) ECOPlanningService.startImprovements(neoecoae$plannerSession, selected);
         }
     }
 
