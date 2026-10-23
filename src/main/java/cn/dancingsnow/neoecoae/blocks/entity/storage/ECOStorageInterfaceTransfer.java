@@ -138,12 +138,14 @@ final class ECOStorageInterfaceTransfer {
         @Override
         public void getAvailableStacks(KeyCounter out) {
             if (!allowAccess.getAsBoolean()) return;
+            var accumulator = new cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator();
             for (MEStorage inventory : inventories) {
-                KeyCounter contribution = new KeyCounter();
-                ExactAmountCollector.collect(inventory, contribution, inventory::getAvailableStacks);
-                SaturatingStackAccumulator.addAll(out, contribution);
+                accumulator.append(inventory, out, inventory::getAvailableStacks);
             }
         }
+
+        @Override
+        public boolean neoecoae$hasSaturatingListing() { return true; }
 
         @Override
         public void neoecoae$listWithExactAmounts(KeyCounter out, BiConsumer<AEKey, ExactAmount> visitor) {
