@@ -23,6 +23,10 @@ class ECOExternalProviderBlockingTest {
         IConfigManager getConfigManager();
     }
 
+    interface UnknownSamePatternProvider extends ConfiguredProvider {
+        String getBlockingMode();
+    }
+
     @Test
     void readsLiveBlockingModeThroughProviderLogic() {
         var provider = mock(LogicHost.class);
@@ -50,5 +54,17 @@ class ECOExternalProviderBlockingTest {
         when(provider.getLogic()).thenReturn(logic);
         when(logic.isBlocking()).thenReturn(true);
         assertFalse(ECOExternalProviderBlocking.isEnabled(provider));
+    }
+
+    @Test
+    void thirdPartyModeNameDoesNotGrantNativeBatchPermission() {
+        var provider = mock(UnknownSamePatternProvider.class);
+        var config = mock(IConfigManager.class);
+        when(provider.getConfigManager()).thenReturn(config);
+        when(config.getSettings()).thenReturn(Set.of(Settings.BLOCKING_MODE));
+        when(config.getSetting(Settings.BLOCKING_MODE)).thenReturn(YesNo.YES);
+        when(provider.getBlockingMode()).thenReturn("SAME_PATTERN");
+        assertTrue(ECOExternalProviderBlocking.isEnabled(provider));
+        assertFalse(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.canBatchWhileBlocking(provider));
     }
 }

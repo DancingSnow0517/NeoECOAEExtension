@@ -4,6 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.KeyCounter;
+import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
 import java.lang.reflect.*;
 import java.util.*;
@@ -29,6 +30,12 @@ public final class ECOAe2LtDirectDispatch {
         var access = ACCESS.get(logic.getClass()).orElse(null);
         return access == null ? null : new Session(logic, access);
     }
+
+    /** Only the complete native transport can preserve same-pattern blocking for an ECO batch. */
+    public static boolean canBatchWhileBlocking(Object provider) {
+        var session = open(provider);
+        return session != null && session.canBatchWhileBlocking();
+    }
     @Nullable private static Object logic(Object provider) {
         return logic(provider, Collections.newSetFromMap(new IdentityHashMap<>()));
     }
@@ -49,13 +56,32 @@ public final class ECOAe2LtDirectDispatch {
         private final Access a;
         private Session(Object logic, Access a) { this.logic = logic; this.a = a; }
 
+        public boolean canBatchWhileBlocking() {
+            if (a.blockingMode == null) return false;
+            try {
+                if (!((PatternProviderLogic) logic).isBlocking()) return false;
+                Object mode = a.blockingMode.invoke(a.host.get(logic));
+                return mode instanceof Enum<?> value && value.name().equals("SAME_PATTERN");
+            } catch (ReflectiveOperationException | RuntimeException unavailable) {
+                return false;
+            }
+        }
+
+        private boolean allowsBatch() {
+            try {
+                return !((PatternProviderLogic) logic).isBlocking() || canBatchWhileBlocking();
+            } catch (RuntimeException unavailable) {
+                return false;
+            }
+        }
+
         public long maxBatchSize(IPatternDetails pattern) {
             // Each routed copy is a separate native transaction and must consume an ECO attempt.
             return directional(pattern) ? 1L : Integer.MAX_VALUE;
         }
 
         public ECOBatchAdmission submit(IPatternDetails pattern, KeyCounter[] prototype, long copies) {
-            if (copies <= 0) return ECOBatchAdmission.rejected();
+            if (copies <= 0 || !allowsBatch()) return ECOBatchAdmission.rejected();
             try {
                 // Flush old custody before accepting anything new, just like the native entry point.
                 a.flush.invoke(logic);
@@ -76,7 +102,8 @@ public final class ECOAe2LtDirectDispatch {
                 // existing one-copy transaction rather than multiplying its routed buffers.
                 if (directional(pattern)) {
                     long accepted = 0;
-                    while (accepted < copies && ((ICraftingProvider) logic).pushPattern(pattern, copy(prototype))) {
+                    while (accepted < copies && allowsBatch()
+                            && ((ICraftingProvider) logic).pushPattern(pattern, copy(prototype))) {
                         accepted++;
                         if (!drained()) break;
                     }
@@ -208,6 +235,7 @@ public final class ECOAe2LtDirectDispatch {
         private Chunk pushChunk(Target target, IPatternDetails pattern, Object canonical, KeyCounter[] prototype,
                 long copies, double cost, boolean wireless) throws ReflectiveOperationException {
             int count = (int) Math.min(Integer.MAX_VALUE, copies);
+            if (!allowsBatch()) return new Chunk(count, 0, false, false);
             if ((boolean) a.blocked.invoke(logic, target.context, canonical)) return new Chunk(count, 0, false, false);
             a.before.invoke(a.autoReturn.get(logic), target.level, target.address);
             // A machine lacking a counted transport can only own one physical transaction.
@@ -262,6 +290,7 @@ public final class ECOAe2LtDirectDispatch {
         final Field node, host, catalog, overflow, source, autoReturn, normalDispatch, wirelessDispatch, connectionsDirty;
         final Constructor<?> context;
         final Object complete, success, softFail, hardFail, globalAbort;
+        final @Nullable Method blockingMode;
         final Method flush, flushLocal, localOverflow, sendList, lock, resolve, level, mode, refresh, backpressure,
                 connections, directions, cost, contains, dimension, pos, canAccept, normalTarget, contextTarget,
                 blocked, before, supportsBatch, chunk, owned, abort, inserted, sendDirection, face, send, wake, save, empty, setBypass,
@@ -269,6 +298,10 @@ public final class ECOAe2LtDirectDispatch {
                 fairCooldown, closePass, single, alive;
         Access(Class<?> type) throws ReflectiveOperationException {
             node = field(type, "gridNode"); host = field(type, "overloadedHost");
+            Method optionalBlockingMode;
+            try { optionalBlockingMode = host.getType().getMethod("getBlockingMode"); }
+            catch (NoSuchMethodException | SecurityException unavailable) { optionalBlockingMode = null; }
+            blockingMode = optionalBlockingMode;
             catalog = field(type, "patternCatalog"); overflow = field(type, "wirelessOverflow");
             source = field(type, "wirelessSource"); autoReturn = field(type, "autoReturn");
             normalDispatch = field(type, "normalDispatch"); wirelessDispatch = field(type, "wirelessDispatch");

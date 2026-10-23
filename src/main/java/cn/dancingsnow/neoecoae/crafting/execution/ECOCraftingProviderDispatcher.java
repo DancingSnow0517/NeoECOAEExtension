@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelpe
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch;
 import appeng.hooks.ticking.TickHandler;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -63,11 +64,13 @@ final class ECOCraftingProviderDispatcher {
     }
 
     boolean isEligible(ICraftingProvider provider, ECOCraftingDispatchBudget budget) {
-        if (ECOExternalProviderBlocking.isEnabled(provider)) return budget.canAttemptOrdinary();
+        if (ECOExternalProviderBlocking.isEnabled(provider)) {
+            return budget.canAttemptOrdinary() || ECOAe2LtDirectDispatch.canBatchWhileBlocking(provider);
+        }
         return budget.canAttemptOrdinary()
                 || fastPath.supportsBatch(provider)
                 || ECOParallelCraftingProviders.find(provider) != null
-                || cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(provider) != null
+                || ECOAe2LtDirectDispatch.open(provider) != null
                 || cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.isEligible(provider)
                 || processing.supports(provider, null);
     }
@@ -97,7 +100,10 @@ final class ECOCraftingProviderDispatcher {
             // Native batch providers already own their one-copy fallback and target recovery.
             if (!blocking && processing.supports(provider, request.pattern())) continue;
 
-            boolean scaledProvider = !blocking && processing.supportsScaledDispatchCached(request, provider);
+            // Keep blocking in force for every other batch path. AE2LT's direct transport checks
+            // each physical target against its canonical pattern before accepting a scaled chunk.
+            boolean scaledProvider = (!blocking || ECOAe2LtDirectDispatch.canBatchWhileBlocking(provider))
+                    && processing.supportsScaledDispatchCached(request, provider);
             if (scaledProvider) {
                 if (processing.isScaledAttemptBudgetExhausted()) continue;
                 if (processing.isScaledFallbackDeferred(request, provider)) continue;

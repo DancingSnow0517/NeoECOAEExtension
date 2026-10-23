@@ -140,10 +140,10 @@ final class ECOProcessingPatternDispatcher {
     @Nullable ECOCraftingDispatchResult tryScaledDispatch(ECOCraftingDispatchRequest request,
             ICraftingProvider provider, double onePower, IEnergyService service,
             Consumer<ICraftingProvider> mark, ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
-        if (ECOExternalProviderBlocking.isEnabled(provider)
+        var direct = ECOAe2LtDirectDispatch.open(provider);
+        if (blocksScaledDispatch(provider, direct)
                 || isScaledAttemptBudgetExhausted() || isScaledDispatchDeferred(request, provider)
                 || !supportsScaledDispatchCached(request, provider)) return null;
-        var direct = ECOAe2LtDirectDispatch.open(provider);
         Object logic = direct == null ? providerLogic(provider) : null;
         boolean advancedPattern = direct == null && ECOAdvancedAEPatternScaling.isAdvancedPattern(request.pattern());
         long transportLimit = direct == null ? Long.MAX_VALUE : direct.maxBatchSize(request.pattern());
@@ -162,7 +162,8 @@ final class ECOProcessingPatternDispatcher {
         long cachedCopies = 0;
         int visitAttempts = 0;
         while (ramp.owned < limit && attempts < MAX_ATTEMPTS_PER_TICK
-                && visitAttempts < MAX_ATTEMPTS_PER_VISIT && !provider.isBusy()) {
+                && visitAttempts < MAX_ATTEMPTS_PER_VISIT && !provider.isBusy()
+                && !blocksScaledDispatch(provider, direct)) {
             attempts++;
             visitAttempts++;
             long offer = Math.min(ramp.offer(limit - ramp.owned), transportLimit);
@@ -250,12 +251,13 @@ final class ECOProcessingPatternDispatcher {
      * Acceptance transfers the entire chunk; the send buffer separately determines capacity proof.
      */
     static boolean supportsScaledDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
-        if (ECOExternalProviderBlocking.isEnabled(provider)) return false;
+        var direct = ECOAe2LtDirectDispatch.open(provider);
+        if (blocksScaledDispatch(provider, direct)) return false;
         if (provider instanceof ECOParallelCraftingProvider) return false;
         if (Contract.forProvider(provider) != null) return false;
         // A successful push can still own overflow. Require a live observation of AE2's send buffer.
         if (ECOAe2LtDirectDispatch.isProvider(provider)) {
-            return ECOAe2LtDirectDispatch.open(provider) != null
+            return direct != null
                     && isProcessingPattern(ECOProviderPatternIntrospection.unwrap(request.pattern()))
                     && request.pattern().getInputs().length > 0 && !request.pattern().getOutputs().isEmpty()
                     && request.pattern().supportsPushInputsToExternalInventory();
@@ -282,6 +284,12 @@ final class ECOProcessingPatternDispatcher {
             } catch (ReflectiveOperationException | RuntimeException unavailable) { return false; }
         }
         return true;
+    }
+
+    private static boolean blocksScaledDispatch(ICraftingProvider provider,
+            @Nullable ECOAe2LtDirectDispatch.Session direct) {
+        return ECOExternalProviderBlocking.isEnabled(provider)
+                && (direct == null || !direct.canBatchWhileBlocking());
     }
 
     private static final class Contract {

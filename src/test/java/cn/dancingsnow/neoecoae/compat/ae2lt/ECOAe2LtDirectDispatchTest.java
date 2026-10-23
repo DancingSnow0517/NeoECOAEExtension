@@ -9,6 +9,7 @@ import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.*;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.logic.provider.OverloadedPatternProviderLogic;
 import com.moakiee.ae2lt.logic.provider.ProviderTarget;
@@ -208,6 +209,96 @@ class ECOAe2LtDirectDispatchTest {
         verify((PatternProviderLogicAccessor) f.logic).invokeOnPushPatternSuccess(f.pattern);
     }
 
+    @Test void samePatternBlockingKeepsNativeChecksAndCanonicalRecipeIdentity() throws Exception {
+        for (boolean wireless : List.of(false, true)) {
+            var f = new Fixture(false, Integer.MAX_VALUE, false, wireless);
+            when(f.logic.isBlocking()).thenReturn(true);
+            when(f.host.getBlockingMode()).thenReturn(OverloadedPatternProviderBlockEntity.BlockingMode.SAME_PATTERN);
+            assertTrue(ECOExternalProviderBlocking.isEnabled(f.logic), "Other batch paths must remain blocked");
+            assertTrue(ECOAe2LtDirectDispatch.canBatchWhileBlocking(f.logic));
+            var session = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic));
+            assertEquals(8, session.submit(f.pattern, f.inputs, 8).acceptedCrafts());
+
+            var sameRecipeView = mock(IPatternDetails.class);
+            f.canonicalPatterns.put(sameRecipeView, f.pattern);
+            assertEquals(8, session.submit(sameRecipeView, f.inputs, 8).acceptedCrafts());
+            assertEquals(List.of(8, 8), f.offers);
+            assertTrue(f.blockingChecks.stream().allMatch(check ->
+                    check.pattern() == f.pattern && check.blocking() && check.samePattern()));
+
+            var differentRecipe = mock(IPatternDetails.class);
+            f.blockedPatterns.add(differentRecipe);
+            assertEquals(0, session.submit(differentRecipe, f.inputs, 8).acceptedCrafts());
+            assertEquals(List.of(8, 8), f.offers, "A refused recipe must not reach material transfer");
+            assertSame(differentRecipe, f.blockingChecks.getLast().pattern());
+            assertArrayEquals(new long[]{16}, f.received);
+        }
+    }
+
+    @Test void ordinaryOrUnrecognizedBlockingNeverStartsDirectBatch() throws Exception {
+        for (var mode : Arrays.asList(OverloadedPatternProviderBlockEntity.BlockingMode.NORMAL, null)) {
+            var f = new Fixture(false, Integer.MAX_VALUE, false);
+            when(f.logic.isBlocking()).thenReturn(true);
+            when(f.host.getBlockingMode()).thenReturn(mode);
+            assertFalse(ECOAe2LtDirectDispatch.canBatchWhileBlocking(f.logic));
+            var session = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic));
+            assertEquals(0, session.submit(f.pattern, f.inputs, 8).acceptedCrafts());
+            assertTrue(f.offers.isEmpty());
+        }
+    }
+
+    @Test void unreadableBlockingModeFallsBackWithoutTakingMaterials() throws Exception {
+        var f = new Fixture(false, Integer.MAX_VALUE, false);
+        when(f.logic.isBlocking()).thenReturn(true);
+        when(f.host.getBlockingMode()).thenThrow(new IllegalStateException("Mode unavailable"));
+        assertFalse(ECOAe2LtDirectDispatch.canBatchWhileBlocking(f.logic));
+        assertEquals(0, Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic))
+                .submit(f.pattern, f.inputs, 8).acceptedCrafts());
+        assertTrue(f.offers.isEmpty());
+    }
+
+    @Test void unreadableBlockingSwitchDoesNotGrantSamePatternPermission() throws Exception {
+        var f = new Fixture(false, Integer.MAX_VALUE, false);
+        when(f.logic.isBlocking()).thenThrow(new IllegalStateException("Blocking switch unavailable"));
+        when(f.host.getBlockingMode()).thenReturn(OverloadedPatternProviderBlockEntity.BlockingMode.SAME_PATTERN);
+        assertFalse(ECOAe2LtDirectDispatch.canBatchWhileBlocking(f.logic));
+        assertEquals(0, Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic))
+                .submit(f.pattern, f.inputs, 8).acceptedCrafts());
+        assertTrue(f.offers.isEmpty());
+    }
+
+    @Test void switchingToOrdinaryBlockingStopsBeforeTheNextPhysicalTarget() throws Exception {
+        for (boolean wireless : List.of(false, true)) {
+            var f = new Fixture(false, Integer.MAX_VALUE, false, wireless, 3);
+            when(f.logic.isBlocking()).thenReturn(true);
+            when(f.host.getBlockingMode()).thenReturn(OverloadedPatternProviderBlockEntity.BlockingMode.SAME_PATTERN);
+            doAnswer(call -> {
+                when(f.host.getBlockingMode()).thenReturn(OverloadedPatternProviderBlockEntity.BlockingMode.NORMAL);
+                return null;
+            }).when(f.logic).saveChanges();
+            var session = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic));
+            var receipt = session.submit(f.pattern, f.inputs, 12);
+            assertEquals(4, receipt.acceptedCrafts());
+            assertFalse(receipt.canContinue());
+            assertArrayEquals(new long[]{4, 0, 0}, f.received);
+            assertEquals(0, session.submit(f.pattern, f.inputs, 12).acceptedCrafts());
+            assertEquals(List.of(4), f.offers);
+        }
+    }
+
+    @Test void craftingLockStillRejectsSamePatternBatches() throws Exception {
+        var f = new Fixture(false, Integer.MAX_VALUE, false);
+        when(f.logic.isBlocking()).thenReturn(true);
+        when(f.host.getBlockingMode()).thenReturn(OverloadedPatternProviderBlockEntity.BlockingMode.SAME_PATTERN);
+        when(f.logic.getCraftingLockedReason()).thenReturn(Arrays.stream(appeng.api.config.LockCraftingMode.values())
+                .filter(mode -> mode != appeng.api.config.LockCraftingMode.NONE).findFirst().orElseThrow());
+        assertEquals(0, Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic))
+                .submit(f.pattern, f.inputs, 8).acceptedCrafts());
+        assertTrue(f.offers.isEmpty());
+    }
+
+    private record BlockingCheck(IPatternDetails pattern, boolean blocking, boolean samePattern) {}
+
     private static final class Fixture {
         final OverloadedPatternProviderLogic logic;
         final OverloadedPatternProviderBlockEntity host = mock(OverloadedPatternProviderBlockEntity.class);
@@ -217,6 +308,9 @@ class ECOAe2LtDirectDispatchTest {
         final List<Integer> offers = new ArrayList<>();
         final List<ProviderTarget> targets = new ArrayList<>();
         final IEnergyService energy = mock(IEnergyService.class);
+        final Map<IPatternDetails, IPatternDetails> canonicalPatterns = new IdentityHashMap<>();
+        final Set<IPatternDetails> blockedPatterns = Collections.newSetFromMap(new IdentityHashMap<>());
+        final List<BlockingCheck> blockingChecks = new ArrayList<>();
         final long[] capacities;
         final long[] received;
         Fixture(boolean enabled, long accepted, boolean buffered) throws Exception {
@@ -260,7 +354,9 @@ class ECOAe2LtDirectDispatchTest {
             set(logic, "wirelessOverflow", mock(field(logic, "wirelessOverflow").getType(), call ->
                     call.getMethod().getName().equals("isEmpty") ? true : RETURNS_DEFAULTS.answer(call)));
             set(logic, "patternCatalog", mock(field(logic, "patternCatalog").getType(), call ->
-                    call.getMethod().getName().equals("resolve") ? call.getArgument(0) : RETURNS_DEFAULTS.answer(call)));
+                    call.getMethod().getName().equals("resolve")
+                            ? canonicalPatterns.getOrDefault(call.getArgument(0), call.getArgument(0))
+                            : RETURNS_DEFAULTS.answer(call)));
             set(logic, "autoReturn", mock(field(logic, "autoReturn").getType()));
             Class<? extends ProviderTarget> targetClass = wireless ? OverloadedPatternProviderBlockEntity.WirelessConnection.class : ProviderTarget.class;
             for (int index = 0; index < targetCount; index++) {
@@ -271,6 +367,11 @@ class ECOAe2LtDirectDispatchTest {
                         case "boundFace" -> Direction.SOUTH;
                         case "dimension" -> net.minecraft.world.level.Level.OVERWORLD;
                         case "pos" -> new net.minecraft.core.BlockPos(targetIndex, 0, 0);
+                        case "isBlocked" -> {
+                            IPatternDetails canonical = call.getArgument(2);
+                            blockingChecks.add(new BlockingCheck(canonical, call.getArgument(4), call.getArgument(5)));
+                            yield blockedPatterns.contains(canonical);
+                        }
                         case "pushCopies" -> {
                             int copies = call.getArgument(3);
                             offers.add(copies);

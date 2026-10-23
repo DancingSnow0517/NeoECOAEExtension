@@ -393,6 +393,92 @@ class ECOProcessingDispatchIntegrationTest {
     }
 
     @Test
+    void samePatternBlockingUsesOnlyNativeScaledTransportAndKeepsBatchBudget() {
+        var f = new Fixture();
+        var fastPath = mock(ECOCraftingFastPathDispatcher.class);
+        var outer = new ECOCraftingProviderDispatcher(null, fastPath,
+                new ECOCraftingEnergyTransaction(() -> {}, () -> 0), f.accounting);
+        var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        when(f.provider.isBlocking()).thenReturn(true);
+        when(session.canBatchWhileBlocking()).thenReturn(true);
+        when(session.maxBatchSize(any())).thenReturn((long) Integer.MAX_VALUE);
+        var offers = new ArrayList<Long>();
+        when(session.submit(eq(f.request.pattern()), any(), anyLong())).thenAnswer(call -> {
+            long copies = call.getArgument(2);
+            offers.add(copies);
+            return cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.accepted(copies, true);
+        });
+        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.class)) {
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.canBatchWhileBlocking(f.provider))
+                    .thenReturn(true);
+            assertTrue(ECOExternalProviderBlocking.isEnabled(f.provider));
+            assertTrue(outer.isEligible(f.provider, new ECOCraftingDispatchBudget(0, 0)));
+            outer.beginTick(0);
+            var result = f.outerDispatch(outer, (request, provider) -> fail("Native transport must own the batch"));
+            assertEquals(16, result.acceptedCrafts());
+            assertTrue(result.fastPath());
+            assertEquals(List.of(1L, 2L, 4L, 8L, 1L), offers);
+            assertEquals(84, f.inventory.list.get(f.key));
+            verifyNoInteractions(fastPath);
+        }
+    }
+
+    @Test
+    void switchingBackToOrdinaryBlockingStopsWarmRampAndResumesSinglePush() {
+        var f = new Fixture();
+        var outer = f.outerDispatcher();
+        var samePattern = new java.util.concurrent.atomic.AtomicBoolean(true);
+        var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
+        when(f.provider.isBlocking()).thenReturn(true);
+        when(session.canBatchWhileBlocking()).thenAnswer(call -> samePattern.get());
+        when(session.maxBatchSize(any())).thenReturn((long) Integer.MAX_VALUE);
+        when(session.submit(any(), any(), anyLong())).thenAnswer(call -> {
+            samePattern.set(false);
+            return cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.accepted(call.getArgument(2), true);
+        });
+        try (var bridge = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.class)) {
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
+            bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.canBatchWhileBlocking(f.provider))
+                    .thenAnswer(call -> samePattern.get());
+            outer.beginTick(0);
+            var first = f.outerDispatch(outer, (request, provider) -> fail("First batch belongs to native transport"));
+            assertEquals(1, first.acceptedCrafts());
+            assertTrue(first.fastPath());
+            assertFalse(outer.isEligible(f.provider, new ECOCraftingDispatchBudget(0, 0)));
+            var next = f.outerDispatch(outer, (request, provider) -> {
+                assertSame(f.request.pattern(), request.pattern());
+                assertEquals(1, request.allowedCrafts());
+                return true;
+            });
+            assertEquals(1, next.acceptedCrafts());
+            assertFalse(next.fastPath());
+            assertEquals(98, f.inventory.list.get(f.key));
+            verify(session, times(1)).submit(any(), any(), eq(1L));
+        }
+    }
+
+    @Test
+    void ordinaryBlockingKeepsOneManuallyEncodedPatternWithoutScalingItsIngredients() {
+        var f = new Fixture(256, 128);
+        when(f.provider.isBlocking()).thenReturn(true);
+        f.request.inputs()[0].set(f.key, 64);
+        var outer = f.outerDispatcher();
+        outer.beginTick(0);
+        var result = f.outerDispatch(outer, (request, provider) -> {
+            assertSame(f.request.pattern(), request.pattern());
+            assertEquals(1, request.allowedCrafts());
+            assertEquals(64, request.inputs()[0].get(f.key));
+            return true;
+        });
+        assertEquals(1, result.acceptedCrafts());
+        assertFalse(result.fastPath());
+        assertEquals(64, f.inventory.list.get(f.key));
+    }
+
+    @Test
     void routedTransportCountsEveryNativeCopyAgainstAttemptBudget() {
         var f = new Fixture(1_000_000, 2_000_000);
         var session = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.Session.class);
