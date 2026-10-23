@@ -112,6 +112,34 @@ public class ElapsedTimeTracker {
         startedWorkByType.merge(keyType, itemDiff, NEMath::saturatingAdd);
     }
 
+    /** Rebase the denominator after a suffix replacement without losing completed work or elapsed time. */
+    void replaceRemainingWork(ElapsedTimeTracker remaining) {
+        updateTime();
+        var completed = new LinkedHashMap<AEKeyType, java.math.BigInteger>();
+        var totals = new LinkedHashMap<AEKeyType, java.math.BigInteger>();
+        boolean needsExact = exact;
+        for (var type : AEKeyTypes.getAll()) {
+            var done = getExactCompletedWork(type);
+            var total = done.add(remaining.getExactStartedWork(type));
+            completed.put(type, done);
+            totals.put(type, total);
+            if (total.bitLength() > 63) needsExact = true;
+        }
+        exact = needsExact;
+        for (var type : AEKeyTypes.getAll()) {
+            var done = completed.get(type);
+            var total = totals.get(type);
+            if (exact) {
+                exactCompleted.put(type, done);
+                exactStarted.put(type, total);
+            }
+            startedWorkByType.put(type,
+                    cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(total));
+            completedWorkByType.put(type,
+                    cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(done));
+        }
+    }
+
     public long getElapsedTime() {
         boolean allDone = true;
         for (var keyType : AEKeyTypes.getAll()) {

@@ -79,9 +79,13 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         super.tasks = legacyTasks;
     }
     @Nullable
-    final ECOExecutionPlan executionPlan;
+    ECOExecutionPlan executionPlan;
     @Nullable
-    final ECOExecutionRuntime executionRuntime;
+    ECOExecutionRuntime executionRuntime;
+    @Nullable
+    cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningImprovements improvements;
+    final Set<AEKey> seedKeys = new HashSet<>();
+    final long reservedBytes;
     private ECOGrowthDispatchBarrier growthBarrier;
     final ElapsedTimeTracker timeTracker;
     GenericStack finalOutput;
@@ -111,6 +115,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     ExecutingCraftingJob(ICraftingPlan plan, @Nullable ECOExecutionPlan executionPlan,
             CraftingDifferenceListener postCraftingDifference, CraftingLink link, @Nullable Integer playerId) {
         this.finalOutput = plan.finalOutput();
+        this.reservedBytes = plan.bytes();
         this.remainingAmount = this.finalOutput.amount();
         this.exactOrder = plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
         this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
@@ -149,6 +154,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
             });
         }
         this.executionPlan = executionPlan;
+        if (executionPlan != null) executionPlan.phases().forEach(phase -> seedKeys.addAll(phase.initialSeed().keySet()));
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact) {
             exactOrder = true;
             exact.exactTasks().forEach((pattern, count) -> tasks.get(pattern).setExact(count, count));
@@ -180,6 +186,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         this.link = new CraftingLink(data.getCompound(NBT_LINK), cpu.cpu);
 
         this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
+        this.reservedBytes = data.getLong("optimizationReservedBytes");
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
         this.exactOrder = data.getBoolean("exactOrder");
         var fuzzyItems = new HashSet<net.minecraft.resources.ResourceLocation>();
@@ -242,6 +249,11 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         }
         this.executionPlan = restoredPlan;
         this.executionRuntime = restoredRuntime;
+        if (restoredPlan != null) restoredPlan.phases().forEach(phase -> seedKeys.addAll(phase.initialSeed().keySet()));
+        for (var tag : data.getList("optimizationSeedKeys", Tag.TAG_COMPOUND)) {
+            var key = AEKey.fromTagGeneric(registries, (CompoundTag) tag);
+            if (key != null) seedKeys.add(key);
+        }
         this.suspended = data.getBoolean(NBT_SUSPENDED) || executionMetadataLost;
         this.permanentExecutionError = data.contains(NBT_PERMANENT_EXECUTION_ERROR, Tag.TAG_STRING)
             ? data.getString(NBT_PERMANENT_EXECUTION_ERROR) : null;
@@ -316,11 +328,15 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         data.put(NBT_LINK, linkData);
 
         data.put(NBT_FINAL_OUTPUT, GenericStack.writeTag(registries, finalOutput));
+        data.putLong("optimizationReservedBytes", reservedBytes);
 
         data.put(NBT_WAITING_FOR, waitingFor.writeToNBT(registries));
         ListTag batched = new ListTag();
         batchedOutputs.forEach(key -> batched.add(key.toTagGeneric(registries)));
         data.put(NBT_BATCHED_OUTPUTS, batched);
+        ListTag seeds = new ListTag();
+        seedKeys.forEach(key -> seeds.add(key.toTagGeneric(registries)));
+        data.put("optimizationSeedKeys", seeds);
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
 
         final ListTag list = new ListTag();
@@ -377,6 +393,17 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
             var task = tasks.get(member);
             return task == null ? 0L : task.value;
         });
+    }
+
+    /** The prepared suffix has already passed binding and material/seed checks. No in-flight work is replaced. */
+    void replaceRemainingPlan(ExecutingCraftingJob prepared) {
+        timeTracker.replaceRemainingWork(prepared.timeTracker);
+        tasks.clear();
+        tasks.putAll(prepared.tasks);
+        executionPlan = prepared.executionPlan;
+        executionRuntime = prepared.executionRuntime;
+        growthBarrier = null;
+        seedKeys.addAll(prepared.seedKeys);
     }
 
     void failPermanently(String reason) {

@@ -29,6 +29,7 @@ public final class ECOExecutionPlanNbtCodec {
     public static CompoundTag encode(ECOExecutionPlan plan, HolderLookup.Provider registries) {
         CompoundTag data = new CompoundTag();
         data.putString("mode", plan.mode().name());
+        data.putLong("plannedOutputAmount", plan.signature().finalAmount());
 
         ListTag taskTags = new ListTag();
         for (var task : plan.tasks()) {
@@ -197,8 +198,11 @@ public final class ECOExecutionPlanNbtCodec {
         Map<PlanIdentity.PatternIdentity, Long> signatureTasks = new LinkedHashMap<>();
         for (var task : tasks) signatureTasks.put(task.identity(), task.totalCount());
         if (finalOutput == null) throw new IllegalArgumentException("Persisted execution job has no final output");
+        long plannedAmount = data.contains("plannedOutputAmount") ? data.getLong("plannedOutputAmount") : finalOutput.amount();
+        if (plannedAmount <= 0 || plannedAmount > finalOutput.amount())
+            throw new IllegalArgumentException("Invalid persisted remaining-plan output amount");
         PlanIdentity.Signature signature = new PlanIdentity.Signature(
-            finalOutput.what(), finalOutput.amount(), signatureTasks, Map.of(), Map.of(), Map.of());
+            finalOutput.what(), plannedAmount, signatureTasks, Map.of(), Map.of(), Map.of());
         return new ECOExecutionPlan(signature, mode, tasks, phases,
             new ECOExecutionSchedule(schedulePhases, dependencies));
     }

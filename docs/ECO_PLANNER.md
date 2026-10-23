@@ -48,6 +48,26 @@ flowchart TD
 
 The public service returns `Future<ICraftingPlan>`. The worker uses the captured inventory for numeric planning and queries the crafting service for structural pattern information. It must not mutate grid stock, CPUs, providers, or jobs. Poll or consume the future on the server thread, recheck access, and submit the exact returned plan.
 
+### 3.1 Publish the first complete solution
+
+`ECOPlanningService.begin` and explicitly tagged `ECOPlannerRequest` calculations return the first complete verified order before optional seed retention, joint firing-count improvement, or growth rebatching. Integer counts, executable ordering, all boundary supply, material closure, and execution metadata still require validation. A feasible local SCC is not a completed order. Direct `Session.plan` calls retain their synchronous improvement behavior, and `CRAFT_LESS` retains its smaller-quantity probes.
+
+Optional work uses a separate low-priority worker, a queue of at most 16 requests, and an independent allowance of 3 seconds or 2,000,000 checkpoints per search. Rejection, cancellation, exhaustion, or an invalid candidate leaves the original result intact. Finding the first executable order can still be expensive; this change removes optional waiting after that order exists.
+
+### 3.2 Confirmation updates
+
+Background searches own independent stock, budgets, task vectors, and diagnostics. A replacement must be complete and have the same output and amount. Preference is reusable seed retention, then fewer physical firings, then fewer bytes. The confirmation menu adopts a new immutable plan through AE2's normal result/summary path, refreshing materials, CPU capacity matching, and ECO reports together. Starting freezes the displayed result; submission does not select an unseen candidate.
+
+Closing, replanning, or cancelling the future stops the confirmation search. Provider revision, contract generation, and grid ownership must still match. An external caller's `Future.get()` always returns the original plan. Callers that want updates must explicitly obtain and display `ECOPlanningResult.improvements().latest(...)`; published objects never change their task vectors.
+
+### 3.3 Improving remaining execution
+
+An ECO CPU can attempt at most two remaining-work searches, with at least 20 ticks between attempts. It captures only CPU-owned stock, remaining tasks, output demand, job identity, and seed reservations, with no outstanding outputs, pending final delivery, or suspension. Dispatch continues while the worker searches. The server checks the snapshot again before installing a result; intervening progress makes it stale.
+
+A replacement needs fewer remaining physical firings, no additional network material or emission request, and no more bytes than the original reservation. Seed leftovers and active startup reservations remain protected. Installation replaces only unstarted tasks and their phase runtime, resets dispatch caches, and keeps the original CraftingLink, requested total, delivered quantity, completed work, and elapsed time. The progress denominator is rebased to the new remaining work.
+
+Runtime replacement currently covers ordinary long-valued orders with unambiguous complete-key inputs. Exact big orders, fuzzy matching, alternative inputs, and tool/container remainders retain their existing schedule; confirmation-time planning and improvement still support their normal contracts. Adopted tasks, phase cursors, reservations, and seed keys persist. Background threads and search contexts do not persist; reload continues the saved schedule.
+
 A planning session reuses its compiled structure and active route selection across amount probes. It does not reuse inventory, firing counts, material allocations, or search budget across separate requests.
 
 `REPORT_MISSING_ITEMS` preserves the full requested amount and returns its report if it cannot execute. `CRAFT_LESS` probes smaller amounts in the same session and can return a successful plan for fewer outputs. Those probes share the snapshot and budget; they do not imply that the original amount was feasible.
@@ -127,7 +147,7 @@ After real-stock reachability closes, startup alternatives also include blocked-
 - Reusable key: consumed and produced by the cycle's own patterns, and not a boundary key. Fuel (consumed only) and pure products (produced only) are never retained. A fully returned catalyst is retained with its seed amount only, not per firing.
 - Startup reservations follow the verified execution prefix. A fully returned catalyst reserves one recipe's atomic input quantity, not every copy in network storage for one job's concurrency. Multi-pattern growth also prefers a small startup seed; stock grown inside the job may expand later batches. When only one minimum startup quantity exists, other jobs must still wait for its return.
 - Retained amount is the smaller of the accepted witness's own start-up seed and the stock before the order. Stock left unreserved by the original completed plan is accounted separately: final stock >= delivery + retained + that unreserved stock. Copies left in ME for other jobs cannot stand in for this job's returned seed. The goal key's existing "delivery + stock" target is combined by maximum, never added twice.
-- The fixed policy first verifies an ordinary whole order, including supply and reservations, then tries a seed-retaining whole order with a limited allowance. A successful replacement may use more firings or fuel. Failure or budget exhaustion returns the completed original with `CYCLE_SEED_NOT_RETAINED`; the fallback is not recomputed after the budget is gone. The optional joint firing-count optimizer also preserves an order whose seeds were retained.
+- The policy first verifies an ordinary whole order, including supply and reservations, then tries seed retention with a limited allowance. Public asynchronous requests publish the fallback first and improve it in the background, so the first result does not promise reusable seed after delivery. A confirmation-time replacement may use more firings or fuel. Direct synchronous sessions return the completed original with `CYCLE_SEED_NOT_RETAINED` if retention fails or exhausts its allowance. The optional joint firing-count optimizer preserves an order whose seeds were retained.
 - Because the kept seed is the accepted witness's own seed, the same order can start again once its non-reusable inputs (fuel) are replenished; a later fuel shortage is a material shortage, not seed loss. Alternative restart states (starting from a different seed key) are not modelled.
 - At runtime the kept seed is ordinary CPU leftover returned to ME storage at job end, or stock that was never extracted. It is not locked against other jobs.
 

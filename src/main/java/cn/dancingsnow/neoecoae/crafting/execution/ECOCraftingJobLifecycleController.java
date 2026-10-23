@@ -55,6 +55,7 @@ final class ECOCraftingJobLifecycleController {
 
         var attachedPlanningResult = (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
                 ? diagnostics.neoecoae$getPlanningResult() : null;
+        if (attachedPlanningResult == null) attachedPlanningResult = ECOPlanningResultRegistry.find(plan);
         var contract = ECOPlanningResultRegistry.resolveContract(plan, attachedPlanningResult);
         var executionPlan = contract == null ? ECOPlanningResultRegistry.resolveExecutionPlan(plan)
                 : contract.executionPlan();
@@ -88,6 +89,13 @@ final class ECOCraftingJobLifecycleController {
         var job = new ExecutingCraftingJob(
                 plan, executionPlan, host::postChange, linkCpu, playerId);
         if (contract != null) job.fuzzyPlanningItemIds = contract.fuzzyPlanningItemIds();
+        if (contract != null && attachedPlanningResult != null
+                && contract.planningId().equals(attachedPlanningResult.planningId())) {
+            job.improvements = attachedPlanningResult.improvements();
+            if (job.improvements != null && !job.improvements.belongsTo(grid.getCraftingService()))
+                job.improvements = null;
+            if (job.improvements != null) job.improvements.close();
+        }
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact)
             job.fuzzyPlanningItemIds = exact.fuzzyPlanningItemIds();
         host.setJobFromLifecycle(job);

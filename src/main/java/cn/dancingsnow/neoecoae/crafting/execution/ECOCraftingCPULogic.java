@@ -113,6 +113,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     private final ECOCraftingCpuView view;
     private final ECOCraftingCpuPersistence persistence;
     private final ECOCraftingJobLifecycleController lifecycle;
+    private final ECOCraftingPlanUpdater planUpdater;
     final ECOBigOrderController bigOrder = new ECOBigOrderController(this);
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
@@ -130,6 +131,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         this.view = new ECOCraftingCpuView(this);
         this.persistence = new ECOCraftingCpuPersistence(this);
         this.lifecycle = new ECOCraftingJobLifecycleController(this);
+        this.planUpdater = new ECOCraftingPlanUpdater(this);
     }
 
     public ICraftingSubmitResult trySubmitJob(
@@ -173,6 +175,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         if (job == null || job.suspended) {
             return;
         }
+        planUpdater.tick(currentTick);
         Level level = cpu.getLevel();
         if (level == null) {
             return;
@@ -520,12 +523,14 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     }
 
     void setJobFromPersistence(@Nullable ExecutingCraftingJob restoredJob) {
+        planUpdater.reset();
         this.job = restoredJob;
         super.job = restoredJob;
         exactInventory().setEnabled(restoredJob != null && restoredJob.exactOrder);
     }
 
     void setJobFromLifecycle(@Nullable ExecutingCraftingJob nextJob) {
+        planUpdater.reset();
         this.job = nextJob;
         super.job = nextJob;
         exactInventory().setEnabled(nextJob != null && nextJob.exactOrder);
