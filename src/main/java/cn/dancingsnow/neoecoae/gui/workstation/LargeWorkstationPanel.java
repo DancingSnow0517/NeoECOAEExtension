@@ -37,24 +37,28 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 
-/** Fixed three-row viewport. Server snapshots contain only the requested page and machine telemetry. */
+/** Clipped three-row viewport with a small synchronized buffer for continuous scrolling. */
 final class LargeWorkstationPanel extends BindableValue<Tag> {
-    static final int PAGE_SIZE = 3;
     private static final int TEXT = 0xFF303448;
     private static final int MUTED = 0xFF596177;
     private static final int SUCCESS = 0xFF226B58;
     private static final int WARNING = 0xFF9B4438;
+    private static final int TASK_RUNNING = 0xFF55FF55;
+    private static final int TASK_QUEUED = 0xFFFFFF55;
     private static final String PREFIX = "gui.neoecoae.workstation.";
     private final Config config;
     private final Player player;
     private final BindableValue<Integer> pageRequest = new BindableValue<>(0);
-    private final Button[] returns = new Button[PAGE_SIZE];
+    private final Button[] returns = new Button[LargeWorkstationUI.SNAPSHOT_SIZE];
+    private final UIElement[] taskRows = new UIElement[LargeWorkstationUI.SNAPSHOT_SIZE];
+    private final LargeWorkstationTaskScroll taskScroll = new LargeWorkstationTaskScroll();
     private final Button overclock;
     private final Button cooling;
     private CompoundTag state = new CompoundTag();
     private List<Task> tasks = List.of();
     private int serverOffset;
-    private int requestedOffset;
+    private long lastFrame;
+    private float scrollbarGrabOffset;
 
     LargeWorkstationPanel(Config config, Player player) {
         super(new CompoundTag());
@@ -70,35 +74,58 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             if (id != null && mui != null && mui.getMenu() == player.containerMenu
                 && player.containerMenu.stillValid(player)) config.returnTask().accept(id);
         }));
-        for (int row = 0; row < PAGE_SIZE; row++) {
+        UIElement viewport = new UIElement() {
+            @Override
+            public void drawBackgroundAdditional(GUIContext context) {
+                context.pose.pushPose();
+                try {
+                    context.pose.translate(0, taskScroll.rowShift(), 0);
+                    for (int row = 0; row < tasks.size(); row++) drawTask(context, tasks.get(row), row);
+                } finally {
+                    context.graphics.flush();
+                    context.pose.popPose();
+                }
+            }
+        };
+        viewport.setId("large-workstation-task-viewport");
+        absolute(viewport, 9, 38, 69, LargeWorkstationTaskScroll.VIEWPORT_HEIGHT);
+        viewport.setOverflowVisible(false);
+        addChild(viewport);
+        for (int row = 0; row < taskRows.length; row++) {
             final int index = row;
-            UIElement hitbox = region("task-" + row, 9, 38 + row * 26, 69, 24, () -> taskTooltip(index));
-            addChild(hitbox);
+            UIElement hitbox = region("task-" + row, 0, row * 26, 69, 24, () -> taskTooltip(index));
+            hitbox.setOverflowVisible(true);
+            taskRows[row] = hitbox;
+            viewport.addChild(hitbox);
             Button button = new Button().noText().setOnClick(event -> {
                 Task task = task(index);
-                if (event.button == 0 && task != null && task.returnable()) returnTask.send(task.id());
+                if (event.button == 0 && task != null && task.returnable()) {
+                    taskScroll.stop();
+                    returnTask.send(task.id());
+                }
             });
             button.setId("large-workstation-return-" + row);
             button.buttonStyle(style -> style.baseTexture(WorkstationTextures.widget(0, 6, 12, 11))
                 .hoverTexture(WorkstationTextures.widget(12, 6, 12, 11))
                 .pressedTexture(WorkstationTextures.widget(24, 6, 12, 11)));
-            absolute(button, 65, 51 + row * 26, 12, 11);
+            absolute(button, 56, 13, 12, 11);
             button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips =
                 new HoverTooltips(returnTooltip(index), null, null, null));
-            addChild(button);
+            hitbox.addChild(button);
             returns[row] = button;
         }
         addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY != 0 && event.x >= getPositionX() + 9 && event.x < getPositionX() + 87
                 && event.y >= getPositionY() + 38 && event.y < getPositionY() + 114) {
-                scrollTo(requestedOffset + (event.deltaY < 0 ? 1 : -1));
+                taskScroll.scrollBy(-event.deltaY);
+                requestPage();
                 event.stopImmediatePropagation();
             }
         }, true);
         addChild(scrollbar());
-        overclock = toggle("overclock", 102, config.toggleOverclocked(), () -> controlTooltip(this::overclockTooltip));
+        overclock = toggle("overclock", 102, config.toggleOverclocked(), config.togglePreheating(), () -> controlTooltip(this::overclockTooltip));
         addChild(overclock);
-        cooling = toggle("cooling", 146, config.toggleActiveCooling(), () -> controlTooltip(this::coolingTooltip));
+        cooling = toggle("cooling", 146, config.toggleActiveCooling(), null, () -> controlTooltip(this::coolingTooltip));
         addChild(cooling);
         addChild(region("module-logo", 6, 6, 15, 15, this::moduleTooltip));
         addChild(region("machine-title", 25, 6, 115, 14, () -> List.of(
@@ -117,10 +144,12 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         bind(DataBindingBuilder.tagS2C(() -> config.snapshot().apply(serverOffset)).build());
     }
 
-    private Button toggle(String name, int x, Runnable action, Supplier<List<Component>> tooltip) {
+    private Button toggle(String name, int x, Runnable action, Runnable secondaryAction, Supplier<List<Component>> tooltip) {
         Button button = new Button().noText().setOnServerClick(event -> {
             if (event.button == 0) action.run();
+            else if (event.button == 1 && secondaryAction != null) secondaryAction.run();
         });
+        button.setAcceptedButtons(secondaryAction == null ? new int[] {0} : new int[] {0, 1});
         button.setId("large-workstation-" + name);
         absolute(button, x, 89, 15, 26);
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips =
@@ -156,11 +185,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     private void read(Tag value) {
         state = value instanceof CompoundTag tag ? tag : new CompoundTag();
-        requestedOffset = state.getInt("offset");
         HolderLookup.Provider registries = config.registries().get();
         List<Task> decoded = new ArrayList<>();
         var entries = state.getList("tasks", Tag.TAG_COMPOUND);
-        for (int i = 0; i < Math.min(PAGE_SIZE, entries.size()); i++) {
+        for (int i = 0; i < Math.min(LargeWorkstationUI.SNAPSHOT_SIZE, entries.size()); i++) {
             CompoundTag entry = entries.getCompound(i);
             if (!entry.hasUUID("id")) continue;
             decoded.add(new Task(entry.getUUID("id"), registries == null ? ItemStack.EMPTY
@@ -169,11 +197,9 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                 entry.getInt("progress"), entry.getString("status"), entry.getString("detail"), entry.getBoolean("returnable"),
                 entry.getBoolean("current"), LargeWorkstationModule.byName(entry.getString("module"))));
         }
-        tasks = List.copyOf(decoded);
-        for (int row = 0; row < PAGE_SIZE; row++) {
-            Task task = task(row);
-            if (returns[row] != null) returns[row].setDisplay(task != null && task.returnable());
-        }
+        int first = state.contains("taskOffset") ? state.getInt("taskOffset") : state.getInt("offset");
+        if (taskScroll.receive(state.getInt("totalTasks"), first, decoded.size())) tasks = List.copyOf(decoded);
+        updateTaskRows();
         updateToggle(overclock, state.getBoolean("overclocked"));
         updateToggle(cooling, state.getBoolean("activeCooling"));
     }
@@ -183,31 +209,70 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             .hoverTexture(WorkstationTextures.toggle(enabled, true)).pressedTexture(WorkstationTextures.toggle(enabled, true)));
     }
 
+    void advanceScroll(double seconds) {
+        taskScroll.advance(seconds);
+        updateTaskRows();
+        requestPage();
+    }
+
+    void advanceFrame() {
+        long now = System.nanoTime();
+        if (lastFrame != 0) advanceScroll((now - lastFrame) / 1_000_000_000.0);
+        lastFrame = now;
+    }
+
+    private void updateTaskRows() {
+        float shift = (float) taskScroll.rowShift();
+        for (int row = 0; row < taskRows.length; row++) {
+            Task task = task(row);
+            taskRows[row].transform(transform -> transform.translate(0, shift));
+            taskRows[row].setVisible(task != null || row == 0 && tasks.isEmpty());
+            returns[row].setDisplay(task != null && task.returnable());
+        }
+    }
+
+    private void requestPage() {
+        int requested = taskScroll.requestedRow();
+        if (pageRequest.getValue() != requested) pageRequest.setValue(requested);
+    }
+
     private UIElement scrollbar() {
         UIElement track = new UIElement() {
             @Override
             public void drawBackgroundAdditional(GUIContext context) {
                 int max = maxOffset();
-                int y = max == 0 ? 0 : Math.round(62f * state.getInt("offset") / max);
-                context.drawTexture(WorkstationTextures.widget(max == 0 ? 75 : 69, 62, 6, 15).setBorder(2, 0, 2, 0),
-                    getPositionX(), getPositionY() + y, getSizeWidth(), 15);
+                float y = max == 0 ? 0 : (float) (62 * taskScroll.thumbOffset() / taskScroll.maximum());
+                // Keep the artist's six-pixel handle centered on the baked track.
+                context.drawTexture(WorkstationTextures.taskScrollThumb(max > 0),
+                    getPositionX() + 1, getPositionY() + y, 6, 15);
             }
         };
         track.setId("large-workstation-scrollbar");
-        absolute(track, 76, 37, 13, 77);
+        track.style(style -> style.zIndex(1));
+        absolute(track, 79, 37, 8, 77);
         track.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button != 0 || maxOffset() == 0) return;
-            scrollTo(Math.round(JdkCompat.clamp((event.y - track.getPositionY() - 7.5f) / 62, 0f, 1f) * maxOffset()));
+            float localY = event.y - track.getPositionY();
+            float thumbY = (float) (62 * taskScroll.thumbOffset() / taskScroll.maximum());
+            scrollbarGrabOffset = localY >= thumbY && localY < thumbY + 15 ? localY - thumbY : 7.5f;
+            taskScroll.jumpTo((localY - scrollbarGrabOffset) / 62 * taskScroll.maximum());
+            updateTaskRows();
+            requestPage();
             if (track.getModularUI() != null) track.getModularUI().getDragHandler().startDrag(0f, null, track);
             event.hasHandler = true;
             event.stopImmediatePropagation();
         });
         track.addEventListener(UIEvents.DRAG_SOURCE_UPDATE, event -> {
-            scrollTo(Math.round(JdkCompat.clamp((event.y - track.getPositionY() - 7.5f) / 62, 0f, 1f) * maxOffset()));
+            taskScroll.jumpTo((event.y - track.getPositionY() - scrollbarGrabOffset) / 62 * taskScroll.maximum());
+            updateTaskRows();
+            requestPage();
             event.stopImmediatePropagation();
         });
         track.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (event.deltaY != 0) scrollTo(requestedOffset + (event.deltaY < 0 ? 1 : -1));
+            if (event.deltaY != 0) {
+                taskScroll.scrollBy(-event.deltaY);
+                requestPage();
+            }
             event.stopImmediatePropagation();
         });
         track.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty()
@@ -215,12 +280,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         return track;
     }
 
-    private int maxOffset() { return Math.max(0, state.getInt("totalTasks") - PAGE_SIZE); }
-
-    private void scrollTo(int offset) {
-        requestedOffset = JdkCompat.clamp(offset, 0, maxOffset());
-        pageRequest.setValue(requestedOffset);
-    }
+    private int maxOffset() { return Math.max(0, state.getInt("totalTasks") - LargeWorkstationUI.PAGE_SIZE); }
 
     private Task task(int index) { return index < tasks.size() ? tasks.get(index) : null; }
 
@@ -231,7 +291,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(task.title().copy().withStyle(ChatFormatting.YELLOW));
         lines.add(tr(task.fluid().isEmpty() ? "task_amount" : "task_fluid_amount", HostText.expandedNumber(task.amount())));
         lines.add(tr("task_source", task.module().title()));
-        lines.add(Component.translatable(task.status()).withStyle(task.problem() ? ChatFormatting.GOLD : ChatFormatting.GRAY));
+        lines.add(Component.translatable(task.status()).withStyle(style -> style.withColor(task.statusColor() & 0xFFFFFF)));
         if (!task.detail().isEmpty()) lines.add(Component.translatable(task.detail()));
         lines.add(tr("progress", JdkCompat.clamp(task.progress(), 0, 200) / 2));
         if (task.returnable()) lines.add(hint("task_return_hint"));
@@ -245,8 +305,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     private Component queueRange() {
         int total = state.getInt("totalTasks");
-        return total == 0 ? tr("task_count", 0) : tr("queue_range", state.getInt("offset") + 1,
-            Math.min(total, state.getInt("offset") + PAGE_SIZE), total);
+        return total == 0 ? tr("task_count", 0) : tr("queue_range", taskScroll.firstVisibleRow() + 1,
+            taskScroll.lastVisibleRow(), total);
     }
 
     private List<Component> moduleTooltip() {
@@ -284,6 +344,12 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(tr("parallel_capacity", HostText.expandedNumber(state.getLong("parallelCapacity"))));
         lines.add(hint(temperatureEnabled() ? "overclock_thermal_hint" : "overclock_coolant_hint"));
         lines.add(hint("overclock_energy_hint"));
+        if (temperatureEnabled()) {
+            lines.add(hint("preheat_right_click_hint"));
+            lines.add(tr(state.getBoolean("preheating") ? "preheat_on" : "preheat_off"));
+            lines.add(tr("preheat_energy", HostText.expandedNumber((long) LargeWorkstationThermal.PREHEAT_AE_PER_TICK)));
+            lines.add(hint("preheat_stop_hint"));
+        }
         return lines;
     }
 
@@ -297,14 +363,25 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         if (!temperatureEnabled()) return List.of(title("thermal"), coolantModeText(), hint("thermal_disabled_hint"));
         List<Component> lines = new ArrayList<>();
         lines.add(title("temperature_setting"));
-        lines.add(tr("temperature_value", decimal(state.getDouble("temperature"))));
-        lines.add(tr("current_band", displayTier(state.getInt("currentTier"))));
+        lines.add(tr("temperature_value", precise(state.getDouble("temperature"))));
+        var profile = LargeWorkstationOverclock.forTemperature(true, state.getDouble("temperature"));
+        long limit = state.getBoolean("overheated") ? 0 : profile.maxParallelism();
+        lines.add(tr("current_band", tr("temperature_band_value", temperatureBandName(), HostText.expandedNumber(limit))));
+        lines.add(tr("temperature_net_rate", signedRate(state.getDouble("temperatureChangePerSecond"))));
+        lines.add(tr("temperature_processing_rate", precise(state.getDouble("processingHeatPerSecond"))));
+        if (state.getDouble("preheatPerSecond") > 0) {
+            lines.add(tr("temperature_preheat_rate", precise(state.getDouble("preheatPerSecond"))));
+        }
+        lines.add(tr("temperature_cooling_rate", precise(state.getDouble("coolingPerSecond"))));
+        if (state.getDouble("naturalCoolingPerSecond") > 0) {
+            lines.add(tr("temperature_natural_rate", precise(state.getDouble("naturalCoolingPerSecond"))));
+        }
         lines.add(hint("temperature_automatic_hint"));
-        lines.add(tr("temperature_idle_loss", decimal(LargeWorkstationThermal.IDLE_COOLING_PER_SECOND)).withStyle(ChatFormatting.GRAY));
+        lines.add(hint("temperature_slowing_hint"));
         for (int tier : new int[] {2, 6, 9}) {
-            var profile = LargeWorkstationOverclock.forCoolingTier(tier);
-            lines.add(tr("temperature_band_limits", displayTier(tier), (int) profile.minimumTemperature(),
-                HostText.expandedNumber(profile.maxParallelism())).withStyle(ChatFormatting.GRAY));
+            var threshold = LargeWorkstationOverclock.forCoolingTier(tier);
+            lines.add(tr("temperature_band_limits", displayTier(tier), (int) threshold.minimumTemperature(),
+                HostText.expandedNumber(threshold.maxParallelism())).withStyle(ChatFormatting.GRAY));
         }
         if (state.getBoolean("overheated")) {
             lines.add(pauseText());
@@ -320,7 +397,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(settingState(state.getBoolean("activeCooling")));
         lines.add(tr("coolant_value", coolantTitle()));
         if (temperatureEnabled()) {
-            lines.add(tr("cooling_rate", decimal(state.getDouble("coolingPerSecond"))));
+            lines.add(tr("cooling_rate", precise(state.getDouble("coolingPerSecond"))));
             lines.add(tr("cooling_capacity", decimal(LargeWorkstationThermal.coolingPerSecond(state.getInt("coolantTier"))))
                 .withStyle(ChatFormatting.GRAY));
         }
@@ -336,6 +413,11 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private LargeWorkstationModule module() { return LargeWorkstationModule.byName(state.getString("module")); }
     private boolean temperatureEnabled() {
         return !state.contains("temperatureEnabled") || state.getBoolean("temperatureEnabled");
+    }
+    private Component temperatureBandName() {
+        if (state.getBoolean("overheated")) return tr("status_overheated");
+        int tier = LargeWorkstationOverclock.forTemperature(true, state.getDouble("temperature")).coolingTier();
+        return tier == 0 ? tr("band_regular") : tr("band", displayTier(tier));
     }
     private static Component coolantModeText() {
         return Component.translatable("gui.neoecoae.large_integrated_working_station.temperature_disabled");
@@ -390,7 +472,6 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             centeredText(context, tr("empty_task"), 9, 65, 69, 0.8f, TEXT);
             centeredText(context, tr("queue_empty_hint"), 9, 77, 69, 0.65f, MUTED);
         }
-        for (int row = 0; row < tasks.size(); row++) drawTask(context, tasks.get(row), row);
         centeredText(context, queueRange(), 9, 119, 77, 0.65f, MUTED);
         text(context, tr("parallel"), 103, 39, 57, 0.7f, TEXT);
         text(context, Component.literal(number(state.getLong("parallelUsed")) + " / " + number(state.getLong("parallelCapacity"))),
@@ -403,7 +484,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         text(context, tr(state.getBoolean("overclocked") ? "enabled" : "disabled"), 120, 91, 25, 0.6f,
             state.getBoolean("overclocked") ? SUCCESS : MUTED);
         text(context, tr(temperatureEnabled() ? "thermal_mode" : "coolant_mode"), 120, 103, 25, 0.55f, MUTED);
-        centeredText(context, temperatureEnabled() ? tr("current_band", displayTier(state.getInt("currentTier")))
+        centeredText(context, temperatureEnabled() ? tr("current_band", temperatureBandName())
             : tr("coolant_mode"), 99, 119, 64, 0.65f, MUTED);
         centeredText(context, tr("thermal_short"), 172, 70, 15, 0.65f, TEXT);
         centeredText(context, tr("energy_short"), 189, 70, 12, 0.65f, TEXT);
@@ -424,7 +505,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         text(context, temperatureEnabled() ? tr("temperature_short", decimal(state.getDouble("temperature"))) : tr("thermal_disabled_short"),
             198, 144, 44, 0.65f, MUTED);
         text(context, coolingName(), 198, 159, 44, 0.75f, TEXT);
-        text(context, temperatureEnabled() ? tr("cooling_rate_short", decimal(state.getDouble("coolingPerSecond")))
+        text(context, temperatureEnabled() ? tr("cooling_rate_short", precise(state.getDouble("coolingPerSecond")))
             : tr("thermal_disabled_short"), 198, 169, 44, 0.65f, state.getDouble("coolingPerSecond") > 0 ? SUCCESS : MUTED);
         text(context, tr(state.getBoolean("overclocked") ? "overclock_on" : "overclock_off"),
             198, 184, 44, 0.75f, state.getBoolean("overclocked") ? SUCCESS : TEXT);
@@ -446,7 +527,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         text(context, task.title(), 33, y + 1, 43, 0.7f, TEXT);
         text(context, Component.literal("×" + number(task.amount())), 33, y + 8, 23, 0.6f, MUTED);
         text(context, tr(!task.current() ? "task_queued" : task.progress() >= 200 ? "task_output"
-            : task.problem() ? "status_paused" : "status_running"), 58, y + 8, 18, 0.55f, task.problem() ? WARNING : MUTED);
+            : task.problem() ? "status_paused" : "status_running"), 58, y + 8, 18, 0.55f, task.statusColor());
         // A recessed three-pixel track stays visible even for queued tasks at zero progress.
         fill(context, 33, y + 17, 30, 4, 0xFF413F54);
         fill(context, 34, y + 18, 28, 2, 0xFF696D88);
@@ -507,6 +588,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         return tr(enabled ? "enabled" : "disabled").withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.GRAY);
     }
     private static String decimal(double value) { return String.format(Locale.ROOT, "%.1f", Double.isFinite(value) ? value : 0); }
+    private static String precise(double value) { return String.format(Locale.ROOT, "%.2f", Double.isFinite(value) ? value : 0); }
+    private static String signedRate(double value) {
+        return String.format(Locale.ROOT, "%+.2f", Double.isFinite(value) && Math.abs(value) >= 0.005 ? value : 0);
+    }
     private static String number(double value) {
         if (!Double.isFinite(value) || value <= 0) return "0";
         if (value < 1_000) return Long.toString((long) value);
@@ -520,5 +605,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                         boolean returnable, boolean current, LargeWorkstationModule module) {
         Component title() { return !item.isEmpty() ? item.getHoverName() : !fluid.isEmpty() ? fluid.getDisplayName() : tr("empty_task"); }
         boolean problem() { return current && !status.isEmpty() && !status.endsWith(".none") && !status.equals(PREFIX + "task_output"); }
+        int statusColor() {
+            return !current ? TASK_QUEUED : progress >= 200 ? MUTED : problem() ? WARNING : TASK_RUNNING;
+        }
     }
 }

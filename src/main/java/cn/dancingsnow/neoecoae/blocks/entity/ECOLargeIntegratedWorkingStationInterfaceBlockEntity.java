@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridNodeListener;
@@ -24,10 +25,12 @@ import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -308,7 +311,38 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     @Override
     public AEItemKey getTerminalIcon() {
-        return AEItemKey.of(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.asItem());
+        return terminalIcon(terminalModule());
+    }
+
+    @Override
+    public PatternContainerGroup getTerminalGroup() {
+        LargeWorkstationModule module = terminalModule();
+        // Upload selectors can group by name alone, so the module must be in the name as well as the tooltip.
+        // Keep it first: narrow provider lists truncate the long interface name.
+        Component name = Component.empty().append(module.shortTitle()).append(" · ").append(getName());
+        return new PatternContainerGroup(terminalIcon(module), name,
+            List.of(Component.translatable("gui.neoecoae.workstation.module_current", module.title())));
+    }
+
+    private LargeWorkstationModule terminalModule() {
+        var currentCluster = getCluster();
+        var controller = currentCluster == null ? null : currentCluster.getController();
+        return controller == null ? LargeWorkstationModule.REGULAR : controller.getInstalledModule();
+    }
+
+    private AEItemKey terminalIcon(LargeWorkstationModule module) {
+        ItemStack icon = new ItemStack(getBlockState().getBlock());
+        if (module != LargeWorkstationModule.REGULAR) {
+            // Presentation-only stacks use the existing formed-controller models; the real block item stays unchanged.
+            int modelData = switch (module) {
+                case REGULAR -> 0;
+                case ADVANCED_AE -> 1;
+                case EXTENDED_AE -> 2;
+                case LIGHTNING_TECH -> 4;
+            };
+            icon.getOrCreateTag().putInt("CustomModelData", modelData);
+        }
+        return AEItemKey.of(icon);
     }
 
     @Override

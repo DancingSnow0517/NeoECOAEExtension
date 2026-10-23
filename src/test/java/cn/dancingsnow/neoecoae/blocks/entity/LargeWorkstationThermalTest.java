@@ -11,22 +11,26 @@ class LargeWorkstationThermalTest {
     }
 
     @Test
-    void increasingTemperatureAcceleratesHeatingAndActualWorkScalesIt() {
-        assertEquals(0.232, LargeWorkstationThermal.heatingPerSecond(20), 1e-12);
-        assertEquals(0.4, LargeWorkstationThermal.heatingPerSecond(50), 1e-12);
-        assertEquals(0.712, LargeWorkstationThermal.heatingPerSecond(80), 1e-12);
-        assertEquals(0.2, LargeWorkstationThermal.heatingPerSecond(0), 1e-12);
-        assertEquals(1, LargeWorkstationThermal.heatingPerSecond(100), 1e-12);
-        assertEquals(80 + 0.712 / 40, LargeWorkstationThermal.process(at(80), 0.5).temperature(), 1e-12);
+    void increasingTemperatureSlowsHeatingAndActualWorkScalesIt() {
+        assertEquals(2.794, LargeWorkstationThermal.heatingPerSecond(20), 1e-12);
+        assertEquals(1.4875, LargeWorkstationThermal.heatingPerSecond(50), 1e-12);
+        assertEquals(0.784, LargeWorkstationThermal.heatingPerSecond(80), 1e-12);
+        assertEquals(4, LargeWorkstationThermal.heatingPerSecond(0), 1e-12);
+        assertEquals(0.65, LargeWorkstationThermal.heatingPerSecond(100), 1e-12);
+        assertEquals(80 + 0.784 / 40, LargeWorkstationThermal.process(at(80), 0.5).temperature(), 1e-12);
         assertEquals(at(80), LargeWorkstationThermal.process(at(80), 0));
+        for (int i = 0; i < 10_000; i++) {
+            assertTrue(LargeWorkstationThermal.heatingPerSecond(i / 100.0)
+                > LargeWorkstationThermal.heatingPerSecond((i + 1) / 100.0));
+        }
     }
 
     @Test
     void advancedCoolantReallyLowersLowTemperatureAndRemovesParallelEligibility() {
-        var low = LargeWorkstationThermal.tick(at(20), 1, 0, 9, true);
-        assertEquals(20 + (0.232 - 0.6) / 20, low.temperature(), 1e-12);
+        var low = LargeWorkstationThermal.tick(at(20), 0.1, 0, 9, true);
+        assertEquals(20 + (0.2794 - 0.6) / 20, low.temperature(), 1e-12);
         assertFalse(LargeWorkstationOverclock.forCoolingTier(2).isTemperatureReady(low.temperature()));
-        var middle = LargeWorkstationThermal.tick(at(50), 1, 0, 9, true);
+        var middle = LargeWorkstationThermal.tick(at(50), 0.1, 0, 9, true);
         assertTrue(middle.temperature() < 50);
         var high = LargeWorkstationThermal.tick(at(80), 1, 0, 9, true);
         assertTrue(high.temperature() > 80);
@@ -38,7 +42,7 @@ class LargeWorkstationThermalTest {
         for (int i = 0; i < 20; i++) state = LargeWorkstationThermal.tick(state, 0, 9, true);
         assertEquals(19.3, state.temperature(), 1e-10);
         assertEquals(at(0), LargeWorkstationThermal.tick(at(0), 0, 9, true));
-        assertEquals(20.05, LargeWorkstationThermal.tick(at(20), 0.5, 0, false).temperature(), 1e-12);
+        assertEquals(20.1397, LargeWorkstationThermal.tick(at(20), 0.5, 0, false).temperature(), 1e-12);
     }
 
     @Test
@@ -51,9 +55,9 @@ class LargeWorkstationThermalTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
-        "20,2,0.132", "20,6,-0.068", "20,9,-0.368",
-        "50,2,0.300", "50,6,0.100", "50,9,-0.200",
-        "80,2,0.612", "80,6,0.412", "80,9,0.112"
+        "20,2,2.694", "20,6,2.494", "20,9,2.194",
+        "50,2,1.3875", "50,6,1.1875", "50,9,0.8875",
+        "80,2,0.684", "80,6,0.484", "80,9,0.184"
     })
     void fullLoadNetChangeMatchesTheReferenceTable(double temperature, int tier, double net) {
         assertEquals(temperature + net / 20,
@@ -111,5 +115,42 @@ class LargeWorkstationThermalTest {
         assertTrue(LargeWorkstationThermal.load(tag).overheated());
         tag.putDouble("temperature", Double.NaN);
         assertTrue(LargeWorkstationThermal.load(tag).overheated());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"20,6", "50,20.8", "80,49.45", "100,78.3"})
+    void continuousFullLoadReachesTheDesignedTemperatureInFiniteTime(double target, double seconds) {
+        var state = at(0);
+        int ticks = 0;
+        while (state.temperature() < target && ticks < 2_000) {
+            state = LargeWorkstationThermal.tick(state, 1, 0, 0, false);
+            ticks++;
+        }
+        assertEquals(seconds, ticks / 20.0, 0.1);
+        assertTrue(state.temperature() >= target);
+    }
+
+    @Test
+    void cryotheumExtendsTheHighestBandButCannotPreventFullLoadOverheatingForever() {
+        var state = at(80);
+        int ticks = 0;
+        while (!state.overheated() && ticks < 6_000) {
+            state = LargeWorkstationThermal.tick(state, 1, 0, 9, true);
+            assertTrue(state.temperature() >= 80);
+            ticks++;
+        }
+        assertTrue(state.overheated());
+        assertEquals(249.8, ticks / 20.0, 0.1);
+        assertTrue(LargeWorkstationThermal.tick(at(80), 0.5, 0, 9, true).temperature() < 80,
+            "Half load still permits overcooling and pauses a high-tier batch");
+    }
+
+    @Test
+    void preheatSlowsWithTemperatureAndScalesWithActuallyPaidPower() {
+        assertEquals(8, LargeWorkstationThermal.preheatPerSecond(0), 1e-12);
+        assertEquals(2.975, LargeWorkstationThermal.preheatPerSecond(50), 1e-12);
+        assertEquals(1.568, LargeWorkstationThermal.preheatPerSecond(80), 1e-12);
+        assertEquals(80.0392, LargeWorkstationThermal.tick(at(80), 0.5, 0, false).temperature(), 1e-12);
+        assertEquals(79.995, LargeWorkstationThermal.tick(at(80), 0, 0, false).temperature(), 1e-12);
     }
 }

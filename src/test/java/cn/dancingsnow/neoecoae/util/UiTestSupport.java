@@ -30,6 +30,14 @@ public final class UiTestSupport {
         catch (IllegalAccessException failure) { throw new AssertionError(failure); }
     }
     public static int color(Object texture) { return (int)get(texture,"color"); }
+    public static float translationY(UIElement element) { return (float)get(get(element,"transform"),"y"); }
+    public static ModularUI createUI(UI ui) {
+        var player=org.mockito.Mockito.mock(net.minecraft.world.entity.player.Player.class);
+        var level=org.mockito.Mockito.mock(net.minecraft.world.level.Level.class);
+        org.mockito.Mockito.when(player.level()).thenReturn(level);
+        set(level,"isClientSide",true);
+        return new ModularUI(ui,player);
+    }
     public static void init(ModularUI ui,int width,int height) {
         var root=ui.getRootElement();root.arrange();
         root.setSelfPosition(new com.lowdragmc.lowdraglib.utils.Position((width-root.getSizeWidth())/2,(height-root.getSizeHeight())/2));
@@ -38,7 +46,7 @@ public final class UiTestSupport {
     public static void restyle(UIElement element) {
         var root=element;while(root.getParentElement()!=null)root=root.getParentElement();
         if(root.getModularUI()!=null)root.getModularUI().restyle();
-        else StylesheetManager.INSTANCE.getStylesheetSafe(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("neoecoae","lss/eco.lss")).apply(root);
+        else StylesheetManager.INSTANCE.getStylesheetSafe(new net.minecraft.resources.ResourceLocation("neoecoae","lss/eco.lss")).apply(root);
     }
     @SuppressWarnings("unchecked") public static Consumer<UIEvent> serverAction(UIElement element) {
         return element instanceof Button ? (Consumer<UIEvent>)get(element,"serverClick") : null;

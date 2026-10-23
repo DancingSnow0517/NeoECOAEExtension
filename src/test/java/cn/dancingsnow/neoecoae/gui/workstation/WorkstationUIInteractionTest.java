@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -27,6 +29,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Toggle;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.inventory.InventorySlots;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -74,7 +77,7 @@ class WorkstationUIInteractionTest {
                 UIElement rail = HostSideButtonBar.rightSlots(slots);
                 UIElement root = new UIElement().layout(layout -> layout.width(170).height(173))
                     .addChild(rail);
-                ModularUI ui = new ModularUI(UI.of(root));
+                ModularUI ui = cn.dancingsnow.neoecoae.util.UiTestSupport.createUI(UI.of(root));
                 for (int screenWidth : List.of(640, 800)) {
                     cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui,screenWidth, 360);
                     assertEquals(root.getPositionX() + 168, rail.getPositionX());
@@ -92,7 +95,7 @@ class WorkstationUIInteractionTest {
                 UIElement column = cn.dancingsnow.neoecoae.platform.JdkCompat.first(rail.getChildren());
                 ColorBorderTexture frame = assertInstanceOf(ColorBorderTexture.class,
                     column.getStyle().backgroundTexture());
-                assertEquals(-1, cn.dancingsnow.neoecoae.util.UiTestSupport.get(frame,"border"));
+                assertEquals(-1F, cn.dancingsnow.neoecoae.util.UiTestSupport.get(frame,"border"));
                 assertEquals(0xFFF2F2F2, cn.dancingsnow.neoecoae.util.UiTestSupport.color(frame));
                 assertEquals(count * 18, column.getSizeHeight());
                 SpriteTexture background = assertInstanceOf(SpriteTexture.class, rail.getStyle().backgroundTexture());
@@ -117,7 +120,7 @@ class WorkstationUIInteractionTest {
             IntegratedWorkstationUI.create(config(new FluidTank(1_000), new FluidTank(1_000),
                 EnumSet.noneOf(RelativeSide.class), new ArrayList<>()), player);
             UIElement root = captured.get();
-            ModularUI ui = new ModularUI(UI.of(root));
+            ModularUI ui = cn.dancingsnow.neoecoae.util.UiTestSupport.createUI(UI.of(root));
             for (int width : List.of(640, 800)) {
                 cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui,width, 480);
                 assertEquals(176, root.getSizeWidth());
@@ -181,7 +184,7 @@ class WorkstationUIInteractionTest {
                 offset -> new CompoundTag(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {},
                 new ItemStackHandler(1)), player);
             UIElement root = captured.get();
-            ModularUI ui = new ModularUI(UI.of(root));
+            ModularUI ui = cn.dancingsnow.neoecoae.util.UiTestSupport.createUI(UI.of(root));
             for (int width : List.of(640, 800)) {
                 cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui,width, 480);
                 assertEquals(253, root.getSizeWidth());
@@ -224,9 +227,9 @@ class WorkstationUIInteractionTest {
                 }
                 UIElement scrollbar = collect(root, UIElement.class).stream()
                     .filter(element -> "large-workstation-scrollbar".equals(element.getId())).findFirst().orElseThrow();
-                assertEquals(root.getPositionX() + 76, scrollbar.getPositionX());
+                assertEquals(root.getPositionX() + 79, scrollbar.getPositionX());
                 assertEquals(root.getPositionY() + 37, scrollbar.getPositionY());
-                assertEquals(13, scrollbar.getSizeWidth());
+                assertEquals(8, scrollbar.getSizeWidth());
                 assertEquals(77, scrollbar.getSizeHeight());
                 for (String id : List.of("overclock", "cooling", "temperature-setting",
                     "parallel", "temperature", "energy", "module-logo", "module-info", "task-0", "scrollbar", "status",
@@ -251,13 +254,15 @@ class WorkstationUIInteractionTest {
                     assertNotNull(hover.hoverTooltips, "Empty fluid tanks still explain their role and capacity");
                     assertTrue(hover.hoverTooltips.tooltips().size() >= 3);
                     var title = cn.dancingsnow.neoecoae.platform.JdkCompat.first(hover.hoverTooltips.tooltips());
-                    // The isolated JVM has no NeoForge fluid-type registry; only its descriptive fields are mocked.
-                    try (var fluidInfo = mockStatic(com.lowdragmc.lowdraglib.side.fluid.FluidHelper.class)) {
-                        fluidInfo.when(() -> com.lowdragmc.lowdraglib.side.fluid.FluidHelper.getDisplayName(any()))
-                            .thenReturn(net.minecraft.network.chat.Component.literal("Water"));
-                        fluidInfo.when(com.lowdragmc.lowdraglib.side.fluid.FluidHelper::getUnit).thenReturn("mB");
+                    // Forge installs vanilla fluid types during registry events, absent in this isolated JVM.
+                    try (var fluidInfo = mockStatic(net.minecraftforge.common.ForgeHooks.class, CALLS_REAL_METHODS)) {
+                        fluidInfo.when(() -> net.minecraftforge.common.ForgeHooks.getVanillaFluidType(Fluids.WATER))
+                            .thenReturn(new net.minecraftforge.fluids.FluidType(
+                                net.minecraftforge.fluids.FluidType.Properties.create().descriptionId("block.minecraft.water")) {});
                         for (FluidStack contents : List.of(new FluidStack(Fluids.WATER, 500), FluidStack.EMPTY)) {
-                            ((com.lowdragmc.lowdraglib.gui.widget.TankWidget)cn.dancingsnow.neoecoae.util.UiTestSupport.get(tank,"tank")).setFluid(com.lowdragmc.lowdraglib.side.fluid.FluidStack.create(contents.getFluid(),contents.getAmount(),contents.getTag()),false);
+                            cn.dancingsnow.neoecoae.util.UiTestSupport.set(
+                                cn.dancingsnow.neoecoae.util.UiTestSupport.get(tank,"tank"), "lastFluidInTank",
+                                com.lowdragmc.lowdraglib.side.fluid.FluidStack.create(contents.getFluid(),contents.getAmount(),contents.getTag()));
                             UIEvent filledHover = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
                             filledHover.target = tank;
                             filledHover.target.dispatchEvent(filledHover);
@@ -273,6 +278,217 @@ class WorkstationUIInteractionTest {
                 assertEquals(16, module.getContentHeight());
                 assertSame(module, root.hitTest(module.getPositionX() + 3, module.getPositionY() + 3));
             }
+        }
+    }
+
+    @Test
+    void largeTaskQueueColorsRunningAndQueuedStatuses() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            CompoundTag snapshot = taskSnapshot(12);
+            var panel = taskPanel(snapshot);
+            for (int row = 0; row < 2; row++) {
+                UIElement region = taskRegion(panel, "task-" + row);
+                UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                hover.target = region;
+                hover.target.dispatchEvent(hover);
+                assertEquals(row == 0 ? 0x55FF55 : 0xFFFF55,
+                    hover.hoverTooltips.tooltips().get(3).getStyle().getColor().getValue());
+            }
+            snapshot.getList("tasks", net.minecraft.nbt.Tag.TAG_COMPOUND).getCompound(0)
+                .putString("status", "gui.neoecoae.workstation.pause.no_power");
+            panel.setValue(snapshot.copy());
+            UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            hover.target = taskRegion(panel, "task-0");
+            hover.target.dispatchEvent(hover);
+            assertEquals(0x9B4438, hover.hoverTooltips.tooltips().get(3).getStyle().getColor().getValue());
+        }
+    }
+
+    @Test
+    void largeTaskQueueMovesHitboxesWithTheCardsAndClipsPartialRows() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            var panel = taskPanel(taskSnapshot(12));
+            var ui = cn.dancingsnow.neoecoae.util.UiTestSupport.createUI(UI.of(panel));
+            cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui, 640, 480);
+            UIEvent wheel = UIEvent.create(UIEvents.MOUSE_WHEEL);
+            wheel.x = panel.getPositionX() + 20;
+            wheel.y = panel.getPositionY() + 50;
+            wheel.deltaY = -0.5f;
+            wheel.target = panel.hitTest(wheel.x, wheel.y);
+            wheel.target.dispatchEvent(wheel);
+            panel.advanceScroll(1.0 / 60);
+            computeStyles(panel);
+            UIElement first = taskRegion(panel, "task-0");
+            float shift = cn.dancingsnow.neoecoae.util.UiTestSupport.translationY(first);
+            assertTrue(shift < 0 && shift > -13, "Wheel input should animate through fractional pixels");
+            UIElement button = taskRegion(panel, "return-0");
+            assertSame(button, panel.hitTest(button.getPositionX() + 2, button.getPositionY() + 2));
+            assertNotSame(first, panel.hitTest(panel.getPositionX() + 15, panel.getPositionY() + 37));
+            UIElement bottom = taskRegion(panel, "task-3");
+            assertSame(bottom, panel.hitTest(panel.getPositionX() + 15, panel.getPositionY() + 113),
+                "The incoming fourth card is already interactive inside the viewport");
+            UIElement outside = taskRegion(panel, "return-3");
+            assertNotSame(outside, panel.hitTest(outside.getPositionX() + 2, outside.getPositionY() + 2),
+                "A return button outside the clipped viewport must not intercept clicks");
+            panel.advanceScroll(1);
+            computeStyles(panel);
+            assertEquals(-13, cn.dancingsnow.neoecoae.util.UiTestSupport.translationY(first));
+            UIEvent more = UIEvent.create(UIEvents.MOUSE_WHEEL);
+            more.x = wheel.x;
+            more.y = wheel.y;
+            more.deltaY = -0.25f;
+            more.target = panel.hitTest(more.x, more.y);
+            more.target.dispatchEvent(more);
+            panel.advanceScroll(1);
+            computeStyles(panel);
+            assertSame(outside, panel.hitTest(outside.getPositionX() + 2, outside.getPositionY() + 2),
+                "The partially visible incoming return button must follow its card");
+        }
+    }
+
+    @Test
+    void largeTaskScrollbarRetainsItsGrabPointAndCanStopBetweenRows() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            var panel = taskPanel(taskSnapshot(12));
+            var ui = cn.dancingsnow.neoecoae.util.UiTestSupport.createUI(UI.of(panel));
+            cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui, 640, 480);
+            UIElement scrollbar = taskRegion(panel, "scrollbar");
+            assertSame(scrollbar, panel.hitTest(scrollbar.getPositionX() + 1, scrollbar.getPositionY() + 19),
+                "The thumb track must stay above the task cards along their shared edge");
+            UIEvent press = UIEvent.create(UIEvents.MOUSE_DOWN);
+            press.button = 0;
+            press.x = scrollbar.getPositionX() + 3;
+            press.y = scrollbar.getPositionY() + 5;
+            press.target = scrollbar;
+            press.target.dispatchEvent(press);
+            UIEvent drag = UIEvent.create(UIEvents.DRAG_SOURCE_UPDATE);
+            drag.x = press.x;
+            drag.y = press.y + 2.5f;
+            drag.target = scrollbar;
+            drag.target.dispatchEvent(drag);
+            computeStyles(panel);
+            UIElement row = taskRegion(panel, "task-0");
+            float shift = cn.dancingsnow.neoecoae.util.UiTestSupport.translationY(row);
+            assertEquals(-2.5 / 62 * 9 * 26, shift, 1e-5);
+            panel.advanceScroll(1);
+            computeStyles(panel);
+            assertEquals(shift, cn.dancingsnow.neoecoae.util.UiTestSupport.translationY(row));
+        }
+    }
+
+    @Test
+    void largeTaskScrollbarDrawsTheNativeHandleInsideTheBakedTrack() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            for (int total : List.of(0, 12)) {
+                var panel = taskPanel(taskSnapshot(total));
+                cn.dancingsnow.neoecoae.util.UiTestSupport.init(cn.dancingsnow.neoecoae.util.UiTestSupport.createUI(UI.of(panel)), 640, 480);
+                UIElement scrollbar = taskRegion(panel, "scrollbar");
+                var context = mock(GUIContext.class);
+                scrollbar.drawBackgroundAdditional(context);
+                verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                        && sprite.spritePosition.getX() == (total > 3 ? 69 : 75)
+                        && sprite.spritePosition.getY() == 62),
+                    eq(panel.getPositionX() + 80F), eq(panel.getPositionY() + 37F), eq(6F), eq(15F));
+                assertTrue(scrollbar.getPositionX() >= panel.getPositionX() + 78,
+                    "The scrollbar must not cover task cards or their return buttons");
+            }
+        }
+    }
+
+    private static LargeWorkstationPanel taskPanel(CompoundTag snapshot) {
+        return new LargeWorkstationPanel(new LargeWorkstationUI.Config(new FluidTank(1_000),
+            offset -> snapshot.copy(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {},
+            new ItemStackHandler(1)), mock(Player.class));
+    }
+
+    private static UIElement taskRegion(UIElement panel, String id) {
+        return collect(panel, UIElement.class).stream()
+            .filter(element -> ("large-workstation-" + id).equals(element.getId())).findFirst().orElseThrow();
+    }
+
+    private static void computeStyles(UIElement element) {
+        element.arrange();
+    }
+
+    private static CompoundTag taskSnapshot(int total) {
+        CompoundTag snapshot = new CompoundTag();
+        snapshot.putInt("totalTasks", total);
+        var tasks = new net.minecraft.nbt.ListTag();
+        for (int row = 0; row < Math.min(total, LargeWorkstationUI.SNAPSHOT_SIZE); row++) {
+            var task = new CompoundTag();
+            task.putUUID("id", new java.util.UUID(0, row));
+            task.putLong("amount", 100 + row);
+            task.putBoolean("returnable", true);
+            task.putBoolean("current", row == 0);
+            task.putString("status", "gui.neoecoae.workstation." + (row == 0 ? "pause.none" : "task_queued"));
+            tasks.add(task);
+        }
+        snapshot.put("tasks", tasks);
+        return snapshot;
+    }
+
+    @Test
+    void overclockButtonSeparatesLeftClickFromRightClickPreheat() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            var overclock = new java.util.concurrent.atomic.AtomicInteger();
+            var preheat = new java.util.concurrent.atomic.AtomicInteger();
+            var cooling = new java.util.concurrent.atomic.AtomicInteger();
+            var panel = new LargeWorkstationPanel(new LargeWorkstationUI.Config(new FluidTank(1000),
+                offset -> new CompoundTag(), () -> null, ignored -> {}, overclock::incrementAndGet,
+                cooling::incrementAndGet, preheat::incrementAndGet, new ItemStackHandler(1)), mock(Player.class));
+            Button control = collect(panel, Button.class).stream()
+                .filter(button -> "large-workstation-overclock".equals(button.getId())).findFirst().orElseThrow();
+            for (int button : List.of(0, 1, 2)) {
+                UIEvent event = UIEvent.create(UIEvents.MOUSE_DOWN);
+                event.button = button;
+                cn.dancingsnow.neoecoae.util.UiTestSupport.serverClick(control, event);
+            }
+            assertEquals(1, overclock.get());
+            assertEquals(1, preheat.get());
+            assertEquals(0, cooling.get());
+        }
+    }
+
+    @Test
+    void temperatureHoverShowsActualSignedRatesAndHidesThemInCoolantMode() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            var snapshot = new CompoundTag();
+            snapshot.putDouble("temperature", 15.5);
+            snapshot.putDouble("temperatureChangePerSecond", 0.123);
+            snapshot.putDouble("naturalCoolingPerSecond", 0.1);
+            var panel = new LargeWorkstationPanel(new LargeWorkstationUI.Config(new FluidTank(1000),
+                offset -> snapshot.copy(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {},
+                new ItemStackHandler(1)), mock(Player.class));
+            UIElement region = collect(panel, UIElement.class).stream()
+                .filter(element -> "large-workstation-temperature-info".equals(element.getId())).findFirst().orElseThrow();
+            UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            hover.target = region;
+            hover.target.dispatchEvent(hover);
+            var lines = hover.hoverTooltips.tooltips();
+            var temperature = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(1).getContents());
+            assertEquals("15.50", temperature.getArgs()[0]);
+            var net = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(3).getContents());
+            assertEquals("gui.neoecoae.workstation.temperature_net_rate", net.getKey());
+            assertEquals("+0.12", net.getArgs()[0]);
+            var processing = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(4).getContents());
+            assertEquals("gui.neoecoae.workstation.temperature_processing_rate", processing.getKey());
+            assertEquals("0.00", processing.getArgs()[0], "Idle telemetry must not substitute theoretical full-load heating");
+            assertFalse(lines.stream().anyMatch(line -> line.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text
+                && "gui.neoecoae.workstation.temperature_preheat_rate".equals(text.getKey())));
+            snapshot.putBoolean("temperatureEnabled", false);
+            panel.setValue(snapshot.copy());
+            hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+            hover.target = region;
+            hover.target.dispatchEvent(hover);
+            assertEquals(3, hover.hoverTooltips.tooltips().size());
+            assertTrue(hover.hoverTooltips.tooltips().stream().noneMatch(line -> line.getContents()
+                instanceof net.minecraft.network.chat.contents.TranslatableContents text && text.getKey().endsWith("_rate")));
         }
     }
 
@@ -297,7 +513,7 @@ class WorkstationUIInteractionTest {
 
             List<FluidSlot> slots = collect(root.get(), FluidSlot.class);
             assertEquals(2, slots.size());
-            var handlerField = FluidSlot.class.getDeclaredField("boundHandler");
+            var handlerField = FluidSlot.class.getDeclaredField("handler");
             handlerField.setAccessible(true);
             IFluidHandler inputHandler = (IFluidHandler) handlerField.get(cn.dancingsnow.neoecoae.platform.JdkCompat.first(slots));
             IFluidHandler outputHandler = (IFluidHandler) handlerField.get(cn.dancingsnow.neoecoae.platform.JdkCompat.last(slots));

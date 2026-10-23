@@ -41,6 +41,10 @@ public final class WorkstationTextures {
         return widget((on ? 0 : 30) + (hover ? 15 : 0), 135, 15, 26);
     }
 
+    public static SpriteTexture taskScrollThumb(boolean active) {
+        return widget(active ? 69 : 75, 62, 6, 15);
+    }
+
     /** The labels 4/6/9 name temperature bands, not multipliers or coolant recipe IDs. */
     public static int temperatureBand(double temperature) {
         if (!Double.isFinite(temperature) || temperature < 20) return 0;

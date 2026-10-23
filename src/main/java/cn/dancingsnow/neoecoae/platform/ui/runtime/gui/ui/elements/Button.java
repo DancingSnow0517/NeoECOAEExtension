@@ -23,6 +23,8 @@ public class Button extends UIElement{
     private final ButtonStyle buttonStyle=new ButtonStyle();
     private Consumer<UIEvent> click,serverClick;
     private boolean pressed;
+    private int pressedButton=-1;
+    private java.util.Set<Integer> acceptedButtons=java.util.Set.of(0);
     public enum State { DEFAULT, HOVERED, PRESSED }
     public State getState(){return pressed?State.PRESSED:isSelfOrChildHover()?State.HOVERED:State.DEFAULT;}
     public Button(){
@@ -40,16 +42,21 @@ public class Button extends UIElement{
     public Button noText(){text.setDisplay(false);return this;}
     public Button setOnClick(Consumer<UIEvent> callback){click=callback;return this;}
     public Button setOnServerClick(Consumer<UIEvent> callback){serverClick=callback;return this;}
+    public Button setAcceptedButtons(int... buttons){
+        var accepted=new java.util.HashSet<Integer>();
+        for(int button:buttons){if(button<0||button>2)throw new IllegalArgumentException("Invalid mouse button");accepted.add(button);}
+        acceptedButtons=java.util.Set.copyOf(accepted);return this;
+    }
     public Button buttonStyle(Consumer<ButtonStyle> config){config.accept(buttonStyle);return this;}
     public Button addPreIcon(IGuiTexture texture){var icon=new UIElement().style(s->s.backgroundTexture(texture)).layout(l->l.width(16).height(16));addChild(0,icon);return this;}
     public Button addPostIcon(IGuiTexture texture){addChild(new UIElement().style(s->s.backgroundTexture(texture)).layout(l->l.width(16).height(16)));return this;}
     public Button textStyle(Consumer<TextElement.TextStyle> config){text.textStyle(config);return this;}
-    @Override protected void onMouseDown(UIEvent event){if(event.button==0){pressed=true;event.hasHandler=true;event.stopPropagation();}}
-    @Override protected void onMouseUp(UIEvent event){if(pressed&&event.button==0){pressed=false;event.hasHandler=true;
+    @Override protected void onMouseDown(UIEvent event){if(acceptedButtons.contains(event.button)){pressed=true;pressedButton=event.button;event.hasHandler=true;event.stopPropagation();}}
+    @Override protected void onMouseUp(UIEvent event){if(pressed&&event.button==pressedButton){pressed=false;pressedButton=-1;event.hasHandler=true;
         if(!isMouseOverElement(event.x,event.y))return;if(click!=null)click.accept(event);if(serverClick!=null)writeClientAction(710,b->b.writeVarInt(event.button));}}
     @Override public void handleClientAction(int id,FriendlyByteBuf buffer){
         if(id!=710){super.handleClientAction(id,buffer);return;}if(!activeMenu()||serverClick==null||!isActive())return;
-        int button=buffer.readVarInt();if(button!=0)return;serverClick.accept(new UIEvent(UIEvents.CLICK,this,0,0,button));
+        int button=buffer.readVarInt();if(!acceptedButtons.contains(button))return;serverClick.accept(new UIEvent(UIEvents.CLICK,this,0,0,button));
     }
     @Override public void drawBackgroundAdditional(GUIContext context){
         IGuiTexture texture=pressed&&buttonStyle.pressed!=null?buttonStyle.pressed:isSelfOrChildHover()&&buttonStyle.hover!=null?buttonStyle.hover:buttonStyle.base;

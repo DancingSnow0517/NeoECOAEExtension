@@ -1,6 +1,11 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import appeng.api.networking.IManagedGridNode;
+import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.upgrades.Upgrades;
@@ -20,6 +25,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.Fluids;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -33,6 +40,9 @@ class LargeWorkstationPatternInventoryTest {
     @BeforeAll
     static void bootstrap() throws Exception {
         InventoryTestBootstrap.initialize();
+        if (appeng.core.AEConfig.instance() == null) {
+            appeng.core.AEConfig.load(java.nio.file.Files.createTempDirectory("neoecoae-sync-ae2-config"));
+        }
         try (var registrate = mockStatic(NERegistrate.class)) {
             registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
             Class.forName("cn.dancingsnow.neoecoae.NeoECOAE");
@@ -197,18 +207,142 @@ class LargeWorkstationPatternInventoryTest {
         }
         assertEquals(72, first.getSlots(SlotSemantics.ENCODED_PATTERN).size());
         assertEquals(5, first.getSlots(SlotSemantics.UPGRADE).size());
+        assertTrue(first.getSlots(SlotSemantics.STORAGE).isEmpty());
         assertEquals(36, first.getPatternSlotCount());
         withoutCards.getCapacityUpgrades().insertItem(0, AEItems.CAPACITY_CARD.stack(), false);
         assertEquals(45, first.getPatternSlotCount());
         assertEquals(72, first.getSlots(SlotSemantics.ENCODED_PATTERN).size());
     }
 
+    @Test
+    void shiftClickMovesPatternsIntoPatternSlotsAndLeavesTheReturnBufferUntouched() throws Exception {
+        var provider = provider();
+        var menu = serverMenu(provider);
+        menu.getPlayerInventory().setItem(9, new ItemStack(Items.WRITABLE_BOOK, 3));
+        try (var patterns = mockStatic(PatternDetailsHelper.class)) {
+            patterns.when(() -> PatternDetailsHelper.isEncodedPattern(any(ItemStack.class)))
+                .thenAnswer(call -> ((ItemStack) call.getArgument(0)).is(Items.WRITABLE_BOOK));
+            menu.quickMoveStack(menu.getPlayer(), 9);
+        }
+        assertTrue(menu.getPlayerInventory().getItem(9).isEmpty());
+        for (int slot = 0; slot < 3; slot++) {
+            assertTrue(provider.getPatternInv().getStackInSlot(slot).is(Items.WRITABLE_BOOK));
+            assertEquals(1, provider.getPatternInv().getStackInSlot(slot).getCount());
+        }
+        assertTrue(provider.getReturnInv().isEmpty());
+        assertTrue(provider.getUpgrades().isEmpty());
+    }
+
+    @Test
+    void shiftClickInstallsCapacityAndAddonCardsInTheRightUpgradeSlots() throws Exception {
+        var provider = provider();
+        var menu = serverMenu(provider);
+        menu.getPlayerInventory().setItem(9, new ItemStack(Items.PAPER, 6));
+        menu.getPlayerInventory().setItem(10, new ItemStack(Items.REDSTONE, 2));
+        try (var upgrades = mockStatic(Upgrades.class, CALLS_REAL_METHODS)) {
+            upgrades.when(() -> Upgrades.isUpgradeCardItem(any(ItemStack.class)))
+                .thenAnswer(call -> {
+                    ItemStack stack = call.getArgument(0);
+                    return stack.is(Items.PAPER) || stack.is(Items.REDSTONE);
+                });
+            menu.quickMoveStack(menu.getPlayer(), 9);
+            menu.quickMoveStack(menu.getPlayer(), 10);
+            assertEquals(2, menu.getPlayerInventory().getItem(9).getCount());
+            assertEquals(1, menu.getPlayerInventory().getItem(10).getCount());
+            assertEquals(4, provider.getUpgrades().getInstalledUpgrades(AEItems.CAPACITY_CARD));
+            assertEquals(1, provider.getUpgrades().getInstalledUpgrades(Items.REDSTONE));
+            assertEquals(72, provider.getPatternInv().size());
+            for (int slot = 0; slot < 4; slot++) assertTrue(provider.getUpgrades().getStackInSlot(slot).is(Items.PAPER));
+            assertTrue(provider.getUpgrades().getStackInSlot(4).is(Items.REDSTONE));
+            // Repeating a Shift-drag over full upgrade slots must not spill the remaining cards elsewhere.
+            menu.quickMoveStack(menu.getPlayer(), 9);
+            assertEquals(2, menu.getPlayerInventory().getItem(9).getCount());
+        }
+        assertTrue(provider.getPatternInv().isEmpty());
+        assertTrue(provider.getReturnInv().isEmpty());
+    }
+
+    @Test
+    void fullPatternSlotsKeepTheRemainderInTheBackpackAndNeverUseLockedRows() throws Exception {
+        var provider = provider();
+        var menu = serverMenu(provider);
+        for (int slot = 0; slot < 35; slot++) {
+            provider.getMenuPatternInventory().setItemDirect(slot, new ItemStack(Items.WRITABLE_BOOK));
+        }
+        menu.getPlayerInventory().setItem(9, new ItemStack(Items.WRITABLE_BOOK, 3));
+        try (var patterns = mockStatic(PatternDetailsHelper.class)) {
+            patterns.when(() -> PatternDetailsHelper.isEncodedPattern(any(ItemStack.class)))
+                .thenAnswer(call -> ((ItemStack) call.getArgument(0)).is(Items.WRITABLE_BOOK));
+            menu.quickMoveStack(menu.getPlayer(), 9);
+            assertEquals(2, menu.getPlayerInventory().getItem(9).getCount());
+            menu.quickMoveStack(menu.getPlayer(), 9);
+            assertEquals(2, menu.getPlayerInventory().getItem(9).getCount());
+        }
+        assertTrue(provider.getPatternInv().getStackInSlot(35).is(Items.WRITABLE_BOOK));
+        assertTrue(provider.getMenuPatternInventory().getStackInSlot(36).isEmpty());
+        assertTrue(provider.getReturnInv().isEmpty());
+    }
+
+    @Test
+    void shiftClickCanReturnPatternsToTheBackpackAndRejectsUnrelatedItems() throws Exception {
+        var provider = provider();
+        var menu = serverMenu(provider);
+        var patternSlot = JdkCompat.first(menu.getSlots(SlotSemantics.ENCODED_PATTERN));
+        provider.getMenuPatternInventory().setItemDirect(0, new ItemStack(Items.WRITABLE_BOOK));
+        menu.quickMoveStack(menu.getPlayer(), patternSlot.index);
+        assertTrue(provider.getPatternInv().getStackInSlot(0).isEmpty());
+        assertEquals(1, menu.getPlayerInventory().items.stream().filter(stack -> stack.is(Items.WRITABLE_BOOK))
+            .mapToInt(ItemStack::getCount).sum());
+        menu.getPlayerInventory().setItem(10, new ItemStack(Items.DIAMOND, 16));
+        menu.quickMoveStack(menu.getPlayer(), 10);
+        assertEquals(16, menu.getPlayerInventory().getItem(10).getCount());
+        assertTrue(provider.getPatternInv().isEmpty());
+        assertTrue(provider.getReturnInv().isEmpty());
+    }
+
+    @Test
+    void replacingTheReturnRowKeepsPreviouslyBufferedResourcesAndTheirPersistence() throws Exception {
+        var provider = provider();
+        var savedStack = new GenericStack(AEFluidKey.of(Fluids.WATER), 17);
+        provider.getReturnInv().setStack(0, savedStack);
+        var menu = menu(provider);
+        assertTrue(menu.getSlots(SlotSemantics.STORAGE).isEmpty());
+        assertEquals(savedStack, menu.getReturnInv().getStack(0));
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        CompoundTag saved = new CompoundTag();
+        try (var keys = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class)) {
+            keys.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
+                .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
+            provider.writeToNBT(saved);
+            var restored = provider();
+            restored.readFromNBT(saved);
+            assertEquals(savedStack, restored.getReturnInv().getStack(0));
+        }
+    }
+
+    private static LargeIntegratedWorkingStationPatternProviderMenu serverMenu(LargeWorkstationPatternProvider provider)
+        throws Exception {
+        var player = mock(Player.class);
+        when(player.getCommandSenderWorld()).thenReturn(mock(Level.class));
+        Inventory inventory = new Inventory(player);
+        when(player.getInventory()).thenReturn(inventory);
+        var menu = spy(menu(provider, inventory));
+        doNothing().when(menu).broadcastChanges();
+        return menu;
+    }
+
     private static LargeIntegratedWorkingStationPatternProviderMenu menu(LargeWorkstationPatternProvider provider)
         throws Exception {
+        return menu(provider, new Inventory(mock(Player.class)));
+    }
+
+    private static LargeIntegratedWorkingStationPatternProviderMenu menu(
+        LargeWorkstationPatternProvider provider, Inventory inventory
+    ) throws Exception {
         var constructor = LargeIntegratedWorkingStationPatternProviderMenu.class.getDeclaredConstructor(
             int.class, Inventory.class, PatternProviderLogicHost.class);
         constructor.setAccessible(true);
-        return constructor.newInstance(1, new Inventory(mock(Player.class)), provider.getWorkstationInterface());
+        return constructor.newInstance(1, inventory, provider.getWorkstationInterface());
     }
 
     private static LargeWorkstationPatternProvider provider() {
