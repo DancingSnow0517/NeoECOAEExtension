@@ -19,7 +19,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = CraftingCpuLogic.class, remap = false)
+// GTLCore overwrites executeCrafting at priority 1100. Keep the INVOKE wrapper
+// above that overwrite so job ownership also reaches its retained pushPattern call.
+@Mixin(value = CraftingCpuLogic.class, remap = false, priority = 1200)
 public abstract class Ae2CraftingCpuFastPathMixin {
     @Unique private static final org.slf4j.Logger NEOECOAE_BATCH_LOG = org.slf4j.LoggerFactory.getLogger("neoecoae");
     @Shadow @Final private ListCraftingInventory inventory;

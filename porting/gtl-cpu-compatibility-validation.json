@@ -1,0 +1,108 @@
+{
+  "date": "2026-10-23",
+  "fix": "Ae2CraftingCpuFastPathMixin priority 1200 retains job dispatch on GTLCore priority 1100 overwrite",
+  "java": 17,
+  "mixin": "0.8.5",
+  "mixinextras": "0.5.3",
+  "unit_tests": {
+    "suites": 9,
+    "tests": 57,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "inputs": [
+    {
+      "path": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\mods\\gtlcore-1.2.3.2-fix4.jar",
+      "sha256": "c44b8212b8d3a210eabd36e3efaf7804e78e25fc44d45f7b0fb048453aaaf346"
+    },
+    {
+      "path": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\mods\\appliedenergistics2-forge-15.4.10.jar",
+      "sha256": "fbfee05c6674cb6b00fe425e945ca4818d41eb34069b60dcb4a36221a0390fcc"
+    },
+    {
+      "path": "E:\\NeoECOAEExtension-1.20.1\\libs\\pinned\\AE2-15-release.jar",
+      "sha256": "f2ff9ee5122b037d4e93537425ab9fbe49860fc9c3977db13b20a50ca7d30f9e"
+    }
+  ],
+  "mixin_transformation_cases": [
+    {
+      "ae2": "15.4.10",
+      "mode": "before",
+      "result": "passed",
+      "log": "build/gtl-cpu-compatibility-installed.log",
+      "log_sha256": "4d87d2cd0c27d9db48ee51008f5a79a7bdce84a01a4f7c798b46aefde8b3eaab",
+      "assertion": "Original InvalidInjectionException reproduced with priority 1000 versus GTLCore 1100"
+    },
+    {
+      "ae2": "15.4.10",
+      "mode": "gtl",
+      "result": "passed",
+      "log": "build/gtl-cpu-compatibility-installed.log",
+      "log_sha256": "4d87d2cd0c27d9db48ee51008f5a79a7bdce84a01a4f7c798b46aefde8b3eaab",
+      "exported_class": "build/gtl-cpu-compatibility/installed-ae2/gtl/.mixin.out/class/appeng/crafting/execution/CraftingCpuLogic.class",
+      "exported_class_sha256": "b337651e4560a55ae3bd64ee288d41fe65cbd21bf8593e50d7496b9d13c04f86",
+      "dispatch_hook_verified": true,
+      "job_wrapper_call_verified": true,
+      "unwrapped_provider_calls": 0,
+      "gtl_overwrite_owner_verified": true
+    },
+    {
+      "ae2": "15.4.10",
+      "mode": "base",
+      "result": "passed",
+      "log": "build/gtl-cpu-compatibility-installed.log",
+      "log_sha256": "4d87d2cd0c27d9db48ee51008f5a79a7bdce84a01a4f7c798b46aefde8b3eaab",
+      "exported_class": "build/gtl-cpu-compatibility/installed-ae2/base/.mixin.out/class/appeng/crafting/execution/CraftingCpuLogic.class",
+      "exported_class_sha256": "3f002d45eaecbe148392cf9e03346757ea0f8d7b83e70453045b1c6f940337fc",
+      "dispatch_hook_verified": true,
+      "job_wrapper_call_verified": true,
+      "unwrapped_provider_calls": 0,
+      "gtl_overwrite_owner_verified": false
+    },
+    {
+      "ae2": "15.4.11",
+      "mode": "before",
+      "result": "passed",
+      "log": "build/gtl-cpu-compatibility-development.log",
+      "log_sha256": "4d87d2cd0c27d9db48ee51008f5a79a7bdce84a01a4f7c798b46aefde8b3eaab",
+      "assertion": "Original InvalidInjectionException reproduced with priority 1000 versus GTLCore 1100"
+    },
+    {
+      "ae2": "15.4.11",
+      "mode": "gtl",
+      "result": "passed",
+      "log": "build/gtl-cpu-compatibility-development.log",
+      "log_sha256": "4d87d2cd0c27d9db48ee51008f5a79a7bdce84a01a4f7c798b46aefde8b3eaab",
+      "exported_class": "build/gtl-cpu-compatibility/development-ae2/gtl/.mixin.out/class/appeng/crafting/execution/CraftingCpuLogic.class",
+      "exported_class_sha256": "fe77cd73354020dc02ab92716f90ae4bb65fde564ead8b13615795ffadc42fce",
+      "dispatch_hook_verified": true,
+      "job_wrapper_call_verified": true,
+      "unwrapped_provider_calls": 0,
+      "gtl_overwrite_owner_verified": true
+    },
+    {
+      "ae2": "15.4.11",
+      "mode": "base",
+      "result": "passed",
+      "log": "build/gtl-cpu-compatibility-development.log",
+      "log_sha256": "4d87d2cd0c27d9db48ee51008f5a79a7bdce84a01a4f7c798b46aefde8b3eaab",
+      "exported_class": "build/gtl-cpu-compatibility/development-ae2/base/.mixin.out/class/appeng/crafting/execution/CraftingCpuLogic.class",
+      "exported_class_sha256": "8b8bae9d9f85bae0be60e027af80037dd369c27983d1a8caaf16ed490642f119",
+      "dispatch_hook_verified": true,
+      "job_wrapper_call_verified": true,
+      "unwrapped_provider_calls": 0,
+      "gtl_overwrite_owner_verified": false
+    }
+  ],
+  "package_audit": "porting/gtl-cpu-compatibility-package-validation.json",
+  "installation": {
+    "installed_jar": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\mods\\neoecoae-20.6.0-dev.jar",
+    "backup_jar": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\neoecoae-backups\\gtl-cpu-20261023-224144\\neoecoae-20.6.0-dev.jar",
+    "previous_sha256": "3242d3bec2797c46583acd874d557fd4da4ca04313d8b19028a5232b11fdedcb",
+    "installed_sha256": "b65a3988c8de16f694ad391369b0274651198bd5fb41f409147272e4222b9665",
+    "replacement_verified": true,
+    "full_modpack_launch_verified": false
+  },
+  "acceptance": "Production compile, unit tests, actual dependency bytecode transformation, package audit and backed-up JAR replacement; full Forge modpack startup and player-world interactions not performed"
+}

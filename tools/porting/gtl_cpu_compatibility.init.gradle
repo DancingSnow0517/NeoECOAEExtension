@@ -1,0 +1,60 @@
+// Opt-in regression using Mixin itself and the installed GTLCore overwrite.
+// The supplied third-party JAR is used only by this test, never packaged.
+gradle.afterProject { project ->
+    if (project.path != ':') return
+    def gtlJarProperty = project.providers.gradleProperty('gtlCpuCompatibilityJar')
+    if (!gtlJarProperty.isPresent()) {
+        throw new GradleException('Specify -PgtlCpuCompatibilityJar=<installed GTLCore JAR>')
+    }
+    def gtlJar = project.file(gtlJarProperty.get())
+    if (!gtlJar.isFile()) throw new GradleException("Missing GTLCore JAR: ${gtlJar}")
+    def ae2JarProperty = project.providers.gradleProperty('gtlCpuCompatibilityAe2Jar')
+    def ae2Jar = ae2JarProperty.isPresent() ? project.file(ae2JarProperty.get()) : null
+    if (ae2Jar != null && !ae2Jar.isFile()) throw new GradleException("Missing AE2 JAR: ${ae2Jar}")
+    def label = ae2Jar == null ? 'development-ae2' : 'installed-ae2'
+
+    project.sourceSets.create('gtlCpuCompatibility') {
+        java.srcDir 'tools/porting/gtl_cpu_compatibility'
+        compileClasspath += project.sourceSets.main.output + project.sourceSets.main.compileClasspath
+        runtimeClasspath += project.sourceSets.main.output + project.sourceSets.main.compileClasspath
+    }
+    project.dependencies.add('gtlCpuCompatibilityImplementation', 'net.minecraft:launchwrapper:1.12') {
+        // Use the current Minecraft libraries, not LaunchWrapper's legacy LWJGL/log4j.
+        transitive = false
+    }
+    project.dependencies.add('gtlCpuCompatibilityImplementation', 'org.slf4j:slf4j-api:2.0.16')
+    project.dependencies.add('gtlCpuCompatibilityRuntimeOnly', 'org.apache.logging.log4j:log4j-core:2.19.0')
+    project.tasks.named('compileGtlCpuCompatibilityJava') {
+        options.compilerArgs += ['-proc:none']
+    }
+    def runs = []
+    ['before', 'gtl', 'base'].each { mode ->
+        def run = project.tasks.register("gtlCpuCompatibility_${mode}", JavaExec) {
+            group = 'verification'
+            dependsOn project.tasks.named('classes'), project.tasks.named('gtlCpuCompatibilityClasses')
+            classpath = project.files(ae2Jar == null ? [] : [ae2Jar]) +
+                project.sourceSets.gtlCpuCompatibility.runtimeClasspath + project.files(gtlJar)
+            mainClass = 'cn.dancingsnow.neoecoae.verification.bootstrap.GtlCpuCompatibility'
+            javaLauncher = project.javaToolchains.launcherFor {
+                languageVersion = JavaLanguageVersion.of(17)
+            }
+            systemProperty 'mixin.debug.export', 'true'
+            systemProperty 'mixin.debug.export.decompile', 'false'
+            systemProperty 'mixin.env.disableRefMap', 'true'
+            def directory = project.layout.buildDirectory.dir("gtl-cpu-compatibility/${label}/${mode}")
+            workingDir = directory
+            args mode
+            doFirst { directory.get().asFile.mkdirs() }
+        }
+        if (!runs.isEmpty()) {
+            def previousRun = runs.last()
+            run.configure { mustRunAfter previousRun }
+        }
+        runs.add(run)
+    }
+    project.tasks.register('gtlCpuCompatibilityTest') {
+        description = 'Reproduces the old priority failure, then transforms the real AE2 class with and without GTLCore.'
+        group = 'verification'
+        dependsOn runs
+    }
+}
