@@ -7,6 +7,7 @@
     "ae2.accessor.AECraftingPatternAccessor",
     "ae2.accessor.CraftingPlanSummaryAccessor",
     "ae2.accessor.DelegatingMEInventoryAccessor",
+    "ae2.accessor.SupplierStorageAccessor",
     "ae2.accessor.PatternProviderLogicAccessor",
     "ae2.crafting.CraftingCalculationMixin",
     "ae2.crafting.AEProcessingPatternComponentMixin",

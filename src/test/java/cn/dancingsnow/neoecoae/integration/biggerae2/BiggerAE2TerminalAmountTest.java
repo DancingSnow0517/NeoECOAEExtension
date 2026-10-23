@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountClientCache;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountComparator;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalExactAmountSync;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
@@ -58,6 +59,7 @@ class BiggerAE2TerminalAmountTest {
     @AfterEach
     void clear() {
         ExactAmountCollector.abort();
+        TerminalInventorySnapshot.clear();
         ExactAmountClientCache.clear(0);
     }
 
@@ -117,14 +119,14 @@ class BiggerAE2TerminalAmountTest {
             assertEquals(Long.MAX_VALUE, singularity.extract(key, Long.MAX_VALUE, Actionable.MODULATE, null));
             when(level.getGameTime()).thenReturn(10L);
             assertEquals(193, sync.collect(menu, () -> list(singularity, ordinary)).get(key));
-            assertEquals(ExactAmount.finite(BigInteger.valueOf(193)), ExactAmountClientCache.get(menu.containerId, key));
+            assertNull(ExactAmountClientCache.get(menu.containerId, key));
+            assertEquals(Set.of(key), frames.getLast().delta().removed());
 
             singularity.clearAllStoredStacks();
             when(level.getGameTime()).thenReturn(15L);
             assertEquals(64, sync.collect(menu, () -> list(singularity, ordinary)).get(key));
-            assertEquals(Set.of(key), frames.getLast().delta().removed());
             assertNull(ExactAmountClientCache.get(menu.containerId, key));
-            assertEquals(4, frames.size());
+            assertEquals(3, frames.size());
         }
     }
 

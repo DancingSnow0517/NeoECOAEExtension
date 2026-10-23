@@ -123,6 +123,7 @@ public final class MenuDataTransport {
         OUTGOING.clear();
         STATS.clear();
         ExactCpuSnapshot.clear();
+        cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.clear();
         peakPlayerTickBytes = 0;
     }
 
