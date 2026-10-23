@@ -54,6 +54,18 @@ public interface PatternStorageHost extends AuxiliaryPatternHolder {
     }
 
     /**
+     * Whether network pattern migration may take encoded patterns from this host's physical slots.
+     *
+     * <p>Hosts are excluded by default to preserve their installed pattern sets. A host that also implements
+     * {@link appeng.helpers.patternprovider.PatternContainer} may override this to opt in as a migration source.
+     * Migration reads {@link #getPatternSlotInventory()}, so auxiliary recipes exposed only through a terminal
+     * view are not source slots.</p>
+     */
+    default boolean allowsPatternMigrationSource() {
+        return false;
+    }
+
+    /**
      * Tells the grid to re-read this host's advertised patterns.
      *
      * <p>Called after auxiliary contents moved without the slot layout moving: nothing else would tell

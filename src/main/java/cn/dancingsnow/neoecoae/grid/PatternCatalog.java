@@ -29,10 +29,11 @@ import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -829,7 +830,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     }
 
     private void beginExternalPatternIndexBuild(IGrid grid) {
-        Set<PatternContainer> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<PatternContainer> visited = new ReferenceOpenHashSet<>();
         List<PatternContainer> sources = new ArrayList<>();
         for (Class<?> machineClass : grid.getMachineClasses()) {
             if (!PatternContainer.class.isAssignableFrom(machineClass)) {
@@ -837,7 +838,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             }
             Class<? extends PatternContainer> containerClass = machineClass.asSubclass(PatternContainer.class);
             for (PatternContainer container : grid.getActiveMachines(containerClass)) {
-                if (visited.add(container) && !(container instanceof PatternStorageHost)) {
+                if (visited.add(container)
+                        && (!(container instanceof PatternStorageHost host) || host.allowsPatternMigrationSource())) {
                     sources.add(container);
                 }
             }
@@ -950,6 +952,11 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 externalPatternSlots.computeIfAbsent(source, ignored -> new BitSet()).set(slot);
                 ECOPatternSourceSlot candidate = new ECOPatternSourceSlot(source, slot);
                 if (!externalPatternClaims.containsKey(candidate)) externalAvailable.addLast(candidate);
+                // Registered hosts already own these locations through their slot index. Duplicating them
+                // here would let an external-index rebuild remove the host's still-valid locations.
+                if (source instanceof PatternStorageHost host && busPatternRecords.containsKey(host)) {
+                    continue;
+                }
                 AEItemKey key = AEItemKey.of(stack);
                 PatternRecord record = new PatternRecord(
                                 new PatternLocation(source, slot),
@@ -1001,8 +1008,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     }
 
     private void refreshPatternIndexes() {
-        Set<PatternStorageHost> current =
-                Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<PatternStorageHost> current =
+                new ReferenceOpenHashSet<>(patternStorages.size());
         boolean changed = false;
         for (IECOPatternStorage storage : patternStorages.values()) {
             if (!(storage instanceof PatternStorageHost bus)) {
