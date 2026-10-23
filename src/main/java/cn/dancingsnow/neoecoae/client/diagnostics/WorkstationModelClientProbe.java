@@ -186,7 +186,7 @@ final class WorkstationModelClientProbe {
         }
     }
 
-    private static void build(ServerLevel level, BlockPos controller, Direction front) {
+    static void build(ServerLevel level, BlockPos controller, Direction front) {
         Direction back = front.getOpposite();
         Direction right = front.getClockWise();
         for (int x = -1; x <= 1; x++) {

@@ -84,6 +84,9 @@ public final class ClientStartupProbe {
         if (captured && Boolean.getBoolean("neoecoae.clientSmokeEnergy")) {
             ManagedEnergyClientProbe.tick(client);
         }
+        if (captured && Boolean.getBoolean("neoecoae.upstreamSyncSmoke")) {
+            WorkstationSyncClientProbe.tick(client);
+        }
         if (captured && client.level != null && client.player != null
                 && !System.getProperty("neoecoae.workstationModelSmoke", "").isBlank()) {
             WorkstationModelClientProbe.tick(client);

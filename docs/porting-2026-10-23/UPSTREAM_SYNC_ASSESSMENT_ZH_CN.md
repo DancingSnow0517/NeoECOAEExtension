@@ -2,6 +2,8 @@
 
 评估日期：2026-10-23。目标工程：`E:\NeoECOAEExtension-1.20.1`，分支 `port/forge-1.20.1`。本轮完成远端更新、提交差异清点、重点源码对照与锁定 JAR 的 API 核对，未实施功能同步。
 
+以上为评估阶段快照。用户随后批准全部约定增量；实际实施与目标版本验证见 [UPSTREAM_SYNC_IMPLEMENTATION_ZH_CN.md](UPSTREAM_SYNC_IMPLEMENTATION_ZH_CN.md)。
+
 ## 结论
 
 建议同步，按“正确性修复 → 存储扫描与终端同步优化 → 大型工作站行为和界面 → 主机面板扩展 API”分批处理。

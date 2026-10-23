@@ -1,0 +1,899 @@
+{
+  "validated_at_utc": "2026-10-23T12:54:19.855029+00:00",
+  "original_baseline": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "approved_increment_target": "c95684c93fd68f55315379ca2282675a01eb87fa",
+  "implementation_parent_commit": "6936a93069cdf42c45157f78fe983bcf342fd974",
+  "branch": "port/forge-1.20.1",
+  "scope": {
+    "workstation_variants": [
+      "regular",
+      "advanced_ae",
+      "extendedae",
+      "ae2lt"
+    ],
+    "retained_addons": [
+      "advanced_ae",
+      "expatternprovider",
+      "extendedae_plus",
+      "ae2lt"
+    ],
+    "structure_terminal_retained": true,
+    "machine_ui_auto_build_button": false,
+    "bigger_ae2_integration": false,
+    "data_energistics_integration": false,
+    "applied_generators_integration": false,
+    "crystal_science_integration": false
+  },
+  "original_source_and_dependency_locks_unchanged": true,
+  "tests": {
+    "upstreamSyncTest": {
+      "tests": 330,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 9,
+      "passed": 321,
+      "skipped_cases": [
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "method": "indeterminateExactFxCommitStopsTheJobWithoutRefundingOrRetrying()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "method": "unknownExternalProviderKeepsTheLongContractAndGetsNoExactCommit()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "method": "bigCpuCancellationPublishesTheSameWorkerRecoveryNotice()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "method": "aLongCraftCountStillUsesExactTransportWhenItsMaterialTotalsOverflow()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "method": "rejectedExactFxBatchRestoresEveryInputAndWaitingAmount()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "method": "boundedFxAndPowerLimitedBatchesKeepTheExistingLongLane()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "method": "verifiedFxLaneAcceptsAndReturnsMoreThanLongWithoutPerWindowLoops()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "method": "exactProviderCapacityLeavesTheUnacceptedCopiesInCpuEscrow()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.gui.workstation.WorkstationPatternScreenStyleTest",
+          "method": "releasedDataEnergisticsPatchAcceptsTheStyleAndRetainsTheRightUpgradePanel()"
+        }
+      ]
+    },
+    "portingPlatformTest": {
+      "tests": 176,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 176,
+      "skipped_cases": []
+    },
+    "portingContractsTest": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 6,
+      "skipped_cases": []
+    }
+  },
+  "conditional_skips": {
+    "released_ae2lt_exact_streaming_or_admission_api_unavailable": 8,
+    "excluded_data_energistics_screen_patch": 1
+  },
+  "full_imported_test_compile": {
+    "result": "failed_preexisting_migration_debt",
+    "log": "validation/upstream-sync-20261023-full-test-compile-final.log",
+    "sha256": "16251fde10ffa219fef5590d61ed9cd00927e41a40d68a4960fb9862b2b56a86",
+    "example_unported_sources": [
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\integration\\jei\\JeiBookmarkConversionTest.java",
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\items\\StorageCellDisassemblyTest.java",
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\network\\ECONetworkVersionTest.java",
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\recipe\\LargeWorkstationRecipeDeduplicationTest.java",
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\api\\me\\cooling\\ECOVirtualCraftingCoolantRegistryTest.java",
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\api\\me\\pattern\\ECOExecutionOptimizationRegistryTest.java",
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\api\\me\\pattern\\ECOPatternSemanticsRegistryTest.java",
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\blocks\\entity\\crafting\\ECOCraftingCoolingControllerTest.java",
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\blocks\\entity\\crafting\\ECOVirtualCraftingDiagnosticsTest.java",
+      "src\\test\\java\\cn\\dancingsnow\\neoecoae\\blocks\\entity\\LargeWorkstationBatchPersistenceTest.java"
+    ]
+  },
+  "final_build": {
+    "log": "validation/upstream-sync-20261023-final-checks.log",
+    "sha256": "b698968e30cf42fa0b9b925ee1ee575630f7bd31e279e5376a417b7742e04e34",
+    "result": "passed",
+    "marker": "BUILD SUCCESSFUL"
+  },
+  "all_three_test_tasks_executed": {
+    "log": "validation/upstream-sync-20261023-integrated-all-tests.log",
+    "sha256": "b698968e30cf42fa0b9b925ee1ee575630f7bd31e279e5376a417b7742e04e34",
+    "result": "passed",
+    "marker": "> Task :portingContractsTest\n"
+  },
+  "package_audit": {
+    "path": "porting/package-validation-upstream-sync-2026-10-23.json",
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "f034089ae7bbee23b4d793448fd46c83f4272f7214687a06fc846d9ca80c7b95",
+    "production_sources_checked": 967,
+    "result": "success"
+  },
+  "changed_resources_equal_jar": {
+    "checked": 30,
+    "mismatches": []
+  },
+  "renamed_legacy_resources_absent_from_jar": {
+    "checked": 6,
+    "stale_resources": []
+  },
+  "locales": {
+    "en_us": {
+      "changed_keys_checked": 15,
+      "missing_keys": []
+    },
+    "en_ud": {
+      "changed_keys_checked": 15,
+      "missing_keys": []
+    },
+    "zh_cn": {
+      "changed_keys_checked": 15,
+      "missing_keys": []
+    },
+    "zh_hk": {
+      "changed_keys_checked": 15,
+      "missing_keys": []
+    },
+    "zh_tw": {
+      "changed_keys_checked": 15,
+      "missing_keys": []
+    },
+    "lzh": {
+      "changed_keys_checked": 15,
+      "missing_keys": []
+    }
+  },
+  "locale_keys_checked": [
+    "gui.neoecoae.crafting.ui.runtime_ticks_short",
+    "gui.neoecoae.crafting.ui.virtual_crafting",
+    "gui.neoecoae.crafting.ui.virtual_crafting_short",
+    "gui.neoecoae.workstation.parallel_capacity",
+    "gui.neoecoae.workstation.parallel_hint",
+    "gui.neoecoae.workstation.cooling_rate",
+    "gui.neoecoae.workstation.cooling_capacity",
+    "gui.neoecoae.workstation.temperature_band_value",
+    "gui.neoecoae.workstation.temperature_net_rate",
+    "gui.neoecoae.workstation.temperature_processing_rate",
+    "gui.neoecoae.workstation.temperature_preheat_rate",
+    "gui.neoecoae.workstation.temperature_cooling_rate",
+    "gui.neoecoae.workstation.temperature_natural_rate",
+    "gui.neoecoae.workstation.temperature_slowing_hint",
+    "gui.neoecoae.workstation.preheat_right_click_hint"
+  ],
+  "guides": [
+    {
+      "path": "neoecoae_intro/large_integrated_working_station.md",
+      "sha256": "b96c3f3f2932d9aa516b33729ae133b631d3c49a527b76e6d7b3aaa073602f6b",
+      "packaged_copy_equal": true
+    },
+    {
+      "path": "_zh_cn/neoecoae_intro/large_integrated_working_station.md",
+      "sha256": "a047a02dcc9ae22a7ac9da9b3d9e5ffb2acf4896ebfc8e1d4e73049f70363771",
+      "packaged_copy_equal": true
+    }
+  ],
+  "server_runtime": {
+    "legacy_upgrade": {
+      "log": "validation/upstream-sync-20261023-legacy-upgrade.log",
+      "sha256": "8d18a619fe390be2a479a598dd6b2fbc89243738f2299d11e6c4ffbcf4598b34",
+      "result": "passed",
+      "marker": "LEGACY_2042_ACCEPTANCE_PASS phase=upgrade"
+    },
+    "legacy_read_after_restart": {
+      "log": "validation/upstream-sync-20261023-legacy-read.log",
+      "sha256": "9a9a0ad25f89c146116845febda1a4843007e9f0a6bd2e2b104eb724826823ae",
+      "result": "passed",
+      "marker": "LEGACY_2042_ACCEPTANCE_PASS phase=read"
+    },
+    "saveddata_write": {
+      "log": "validation/upstream-sync-20261023-saveddata-write.log",
+      "sha256": "87a259b28eda9e193e751e953542e00b42aea024922e672117cb6d72ff457f7e",
+      "result": "passed",
+      "marker": "SAVEDDATA_ACCEPTANCE_PASS phase=write"
+    },
+    "saveddata_read_after_restart": {
+      "log": "validation/upstream-sync-20261023-saveddata-read.log",
+      "sha256": "0a7fc9f5c40b3eec0c0859c8c21cde01908dc4e0f85fc70dc620cffe2b97fc0a",
+      "result": "passed",
+      "marker": "SAVEDDATA_ACCEPTANCE_PASS phase=read"
+    }
+  },
+  "client_runtime": {
+    "profile": "combined",
+    "reference_base_menus_and_task_scroll": {
+      "log": "validation/upstream-sync-20261023-client-reference-base.log",
+      "sha256": "d87f1d5854ee527197ff791a901ae5a2e9aeb06f498e8ae2c5c577ea65414bc3",
+      "result": "passed",
+      "marker": "UPSTREAM_SYNC_CLIENT PASS:"
+    },
+    "native_menus_and_task_scroll": {
+      "log": "validation/upstream-sync-20261023-client-artwork-final.log",
+      "sha256": "6b317ccb2163a28492f0df33255a5727ae576f1144a491055cae067cb427358e",
+      "result": "passed",
+      "marker": "UPSTREAM_SYNC_CLIENT PASS:"
+    },
+    "native_priority_action": {
+      "log": "validation/upstream-sync-20261023-client-artwork-final.log",
+      "sha256": "6b317ccb2163a28492f0df33255a5727ae576f1144a491055cae067cb427358e",
+      "result": "passed",
+      "marker": "UPSTREAM_SYNC_CLIENT priority PASS:"
+    },
+    "workstation_interface_121_artwork": "Pinned high-version artwork; original 188x245 body with connected side wings in a 228x245 bounding box, unified upgrade grid and raised priority tab, matching the supplied reference",
+    "interface_artwork_provenance": "porting/workstation-interface-artwork-1.21.1.json",
+    "ten_host_inventories_and_menus": {
+      "log": "validation/upstream-sync-20261023-client-hosts.log",
+      "sha256": "66fb5df7faab70f19db4421911c939ce0c2c4b0f43feacf33abd24e730a4c99d",
+      "result": "passed",
+      "marker": "INVENTORY_SMOKE PASS: 10 blocks"
+    },
+    "workstation_models": {
+      "log": "validation/upstream-sync-20261023-client-models.log",
+      "sha256": "2e0f1e6cb36d2ca69c315771345575974b939240c313fce7894435604aa1dfe9",
+      "result": "passed",
+      "marker": "WORKSTATION_MODEL PASS: 64 real chunk-rendered views"
+    },
+    "task_fixture_contract": "12 batches read by the production persisted-batch reader; UI interactions preserve paid remainder 123; not live recipe execution",
+    "model_fixture_contract": "Four retained families, four directions, working/idle, front/rear; not recipe execution",
+    "nonfatal_pinned_addon_resource_errors": [
+      "AdvancedAE wireless-terminal recipes lack ae2wtlib:combine; its Curios tag references the unregistered quantum terminal",
+      "ExtendedAE EMC interface loot table references the unregistered expatternprovider:ex_emc_interface item"
+    ]
+  },
+  "screenshots": [
+    {
+      "path": "run/combined/client/screenshots/neoecoae-upstream-sync-reference.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "9ec0da8e660dfc2be5f43c126e0b1121d9a56a0c83661eddb0d0909ad9867bf4"
+    },
+    {
+      "path": "run/combined/client/screenshots/neoecoae-upstream-sync-seven-rows.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "5316a01b433888d7544a1bd0f25047644aebf4da254a981cf41b43d2d29f4e53"
+    },
+    {
+      "path": "run/combined/client/screenshots/neoecoae-upstream-sync-preheat.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "671c2860e3fcc1150be4a65dfad2f4c067161969c9b520a11fec72d17479b394"
+    },
+    {
+      "path": "run/combined/client/screenshots/neoecoae-upstream-sync-task-scroll.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "b0a9cabc9f2025ae88b9cf565dc203f5e98d40ac29580f5effb5e1912b330d77"
+    },
+    {
+      "path": "run/combined/client/screenshots/neoecoae-upstream-sync-buttons-hover.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "b40185d890665f92a1d98da499be2f65cd3215711d408ad01bee9be7da5cf19e"
+    },
+    {
+      "path": "run/combined/client/screenshots/neoecoae-upstream-sync-buttons-focus.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "a583318704b1e9663e08eb64c9e1637cddabc2c717dcda643dda12ab9c3bdb78"
+    },
+    {
+      "path": "run/combined/client/screenshots/neoecoae-upstream-sync-buttons-disabled.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "4ad00a8a8428d5005df9b9babdd519c913f96c3b76a3bbff6c6a2575d84ed93f"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-off-east-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "6b8daf6c13b05feff1595626216c73c16a665a9739e8166c4ad1f9a17ddd54b7"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-off-east-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "af044f6a6be1f6800c078f310ab0fd1bc8ee6945f06ffbc0914566108d18821b"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-off-north-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "3efd389cd5defa0bba79ff0d5e97f659c587e3ee2df1bfebaffbf1436b1447a2"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-off-north-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "10c80e66e26e86be0e238a5e36898ddc4c49a26fbb2eb4bee74cd7b4bde656b1"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-off-south-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "eac0f00cf839b1d620fd1af2c8400cc08fc88d3d4f2e8ab5f59d86b143579a8c"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-off-south-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "fb774a05a01f210892601def830553e8f940f029116029c675e8630debe23306"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-off-west-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "f52f5968fe2f3da38a96f348a0e8ea54d689d3cbe68d7bdca7f69e2406507a82"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-off-west-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "dbce0e2b9342f75ac0e33189f026355f753ef9148dffdce81fe6bb07c36d37df"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-on-east-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "bcb766f495977d57a400a2b9bcb25aafb1f67b130a1a68138fe112716da84ddd"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-on-east-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "e3590067c335837ef5c571aa13a57032fdd23c1918634886b77ab1cd89c8bf81"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-on-north-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "0bd0880cbe1f3ace0487111aca33ee1c5c2c86d5e01647bb8b0593e429e9a620"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-on-north-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "a9e9a8a489d71fb69f34bec165c8976bb0bbd932a81166eba337c1e48530bc22"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-on-south-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "555b5230042c0af102615a429a0fa92ad4128b842d511850294f4ac99f4de531"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-on-south-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "b68f7e2f559616da8b86fecc107294bff030bde990701091e45693c959a8a6cf"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-on-west-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "b86589ccee6b69c39a1413c83252a3da479dcad33bd3661ed47a8b8bdcb9822b"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-advanced_ae-on-west-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "81b43f018ff8d126e5b63715a95886230665e086e4ae24fa32bc4bd0ebd1e7c4"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-off-east-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "329883e6d6992196577222cec54ad8d98a8f29a61cb923949d2ea9baf662911b"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-off-east-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "a6e822085c2a306d561cde17dd40660b313c20d87c68738f51f7fd228de48ada"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-off-north-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "cba949c6f7e49ad78cfd133fbe88abc7f23db34437301620a3efb3471c4e7030"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-off-north-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "1f731b3fceec17c8f39e3364bf5dd8f4802f086ce8859c41fe783746948e4db7"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-off-south-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "e463e5df4a63656874f48b3023e991dac000951e4a720f834ce8a994a508cebe"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-off-south-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "8e74dee135ec58ec4ced82913f2e5a618ddcb1a7fa5f9778f707e791dc6429bf"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-off-west-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "62602fd3ae8e436b91914f150470d6b77cbbb41db9da4ab02c5252ff83e61a33"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-off-west-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "d185f3ffa2e2964ba76fa39e3b17b6b4f51b6f5d3539be097ec8f2355a155e49"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-on-east-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "2accc003de01832d13ac405e12827a8b2a51c9c7aa773c5bd3a917400d7ce61f"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-on-east-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "8664b2fd344c1a65a1b571da311bc95a3c5d47adbf45e42ec68b5f87e6acc91f"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-on-north-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "f3cdbdd24f766851278f78507f83498715515833b4dc5486ef6dad5b045d0efc"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-on-north-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "187f2531e98714032dbde7481569721da0a60da7f1652b3fa4443c121f975666"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-on-south-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "22f1c474b169a3cae522458eba19c4f38ff41e1bbe0e929e4c58fec1ae5ebeca"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-on-south-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "78824d20eeec4a3c31e3fe69b8d5cda3eb44d269a0a9c6987a4106ce0e962bf2"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-on-west-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "eeb40358b5a0779d9b35d71eeee1110e146685007ee90d1e6afcd023a36c4b63"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-aelt-on-west-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "458ed833db17f8d0b26ec637a37648bd5d1d707ecc2a74c9c7de32e9ece69c92"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-off-east-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "bf1b00161569876505168fc4f8f2d0913f835a16c8ea11f5e32285a25eccc6fa"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-off-east-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "1d09f3d10e7bead706f5b6b9d2d039c6ba5e86e935992995df2497cdaf873854"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-off-north-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "d1461140bf71ade535cd3440e4391f4778fe6be768145f89a9ca9fdf25c04464"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-off-north-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "d927fcf311643a3cba9a450aaf162c1b21be88cb523ce30b449f402d9ffd7300"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-off-south-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "f7b4131bbb0983ef5396cf17aad4038e53b55046df1e91febe8ba516b4fbdc13"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-off-south-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "34c1909c9c5f51ab3482912de681dc6891952a58b3c8e19d4f47831c1b0d46e7"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-off-west-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "33671c465b822a8ac74763edb5cf25445a1528d53d4ded420db3c28be18735aa"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-off-west-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "7c96d2715d77a7608792ea4708cb0038e1c4e204454a03bf783ab5045179f133"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-on-east-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "be927dad7a1e297ca59f263b88ef2687c8196b47c532b4dbf227bd2e54e249d9"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-on-east-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "1b30238d872ccfbe21049c224372cfe4483292af560c787f63357b639a3be629"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-on-north-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "63d60e43dd859268bd7ff1ce51c92a1862fa21f1eb495a6eb66246a2c816b572"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-on-north-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "a7caede599d99017a9573ec4cfae1afb3f018d96850ec564b2c7de555c3e9f52"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-on-south-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "9d2f9cd6ecbafb9cb42fda3463cd02605652810db65f70cba215dc2c6390b092"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-on-south-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "ef6879b78042b407f3e72b15ce1499594261e5481655f914b72ef9142832e30c"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-on-west-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "007f5985f442c8cf689d7a850191cc1873398708e1ece2e07544ab921cab22d1"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-extendedae-on-west-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "64bf8a4a1b9eda6d64c535408b53c3072a644e15ba57cd01a89f338cbdb2ab5f"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-off-east-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "caac058e9c7173557780b0016b591505ca388b7e2d3021f4cf75d969e619ee22"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-off-east-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "3b016465bfc9dc2d432326e6200a72622c3c9cf487909d21d2a140da43192608"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-off-north-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "04fa9d2d395bc5ea87ab490a533850440279e61b5ea47d382e88bd97d8b289c5"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-off-north-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "68118b9cc6af65bee4f968786623120276a7563c9dde379f246214fb9ddf2255"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-off-south-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "294818d12bee3d09ac5c98328e2419a2c39a8e7369747e4781ee4b2466c55e9c"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-off-south-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "4dfdbd76994056314f8a49e351549d433f71afb06207d5a31605aaaab1b46cb8"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-off-west-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "8ea60bc77023f12563a4b2e1ee1979797237476816cbb28520872eda2c51e432"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-off-west-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "d069360fed9316f8ecd1e8cd507b045ea820b9e034db4adbe3e7a42fcf7b9c54"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-on-east-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "f4d6c005c4c079089c7a89da3367efa73ba4aa0e24f089137dcabcc0f80d9b6a"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-on-east-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "5dc4436b852228d1907e2ab53a02b240c6551c7c024a1becd33befdff29ae588"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-on-north-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "479672384a8be596d6dab657adca61257436a25082f97b77cbdfbe8859428e5a"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-on-north-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "7a54649b730942cbd3a1d126e2ab431d6966daab2b4e0c93afb0b835c0bae1ed"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-on-south-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "0185f7b5a662207d9eceb0c8a528fad4197677ed057b0be36e06a0bd5dc79c0c"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-on-south-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "9df692eac9560be1c1244d75158b32b7887c562acc94f53abc63e9e3853b7f5a"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-on-west-front.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "7b73cd5af7475151922185b4dc0ba05c8c54e29199e1558fbb57193e2e18ee6b"
+    },
+    {
+      "path": "run/combined/client/screenshots/workstation-upstream-sync-20261023-regular-on-west-rear.png",
+      "width": 854,
+      "height": 480,
+      "sha256": "481fa5a3b900d02ed686fe54b3864b0a60a767d65538e8499359f514ae760c83"
+    },
+    {
+      "path": "run/base/client/screenshots/neoecoae-upstream-sync-reference.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "7dd0bebdf189837bb3ca89b225e6b10053a303a12c4b230e51feecf16ec36e81"
+    },
+    {
+      "path": "run/base/client/screenshots/neoecoae-upstream-sync-seven-rows.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "b2856a069e2b4ffb42860e9fa71050d9f5648a2a54b33968b75886f13cd8b75d"
+    },
+    {
+      "path": "run/base/client/screenshots/neoecoae-upstream-sync-preheat.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "e7eb6600c5c3523c7a8aef9ae6ca29b75bdf6f341fc2955f7e2f9c873230e7ab"
+    },
+    {
+      "path": "run/base/client/screenshots/neoecoae-upstream-sync-task-scroll.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "a066d3d06b85b78c514d6b062566ed4925dca03a3e6c8b6cce7b0a78f7e901b5"
+    },
+    {
+      "path": "run/base/client/screenshots/neoecoae-upstream-sync-buttons-hover.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "63b0b743ffcaf32c5aed33742af900e94021662b6b7112258ee08e6bf7b8607b"
+    },
+    {
+      "path": "run/base/client/screenshots/neoecoae-upstream-sync-buttons-focus.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "9203dab7a9a2f00865b267358263491dfd021cf35d3ac5f53d813cad7fcccc3a"
+    },
+    {
+      "path": "run/base/client/screenshots/neoecoae-upstream-sync-buttons-disabled.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "8ae14258966c7690bfd5cf946c2db6afcd6787a643967de8418e2247475c6657"
+    }
+  ],
+  "interface_preview": {
+    "path": "docs/porting-2026-10-23/images/workstation-interface.png",
+    "sha256": "a7f2a046129cd4e8ac0126e9a3ec47f143c555626fef3c432ad3b3266b7a040c",
+    "source": "run/base/client/screenshots/neoecoae-upstream-sync-reference.png",
+    "layout": "Matches the supplied four-button reference; native Chinese client capture"
+  },
+  "implementation_source_hashes": {
+    "build.gradle": "c0461efd1f526dd8594926e097be5d33c6df5ff654e88a1fab6cfbbf6a8af532",
+    "guidebook/_zh_cn/neoecoae_intro/large_integrated_working_station.md": "a047a02dcc9ae22a7ac9da9b3d9e5ffb2acf4896ebfc8e1d4e73049f70363771",
+    "guidebook/neoecoae_intro/large_integrated_working_station.md": "b96c3f3f2932d9aa516b33729ae133b631d3c49a527b76e6d7b3aaa073602f6b",
+    "src/generated/resources/assets/neoecoae/lang/en_ud.json": "e3d96bdfd3088139ef91dc746f504bcb78dfda8ee069cd82b0aaa4c17cb7389d",
+    "src/generated/resources/assets/neoecoae/lang/en_us.json": "a01a31ebe9bbb127088e1e6e5428772203b3443c9c042603e1422aa79e9f8d9f",
+    "src/main/java/cn/dancingsnow/neoecoae/api/IECOTier.java": "b2b71ae7d4b04efdd12742cde3a96611992dcba72f2454692bdf336147dd0fa8",
+    "src/main/java/cn/dancingsnow/neoecoae/api/IHostPanelTextureProvider.java": "038eb5f2766f7b3b3904d46de9640229549175536d1fac9e2b1005c775ab95fd",
+    "src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOExternalCpuOutputRouter.java": "cddff2efd692393fa2812ccb4e1be6d4a4cd53d182f380f859b0d7ca4264e221",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOLargeIntegratedWorkingStationBlockEntity.java": "98d001c43f577ba4f1beec5c1827da30cca6f3704b0f088a407775e1caf726b0",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOLargeIntegratedWorkingStationInterfaceBlockEntity.java": "1d9dfacd337390ec190e33584a861b6cbbf68e7c7896007eda7bdcc114487b2b",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationPatternProvider.java": "7e1efce792ec3ec8ed5bbda017a610b41f66dc59b4b9e7d183032b6569982c77",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationThermal.java": "4c6249a6ee7b03a3f8b0d3dd39c96c5766b28e4a6339a09e1deaae9fb028f2ac",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationThermalUsage.java": "2ce5264825dc1a089bd3eb956ed22322f74632e643743b4dc1e157a9691f6d60",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/computation/ECOComputationSystemBlockEntity.java": "da89a51a68aaa6056acbfbd0677686c68944deb20cb415be0e05bce3e809b1f9",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOCraftingSystemBlockEntity.java": "ab60d21a95a17265574304d4fd03b62bfbdd8cb4d0eb2b6dbdeb39eae0f50330",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECODriveBlockEntity.java": "764ee889c8734f552592787dafc989a258e8c3670d8b221427137875e07acce0",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOInfiniteStorageModeController.java": "e1eff2121e6f48cad049dfb4557b10a23debe2a84f0d54fec78ef3fca7044c37",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOStorageInterfaceTransfer.java": "5320bd5a8a5ffbe64f6e7c31e926b26a0f614135582e11a6f1536eada293a835",
+    "src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOStorageSystemBlockEntity.java": "27b52416c3c4f59bcc45d6fc2666ac3679496a5dc24a006c8782193a2b473a6f",
+    "src/main/java/cn/dancingsnow/neoecoae/client/diagnostics/ClientStartupProbe.java": "16317e05e3ec4acba3fa7653fc0e127f215443c13cffb717d01d33899c8d4602",
+    "src/main/java/cn/dancingsnow/neoecoae/client/diagnostics/WorkstationModelClientProbe.java": "d12a7b8c6e2eba98aff197d845d6aa274ec63a12de345bf208c7b3314a1f60e5",
+    "src/main/java/cn/dancingsnow/neoecoae/client/diagnostics/WorkstationSyncClientProbe.java": "8e6415f3893ebe3b4d519d012e8509f01e61d5965bfcbd5106a9930409e764fe",
+    "src/main/java/cn/dancingsnow/neoecoae/client/gui/widget/NEScrollbars.java": "b97bc98ac9e859253e921182ea0c36d9e641320d2a59449be6d540c82b935eac",
+    "src/main/java/cn/dancingsnow/neoecoae/client/gui/widget/WorkstationInterfaceButtonBar.java": "2fdd6f4a04bcbe45a3cae229a224dc8ae16a5819d46dd11f2da324a83d254e74",
+    "src/main/java/cn/dancingsnow/neoecoae/client/gui/widget/WorkstationInterfaceUpgradesPanel.java": "501751b7de640eeb17acc001daf9052d5f46d512b468b790844aed610b15b6d8",
+    "src/main/java/cn/dancingsnow/neoecoae/client/gui/workstation/LargeIntegratedWorkingStationPatternProviderScreen.java": "98ea7299f8d562de43093769ab7b71d85c9570b583b2026d18e018aff6392821",
+    "src/main/java/cn/dancingsnow/neoecoae/client/gui/workstation/LargeWorkstationClientUI.java": "bc344566791fb7ac04ff106d71ff2ccdab5a5b23c50b304fc70510143603d77a",
+    "src/main/java/cn/dancingsnow/neoecoae/client/gui/workstation/WorkstationInterfaceArtwork.java": "5512c72e3a40860c14ce722649cb2bec47419759816ced18067638327240dd29",
+    "src/main/java/cn/dancingsnow/neoecoae/compat/ae2lt/ECOAe2LtCancellationBridge.java": "e6282fcd5fab8d3dc6b4d387a6fe4a60bc9761cd8b064907d7a336dfa8fb27e9",
+    "src/main/java/cn/dancingsnow/neoecoae/compat/ae2lt/ECOAe2LtDirectDispatch.java": "ba21d8b01448be05c7f18afcc27e88c9e230969edc222a1b4c77c96a51f3f415",
+    "src/main/java/cn/dancingsnow/neoecoae/compat/ae2lt/ECOAe2LtJobDispatch.java": "cb57142d302d83103174f72d4cd5c23d97c89d984a89a95cfecb3403ea723f61",
+    "src/main/java/cn/dancingsnow/neoecoae/compat/thunderbolt/ECOAe2LtReleasedAccounting.java": "55599d08b1918bd5b58abd8f230377ca287f101ed1f1e8812360a93842b016e5",
+    "src/main/java/cn/dancingsnow/neoecoae/compat/thunderbolt/ECOOverloadCpuAccountingBridge.java": "e1b4b7449d0d89b03ff1c0017ac1c18fefda22a5db7f450a062f1bad05c899f7",
+    "src/main/java/cn/dancingsnow/neoecoae/crafting/display/terminal/ExactAmountCollector.java": "19eb2d54c0adead779c59c30d6ecbf6c83082766224fbafce58840c547e0cbaa",
+    "src/main/java/cn/dancingsnow/neoecoae/crafting/display/terminal/ExactAmountSource.java": "c195617db6fb7b500edcba3c955a2bbf10e3dec5926231bf70111ba9d2fd087e",
+    "src/main/java/cn/dancingsnow/neoecoae/crafting/display/terminal/StorageListingAccumulator.java": "eaa95446bd1594a4f342feac8235e0a700543b85520b70d8ee9b43ec6ddf6b1c",
+    "src/main/java/cn/dancingsnow/neoecoae/crafting/display/terminal/TerminalExactAmountSync.java": "77208a76f00441967b271b70d58bd59cc6d07ec90be264a8cb003c1c4dbed806",
+    "src/main/java/cn/dancingsnow/neoecoae/crafting/display/terminal/TerminalInventorySnapshot.java": "0fd119147c9a0c1cd57a954187cadd900738ce4e19a9c8337470f15a5a8007a4",
+    "src/main/java/cn/dancingsnow/neoecoae/crafting/execution/ECOExternalCpuSupport.java": "14ded33d8e1c84b75b80d5521b6534a142d28782316f4af7c58972bbdddb8d88",
+    "src/main/java/cn/dancingsnow/neoecoae/data/lang/GuiLangs.java": "ff53a3b3d177984686f7727a1458700ffdd562a16dfb278b1aba71e23a7a8614",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/common/HostPanelTextureState.java": "a55370f1e43d4ba4361a01e8fb9afc2cc01850cc05b947ef18faef478312e344",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/common/HostPanelTextureSync.java": "7e753cc259b8391173c3d1542f9a15149b15212f4c47d96123351ac752f18d48",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/common/HostPanelTier.java": "fa1007be41ad527c024f09bbe41cef46b5005699d8c7bb3d589b17bde62f9ed9",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/computation/ComputationControllerArtwork.java": "6e13a64b2428c33466323a6feb6edd962d2e75018fe24d452e3e8209b36af398",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/computation/ComputationControllerTextures.java": "0e0df9b61c644079059520aeaba0cc95e1f2d7794e3ed2d2fc0bfed0ccbcfe17",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/computation/ComputationControllerUI.java": "a2aade3ba263afaa1f481554d6b9783b4986fef5052dabbf633078322db434ab",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingControllerArtwork.java": "72eecb3bea169c3da50fe83bfca1a5664a3eb6658e8751d0693edd5674945fc5",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingControllerInteractions.java": "f96803fb43eaa992c8930da171abd55cddcb5a7002dbf720138089cddc16a92d",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingControllerTooltips.java": "8cbc4d6b9bd3d0c35dbd9692f69259d8a466894f7587d38e0dfef84faabf1efe",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingHostPanelUI.java": "6554acd731f8a660b4959f7fa228df6a66c1afd1b8d4fd831e6f026e6a682405",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/json/NeoUiJsonContext.java": "356093a1e4a03177a7e1b98fcd2d47747559b29c43edbb430653e2ac98132d61",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/json/NeoUiJsonLoader.java": "63bd829f422cfa27f898e8a85a2314a0aa1cfd2e201858def2f4c738f319a386",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageCellGrid.java": "5812bb0b57a229a157c9be795948fa78ded818785431241c4f55434fbdda55bb",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostCharts.java": "4f13b9811e5000ed1eef3bcb034a78ea88c650ecbcb6eb8923c8f7d963d91a2a",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java": "35a8152a2b9222b01f99d6fa6478a3dccbf3c75b2c77346db27ee14beceb5d74",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StoragePanelSync.java": "6f95d9e3f4f93404c418673977bf09a7399f2d2dc34a1939fb4650470895f0a5",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/storage/StoragePanelTextures.java": "5f88716968c15a855d999348a274adb3eb2ae327c1b0cfc6d9ce9af34c248220",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/theme/NETextures.java": "88bd543476f10cfb8b4d78b5bd631d83bc45feca3417bf4998cc4f4f017fb02f",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/theme/PanelAtlasSprite.java": "0d14285b7a5afe1324e193d0608b33a10110787b02d886da1e626b6350beb70e",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/LargeWorkstationPanel.java": "2c726f1be3203357ba8774ae521d3bcfa4d9065b9e8386126fed7518e525a754",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/LargeWorkstationTaskScroll.java": "a9d90160f404f8bdf8708e90a8e2213834b830b8c0b6d2477db89423fa544e9c",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/LargeWorkstationUI.java": "c5831e612aa1b3c8761dfd5a4714c69d55595a3040612773449e1941da8b6f6e",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationPatternScroll.java": "e18bca489f808d94f9d9fe8dd8b8e0a7ae65c79db6752b2455f27811ecbcb10a",
+    "src/main/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationTextures.java": "4289ae0e0dca91763b2c58008cb985ff784580898a22957b92bb7bcbfa77f501",
+    "src/main/java/cn/dancingsnow/neoecoae/impl/storage/ECOInfiniteResourceCell.java": "d3b1d1f0daeb702eb8e4304549a5b946bb947a8db7e544d250614831f2129dac",
+    "src/main/java/cn/dancingsnow/neoecoae/impl/storage/SaturatingStackAccumulator.java": "fada17d503b24f109facd24aae97ffbfcc1f68493fde451aa611ea8c179ebc76",
+    "src/main/java/cn/dancingsnow/neoecoae/impl/storage/infinite/ECOInfiniteStorage.java": "86f3e8dacd2b59e7714813f428080e0bf26ee75564c96bfbdb0d3d4b3c8130b6",
+    "src/main/java/cn/dancingsnow/neoecoae/menu/LargeIntegratedWorkingStationPatternProviderMenu.java": "6efd0a0fe6322fa07ea98a7b4d9d37d6be3ca77f7aee69b8fdafb78e706dbaaf",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/accessor/SupplierStorageAccessor.java": "4dd0603c56c645a78d4bfecd6690fcb3fa3980128103fd756a943be880d83972",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/Ae2CraftingCpuFastPathMixin.java": "5b0c5d3b61f4eb4ab76b2e4529bdb4cc37b6a566f0db94f9e2d790a8b9258697",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/storage/NetworkStorageMixin.java": "b39f21d25ec5d42bfdcd09e63f557e58c7b6b3cd0c6f1ee2791c456f1d6d7fc6",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/AEBaseScreenGrayToolbarMixin.java": "88ae8ae5163159d43f5b85a927ec2ee30bafa8da5f5809f86f3e7175117e4ab3",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/WorkstationInterfaceIconButtonMixin.java": "252ac8c88194ca3ec407ddf235c4f959ac57650082ba8679272d6103d7f0ce30",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/WorkstationInterfaceIconMixin.java": "0e012b9af5571bd18ead60add1d5e24a6e055249a9761e15532827454ee2a479",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/client/ae2/WorkstationInterfaceWidgetContainerAccessor.java": "536145f232293b5f9ef48754c84d62b906d10a9fe291a11c37fb2d311bee253b",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/advancedae/crafting/AdvancedAeCraftingCpuLogicMixin.java": "bd6c04239f8580e8f7c2c677fde58ed19ae922c42cc67d3e48dab9a5b6d9ddcc",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/compat/thunderbolt/Ae2LtTimeWheelCraftingCpuLogicMixin.java": "bb74fbe62ee78e1a911e3cf0cccce4ceabdab0c3bd36730c457f0ee63aefe3db",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/terminalbigamount/MEStorageMenuExactAmountMixin.java": "1678ac4eea9e2f8cc68ba21563eb621e278a8f9bf0504b265a7449fb458550cb",
+    "src/main/java/cn/dancingsnow/neoecoae/network/MenuDataTransport.java": "4c43b18b7b86ee434bd82890a47b05d5dbec21c0ce62e38ed9013f6c6247346c",
+    "src/main/java/cn/dancingsnow/neoecoae/platform/ui/runtime/editor/resource/ResourceInstance.java": "8c202b151e0e3720291efd67a4c6cb5ba392ec090c8c7d0a4f71470454c2932c",
+    "src/main/java/cn/dancingsnow/neoecoae/platform/ui/runtime/gui/texture/SpriteTexture.java": "9d17e8e1734266d66f87f0718648edf7c34830d4dc6b0938166f03cac14c27b1",
+    "src/main/java/cn/dancingsnow/neoecoae/platform/ui/runtime/gui/texture/VanillaSpriteTexture.java": "494eb949b7fd650c72604bda2c09a28247abe1cac70da9cf9b55de32ab7a2c7e",
+    "src/main/java/cn/dancingsnow/neoecoae/platform/ui/runtime/gui/ui/UIElement.java": "8eac0005c142b0db5a92e0f3c3807b2815838970515e2afb54c7120082b6e483",
+    "src/main/java/cn/dancingsnow/neoecoae/platform/ui/runtime/gui/ui/elements/Button.java": "688b696864ddaf8dc46096d785c261e59043ce8c8b16048c4160bac448f5b317",
+    "src/main/java/cn/dancingsnow/neoecoae/platform/ui/runtime/gui/ui/elements/ItemSlot.java": "e590b4f9b49982b562351620cdec1aea47697d8e1a1c35eef025f9fb662a114d",
+    "src/main/java/cn/dancingsnow/neoecoae/platform/ui/runtime/gui/ui/event/UIEvent.java": "d1af0d8eb39e90fccbbf353ed1c322f44d7a81286634e9e077480ac8bc4e8841",
+    "src/main/resources/META-INF/licenses/ae2-v19.2.18-LGPL-3.0.txt": "39676552fd16d3317f6e6af4cf810778060cda238f75dac9b27c0fcbe848d3d4",
+    "src/main/resources/META-INF/licenses/ae2-v19.2.18-NOTICE.txt": "4906e7ebf1aa43fa0534c947d84ca545be9fb571093408c6cdfa2740dc535d0a",
+    "src/main/resources/assets/ae2/screens/large_integrated_working_station_interface.json": "5c1d09d9b5d893b539f772310e0e20b5a37aedd17bc7b5a70ab996afc643f5f9",
+    "src/main/resources/assets/ae2/textures/guis/large_integrated_working_station_interface.png": "03970a54d53c5d0bde792573abd1c6cd9a0b18b68dd9b25bbca072c1e88e012e",
+    "src/main/resources/assets/ae2/textures/guis/large_integrated_working_station_interface_controls.png": "63bd92fc23ecc76f5340f5de2724b65e323407be311e84d1e22b2cb2e39f5b81",
+    "src/main/resources/assets/ae2/textures/guis/large_integrated_working_station_interface_integrated.png": "0b6f7830172b8ef6a0313d09d3e803817d712718637b4ec293a9514e2a2ecb56",
+    "src/main/resources/assets/neoecoae/ae2guide/_zh_cn/neoecoae_intro/large_integrated_working_station.md": "a047a02dcc9ae22a7ac9da9b3d9e5ffb2acf4896ebfc8e1d4e73049f70363771",
+    "src/main/resources/assets/neoecoae/ae2guide/neoecoae_intro/large_integrated_working_station.md": "b96c3f3f2932d9aa516b33729ae133b631d3c49a527b76e6d7b3aaa073602f6b",
+    "src/main/resources/assets/neoecoae/lang/lzh.json": "4b2910a0b806216535ee530d6a1430904a1255c5ce63bc073574575e9022d73f",
+    "src/main/resources/assets/neoecoae/lang/zh_cn.json": "f5d8cdeddb8ca315b884070e9c080121cdd720eaabb428d1390fbd703fe4d406",
+    "src/main/resources/assets/neoecoae/lang/zh_hk.json": "ec60c0f01f15df2af4c16d642e8e2aa48c4f31be5bda663be177bc729b987baf",
+    "src/main/resources/assets/neoecoae/lang/zh_tw.json": "ccdd8a4b99947599a38d35946af8f1965e50c5d07a5592f5405029be37d17c0d",
+    "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/aelt_on.json": "9b37746c1565597db8aebc56d96629c6d6e1164eef73413dadae5b0e8a1615e2",
+    "src/main/resources/assets/neoecoae/models/block/large_integrated_working_station_compat/extendedae_on.json": "da0a6c774dfe3ce1cb391dfa9dd7d8267ae4bde07d5798f6194ff892f8a150a8",
+    "src/main/resources/assets/neoecoae/models/item/large_integrated_working_station_interface.json": "7514653a5e16840169cb70b33ecf7f3a7911e686b43205dbc19d8160573167f8",
+    "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/extendedae_on.png": "18225a8a584cf6dde3cfc6a825f5233104f848fa6528bf6eea8ba08176185ddf",
+    "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_light_compat/extendedae_on.png.mcmeta": "1dbf6e1d78f0517d243f72f27ea3dd66462207e54bd09dcfdd8236de8aff03da",
+    "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/aelt_on.png": "4265ae7c2b7767aa11dd325c90fa7e88493d9be338ed85b5fd59f61beb0ac439",
+    "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/aelt_on.png.mcmeta": "342e642c4d62b24e634f22a22e2095ee82de41b728c2d954fb63a1bf8078bfd4",
+    "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/extendedae_on.png": "22093ea886a3ac30a733df2d9a5bdd87e8b29681d5baf1f0349ac98a642e0c4e",
+    "src/main/resources/assets/neoecoae/textures/block/working_station/controller_formed/controller_formed_screen_compat/extendedae_on.png.mcmeta": "342e642c4d62b24e634f22a22e2095ee82de41b728c2d954fb63a1bf8078bfd4",
+    "src/main/resources/assets/neoecoae/textures/gui/advancements/background.png": "294561bb76416e87d6d91195a48908957308dc3c912c5438ab59cea6c5c40f8b",
+    "src/main/resources/assets/neoecoae/textures/gui/vendor/ae2/v19_2_18/small_scroller.png": "d06e44c1602297ecf6c700b52b01c3acface2f49e2b92a2570d1a6830d5ebc74",
+    "src/main/resources/assets/neoecoae/textures/gui/vendor/ae2/v19_2_18/small_scroller_disabled.png": "9379cff1db6c1e56c14745af6cfd8e48bf939f16a9b2d46ac1848e6fdb654b72",
+    "src/main/resources/assets/neoecoae/textures/guis/workstation/integrated_working_station_widget.png": "f784c70b34c8084f370998d2cfa8a7ad54a28b693761cb8d4eb05d2350c76ccd",
+    "src/main/resources/assets/neoecoae/textures/guis/workstation/large_integrated_working_station.png": "c6a4d8d54516c5b0c78c66c865aa127ac694030dd87da5e44854f1abff38ef43",
+    "src/main/resources/data/neoecoae/advancements/eco/root.json": "1c16c32d77e4bf8a941549b781e9c5128ead9e98d5ea019240b410326066aa6b",
+    "src/main/resources/neoecoae.mixins.json": "97b64b8cd9701cb83722fe8ab24528bb37ec6d9122405c28462ef9cf60bd45d7",
+    "src/test/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationBatchPersistenceTest.java": "18de3dc1c85ac09977da1a54b823bd9242480221edcecd54a3c1d13ca4627a5e",
+    "src/test/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationOutputRoutingTest.java": "2ac726aa1cbf0e137cdbe11f2356d006c6f49365dd361db35fc01489a87f931a",
+    "src/test/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationPatternInventoryTest.java": "0956ca3bb412c4c24ac842572799936ae6fd4f0f3aa5c7289c6c3313d9e79958",
+    "src/test/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationTerminalGroupTest.java": "f29ae6d07cb78325c9e8eee611c363f76b7fd8d9348c3068a4fe6bba7f19452b",
+    "src/test/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationThermalControllerTest.java": "8772cd55b1d9be1fdf9a7ff198a49863800e869584aaa8635e27460447dd5d1a",
+    "src/test/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationThermalTest.java": "f7e936e134e28fd93d8a075b90d01716f4954e6540e9aac762d1c91fc14ca499",
+    "src/test/java/cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationThermalUsageTest.java": "dfe5680663369178099dfba2e1f5a3ac9db05e2fa7e341e1a59c01c5157d3d9d",
+    "src/test/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOInfiniteStorageAccessTest.java": "9f33eb1e74350818b66cf838a278a61670ba9e24a30e5fb2e307cefc6e067cee",
+    "src/test/java/cn/dancingsnow/neoecoae/blocks/entity/storage/InfiniteMemberInteractionTest.java": "5d9df12780edf772ff882b5f805491998db8643bbaf14a6a9e2e01880f553edb",
+    "src/test/java/cn/dancingsnow/neoecoae/client/gui/workstation/WorkstationInterfaceArtworkTest.java": "d80949cb2e1038c3e6fa2a10745b4ab8ee73ec0e9f8e2fa14d82343f84903da0",
+    "src/test/java/cn/dancingsnow/neoecoae/client/gui/workstation/WorkstationPatternViewportTest.java": "62b2f5c943eed251ae687a77e0ee3a0cecb9887195b65a71e1f303553997a1ab",
+    "src/test/java/cn/dancingsnow/neoecoae/compat/ae2lt/ECOAe2LtCancellationBridgeTest.java": "91fbb2fb329b0e0a38079fbab2c9a50f947d6acd4a6a92a0e4e80abdb51b5824",
+    "src/test/java/cn/dancingsnow/neoecoae/compat/ae2lt/ECOAe2LtDirectDispatchTest.java": "b0c9f7a1e9176c5f815e619b80a759710c0e85815ddd3183a371abc355a76d72",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/display/terminal/StorageListingAccumulatorTest.java": "70562666341965c566a76eee62c28177bdaf239ada82e861bebb709c6d7ecf3b",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/display/terminal/TerminalExactAmountSyncTest.java": "8e25847fb8eaa4f5991a7edc172d07140361648e3711836fbc4d817f2b4329fa",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/display/terminal/TerminalInventorySnapshotTest.java": "833c1ab7890469deeb91e82258525f25b5c0efb3c4d52ca3dcd8379f0cbe3c61",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/execution/ECOAe2LtBigCraftingInteropTest.java": "e1044be687154846066387df93a20e46098fb94464a42f60954474f5ee757660",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/execution/ECOAe2LtExistingInteropTest.java": "72de9711b329b36113a84a72d654e9bf971a711d60cc8b58d2c30c2d8a2e4baa",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/execution/ECOExternalCpuCompletionTest.java": "28106098862dda5e596cf7f8dfee6c5d18d9a456081fd0b755e2c40d585f4627",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/execution/ECOExternalCpuDagInteropTest.java": "cab3fcd30854e18ff692b3b98400b6251ffa0e8010b9caf0daae179e075fa134",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/execution/ECOExternalCpuOutputRouterTest.java": "5661aacdc90aee66e7fed2fb11ce9f24ad1b0c24b28552fba4b579da7f45cf8d",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/execution/ECOOverloadAccountingIntegrationTest.java": "84d034a05a11349c3c92edd80977966f987a921266805280840bf90a66c716ac",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/execution/ECOVirtualCraftingDispatchTest.java": "ed326b7dca0642586ae664669ebab01487a9f368bddd6de7f1ee0a02952f2de1",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/common/HostPanelTextureStateTest.java": "ffc82b1ae1bb54e74c3ee243813613ef220adf62b0b49abf6aeca7f908b9057d",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/computation/ComputationControllerUITest.java": "1adfea6763f25485f96a2cc6e9fb19a2b9082156b41c3cf057c210f084c4e024",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/crafting/CraftingHostPanelRenderingTest.java": "8eafbf391ecd31d504f1c05f619ddd8c23fdec1980b65624e0478ab6fc80c95b",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostProgressAnimationTest.java": "f97009d9071107e1820b673c470232649a6954fc94aed5724231b07dfa335e4c",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostTextureTest.java": "cdac9511ae0eddf47a3b1a4dfa21a522371eee570fe10260f8c4177cc762f2af",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUiTest.java": "136ddca02fae0f0dedda277e872fc1b42647392476180a7dcaa46b31122d6749",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/storage/StoragePanelStateTest.java": "6ed57d4d7486f7a37953f120dde573da67ead3b7b51949d162c7dac4dc69bc16",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/theme/PanelAtlasSpriteTest.java": "4bf99fa2d1fc2abd8d908fead976c0ec9dcc9371779ec562a8bbc2869c9e9c26",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/theme/PanelAtlasTestSupport.java": "fde37e517838d51cb75079e59c24fa65b1f1369b57a856c262e034af268fe5da",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/workstation/LargeWorkstationTaskScrollTest.java": "78e53723e9ac10cfd0616ecea6e8624d41594fbf4f423cc045ed5c98b57dad03",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationArtworkTest.java": "a9660e5572fdfdb4dd330c0af91b53027f99dfa6e3b4df24d7b5fd5964aea9dc",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationPatternScreenStyleTest.java": "786c3a248c5131554dcbd8294ea22155dc64d3df27d03e131bc50b5ba4e4917f",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationPatternScrollTest.java": "ff74dc083f3dc95ebf4013d37eaaab1f9fc80bb3cb091f44118e98259f06f43d",
+    "src/test/java/cn/dancingsnow/neoecoae/gui/workstation/WorkstationUIInteractionTest.java": "6b5cd5a30e5e9be3679882e227970f37e457d6ec72d27825a8b9973df2967027",
+    "src/test/java/cn/dancingsnow/neoecoae/util/InventoryTestBootstrap.java": "b526a6b9e5daaaece908a570a069bd4c9a19a25e121aad65399272662b680a78",
+    "src/test/java/cn/dancingsnow/neoecoae/util/LargeWorkstationTestKeys.java": "dfe99e834e62e26ab3ada546c87a74072391bc49fa10f67477843539f7d6ecf1",
+    "src/test/java/cn/dancingsnow/neoecoae/util/UiTestSupport.java": "02a7f459ff7e3ac217e5ee082ca559b37f75f808faa37aa058fae5b986f29470",
+    "tools/porting/compose_workstation_interface_artwork.py": "70949181f2f50fc9127f0170480073852da5c823898737a8d0f956905c95ce37",
+    "tools/porting/record_upstream_sync_evidence.py": "1cf6ef3f07bffa978d441ddf8b2fde41ee19add5e3031ed763d757972a157346"
+  },
+  "player_existing_world_upgrade": "not performed",
+  "ordinary_launcher_installation": "not performed",
+  "performance_benchmark": "not performed; no upstream Java 21/AE2 19 timing or TPS claimed",
+  "remote_push": "not performed"
+}

@@ -127,6 +127,7 @@ legacyForge {
             systemProperty 'neoecoae.clientSmoke', providers.gradleProperty('clientSmoke').getOrElse('false')
             systemProperty 'neoecoae.clientSmokeMenus', providers.gradleProperty('clientSmokeMenus').getOrElse('false')
             systemProperty 'neoecoae.clientSmokeInventories', providers.gradleProperty('clientSmokeInventories').getOrElse('false')
+            systemProperty 'neoecoae.upstreamSyncSmoke', providers.gradleProperty('upstreamSyncSmoke').getOrElse('false')
             systemProperty 'neoecoae.workstationModelSmoke', providers.gradleProperty('workstationModelSmoke').getOrElse('')
             systemProperty 'neoecoae.multiblockAlignmentSmoke', providers.gradleProperty('multiblockAlignmentSmoke').getOrElse('')
             systemProperty 'neoecoae.clientSmokeEnergy', providers.gradleProperty('clientSmokeEnergy').getOrElse('false')
@@ -222,11 +223,21 @@ sourceSets {
         runtimeClasspath += sourceSets.portingPlatform.output + sourceSets.portingPlatform.runtimeClasspath
         runtimeClasspath += files("build/moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar")
     }
+    upstreamSyncTest {
+        java.srcDir 'src/test/java'
+        java.includes = file('porting/upstream-sync-test-sources.txt').readLines('UTF-8')
+            .findAll { !it.isBlank() && !it.startsWith('#') }
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
+        runtimeClasspath += files("build/moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar")
+    }
 }
 configurations.portingContractsTestImplementation.extendsFrom configurations.testImplementation
 configurations.portingContractsTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
 configurations.portingPlatformTestImplementation.extendsFrom configurations.testImplementation
 configurations.portingPlatformTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
+configurations.upstreamSyncTestImplementation.extendsFrom configurations.testImplementation
+configurations.upstreamSyncTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
 dependencies {
     portingPlatformAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
 }
@@ -244,6 +255,15 @@ tasks.register('portingPlatformTest', Test) {
     testClassesDirs = sourceSets.portingPlatformTest.output.classesDirs
     classpath = sourceSets.portingPlatformTest.runtimeClasspath
     useJUnitPlatform()
+}
+
+tasks.register('upstreamSyncTest', Test) {
+    description = 'Runs the complete selected upstream increment regressions against the fully compiled Forge implementation.'
+    group = 'verification'
+    testClassesDirs = sourceSets.upstreamSyncTest.output.classesDirs
+    classpath = sourceSets.upstreamSyncTest.runtimeClasspath
+    useJUnitPlatform()
+    maxHeapSize = '2G'
 }
 
 tasks.withType(JavaCompile).configureEach {

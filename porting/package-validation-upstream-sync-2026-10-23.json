@@ -1,0 +1,36 @@
+{
+  "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+  "sha256": "f034089ae7bbee23b4d793448fd46c83f4272f7214687a06fc846d9ca80c7b95",
+  "bytes": 6997550,
+  "source_files_checked": 967,
+  "packaged_classes": 1588,
+  "class_major_versions": {
+    "61": 1588
+  },
+  "registered_mixins": 64,
+  "registered_mixin_configs": [
+    "neoecoae.compat.advanced_ae.mixins.json",
+    "neoecoae.compat.extendedae.mixins.json",
+    "neoecoae.compat.thunderbolt.mixins.json",
+    "neoecoae.mixins.json",
+    "neoecoae.terminal_big_amount.mixins.json"
+  ],
+  "refmap_classes": 7,
+  "nested_jars": [
+    "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+    "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+  ],
+  "problems": {
+    "missing_source_classes": [],
+    "missing_required_resources": [],
+    "missing_registered_mixins": [],
+    "missing_mixin_plugins": [],
+    "unregistered_mixin_configs": [],
+    "missing_nested_jars": [],
+    "missing_translations": [],
+    "fake_upstream_classes": [],
+    "duplicate_entries": []
+  },
+  "result": "success",
+  "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+}
