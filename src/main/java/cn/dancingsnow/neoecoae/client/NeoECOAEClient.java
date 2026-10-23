@@ -78,6 +78,7 @@ public class NeoECOAEClient {
         FixedBlockEntityRenderers.register(NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L4.get(), coolingRenderer);
         FixedBlockEntityRenderers.register(NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L6.get(), coolingRenderer);
         FixedBlockEntityRenderers.register(NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L9.get(), coolingRenderer);
+        cn.dancingsnow.neoecoae.client.rendering.EmbeddiumFixedGeometry.initialize();
     }
 
     @SubscribeEvent

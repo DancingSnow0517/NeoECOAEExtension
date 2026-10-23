@@ -252,7 +252,11 @@ final class MultiblockAlignmentClientProbe {
             if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity storage && drive++ % 2 == 0) {
                 storage.setCellStack(new ItemStack(NEItems.ECO_ITEM_CELL_16M.get()));
             } else if (level.getBlockEntity(pos) instanceof ECOComputationDriveBlockEntity computation && drive++ % 2 == 0) {
-                computation.setCellStack(new ItemStack(NEItems.ECO_COMPUTATION_CELL_L4.get()));
+                // Exercise each tier's connected model as well as the empty bays' disconnected pipes.
+                var cell = computation.getTier() == ECOTier.L9 ? NEItems.ECO_COMPUTATION_CELL_L9
+                    : computation.getTier() == ECOTier.L6 ? NEItems.ECO_COMPUTATION_CELL_L6
+                    : NEItems.ECO_COMPUTATION_CELL_L4;
+                computation.setCellStack(new ItemStack(cell.get()));
             }
         }
         next.replaceAll((pos, state) -> level.getBlockState(pos));

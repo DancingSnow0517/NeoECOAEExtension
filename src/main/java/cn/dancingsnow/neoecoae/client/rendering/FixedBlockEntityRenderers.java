@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.client.rendering;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -27,19 +26,25 @@ public class FixedBlockEntityRenderers {
         List<BlockEntity> blockEntities = new ArrayList<>();
         for (BlockPos pos : BlockPos.betweenClosed(sectionOrigin, sectionOrigin.offset(15, 15, 15))) {
             BlockEntity blockEntity = region.getBlockEntity(pos);
-            if (blockEntity != null) {
-                if (renderers.containsKey(blockEntity.getType())) {
-                    blockEntities.add(blockEntity);
-                }
-            }
+            if (hasRenderer(blockEntity)) blockEntities.add(blockEntity);
         }
-        MultiBufferSource bufferSource = new DelegatedBufferSource(context);
+        renderSection(region, sectionOrigin, context.getPoseStack(), new DelegatedBufferSource(context), blockEntities);
+    }
+
+    public static boolean hasRenderer(BlockEntity blockEntity) {
+        return blockEntity != null && renderers.containsKey(blockEntity.getType());
+    }
+
+    /** Shares transforms and world lighting between the native and replacement chunk compilers. */
+    public static void renderSection(BlockAndTintGetter region, BlockPos sectionOrigin, PoseStack poseStack,
+                                     MultiBufferSource bufferSource, Iterable<BlockEntity> blockEntities) {
         for (BlockEntity blockEntity : blockEntities) {
+            if (!hasRenderer(blockEntity)) continue;
             render(
                 region,
                 blockEntity,
-                Minecraft.getInstance().getFrameTime(),
-                context.getPoseStack(),
+                0,
+                poseStack,
                 bufferSource,
                 LevelRenderer.getLightColor(region, blockEntity.getBlockPos()),
                 OverlayTexture.NO_OVERLAY,

@@ -1,0 +1,50 @@
+// Focused production-rendering regressions and optional real-client renderer validation.
+gradle.afterProject { project ->
+    if (project.path != ':') return
+    def main = project.sourceSets.main
+    def regression = project.sourceSets.create('fixedGeometryTest') {
+        java.srcDir 'src/test/java'
+        java.include 'cn/dancingsnow/neoecoae/client/rendering/EmbeddiumFixedGeometryTest.java'
+        java.include 'cn/dancingsnow/neoecoae/client/rendering/FixedModelLightingTest.java'
+        java.include 'cn/dancingsnow/neoecoae/client/rendering/DriveModelAmbientOcclusionTest.java'
+        java.include 'cn/dancingsnow/neoecoae/client/rendering/CellModelResourceTest.java'
+        java.include 'cn/dancingsnow/neoecoae/client/model/CoolingControllerBakedModelTest.java'
+        java.include 'cn/dancingsnow/neoecoae/util/InventoryTestBootstrap.java'
+        java.include 'cn/dancingsnow/neoecoae/util/LargeWorkstationTestKeys.java'
+        compileClasspath += main.output + main.compileClasspath
+        runtimeClasspath += main.output + main.runtimeClasspath
+        runtimeClasspath += project.files("build/moddev/artifacts/client-extra-${project.minecraft_version}-${project.forge_version}.jar")
+    }
+    project.configurations.fixedGeometryTestImplementation.extendsFrom project.configurations.testImplementation
+    project.configurations.fixedGeometryTestRuntimeOnly.extendsFrom project.configurations.testRuntimeOnly
+    project.tasks.register('fixedGeometryTest', Test) {
+        description = 'Validates fixed multiblock geometry, optional chunk-renderer integration and lighting.'
+        group = 'verification'
+        testClassesDirs = regression.output.classesDirs
+        classpath = regression.runtimeClasspath
+        useJUnitPlatform()
+    }
+    if (project.providers.gradleProperty('fixedGeometryRenderer').isPresent()) {
+        def renderer = project.providers.gradleProperty('fixedGeometryRenderer').get()
+        if (!(renderer in ['vanilla', 'xenon', 'embeddium'])) {
+            throw new GradleException("Unknown fixed geometry validation renderer: ${renderer}")
+        }
+        if (renderer != 'vanilla') {
+            def jar = project.file(project.providers.gradleProperty('fixedGeometryRendererJar').get())
+            if (!jar.isFile()) throw new GradleException("Missing renderer validation JAR: ${jar}")
+            project.repositories.ivy {
+                name = 'LocalFixedGeometryValidationRenderer'
+                url = jar.parentFile.toURI()
+                patternLayout { artifact '[artifact].[ext]' }
+                metadataSources { artifact() }
+                content { includeGroup 'porting.renderer' }
+            }
+            project.dependencies.add('modRuntimeOnly', "porting.renderer:${jar.name.take(jar.name.length() - 4)}:0.3.31")
+        }
+        project.legacyForge.runs.configureEach {
+            gameDirectory = project.file("run/fixed-geometry/${renderer}/${name}")
+            systemProperty 'neoecoae.clientSmoke', 'true'
+            systemProperty 'neoecoae.multiblockAlignmentSmoke', renderer
+        }
+    }
+}
