@@ -20,6 +20,12 @@ public interface IECOTier {
     default ResourceLocation getHostMarkerTexture() {
         return null;
     }
+
+    /** Optional complete panel atlas, addressed by its existing ui-eco name without the prefix. */
+    @Nullable
+    default ResourceLocation getPanelAtlas(String atlas) {
+        return null;
+    }
     /**
      * 合成系统并行核心并行数量
      *

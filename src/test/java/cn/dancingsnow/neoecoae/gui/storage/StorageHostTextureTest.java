@@ -54,12 +54,20 @@ class StorageHostTextureTest {
     }
 
     @Test
-    void infiniteCapacityBarUsesThePinkRepeatingWidgetCrop() {
-        var bar = StoragePanelTextures.INFINITE_CAPACITY_BAR;
-        assertEquals(32, bar.spritePosition.x);
-        assertEquals(79, bar.spritePosition.y);
-        assertEquals(24, bar.spriteSize.width);
-        assertEquals(7, bar.spriteSize.height);
-        assertEquals(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture.WrapMode.REPEAT, cn.dancingsnow.neoecoae.util.UiTestSupport.get(bar,"wrapMode"));
+    void infiniteCapacityUsesSeparateNativeSizeSymbolAndRepeatingFiller() {
+        var symbol = StoragePanelTextures.INFINITE_CAPACITY_SYMBOL;
+        assertEquals(32, symbol.spritePosition.x);
+        assertEquals(78, symbol.spritePosition.y);
+        assertEquals(16, symbol.spriteSize.width);
+        assertEquals(8, symbol.spriteSize.height);
+        assertEquals(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture.WrapMode.STRETCH, symbol.getWrapMode());
+        var fill = StoragePanelTextures.INFINITE_CAPACITY_FILL;
+        assertEquals(48, fill.spritePosition.x);
+        assertEquals(78, fill.spritePosition.y);
+        assertEquals(8, fill.spriteSize.width);
+        assertEquals(8, fill.spriteSize.height);
+        assertEquals(1, fill.borderLT.x);
+        assertEquals(1, fill.borderRB.x);
+        assertEquals(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture.WrapMode.REPEAT, fill.getWrapMode());
     }
 }

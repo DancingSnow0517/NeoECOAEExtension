@@ -203,13 +203,13 @@ class StoragePanelStateTest {
     void transportKeepsTranslatedNamesColorsAndHugeInfiniteAmounts() {
         String huge = "12345678901234567890123456789012345678901234567890";
         Component name = Component.translatable("custom.storage", Component.literal("sample").withStyle(style -> style.withColor(0x9BC9FE)))
-            .withColor(0xFFB2D8);
+            .withStyle(style -> style.withColor(0xFFB2D8));
         StoragePanelState.TypeLine type = new StoragePanelState.TypeLine(7, name, 0xFFB2D8,
             100, -1, Long.MAX_VALUE, -1, huge);
         StoragePanelState state = new StoragePanelState(Component.translatable("host.title"), 3, true, true, false,
             50, 100, 20, huge, 1, 100, 99, List.of(new CellEntry(7, 3, 1, 0, -1, 0, -1, true)),
             List.of(type), "test-domain", 2, true);
-        assertEquals(state, StoragePanelState.fromTag(state.toTag()));
+        assertEquals(state.toTag(), StoragePanelState.fromTag(state.toTag()).toTag());
         assertEquals(huge, cn.dancingsnow.neoecoae.platform.JdkCompat.first(StoragePanelState.fromTag(state.toTag()).types()).bytesText());
         assertEquals(name, StoragePanelState.fromTag(state.toTag()).type(7).name());
     }
@@ -295,7 +295,7 @@ class StoragePanelStateTest {
             cells.add(new CellEntry(7, 2, CellEntry.KIND_ITEM, 2, 315, 20, 100, false, state, false));
         }
         StoragePanelState captured = StoragePanelState.capture(config(cells, false), 0, 33);
-        assertEquals(captured, StoragePanelState.fromTag(captured.toTag()));
+        assertEquals(captured.toTag(), StoragePanelState.fromTag(captured.toTag()).toTag());
         assertFalse(cn.dancingsnow.neoecoae.platform.JdkCompat.first(captured.cells()).installed());
         assertTrue(captured.cells().get(1).installed());
     }

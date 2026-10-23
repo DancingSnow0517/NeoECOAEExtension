@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
@@ -274,7 +276,7 @@ class CraftingHostPanelRenderingTest {
             ldlib.when(LDLib::isRemote).thenReturn(true);
             Font font = installFont(minecraft);
             when(font.width(anyString())).thenAnswer(call -> ((String) call.getArgument(0)).length() * 6);
-            ItemStack item = new ItemStack(Items.DIAMOND);
+            ItemStack item = spy(new ItemStack(Items.DIAMOND));
             var artwork = artwork(formedState(), ItemStack.EMPTY,
                 List.of(new CraftingOutputDisplay(item, BigInteger.valueOf(32))));
             var synced = (BindableValue<Tag>) cn.dancingsnow.neoecoae.platform.JdkCompat.first(artwork.getChildren());
@@ -282,8 +284,9 @@ class CraftingHostPanelRenderingTest {
             doReturn(true).when(slot).isHover();
             doReturn(16F).when(slot).getContentWidth();
             doReturn(16F).when(slot).getContentHeight();
-            drawer.when(() -> DrawerHelper.getItemToolTip(any())).thenReturn(
-                List.of(Component.literal("Actual item name"), Component.literal("Actual item details")));
+            doReturn(item).when(slot).getValue();
+            doReturn(List.of(Component.literal("Actual item name"), Component.literal("Actual item details")))
+                .when(item).getTooltipLines(any(), any());
             UIEvent event = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
             event.target = slot;
             event.target.dispatchEvent(event);
@@ -301,7 +304,8 @@ class CraftingHostPanelRenderingTest {
                 doReturn(true).when(updatedSlot).isHover();
                 doReturn(16F).when(updatedSlot).getContentWidth();
                 doReturn(16F).when(updatedSlot).getContentHeight();
-                updatedSlot.drawBackgroundAdditional(context);
+                ((CraftingOutputSlot) updatedSlot).drawItemStack(context, updatedSlot.getValue());
+                ((CraftingOutputSlot) updatedSlot).drawHover(context);
                 String displayed = count.equals("2000") ? "2k" : count;
                 drawer.verify(() -> DrawerHelper.drawStringFixedCorner(eq(context.graphics), eq(displayed),
                     eq(16F), eq(16F), eq(-1), eq(true), anyFloat()));
@@ -350,9 +354,9 @@ class CraftingHostPanelRenderingTest {
             cn.dancingsnow.neoecoae.util.UiTestSupport.serverClick(coolingButton,click);
             assertTrue(cooling.get());
 
-            UIEvent hover = new UIEvent(UIEvents.MOUSE_ENTER,null,0,0,0);
-            hover.target = coolingButton;
-            hover.target.dispatchEvent(hover);
+            panel.arrange();
+            panel.mouseMoved(coolingButton.getPositionX() + 1, coolingButton.getPositionY() + 1);
+            assertTrue(coolingButton.isHover());
             syncedCooling.setValue(true);
             syncedOverclock.setValue(false);
             cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(overclockButton);
@@ -373,6 +377,66 @@ class CraftingHostPanelRenderingTest {
 
     private static UIElement artwork(CraftingControllerPanelState state) {
         return artwork(state, ItemStack.EMPTY);
+    }
+
+    @Test
+    void hostProviderAndTierAtlasesReachBadgesButtonsBarsAndControllerGaugeTicks() throws Exception {
+        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            installFont(minecraft);
+            var block = mock(net.minecraft.world.level.block.Block.class,
+                withSettings().extraInterfaces(cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.class));
+            var placed = mock(net.minecraft.world.level.block.state.BlockState.class);
+            when(placed.getBlock()).thenReturn(block);
+            var provider = (cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider) block;
+            when(provider.getPanelTexture(same(placed), any())).thenReturn(new net.minecraft.resources.ResourceLocation("addon:badge.png"));
+            when(provider.getPanelTexture(same(placed), any(), anyInt(), anyBoolean(), anyBoolean()))
+                .thenAnswer(call -> new net.minecraft.resources.ResourceLocation("addon:mode_" + call.getArgument(2) + "_"
+                    + call.getArgument(3) + "_" + call.getArgument(4) + ".png"));
+            var tier = mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
+            when(tier.getPanelAtlas(anyString())).thenAnswer(call -> new net.minecraft.resources.ResourceLocation(
+                "addon:" + ((String) call.getArgument(0)).toLowerCase(java.util.Locale.ROOT) + ".png"));
+            var overclocked = new AtomicBoolean(true);
+            var cooling = new AtomicBoolean(false);
+            UIElement root = CraftingHostPanelUI.create(config(formedState(), ItemStack.EMPTY, List.of(),
+                overclocked::get, () -> overclocked.set(!overclocked.get()), cooling::get, () -> cooling.set(!cooling.get())),
+                () -> tier, () -> placed);
+            var artwork = positioned(JdkCompat.first(root.getChildren()));
+            GUIContext context = context();
+            HostProgressTestSupport.drawAfterOpening(artwork, context);
+            verify(context).drawTexture(argThat(texture -> new net.minecraft.resources.ResourceLocation("addon:crafting-controller_atlas.png")
+                .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), eq(120F), eq(80F), eq(253F), eq(214F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spriteSize.height == 1 && new net.minecraft.resources.ResourceLocation("addon:crafting-controller_atlas.png")
+                .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))),
+                eq(329F), eq(164F), eq(5F), eq(1F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && new net.minecraft.resources.ResourceLocation("addon:crafting-widgets_atlas.png")
+                .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture)) && sprite.spritePosition.y == 115),
+                eq(186F), eq(194F), eq(22F), eq(7F));
+            verify(context).drawTexture(argThat(texture -> new net.minecraft.resources.ResourceLocation("addon:badge.png")
+                .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), eq(143F), eq(85F), eq(13F), eq(18F));
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite && sprite.spritePosition.y == 8
+                && sprite.getImageLocation().toString().equals("addon:badge.png")), eq(132F), eq(134F), eq(10F), eq(7F));
+            var coolingButton = (Button) root.selectId("active_cooling_button").findFirst().orElseThrow();
+            var overclockButton = (Button) root.selectId("overclock_button").findFirst().orElseThrow();
+            cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(coolingButton);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(overclockButton);
+            assertEquals("addon:mode_0_false_false.png", ((SpriteTexture) coolingButton.getButtonStyle().baseTexture()).getImageLocation().toString());
+            assertEquals("addon:mode_1_true_true.png", ((SpriteTexture) overclockButton.getButtonStyle().hoverTexture()).getImageLocation().toString());
+            var textures = (cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync) JdkCompat.last(root.getChildren());
+            textures.setValue(new CompoundTag());
+            cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(coolingButton);
+            assertEquals(new net.minecraft.resources.ResourceLocation("addon:crafting-widgets_atlas.png"),
+                cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(coolingButton.getButtonStyle().baseTexture()));
+            clearInvocations(context);
+            when(tier.getPanelTierName()).thenReturn(Component.literal("L1"));
+            artwork.drawBackgroundAdditional(context);
+            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                && sprite.spritePosition.x == 36 && sprite.spritePosition.y == 5 && sprite.spriteSize.width == 1),
+                eq(143F), eq(85F), eq(13F), eq(18F));
+            verify(block, never()).defaultBlockState();
+        }
     }
 
     private static UIElement artwork(CraftingControllerPanelState state, ItemStack hostItem) {
@@ -399,8 +463,8 @@ class CraftingHostPanelRenderingTest {
 
     private static UIElement positioned(UIElement element) {
         UIElement artwork = spy(element);
-        doReturn(120F).when(artwork).getPositionX();
-        doReturn(80F).when(artwork).getPositionY();
+        doReturn(120).when(artwork).getPositionX();
+        doReturn(80).when(artwork).getPositionY();
         return artwork;
     }
 

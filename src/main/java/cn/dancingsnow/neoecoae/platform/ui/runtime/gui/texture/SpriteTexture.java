@@ -10,7 +10,12 @@ import net.minecraft.resources.ResourceLocation;
 /** Retains pixel atlas rectangles and nine-slice borders, with the real LDLib1 texture renderer. */
 public class SpriteTexture implements IGuiTexture {
     public enum WrapMode { STRETCH, REPEAT }
-    public static final class Point { public float x, y; public Point(float x, float y) { this.x=x; this.y=y; } }
+    public static final class Point {
+        public float x, y;
+        public Point(float x, float y) { this.x=x; this.y=y; }
+        public int getX() { return Math.round(x); }
+        public int getY() { return Math.round(y); }
+    }
     public Point spritePosition = new Point(0, 0), borderLT = new Point(0, 0), borderRB = new Point(0, 0);
     public Size spriteSize = Size.of(0, 0);
     protected int color = -1;
@@ -32,7 +37,9 @@ public class SpriteTexture implements IGuiTexture {
         borderLT = new Point(left,top); borderRB = new Point(right,bottom); return this;
     }
     public SpriteTexture setColor(int value) { color=value; return this; }
+    public int getColor() { return color; }
     public SpriteTexture setWrapMode(WrapMode value) { wrapMode=value; return this; }
+    public WrapMode getWrapMode() { return wrapMode; }
     public SpriteTexture rotate(float angle) { rotation=angle; return this; }
     public SpriteTexture scale(float factor) { scale=factor; return this; }
     public SpriteTexture transform(float x,float y) { offsetX=x; offsetY=y; return this; }

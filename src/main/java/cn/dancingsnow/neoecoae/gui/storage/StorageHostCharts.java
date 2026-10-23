@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.google.gson.JsonObject;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
@@ -59,7 +60,9 @@ final class StorageHostCharts {
                     if (custom != null) {
                         texture(context, StoragePanelTextures.tier(state().tier(), custom));
                     } else if (!HostPanelTier.drawName(context, panelTier.get(), getPositionX(), getPositionY(),
-                        getSizeWidth(), getSizeHeight(), TEXT) && (state().formed() || state().tier() > 0)) {
+                        getSizeWidth(), getSizeHeight(), TEXT, NETextures.panelSprite(
+                            NeoECOAE.id("textures/guis/storage/storage_controller.png"), panelTier).setSprite(36, 5, 1, 18))
+                        && (state().formed() || state().tier() > 0)) {
                         texture(context, StoragePanelTextures.tier(state().tier()));
                     }
                 }
@@ -79,6 +82,10 @@ final class StorageHostCharts {
 
     private StoragePanelState state() { return sync.state(); }
 
+    private SpriteTexture panelTexture(SpriteTexture texture) {
+        return StoragePanelTextures.forTier(texture, panelTier);
+    }
+
     private UIElement createInformationIcon() {
         SpriteTexture normal = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information.png"));
         SpriteTexture highlighted = SpriteTexture.of(NeoECOAE.id("textures/gui/widget/information_highlight.png"));
@@ -95,7 +102,8 @@ final class StorageHostCharts {
 
     private abstract class PanelElement extends UIElement {
         void texture(GUIContext context, IGuiTexture texture) {
-            context.drawTexture(texture, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+            context.drawTexture(texture instanceof SpriteTexture sprite ? panelTexture(sprite) : texture,
+                getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
         }
 
         void tooltips(Supplier<List<Component>> lines) {
@@ -182,7 +190,7 @@ final class StorageHostCharts {
                 HostText.ae2Amount(state().energy()), HostText.ae2Amount(state().maxEnergy())).getString());
             int drain = font.width(Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage",
                 HostText.ae2Amount(state().drain())).getString());
-            return Math.max(0.5F, Math.min(fontScale, getSizeWidth() / Math.max(1, stored + gap + drain)));
+            return Math.max(0.5F, Math.min(fontScale, (float) getSizeWidth() / Math.max(1, stored + gap + drain)));
         }
 
         /** Draw the drain amount under the stored amount, keeping both numeric values on one vertical axis. */
@@ -239,7 +247,7 @@ final class StorageHostCharts {
         @Override public void drawBackgroundAdditional(GUIContext context) {
             texture(context, StoragePanelTextures.HOST_ICON_BACKGROUND);
             if (state().formed()) {
-                float x = getPositionX() + Math.round((getSizeWidth() - 13) / 2);
+                float x = getPositionX() + Math.round((getSizeWidth() - 13) / 2F);
                 drawMarker(context, false, x, getPositionY() + 1);
                 drawMarker(context, true, x, getPositionY() + getSizeHeight() - 9);
             }
@@ -254,7 +262,7 @@ final class StorageHostCharts {
         if (custom != null) {
             context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), bottom, custom), x, y, 13, 8);
         } else if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom, x, y, 13, 8)) {
-            context.drawTexture(StoragePanelTextures.hostMarker(state().tier(), bottom), x, y, 13, 8);
+            context.drawTexture(panelTexture(StoragePanelTextures.hostMarker(state().tier(), bottom)), x, y, 13, 8);
         }
     }
 
@@ -280,20 +288,35 @@ final class StorageHostCharts {
             hoveredTooltip.clear();
             var snapshot = state();
             if (snapshot.unbounded()) {
-                float width = Math.round(getSizeWidth() * opening.value(1));
-                if (width <= 0) return;
-                boolean clipped = width < getSizeWidth();
-                if (clipped) context.enableScissor(getPositionX(), getPositionY(), width, getSizeHeight());
-                try {
-                    context.drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR,
-                        getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
-                } finally {
-                    if (clipped) context.disableScissor();
-                }
+                drawInfiniteCapacity(context);
                 return;
             }
             int width = Math.round(getSizeWidth() * (float) JdkCompat.clamp(snapshot.usage(), 0, 1));
             drawSegments(context, snapshot, width);
+        }
+
+        private void drawInfiniteCapacity(GUIContext context) {
+            float width = getSizeWidth();
+            float revealedWidth = Math.round(width * opening.value(1));
+            if (revealedWidth <= 0 || getSizeHeight() <= 0) return;
+            var symbol = panelTexture(StoragePanelTextures.INFINITE_CAPACITY_SYMBOL);
+            var fill = panelTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL);
+            int symbolWidth = symbol.spriteSize.width;
+            int height = symbol.spriteSize.height;
+            float symbolOffset = Math.round((width - symbolWidth) / 2);
+            float x = getPositionX();
+            float y = getPositionY() + Math.round((getSizeHeight() - height) / 2);
+            // Opening and undersized layouts crop the fixed artwork instead of scaling it.
+            boolean clipped = revealedWidth < width || width < symbolWidth || getSizeHeight() < height;
+            if (clipped) context.enableScissor(x, getPositionY(), revealedWidth, getSizeHeight());
+            try {
+                if (symbolOffset > 0) context.drawTexture(fill, x, y, symbolOffset, height);
+                context.drawTexture(symbol, x + symbolOffset, y, symbolWidth, height);
+                float rightOffset = symbolOffset + symbolWidth;
+                if (rightOffset < width) context.drawTexture(fill, x + rightOffset, y, width - rightOffset, height);
+            } finally {
+                if (clipped) context.disableScissor();
+            }
         }
     }
 
@@ -313,10 +336,10 @@ final class StorageHostCharts {
             for (CapacitySegment segment : segments) {
                 int width = Math.min(segment.width(), revealedWidth - x);
                 if (width <= 0) break;
-                context.drawTexture(StoragePanelTextures.swatch(segment.swatch(), segment.color()),
+                context.drawTexture(panelTexture(StoragePanelTextures.swatch(segment.swatch(), segment.color())),
                     getPositionX() + x, getPositionY(), width, getSizeHeight());
                 if (mouseX >= x && mouseX < x + width && mouseY >= 0 && mouseY < getSizeHeight()) {
-                    context.drawTexture(StoragePanelTextures.RESOURCE_HOVER,
+                    context.drawTexture(panelTexture(StoragePanelTextures.RESOURCE_HOVER),
                         getPositionX() + x, getPositionY(), width, getSizeHeight());
                     hoveredTooltip.addAll(resourceTooltip(snapshot, segment));
                 }
@@ -337,7 +360,7 @@ final class StorageHostCharts {
         EnergyBar() { tooltips(StorageHostCharts.this::energyTooltip); }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
-            SpriteTexture scale = StoragePanelTextures.SCALE;
+            SpriteTexture scale = panelTexture(StoragePanelTextures.SCALE);
             int pixels = Math.round(scale.spriteSize.width
                 * opening.value(HostText.usageRatio(state().energy(), state().maxEnergy())));
             if (pixels > 0) context.drawTexture(scale.copy().setSprite(scale.spritePosition.x,
@@ -384,9 +407,10 @@ final class StorageHostCharts {
                 float y = getPositionY() + row * 29;
                 int index = start + row;
                 if (index >= state().types().size()) continue;
-                context.drawTexture(StoragePanelTextures.TYPE_PANEL, getPositionX(), y, 68, 29);
+                context.drawTexture(panelTexture(StoragePanelTextures.TYPE_PANEL), getPositionX(), y, 68, 29);
                 StoragePanelState.TypeLine type = state().types().get(index);
-                context.drawTexture(StoragePanelTextures.resourceIcon(type.swatch(), type.color()), getPositionX() + 2, y + 2, 6, 6);
+                context.drawTexture(panelTexture(StoragePanelTextures.resourceIcon(type.swatch(), type.color())),
+                    getPositionX() + 2, y + 2, 6, 6);
                 // Mod-provided name styles can disagree with the resource icon's palette.
                 text(context, Component.literal(type.name().getString()), 10, row * 29 + 2,
                     nameWidth, nameFontScale, type.color());
@@ -400,6 +424,7 @@ final class StorageHostCharts {
         }
 
         private void bar(GUIContext context, SpriteTexture texture, long used, long total, int x, float y) {
+            texture = panelTexture(texture);
             float ratio = state().unbounded() || total < 0 ? 1 : HostText.usageRatio(used, total);
             int width = Math.round(29 * ratio);
             if (width > 0) context.drawTexture(texture.copy().setSprite(texture.spritePosition.x,
@@ -449,7 +474,7 @@ final class StorageHostCharts {
             if (maximum == 0) return;
             float height = Math.min(StoragePanelTextures.SLIDER.spriteSize.height, getSizeHeight());
             float y = getPositionY() + (getSizeHeight() - height) * typePanel.currentOffset() / maximum;
-            context.drawTexture(StoragePanelTextures.SLIDER,
+            context.drawTexture(panelTexture(StoragePanelTextures.SLIDER),
                 getPositionX(), y, getSizeWidth(), height);
         }
     }
@@ -502,7 +527,7 @@ final class StorageHostCharts {
         var used = Component.literal(state.usedBytes()).withStyle(neColor -> neColor.withColor(state.unbounded()
             ? StoragePanelTextures.VALUE_TEXT : HostText.gaugeTextColor((float) state.usage())));
         if (state.unbounded()) return used;
-        return used.append(Component.literal(" / ").withStyle(neColor -> neColor.withColor(TEXT)))
+        return used.append(Component.literal(" / ").withStyle(neColor -> neColor.withColor(TEXT & 0xFFFFFF)))
             .append(Component.literal(HostText.ae2Amount(state.totalBytes())).withStyle(neColor -> neColor.withColor(StoragePanelTextures.VALUE_TEXT)));
     }
 

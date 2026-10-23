@@ -126,7 +126,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         ComputationControllerUI.Config panelConfig = createComputationPanelConfig(holder.player);
         UIElement root = ComputationControllerUI.create(panelConfig,
             this::getComputationControllerPanelState,
-            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"), this::getTier);
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"), this::getTier, this::getBlockState);
         return ECOModularUI.create(root, holder.player);
     }
 

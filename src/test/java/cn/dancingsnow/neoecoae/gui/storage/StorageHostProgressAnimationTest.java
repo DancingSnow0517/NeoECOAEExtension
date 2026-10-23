@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.platform.JdkCompat;
+
 import com.lowdragmc.lowdraglib.LDLib;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
@@ -158,12 +160,17 @@ class StorageHostProgressAnimationTest {
                 now.set(250);
                 capacity.drawBackgroundAdditional(context);
                 verify(context).enableScissor(208F, 313F, 80F, 8F);
-                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR, 208F, 313F, 160F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 208F, 313F, 72F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_SYMBOL, 280F, 313F, 16F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 296F, 313F, 72F, 8F);
                 verify(context).disableScissor();
+                verifyNoMoreInteractions(context);
                 clearInvocations(context);
                 now.set(500);
                 capacity.drawBackgroundAdditional(context);
-                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_BAR, 208F, 313F, 160F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 208F, 313F, 72F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_SYMBOL, 280F, 313F, 16F, 8F);
+                verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 296F, 313F, 72F, 8F);
                 verifyNoMoreInteractions(context);
             }
         }
@@ -171,10 +178,10 @@ class StorageHostProgressAnimationTest {
 
     private static UIElement bar(UIElement root, String id, float x, float y, float width, float height) {
         UIElement element = spy(root.selectId(id).findFirst().orElseThrow());
-        doReturn(x).when(element).getPositionX();
-        doReturn(y).when(element).getPositionY();
-        doReturn(width).when(element).getSizeWidth();
-        doReturn(height).when(element).getSizeHeight();
+        doReturn(Math.round(x)).when(element).getPositionX();
+        doReturn(Math.round(y)).when(element).getPositionY();
+        doReturn(Math.round(width)).when(element).getSizeWidth();
+        doReturn(Math.round(height)).when(element).getSizeHeight();
         return element;
     }
 

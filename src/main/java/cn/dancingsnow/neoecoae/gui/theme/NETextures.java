@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.theme;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.editor.resource.BuiltinPath;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.editor.resource.BuiltinResourceProvider;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.editor.resource.ResourceInstance;
@@ -19,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Map;
+import java.util.function.Supplier;
 
 
 @SuppressWarnings("unused")
@@ -36,9 +38,14 @@ public class NETextures {
 
     /** A sprite whose atlas can be replaced through the ui-eco provider without changing its pixel rectangle. */
     public static SpriteTexture panelSprite(ResourceLocation atlas) {
+        return panelSprite(atlas, () -> null);
+    }
+
+    /** Per-panel tier override takes priority over the shared resource provider. */
+    public static SpriteTexture panelSprite(ResourceLocation atlas, Supplier<IECOTier> tier) {
         String name = PANEL_ATLASES.get(atlas);
         return name == null ? SpriteTexture.of(atlas)
-            : new PanelAtlasSprite(new BuiltinPath("ui-eco:" + name), atlas);
+            : new PanelAtlasSprite(new BuiltinPath("ui-eco:" + name), atlas, tier, name);
     }
 
     static IGuiTexture panelAtlas(BuiltinPath path) {
@@ -206,8 +213,18 @@ public class NETextures {
         public static final int WIDGETS_HEIGHT = 256;
         public static IGuiTexture CONTROLLER = panelSprite(CONTROLLER_ATLAS).setSprite(0, 0, 253, 214);
 
+        public static IGuiTexture controller(Supplier<IECOTier> tier) {
+            IECOTier current = tier.get();
+            return current == null || current.getPanelAtlas("Crafting-CONTROLLER_ATLAS") == null ? CONTROLLER
+                : panelSprite(CONTROLLER_ATLAS, tier).setSprite(0, 0, 253, 214);
+        }
+
         public static SpriteTexture widget(int x, int y, int width, int height) {
             return panelSprite(WIDGETS_ATLAS).setSprite(x, y, width, height);
+        }
+
+        public static SpriteTexture widget(int x, int y, int width, int height, Supplier<IECOTier> tier) {
+            return panelSprite(WIDGETS_ATLAS, tier).setSprite(x, y, width, height);
         }
     }
 

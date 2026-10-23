@@ -3,8 +3,11 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import net.minecraft.resources.ResourceLocation;
+import java.util.function.Supplier;
+import org.jetbrains.annotations.Nullable;
 
 /** Pixel rectangles in the computation controller artwork. */
 final class ComputationControllerTextures {
@@ -16,23 +19,46 @@ final class ComputationControllerTextures {
     private ComputationControllerTextures() {}
 
     static SpriteTexture background() {
-        return NETextures.panelSprite(BACKGROUND_ATLAS).setSprite(0, 0, WIDTH, HEIGHT);
+        return background(() -> null);
+    }
+
+    static SpriteTexture background(Supplier<IECOTier> tier) {
+        return NETextures.panelSprite(BACKGROUND_ATLAS, tier).setSprite(0, 0, WIDTH, HEIGHT);
     }
 
     static SpriteTexture widget(int x, int y, int width, int height) {
-        return NETextures.panelSprite(WIDGETS_ATLAS).setSprite(x, y, width, height);
+        return widget(x, y, width, height, () -> null);
+    }
+
+    static SpriteTexture widget(int x, int y, int width, int height, Supplier<IECOTier> tier) {
+        return NETextures.panelSprite(WIDGETS_ATLAS, tier).setSprite(x, y, width, height);
     }
 
     static SpriteTexture tier(int tier) {
-        return widget((JdkCompat.clamp(tier, 1, 3) - 1) * 13, 0, 13, 18);
+        return tier(tier, () -> null, null);
+    }
+
+    static SpriteTexture tier(int tier, Supplier<IECOTier> panelTier, @Nullable ResourceLocation custom) {
+        return custom != null ? SpriteTexture.of(custom).setSprite(0, 0, 13, 18)
+            : widget((JdkCompat.clamp(tier, 1, 3) - 1) * 13, 0, 13, 18, panelTier);
     }
 
     static SpriteTexture hostMarker(int tier, boolean bottom) {
-        return widget(17 + (JdkCompat.clamp(tier, 1, 3) - 1) * 16, bottom ? 43 : 19, 14, 8);
+        return hostMarker(tier, bottom, () -> null, null);
+    }
+
+    static SpriteTexture hostMarker(int tier, boolean bottom, Supplier<IECOTier> panelTier,
+        @Nullable ResourceLocation custom) {
+        return custom != null ? SpriteTexture.of(custom).setSprite(0, bottom ? 8 : 0, 13, 8)
+            : widget(17 + (JdkCompat.clamp(tier, 1, 3) - 1) * 16, bottom ? 43 : 19, 14, 8, panelTier);
     }
 
     static SpriteTexture columnBackground() {
-        return widget(0, 52, 16, 52);
+        return columnBackground(() -> null);
+    }
+
+    static SpriteTexture columnBackground(Supplier<IECOTier> tier) {
+        return widget(0, 52, 16, 52, tier);
     }
 
     static SpriteTexture glyphUpper(int tier) {
@@ -48,20 +74,36 @@ final class ComputationControllerTextures {
     }
 
     static SpriteTexture member(ComputationControllerPanelState.Member member, int row) {
+        return member(member, row, () -> null);
+    }
+
+    static SpriteTexture member(ComputationControllerPanelState.Member member, int row, Supplier<IECOTier> tier) {
         if (member.texture() != null) return SpriteTexture.of(member.texture()).setSprite(0, 0, 10, row == 0 ? 5 : 6);
-        return switch (row) {
+        SpriteTexture legacy = switch (row) {
             case 0 -> glyphUpper(member.tier());
             case 1 -> glyphCore(member.tier());
             default -> glyphLower(member.tier());
         };
+        return widget(Math.round(legacy.spritePosition.x), Math.round(legacy.spritePosition.y),
+            legacy.spriteSize.width, legacy.spriteSize.height, tier);
     }
 
     static SpriteTexture statusIcon(int index, boolean pink) {
-        if (pink) return widget(JdkCompat.clamp(index, 0, 4) * 12, 116, 12, 12);
-        return widget(JdkCompat.clamp(index, 0, 5) * 12, 104, 12, 12);
+        return statusIcon(index, pink, () -> null, null);
+    }
+
+    static SpriteTexture statusIcon(int index, boolean pink, Supplier<IECOTier> tier, @Nullable ResourceLocation custom) {
+        if (custom != null) return SpriteTexture.of(custom).setSprite(0, 0, 12, 12);
+        return widget(JdkCompat.clamp(index, 0, pink ? 4 : 5) * 12, pink ? 116 : 104, 12, 12, tier);
     }
 
     static SpriteTexture switchSprite(boolean on, boolean hover) {
-        return widget((on ? 0 : 30) + (hover ? 15 : 0), 128, 15, 26);
+        return switchSprite(on, hover, () -> null, null);
+    }
+
+    static SpriteTexture switchSprite(boolean on, boolean hover, Supplier<IECOTier> tier,
+        @Nullable ResourceLocation custom) {
+        return custom != null ? SpriteTexture.of(custom).setSprite(0, 0, 15, 26)
+            : widget((on ? 0 : 30) + (hover ? 15 : 0), 128, 15, 26, tier);
     }
 }

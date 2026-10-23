@@ -3,7 +3,9 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.Part;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
@@ -59,6 +61,7 @@ final class ComputationControllerArtwork extends UIElement {
     private final Supplier<ComputationControllerPanelState> panelState;
     private final ItemStack hostItem;
     private final Supplier<IECOTier> panelTier;
+    private final Supplier<HostPanelTextureState> textures;
     private final HostProgressAnimation opening = new HostProgressAnimation();
     private ComputationControllerPanelState state;
     private long usedBytes, totalBytes, availableBytes;
@@ -69,7 +72,14 @@ final class ComputationControllerArtwork extends UIElement {
 
     ComputationControllerArtwork(ComputationControllerUI.Config config,
                                  Supplier<ComputationControllerPanelState> panelState, Supplier<IECOTier> panelTier) {
+        this(config, panelState, panelTier, () -> HostPanelTextureState.EMPTY);
+    }
+
+    ComputationControllerArtwork(ComputationControllerUI.Config config,
+        Supplier<ComputationControllerPanelState> panelState, Supplier<IECOTier> panelTier,
+        Supplier<HostPanelTextureState> textures) {
         this.config = config;
+        this.textures = textures;
         this.panelTier = panelTier;
         this.panelState = panelState;
         hostItem = config.hostItem().get().copyWithCount(1);
@@ -221,13 +231,17 @@ final class ComputationControllerArtwork extends UIElement {
 
     @Override
     public void drawBackgroundAdditional(GUIContext context) {
-        sprite(context, ComputationControllerTextures.background(), 0, 0, WIDTH, HEIGHT);
+        sprite(context, ComputationControllerTextures.background(panelTier), 0, 0, WIDTH, HEIGHT);
         drawLabels(context);
         if (state.formed()) {
             int tier = state.hostTier();
-            if (!HostPanelTier.drawName(context, panelTier.get(), getPositionX() + 23,
-                getPositionY() + 5, 13, 18, TEXT_COLOR) && tier >= 1 && tier <= 3) {
-                sprite(context, ComputationControllerTextures.tier(tier), 23, 5, 13, 18);
+            var custom = textures.get().tier();
+            if (custom != null) {
+                sprite(context, ComputationControllerTextures.tier(tier, panelTier, custom), 23, 5, 13, 18);
+            } else if (!HostPanelTier.drawName(context, panelTier.get(), getPositionX() + 23,
+                getPositionY() + 5, 13, 18, TEXT_COLOR,
+                ComputationControllerTextures.background(panelTier).setSprite(36, 5, 1, 18)) && tier >= 1 && tier <= 3) {
+                sprite(context, ComputationControllerTextures.tier(tier, panelTier, null), 23, 5, 13, 18);
             }
             drawHostMarker(context, false, 40);
             drawHostMarker(context, true, 64);
@@ -243,9 +257,12 @@ final class ComputationControllerArtwork extends UIElement {
     }
 
     private void drawHostMarker(GUIContext context, boolean bottom, int y) {
-        if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom,
+        var custom = textures.get().marker();
+        if (custom != null) {
+            sprite(context, ComputationControllerTextures.hostMarker(state.hostTier(), bottom, panelTier, custom), 10, y, 14, 8);
+        } else if (!HostPanelTier.drawMarker(context, panelTier.get(), bottom,
             getPositionX() + 10, getPositionY() + y, 14, 8) && state.hostTier() >= 1 && state.hostTier() <= 3) {
-            sprite(context, ComputationControllerTextures.hostMarker(state.hostTier(), bottom), 10, y, 14, 8);
+            sprite(context, ComputationControllerTextures.hostMarker(state.hostTier(), bottom, panelTier, null), 10, y, 14, 8);
         }
     }
 
@@ -283,10 +300,10 @@ final class ComputationControllerArtwork extends UIElement {
             var upper = state.upperMember(cell);
             var core = state.coreMember(cell);
             var lower = state.lowerMember(cell);
-            sprite(context, ComputationControllerTextures.columnBackground(), x, 30, 16, 52);
-            if (upper.present()) sprite(context, ComputationControllerTextures.member(upper, 0), x + 3, 47, 10, 5);
-            if (core.present()) sprite(context, ComputationControllerTextures.member(core, 1), x + 3, 53, 10, 6);
-            if (lower.present()) sprite(context, ComputationControllerTextures.member(lower, 2), x + 3, 60, 10, 6);
+            sprite(context, ComputationControllerTextures.columnBackground(panelTier), x, 30, 16, 52);
+            if (upper.present()) sprite(context, ComputationControllerTextures.member(upper, 0, panelTier), x + 3, 47, 10, 5);
+            if (core.present()) sprite(context, ComputationControllerTextures.member(core, 1, panelTier), x + 3, 53, 10, 6);
+            if (lower.present()) sprite(context, ComputationControllerTextures.member(lower, 2, panelTier), x + 3, 60, 10, 6);
         }
     }
 
@@ -296,7 +313,7 @@ final class ComputationControllerArtwork extends UIElement {
         for (int i = 0; i < PANEL_X.length; i++) {
             int fill = Math.round(44 * opening.value(permilles[i] / 1000D));
             if (fill > 0) {
-                sprite(context, ComputationControllerTextures.widget(0, 154 + 7 * i, fill, 7), BAR_X[i], 131, fill, 7);
+                sprite(context, ComputationControllerTextures.widget(0, 154 + 7 * i, fill, 7, panelTier), BAR_X[i], 131, fill, 7);
             }
         }
         drawRow(context, 0, 0, Component.translatable("gui.neoecoae.computation.ui.stat.used"), BLUE,
@@ -323,15 +340,20 @@ final class ComputationControllerArtwork extends UIElement {
     private void drawStatusIcons(GUIContext context) {
         if (!connected) return;
         boolean pink = endgamePink();
-        sprite(context, ComputationControllerTextures.statusIcon(0, pink), 180, 153, 12, 12);
-        if (substitutions) sprite(context, ComputationControllerTextures.statusIcon(1, pink), 180, 178, 12, 12);
-        if (cyclePlanning) sprite(context, ComputationControllerTextures.statusIcon(2, pink), 204, 178, 12, 12);
-        if (fastPlanner) sprite(context, ComputationControllerTextures.statusIcon(3, pink), 228, 178, 12, 12);
+        sprite(context, statusIcon(0, pink), 180, 153, 12, 12);
+        if (substitutions) sprite(context, statusIcon(1, pink), 180, 178, 12, 12);
+        if (cyclePlanning) sprite(context, statusIcon(2, pink), 204, 178, 12, 12);
+        if (fastPlanner) sprite(context, statusIcon(3, pink), 228, 178, 12, 12);
         if (networkMultiplier > 1) {
             // Index 4 is the normal switch; index 5 is the high-energy switch. Pink overrides both.
             boolean highEnergy = highEnergySwitchCount > 0 && !pink;
-            sprite(context, ComputationControllerTextures.statusIcon(highEnergy ? 5 : 4, pink), 180, 203, 12, 12);
+            sprite(context, statusIcon(highEnergy ? 5 : 4, pink), 180, 203, 12, 12);
         }
+    }
+
+    private SpriteTexture statusIcon(int index, boolean lit) {
+        return ComputationControllerTextures.statusIcon(index, lit, panelTier,
+            textures.get().texture(Part.COMPUTATION_STATUS, index, lit, false));
     }
 
     private boolean endgamePink() {

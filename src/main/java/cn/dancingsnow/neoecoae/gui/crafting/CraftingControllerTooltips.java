@@ -42,6 +42,12 @@ final class CraftingControllerTooltips {
     }
 
     List<Component> parallelTooltip() {
+        if (view.virtualMode) {
+            return List.of(Component.translatable("gui.neoecoae.crafting.ui.virtual_crafting"),
+                Component.translatable("gui.neoecoae.crafting.ui.total_parallel", "∞"),
+                Component.translatable("gui.neoecoae.crafting.ui.parallel_limit", "∞"),
+                Component.translatable("gui.neoecoae.crafting.ui.runtime_ticks", view.executionTicks));
+        }
         return List.of(Component.translatable("gui.neoecoae.crafting.ui.total_parallel", view.ftParallelCapacity),
             Component.translatable("gui.neoecoae.crafting.ui.parallel_limit", parallelLimit()),
             Component.translatable("gui.neoecoae.crafting.ui.parallel_overflow", view.overflowCapacity, overflowPercent()),

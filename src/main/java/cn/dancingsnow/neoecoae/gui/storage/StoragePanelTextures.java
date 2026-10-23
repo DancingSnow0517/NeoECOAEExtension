@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.gui.storage;
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import java.util.function.Supplier;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.VanillaSpriteTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -16,10 +18,11 @@ final class StoragePanelTextures {
     // single uploaded frame, so sampling that texture as a 12x120 sheet breaks the UVs.
     static final VanillaSpriteTexture INFINITE_ANIMATION = VanillaSpriteTexture.of(
         new ResourceLocation("neoecoae", "storage/infinity"));
-    // The infinite-capacity artwork is a 24x7 repeating crop in the widget atlas:
-    // two pink infinity glyphs followed by two light separator strokes. Repeat the
-    // crop horizontally so the atlas pixels keep their intended size in the 160px bar.
-    static final SpriteTexture INFINITE_CAPACITY_BAR = sprite(32, 79, 24, 7)
+    // Keep the central glyph at its native size; only the side filler repeats.
+    static final SpriteTexture INFINITE_CAPACITY_SYMBOL = sprite(32, 78, 16, 8);
+    // Repeat only the six solid line columns; keep the blank end columns at the outer edges and glyph.
+    static final SpriteTexture INFINITE_CAPACITY_FILL = sprite(48, 78, 8, 8)
+        .setBorder(1, 0, 1, 0)
         .setWrapMode(SpriteTexture.WrapMode.REPEAT);
     static final SpriteTexture HOST_ICON_BACKGROUND = sprite(0, 18, 16, 34);
     static final SpriteTexture TYPE_PANEL = sprite(0, 104, 68, 29);
@@ -53,6 +56,19 @@ final class StoragePanelTextures {
 
     static SpriteTexture sprite(int x, int y, int width, int height) {
         return NETextures.panelSprite(ATLAS).setSprite(x, y, width, height);
+    }
+
+    /** Copy a template's crop and style into this panel's atlas; never mutate shared constants. */
+    static SpriteTexture forTier(SpriteTexture template, Supplier<IECOTier> tier) {
+        IECOTier current = tier.get();
+        if (!ATLAS.equals(template.getImageLocation()) || current == null || current.getPanelAtlas("Storage-ATLAS") == null)
+            return template;
+        var sprite = NETextures.panelSprite(ATLAS, tier)
+            .setSprite(template.spritePosition.x, template.spritePosition.y, template.spriteSize.width, template.spriteSize.height)
+            .setBorder(template.borderLT.x, template.borderLT.y, template.borderRB.x, template.borderRB.y)
+            .setColor(template.getColor()).setWrapMode(template.getWrapMode());
+        sprite.copyTransform(template);
+        return sprite;
     }
 
     static SpriteTexture tier(int tier) {

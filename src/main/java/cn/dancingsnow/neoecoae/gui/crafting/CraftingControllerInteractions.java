@@ -1,6 +1,10 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.Part;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync;
 import cn.dancingsnow.neoecoae.gui.common.CraftingPlanningModeButton;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
@@ -32,6 +36,12 @@ final class CraftingControllerInteractions {
      * the geometry; the overload below remains for callers that still use the legacy helper.
      */
     static Button createModeButton(String mode, BooleanSupplier enabled, Runnable toggle) {
+        return createModeButton(mode, enabled, toggle, () -> null,
+            new HostPanelTextureSync(() -> null, HostPanelTextureState.Panel.CRAFTING));
+    }
+
+    static Button createModeButton(String mode, BooleanSupplier enabled, Runnable toggle,
+        Supplier<IECOTier> tier, HostPanelTextureSync textures) {
         Button button = new Button().noText().setOnServerClick(event -> {
             if (event.button == 0) toggle.run();
         });
@@ -41,10 +51,12 @@ final class CraftingControllerInteractions {
         button.addClass("eco-crafting-" + mode + "-button");
         BindableValue<Boolean> synced = new BindableValue<>(enabled.getAsBoolean());
         synced.bind(DataBindingBuilder.boolS2C(enabled::getAsBoolean).build());
-        synced.registerValueListener(value -> updateModeButtonStyle(button, Boolean.TRUE.equals(value)));
+        int index = "active_cooling".equals(mode) ? 0 : 1;
+        synced.registerValueListener(value -> updateModeButtonStyle(button, Boolean.TRUE.equals(value), index, tier, textures.get()));
+        textures.onChange(() -> updateModeButtonStyle(button, Boolean.TRUE.equals(synced.getValue()), index, tier, textures.get()));
         synced.setDisplay(false);
         button.addChild(synced);
-        updateModeButtonStyle(button, Boolean.TRUE.equals(synced.getValue()));
+        updateModeButtonStyle(button, Boolean.TRUE.equals(synced.getValue()), index, tier, textures.get());
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty().append(
             Component.translatable("gui.neoecoae.crafting." + mode
                 + (Boolean.TRUE.equals(synced.getValue()) ? ".on" : ".off"))));
@@ -58,10 +70,15 @@ final class CraftingControllerInteractions {
         return button;
     }
 
-    private static void updateModeButtonStyle(Button button, boolean enabled) {
+    private static void updateModeButtonStyle(Button button, boolean enabled, int index, Supplier<IECOTier> tier,
+        HostPanelTextureState textures) {
         int sourceX = enabled ? 0 : 30;
-        IGuiTexture normal = NETextures.Crafting.widget(sourceX, 89, 15, 26);
-        IGuiTexture hovered = NETextures.Crafting.widget(sourceX + 15, 89, 15, 26);
+        var normalImage = textures.texture(Part.CRAFTING_MODE, index, enabled, false);
+        var hoverImage = textures.texture(Part.CRAFTING_MODE, index, enabled, true);
+        IGuiTexture normal = normalImage == null ? NETextures.Crafting.widget(sourceX, 89, 15, 26, tier)
+            : SpriteTexture.of(normalImage).setSprite(0, 0, 15, 26);
+        IGuiTexture hovered = hoverImage == null ? NETextures.Crafting.widget(sourceX + 15, 89, 15, 26, tier)
+            : SpriteTexture.of(hoverImage).setSprite(0, 0, 15, 26);
         button.buttonStyle(style -> style.baseTexture(normal).hoverTexture(hovered).pressedTexture(hovered));
     }
 
