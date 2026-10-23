@@ -14,6 +14,7 @@ These guides cover the Minecraft 1.21.1 / NeoForge source tree. Build versions a
 | JSON UI resources / JSON 界面资源 | — | [UI JSON](UI_JSON_ZH_CN.md) |
 | AE2LT and Thunderbolt crafting integration / 天枢与闪电合成互通 | — | [合成互通约定](AE2LT_THUNDERBOLT_INTEROP_ZH_CN.md) |
 | Bigger AE2 storage cells / Bigger AE2 存储矩阵 | — | [存储矩阵联动](BIGGER_AE2_INTEGRATION_ZH_CN.md) |
+| Storage scanning and terminal synchronization / 存储扫描与终端同步优化 | — | [性能与网络优化](STORAGE_NETWORK_OPTIMIZATION_ZH_CN.md) |
 
 Start with the API guide to request a calculation, submit a job, or integrate a provider/storage cell. Read the planner guide for routes, byproducts, seeds, reusable inputs, cycles, exact amounts, and diagnostics. Java examples are integration skeletons; provide machine transactions and permission checks, register integrations once, and mutate gameplay state on the owning server thread.
 
