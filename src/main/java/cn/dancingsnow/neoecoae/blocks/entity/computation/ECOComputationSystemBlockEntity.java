@@ -25,6 +25,7 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
+import cn.dancingsnow.neoecoae.gui.common.MultiblockBuildUI;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
@@ -126,7 +127,8 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         ComputationControllerUI.Config panelConfig = createComputationPanelConfig(holder.player);
         UIElement root = ComputationControllerUI.create(panelConfig,
             this::getComputationControllerPanelState,
-            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"), this::getTier, this::getBlockState);
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"), this::getTier, this::getBlockState,
+            MultiblockBuildUI.create(this, holder.player));
         return ECOModularUI.create(root, holder.player);
     }
 

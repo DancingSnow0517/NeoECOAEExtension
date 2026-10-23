@@ -74,15 +74,18 @@ public final class MultiBlockBuildController {
         changeBuildLength(player, -1);
     }
 
-    private void changeBuildLength(Player player, int delta) {
+    public void changeBuildLength(Player player, int delta) {
+        setBuildLength(player, JdkCompat.clamp(
+            (long) host.getSelectedBuildLength() + delta, host.getMinBuildLength(), host.getMaxBuildLength()));
+    }
+
+    public void setBuildLength(Player player, int length) {
         if (!host.canPlayerInteract(player) || host.isBuildInProgress()) {
             return;
         }
-        host.setSelectedBuildLength(JdkCompat.clamp(
-            host.getSelectedBuildLength() + delta,
-            host.getMinBuildLength(),
-            host.getMaxBuildLength()
-        ));
+        int clamped = JdkCompat.clamp(length, host.getMinBuildLength(), host.getMaxBuildLength());
+        if (clamped == host.getSelectedBuildLength()) return;
+        host.setSelectedBuildLength(clamped);
         host.buildStateChanged();
     }
 

@@ -1,0 +1,47 @@
+{
+  "type": "element",
+  "id": "multiblock-build-root",
+  "layout": { "position": "absolute", "left": 6, "top": 6, "width": 176, "height": 96 },
+  "overflow": "visible",
+  "texture": { "location": "neoecoae:textures/guis/priority.png", "sprite": [0, 0, 176, 125] },
+  "children": [
+    {
+      "type": "custom", "name": "drag_bar", "id": "multiblock-build-heading",
+      "layout": { "position": "absolute", "left": 0, "top": 0, "width": 176, "height": 20 },
+      "children": [
+        { "type": "label", "id": "multiblock-build-length-label", "text": "gui.neoecoae.multiblock.length_label", "translate": true,
+          "layout": { "position": "absolute", "left": 8, "top": 8, "width": 140, "height": 10 } },
+        { "type": "custom", "name": "back", "id": "multiblock-build-back",
+          "layout": { "position": "absolute", "left": 152, "top": -5, "width": 20, "height": 20 } }
+      ]
+    },
+    { "type": "custom", "name": "length_field", "id": "multiblock-build-length",
+      "layout": { "position": "absolute", "left": 8, "top": 24, "width": 160, "height": 12 } },
+    {
+      "type": "element", "id": "multiblock-build-length-buttons",
+      "layout": { "position": "absolute", "left": 8, "top": 42, "width": 160, "height": 20 },
+      "children": [
+        { "type": "custom", "name": "length_step", "id": "multiblock-build-minus-ten", "step": -10,
+          "layout": { "position": "absolute", "left": 0, "top": 0, "width": 37, "height": 20 } },
+        { "type": "custom", "name": "length_step", "id": "multiblock-build-minus-one", "step": -1,
+          "layout": { "position": "absolute", "left": 41, "top": 0, "width": 37, "height": 20 } },
+        { "type": "custom", "name": "length_step", "id": "multiblock-build-plus-one", "step": 1,
+          "layout": { "position": "absolute", "left": 82, "top": 0, "width": 37, "height": 20 } },
+        { "type": "custom", "name": "length_step", "id": "multiblock-build-plus-ten", "step": 10,
+          "layout": { "position": "absolute", "left": 123, "top": 0, "width": 37, "height": 20 } }
+      ]
+    },
+    {
+      "type": "element", "id": "multiblock-build-actions",
+      "layout": { "position": "absolute", "left": 8, "top": 68, "width": 160, "height": 20 },
+      "children": [
+        { "type": "label", "id": "multiblock-build-mirror-label", "text": "gui.neoecoae.multiblock.mirror", "translate": true,
+          "layout": { "position": "absolute", "left": 0, "top": 6, "width": 34, "height": 12 } },
+        { "type": "custom", "name": "mirror", "id": "multiblock-build-mirror",
+          "layout": { "position": "absolute", "left": 38, "top": 4, "width": 22, "height": 12 } },
+        { "type": "custom", "name": "build", "id": "multiblock-build-start",
+          "layout": { "position": "absolute", "left": 82, "top": 0, "width": 78, "height": 20 } }
+      ]
+    }
+  ]
+}

@@ -39,6 +39,7 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
+import cn.dancingsnow.neoecoae.gui.common.MultiblockBuildUI;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
@@ -870,7 +871,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         CraftingHostPanelUI.Config panelConfig = createCraftingPanelConfig(holder.player);
         UIElement root = CraftingHostPanelUI.create(panelConfig,
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/crafting_system.md"),
-            this::getMaintenanceStatusTooltip, this::getTier, this::getBlockState);
+            this::getMaintenanceStatusTooltip, this::getTier, this::getBlockState,
+            MultiblockBuildUI.create(this, holder.player));
         return ECOModularUI.create(root, holder.player);
     }
 

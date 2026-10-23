@@ -144,6 +144,7 @@
   "gui.neoecoae.multiblock.increase_length": "增加長度",
   "gui.neoecoae.multiblock.item_required": "需要: %d",
   "gui.neoecoae.multiblock.length": "長度: %d",
+  "gui.neoecoae.multiblock.length_label": "長度",
   "gui.neoecoae.multiblock.live_result": "即時結果",
   "gui.neoecoae.multiblock.material_enough": "材料充足",
   "gui.neoecoae.multiblock.material_missing": "材料不足",

@@ -15,5 +15,6 @@
   },
   "workstation_variants": ["regular", "advanced_ae", "extendedae", "ae2lt"],
   "retained_addons": ["advanced_ae", "expatternprovider", "extendedae_plus", "ae2lt"],
-  "machine_ui_auto_build_button": false
+  "machine_ui_auto_build_button": true,
+  "machine_ui_auto_build_scope": "2026-10-23 user request: four-row settings subwindow on crafting, storage and computation hosts; mirror switch and build action share the fourth row."
 }

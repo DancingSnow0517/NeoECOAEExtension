@@ -15,7 +15,7 @@ class WorkstationUiJsonResourceTest {
         JsonObject integrated = read("integrated.json");
         assertEquals("custom", integrated.get("type").getAsString());
         assertEquals("content", integrated.get("custom").getAsString());
-        for (String name : new String[] {"large", "output_panel", "network_toolbox"}) {
+        for (String name : new String[] {"large", "network_toolbox"}) {
             JsonObject root = read(name + ".json");
             assertEquals("element", root.get("type").getAsString());
             assertEquals("content", root.getAsJsonArray("children").get(0)

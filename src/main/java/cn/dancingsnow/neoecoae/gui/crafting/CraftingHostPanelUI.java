@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.common.MultiblockBuildUI;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import com.google.gson.JsonObject;
@@ -177,12 +178,20 @@ public final class CraftingHostPanelUI {
     public static UIElement create(Config config, UIElement guide,
         Supplier<Component> maintenanceStatus, Supplier<IECOTier> panelTier,
         Supplier<BlockState> hostState) {
+        return create(config, guide, maintenanceStatus, panelTier, hostState, null);
+    }
+
+    public static UIElement create(Config config, UIElement guide,
+        Supplier<Component> maintenanceStatus, Supplier<IECOTier> panelTier,
+        Supplier<BlockState> hostState, MultiblockBuildUI.Elements builder) {
         UIElement root = create(config, panelTier, hostState);
         List<UIElement> buttons = new ArrayList<>();
         buttons.add(guide);
         buttons.addAll(createToolbarButtons(config));
+        if (builder != null) buttons.add(builder.openButton());
         root.addChild(HostSideButtonBar.grayLeft(buttons.toArray(UIElement[]::new)));
         root.addChild(createMaintenanceStatusIcon(maintenanceStatus));
+        if (builder != null) root.addChild(builder.window());
         return root;
     }
 

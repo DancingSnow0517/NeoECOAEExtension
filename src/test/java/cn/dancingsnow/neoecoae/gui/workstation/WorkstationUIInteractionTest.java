@@ -25,7 +25,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.FluidSlot;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Toggle;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IBindable;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.inventory.InventorySlots;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
@@ -52,7 +52,10 @@ import org.junit.jupiter.api.Test;
 class WorkstationUIInteractionTest {
     @BeforeAll
     static void bootstrap() throws ClassNotFoundException {
-        InventoryTestBootstrap.initialize();
+        try (var aeConfig = mockStatic(appeng.core.AEConfig.class)) {
+            aeConfig.when(appeng.core.AEConfig::instance).thenReturn(mock(appeng.core.AEConfig.class));
+            InventoryTestBootstrap.initialize();
+        }
         try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {
             ModList modList = mock(ModList.class);
             when(modList.getAllScanData()).thenReturn(List.of());
@@ -538,26 +541,140 @@ class WorkstationUIInteractionTest {
             List<RelativeSide> clicked = new ArrayList<>();
             UIElement panel = WorkstationOutputPanel.create(config(new FluidTank(1_000),
                 new FluidTank(1_000), enabled, clicked));
-            List<Toggle> toggles = collect(panel, Toggle.class);
+            List<Button> buttons = panel.query(".workstation-output-side").stream().map(Button.class::cast).toList();
             List<RelativeSide> expected = List.of(RelativeSide.TOP, RelativeSide.RIGHT,
                 RelativeSide.FRONT, RelativeSide.LEFT, RelativeSide.BOTTOM, RelativeSide.BACK);
-            assertEquals(expected.size(), toggles.size());
-            for (int index = 0; index < toggles.size(); index++) {
-                Toggle toggle = toggles.get(index);
+            assertEquals(expected.size(), buttons.size());
+            for (int index = 0; index < buttons.size(); index++) {
+                Button button = buttons.get(index);
                 RelativeSide side = expected.get(index);
                 UIEvent click = new UIEvent(UIEvents.MOUSE_DOWN,null,0,0,0);
                 click.button = 0;
-                cn.dancingsnow.neoecoae.util.UiTestSupport.serverClick(toggle.toggleButton,click);
+                cn.dancingsnow.neoecoae.util.UiTestSupport.serverClick(button,click);
                 assertTrue(enabled.contains(side));
-                toggle.setValue(true);
+                receiveOutputState(button, true);
                 UIEvent hover = new UIEvent(UIEvents.HOVER_TOOLTIPS,null,0,0,0);
-                hover.target = toggle;
+                hover.target = button;
                 hover.target.dispatchEvent(hover);
                 assertEquals("gui.neoecoae.integrated_working_station.allow_outputs.enabled",
                     cn.dancingsnow.neoecoae.platform.JdkCompat.last(hover.hoverTooltips.tooltips()).getString());
             }
             assertEquals(expected, clicked);
         }
+    }
+
+    @Test
+    void outputPanelCanBeClosedAndReopenedThroughMouseClicks() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            UIElement panel = WorkstationOutputPanel.create(config(new FluidTank(1_000), new FluidTank(1_000),
+                EnumSet.noneOf(RelativeSide.class), new ArrayList<>()));
+            Button open = WorkstationOutputPanel.createOpenButton(panel);
+            open.layout(layout -> layout.positionType(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition.ABSOLUTE)
+                .left(-20).top(0).width(18).height(20));
+            UIElement root = new UIElement().layout(layout -> layout.width(176).height(190));
+            root.setOverflowVisible(true);
+            root.addChildren(open, panel);
+            ModularUI ui = cn.dancingsnow.neoecoae.util.UiTestSupport.createUI(UI.of(root));
+            cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui, 640, 480);
+            assertFalse(panel.isVisible());
+            UIElement back = panel.getElementsById("workstation_output_back").get(0);
+            for (int attempt = 0; attempt < 3; attempt++) {
+                mouseClick(root, open);
+                root.arrange();
+                assertTrue(panel.isVisible());
+                assertEquals(6, panel.query(".workstation-output-side").stream().filter(UIElement::isVisible).count());
+                UIElement topSide = panel.query(".workstation-output-side").get(0);
+                boolean wasAllowed = (Boolean) ((IBindable<?>) topSide).getValue();
+                mouseClick(root, topSide);
+                assertEquals(!wasAllowed, ((IBindable<?>) topSide).getValue(), "A mouse click updates the visible output state immediately");
+                mouseClick(root, back);
+                root.arrange();
+                assertFalse(panel.isVisible());
+            }
+        }
+    }
+
+    @Test
+    void outputPanelKeepsNativeGeometryAfterScreenResize() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            UIElement panel = WorkstationOutputPanel.create(config(new FluidTank(1_000), new FluidTank(1_000),
+                EnumSet.noneOf(RelativeSide.class), new ArrayList<>()));
+            UIElement root = new UIElement().layout(layout -> layout.width(176).height(190)).addChild(panel);
+            panel.layout(layout -> layout.display(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyDisplay.FLEX));
+            ModularUI ui = cn.dancingsnow.neoecoae.util.UiTestSupport.createUI(UI.of(root));
+            List<UIElement> buttons = panel.query(".workstation-output-side");
+            int[] x = {78, 38, 78, 118, 78, 118};
+            int[] y = {23, 55, 55, 55, 87, 87};
+            for (int width : List.of(640, 800)) {
+                cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui, width, 480);
+                assertEquals(176, panel.getSizeWidth());
+                assertEquals(125, panel.getSizeHeight());
+                assertEquals(root.getPositionX() + 6, panel.getPositionX());
+                assertEquals(root.getPositionY() + 6, panel.getPositionY());
+                for (int index = 0; index < buttons.size(); index++) {
+                    UIElement button = buttons.get(index);
+                    assertEquals(panel.getPositionX() + x[index], button.getPositionX());
+                    assertEquals(panel.getPositionY() + y[index], button.getPositionY());
+                    assertEquals(20, button.getSizeWidth());
+                    assertEquals(20, button.getSizeHeight());
+                    assertSame(button, root.hitTest(button.getPositionX() + 10, button.getPositionY() + 10));
+                }
+            }
+        }
+    }
+
+    @Test
+    void outputStateUpdatesChangeAe2ButtonAndFallbackIconWithoutServerActions() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            EnumSet<RelativeSide> enabled = EnumSet.of(RelativeSide.TOP);
+            List<RelativeSide> clicked = new ArrayList<>();
+            UIElement panel = WorkstationOutputPanel.create(config(new FluidTank(1_000), new FluidTank(1_000),
+                enabled, clicked));
+            panel.layout(layout -> layout.display(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyDisplay.FLEX));
+            panel.arrange();
+            Button button = (Button) panel.query(".workstation-output-side").get(0);
+            assertEquals(true, ((IBindable<?>) button).getValue());
+            GUIContext context = mock(GUIContext.class);
+            button.drawBackgroundAdditional(context);
+            verify(context).drawTexture(same(NETextures.AE2_BUTTON_HIGHLIGHTED),
+                eq((float) button.getPositionX()), eq((float) button.getPositionY()), eq(20F), eq(20F));
+            verify(context).drawTexture(same(AETextures.icon(ECOIcon.AUTO_EXPORT_ON)),
+                eq(button.getPositionX() + 2F), eq(button.getPositionY() + 1F), eq(16F), eq(16F));
+
+            receiveOutputState(button, false);
+            assertEquals(false, ((IBindable<?>) button).getValue());
+            assertFalse(enabled.contains(RelativeSide.TOP));
+            assertTrue(clicked.isEmpty(), "Receiving server state must not send another toggle action");
+            context = mock(GUIContext.class);
+            button.drawBackgroundAdditional(context);
+            verify(context).drawTexture(same(NETextures.AE2_BUTTON),
+                eq((float) button.getPositionX()), eq((float) button.getPositionY()), eq(20F), eq(20F));
+            verify(context).drawTexture(same(AETextures.icon(ECOIcon.AUTO_EXPORT_OFF)),
+                eq(button.getPositionX() + 2F), eq(button.getPositionY() + 1F), eq(16F), eq(16F));
+            assertEquals("gui.neoecoae.integrated_working_station.allow_outputs.disabled",
+                cn.dancingsnow.neoecoae.platform.JdkCompat.last(button.collectHoverTooltips().tooltips()).getString());
+        }
+    }
+
+    private static void receiveOutputState(Button button, boolean allowed) {
+        var buffer = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+        try {
+            buffer.writeVarInt(0);
+            cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.ValueWire.write(buffer, Boolean.class, allowed);
+            button.readUpdateInfo(700, buffer);
+        } finally {
+            buffer.release();
+        }
+    }
+
+    private static void mouseClick(UIElement root, UIElement target) {
+        double x = target.getPositionX() + target.getSizeWidth() / 2.0;
+        double y = target.getPositionY() + target.getSizeHeight() / 2.0;
+        assertTrue(root.mouseClicked(x, y, 0));
+        assertTrue(root.mouseReleased(x, y, 0));
     }
 
     @Test

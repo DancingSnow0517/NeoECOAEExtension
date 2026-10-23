@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen;
+import cn.dancingsnow.neoecoae.client.gui.widget.NEAe2Button;
 import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
@@ -74,15 +75,21 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         cycleItems = new ECOCycleItemListRenderer(this, 237, 27);
         scrollbar = widgets.addScrollBar("scrollbar", cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG);
-        start = widgets.addButton("start", GuiText.Start.text(), this::start);
+        start = addTextButton("start", GuiText.Start.text(), this::start);
         start.active = false;
-        selectCPU = widgets.addButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
+        selectCPU = addTextButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
         selectCPU.active = false;
-        widgets.addButton("cancel", GuiText.Cancel.text(), menu::goBack);
-        bookmarkMissing = widgets.addButton("bookmarkMissing",
+        addTextButton("cancel", GuiText.Cancel.text(), menu::goBack);
+        bookmarkMissing = addTextButton("bookmarkMissing",
             Component.translatable("gui.neoecoae.crafting_report.bookmark_missing"), this::bookmarkMissing);
         bookmarkMissing.active = false;
         graph = addToLeftToolbar(new CraftingGraphButton(this::openGraph));
+    }
+
+    private Button addTextButton(String id, Component label, Runnable onPress) {
+        Button button = new NEAe2Button(label, ignored -> onPress.run());
+        widgets.add(id, button);
+        return button;
     }
 
     @Override protected void updateBeforeRender() {

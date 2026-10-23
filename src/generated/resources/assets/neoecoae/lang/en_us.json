@@ -567,6 +567,7 @@
   "gui.neoecoae.multiblock.increase_length": "Increase length",
   "gui.neoecoae.multiblock.item_required": "Required: %d",
   "gui.neoecoae.multiblock.length": "Length: %d",
+  "gui.neoecoae.multiblock.length_label": "Length",
   "gui.neoecoae.multiblock.live_result": "Live Result",
   "gui.neoecoae.multiblock.material_enough": "Enough materials",
   "gui.neoecoae.multiblock.material_missing": "Not enough materials",

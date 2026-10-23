@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.common.MultiblockBuildUI;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
@@ -95,6 +96,12 @@ public final class ComputationControllerUI {
     public static UIElement create(Config config, Supplier<ComputationControllerPanelState> panelState,
         UIElement guideButton, Supplier<IECOTier> panelTier,
         Supplier<BlockState> hostState) {
+        return create(config, panelState, guideButton, panelTier, hostState, null);
+    }
+
+    public static UIElement create(Config config, Supplier<ComputationControllerPanelState> panelState,
+        UIElement guideButton, Supplier<IECOTier> panelTier,
+        Supplier<BlockState> hostState, MultiblockBuildUI.Elements builder) {
         var textures = new HostPanelTextureSync(hostState, HostPanelTextureState.Panel.COMPUTATION);
         Button cpuMode = ComputationControllerInteractions.createCpuSelectionButton(config);
         cpuMode.setId("computation-cpu-mode");
@@ -153,7 +160,9 @@ public final class ComputationControllerUI {
                     case "computation_status" -> status;
                     case "computation_switch" -> createSwitch(config,
                         node.has("key") ? node.get("key").getAsString() : "", panelTier, textures);
-                    case "computation_toolbar" -> HostSideButtonBar.left(guideButton, cpuMode, frequency, listToggle);
+                    case "computation_toolbar" -> builder == null
+                        ? HostSideButtonBar.left(guideButton, cpuMode, frequency, listToggle)
+                        : HostSideButtonBar.left(guideButton, cpuMode, frequency, listToggle, builder.openButton());
                     case "computation_info" -> info;
                     default -> null;
                 };
@@ -173,6 +182,7 @@ public final class ComputationControllerUI {
         rootRef[0] = root;
         root.setOverflowVisible(true);
         root.addChild(textures);
+        if (builder != null) root.addChild(builder.window());
         return root;
     }
 

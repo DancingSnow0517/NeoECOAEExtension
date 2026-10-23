@@ -237,6 +237,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.decrease_length", "Decrease length");
         provider.add("gui.neoecoae.multiblock.increase_length", "Increase length");
         provider.add("gui.neoecoae.multiblock.length", "Length: %d");
+        provider.add("gui.neoecoae.multiblock.length_label", "Length");
         provider.add("gui.neoecoae.multiblock.mirror", "Mirror");
         provider.add("gui.neoecoae.multiblock.mirror.off", "Off");
         provider.add("gui.neoecoae.multiblock.mirror.on", "On");

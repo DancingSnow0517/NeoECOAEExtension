@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
+import cn.dancingsnow.neoecoae.gui.common.MultiblockBuildUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
@@ -304,7 +305,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 (position, expected) -> StorageCellUiInsertion.insert(this, holder.player, position, expected),
                 () -> new ItemStack(getBlockState().getBlock())
         ), this::getTier, this::getBlockState);
-        actionUI.addTo(root);
+        actionUI.addTo(root, MultiblockBuildUI.create(this, holder.player));
         return ECOModularUI.create(root, holder.player);
     }
 
