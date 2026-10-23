@@ -32,11 +32,11 @@ class CoolingControllerBakedModelTest {
 
     @Test
     void onlyTheTwentyFourFormedBlockVariantsMoveIntoSectionRendering() {
-        var models = new HashMap<ModelResourceLocation, BakedModel>();
+        var models = new HashMap<ResourceLocation, BakedModel>();
         BakedModel original = mock(BakedModel.class);
         for (String tier : List.of("l4", "l6", "l9")) {
             var id = new ResourceLocation("neoecoae", "computation_cooling_controller_" + tier);
-            models.put(ModelResourceLocation.inventory(id), original);
+            models.put(new ModelResourceLocation(id, "inventory"), original);
             for (String facing : List.of("north", "east", "south", "west")) {
                 for (boolean formed : List.of(false, true)) {
                     for (boolean mirrored : List.of(false, true)) {
@@ -51,7 +51,7 @@ class CoolingControllerBakedModelTest {
         assertEquals(24, models.values().stream().filter(CoolingControllerBakedModel.class::isInstance).count());
         assertSame(original, models.get(unrelated));
         for (var entry : models.entrySet()) {
-            assertEquals(entry.getKey().getVariant().contains("formed=true") && !entry.getKey().equals(unrelated),
+            assertEquals(((ModelResourceLocation) entry.getKey()).getVariant().contains("formed=true") && !entry.getKey().equals(unrelated),
                 entry.getValue() instanceof CoolingControllerBakedModel, entry.getKey().toString());
         }
     }
@@ -90,8 +90,8 @@ class CoolingControllerBakedModelTest {
         VertexConsumer glassOutput = mock(VertexConsumer.class);
         var pose = new PoseStack();
         wrapped.renderFixed(state, pose, layer -> layer == RenderType.cutout() ? opaqueOutput : glassOutput, 123, 456);
-        verify(opaqueOutput).putBulkData(pose.last(), opaque, 1F, 1F, 1F, 123, 456);
-        verify(glassOutput).putBulkData(pose.last(), glass, 1F, 1F, 1F, 123, 456);
+        verify(opaqueOutput).putBulkData(pose.last(), opaque, 1F, 1F, 1F, 1F, 123, 456, true);
+        verify(glassOutput).putBulkData(pose.last(), glass, 1F, 1F, 1F, 1F, 123, 456, true);
         verifyNoMoreInteractions(opaqueOutput, glassOutput);
     }
 }

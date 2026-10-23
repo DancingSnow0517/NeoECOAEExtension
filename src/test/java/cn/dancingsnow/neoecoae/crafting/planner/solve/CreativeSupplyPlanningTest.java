@@ -302,7 +302,7 @@ class CreativeSupplyPlanningTest {
 
     private static InfinityCellInventory extendedAeCell(AEKey key) {
         var item = mock(InfinityCell.class);
-        when(item.getRecord()).thenReturn(key);
+        when(item.getRecord(any(ItemStack.class))).thenReturn(key);
         return new InfinityCellInventory(cellStack(item));
     }
 
@@ -315,7 +315,7 @@ class CreativeSupplyPlanningTest {
     private static MockedStatic<ModList> optionalMods() {
         var mods = mock(ModList.class);
         when(mods.isLoaded("ae2lt")).thenReturn(true);
-        when(mods.isLoaded("extendedae")).thenReturn(true);
+        when(mods.isLoaded("expatternprovider")).thenReturn(true);
         var mocked = mockStatic(ModList.class);
         mocked.when(ModList::get).thenReturn(mods);
         return mocked;

@@ -72,7 +72,7 @@ class StorageInterfaceUiTest {
             ldlib.when(LDLib::isRemote).thenReturn(true);
             var host = host();
             UIElement root = StorageInterfaceUI.createRoot(host, player(), () -> Long.MAX_VALUE);
-            assertEquals(TaffyPosition.RELATIVE, root.getLayout().getValueImmediate(LayoutProperties.POSITION));
+            assertEquals(TaffyPosition.RELATIVE, root.getLayoutStyle().position);
             assertEquals((float)(176), root.getLayoutStyle().width);
             assertEquals((float)(218), root.getLayoutStyle().height);
             SpriteTexture texture = (SpriteTexture) node(root, "background").getStyle().backgroundTexture();
@@ -96,7 +96,7 @@ class StorageInterfaceUiTest {
             for (String id : List.of("title", "mode_caption", "structure_status", "network_status",
                 "transfer_status", "filter_caption", "filter_hint")) {
                 Label text = (Label) node(root, id);
-                assertEquals(6F, text.getTextStyle().getValueImmediate(PropertyRegistry.FONT_SIZE), 0.001F);
+                assertEquals(6F, text.getTextStyle().fontSize(), 0.001F);
             }
         }
     }
@@ -173,10 +173,10 @@ class StorageInterfaceUiTest {
                     assertEquals((float)(32), element.getLayoutStyle().top);
                     assertEquals((float)(18), element.getLayoutStyle().height);
                     Button drawing = spy(element);
-                    doReturn(209F).when(drawing).getPositionX();
-                    doReturn(240F).when(drawing).getPositionY();
-                    doReturn(16F).when(drawing).getSizeWidth();
-                    doReturn(18F).when(drawing).getSizeHeight();
+                    doReturn(209).when(drawing).getPositionX();
+                    doReturn(240).when(drawing).getPositionY();
+                    doReturn(16).when(drawing).getSizeWidth();
+                    doReturn(18).when(drawing).getSizeHeight();
                     for (Button.State state : Button.State.values()) {
                         doReturn(state).when(drawing).getState();
                         SpriteTexture texture = switch (state) {
@@ -322,7 +322,9 @@ class StorageInterfaceUiTest {
 
     private static Player player() {
         Player player = mock(Player.class);
-        when(player.level().registryAccess()).thenReturn(RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
+        var level = mock(Level.class);
+        when(player.level()).thenReturn(level);
+        when(level.registryAccess()).thenReturn(RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
         return player;
     }
 

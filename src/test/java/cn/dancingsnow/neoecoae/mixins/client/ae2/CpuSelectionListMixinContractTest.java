@@ -56,7 +56,7 @@ class CpuSelectionListMixinContractTest {
     @Test
     void storageWrapTargetsReleasedAe2Call() throws IOException, NoSuchMethodException {
         var mixinMethod = CpuSelectionListMixin.class.getDeclaredMethod(
-                "wrapStorageAdd", InfoBar.class, String.class, int.class, float.class, int.class, int.class,
+                "wrapStorageAdd", InfoBar.class, String.class, int.class, float.class,
                 com.llamalad7.mixinextras.injector.wrapoperation.Operation.class,
                 CraftingStatusMenu.CraftingCpuListEntry.class);
         WrapOperation wrap = mixinMethod.getAnnotation(WrapOperation.class);

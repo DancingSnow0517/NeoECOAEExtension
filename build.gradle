@@ -77,6 +77,14 @@ repositories {
     }
 }
 
+// The headless render tests use Minecraft 1.20.1's LWJGL without opening a game window.
+def hostOs = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+def hostArch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+def lwjglNatives = hostOs.contains('windows') ? 'natives-windows' :
+    hostOs.contains('mac') ? 'natives-macos' : 'natives-linux'
+if (hostArch in ['aarch64', 'arm64']) lwjglNatives += '-arm64'
+else if (hostArch in ['x86', 'i386'] && hostOs.contains('windows')) lwjglNatives += '-x86'
+
 dependencies {
     ['ae2', 'guideme', 'ldlib'].each { modImplementation pinned(it) }
     ['advanced_ae', 'expatternprovider', 'extendedae_plus', 'ae2lt', 'thunderbolt',
@@ -96,6 +104,9 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:5.15.2'
     testImplementation 'org.slf4j:slf4j-api:2.0.16'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    ['lwjgl', 'lwjgl-glfw', 'lwjgl-opengl', 'lwjgl-stb'].each {
+        testRuntimeOnly "org.lwjgl:${it}:3.3.1:${lwjglNatives}"
+    }
     modCompileOnly 'mezz.jei:jei-1.20.1-forge-api:15.48.0.177'
     modCompileOnly 'mezz.jei:jei-1.20.1-common-api:15.48.0.177'
     modCompileOnly 'dev.emi:emi-forge:1.1.24+1.20.1:api'
@@ -150,6 +161,7 @@ mixin {
 }
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += files(layout.buildDirectory.file("moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar"))
 
 // Compile a small, explicitly named set of real platform-independent production contracts.
 // This does not exclude any main sources or imply that the full port currently compiles.
@@ -221,7 +233,7 @@ sourceSets {
     portingPlatformTest {
         compileClasspath += sourceSets.portingPlatform.output + sourceSets.portingPlatform.compileClasspath
         runtimeClasspath += sourceSets.portingPlatform.output + sourceSets.portingPlatform.runtimeClasspath
-        runtimeClasspath += files("build/moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar")
+        runtimeClasspath += files(layout.buildDirectory.file("moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar"))
     }
     upstreamSyncTest {
         java.srcDir 'src/test/java'
@@ -229,7 +241,7 @@ sourceSets {
             .findAll { !it.isBlank() && !it.startsWith('#') }
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
         runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
-        runtimeClasspath += files("build/moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar")
+        runtimeClasspath += files(layout.buildDirectory.file("moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar"))
     }
 }
 configurations.portingContractsTestImplementation.extendsFrom configurations.testImplementation

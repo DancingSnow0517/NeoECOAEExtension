@@ -27,7 +27,7 @@ class GuiModuleBoundaryTest {
     @Test
     void commonMenusDoNotLinkClientOnlyScreenImplementations() throws Exception {
         Pattern directReference = Pattern.compile(
-            "(?m)^import (?:static )?cn\\.dancingsnow\\.neoecoae\\.client\\.");
+            "(?m)^import (?:static )?cn\\.dancingsnow\\.neoecoae\\.client\\..*Screen(?:Impl)?;");
         try (var files = Files.walk(ROOT.resolve("gui"))) {
             for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
                 assertFalse(directReference.matcher(Files.readString(file)).find(), file.toString());

@@ -203,7 +203,7 @@ class ECOExactInventoryLifecycleTest {
         be.packExactInventories(item);
         assertTrue(packed.get(0));
         assertFalse(packed.get(1));
-        verify(ordinaryCpu, never()).writeToNBT(any(), any());
+        verify(ordinaryCpu, never()).writeToNBT(any());
         var placed = mock(cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity.class);
         setField(placed, "cpus", new ECOCraftingCPU[2]);
         var restoredSlots = new CompoundTag[2];

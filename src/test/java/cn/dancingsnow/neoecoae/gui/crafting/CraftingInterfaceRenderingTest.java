@@ -15,13 +15,11 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import com.mojang.blaze3d.vertex.PoseStack;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
@@ -219,25 +217,32 @@ class CraftingInterfaceRenderingTest {
         var state = mock(CraftingPatternPreviewState.class);
         var scrollbar = CraftingInterfaceUI.patternPreviewScrollbar(state);
         var context = mock(GUIContext.class);
-        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"graphics",mock(GuiGraphics.class));
-        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"pose",mock(PoseStack.class));
-        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"pose",mock(PoseStack.class));
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context, "pose", spy(new PoseStack()));
+        when(context.graphics.pose()).thenReturn(context.pose);
+        var tessellator = mock(com.mojang.blaze3d.vertex.Tesselator.class);
+        var vertices = mock(com.mojang.blaze3d.vertex.BufferBuilder.class, RETURNS_SELF);
+        when(tessellator.getBuilder()).thenReturn(vertices);
+        try (var render = mockStatic(com.mojang.blaze3d.systems.RenderSystem.class);
+             var buffers = mockStatic(com.mojang.blaze3d.vertex.Tesselator.class)) {
+            buffers.when(com.mojang.blaze3d.vertex.Tesselator::getInstance).thenReturn(tessellator);
+            // Exercise the actual AE2 blitter while keeping OpenGL outside this headless test.
+            scrollbar.drawBackgroundAdditional(context);
+            verify(vertices, atLeastOnce()).uv(12F / 256, 0F);
+            assertEquals(12, cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG.disabledBlitter().getSrcWidth());
+            assertEquals(15, cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG.disabledBlitter().getSrcHeight());
+            clearInvocations(vertices);
 
-        // Empty and single-page lists still draw AE2's disabled handle.
-        scrollbar.drawBackgroundAdditional(context);
-        verify(context.graphics).blitSprite(new ResourceLocation("ae2", "big_scroller_disabled"),
-                1, 1, 12, 15);
+            when(state.getMaxScrollOffset()).thenReturn(54.0);
+            when(state.getScrollOffset()).thenReturn(54.0);
+            scrollbar.drawBackgroundAdditional(context);
+            verify(vertices, atLeastOnce()).uv(0F, 0F);
+            verify(context.pose).translate(0F, 91F, 0F);
 
-        when(state.getMaxScrollOffset()).thenReturn(54.0);
-        when(state.getScrollOffset()).thenReturn(54.0);
-        scrollbar.drawBackgroundAdditional(context);
-        verify(context.graphics).blitSprite(new ResourceLocation("ae2", "big_scroller"),
-                1, 1, 12, 15);
-        verify(context.pose).translate(0F, 91F, 0F);
-
-        when(state.getScrollOffset()).thenReturn(9.5);
-        scrollbar.drawBackgroundAdditional(context);
-        verify(context.pose).translate(0F, 91F * (float) (9.5 / 54), 0F);
+            when(state.getScrollOffset()).thenReturn(9.5);
+            scrollbar.drawBackgroundAdditional(context);
+            verify(context.pose).translate(0F, 91F * (float) (9.5 / 54), 0F);
+        }
     }
 
     @Test void operationIndicatorDistinguishesServerOperationsAndRendersTheHoverRowWithoutStretching() throws Exception {
@@ -257,8 +262,8 @@ class CraftingInterfaceRenderingTest {
         organize.setBoolean(host, false);
         assertEquals(0, new CraftingInterfaceUI.PatternOperationIndicator(host).getValue());
 
-        doReturn(301F).when(indicator).getPositionX();
-        doReturn(84F).when(indicator).getPositionY();
+        doReturn(301).when(indicator).getPositionX();
+        doReturn(84).when(indicator).getPositionY();
         var context = mock(GUIContext.class);
         for (int state = 0; state < 3; state++) {
             final int spriteX = 8 + state * 10;
@@ -279,28 +284,24 @@ class CraftingInterfaceRenderingTest {
     }
 
     @Test void occupiedPreviewUsesTheContinuousRowInsteadOfCoveringItsGridWithAnotherSprite() {
-        var state = mock(CraftingPatternPreviewState.class);
-        when(state.createSlot(anyInt())).thenAnswer(call -> new PatternItemSlot());
-        var preview = CraftingInterfaceUI.patternPreview(state);
-        var slot = spy((PatternItemSlot) cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren()));
-        cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(slot);
-        var item = new ItemStack(Items.DIAMOND);
-        slot.setValue(item, false);
-        doReturn(16F).when(slot).getContentWidth();
-        doReturn(16F).when(slot).getContentHeight();
-        var context = mock(GUIContext.class);
-        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"graphics",mock(GuiGraphics.class));
-        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context,"pose",mock(PoseStack.class));
-        context.elementColor = -1;
         var order = new ArrayList<String>();
+        var state = mock(CraftingPatternPreviewState.class);
+        when(state.createSlot(anyInt())).thenAnswer(call -> new PatternItemSlot() {
+            @Override protected void drawItemStack(GUIContext context, ItemStack item) { order.add("item"); }
+        });
+        var preview = CraftingInterfaceUI.patternPreview(state);
+        var slot = (PatternItemSlot) preview.getChildren().get(0);
+        cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(slot);
+        slot.setValue(new ItemStack(Items.DIAMOND), false);
+        var context = mock(GUIContext.class);
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
+        when(context.graphics.pose()).thenReturn(new PoseStack());
         doAnswer(call -> { order.add("backdrop"); return null; }).when(context)
             .drawTexture(NETextures.PATTERN_MANAGER_SLOT, 0F, 0F, 16F, 16F);
-        try (var drawer = mockStatic(DrawerHelper.class)) {
-            drawer.when(() -> DrawerHelper.drawItemStack(context.graphics, item, 0, 0, -1, null))
-                .thenAnswer(call -> { order.add("item"); return null; });
-            slot.drawBackgroundAdditional(context);
-            assertEquals(List.of("item"), order);
-        }
+        slot.drawBackgroundAdditional(context);
+        slot.widgets.get(0).drawInBackground(context.graphics, 0, 0, 0);
+        assertEquals(List.of("item"), order);
+        assertSame(IGuiTexture.EMPTY, slot.getStyle().backgroundTexture());
     }
 
     @Test void gridRowsFillEmptyCellsAndMoveWithTheFractionalOffset() {

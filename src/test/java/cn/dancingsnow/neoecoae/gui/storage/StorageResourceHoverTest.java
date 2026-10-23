@@ -216,10 +216,10 @@ class StorageResourceHoverTest {
 
     private static UIElement positioned(UIElement root, String id) {
         UIElement bar = spy(root.selectId(id).findFirst().orElseThrow());
-        doReturn(208F).when(bar).getPositionX();
-        doReturn(334F).when(bar).getPositionY();
-        doReturn(160F).when(bar).getSizeWidth();
-        doReturn(8F).when(bar).getSizeHeight();
+        doReturn(208).when(bar).getPositionX();
+        doReturn(334).when(bar).getPositionY();
+        doReturn(160).when(bar).getSizeWidth();
+        doReturn(8).when(bar).getSizeHeight();
         doReturn(true).when(bar).isHover();
         HostProgressTestSupport.drawAfterOpening(bar, mock(GUIContext.class));
         return bar;

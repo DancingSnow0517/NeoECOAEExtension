@@ -11,8 +11,8 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Checks the actual dependency bytecode at the call site that crashed with JEI 19.52. */
 class LDLibJeiCompatibilityTest {
     @Test
-    void itemLookupCreatesTypedIngredientsWithoutLinkingJeiInternals() throws IOException {
-        String path = "/com/lowdragmc/lowdraglib2/gui/ui/elements/ItemSlot$JEISupport.class";
+    void phantomLookupUsesPublicTypedIngredientsWithoutLinkingJeiInternals() throws IOException {
+        String path = "/cn/dancingsnow/neoecoae/platform/ui/runtime/gui/ui/elements/ItemSlot$NativeSlot.class";
         try (var stream = getClass().getResourceAsStream(path)) {
             assertNotNull(stream);
             ClassNode type = new ClassNode();
@@ -22,11 +22,12 @@ class LDLibJeiCompatibilityTest {
                 for (var instruction : method.instructions) {
                     if (instruction instanceof MethodInsnNode call) {
                         assertFalse(call.owner.startsWith("mezz/jei/library/"), call.owner);
-                        publicFactory |= call.name.equals("createTypedIngredient");
+                        publicFactory |= call.owner.equals("mezz/jei/api/ingredients/ITypedIngredient")
+                            && call.name.equals("getItemStack");
                     }
                 }
             }
-            assertTrue(publicFactory, "Item lookup must create ingredients through the supported JEI API");
+            assertTrue(publicFactory, "Phantom lookup must use the supported JEI API");
         }
     }
 }

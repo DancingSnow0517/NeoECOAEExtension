@@ -94,6 +94,7 @@ class CraftingPatternPreviewStateTest {
         var menu = mock(ModularUIContainer.class);
         setField(menu, "containerId", 42);
         var nativeUi=mock(com.lowdragmc.lowdraglib.gui.modular.ModularUI.class);
+        when(f.player.level().getBlockState(BlockPos.ZERO)).thenReturn(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         setField(nativeUi,"holder",new BlockUIMenuType.BlockUIHolder(f.player,BlockPos.ZERO));
         when(menu.getModularUI()).thenReturn(nativeUi);
         f.player.containerMenu = menu;
@@ -127,9 +128,8 @@ class CraftingPatternPreviewStateTest {
         assertTrue(preview.getChildren().get(54).isVisible());
         var first = cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren());
         cn.dancingsnow.neoecoae.util.UiTestSupport.restyle(first);
-        double[] point = {0, 0};
-        first.getStyle().transform2D().inversePoint(first, point);
-        assertEquals(state.getScrollOffset(), point[1], 1e-5);
+        assertEquals(-state.getScrollOffset(),
+            cn.dancingsnow.neoecoae.util.UiTestSupport.translationY(first), 1e-5);
 
         state.stopScrolling();
         double clickedAt = state.getScrollOffset();

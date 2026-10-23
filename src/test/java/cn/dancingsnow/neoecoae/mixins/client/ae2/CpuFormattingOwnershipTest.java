@@ -21,7 +21,6 @@ import io.netty.buffer.Unpooled;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -50,16 +49,16 @@ class CpuFormattingOwnershipTest {
             if (eco) ownership.when(() -> ECOCraftingCpuListEntry.isEcoCpu(cpu)).thenReturn(true);
             for (String handler : List.of("wrapStorageAdd", "wrapAdd")) {
                 Method method = CpuSelectionListMixin.class.getDeclaredMethod(handler, InfoBar.class,
-                    String.class, int.class, float.class, int.class, int.class, Operation.class,
+                    String.class, int.class, float.class, Operation.class,
                     CraftingStatusMenu.CraftingCpuListEntry.class);
                 method.setAccessible(true);
-                method.invoke(mixin, infoBar, "other-mod-format", 0x123456, 0.666f, 12, 34, original, cpu);
+                method.invoke(mixin, infoBar, "other-mod-format", 0x123456, 0.666f, original, cpu);
             }
             assertEquals(2, calls.size());
             assertArrayEquals(new Object[] {infoBar, eco ? "8 EB" : "other-mod-format",
-                0x123456, 0.666f, 12, 34}, calls.get(0));
+                0x123456, 0.666f}, calls.get(0));
             assertArrayEquals(new Object[] {infoBar, eco ? "1M" : "other-mod-format",
-                0x123456, 0.666f, 12, 34}, calls.get(1));
+                0x123456, 0.666f}, calls.get(1));
 
             MutableComponent existing = Component.literal("other-mod-tooltip");
             List<Object[]> tooltipCalls = new ArrayList<>();

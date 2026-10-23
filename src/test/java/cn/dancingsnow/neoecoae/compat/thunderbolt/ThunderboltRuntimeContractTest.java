@@ -42,7 +42,7 @@ class ThunderboltRuntimeContractTest {
         String adapter = ThunderPatternSemanticAdapter.class.getName();
         String registry = PatternSemanticAdapters.class.getName();
         String publicRegistry = "cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry";
-        String dispatcher = "cn.dancingsnow.neoecoae.crafting.execution.ECOProcessingPatternDispatcher$Contract";
+        String dispatcher = "cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch";
         // Keep each isolated class and its nestmates in one loader, with a fresh registration table.
         var isolated = Set.of(api, adapter, registry, publicRegistry, dispatcher);
         var parent = getClass().getClassLoader();
@@ -76,7 +76,7 @@ class ThunderboltRuntimeContractTest {
         var instance = loader.loadClass(adapter).getConstructor().newInstance();
         assertEquals(false, instance.getClass().getMethod("supports", IPatternDetails.class)
                 .invoke(instance, mock(IPatternDetails.class)));
-        var provider = loader.loadClass(dispatcher).getDeclaredMethod("forProvider", ICraftingProvider.class);
+        var provider = loader.loadClass(dispatcher).getDeclaredMethod("open", Object.class);
         provider.setAccessible(true);
         assertNull(provider.invoke(null, mock(ICraftingProvider.class)));
     }
@@ -116,7 +116,7 @@ class ThunderboltRuntimeContractTest {
                     case "wrappedPatternDetails" -> source;
                     case "hasFuzzyInputs" -> false;
                     case "isFuzzyOutput" -> true;
-                    case "getOutputs" -> List.of(output);
+                    case "getOutputs" -> new GenericStack[]{output};
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
         var semantics = new ThunderPatternSemanticAdapter().analyze(pattern);
@@ -182,14 +182,14 @@ class ThunderboltRuntimeContractTest {
                     (proxy, method, args) -> { throw new AssertionError("Unexpected native dispatch: " + method); });
             optional.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.open(provider))
                     .thenReturn(optionalSession);
-            assertNull(dispatcherMethod("forProvider", ICraftingProvider.class).invoke(null, provider));
+            assertNull(dispatcherMethod("open", Object.class).invoke(null, provider));
             optional.verifyNoInteractions();
             verifyNoInteractions(optionalSession);
         }
     }
 
     private static Method dispatcherMethod(String name, Class<?>... parameters) throws Exception {
-        var type = Class.forName("cn.dancingsnow.neoecoae.crafting.execution.ECOProcessingPatternDispatcher$Contract");
+        var type = Class.forName("cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch");
         var method = type.getDeclaredMethod(name, parameters);
         method.setAccessible(true);
         return method;

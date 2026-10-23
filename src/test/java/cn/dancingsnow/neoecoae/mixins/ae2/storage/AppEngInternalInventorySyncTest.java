@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.mixins.ae2.storage;
 
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
@@ -124,11 +123,11 @@ class AppEngInternalInventorySyncTest {
         assertNotNull(type.getDeclaredMethod("getHost"));
         assertNotNull(type.getDeclaredMethod("onContentsChanged", int.class));
         assertNotNull(type.getDeclaredMethod("readFromNBT",
-                CompoundTag.class, String.class, HolderLookup.Provider.class));
+                CompoundTag.class, String.class));
         assertNotNull(type.getDeclaredMethod("writeToNBT",
-                CompoundTag.class, String.class, HolderLookup.Provider.class));
+                CompoundTag.class, String.class));
         assertThrows(NoSuchMethodException.class,
-                () -> type.getDeclaredMethod("deserializeNBT", HolderLookup.Provider.class, CompoundTag.class),
+                () -> type.getDeclaredMethod("deserializeNBT", CompoundTag.class),
                 "AE2 now supplies deserializeNBT itself; the mixin would be overriding it");
         assertFalse(INBTSerializable.class.isAssignableFrom(type),
                 "AE2 now implements INBTSerializable itself; the mixin would be overriding it");

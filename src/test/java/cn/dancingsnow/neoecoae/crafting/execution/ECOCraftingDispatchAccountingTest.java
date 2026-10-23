@@ -113,7 +113,7 @@ class ECOCraftingDispatchAccountingTest {
              var stacks = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
             keys.when(() -> AEItemKey.fromTag(any())).thenReturn(definition);
             genericKeys.when(() -> AEKey.fromTagGeneric(any())).thenAnswer(invocation ->
-                ((CompoundTag) invocation.getArgument(1)).getString("testKey").equals("output") ? output : secondary);
+                ((CompoundTag) invocation.getArgument(0)).getString("testKey").equals("output") ? output : secondary);
             patterns.when(() -> PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(pattern);
             stacks.when(() -> GenericStack.writeTag(any())).thenReturn(new CompoundTag());
             stacks.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(output, 30));

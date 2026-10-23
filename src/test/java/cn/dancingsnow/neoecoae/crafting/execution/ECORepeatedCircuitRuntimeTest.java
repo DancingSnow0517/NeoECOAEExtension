@@ -84,18 +84,18 @@ class ECORepeatedCircuitRuntimeTest {
             when(fixture.patterns.get(i).getDefinition()).thenReturn(definitions.get(i));
             when(definitions.get(i).toTag()).thenReturn(tag);
         }
-        var saved = ECOExecutionPlanNbtCodec.encode(fixture.plan, registries);
+        var saved = ECOExecutionPlanNbtCodec.encode(fixture.plan);
         assertEquals(4, saved.getList("phases", 10).getCompound(0).getList("steps", 10).size());
         var cpu = mock(ECOCraftingCPU.class);
         var logic = new ECOCraftingCPULogic(cpu);
         try (var keys = mockStatic(AEItemKey.class); var patterns = mockStatic(PatternDetailsHelper.class)) {
             keys.when(() -> AEItemKey.fromTag(any())).thenAnswer(call ->
-                definitions.get(((CompoundTag) call.getArgument(1)).getInt("testId")));
+                definitions.get(((CompoundTag) call.getArgument(0)).getInt("testId")));
             for (int i = 0; i < 2; i++) {
                 var definition = definitions.get(i);
                 patterns.when(() -> PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(fixture.patterns.get(i));
             }
-            var restored = ECOExecutionPlanNbtCodec.decode(saved, registries, logic,
+            var restored = ECOExecutionPlanNbtCodec.decode(saved, logic,
                 new GenericStack(mock(AEKey.class), 1));
             assertEquals(cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.plan.phases()).steps(), cn.dancingsnow.neoecoae.platform.JdkCompat.first(restored.phases()).steps());
         }

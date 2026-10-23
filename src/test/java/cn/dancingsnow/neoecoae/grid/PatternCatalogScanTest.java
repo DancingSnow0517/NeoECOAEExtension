@@ -11,7 +11,6 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,7 +21,15 @@ class PatternCatalogScanTest {
     abstract static class PatternProvider implements PatternContainer {}
     abstract static class CraftingMatrix implements PatternContainer {}
 
-    @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    @BeforeAll static void bootstrap() {
+        InventoryTestBootstrap.initialize();
+        try (var config = mockStatic(appeng.core.AEConfig.class)) {
+            config.when(appeng.core.AEConfig::instance).thenReturn(mock(appeng.core.AEConfig.class));
+            var item = appeng.core.definitions.AEItems.CRAFTING_PATTERN.asItem();
+            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.containsValue(item))
+                net.minecraftforge.registries.ForgeRegistries.ITEMS.register(new ResourceLocation("ae2", "crafting_pattern"), item);
+        }
+    }
 
     @Test void prioritizesMatrixThenProvidersButStillScansUnknownContainers() {
         var grid = mock(IGrid.class);
@@ -46,10 +53,10 @@ class PatternCatalogScanTest {
         var source = source(GenericContainer.class, grid, 20, "source", reads);
         when(grid.getMachineClasses()).thenReturn(List.of(GenericContainer.class));
         when(grid.getActiveMachines(GenericContainer.class)).thenReturn(Set.of(source));
-        ItemStack pattern = new ItemStack(Items.STONE);
+        ItemStack pattern = appeng.core.definitions.AEItems.CRAFTING_PATTERN.stack();
         pattern.getOrCreateTag().putString("recipe", "test:discovery");
         when(source.getTerminalPatternInventory().getStackInSlot(19)).thenAnswer(call -> { reads.add("source:19"); return pattern; });
-        // Discovery accepts integration-defined encoded items; no mod registry is installed in this JVM test.
+        // Warm scans prioritize slots holding an actual AE2 crafting pattern.
         try (var patterns = mockStatic(PatternDetailsHelper.class)) {
             patterns.when(() -> PatternDetailsHelper.isEncodedPattern(pattern)).thenReturn(true);
             var catalog = new PatternCatalog();

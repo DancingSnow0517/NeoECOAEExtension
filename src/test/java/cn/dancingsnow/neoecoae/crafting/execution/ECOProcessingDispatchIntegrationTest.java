@@ -342,7 +342,8 @@ class ECOProcessingDispatchIntegrationTest {
                 default -> RETURNS_DEFAULTS.answer(invocation);
             };
         });
-        var result = f.dispatcher.tryDispatch(f.request, nativeProvider, 1, f.energy, ignored -> {});
+        var result = f.dispatcher.tryScaledDispatch(f.request, nativeProvider, 1, f.energy, ignored -> {},
+                (request, provider) -> fail("Unsupported providers cannot reach the scaled push"));
         assertNull(result);
         assertTrue(offers.isEmpty());
         assertEquals(100L, f.inventory.list.get(f.key));
@@ -384,7 +385,8 @@ class ECOProcessingDispatchIntegrationTest {
                 f.request.inputs(), f.request.outputs(), f.request.remainders(), f.request.allowedCrafts(),
                 f.inventory, f.request.level());
         assertTrue(ECOProcessingPatternDispatcher.supportsScaledDispatch(request, provider));
-        assertFalse(f.dispatcher.supports((ICraftingProvider) mock(thunderboltBatchContract()), pattern));
+        assertFalse(ECOProcessingPatternDispatcher.supportsScaledDispatch(request,
+                (ICraftingProvider) mock(thunderboltBatchContract())));
         f.dispatcher.beginTick(0);
         var result = f.dispatcher.tryScaledDispatch(request, provider, 1, f.energy, ignored -> {},
                 (scaled, ignored) -> {
@@ -417,7 +419,8 @@ class ECOProcessingDispatchIntegrationTest {
             };
         });
 
-        var result = f.dispatcher.tryDispatch(f.request, mekEnergisticsProvider, 1, f.energy, ignored -> {});
+        var result = f.dispatcher.tryScaledDispatch(f.request, mekEnergisticsProvider, 1, f.energy, ignored -> {},
+                (request, provider) -> fail("Unsupported providers cannot reach the scaled push"));
 
         assertNull(result);
         assertTrue(offers.isEmpty());

@@ -31,7 +31,7 @@ class ECOPatternSemanticsRegistryTest {
         var semantics = PatternSemanticAdapters.analyze(pattern);
         assertTrue(semantics.supported());
         assertSame(pattern, semantics.physicalPattern());
-        assertEquals(pattern.getOutputs(), semantics.producedOutputs());
+        assertEquals(List.of(pattern.getOutputs()), semantics.producedOutputs());
     }
 
     @Test

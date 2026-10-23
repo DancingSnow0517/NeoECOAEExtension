@@ -11,7 +11,6 @@ import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
 import java.util.Map;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -30,8 +29,7 @@ class ECOExternalCpuRuntimeContractTest {
                 CraftingService.class).getReturnType());
         assertEquals(void.class, logic.getDeclaredMethod("finishJob", boolean.class).getReturnType());
         for (var name : new String[]{"readFromNBT", "writeToNBT"}) {
-            assertEquals(void.class, logic.getDeclaredMethod(name, CompoundTag.class,
-                    HolderLookup.Provider.class).getReturnType());
+            assertEquals(void.class, logic.getDeclaredMethod(name, CompoundTag.class).getReturnType());
         }
         var job = Class.forName(prefix + ".ExecutingCraftingJob");
         assertEquals(job, logic.getDeclaredField("job").getType());
@@ -40,7 +38,7 @@ class ECOExternalCpuRuntimeContractTest {
         assertEquals(ListCraftingInventory.class, job.getDeclaredField("waitingFor").getType());
         assertEquals(CraftingLink.class, job.getDeclaredField("link").getType());
         assertEquals(GenericStack.class, job.getDeclaredField("finalOutput").getType());
-        assertEquals(boolean.class, job.getDeclaredField("suspended").getType());
+        assertEquals(boolean.class, ECOExternalCpuJob.class.getDeclaredMethod("neoecoae$suspended").getReturnType());
         assertEquals(long.class, Class.forName(prefix + ".ExecutingCraftingJob$TaskProgress")
                 .getDeclaredField("value").getType());
         assertEquals(void.class, job.getDeclaredField("timeTracker").getType()

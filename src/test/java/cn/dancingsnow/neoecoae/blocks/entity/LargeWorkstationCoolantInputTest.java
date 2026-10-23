@@ -34,16 +34,19 @@ class LargeWorkstationCoolantInputTest {
     private RecipeManager recipes;
 
     @BeforeAll
-    static void bootstrap() {
+    static void bootstrap() throws ReflectiveOperationException {
         InventoryTestBootstrap.initialize();
         var registry = (MappedRegistry<RecipeType<?>>) BuiltInRegistries.RECIPE_TYPE;
-        if (registry.containsKey(NERecipeTypes.COOLING.getId())) return;
-        registry.unfreeze();
-        try {
+        if (!registry.containsKey(NERecipeTypes.COOLING.getId())) {
+            registry.unfreeze();
+            net.minecraftforge.registries.RegistryManager.ACTIVE
+                .getRegistry(net.minecraftforge.registries.ForgeRegistries.Keys.RECIPE_TYPES).unfreeze();
             Registry.register(registry, NERecipeTypes.COOLING.getId(), new RecipeType<CoolingRecipe>() {});
-        } finally {
             registry.freeze();
         }
+        var update = net.minecraftforge.registries.RegistryObject.class.getDeclaredMethod("updateReference", Registry.class);
+        update.setAccessible(true);
+        update.invoke(NERecipeTypes.COOLING, registry);
     }
 
     @BeforeEach
@@ -67,7 +70,8 @@ class LargeWorkstationCoolantInputTest {
         recipes = mock(RecipeManager.class);
         when(level.getRecipeManager()).thenReturn(recipes);
         hatch.setLevel(level);
-        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(cooling(Fluids.WATER)));
+        var water = cooling(Fluids.WATER);
+        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(water));
     }
 
     @Test
@@ -106,7 +110,8 @@ class LargeWorkstationCoolantInputTest {
     @Test
     void recipeReloadChangesAcceptedCoolantsAndStillAllowsDrainingOldContents() {
         hatch.tank.fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE);
-        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(cooling(Fluids.LAVA)));
+        var lava = cooling(Fluids.LAVA);
+        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(lava));
         assertEquals(0, hatch.tank.fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE));
         assertEquals(1000, hatch.tank.drain(1000, FluidAction.EXECUTE).getAmount());
         assertEquals(1000, hatch.tank.fill(new FluidStack(Fluids.LAVA, 1000), FluidAction.EXECUTE));

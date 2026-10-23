@@ -30,6 +30,12 @@ class NEItemNbtTest {
         assertFalse(stack.hasTag());
     }
 
+    @Test void emptyDisplayStacksUseAnEmptyCompoundAndRoundTrip() {
+        var tag = NEStacks.save(ItemStack.EMPTY, net.minecraft.core.RegistryAccess.EMPTY);
+        assertTrue(tag.isEmpty());
+        assertTrue(NEStacks.read(net.minecraft.core.RegistryAccess.EMPTY, tag).isEmpty());
+    }
+
     @Test void updatesPreserveUnrelatedMetadataAndDoNotAliasCallerTags() {
         var stack = new ItemStack(Items.PAPER);
         var data = new CompoundTag();

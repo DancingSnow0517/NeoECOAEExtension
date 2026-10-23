@@ -1,0 +1,187 @@
+{
+  "validated_at_utc": "2026-10-23T14:04:13.696702+00:00",
+  "initial_failure": {
+    "task": "compileTestJava",
+    "javac_errors": 84
+  },
+  "java": 17,
+  "main_baseline_commit": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "default_build": "BUILD SUCCESSFUL in 59s",
+  "clean_build": "BUILD SUCCESSFUL in 3m 19s; 19 actionable tasks, 19 executed",
+  "clean_build_directory": ".porting/build-fix-validation-20261023",
+  "clean_build_init_script": ".gradle/build-fix-2026-10-23/isolated.init.gradle",
+  "clean_build_init_scope": "Changes build directory only; standard build and verification tasks are unchanged.",
+  "final_package_refresh": "BUILD SUCCESSFUL in 9s",
+  "tests": {
+    "test": {
+      "tests": 1518,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 12,
+      "passed": 1506,
+      "skipped_cases": [
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "indeterminateExactFxCommitStopsTheJobWithoutRefundingOrRetrying()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "unknownExternalProviderKeepsTheLongContractAndGetsNoExactCommit()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "bigCpuCancellationPublishesTheSameWorkerRecoveryNotice()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "aLongCraftCountStillUsesExactTransportWhenItsMaterialTotalsOverflow()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "rejectedExactFxBatchRestoresEveryInputAndWaitingAmount()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "boundedFxAndPowerLimitedBatchesKeepTheExistingLongLane()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "verifiedFxLaneAcceptsAndReturnsMoreThanLongWithoutPerWindowLoops()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "exactProviderCapacityLeavesTheUnacceptedCopiesInCpuEscrow()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.planner.solve.TechModPlannerChallengeTest",
+          "test": "plannerHandlesAnIndependentlyProvenPlayerOrder(Scenario)"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.gui.workstation.WorkstationPatternScreenStyleTest",
+          "test": "releasedDataEnergisticsPatchAcceptsTheStyleAndRetainsTheRightUpgradePanel()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStoragePerformanceTest",
+          "test": "measure()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.util.PatternSearchMatcherTest",
+          "test": "releasedJecMatchesFullPinyinInitialsMixedTextAndFluids()"
+        }
+      ],
+      "xml_directory": "build/test-results/test"
+    },
+    "portingPlatformTest": {
+      "tests": 189,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 189,
+      "skipped_cases": [],
+      "xml_directory": ".porting/build-fix-validation-20261023/test-results/portingPlatformTest"
+    },
+    "portingContractsTest": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 6,
+      "skipped_cases": [],
+      "xml_directory": ".porting/build-fix-validation-20261023/test-results/portingContractsTest"
+    },
+    "upstreamSyncTest": {
+      "tests": 333,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 9,
+      "passed": 324,
+      "skipped_cases": [
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "indeterminateExactFxCommitStopsTheJobWithoutRefundingOrRetrying()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "unknownExternalProviderKeepsTheLongContractAndGetsNoExactCommit()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "bigCpuCancellationPublishesTheSameWorkerRecoveryNotice()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "aLongCraftCountStillUsesExactTransportWhenItsMaterialTotalsOverflow()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "rejectedExactFxBatchRestoresEveryInputAndWaitingAmount()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "boundedFxAndPowerLimitedBatchesKeepTheExistingLongLane()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "verifiedFxLaneAcceptsAndReturnsMoreThanLongWithoutPerWindowLoops()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.crafting.execution.ECOAe2LtBigCraftingInteropTest",
+          "test": "exactProviderCapacityLeavesTheUnacceptedCopiesInCpuEscrow()"
+        },
+        {
+          "class": "cn.dancingsnow.neoecoae.gui.workstation.WorkstationPatternScreenStyleTest",
+          "test": "releasedDataEnergisticsPatchAcceptsTheStyleAndRetainsTheRightUpgradePanel()"
+        }
+      ],
+      "xml_directory": ".porting/build-fix-validation-20261023/test-results/upstreamSyncTest"
+    }
+  },
+  "source_changes_during_default_build": [
+    "src/main/java/cn/dancingsnow/neoecoae/client/diagnostics/MultiblockAlignmentClientProbe.java"
+  ],
+  "package_source_files_verified": 3695,
+  "source_changes_during_final_package": [],
+  "source_additions_during_final_package": [],
+  "package_audit": {
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "3242d3bec2797c46583acd874d557fd4da4ca04313d8b19028a5232b11fdedcb",
+    "bytes": 7040183,
+    "source_files_checked": 974,
+    "packaged_classes": 1603,
+    "class_major_versions": {
+      "61": 1603
+    },
+    "registered_mixins": 64,
+    "registered_mixin_configs": [
+      "neoecoae.compat.advanced_ae.mixins.json",
+      "neoecoae.compat.extendedae.mixins.json",
+      "neoecoae.compat.thunderbolt.mixins.json",
+      "neoecoae.mixins.json",
+      "neoecoae.terminal_big_amount.mixins.json"
+    ],
+    "refmap_classes": 7,
+    "nested_jars": [
+      "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+      "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+    ],
+    "problems": {
+      "missing_source_classes": [],
+      "missing_required_resources": [],
+      "missing_registered_mixins": [],
+      "missing_mixin_plugins": [],
+      "unregistered_mixin_configs": [],
+      "missing_nested_jars": [],
+      "missing_translations": [],
+      "fake_upstream_classes": [],
+      "duplicate_entries": []
+    },
+    "result": "success",
+    "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+  },
+  "logs": {
+    "default-build": "build/reports/build-fix-2026-10-23/default-build.log",
+    "clean-build": "build/reports/build-fix-2026-10-23/clean-build.log",
+    "package-refresh": "build/reports/build-fix-2026-10-23/package-refresh.log"
+  },
+  "runtime_acceptance": "This build repair did not launch a client/server or perform in-game interactions or ordinary launcher installation."
+}

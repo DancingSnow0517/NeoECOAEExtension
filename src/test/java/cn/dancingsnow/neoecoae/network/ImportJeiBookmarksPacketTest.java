@@ -4,7 +4,6 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
-import appeng.api.stacks.AEKeyTypesInternal;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.blockentity.misc.CellWorkbenchBlockEntity;
 import appeng.helpers.externalstorage.GenericStackInv;
@@ -72,18 +71,13 @@ class ImportJeiBookmarksPacketTest {
         final CellWorkbenchMenu menu = mock(CellWorkbenchMenu.class);
         final ServerPlayer player = mock(ServerPlayer.class);
         final NEPacketContext context = mock(NEPacketContext.class);
-        final GenericStackInv config = new GenericStackInv(
-            Set.of(AEKeyType.items(), AEKeyType.fluids()), null, GenericStackInv.Mode.CONFIG_TYPES, 5);
+        final GenericStackInv config = new GenericStackInv(null, GenericStackInv.Mode.CONFIG_TYPES, 5);
 
         Fixture(int cellSlots, Set<AEKeyType> types) {
             var host = mock(CellWorkbenchBlockEntity.class);
             var cell = mock(ICellWorkbenchItem.class);
-            ConfigInventory cellConfig;
-            try (var keyTypes = mockStatic(AEKeyTypesInternal.class)) {
-                keyTypes.when(AEKeyTypesInternal::getAllTypes)
-                    .thenReturn(Set.of(AEKeyType.items(), AEKeyType.fluids()));
-                cellConfig = ConfigInventory.configTypes(cellSlots).supportedTypes(types).build();
-            }
+            ConfigInventory cellConfig = ConfigInventory.configTypes(
+                key -> types.contains(key.getType()), cellSlots, null);
             when(menu.getHost()).thenReturn(host);
             when(menu.getWorkbenchItem()).thenReturn(ItemStack.EMPTY);
             when(host.getConfig()).thenReturn(config);

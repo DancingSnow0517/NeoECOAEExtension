@@ -4,8 +4,6 @@ import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
@@ -13,10 +11,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraftforge.common.crafting.DataComponentIngredient;
+import net.minecraftforge.common.crafting.StrictNBTIngredient;
+import net.minecraftforge.common.crafting.PartialNBTIngredient;
 import cn.dancingsnow.neoecoae.platform.recipe.SizedIngredient;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.crafting.DataComponentFluidIngredient;
 import cn.dancingsnow.neoecoae.platform.recipe.FluidIngredient;
 import cn.dancingsnow.neoecoae.platform.recipe.SizedFluidIngredient;
 import org.junit.jupiter.api.BeforeAll;
@@ -30,10 +28,13 @@ class LargeWorkstationRecipeDeduplicationTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @Test void crossModAdaptersKeepCheaperRecipeAndItsOriginalType() {
-        var extended = decode("extendedae:assembler", "extendedae:crystal_assembler", """
-            {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":4}],
-             "output":{"id":"minecraft:diamond","count":2}}
-            """);
+        var id = new ResourceLocation("expatternprovider:assembler");
+        var display = new ExtendedCrystalAssemblerRecipe.Serializer().fromJson(id, JsonParser.parseString("""
+            {"inputItems":[{"item":"minecraft:iron_ingot","count":4}],
+             "itemOutput":{"item":"minecraft:diamond","count":2},"energy":2000}
+            """).getAsJsonObject()).display();
+        var extended = new LargeWorkstationRecipe(id, display, display.energy(), List.of(),
+            ExtendedCrystalAssemblerRecipe.SOURCE_TYPE);
         var advanced = new LargeWorkstationRecipe(new ResourceLocation("advanced_ae:reaction"), extended.display(),
             1000, List.of(), new ResourceLocation("advanced_ae:reaction"));
         assertEquals(List.of(advanced), deduplicate(extended, advanced));
@@ -51,7 +52,6 @@ class LargeWorkstationRecipeDeduplicationTest {
             50, List.of(), new ResourceLocation("advanced_ae:reaction"));
         var extended = new LargeWorkstationRecipe(new ResourceLocation("expatternprovider:cheapest"), regular.display(),
             10, List.of(), new ResourceLocation("expatternprovider:crystal_assembler"));
-        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         var ops = JsonOps.INSTANCE;
         var recipes = List.of(extended, regular, advanced);
         assertEquals(List.of(regular), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.REGULAR, ops));
@@ -142,44 +142,39 @@ class LargeWorkstationRecipeDeduplicationTest {
         assertEquals(List.of(first, namedOutput, largerOutput), deduplicate(first, namedOutput, largerOutput));
     }
 
-    @Test void componentItemInputsDeduplicateOnlyWhenPredicatesAgree() {
+    @Test void nbtItemInputsDeduplicateOnlyWhenPredicatesAgree() {
         var stack = new ItemStack(Items.IRON_INGOT);
         stack.setHoverName(Component.literal("Required name"));
-        var first = recipe("test:a", List.of(input(DataComponentIngredient.of(true, stack), 4)), emptyFluid(),
+        var first = recipe("test:a", List.of(input(StrictNBTIngredient.of(stack), 4)), emptyFluid(),
             new ItemStack(Items.DIAMOND), FluidStack.EMPTY, 100, List.of());
-        var cheaper = recipe("test:b", List.of(input(DataComponentIngredient.of(true, stack.copy()), 4)), emptyFluid(),
+        var cheaper = recipe("test:b", List.of(input(StrictNBTIngredient.of(stack.copy()), 4)), emptyFluid(),
             new ItemStack(Items.DIAMOND), FluidStack.EMPTY, 50, List.of());
-        var partial = recipe("test:c", List.of(input(DataComponentIngredient.of(false, stack), 4)), emptyFluid(),
+        var partial = recipe("test:c", List.of(input(PartialNBTIngredient.of(stack.getItem(), stack.getTag()), 4)), emptyFluid(),
             new ItemStack(Items.DIAMOND), FluidStack.EMPTY, 50, List.of());
         var plain = materialRecipe("test:d", 50, List.of());
         assertEquals(List.of(cheaper, partial, plain), deduplicate(first, cheaper, partial, plain));
     }
 
-    @Test void componentFluidInputsAndOutputsRemainDistinct() {
+    @Test void nbtFluidInputsAndOutputsRemainDistinct() {
         var inputs = List.of(input(Ingredient.of(Items.IRON_INGOT), 4));
         var stack = new FluidStack(Fluids.WATER, 1000);
-        stack.setHoverName(Component.literal("Required fluid"));
-        var first = recipe("test:a", inputs, new SizedFluidIngredient(DataComponentFluidIngredient.of(true, stack), 1000),
+        stack.getOrCreateTag().putString("test_name", "Required fluid");
+        var first = recipe("test:a", inputs, new SizedFluidIngredient(FluidIngredient.exact(stack), 1000),
             ItemStack.EMPTY, new FluidStack(Fluids.LAVA, 250), 100, List.of());
-        var cheaper = recipe("test:b", inputs, new SizedFluidIngredient(DataComponentFluidIngredient.of(true, stack.copy()), 1000),
+        var cheaper = recipe("test:b", inputs, new SizedFluidIngredient(FluidIngredient.exact(stack.copy()), 1000),
             ItemStack.EMPTY, new FluidStack(Fluids.LAVA, 250), 50, List.of());
-        var partial = recipe("test:c", inputs, new SizedFluidIngredient(DataComponentFluidIngredient.of(false, stack), 1000),
+        var partialJson = FluidIngredient.exact(stack).toJson().getAsJsonObject();
+        partialJson.addProperty("strict", false);
+        var partial = recipe("test:c", inputs, new SizedFluidIngredient(FluidIngredient.fromJson(partialJson), 1000),
             ItemStack.EMPTY, new FluidStack(Fluids.LAVA, 250), 50, List.of());
         var namedOutput = new FluidStack(Fluids.LAVA, 250);
-        namedOutput.setHoverName(Component.literal("Distinct output"));
+        namedOutput.getOrCreateTag().putString("test_name", "Distinct output");
         var output = recipe("test:d", inputs, cheaper.display().inputFluid(), ItemStack.EMPTY, namedOutput, 50, List.of());
         assertEquals(List.of(cheaper, partial, output), deduplicate(first, cheaper, partial, output));
     }
 
     private static List<LargeWorkstationRecipe> deduplicate(LargeWorkstationRecipe... recipes) {
-        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         return LargeWorkstationRecipes.deduplicate(List.of(recipes), JsonOps.INSTANCE);
-    }
-
-    private static LargeWorkstationRecipe decode(String id, String type, String json) {
-        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        return LargeWorkstationRecipes.decode(new ResourceLocation(id), type, JsonParser.parseString(json).getAsJsonObject(),
-            JsonOps.INSTANCE);
     }
 
     private static SizedIngredient input(Ingredient ingredient, int amount) { return new SizedIngredient(ingredient, amount); }

@@ -38,21 +38,18 @@ class LargeWorkstationLightingTest {
     private static void initializeBlocks() {
         var registry = (MappedRegistry<Block>) BuiltInRegistries.BLOCK;
         registry.unfreeze();
-        try {
-            members = List.of(
-                new ECOLargeIntegratedWorkingStationInputHatch(BlockBehaviour.Properties.of()),
-                new ECOLargeIntegratedWorkingStationOutputHatch(BlockBehaviour.Properties.of()),
-                new ECOMachineInterface<NEIntegratedWorkingStationCluster>(BlockBehaviour.Properties.of()));
-            casing = new ECOMachineCasing<>(BlockBehaviour.Properties.of().noOcclusion());
-            for (int index = 0; index < members.size(); index++) {
-                Registry.register(registry, "neoecoae_lighting_test:member_" + index, members.get(index));
-                members.get(index).getStateDefinition().getPossibleStates().forEach(BlockState::initCache);
-            }
-            Registry.register(registry, "neoecoae_lighting_test:casing", casing);
-            casing.getStateDefinition().getPossibleStates().forEach(BlockState::initCache);
-        } finally {
-            registry.freeze();
+        members = List.of(
+            new ECOLargeIntegratedWorkingStationInputHatch(BlockBehaviour.Properties.of()),
+            new ECOLargeIntegratedWorkingStationOutputHatch(BlockBehaviour.Properties.of()),
+            new ECOMachineInterface<NEIntegratedWorkingStationCluster>(BlockBehaviour.Properties.of()));
+        casing = new ECOMachineCasing<>(BlockBehaviour.Properties.of().noOcclusion());
+        for (int index = 0; index < members.size(); index++) {
+            Registry.register(registry, "neoecoae_lighting_test:member_" + index, members.get(index));
+            members.get(index).getStateDefinition().getPossibleStates().forEach(BlockState::initCache);
         }
+        Registry.register(registry, "neoecoae_lighting_test:casing", casing);
+        casing.getStateDefinition().getPossibleStates().forEach(BlockState::initCache);
+        // Unit tests leave the shared Forge registry open for the next fixture.
     }
 
     @Test

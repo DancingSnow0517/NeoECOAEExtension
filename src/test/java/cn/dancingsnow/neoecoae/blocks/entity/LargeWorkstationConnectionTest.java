@@ -11,6 +11,7 @@ import appeng.helpers.ForgeEnergyAdapter;
 import appeng.me.energy.StoredEnergyAmount;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
+import cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayDeque;
 import java.util.EnumSet;
@@ -55,24 +56,26 @@ class LargeWorkstationConnectionTest {
 
     @Test
     void formedControllerRetainsOnlyConnectionsToItsOwnStructureMembers() throws Exception {
-        var host = controller();
-        var level = mock(Level.class);
-        var cluster = new NEIntegratedWorkingStationCluster(BlockPos.ZERO, new BlockPos(2, 1, 1));
-        var member = mock(BlockEntity.class);
-        var unrelated = mock(BlockEntity.class);
-        cluster.addBlockEntity(member);
-        field(host, "level", level);
-        field(host, "worldPosition", BlockPos.ZERO);
-        when(level.hasChunkAt(any())).thenReturn(true);
-        when(level.getBlockEntity(BlockPos.ZERO.north())).thenReturn(member);
-        when(level.getBlockEntity(BlockPos.ZERO.south())).thenReturn(unrelated);
-        host.updateCluster(cluster);
+        try (var capabilities = mockStatic(ForgeBlockCapabilities.class)) {
+            var host = controller();
+            var level = mock(Level.class);
+            var cluster = new NEIntegratedWorkingStationCluster(BlockPos.ZERO, new BlockPos(2, 1, 1));
+            var member = mock(BlockEntity.class);
+            var unrelated = mock(BlockEntity.class);
+            cluster.addBlockEntity(member);
+            field(host, "level", level);
+            field(host, "worldPosition", BlockPos.ZERO);
+            when(level.hasChunkAt(any())).thenReturn(true);
+            when(level.getBlockEntity(BlockPos.ZERO.north())).thenReturn(member);
+            when(level.getBlockEntity(BlockPos.ZERO.south())).thenReturn(unrelated);
+            host.updateCluster(cluster);
 
-        assertEquals(EnumSet.of(Direction.NORTH), host.getGridConnectableSides(null));
-        verify(host.getMainNode()).setExposedOnSides(EnumSet.of(Direction.NORTH));
-        assertNull(host.getEnergyStorage(Direction.NORTH));
-        assertNull(host.getEnergyStorage(Direction.SOUTH));
-        verify(level).invalidateCapabilities(BlockPos.ZERO);
+            assertEquals(EnumSet.of(Direction.NORTH), host.getGridConnectableSides(null));
+            verify(host.getMainNode()).setExposedOnSides(EnumSet.of(Direction.NORTH));
+            assertNull(host.getEnergyStorage(Direction.NORTH));
+            assertNull(host.getEnergyStorage(Direction.SOUTH));
+            capabilities.verify(() -> ForgeBlockCapabilities.refresh(host));
+        }
     }
 
     @Test
@@ -109,31 +112,34 @@ class LargeWorkstationConnectionTest {
 
     @Test
     void destroyingClusterAfterControllerNodeUnloadStillClearsFormationAndCapabilities() throws Exception {
-        var host = controller();
-        var level = mock(Level.class);
-        field(host, "level", level);
-        field(host, "worldPosition", BlockPos.ZERO);
-        var cluster = new NEIntegratedWorkingStationCluster(BlockPos.ZERO, new BlockPos(2, 1, 1));
-        cluster.addBlockEntity(host);
-        host.updateCluster(cluster);
-        assertTrue(host.isFormed());
+        try (var capabilities = mockStatic(ForgeBlockCapabilities.class)) {
+            var host = controller();
+            var level = mock(Level.class);
+            field(host, "level", level);
+            field(host, "worldPosition", BlockPos.ZERO);
+            var cluster = new NEIntegratedWorkingStationCluster(BlockPos.ZERO, new BlockPos(2, 1, 1));
+            cluster.addBlockEntity(host);
+            host.updateCluster(cluster);
+            assertTrue(host.isFormed());
 
-        var node = host.getMainNode();
-        when(node.isReady()).thenReturn(false);
-        doThrow(new IllegalStateException("Node already initialized and destroyed"))
-            .when(node).setExposedOnSides(anySet());
-        clearInvocations(node, level, host);
+            var node = host.getMainNode();
+            when(node.isReady()).thenReturn(false);
+            doThrow(new IllegalStateException("Node already initialized and destroyed"))
+                .when(node).setExposedOnSides(anySet());
+            clearInvocations(node, level, host);
+            capabilities.clearInvocations();
 
-        assertDoesNotThrow(cluster::destroy);
+            assertDoesNotThrow(cluster::destroy);
 
-        assertFalse(host.isRemoved());
-        assertFalse(host.isFormed());
-        assertNull(host.getCluster());
-        assertNotNull(host.getEnergyStorage(Direction.NORTH));
-        verify(node, never()).setExposedOnSides(anySet());
-        verify(host).updateState(true);
-        verify(level).invalidateCapabilities(BlockPos.ZERO);
-        verify(host).markForUpdate();
+            assertFalse(host.isRemoved());
+            assertFalse(host.isFormed());
+            assertNull(host.getCluster());
+            assertNotNull(host.getEnergyStorage(Direction.NORTH));
+            verify(node, never()).setExposedOnSides(anySet());
+            verify(host).updateState(true);
+            capabilities.verify(() -> ForgeBlockCapabilities.refresh(host));
+            verify(host).markForUpdate();
+        }
     }
 
     private static ECOLargeIntegratedWorkingStationBlockEntity controller() throws Exception {
@@ -146,7 +152,7 @@ class LargeWorkstationConnectionTest {
         doNothing().when(host).updateState(anyBoolean());
         field(host, "pendingBatches", new ArrayDeque<>());
         field(host, "stored", new StoredEnergyAmount(0, 16_000_000, event -> {}));
-        field(host, "forgeEnergyAdapter", new ForgeEnergyAdapter(host));
+        field(host, "externalEnergy", new ForgeEnergyAdapter(host));
         field(host, "internalPowerSides", EnumSet.allOf(Direction.class));
         return host;
     }

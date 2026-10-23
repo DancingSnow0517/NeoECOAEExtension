@@ -71,7 +71,7 @@ class ForeignPlannerEcoCpuSubmissionContractTest {
         }
 
         CallbackInfoReturnable<ICraftingSubmitResult> submit(ICraftingCPU target) throws Exception {
-            Method method = CraftingServiceMixin.class.getDeclaredMethod("onSubmitJob",
+            Method method = CraftingServiceMixin.class.getDeclaredMethod("neoecoae$earlySubmitJob",
                 ICraftingPlan.class, ICraftingRequester.class, ICraftingCPU.class, boolean.class,
                 IActionSource.class, CallbackInfoReturnable.class, MutableObject.class);
             method.setAccessible(true);

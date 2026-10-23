@@ -2,14 +2,11 @@ package cn.dancingsnow.neoecoae.recipe;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKeyType;
-import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.google.gson.JsonParser;
-import com.mojang.serialization.JsonOps;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -42,6 +39,7 @@ class LargeWorkstationRecipeTest {
     private boolean previousIgnoreUpgradeCards;
 
     @BeforeEach void saveConfig() {
+        LargeWorkstationRecipes.configure(() -> NEConfig.largeWorkstationIgnoreUpgradeCards);
         previousIgnoreUpgradeCards = NEConfig.largeWorkstationIgnoreUpgradeCards;
         NEConfig.largeWorkstationIgnoreUpgradeCards = false;
     }
@@ -92,12 +90,10 @@ class LargeWorkstationRecipeTest {
     }
 
     @Test void scaledItemAndFluidOutputsMustShareTheSameIntegerMultiplier() {
-        var recipe = decode("ae2cs:crystal_aggregator_recipe", """
-            {"input_a":{"item":"minecraft:iron_ingot","count":128},
-             "result":{"id":"minecraft:diamond","count":8},"energy_cost":12345,
-             "fluid_input":{"fluid":"minecraft:water","amount":1000},
-             "fluid_output":{"id":"minecraft:lava","amount":250}}
-            """);
+        var recipe = new LargeWorkstationRecipe(new ResourceLocation("test:fluids"),
+            new IntegratedWorkingStationRecipe(List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 128)),
+                SizedFluidIngredient.of(Fluids.WATER, 1000), new ItemStack(Items.DIAMOND, 8),
+                new FluidStack(Fluids.LAVA, 250), 12345), 12345, List.of());
         var inputs = items(Items.IRON_INGOT, 256);
         inputs.add(AEFluidKey.of(Fluids.WATER), 2000);
         var outputs = items(Items.DIAMOND, 16);
@@ -178,96 +174,99 @@ class LargeWorkstationRecipeTest {
         assertEquals(com.moakiee.ae2lt.me.key.LightningKey.HIGH_VOLTAGE, cn.dancingsnow.neoecoae.platform.JdkCompat.first(recipe.extraInputs()).what());
     }
 
-    @ParameterizedTest @ValueSource(strings={"ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe"})
-    void crystalScienceSupportsSizedIngredientsAndFluids(String type) {
-        var recipe = decode(type, """
-            {"input_a":{"item":"minecraft:iron_ingot","count":128},
-             "result":{"id":"minecraft:diamond","count":8},"energy_cost":12345,
-             "fluid_input":{"fluid":"minecraft:water","amount":1000},
-             "fluid_output":{"id":"minecraft:lava","amount":250}}
-            """);
-        assertEquals(128, cn.dancingsnow.neoecoae.platform.JdkCompat.first(recipe.display().inputItems()).count());
-        assertEquals(12345, recipe.energy());
-        var inputs = items(Items.IRON_INGOT, 128);
-        inputs.add(AEFluidKey.of(Fluids.WATER), 1000);
-        var outputs = items(Items.DIAMOND, 8);
-        outputs.add(AEFluidKey.of(Fluids.LAVA), 250);
-        assertTrue(recipe.matches(inputs, outputs));
-        outputs.remove(AEFluidKey.of(Fluids.LAVA), 1);
-        assertFalse(recipe.matches(inputs, outputs));
+    @ParameterizedTest
+    @ValueSource(strings={"ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe",
+        "appgen:synthesizing", "data_energistics:data_reassembler", "extendedae_plus:crystal_assembler_plus"})
+    void excludedRecipeFamiliesAreRejected(String type) {
+        assertThrows(IllegalArgumentException.class,
+            () -> LargeWorkstationRecipeAdapters.adapt(mock(Recipe.class), type));
     }
 
-    @ParameterizedTest @ValueSource(strings={"appgen:synthesizing", "advanced_ae:reaction"})
-    void genericOutputsAndIngredientStackQuantitiesSurvive(String type) {
-        try (var keyTypes = mockStatic(AEKeyTypes.class);
-             var internal = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class)) {
-            internal.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
-                .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
-            keyTypes.when(() -> AEKeyTypes.get(new ResourceLocation("ae2:i"))).thenReturn(AEKeyType.items());
-            keyTypes.when(() -> AEKeyTypes.get(new ResourceLocation("ae2:f"))).thenReturn(AEKeyType.fluids());
-            var recipe = decode(type, """
-                {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":64}],
-                 "input_fluid":{"ingredient":{"fluid":"minecraft:water"},"amount":500},
-                 "input_energy":1300000,"output":{"#t":"ae2:f","id":"minecraft:lava","#":1000}}
-                """);
-            assertEquals(64, cn.dancingsnow.neoecoae.platform.JdkCompat.first(recipe.display().inputItems()).count());
-            assertEquals(500, recipe.display().inputFluid().amount());
+    @ParameterizedTest @ValueSource(booleans={false, true})
+    void advancedAeKeepsGenericOutputsAndIngredientQuantities(boolean fluidOutput) {
+        var output = fluidOutput ? new GenericStack(AEFluidKey.of(Fluids.LAVA), 1000)
+            : new GenericStack(AEItemKey.of(Items.DIAMOND), 2);
+        var source = new net.pedroksl.advanced_ae.recipes.ReactionChamberRecipe(
+            new ResourceLocation("test:advanced"), output,
+            List.of(new net.pedroksl.ae2addonlib.recipes.IngredientStack.Item(Ingredient.of(Items.IRON_INGOT), 64)),
+            new net.pedroksl.ae2addonlib.recipes.IngredientStack.Fluid(Fluids.WATER, 500), 1_300_000);
+        var recipe = LargeWorkstationRecipeAdapters.adapt(source, "advanced_ae:reaction");
+        assertEquals(64, recipe.display().inputItems().get(0).count());
+        assertEquals(500, recipe.display().inputFluid().amount());
+        assertEquals(1_300_000, recipe.energy());
+        if (fluidOutput) {
             assertEquals(1000, recipe.display().fluidOutput().getAmount());
-            assertEquals(1300000, recipe.energy());
+            assertTrue(recipe.display().itemOutput().isEmpty());
+        } else {
+            assertEquals(2, recipe.display().itemOutput().getCount());
+            assertTrue(recipe.display().fluidOutput().isEmpty());
         }
     }
 
-    @ParameterizedTest @ValueSource(strings={"extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler"})
-    void superAssemblerIncludesInheritedRecipeFormat(String type) {
-        var recipe = decode(type, """
-            {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":256}],
-             "output":{"id":"minecraft:diamond","count":64}}
-            """);
-        assertEquals(256, cn.dancingsnow.neoecoae.platform.JdkCompat.first(recipe.display().inputItems()).count());
+    @Test void extendedAssemblerUsesTheEcoOwnedForgeRecipe() {
+        var source = extendedRecipe(new ResourceLocation("test:extended"), 256, 64);
+        var manager = mock(RecipeManager.class);
+        when(manager.getRecipes()).thenReturn(List.of(source));
+        var recipes = LargeWorkstationRecipes.getAll(manager, RegistryAccess.EMPTY);
+        var recipe = recipes.get(0);
+        assertEquals(256, recipe.display().inputItems().get(0).count());
         assertEquals(2000, recipe.energy());
+        assertEquals(ExtendedCrystalAssemblerRecipe.SOURCE_TYPE, recipe.sourceType());
         assertTrue(recipe.display().inputFluid().ingredient().isEmpty());
     }
 
     private static LargeWorkstationRecipe decode(String type, String data) {
-        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = JsonOps.INSTANCE;
+        return LargeWorkstationRecipeAdapters.adapt(lightning(type, new ResourceLocation("test:recipe"), data), type);
+    }
+
+    private static Recipe<?> lightning(String type, ResourceLocation id, String data) {
         var json = JsonParser.parseString(data).getAsJsonObject();
-        json = switch (type) {
+        return switch (type) {
             case "ae2lt:overload_processing" -> roundTrip(
-                new com.moakiee.ae2lt.machine.overloadfactory.recipe.OverloadProcessingRecipe.Serializer().codec().codec(), ops, json);
+                new com.moakiee.ae2lt.machine.overloadfactory.recipe.OverloadProcessingRecipe.Serializer(), id, json);
             case "ae2lt:lightning_assembly" -> roundTrip(
-                new com.moakiee.ae2lt.machine.lightningassembly.recipe.LightningAssemblyRecipe.Serializer().codec().codec(), ops, json);
+                new com.moakiee.ae2lt.machine.lightningassembly.recipe.LightningAssemblyRecipe.Serializer(), id, json);
             case "ae2lt:lightning_simulation" -> roundTrip(
-                new com.moakiee.ae2lt.machine.lightningchamber.recipe.LightningSimulationRecipe.Serializer().codec().codec(), ops, json);
-            default -> json;
+                new com.moakiee.ae2lt.machine.lightningchamber.recipe.LightningSimulationRecipe.Serializer(), id, json);
+            default -> throw new IllegalArgumentException("Unsupported test recipe " + type);
         };
-        return LargeWorkstationRecipes.decode(new ResourceLocation("test:recipe"), type,
-            json, ops);
     }
 
-    private static <T> com.google.gson.JsonObject roundTrip(com.mojang.serialization.Codec<T> codec,
-        com.mojang.serialization.DynamicOps<com.google.gson.JsonElement> ops, com.google.gson.JsonObject json) {
-        return codec.encodeStart(ops, codec.parse(ops, json).getOrThrow(false, message -> { throw new IllegalStateException(message); })).getOrThrow(false, message -> { throw new IllegalStateException(message); }).getAsJsonObject();
+    private static <T extends Recipe<?>> T roundTrip(net.minecraft.world.item.crafting.RecipeSerializer<T> serializer,
+            ResourceLocation id, com.google.gson.JsonObject json) {
+        var recipe = serializer.fromJson(id, json);
+        var buffer = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+        try (var registries = mockStatic(net.minecraftforge.registries.RegistryManager.class)) {
+            serializer.toNetwork(buffer, recipe);
+            var restored = serializer.fromNetwork(id, buffer);
+            assertFalse(buffer.isReadable());
+            return restored;
+        } finally { buffer.release(); }
     }
 
-    @Test void actualGlodiumCodecOmitsDefaultAmounts() {
-        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = JsonOps.INSTANCE;
-        var input = com.glodblock.github.glodium.recipe.stack.IngredientStack.ITEM_CODEC.encodeStart(ops,
-            com.glodblock.github.glodium.recipe.stack.IngredientStack.of(new ItemStack(Items.IRON_INGOT))).getOrThrow(false, message -> { throw new IllegalStateException(message); });
-        var fluid = com.glodblock.github.glodium.recipe.stack.IngredientStack.FLUID_CODEC.encodeStart(ops,
-            com.glodblock.github.glodium.recipe.stack.IngredientStack.of(new FluidStack(Fluids.WATER, 1))).getOrThrow(false, message -> { throw new IllegalStateException(message); });
-        var recipe = decode("extendedae_plus:crystal_assembler_plus", "{\"input_items\":[" + input
-            + "],\"input_fluid\":" + fluid + ",\"output\":{\"id\":\"minecraft:diamond\"}}");
-        assertEquals(1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(recipe.display().inputItems()).count());
+    private static ExtendedCrystalAssemblerRecipe extendedRecipe(ResourceLocation id, int input, int output) {
+        return new ExtendedCrystalAssemblerRecipe(new IntegratedWorkingStationRecipe(
+            List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), input)),
+            new SizedFluidIngredient(FluidIngredient.empty(), 1), new ItemStack(Items.DIAMOND, output),
+            FluidStack.EMPTY, 2000, id));
+    }
+
+    @Test void actualAddonLibJsonPreservesSingleItemAndFluidAmounts() {
+        var item = new net.pedroksl.ae2addonlib.recipes.IngredientStack.Item(Ingredient.of(Items.IRON_INGOT), 1);
+        var fluid = new net.pedroksl.ae2addonlib.recipes.IngredientStack.Fluid(Fluids.WATER, 1);
+        var source = new net.pedroksl.advanced_ae.recipes.ReactionChamberRecipe(new ResourceLocation("test:single"),
+            new GenericStack(AEItemKey.of(Items.DIAMOND), 1),
+            List.of(net.pedroksl.ae2addonlib.recipes.IngredientStack.Item.fromJson(item.toJson())),
+            net.pedroksl.ae2addonlib.recipes.IngredientStack.Fluid.fromJson(fluid.toJson()), 100);
+        var recipe = LargeWorkstationRecipeAdapters.adapt(source, "advanced_ae:reaction");
+        assertEquals(1, recipe.display().inputItems().get(0).count());
         assertEquals(1, recipe.display().inputFluid().amount());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {
         "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation",
-        "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing",
-        "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler"
+        "advanced_ae:reaction"
     })
     void malformedSupportedRecipesAreRejectedWithoutRemovingNativeRecipes(String typeId) {
         var type = net.minecraft.world.item.crafting.RecipeType.simple(new ResourceLocation(typeId));
@@ -279,7 +278,6 @@ class LargeWorkstationRecipeTest {
         var manager = mock(net.minecraft.world.item.crafting.RecipeManager.class);
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         when(manager.getRecipes()).thenReturn(List.of(holder, nativeHolder));
-        when(recipe.getSerializer()).thenThrow(new IllegalArgumentException("Malformed adapter fixture"));
         try (var mods = mockStatic(net.minecraftforge.fml.ModList.class)) {
             var modList = mock(net.minecraftforge.fml.ModList.class);
             when(modList.isLoaded(anyString())).thenReturn(true);
@@ -287,26 +285,26 @@ class LargeWorkstationRecipeTest {
             var recipes = LargeWorkstationRecipes.getAll(manager, registries);
             assertEquals(List.of(nativeRecipe), recipes);
             verify(recipe).getType();
-            verify(recipe).getSerializer();
+            verify(recipe, never()).getSerializer();
         }
     }
 
     @Test void compatibleRecipesLoadByDefaultAndBypassingCardsOnlyChangesAvailableRecipes() {
         assertFalse(NEConfig.largeWorkstationIgnoreUpgradeCards);
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = JsonOps.INSTANCE;
         var serializer = new com.moakiee.ae2lt.machine.lightningassembly.recipe.LightningAssemblyRecipe.Serializer();
-        var optional = spy(serializer.codec().codec().parse(ops, JsonParser.parseString("""
+        var optional = spy(serializer.fromJson(new ResourceLocation("test:compat"), JsonParser.parseString("""
             {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
              "totalEnergy":1000,"result":{"id":"minecraft:diamond","count":2}}
-            """)).getOrThrow(false, message -> { throw new IllegalStateException(message); }));
+            """).getAsJsonObject()));
         doReturn(RecipeType.simple(new ResourceLocation("ae2lt:lightning_assembly"))).when(optional).getType();
         doReturn(serializer).when(optional).getSerializer();
         var optionalId = new ResourceLocation("test:compat");
         var nativeRecipe = nativeRecipe(new ItemStack(Items.DIAMOND, 2));
         var manager = mock(RecipeManager.class);
-        when(manager.getRecipes()).thenReturn(List.of(cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(optionalId, optional),
-            cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(nativeRecipe.id(), nativeRecipe.display())));
+        var optionalHolder = cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(optionalId, optional);
+        var nativeHolder = cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(nativeRecipe.id(), nativeRecipe.display());
+        when(manager.getRecipes()).thenReturn(List.of(optionalHolder, nativeHolder));
 
         var enabled = LargeWorkstationRecipes.getAll(manager, registries);
         assertEquals(1, enabled.size());
@@ -339,26 +337,14 @@ class LargeWorkstationRecipeTest {
         assertSame(regularOnly, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR));
         assertSame(lightning, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.LIGHTNING_TECH));
         assertSame(enabled, LargeWorkstationRecipes.getAll(manager, registries), "Recipe viewers keep the full recipe set");
-        verify(optional).getSerializer();
+        verify(optional, never()).getSerializer();
     }
 
     @Test void extendedAeCardWorksWithoutExtendedAePlusInstalled() {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        // Preserve the upstream serialized contract without bootstrapping its complete item registry.
-        var recipe = mock(Recipe.class);
-        var serializer = mock(net.minecraft.world.item.crafting.RecipeSerializer.class);
-        var mapCodec = mock(com.mojang.serialization.MapCodec.class);
-        var codec = mock(com.mojang.serialization.Codec.class);
-        when(serializer.codec()).thenReturn(mapCodec);
-        when(mapCodec.codec()).thenReturn(codec);
-        doReturn(com.mojang.serialization.DataResult.success(JsonParser.parseString("""
-            {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":4}],
-             "output":{"id":"minecraft:diamond","count":2}}
-            """))).when(codec).encodeStart(any(), same(recipe));
-        doReturn(RecipeType.simple(new ResourceLocation("extendedae:crystal_assembler"))).when(recipe).getType();
-        doReturn(serializer).when(recipe).getSerializer();
+        var recipe = extendedRecipe(new ResourceLocation("expatternprovider:test_card"), 4, 2);
         var manager = mock(RecipeManager.class);
-        when(manager.getRecipes()).thenReturn(List.of(cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(new ResourceLocation("extendedae:test_card"), recipe)));
+        when(manager.getRecipes()).thenReturn(List.of(recipe));
         var all = LargeWorkstationRecipes.getAll(manager, registries);
         assertEquals(1, all.size());
         assertEquals(2000, cn.dancingsnow.neoecoae.platform.JdkCompat.first(all).energy());
@@ -372,7 +358,8 @@ class LargeWorkstationRecipeTest {
         var recipe = mock(Recipe.class);
         doReturn(RecipeType.simple(new ResourceLocation("test:unrelated"))).when(recipe).getType();
         var manager = mock(RecipeManager.class);
-        when(manager.getRecipes()).thenReturn(List.of(cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(new ResourceLocation("test:unrelated"), recipe)));
+        var holder = cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(new ResourceLocation("test:unrelated"), recipe);
+        when(manager.getRecipes()).thenReturn(List.of(holder));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         assertTrue(LargeWorkstationRecipes.getAll(manager, registries).isEmpty());
         verify(recipe, never()).getSerializer();
@@ -380,16 +367,15 @@ class LargeWorkstationRecipeTest {
 
     @Test void discardedOptionalRecipeRemainsAddressableWithOriginalCostsUntilReloadRemovesIt() {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = JsonOps.INSTANCE;
         var serializer = new com.moakiee.ae2lt.machine.lightningassembly.recipe.LightningAssemblyRecipe.Serializer();
-        var expensive = spy(serializer.codec().codec().parse(ops, JsonParser.parseString("""
+        var expensive = spy(serializer.fromJson(new ResourceLocation("ae2lt:expensive"), JsonParser.parseString("""
             {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
              "totalEnergy":2000,"lightningCost":7,"result":{"id":"minecraft:diamond"}}
-            """)).getOrThrow(false, message -> { throw new IllegalStateException(message); }));
-        var cheaper = spy(serializer.codec().codec().parse(ops, JsonParser.parseString("""
+            """).getAsJsonObject()));
+        var cheaper = spy(serializer.fromJson(new ResourceLocation("ae2lt:cheaper"), JsonParser.parseString("""
             {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
              "totalEnergy":1000,"lightningCost":4,"result":{"id":"minecraft:diamond"}}
-            """)).getOrThrow(false, message -> { throw new IllegalStateException(message); }));
+            """).getAsJsonObject()));
         var type = RecipeType.simple(new ResourceLocation("ae2lt:lightning_assembly"));
         doReturn(type).when(expensive).getType();
         doReturn(serializer).when(expensive).getSerializer();
@@ -399,7 +385,8 @@ class LargeWorkstationRecipeTest {
         var cheaperId = new ResourceLocation("ae2lt:cheaper");
         var manager = mock(RecipeManager.class);
         var cheaperHolder = cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(cheaperId, cheaper);
-        when(manager.getRecipes()).thenReturn(List.of(cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(expensiveId, expensive), cheaperHolder));
+        var expensiveHolder = cn.dancingsnow.neoecoae.util.RecipeTestSupport.withId(expensiveId, expensive);
+        when(manager.getRecipes()).thenReturn(List.of(expensiveHolder, cheaperHolder));
 
         var listed = LargeWorkstationRecipes.getAll(manager, registries);
         assertEquals(List.of(cheaperId), listed.stream().map(LargeWorkstationRecipe::id).toList());

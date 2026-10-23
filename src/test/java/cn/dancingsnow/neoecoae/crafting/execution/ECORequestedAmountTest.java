@@ -13,7 +13,6 @@ import java.util.HashSet;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 class ECORequestedAmountTest {
@@ -61,12 +60,12 @@ class ECORequestedAmountTest {
         clusterField.setAccessible(true);
         clusterField.set(mixin, new HashSet<>(List.of(clusters)));
 
-        var hook = CraftingServiceMixin.class.getDeclaredMethod("onGetRequestedAmount",
+        var hook = CraftingServiceMixin.class.getDeclaredMethod("neoecoae$earlyGetRequestedAmount",
                 AEKey.class, CallbackInfoReturnable.class);
         hook.setAccessible(true);
         // Match the real injector: setReturnValue requires a cancellable callback.
         var callback = new CallbackInfoReturnable<Long>("getRequestedAmount",
-                hook.getAnnotation(Inject.class).cancellable(), vanillaAmount);
+                true, vanillaAmount);
         hook.invoke(mixin, key, callback);
         return callback.getReturnValueJ();
     }

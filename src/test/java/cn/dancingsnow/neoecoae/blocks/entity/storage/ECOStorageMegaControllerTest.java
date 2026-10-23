@@ -103,7 +103,7 @@ class ECOStorageMegaControllerTest {
     private static ConfigInventory config(int slots) {
         try (var keyTypes = mockStatic(AEKeyTypes.class)) {
             keyTypes.when(AEKeyTypes::getAll).thenReturn(Set.of(AEKeyType.items()));
-            return ConfigInventory.configTypes(slots).supportedTypes(Set.of(AEKeyType.items())).build();
+            return ConfigInventory.configTypes(key -> key.getType() == AEKeyType.items(), slots, null);
         }
     }
 

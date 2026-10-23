@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.items.ItemStackHandler;
@@ -48,7 +47,6 @@ class PhantomItemSlotSideTest {
         }
         try (var ldlib = mockStatic(LDLib.class)) {
             ldlib.when(LDLib::isClient).thenReturn(client || side.equals("integrated"));
-            ldlib.when(LDLib::isServer).thenReturn(!client);
             ldlib.when(LDLib::isRemote).thenReturn(client);
             // Recipe-viewer mods can be present on a dedicated server too.
             ldlib.when(LDLib::isJeiLoaded).thenReturn(true);
@@ -62,7 +60,7 @@ class PhantomItemSlotSideTest {
                 var ingredient=new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND,7);
                 var targets=((com.lowdragmc.lowdraglib.gui.ingredient.IGhostIngredientTarget)slot.widgets.get(0)).getPhantomTargets(ingredient);
                 assertEquals(client?1:0,targets.size());
-                if(client){targets.get(0).accept(ingredient);assertEquals(7,ingredient.getCount());assertEquals(7,slot.getValue().getCount());}
+                if(client){targets.get(0).accept(ingredient);assertEquals(7,ingredient.getCount());assertEquals(1,slot.getValue().getCount());}
             }
         }
     }

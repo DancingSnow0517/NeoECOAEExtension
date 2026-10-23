@@ -12,6 +12,7 @@ import appeng.items.storage.CreativeCellItem;
 import appeng.me.cells.CreativeCellHandler;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -33,6 +34,7 @@ class ECOCreativeCellTest {
     void initializeKeyTypes() {
         keyTypes = mockStatic(AEKeyTypes.class);
         keyTypes.when(AEKeyTypes::getAll).thenReturn(java.util.Set.of(AEKeyType.items(), AEKeyType.fluids()));
+        keyTypes.when(() -> AEKeyTypes.get(any())).thenAnswer(call -> LargeWorkstationTestKeys.REGISTRY.getValue(call.getArgument(0)));
     }
 
     @AfterEach

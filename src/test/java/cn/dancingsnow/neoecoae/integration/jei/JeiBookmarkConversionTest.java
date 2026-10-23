@@ -2,14 +2,12 @@ package cn.dancingsnow.neoecoae.integration.jei;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.Optional;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
-import mezz.jei.api.neoforge.NeoForgeTypes;
+import mezz.jei.api.forge.ForgeTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -17,8 +15,6 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidStack;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import tamaized.ae2jeiintegration.api.integrations.jei.IngredientConverter;
-import tamaized.ae2jeiintegration.api.integrations.jei.IngredientConverters;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -34,26 +30,19 @@ class JeiBookmarkConversionTest {
         assertEquals(AEItemKey.of(item), JeiBookmarkAccessImpl.ingredientKey(itemIngredient));
 
         var fluid = new FluidStack(Fluids.WATER, 1000);
-        fluid.setHoverName(Component.literal("Bookmarked fluid"));
+        fluid.getOrCreateTag().putString("test_name", "Bookmarked fluid");
         var fluidIngredient = mock(ITypedIngredient.class);
-        when(fluidIngredient.getIngredient(NeoForgeTypes.FLUID_STACK)).thenReturn(Optional.of(fluid));
+        when(fluidIngredient.getIngredient(ForgeTypes.FLUID_STACK)).thenReturn(Optional.of(fluid));
         assertEquals(AEFluidKey.of(fluid), JeiBookmarkAccessImpl.ingredientKey(fluidIngredient));
         assertNotEquals(AEFluidKey.of(Fluids.WATER), JeiBookmarkAccessImpl.ingredientKey(fluidIngredient));
     }
 
-    @Test void customBookmarksUseTheRegisteredAe2JeiConverterAndUnknownTypesAreSkipped() {
+    @Test void unknownBookmarksAreSkippedWhenTheOptionalAe2JeiConvertersAreAbsent() {
         var type = mock(IIngredientType.class);
         var ingredient = mock(ITypedIngredient.class);
         var value = new Object();
-        var key = mock(AEKey.class);
         when(ingredient.getType()).thenReturn(type);
         when(ingredient.getIngredient()).thenReturn(value);
         assertNull(JeiBookmarkAccessImpl.ingredientKey(ingredient));
-
-        var converter = mock(IngredientConverter.class);
-        when(converter.getIngredientType()).thenReturn(type);
-        when(converter.getStackFromIngredient(value)).thenReturn(new GenericStack(key, 1000));
-        assertTrue(IngredientConverters.register(converter));
-        assertSame(key, JeiBookmarkAccessImpl.ingredientKey(ingredient));
     }
 }

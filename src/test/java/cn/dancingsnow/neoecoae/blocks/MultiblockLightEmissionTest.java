@@ -28,20 +28,17 @@ class MultiblockLightEmissionTest {
         InventoryTestBootstrap.initialize();
         var registry = (MappedRegistry<Block>) BuiltInRegistries.BLOCK;
         registry.unfreeze();
-        try {
-            blocks = List.of(
-                new ECODriveBlock(BlockBehaviour.Properties.of().noOcclusion()),
-                new ECOComputationDrive(BlockBehaviour.Properties.of().noOcclusion()),
-                new ECOComputationNetworkSwitch(BlockBehaviour.Properties.of()),
-                new ECOComputationDrive(BlockBehaviour.Properties.of().lightLevel(state -> 7)));
-            for (int index = 0; index < blocks.size(); index++) {
-                Block block = blocks.get(index);
-                Registry.register(registry, "neoecoae_light_emission_test:block_" + index, block);
-                block.getStateDefinition().getPossibleStates().forEach(BlockState::initCache);
-            }
-        } finally {
-            registry.freeze();
+        blocks = List.of(
+            new ECODriveBlock(BlockBehaviour.Properties.of().noOcclusion()),
+            new ECOComputationDrive(BlockBehaviour.Properties.of().noOcclusion()),
+            new ECOComputationNetworkSwitch(BlockBehaviour.Properties.of()),
+            new ECOComputationDrive(BlockBehaviour.Properties.of().lightLevel(state -> 7)));
+        for (int index = 0; index < blocks.size(); index++) {
+            Block block = blocks.get(index);
+            Registry.register(registry, "neoecoae_light_emission_test:block_" + index, block);
+            block.getStateDefinition().getPossibleStates().forEach(BlockState::initCache);
         }
+        // Unit tests leave the shared Forge registry open for the next fixture.
     }
 
     @Test

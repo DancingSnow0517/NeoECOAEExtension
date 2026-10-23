@@ -242,8 +242,13 @@ class ECOInfiniteStorageDurabilityTest {
         UUID target = UUID.randomUUID();
         var goal = new ECOInfiniteStorageEngine.RestoreTargetAmounts(0L, Long.MAX_VALUE, Long.MAX_VALUE);
 
-        assertTrue(data.reserveRestore(key, transaction, Set.of(target), Map.of(target, goal)));
+        assertFalse(data.reserveRestore(key, transaction, Set.of(target), Map.of(target, goal)),
+            "A restore plan must account for the entire exact amount before touching any disk");
+        UUID remainder = UUID.randomUUID();
+        var remainderGoal = new ECOInfiniteStorageEngine.RestoreTargetAmounts(0L, 5L, 5L);
+        assertTrue(data.reserveRestore(key, transaction, Set.of(target, remainder),
+            Map.of(target, goal, remainder, remainderGoal)));
         assertTrue(data.finishRestore(key, transaction));
-        assertEquals(HugeAmount.of(5L), data.getAmount(key));
+        assertEquals(HugeAmount.of(0L), data.getAmount(key));
     }
 }

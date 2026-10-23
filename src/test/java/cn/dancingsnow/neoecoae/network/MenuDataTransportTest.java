@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.network;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.core.RegistryAccess;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -25,7 +24,9 @@ class MenuDataTransportTest {
         var player = player(server);
         var tick = new TickEvent.ServerTickEvent(TickEvent.Phase.END, () -> true, server);
         List<ECOMenuChunkS2CPacket> sent = new ArrayList<>();
-        try (var packets = mockStatic(PacketDistributor.class)) {
+        try (var packets = mockStatic(ECONetwork.class);
+             var lifecycle = mockStatic(net.minecraftforge.server.ServerLifecycleHooks.class)) {
+            lifecycle.when(net.minecraftforge.server.ServerLifecycleHooks::getCurrentServer).thenReturn(server);
             packets.when(() -> ECONetwork.sendToPlayer(eq(player), any(ECOMenuChunkS2CPacket.class)))
                 .thenAnswer(call -> { sent.add(call.getArgument(1)); return null; });
             MenuDataTransport.send(player, MenuDataTransport.Channel.GRAPH, buf -> buf.writeBytes(new byte[100_000]));
@@ -48,7 +49,9 @@ class MenuDataTransportTest {
     @Test void closingMenuOrDisconnectingDropsPendingDataAndAllowsFreshSnapshot() {
         var server = mock(MinecraftServer.class);
         var player = player(server);
-        try (var packets = mockStatic(PacketDistributor.class)) {
+        try (var packets = mockStatic(ECONetwork.class);
+             var lifecycle = mockStatic(net.minecraftforge.server.ServerLifecycleHooks.class)) {
+            lifecycle.when(net.minecraftforge.server.ServerLifecycleHooks::getCurrentServer).thenReturn(server);
             MenuDataTransport.send(player, MenuDataTransport.Channel.CPU, buf -> buf.writeBytes(new byte[60_000]));
             player.containerMenu = mock(AbstractContainerMenu.class);
             MenuDataTransport.tick(new TickEvent.ServerTickEvent(TickEvent.Phase.END, () -> true, server));
@@ -68,7 +71,6 @@ class MenuDataTransportTest {
         var player = mock(ServerPlayer.class);
         player.containerMenu = mock(AbstractContainerMenu.class);
         when(player.getServer()).thenReturn(server);
-        when(player.level().registryAccess()).thenReturn(RegistryAccess.EMPTY);
         return player;
     }
 }

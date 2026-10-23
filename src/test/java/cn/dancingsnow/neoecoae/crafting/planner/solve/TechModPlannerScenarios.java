@@ -349,7 +349,7 @@ final class TechModPlannerScenarios {
 
         AEKey fluid(String name) {
             var stack = new FluidStack(Fluids.WATER, 1);
-            stack.setHoverName(Component.literal(id + ":" + name));
+            stack.getOrCreateTag().putString("test_name", id + ":" + name);
             AEKey key = AEFluidKey.of(stack);
             labels.put(key, name + " [mB]");
             return key;

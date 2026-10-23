@@ -1,49 +1,74 @@
 package cn.dancingsnow.neoecoae.network;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
+import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.Optional;
-import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.network.negotiation.NegotiableNetworkComponent;
-import net.minecraftforge.network.negotiation.NetworkComponentNegotiator;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import net.minecraftforge.fml.ModContainer;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.forgespi.language.IModInfo;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.simple.SimpleChannel;
+import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class ECONetworkVersionTest {
-    private static NegotiableNetworkComponent component(String version) {
-        return new NegotiableNetworkComponent(
-            new ResourceLocation("neoecoae", "menu_chunk"), version,
-            Optional.of(PacketFlow.CLIENTBOUND), false);
+    @BeforeAll static void bootstrap() throws ClassNotFoundException {
+        InventoryTestBootstrap.initialize();
+        try (var registrate = mockStatic(NERegistrate.class)) {
+            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
+            Class.forName(NeoECOAE.class.getName());
+        }
     }
 
-    @Test
-    void sameEcoReleasePassesNeoForgeVersionValidation() {
-        var server = component(ECONetwork.protocolVersion("21.2.0-beta6"));
-        var client = component(ECONetwork.protocolVersion("21.2.0-beta6"));
-        assertTrue(NetworkComponentNegotiator.validateComponent(server, client, "client").isEmpty());
-        assertTrue(NetworkComponentNegotiator.validateComponent(client, server, "server").isEmpty());
+    @Test void sameEcoReleasePassesBothForgeChannelChecks() {
+        var checks = register("20.6.0-dev");
+        assertEquals("3/20.6.0-dev", checks.version().get());
+        assertTrue(checks.client().test(checks.version().get()));
+        assertTrue(checks.server().test(checks.version().get()));
     }
 
-    @Test
-    void differentEcoReleasesAreRejectedWithBothVersions() {
-        assertRejected(ECONetwork.protocolVersion("21.2.0-beta4"),
-            ECONetwork.protocolVersion("21.2.0-beta3"));
+    @Test void differentEcoReleasesAreRejectedInBothDirections() {
+        var checks = register("20.6.0-dev");
+        String older = ECONetwork.protocolVersion("20.5.0");
+        assertFalse(checks.client().test(older));
+        assertFalse(checks.server().test(older));
     }
 
-    @Test
-    void legacyConstantProtocolIsRejectedInEitherDirection() {
-        String current = ECONetwork.protocolVersion("21.2.0-beta6");
-        assertRejected(current, "3");
-        assertRejected("3", current);
+    @Test void legacyAndMissingChannelsAreRejectedInBothDirections() {
+        var checks = register("20.6.0-dev");
+        for (String version : new String[] {"3", NetworkRegistry.ABSENT.version(), NetworkRegistry.ACCEPTVANILLA}) {
+            assertFalse(checks.client().test(version));
+            assertFalse(checks.server().test(version));
+        }
     }
 
-    private static void assertRejected(String serverVersion, String clientVersion) {
-        var result = NetworkComponentNegotiator.validateComponent(
-            component(serverVersion), component(clientVersion), "client").orElseThrow();
-        assertFalse(result.success());
-        var reason = assertInstanceOf(TranslatableContents.class, result.failureReason().getContents());
-        assertEquals("neoforge.network.negotiation.failure.version.mismatch", reason.getKey());
-        assertArrayEquals(new Object[] {serverVersion, clientVersion}, reason.getArgs());
+    private record Checks(Supplier<String> version, Predicate<String> client, Predicate<String> server) {}
+
+    private static Checks register(String version) {
+        var modList = mock(ModList.class);
+        var container = mock(ModContainer.class);
+        var info = mock(IModInfo.class);
+        doReturn(Optional.of(container)).when(modList).getModContainerById("neoecoae");
+        when(container.getModInfo()).thenReturn(info);
+        when(info.getVersion()).thenReturn(new DefaultArtifactVersion(version));
+        Checks[] captured = new Checks[1];
+        try (var mods = mockStatic(ModList.class); var registry = mockStatic(NetworkRegistry.class)) {
+            mods.when(ModList::get).thenReturn(modList);
+            registry.when(() -> NetworkRegistry.newSimpleChannel(any(), any(), any(), any()))
+                .thenAnswer(call -> {
+                    captured[0] = new Checks(call.getArgument(1), call.getArgument(2), call.getArgument(3));
+                    return mock(SimpleChannel.class);
+                });
+            ECONetwork.register();
+        }
+        assertNotNull(captured[0]);
+        return captured[0];
     }
 }

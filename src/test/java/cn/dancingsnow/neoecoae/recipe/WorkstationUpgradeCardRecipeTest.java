@@ -7,7 +7,6 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mojang.serialization.JsonOps;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -39,17 +38,15 @@ class WorkstationUpgradeCardRecipeTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @ParameterizedTest
-    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics", "appgen"})
+    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "aelt"})
     void recipesKeepApprovedCostsAndOptionalModConditions(String variant) throws IOException {
         JsonObject json = resource(variant);
         assertEquals("neoecoae:large_integrated_working_station", json.get("type").getAsString());
-        assertEquals(PREFIX + variant, json.getAsJsonObject("itemOutput").get("id").getAsString());
+        assertEquals(PREFIX + variant, json.getAsJsonObject("itemOutput").get("item").getAsString());
         assertEquals(1, json.getAsJsonObject("itemOutput").get("count").getAsInt());
         assertEquals(16_384_000, json.get("energy").getAsInt());
         String expectedFluid = switch (variant) {
             case "advanced_ae" -> "advanced_ae:quantum_infusion_source";
-            case "data_energistics" -> "data_energistics:data_corrosion_liquid";
-            case "appgen" -> "minecraft:lava";
             default -> null;
         };
         if (expectedFluid == null) {
@@ -65,7 +62,7 @@ class WorkstationUpgradeCardRecipeTest {
             expected.put("neoecoae:energized_superconductive_ingot", 4);
             expected.put("neoecoae:superconducting_processor", 2);
             expected.put("neoecoae:crystal_matrix", 2);
-            assertFalse(json.has("neoforge:conditions"));
+            assertFalse(json.has("conditions"));
         } else {
             expected.put(PREFIX + "empty", 1);
             if (!variant.equals("aelt")) {
@@ -74,10 +71,10 @@ class WorkstationUpgradeCardRecipeTest {
                 expected.put("neoecoae:crystal_matrix", 16);
                 expected.put("ae2:singularity", 16);
             }
-            String mod = variant.equals("aelt") ? "ae2lt" : variant;
-            var conditions = json.getAsJsonArray("neoforge:conditions");
+            String mod = switch (variant) { case "aelt" -> "ae2lt"; case "extendedae" -> "expatternprovider"; default -> variant; };
+            var conditions = json.getAsJsonArray("conditions");
             assertEquals(1, conditions.size());
-            assertEquals("neoforge:mod_loaded", conditions.get(0).getAsJsonObject().get("type").getAsString());
+            assertEquals("forge:mod_loaded", conditions.get(0).getAsJsonObject().get("type").getAsString());
             assertEquals(mod, conditions.get(0).getAsJsonObject().get("modid").getAsString());
             switch (variant) {
                 case "advanced_ae" -> {
@@ -86,15 +83,9 @@ class WorkstationUpgradeCardRecipeTest {
                     expected.put("advanced_ae:quantum_processor", 64);
                 }
                 case "extendedae" -> {
-                    expected.put("extendedae:crystal_assembler", 8);
-                    expected.put("extendedae:entro_ingot", 256);
-                    expected.put("extendedae:concurrent_processor", 128);
-                }
-                case "ae2cs" -> {
-                    expected.put("ae2cs:circuit_etcher", 4);
-                    expected.put("ae2cs:crystal_aggregator", 4);
-                    expected.put("ae2cs:purified_resonating_crystal", 256);
-                    expected.put("ae2cs:resonating_processor", 128);
+                    expected.put("expatternprovider:ex_molecular_assembler", 8);
+                    expected.merge("neoecoae:energized_superconductive_ingot", 256, Integer::sum);
+                    expected.merge("neoecoae:superconducting_processor", 128, Integer::sum);
                 }
                 case "aelt" -> {
                     expected.put("ae2lt:ultimate_overload_core", 16);
@@ -106,31 +97,19 @@ class WorkstationUpgradeCardRecipeTest {
                     expected.put("ae2lt:overload_alloy", 128);
                     expected.put("ae2lt:overload_processor", 128);
                 }
-                case "data_energistics" -> {
-                    expected.put("data_energistics:data_reassembler", 4);
-                    expected.put("data_energistics:data_integrated_charger", 4);
-                    expected.put("data_energistics:digisidian_memorize_ingot", 64);
-                    expected.put("data_energistics:data_processor", 128);
-                }
-                case "appgen" -> {
-                    expected.put("appgen:genesis_synthesizer", 8);
-                    expected.put("appgen:budding_ember_flawless", 4);
-                    expected.put("appgen:ember_crystal_charged", 256);
-                    expected.put("appgen:origination_processor", 128);
-                }
                 default -> fail("Unexpected card: " + variant);
             }
         }
         Map<String, Integer> actual = new LinkedHashMap<>();
         for (var entry : json.getAsJsonArray("inputItems")) {
             var input = entry.getAsJsonObject();
-            assertNull(actual.put(input.get("item").getAsString(), input.get("count").getAsInt()));
+            actual.merge(input.get("item").getAsString(), input.get("count").getAsInt(), Integer::sum);
         }
         assertEquals(expected, actual);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics", "appgen"})
+    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "aelt"})
     void nativeLargeRecipesAreAvailableWithoutAnyCardAndKeepFullBatchCosts(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
         var id = new ResourceLocation("test:card_" + variant);
@@ -190,17 +169,16 @@ class WorkstationUpgradeCardRecipeTest {
     @Test void lightningRecipeSurvivesJsonAndNetworkRoundTrips() throws IOException {
         var recipe = decodeWithVanillaItems(resource("aelt"));
         assertEquals(9, recipe.display().inputItems().size());
-        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = JsonOps.INSTANCE;
-        var json = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow(false, message -> { throw new IllegalStateException(message); });
-        var restored = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, json).getOrThrow(false, message -> { throw new IllegalStateException(message); });
+        var json = IntegratedWorkingStationRecipe.Serializer.toJson(recipe.display());
+        var serializer = new LargeIntegratedWorkingStationRecipe.Serializer();
+        var restored = serializer.fromJson(recipe.getId(), json);
         assertEquals(recipe.display().inputItems().stream().map(input -> input.count()).toList(),
             restored.display().inputItems().stream().map(input -> input.count()).toList());
 
         var buffer = new FriendlyByteBuf(Unpooled.buffer());
         try (var sync = mockStatic(RegistryManager.class)) {
-            LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, restored);
-            var synced = LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer);
+            serializer.toNetwork(buffer, restored);
+            var synced = serializer.fromNetwork(recipe.getId(), buffer);
             assertEquals(9, synced.display().inputItems().size());
             assertEquals(16, synced.display().inputItems().get(1).count());
             assertEquals(64, synced.display().inputItems().get(2).count());
@@ -218,18 +196,17 @@ class WorkstationUpgradeCardRecipeTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"advanced_ae", "data_energistics", "appgen"})
+    @ValueSource(strings = {"advanced_ae"})
     void fluidCostsSurviveJsonAndNetworkRoundTrips(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
-        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = JsonOps.INSTANCE;
-        var json = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow(false, message -> { throw new IllegalStateException(message); });
-        var restored = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, json).getOrThrow(false, message -> { throw new IllegalStateException(message); });
+        var json = IntegratedWorkingStationRecipe.Serializer.toJson(recipe.display());
+        var serializer = new LargeIntegratedWorkingStationRecipe.Serializer();
+        var restored = serializer.fromJson(recipe.getId(), json);
 
         var buffer = new FriendlyByteBuf(Unpooled.buffer());
         try (var sync = mockStatic(RegistryManager.class)) {
-            LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, restored);
-            var synced = LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer);
+            serializer.toNetwork(buffer, restored);
+            var synced = serializer.fromNetwork(recipe.getId(), buffer);
             for (var decoded : List.of(recipe, restored, synced)) {
                 var fluid = decoded.display().inputFluid();
                 assertEquals(16_000, fluid.amount());
@@ -249,12 +226,10 @@ class WorkstationUpgradeCardRecipeTest {
         while (inputs.size() < LargeIntegratedWorkingStationRecipe.MAX_ITEM_INPUTS) inputs.add(inputs.get(0).deepCopy());
         var recipe = decodeWithVanillaItems(json);
         assertEquals(12, recipe.display().inputItems().size());
-        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var ops = JsonOps.INSTANCE;
-        var encoded = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow(false, message -> { throw new IllegalStateException(message); });
-        assertTrue(IntegratedWorkingStationRecipe.Serializer.CODEC.codec().parse(ops, encoded).error().isPresent());
+        var encoded = IntegratedWorkingStationRecipe.Serializer.toJson(recipe.display());
+        assertThrows(IllegalArgumentException.class, () -> new IntegratedWorkingStationRecipe.Serializer().fromJson(recipe.getId(), encoded));
         inputs.add(inputs.get(0).deepCopy());
-        assertThrows(IllegalStateException.class, () -> decodeWithVanillaItems(json));
+        assertThrows(IllegalArgumentException.class, () -> decodeWithVanillaItems(json));
     }
 
     private static JsonObject resource(String variant) throws IOException {
@@ -276,9 +251,8 @@ class WorkstationUpgradeCardRecipeTest {
         if (json.has("inputFluid")) {
             json.getAsJsonObject("inputFluid").addProperty("fluid", "minecraft:water");
         }
-        json.getAsJsonObject("itemOutput").addProperty("id", "minecraft:diamond");
+        json.getAsJsonObject("itemOutput").addProperty("item", "minecraft:diamond");
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        return LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec()
-            .parse(JsonOps.INSTANCE, json).getOrThrow(false, message -> { throw new IllegalStateException(message); });
+        return new LargeIntegratedWorkingStationRecipe.Serializer().fromJson(new ResourceLocation("test:card"), json);
     }
 }

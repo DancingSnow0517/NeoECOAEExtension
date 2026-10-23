@@ -15,7 +15,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.util.Unit;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -26,13 +25,13 @@ class StorageCellUiExtractionTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @Test
-    void diskWithRuntimeOnlyComponentsCanBeTakenAfterDisplaySerialization() {
+    void diskWithPersistentNbtCanBeTakenAfterDisplaySerialization() {
         Fixture f = new Fixture();
-        // Display snapshots use persistent NBT, which omits network-only components.
+        // Forge 1.20 stores this marker in the persistent NBT used by display snapshots.
         f.cell.get().getOrCreateTag().putBoolean("custom-lock-marker",true);
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         ItemStack displayed = ItemStack.of(f.cell.get().save(new net.minecraft.nbt.CompoundTag()));
-        assertFalse(ItemStack.matches(displayed, f.cell.get()));
+        assertTrue(ItemStack.matches(displayed, f.cell.get()));
         assertTrue(f.take(f.interactionId.get(), false));
         assertTrue(f.carried.get().getOrCreateTag().getBoolean("custom-lock-marker"));
     }

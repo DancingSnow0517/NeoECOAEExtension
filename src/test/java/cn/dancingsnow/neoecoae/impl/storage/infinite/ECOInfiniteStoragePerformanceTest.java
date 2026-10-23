@@ -107,7 +107,7 @@ class ECOInfiniteStoragePerformanceTest {
     private static void report(List<String> rows, com.sun.management.ThreadMXBean bean, String name,
                                int count, int operations, Runnable action) {
         for (int i = 0; i < 8; i++) action.run();
-        long thread = Thread.currentThread().threadId();
+        long thread = Thread.currentThread().getId();
         for (int round = 0; round < 5; round++) {
             long allocated = bean.getThreadAllocatedBytes(thread);
             long started = System.nanoTime();

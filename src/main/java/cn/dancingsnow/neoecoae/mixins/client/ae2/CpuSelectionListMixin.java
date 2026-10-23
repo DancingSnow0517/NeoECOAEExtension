@@ -58,7 +58,7 @@ public class CpuSelectionListMixin {
         method = "drawBackgroundLayer",
         at = @At(
             value = "INVOKE",
-            target = "Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IFII)V",
+            target = "Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IF)V",
             ordinal = 1
         )
     )
@@ -67,15 +67,13 @@ public class CpuSelectionListMixin {
         String text,
         int color,
         float scale,
-        int xPos,
-        int yPos,
         Operation<Void> original,
         @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
     ) {
-        // Both AE2 19.2.17 and 19.2.18 use this call after formatting storage differently.
+        // AE2 15 passes text, color and scale to the storage row.
         String storage = ECOCraftingCpuListEntry.isEcoCpu(cpu)
             ? NEByteFormatter.formatCpuStorage(cpu.storage()) : text;
-        original.call(instance, storage, color, scale, xPos, yPos);
+        original.call(instance, storage, color, scale);
     }
 
     @WrapOperation(
@@ -95,15 +93,13 @@ public class CpuSelectionListMixin {
 
     @WrapOperation(
         method = "drawBackgroundLayer",
-        at = @At(value = "INVOKE", target = "Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IFII)V", ordinal = 2)
+        at = @At(value = "INVOKE", target = "Lappeng/client/gui/widgets/InfoBar;add(Ljava/lang/String;IF)V", ordinal = 2)
     )
     private void wrapAdd(
         InfoBar instance,
         String text,
         int color,
         float scale,
-        int xPos,
-        int yPos,
         Operation<Void> original,
         @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
     ) {
@@ -115,12 +111,10 @@ public class CpuSelectionListMixin {
                 instance,
                 digit + amount.unit(),
                 color,
-                scale,
-                xPos,
-                yPos
+                scale
             );
         } else {
-            original.call(instance, text, color, scale, xPos, yPos);
+            original.call(instance, text, color, scale);
         }
     }
 }

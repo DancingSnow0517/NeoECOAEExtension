@@ -47,10 +47,10 @@ class ECOAdvancementResourcesTest {
     void usesCurrentResourceAndIconFormats() throws Exception {
         for (String name : NAMES) {
             assertNull(getClass().getClassLoader().getResource(
-                "data/neoecoae/advancements/eco/" + name + ".json"), "Legacy directory: " + name);
+                "data/neoecoae/advancement/eco/" + name + ".json"), "Wrong version directory: " + name);
             JsonObject icon = read(name).getAsJsonObject("display").getAsJsonObject("icon");
-            assertTrue(icon.has("id"), "Missing item-stack id: " + name);
-            assertFalse(icon.has("item"), "Legacy item-stack field: " + name);
+            assertTrue(icon.has("item"), "Missing Forge item-stack field: " + name);
+            assertFalse(icon.has("id"), "Newer item-stack field: " + name);
         }
     }
 
