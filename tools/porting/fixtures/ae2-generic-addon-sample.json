@@ -1,0 +1,15 @@
+{
+  "description": "Independent addon fixtures with no third-party classes or behavior dependencies.",
+  "self_contained": true,
+  "mixin_package": "cn.dancingsnow.neoecoae.verification.fixture",
+  "targets": {
+    "planning-route": {
+      "mixin": "AdditionalCraftingEntryMixin",
+      "planning_entries": ["independentAddonCalculation"]
+    },
+    "submission-route": {
+      "mixin": "CompetingCpuSelectionMixin",
+      "hook": "independentAddonSelectCpu"
+    }
+  }
+}

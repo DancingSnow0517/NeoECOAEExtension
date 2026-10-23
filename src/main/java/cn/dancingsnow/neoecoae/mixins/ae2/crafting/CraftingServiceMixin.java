@@ -647,7 +647,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     ) {
         if (NEConfig.ecoCraftSubmissionDebug) {
             NEOECOAE_SUBMISSION_LOGGER.info(
-                    "[ECO-CRAFT-SUBMIT] stage=post-native-selection plan={} target={} nativeUnsuitable={}",
+                    "[ECO-CRAFT-SUBMIT] stage=pre-native-selection plan={} target={} unsuitable={}",
                     neoecoae$describeSubmissionPlan(job), neoecoae$describeSubmissionTarget(target),
                     unsuitableCpusResult.getValue());
         }

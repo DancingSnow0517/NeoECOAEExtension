@@ -1,0 +1,260 @@
+{
+  "time": "2026-10-24T01:18:23.342422+08:00",
+  "baseline": "212cc702015f27603de363c524bdced206f90afd",
+  "scope": "Planning graph routing and explicit CPU selection. Unrelated structure terminal changes excluded from build.",
+  "production_dependencies": "AE2 standard APIs and ECO contracts only; external identifiers are configurable test sample data.",
+  "artifact": {
+    "path": "build/release/ae2-menu-routing/neoecoae-20.6.0-dev.jar",
+    "sha256": "bd51fd4d65b345fc0b407ea77175c492f0c123d0d1d776a2049b67577a8c7c0c",
+    "bytes": 7039545
+  },
+  "unit_tests": {
+    "suites": 253,
+    "tests": 1528,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12,
+    "passed": 1516,
+    "command": "build-local.ps1 build --offline --console=plain",
+    "log_sha256": "214dc38dfc920b14a1452aab3f8d19fda484fd154de2dbad32fe0a2f9eae0279"
+  },
+  "mixin_transformations": {
+    "runs": 16,
+    "cases": 46,
+    "ae2_versions": [
+      "15.4.10",
+      "15.4.11"
+    ],
+    "samples": [
+      "self-contained generic addon",
+      "installed addon runtime sample"
+    ],
+    "logs": [
+      {
+        "log": "build/compat-final-generic-installed-planning-route.log",
+        "sha256": "cc304008d08e9bd156c491ad0cbe5d892a2afe1c623ff71eed875d5515660806",
+        "results": [
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=before native=1 addon=1 wrapped=false",
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=addon native=1 addon=1 wrapped=true",
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=base native=1 addon=0 wrapped=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-generic-installed-submission-route.log",
+        "sha256": "0e990b117097c6f38e7889b100759e0a6709216be83a91b6d3706715b7d7d85b",
+        "results": [
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=before simulation=16 eco=105 nativeScan=66 addon=81",
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=addon simulation=16 eco=80 nativeScan=90 addon=105",
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=base simulation=16 eco=80 nativeScan=90 addon=-1"
+        ]
+      },
+      {
+        "log": "build/compat-final-generic-named-planning-route.log",
+        "sha256": "8ea6c81b05dc34abc4b1ac28124abc487aafb6cb625f65d6a60893f4dff9c08d",
+        "results": [
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=before native=1 addon=1 wrapped=false",
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=addon native=1 addon=1 wrapped=true",
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=base native=1 addon=0 wrapped=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-generic-named-submission-route.log",
+        "sha256": "d697d4686b7d995eec61071abcf6a4f08ee288b791752cb3a6c605ad1ca4d60e",
+        "results": [
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=before simulation=16 eco=105 nativeScan=66 addon=81",
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=addon simulation=16 eco=80 nativeScan=90 addon=105",
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=base simulation=16 eco=80 nativeScan=90 addon=-1"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-installed-craft-confirm.log",
+        "sha256": "a37c3d39f878e46cf455e75e6ebd9e31d6577041015a880513a887d833166674",
+        "results": [
+          "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=before reproduced=duplicate_sync_ids_[100, 101]",
+          "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=addon fields=21 eco=12 addon=3 synchronization=true roundTrip=requires_named_or_live_runtime",
+          "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=base fields=18 eco=12 addon=0 synchronization=true roundTrip=requires_named_or_live_runtime"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-installed-crafting-style.log",
+        "sha256": "3247245c3cf68f55ff028d844e76689fca0251298ec2f1d1d804d07813c662ee",
+        "results": [
+          "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=before requested=/screens/eco_craft_confirm.json effective=/screens/modify_craft_confirm.json cycleImages=false",
+          "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=addon requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true",
+          "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=base requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-installed-logic.log",
+        "sha256": "432f4a8d8869f2ed92e6bde919ef08b4e2362157a2858e34a3ec833cc2ad4985",
+        "results": [
+          "AE2_ADDON_CPU_COMPAT PASS mode=before reproduced=InvalidInjectionException priority1000_vs_1100",
+          "AE2_ADDON_CPU_COMPAT PASS mode=addon transformed=true jobWrapper=true dispatch=true lifecycle=true",
+          "AE2_ADDON_CPU_COMPAT PASS mode=base transformed=true jobWrapper=true dispatch=true lifecycle=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-installed-planning-route.log",
+        "sha256": "cc304008d08e9bd156c491ad0cbe5d892a2afe1c623ff71eed875d5515660806",
+        "results": [
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=before native=1 addon=1 wrapped=false",
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=addon native=1 addon=1 wrapped=true",
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=base native=1 addon=0 wrapped=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-installed-selection-list.log",
+        "sha256": "956f1124c953d6c6bb08ac0d085ad421f608854ecfedd6f3365ffbc656d3ccaf",
+        "results": [
+          "AE2_ADDON_CPU_LIST_COMPAT PASS mode=addon transformed=true overlay=true storage=true coprocessors=true tooltip=true",
+          "AE2_ADDON_CPU_LIST_COMPAT PASS mode=base transformed=true overlay=true storage=true coprocessors=true tooltip=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-installed-submission-route.log",
+        "sha256": "37510ca3d659aa876514e34690bb130072a1ae66d8f8a223a2bd10b1eea0c4cf",
+        "results": [
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=before simulation=16 eco=107 nativeScan=66 addon=83",
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=addon simulation=16 eco=80 nativeScan=90 addon=107",
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=base simulation=16 eco=80 nativeScan=90 addon=-1"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-named-craft-confirm.log",
+        "sha256": "305e741a800a61967e8e593ee41f059a0146c886886c2878a8617eb2d10c0915",
+        "results": [
+          "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=before reproduced=duplicate_sync_ids_[100, 101]",
+          "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=addon fields=21 eco=12 addon=3 synchronization=true roundTrip=true",
+          "AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=base fields=18 eco=12 addon=0 synchronization=true roundTrip=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-named-crafting-style.log",
+        "sha256": "cc5ccdaba2c68346d145ece2b0ca047b8bbfb338f66a61e190e18647ee96a828",
+        "results": [
+          "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=before requested=/screens/eco_craft_confirm.json effective=/screens/modify_craft_confirm.json cycleImages=false",
+          "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=addon requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true",
+          "AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=base requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-named-logic.log",
+        "sha256": "86af90fa4bbf4c3c0c6912f68405fac709a3a7cfafda0dfcfb045edae43836a7",
+        "results": [
+          "AE2_ADDON_CPU_COMPAT PASS mode=before reproduced=InvalidInjectionException priority1000_vs_1100",
+          "AE2_ADDON_CPU_COMPAT PASS mode=addon transformed=true jobWrapper=true dispatch=true lifecycle=true",
+          "AE2_ADDON_CPU_COMPAT PASS mode=base transformed=true jobWrapper=true dispatch=true lifecycle=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-named-planning-route.log",
+        "sha256": "d61a3465bd846d62468fbb061d6288dadcf5021cfec8ee4b16c36a5eb121ca68",
+        "results": [
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=before native=1 addon=1 wrapped=false",
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=addon native=1 addon=1 wrapped=true",
+          "AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=base native=1 addon=0 wrapped=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-named-selection-list.log",
+        "sha256": "a497a43035ee09a3c65d5d2ac32588fdb9286ee15290d67122686c22d988661d",
+        "results": [
+          "AE2_ADDON_CPU_LIST_COMPAT PASS mode=addon transformed=true overlay=true storage=true coprocessors=true tooltip=true",
+          "AE2_ADDON_CPU_LIST_COMPAT PASS mode=base transformed=true overlay=true storage=true coprocessors=true tooltip=true"
+        ]
+      },
+      {
+        "log": "build/compat-final-runtime-named-submission-route.log",
+        "sha256": "3f3829edc1951aede21d73c68a4e7db1ffe8cfdc113d0c65937583bf2c7022c7",
+        "results": [
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=before simulation=16 eco=107 nativeScan=66 addon=83",
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=addon simulation=16 eco=80 nativeScan=90 addon=107",
+          "AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=base simulation=16 eco=80 nativeScan=90 addon=-1"
+        ]
+      }
+    ]
+  },
+  "package_audit": {
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "bd51fd4d65b345fc0b407ea77175c492f0c123d0d1d776a2049b67577a8c7c0c",
+    "bytes": 7039545,
+    "source_files_checked": 976,
+    "packaged_classes": 1605,
+    "class_major_versions": {
+      "61": 1605
+    },
+    "registered_mixins": 64,
+    "registered_mixin_configs": [
+      "neoecoae.compat.advanced_ae.mixins.json",
+      "neoecoae.compat.extendedae.mixins.json",
+      "neoecoae.compat.thunderbolt.mixins.json",
+      "neoecoae.mixins.json",
+      "neoecoae.terminal_big_amount.mixins.json"
+    ],
+    "refmap_classes": 8,
+    "nested_jars": [
+      "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+      "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+    ],
+    "problems": {
+      "missing_source_classes": [],
+      "missing_required_resources": [],
+      "missing_registered_mixins": [],
+      "missing_mixin_plugins": [],
+      "unregistered_mixin_configs": [],
+      "missing_nested_jars": [],
+      "missing_translations": [],
+      "fake_upstream_classes": [],
+      "duplicate_entries": []
+    },
+    "result": "success",
+    "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+  },
+  "source_hashes": {
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingServiceEarlyMixin.java": "a50800c4d593ff70bf6d4a14087b008e117d83fd4826d6c1e1b8039b66a04ae8",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingServiceMixin.java": "ff874287506c8b48ebc79c8e9f151c767a8026a9fdbff3cc33006662ea4a5ba8",
+    "src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftConfirmMenuMixin.java": "b87385312e0afdef8a2aa27545c69e46f61f82dfc9bbe59f42e97b28a37fadc7",
+    "src/test/java/cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingSubmissionSelectionTest.java": "a7de13490277ded049617be2f5d4f8496dafd97815b10c1680cff06ce3c3f1a1",
+    "tools/porting/ae2_addon_compatibility.init.gradle": "c2ec1bc23b658e2967e307b7d47c5289df1c981669d83e0d848302c2998cabd9",
+    "tools/porting/ae2_addon_compatibility/cn/dancingsnow/neoecoae/verification/bootstrap/Ae2AddonCompatibility.java": "b81eeae1d906da4ac6d7a6c6ed62ce9ece4fe8773aa344af536254c87c50c149",
+    "tools/porting/ae2_addon_compatibility/cn/dancingsnow/neoecoae/verification/fixture/AdditionalCraftingEntryMixin.java": "0a9505c24470768565cfcc41cc5106864f670f2f758581cfb6ab066e50682387",
+    "tools/porting/ae2_addon_compatibility/cn/dancingsnow/neoecoae/verification/fixture/CompetingCpuSelectionMixin.java": "0b8aa15ae136b75cbcc2ee2d1865433e8d611ef49fdebde3cae52628d50ddb29",
+    "tools/porting/fixtures/ae2-addon-runtime-sample.json": "4b6133b42a0e8509216b7bfcd2aaa7ca7321d69dc672acada0e7b11a5bd5e3e4",
+    "tools/porting/fixtures/ae2-generic-addon-sample.json": "ff45b22d40342fffcde41a468d1e2c2e661a5d6693bb18dd49ddc1482ae0b377",
+    "src/main/java/cn/dancingsnow/neoecoae/platform/mixin/CraftConfirmPlanningBridge.java": "cd8de79c00efb241f1ba5beb0f78e88e35528a38091023d6fce2dbefebc642cc",
+    "src/main/java/cn/dancingsnow/neoecoae/platform/mixin/CraftingMenuPlanningMixinPlugin.java": "b6390632bef73e75e3a99fbc21fd75b630b2bb75acc80d476d9b5022504a1931",
+    "src/main/resources/neoecoae.mixins.json": "98ea9989b5fa05109b200da34a177189c928b7d5ea830ca8acb024f6762b88bb",
+    "tools/porting/ae2_addon_compatibility/cn/dancingsnow/neoecoae/verification/bootstrap/LegacyPlanningEntryPlugin.java": "7b168e5f644a43472bd5dbaef1914ea180aa05d395e89dc4ad141163e80c5676",
+    "src/test/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftConfirmPlanningRouteTest.java": "d5230a1e079db7e663f7bad4aaea2b04ea919b0cea946c441535458ff14a363a",
+    "src/test/java/cn/dancingsnow/neoecoae/crafting/planner/solve/ECOConfirmationAvailabilityTest.java": "d88db76b2c6fc28f6a59a0e303c0b95898542273149540962d088d1390c5afa5"
+  },
+  "evidence": [
+    {
+      "path": "docs/porting-2026-10-23/evidence/ae2-menu-routing/compatibility-results.txt",
+      "sha256": "d8190f9677fe85eefe77cac42bb02093be9f46c9884b35d04d22385f0abbfb80"
+    },
+    {
+      "path": "docs/porting-2026-10-23/evidence/ae2-menu-routing/graph-empty-before.txt",
+      "sha256": "d73dff5f24529eed3a38bc6a3e4b3e86ff24dfd017e2bf2624937e31960b6292"
+    },
+    {
+      "path": "docs/porting-2026-10-23/evidence/ae2-menu-routing/submission-order-before.txt",
+      "sha256": "f4d9b2e1cf619aad92b2a46627eef28e0b9488b34043bd9197ffd0249feb3616"
+    }
+  ],
+  "installation": {
+    "status": "waiting_for_game_exit",
+    "installed_new_package": false,
+    "target": "D:\\Minecraft\\1.20.0\\.minecraft\\versions\\GTL猪咪整合包（分享版）\\mods\\neoecoae-20.6.0-dev.jar"
+  },
+  "live_validation": {
+    "previous_report_screen_opened": true,
+    "previous_graph_empty_on_client_and_server": true,
+    "previous_addon_submission_callback_preceded_eco": true,
+    "new_package_restart_verified": false,
+    "new_package_graph_click_verified": false,
+    "new_package_actual_task_cpu_verified": false,
+    "real_crafting_jobs_created_or_cancelled_by_diagnostics": false
+  },
+  "acceptance": "Full source build, unit tests, actual isolated Mixin transformations and package audit passed. Fresh runtime graph navigation and actual CPU ownership remain pending."
+}

@@ -2,6 +2,14 @@
   "description": "Installed runtime regression sample: GTLCore 1.2.3.2-fix4. Not a production dependency.",
   "mixin_package": "org.gtlcore.gtlcore.mixin",
   "targets": {
+    "planning-route": {
+      "mixin": "ae2.gui.CraftConfirmMenuMixin",
+      "planning_entries": ["gtlcore$planLongAmountJob"]
+    },
+    "submission-route": {
+      "mixin": "ae2.service.CraftingServiceMixin",
+      "hook": "gtlcore$submitToTransfiniteCpu"
+    },
     "logic": {
       "mixin": "ae2.logic.CraftingCpuLogicMixin",
       "overwrite_priority": 1100

@@ -2,27 +2,34 @@
 // The supplied third-party JAR is used only by this test, never packaged.
 gradle.afterProject { project ->
     if (project.path != ':') return
-    def addonJarProperty = project.providers.gradleProperty('ae2AddonCompatibilityJar')
-    if (!addonJarProperty.isPresent()) {
-        throw new GradleException('Specify -Pae2AddonCompatibilityJar=<installed addon JAR>')
-    }
-    def addonJar = project.file(addonJarProperty.get())
-    if (!addonJar.isFile()) throw new GradleException("Missing addon JAR: ${addonJar}")
     def sample = project.file(project.providers.gradleProperty('ae2AddonCompatibilitySample')
         .getOrElse('tools/porting/fixtures/ae2-addon-runtime-sample.json'))
     if (!sample.isFile()) throw new GradleException("Missing addon compatibility sample: ${sample}")
+    def sampleSpec = new groovy.json.JsonSlurper().parse(sample)
+    def addonJarProperty = project.providers.gradleProperty('ae2AddonCompatibilityJar')
+    if (!addonJarProperty.isPresent() && !sampleSpec.self_contained) {
+        throw new GradleException('Specify -Pae2AddonCompatibilityJar=<installed addon JAR>')
+    }
+    def addonJar = addonJarProperty.isPresent() ? project.file(addonJarProperty.get()) : null
+    if (addonJar != null && !addonJar.isFile()) throw new GradleException("Missing addon JAR: ${addonJar}")
     def ae2JarProperty = project.providers.gradleProperty('ae2AddonCompatibilityAe2Jar')
     def ae2Jar = ae2JarProperty.isPresent() ? project.file(ae2JarProperty.get()) : null
     if (ae2Jar != null && !ae2Jar.isFile()) throw new GradleException("Missing AE2 JAR: ${ae2Jar}")
     def label = ae2Jar == null ? 'development-ae2' : 'installed-ae2'
     def target = project.providers.gradleProperty('ae2AddonCompatibilityTarget').getOrElse('logic')
-    if (!(target in ['logic', 'selection-list', 'craft-confirm', 'crafting-style'])) {
+    if (!(target in ['logic', 'selection-list', 'craft-confirm', 'crafting-style', 'planning-route', 'submission-route'])) {
         throw new GradleException("Unknown AE2 addon compatibility target: ${target}")
+    }
+    if (!sampleSpec.targets.containsKey(target)) {
+        throw new GradleException("Sample ${sample.name} has no target: ${target}")
     }
     def selectionList = target == 'selection-list'
     def craftConfirm = target == 'craft-confirm'
     def craftingStyle = target == 'crafting-style'
+    def planningRoute = target == 'planning-route'
+    def submissionRoute = target == 'submission-route'
     if (target != 'logic') label += "/${target}"
+    label += "/${sample.name.take(sample.name.length() - 5)}"
 
     project.sourceSets.create('ae2AddonCompatibility') {
         java.srcDir 'tools/porting/ae2_addon_compatibility'
@@ -45,14 +52,15 @@ gradle.afterProject { project ->
             dependsOn project.tasks.named('classes'), project.tasks.named('ae2AddonCompatibilityClasses')
             classpath = project.files(ae2Jar == null ? [] : [ae2Jar]) +
                 project.sourceSets.ae2AddonCompatibility.runtimeClasspath +
-                project.files(project.layout.buildDirectory.dir('mixin'), addonJar)
+                project.files(project.layout.buildDirectory.dir('mixin')) +
+                project.files(addonJar == null ? [] : [addonJar])
             mainClass = 'cn.dancingsnow.neoecoae.verification.bootstrap.Ae2AddonCompatibility'
             javaLauncher = project.javaToolchains.launcherFor {
                 languageVersion = JavaLanguageVersion.of(17)
             }
             systemProperty 'mixin.debug.export', 'true'
             systemProperty 'mixin.debug.export.decompile', 'false'
-            systemProperty 'mixin.env.disableRefMap', (selectionList || craftConfirm) && ae2Jar != null ? 'false' : 'true'
+            systemProperty 'mixin.env.disableRefMap', (selectionList || craftConfirm || planningRoute) && ae2Jar != null ? 'false' : 'true'
             def directory = project.layout.buildDirectory.dir("ae2-addon-compatibility/${label}/${mode}")
             workingDir = directory
             args mode, target, ae2Jar == null ? 'named' : 'searge', sample.absolutePath
@@ -65,7 +73,9 @@ gradle.afterProject { project ->
         runs.add(run)
     }
     project.tasks.register('ae2AddonCompatibilityTest') {
-        description = craftingStyle ? 'Verifies the ECO report style path against an installed addon style redirect.' :
+        description = planningRoute ? 'Checks native and unknown addon calculation entries use the ECO planner wrapper.' :
+            submissionRoute ? 'Checks explicit ECO CPU submission runs before competing automatic selectors.' :
+            craftingStyle ? 'Verifies the ECO report style path against an installed addon style redirect.' :
             craftConfirm ? 'Reproduces duplicate confirmation-menu sync IDs, then checks real merged fields and synchronization.' :
             selectionList ? 'Transforms the CPU selection list with all required overlay and formatting hooks.' :
                 'Reproduces the old priority failure, then transforms the real AE2 class with and without an addon.'

@@ -1,0 +1,46 @@
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=before native=1 addon=1 wrapped=false
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=addon native=1 addon=1 wrapped=true
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=base native=1 addon=0 wrapped=true
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=before simulation=16 eco=105 nativeScan=66 addon=81
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=addon simulation=16 eco=80 nativeScan=90 addon=105
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=base simulation=16 eco=80 nativeScan=90 addon=-1
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=before native=1 addon=1 wrapped=false
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=addon native=1 addon=1 wrapped=true
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=base native=1 addon=0 wrapped=true
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=before simulation=16 eco=105 nativeScan=66 addon=81
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=addon simulation=16 eco=80 nativeScan=90 addon=105
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=base simulation=16 eco=80 nativeScan=90 addon=-1
+AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=before reproduced=duplicate_sync_ids_[100, 101]
+AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=addon fields=21 eco=12 addon=3 synchronization=true roundTrip=requires_named_or_live_runtime
+AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=base fields=18 eco=12 addon=0 synchronization=true roundTrip=requires_named_or_live_runtime
+AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=before requested=/screens/eco_craft_confirm.json effective=/screens/modify_craft_confirm.json cycleImages=false
+AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=addon requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true
+AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=base requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true
+AE2_ADDON_CPU_COMPAT PASS mode=before reproduced=InvalidInjectionException priority1000_vs_1100
+AE2_ADDON_CPU_COMPAT PASS mode=addon transformed=true jobWrapper=true dispatch=true lifecycle=true
+AE2_ADDON_CPU_COMPAT PASS mode=base transformed=true jobWrapper=true dispatch=true lifecycle=true
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=before native=1 addon=1 wrapped=false
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=addon native=1 addon=1 wrapped=true
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=base native=1 addon=0 wrapped=true
+AE2_ADDON_CPU_LIST_COMPAT PASS mode=addon transformed=true overlay=true storage=true coprocessors=true tooltip=true
+AE2_ADDON_CPU_LIST_COMPAT PASS mode=base transformed=true overlay=true storage=true coprocessors=true tooltip=true
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=before simulation=16 eco=107 nativeScan=66 addon=83
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=addon simulation=16 eco=80 nativeScan=90 addon=107
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=base simulation=16 eco=80 nativeScan=90 addon=-1
+AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=before reproduced=duplicate_sync_ids_[100, 101]
+AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=addon fields=21 eco=12 addon=3 synchronization=true roundTrip=true
+AE2_ADDON_CRAFT_CONFIRM_COMPAT PASS mode=base fields=18 eco=12 addon=0 synchronization=true roundTrip=true
+AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=before requested=/screens/eco_craft_confirm.json effective=/screens/modify_craft_confirm.json cycleImages=false
+AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=addon requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true
+AE2_ADDON_CRAFTING_STYLE_COMPAT PASS mode=base requested=/screens/eco_crafting_report.json effective=/screens/eco_crafting_report.json cycleImages=true
+AE2_ADDON_CPU_COMPAT PASS mode=before reproduced=InvalidInjectionException priority1000_vs_1100
+AE2_ADDON_CPU_COMPAT PASS mode=addon transformed=true jobWrapper=true dispatch=true lifecycle=true
+AE2_ADDON_CPU_COMPAT PASS mode=base transformed=true jobWrapper=true dispatch=true lifecycle=true
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=before native=1 addon=1 wrapped=false
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=addon native=1 addon=1 wrapped=true
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=base native=1 addon=0 wrapped=true
+AE2_ADDON_CPU_LIST_COMPAT PASS mode=addon transformed=true overlay=true storage=true coprocessors=true tooltip=true
+AE2_ADDON_CPU_LIST_COMPAT PASS mode=base transformed=true overlay=true storage=true coprocessors=true tooltip=true
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=before simulation=16 eco=107 nativeScan=66 addon=83
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=addon simulation=16 eco=80 nativeScan=90 addon=107
+AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=base simulation=16 eco=80 nativeScan=90 addon=-1

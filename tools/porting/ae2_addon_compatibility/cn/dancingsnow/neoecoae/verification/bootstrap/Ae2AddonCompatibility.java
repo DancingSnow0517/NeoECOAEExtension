@@ -18,7 +18,10 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 import org.spongepowered.asm.launch.MixinBootstrap;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.Mixins;
@@ -30,6 +33,7 @@ public final class Ae2AddonCompatibility {
         "cn/dancingsnow/neoecoae/mixins/ae2/crafting/Ae2CraftingCpuFastPathMixin.class";
     private static JsonObject sample;
     private static String addonMixin;
+    private static Path overrideDirectory;
 
     private Ae2AddonCompatibility() {}
 
@@ -41,12 +45,15 @@ public final class Ae2AddonCompatibility {
         boolean selectionList = args.length > 1 && args[1].equals("selection-list");
         boolean craftConfirm = args.length > 1 && args[1].equals("craft-confirm");
         boolean craftingStyle = args.length > 1 && args[1].equals("crafting-style");
+        boolean planningRoute = args.length > 1 && args[1].equals("planning-route");
+        boolean submissionRoute = args.length > 1 && args[1].equals("submission-route");
         String target = craftingStyle ? "appeng.client.gui.style.StyleManager" :
-            craftConfirm ? "appeng.menu.me.crafting.CraftConfirmMenu" :
+            craftConfirm || planningRoute ? "appeng.menu.me.crafting.CraftConfirmMenu" :
+            submissionRoute ? "appeng.me.service.CraftingService" :
             selectionList ? "appeng.client.gui.widgets.CPUSelectionList" : TARGET;
         var urls = new ArrayList<URL>();
-        Path overrides = Path.of("overrides").toAbsolutePath();
-        Files.createDirectories(overrides);
+        Path overrides = Files.createTempDirectory(Path.of(".").toAbsolutePath(), "overrides-");
+        overrideDirectory = overrides;
         Path logging = overrides.resolve("log4j2-regression.xml");
         Files.writeString(logging, """
             <Configuration status="ERROR">
@@ -57,6 +64,8 @@ public final class Ae2AddonCompatibility {
         System.setProperty("log4j.configurationFile", logging.toUri().toString());
         if (mode.equals("before") && !craftingStyle) {
             if (craftConfirm) restoreOldConfirmationIds(overrides);
+            else if (planningRoute) restoreOldPlanningEntries(overrides);
+            else if (submissionRoute) restoreOldSubmissionPoint(overrides);
             else restoreOldPriority(overrides);
         }
         Files.writeString(overrides.resolve("ae2-addon-regression.mixins.json"), """
@@ -93,7 +102,7 @@ public final class Ae2AddonCompatibility {
         MixinBootstrap.init();
         var environment = MixinEnvironment.getDefaultEnvironment();
         environment.setSide(selectionList || craftingStyle ? MixinEnvironment.Side.CLIENT : MixinEnvironment.Side.SERVER);
-        if ((selectionList || craftConfirm) && args.length > 2 && args[2].equals("searge")) environment.setObfuscationContext("searge");
+        if ((selectionList || craftConfirm || planningRoute) && args.length > 2 && args[2].equals("searge")) environment.setObfuscationContext("searge");
         MixinExtrasBootstrap.init();
         Mixins.addConfiguration("neoecoae.mixins.json");
         if (!mode.equals("base")) Mixins.addConfiguration("ae2-addon-regression.mixins.json");
@@ -110,6 +119,14 @@ public final class Ae2AddonCompatibility {
             }
             if (craftConfirm) {
                 verifyConfirmationSync(mode, target, args.length <= 2 || !args[2].equals("searge"));
+                return;
+            }
+            if (planningRoute) {
+                verifyPlanningRoute(mode, target);
+                return;
+            }
+            if (submissionRoute) {
+                verifySubmissionRoute(mode, target);
                 return;
             }
             if (mode.equals("before")) throw new AssertionError("Old priority unexpectedly accepted the addon overwrite");
@@ -130,6 +147,126 @@ public final class Ae2AddonCompatibility {
             if (!mode.equals("before") || !isOriginalFailure(failure)) throw failure;
             System.out.println("AE2_ADDON_CPU_COMPAT PASS mode=before reproduced=InvalidInjectionException priority1000_vs_" + sample.get("overwrite_priority").getAsInt());
         }
+    }
+
+    private static void restoreOldPlanningEntries(Path overrides) throws Exception {
+        try (var input = Ae2AddonCompatibility.class.getClassLoader().getResourceAsStream("neoecoae.mixins.json")) {
+            if (input == null) throw new IllegalStateException("Missing production Mixin config");
+            var config = JsonParser.parseReader(new InputStreamReader(input,
+                java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            config.addProperty("plugin", "cn.dancingsnow.neoecoae.verification.bootstrap.LegacyPlanningEntryPlugin");
+            Files.writeString(overrides.resolve("neoecoae.mixins.json"), config.toString());
+        }
+    }
+
+    private static void restoreOldSubmissionPoint(Path overrides) throws Exception {
+        String resource = "cn/dancingsnow/neoecoae/mixins/ae2/crafting/CraftingServiceEarlyMixin.class";
+        var node = productionClass(resource);
+        var submit = node.methods.stream().filter(method -> method.name.equals("neoecoae$submit"))
+            .findFirst().orElseThrow();
+        var annotation = submit.visibleAnnotations.stream()
+            .filter(value -> value.desc.endsWith("/Inject;")).findFirst().orElseThrow();
+        var points = (List<?>) annotation.values.get(annotation.values.indexOf("at") + 1);
+        var point = (org.objectweb.asm.tree.AnnotationNode) points.get(0);
+        point.values.set(point.values.indexOf("value") + 1, "INVOKE_ASSIGN");
+        writeOverride(overrides, resource, node);
+    }
+
+    private static ClassNode productionClass(String resource) throws Exception {
+        var node = new ClassNode();
+        try (var input = Ae2AddonCompatibility.class.getClassLoader().getResourceAsStream(resource)) {
+            if (input == null) throw new IllegalStateException("Missing production bytecode: " + resource);
+            new ClassReader(input).accept(node, 0);
+        }
+        return node;
+    }
+
+    private static void writeOverride(Path overrides, String resource, ClassNode node) throws Exception {
+        var writer = new ClassWriter(0);
+        node.accept(writer);
+        Path destination = overrides.resolve(resource);
+        Files.createDirectories(destination.getParent());
+        Files.write(destination, writer.toByteArray());
+    }
+
+    private static ClassNode exportedClass(String target) throws Exception {
+        var node = new ClassNode();
+        new ClassReader(Files.readAllBytes(Path.of(".mixin.out/class", target.replace('.', '/') + ".class")))
+            .accept(node, 0);
+        return node;
+    }
+
+    private static boolean calls(MethodNode method, String hook) {
+        return callIndex(method, hook) >= 0;
+    }
+
+    private static int callIndex(MethodNode method, String hook) {
+        for (int index = 0; index < method.instructions.size(); index++) {
+            if (method.instructions.get(index) instanceof MethodInsnNode call && call.name.contains(hook)) return index;
+        }
+        return -1;
+    }
+
+    private static void verifyPlanningRoute(String mode, String target) throws Exception {
+        var node = exportedClass(target);
+        var nativeEntries = node.methods.stream().filter(method -> method.name.equals("planJob")
+            && (calls(method, "routePlanningRequest") || calls(method, "beginCraftingCalculation"))).toList();
+        require(!nativeEntries.isEmpty(), "Missing native calculation entry");
+        for (var entry : nativeEntries) {
+            require(calls(entry, "routePlanningRequest"), "Native calculation bypassed ECO");
+            require(!calls(entry, "beginCraftingCalculation"), "Unwrapped native calculation remains");
+        }
+        int additionalEntries = 0;
+        for (var name : sample.getAsJsonArray("planning_entries")) {
+            var entries = node.methods.stream().filter(method -> method.name.contains(name.getAsString())
+                && (calls(method, "routePlanningRequest") || calls(method, "beginCraftingCalculation"))).toList();
+            require(entries.isEmpty() == mode.equals("base"), "Unexpected addon calculation entries: " + name);
+            for (var entry : entries) {
+                require(calls(entry, "routePlanningRequest") != mode.equals("before"),
+                    "Unexpected addon planning route: " + entry.name + entry.desc);
+                require(calls(entry, "beginCraftingCalculation") == mode.equals("before"),
+                    "Unexpected original addon calculation call: " + entry.name + entry.desc);
+                additionalEntries++;
+            }
+        }
+        System.out.println("AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=" + mode + " native=" + nativeEntries.size()
+            + " addon=" + additionalEntries + " wrapped=" + !mode.equals("before"));
+    }
+
+    private static void verifySubmissionRoute(String mode, String target) throws Exception {
+        var node = exportedClass(target);
+        var submit = node.methods.stream().filter(method -> method.name.equals("submitJob"))
+            .findFirst().orElseThrow();
+        int simulation = callIndex(submit, "simulation");
+        int nativeScan = callIndex(submit, "findSuitableCraftingCPU");
+        int eco = callIndex(submit, "neoecoae$submit");
+        int addon = callIndex(submit, sample.get("hook").getAsString());
+        require(simulation >= 0 && nativeScan > simulation && eco > simulation,
+            "Simulation rejection must precede CPU submission");
+        require((addon >= 0) != mode.equals("base"), "Unexpected independent CPU selector");
+        int nativeTarget = -1;
+        boolean nativeTargetBypassesScan = false;
+        for (int index = 0; index < submit.instructions.size(); index++) {
+            var instruction = submit.instructions.get(index);
+            if (instruction instanceof TypeInsnNode type && type.getOpcode() == Opcodes.INSTANCEOF
+                    && type.desc.equals("appeng/me/cluster/implementations/CraftingCPUCluster")) nativeTarget = index;
+            if (nativeTarget >= 0 && index < Math.min(eco, nativeScan)
+                    && instruction instanceof JumpInsnNode jump && jump.getOpcode() == Opcodes.GOTO
+                    && submit.instructions.indexOf(jump.label) > Math.max(eco, nativeScan)) {
+                nativeTargetBypassesScan = true;
+            }
+        }
+        require(nativeTarget > simulation && nativeTargetBypassesScan,
+            "Explicit native CPU must retain the direct submission branch");
+        if (mode.equals("before")) {
+            require(nativeScan < addon && addon < eco, "Did not reproduce competing CPU selection: "
+                + nativeScan + "/" + addon + "/" + eco);
+        } else {
+            require(eco < nativeScan, "ECO selection must run before the automatic native scan");
+            require(addon < 0 || nativeScan < addon, "Independent selector must retain its native scan result");
+        }
+        System.out.println("AE2_ADDON_SUBMISSION_ROUTE_COMPAT PASS mode=" + mode + " simulation=" + simulation
+            + " eco=" + eco + " nativeScan=" + nativeScan + " addon=" + addon);
     }
 
     private static void verifyCraftingStyle(String mode, String target, Class<?> transformed) throws Exception {
@@ -255,7 +392,7 @@ public final class Ae2AddonCompatibility {
         ctor.visitMaxs(1, 1);
         ctor.visitEnd();
         host.visitEnd();
-        Path hostPath = Path.of("overrides", hostName + ".class");
+        Path hostPath = overrideDirectory.resolve(hostName + ".class");
         Files.createDirectories(hostPath.getParent());
         Files.write(hostPath, host.toByteArray());
         var hostType = Class.forName(hostName.replace('/', '.'), true, Launch.classLoader);

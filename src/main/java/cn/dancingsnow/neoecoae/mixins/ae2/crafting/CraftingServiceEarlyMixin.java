@@ -24,7 +24,9 @@ public abstract class CraftingServiceEarlyMixin {
         ((CraftingServiceEarlyBridge) this).neoecoae$earlyInsertIntoCpus(key, amount, mode, result, inserted);
     }
 
-    @Inject(method = "submitJob", at = @At(value = "INVOKE_ASSIGN", target = "Lappeng/me/service/CraftingService;findSuitableCraftingCPU(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;Lorg/apache/commons/lang3/mutable/MutableObject;)Lappeng/me/cluster/implementations/CraftingCPUCluster;"), cancellable = true)
+    // Run before automatic selectors: multiple INVOKE_ASSIGN callbacks can be inserted in reverse
+    // execution order, letting another addon return before an explicitly selected ECO CPU is handled.
+    @Inject(method = "submitJob", at = @At(value = "INVOKE", target = "Lappeng/me/service/CraftingService;findSuitableCraftingCPU(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;Lorg/apache/commons/lang3/mutable/MutableObject;)Lappeng/me/cluster/implementations/CraftingCPUCluster;"), cancellable = true)
     private void neoecoae$submit(ICraftingPlan job, ICraftingRequester requester, ICraftingCPU target,
             boolean prioritizePower, IActionSource source, CallbackInfoReturnable<ICraftingSubmitResult> result,
             @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpus) {

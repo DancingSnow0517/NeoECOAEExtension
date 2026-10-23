@@ -33,6 +33,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.platform.mixin.CraftConfirmPlanningBridge;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -58,9 +59,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 
-// Include Data Energistics, OmniSequence, and AppliedEnhancements merged long-amount planning entry points (priority 1000).
+// Intercept calculation calls from native and addon-merged planning entry points.
 @Mixin(value = CraftConfirmMenu.class, priority = 1100, remap = false)
-public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
+public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConfirmPlanningBridge {
     @Unique
     private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
 
@@ -347,19 +348,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$cyclePlanningEnabled = settings != null && settings.neoecoae$isCyclePlanningEnabled();
     }
 
-    @Inject(
-        method = {
-            "planJob",
-            "data_energistics$planJob",
-            "molecularmanipulator$planLong",
-            "appliedenhancements$planLong",
-            "appliedenhancements$planRequested",
-            "appliedenhancements$planExact"
-        },
-        at = @At("HEAD"),
-        require = 0
-    )
-    private void resetPlannerDiagnostics(CallbackInfoReturnable<Boolean> cir) {
+    @Unique
+    private void resetPlannerDiagnostics() {
         neoecoae$planningDiagnostic = "";
         neoecoae$showFastPlannerReport = false;
         neoecoae$ecoReportReady = false;
@@ -379,33 +369,16 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
      * the normal service lets another planner consume the request before ECO ever creates a result or report.
      * Disabled requests retain the original service path.
      */
-    @WrapOperation(
-        method = {
-            "planJob",
-            "data_energistics$planJob",
-            "molecularmanipulator$planLong",
-            "appliedenhancements$planRequested"
-        },
-        at = @At(
-            value = "INVOKE",
-            target = "Lappeng/api/networking/crafting/ICraftingService;beginCraftingCalculation("
-                + "Lnet/minecraft/world/level/Level;"
-                + "Lappeng/api/networking/crafting/ICraftingSimulationRequester;"
-                + "Lappeng/api/stacks/AEKey;"
-                + "J"
-                + "Lappeng/api/networking/crafting/CalculationStrategy;"
-                + ")Ljava/util/concurrent/Future;"
-        ),
-        require = 0
-    )
-    private Future<ICraftingPlan> neoecoae$routeEcoPlanningRequest(
+    @Override
+    @Unique
+    public Future<ICraftingPlan> neoecoae$routeEcoPlanningRequest(
             ICraftingService service,
             Level level,
             ICraftingSimulationRequester requester,
             AEKey what,
             long amount,
-            CalculationStrategy strategy,
-            Operation<Future<ICraftingPlan>> original) {
+            CalculationStrategy strategy) {
+        resetPlannerDiagnostics();
         ECOCraftingNetworkSettings settings = service instanceof ECOCraftingNetworkSettings ecoSettings
             ? ecoSettings
             : null;
@@ -432,7 +405,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             return ECOPlanningService.begin(level, getGrid(), requester.getActionSource(), what, amount, strategy,
                 neoecoae$originalOptions);
         }
-        return original.call(service, level, requester, what, amount, strategy);
+        return service.beginCraftingCalculation(level, requester, what, amount, strategy);
     }
 
     @Inject(

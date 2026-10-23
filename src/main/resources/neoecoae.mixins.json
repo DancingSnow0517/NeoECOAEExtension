@@ -2,6 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins",
+  "plugin": "cn.dancingsnow.neoecoae.platform.mixin.CraftingMenuPlanningMixinPlugin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "ae2.TooltipsByteUnitsMixin",
