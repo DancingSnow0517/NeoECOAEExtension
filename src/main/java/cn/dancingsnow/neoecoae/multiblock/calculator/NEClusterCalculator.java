@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirements;
+
 import appeng.me.cluster.MBCalculator;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
@@ -87,7 +90,17 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     public static <T> boolean validateBlock(Level level, BlockPos pos, BiPredicate<BlockState, T> fn, T value) {
-        return fn.test(level.getBlockState(pos), value);
+        BlockState actual = level.getBlockState(pos);
+        boolean accepted = fn.test(actual, value);
+        Block block = value instanceof Block direct ? direct
+            : value instanceof Holder<?> holder && holder.value() instanceof Block held ? held : null;
+        if (block == null) return accepted;
+        BlockState expected = block.defaultBlockState();
+        var role = ECOMultiblockParts.acceptsExpected(
+            ECOMultiblockParts.context(level, pos), expected);
+        return ECOMultiblockRequirements.accepts(
+            new ECOMultiblockRequirements.Context(level, pos.immutable(), expected, actual),
+            role == null ? accepted : role);
     }
 
     public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, Holder<Block> type) {
@@ -132,7 +145,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
 
     public static <T> boolean validateBlocks(Level level, Iterable<BlockPos> iterable, BiPredicate<BlockState, T> fn, T value) {
         for (BlockPos blockPos : iterable) {
-            if (!fn.test(level.getBlockState(blockPos), value)) {
+            if (!validateBlock(level, blockPos, fn, value)) {
                 return false;
             }
         }
@@ -308,8 +321,16 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         Holder<Block> block,
         Direction facing
     ) {
-        return (state, pos) -> state.is(block)
-            && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
+        BlockState expected = block.value().defaultBlockState();
+        if (expected.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) expected = expected.setValue(BlockStateProperties.HORIZONTAL_FACING, facing);
+        BlockState wanted = expected;
+        return (state, pos) -> {
+            var role = ECOMultiblockParts.acceptsExpected(
+                new ECOMultiblockParts.Context(null, pos.immutable(), state, null), wanted);
+            return ECOMultiblockRequirements.accepts(
+                new ECOMultiblockRequirements.Context(null, pos.immutable(), wanted, state),
+                role == null ? state.is(block) && state.getOptionalValue(BlockStateProperties.HORIZONTAL_FACING).orElse(facing) == facing : role);
+        };
     }
 
     protected record ControllerContext<T extends NEBlockEntity<?, ?>>(

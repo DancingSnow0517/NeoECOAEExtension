@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirement;
+
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import com.google.common.collect.ImmutableList;
 import lombok.Getter;
@@ -62,6 +64,14 @@ public class MultiBlockDefinition {
         return context.getLevel();
     }
 
+    /** Local slot requirements, including accepted alternatives, for inspection by addons. */
+    public List<cn.dancingsnow.neoecoae.multiblock.placement.PlannedBlock> requirements(int repeats) {
+        if (repeats < expandMin || repeats > expandMax) throw new IllegalArgumentException("Invalid structure length");
+        var context = new cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlanContext(repeats);
+        createLevel(context);
+        return List.copyOf(context.getPlannedBlocks());
+    }
+
     public static class Builder {
         private final ImmutableList.Builder<BlockInstruction> builder = new ImmutableList.Builder<>();
         private final Holder<Block> owner;
@@ -74,6 +84,19 @@ public class MultiBlockDefinition {
         public Builder(Holder<Block> owner) {
             this.owner = owner;
             name = owner.value().getName();
+        }
+
+        public Builder setRequirement(BlockPos pos, ECOMultiblockRequirement requirement) {
+            builder.add(context -> context.setRequirement(pos, requirement));
+            return this;
+        }
+
+        public Builder setRequirementRepeatable(BlockPos origin, Direction direction,
+                ECOMultiblockRequirement requirement) {
+            builder.add(context -> {
+                for (int i = 0; i < context.getRepeats(); i++) context.setRequirement(origin.relative(direction, i), requirement);
+            });
+            return this;
         }
 
         public Builder setBlock(BlockPos pos, BlockState block) {

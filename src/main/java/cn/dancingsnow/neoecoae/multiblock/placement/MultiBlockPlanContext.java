@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirement;
+
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -24,6 +26,12 @@ public class MultiBlockPlanContext extends MultiBlockContext {
             blockState,
             blockState.getBlock().asItem().getDefaultInstance().copy()
         ));
+    }
+
+    @Override
+    public void setRequirement(BlockPos pos, ECOMultiblockRequirement requirement) {
+        plannedBlocks.add(new PlannedBlock(pos.immutable(), requirement.defaultState(),
+            requirement.defaultState().getBlock().asItem().getDefaultInstance().copy(), requirement));
     }
 
     @Override

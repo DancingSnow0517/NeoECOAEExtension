@@ -1,11 +1,31 @@
 package cn.dancingsnow.neoecoae.api;
 
+import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMachineKind;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 public interface IECOTier {
     int getTier();
+
+    /** Default draw of ordinary components in AE/t. Specialized roles retain their own baseline. */
+    default double getComponentIdlePower() { return 16.0D; }
+
+    @Nullable
+    default cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition getBuildDefinition() { return null; }
+
+    @Nullable
+    default cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition getBuildDefinition(
+        ECOMachineKind kind) { return getBuildDefinition(); }
+
+    default boolean supportsFeature(ECOFeature feature) {
+        return switch (feature) {
+            case NETWORK_SWITCH, VIRTUAL_CRAFTING -> getTier() == ECOTier.L9.getTier();
+            case INFINITE_STORAGE_HOST, INFINITE_STORAGE_CELL -> this == ECOTier.L9;
+        };
+    }
 
     /** Display name used by host panels and storage-cell tooltips. */
     default Component getPanelTierName() {

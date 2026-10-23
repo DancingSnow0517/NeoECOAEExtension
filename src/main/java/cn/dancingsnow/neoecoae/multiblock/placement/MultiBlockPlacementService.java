@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirements;
+
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -18,8 +21,9 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -60,11 +64,12 @@ public final class MultiBlockPlacementService {
             }
             BlockPos worldPos = MultiBlockRotation.localToWorld(plannedBlock.relativePos(), controllerPos, facing, mirrored);
             BlockState targetState = MultiBlockRotation.rotateState(plannedBlock.targetState(), facing, mirrored);
-            WorldPlannedBlock worldBlock = new WorldPlannedBlock(worldPos, targetState, plannedBlock.requiredItem().copy());
+            WorldPlannedBlock worldBlock = new WorldPlannedBlock(worldPos, targetState, plannedBlock.requiredItem().copy(),
+                plannedBlock.requirement().transform(state -> MultiBlockRotation.rotateState(state, facing, mirrored)));
             allBlocks.add(worldBlock);
 
             BlockState existingState = level.getBlockState(worldPos);
-            if (existingState.equals(targetState)) {
+            if (acceptsExisting(level, worldBlock, existingState)) {
                 reusedBlockCount++;
                 continue;
             }
@@ -114,7 +119,7 @@ public final class MultiBlockPlacementService {
             || !level.getWorldBorder().isWithinBounds(worldBlock.worldPos())
             || !level.mayInteract(player, worldBlock.worldPos())) return false;
         BlockState existingState = level.getBlockState(worldBlock.worldPos());
-        if (existingState.equals(worldBlock.targetState())) return true;
+        if (acceptsExisting(level, worldBlock, existingState)) return true;
         if (!(existingState.isAir() || existingState.canBeReplaced())) return false;
         if (!placeWithPermissionCheck(level, worldBlock, player)) return false;
         if (!player.isCreative() && !consumeRequiredItem(player, worldBlock.requiredItem())) {
@@ -123,6 +128,22 @@ public final class MultiBlockPlacementService {
         }
         playPlacementSound(level, worldBlock);
         return true;
+    }
+
+    public static boolean acceptsExisting(Level level, WorldPlannedBlock planned, BlockState actual) {
+        var role = ECOMultiblockParts.acceptsExpected(
+            ECOMultiblockParts.context(level, planned.worldPos()), planned.targetState());
+        return ECOMultiblockRequirements.accepts(
+            new ECOMultiblockRequirements.Context(
+                level, planned.worldPos(), planned.targetState(), actual),
+            role == null ? planned.requirement().accepts(actual) : role);
+    }
+
+    /** Validates the same alternatives used by previews/building without mutating the world. */
+    public static boolean matches(Level level, BlockPos controllerPos, BlockState controllerState,
+            MultiBlockDefinition definition, int repeats, boolean mirrored) {
+        var plan = preview(level, controllerPos, controllerState, definition, repeats, mirrored);
+        return plan.getConflictPositions().isEmpty() && plan.getMissingBlocks().isEmpty();
     }
 
     public static boolean hasRequiredItems(Player player, List<RequiredItem> requiredItems) {
@@ -135,13 +156,13 @@ public final class MultiBlockPlacementService {
     }
 
     public static int countMatchingItems(Player player, ItemStack target) {
-        Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IItemHandler> visitedHandlers = new ReferenceOpenHashSet<>();
         return countMatchingItems(player.getInventory().items, target, visitedHandlers)
             + countMatchingItems(player.getInventory().offhand, target, visitedHandlers);
     }
 
     private static boolean consumeRequiredItem(Player player, ItemStack requiredItem) {
-        Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        ReferenceSet<IItemHandler> visitedHandlers = new ReferenceOpenHashSet<>();
         int remaining = requiredItem.getCount();
         remaining = consumeFromList(player.getInventory().items, requiredItem, remaining, visitedHandlers);
         if (remaining > 0) {

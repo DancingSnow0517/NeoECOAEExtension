@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirement;
+
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import com.lowdragmc.lowdraglib2.utils.data.BlockInfo;
 import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
@@ -18,6 +20,10 @@ public abstract class MultiBlockContext {
     protected int repeats;
 
     public abstract void setBlock(BlockPos pos, BlockState blockState);
+
+    public void setRequirement(BlockPos pos, ECOMultiblockRequirement requirement) {
+        setBlock(pos, requirement.defaultState());
+    }
 
     public abstract Level getLevel();
 

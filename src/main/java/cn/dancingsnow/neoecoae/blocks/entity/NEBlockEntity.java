@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.api.power.ECOPowerProfiles;
+import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
+
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridMultiblock;
@@ -114,7 +117,39 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
                 }
             });
         }
-        getMainNode().setIdlePowerUsage(16);
+        applyIdlePower(ECOPowerRole.COMPONENT, 16, 0);
+    }
+
+    private ECOPowerRole idlePowerRole = ECOPowerRole.COMPONENT;
+    private double idleBasePower = 16;
+    private double idleCellDrain;
+    private double appliedIdlePower = Double.NaN;
+
+    /** Tier available to power providers; untiered parts may return null. */
+    @Nullable
+    public cn.dancingsnow.neoecoae.api.IECOTier getTier() { return null; }
+
+    public final void applyIdlePower(ECOPowerRole role, double base, double cellDrain) {
+        idlePowerRole = role;
+        idleBasePower = base;
+        idleCellDrain = cellDrain;
+        var tier = getTier();
+        double defaultBase = role == ECOPowerRole.COMPONENT && tier != null
+            ? tier.getComponentIdlePower() : base;
+        double resolved = ECOPowerProfiles.resolve(
+            new ECOPowerProfiles.Context(this, getBlockState(), tier, role, defaultBase, cellDrain));
+        if (Double.compare(appliedIdlePower, resolved) != 0) {
+            appliedIdlePower = resolved;
+            getMainNode().setIdlePowerUsage(resolved);
+        }
+    }
+
+    /** Call after changing an addon power profile or addon-owned block state. */
+    public final void refreshIdlePower() { applyIdlePower(idlePowerRole, idleBasePower, idleCellDrain); }
+
+    /** The exact value last applied to the AE2 node; empty before the first power update. */
+    public final java.util.OptionalDouble appliedIdlePower() {
+        return Double.isNaN(appliedIdlePower) ? java.util.OptionalDouble.empty() : java.util.OptionalDouble.of(appliedIdlePower);
     }
 
     public void updateMultiBlock(BlockPos changedPos) {
@@ -194,6 +229,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
                 Block.UPDATE_CLIENTS
             );
         }
+        refreshIdlePower();
         if (updateExposed && getMainNode().isReady()) {
             onGridConnectableSidesChanged();
         }

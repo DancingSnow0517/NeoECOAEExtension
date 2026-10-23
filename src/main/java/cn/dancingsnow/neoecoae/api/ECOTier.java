@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.api;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
@@ -16,7 +15,7 @@ public enum ECOTier implements IECOTier {
         1 << 26,
         1 << 24,
         10_000_000,
-        NeoECOAE.id("textures/gui/computation/cpu_overlay/l4.png")
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l4.png")
     ),
     L6(
         2,
@@ -27,7 +26,7 @@ public enum ECOTier implements IECOTier {
         1 << 28,
         1 << 26,
         100_000_000,
-        NeoECOAE.id("textures/gui/computation/cpu_overlay/l6.png")
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l6.png")
     ),
     L9(
         3,
@@ -38,7 +37,7 @@ public enum ECOTier implements IECOTier {
         1 << 30,
         1 << 28,
         1_000_000_000,
-        NeoECOAE.id("textures/gui/computation/cpu_overlay/l9.png")
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l9.png")
     );
     @Getter
     private final int tier;
