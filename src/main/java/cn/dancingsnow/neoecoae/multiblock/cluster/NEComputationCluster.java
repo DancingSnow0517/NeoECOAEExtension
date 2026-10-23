@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
+import cn.dancingsnow.neoecoae.api.computation.ECOComputationCells;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
+
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
@@ -30,6 +33,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -61,7 +66,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     private final Map<ICraftingPlan, ECOCraftingCPU> activeCpus = new IdentityHashMap<>();
     /** BigInt child plans are segmented by the controller and must not consume the finite CPU byte reservation. */
-    private final Map<ICraftingPlan, Boolean> bigOrderPlans = new IdentityHashMap<>();
+    private final ReferenceSet<ICraftingPlan> bigOrderPlans = new ReferenceOpenHashSet<>();
     private ECOCraftingCPU fakeCpu;
 
     public NEComputationCluster(BlockPos boundMin, BlockPos boundMax) {
@@ -202,15 +207,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     public void addBlockEntity(NEBlockEntity<NEComputationCluster, ?> blockEntity) {
         super.addBlockEntity(blockEntity);
         if (blockEntity instanceof ECOComputationDriveBlockEntity driveBlockEntity) {
-            Level level = driveBlockEntity.getLevel();
-            BlockState bottomBlock = level.getBlockState(driveBlockEntity.getBlockPos().relative(Direction.DOWN));
-            if (bottomBlock.is(NEBlocks.COMPUTATION_TRANSMITTER)) {
-                upperDrives.add(driveBlockEntity);
-            } else {
-                driveBlockEntity.setLowerDrive(true);
-                driveBlockEntity.setChanged();
-                lowerDrives.add(driveBlockEntity);
-            }
+            reclassifyDrive(driveBlockEntity);
         }
         if (blockEntity instanceof ECOComputationThreadingCoreBlockEntity threadingCore) {
             threadingCores.add(threadingCore);
@@ -221,6 +218,30 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
         if (blockEntity instanceof ECOComputationParallelCoreBlockEntity parallelCore) {
             parallelCores.add(parallelCore);
+        }
+    }
+
+    /** Rebuilds this member's presentation placement without exposing list mutation to addons. */
+    public void reclassifyDrive(ECOComputationDriveBlockEntity drive) {
+        Level level = drive.getLevel();
+        if (level == null) return;
+        var context = ECOMultiblockParts.context(level, drive.getBlockPos());
+        var below = ECOMultiblockParts.context(level, drive.getBlockPos().below());
+        boolean transmitter = ECOMultiblockParts.matches(below,
+            ECOMultiblockParts.Role.TRANSMITTER, below.state().is(NEBlocks.COMPUTATION_TRANSMITTER));
+        var row = ECOMultiblockParts.driveRow(context,
+            transmitter ? ECOMultiblockParts.DriveRow.UPPER
+                : ECOMultiblockParts.DriveRow.LOWER);
+        boolean lower = row == ECOMultiblockParts.DriveRow.LOWER;
+        List<ECOComputationDriveBlockEntity> selected = lower ? lowerDrives : upperDrives;
+        List<ECOComputationDriveBlockEntity> other = lower ? upperDrives : lowerDrives;
+        other.remove(drive);
+        if (!selected.contains(drive)) selected.add(drive);
+        selected.sort(java.util.Comparator.comparingInt(member -> ECOMultiblockParts.order(
+            ECOMultiblockParts.context(level, member.getBlockPos()))));
+        if (drive.isLowerDrive() != lower) {
+            drive.setLowerDrive(lower);
+            drive.setChanged();
         }
     }
 
@@ -253,9 +274,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         for (ECOComputationDriveBlockEntity driveBlockEntity : driveBlockEntities) {
             ItemStack itemStack = driveBlockEntity.getCellStack();
             if (itemStack != null && !itemStack.isEmpty()) {
-                if (itemStack.getItem() instanceof ECOComputationCellItem cellItem) {
-                    ret += cellItem.getTier().getCPUTotalBytes();
-                }
+                var memory = ECOComputationCells.describe(itemStack);
+                if (memory != null) ret = NEMath.saturatingAdd(ret, memory.bytes());
             }
         }
         return ret;
@@ -414,7 +434,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         bigOrderPlans.remove(previous);
         cpu.setBigOrderChildPlan(next);
         activeCpus.put(next, cpu);
-        bigOrderPlans.put(next, Boolean.TRUE);
+        bigOrderPlans.add(next);
         recalculateRemainingStorage();
         return activeCpus.get(next) == cpu;
     }
@@ -422,7 +442,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private long getActiveJobBytes() {
         long usedStorage = 0L;
         for (ICraftingPlan plan : new ArrayList<>(this.activeCpus.keySet())) {
-            if (bigOrderPlans.containsKey(plan)) continue;
+            if (bigOrderPlans.contains(plan)) continue;
             usedStorage = NEMath.saturatingAdd(
                 usedStorage,
                 Math.max(0L, plan.bytes())

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
+import cn.dancingsnow.neoecoae.api.computation.ECOComputationCells;
+
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.client.rendering.IFixedBlockEntityRenderer;
@@ -50,16 +52,17 @@ public class ECOComputationDriveRenderer
         boolean formed = blockEntity.isFormed();
         boolean shouldCellWork = false;
         IECOTier cableTier = blockEntity.getTier();
-        if (itemStack != null && !itemStack.isEmpty() && itemStack.getItem() instanceof ECOComputationCellItem item) {
-            IECOTier itemTier = item.getTier();
-            shouldCellWork = formed && blockEntity.getTier() != null && itemTier.compareTo(blockEntity.getTier()) <= 0;
+        var memory = ECOComputationCells.describe(itemStack);
+        if (memory != null) {
+            IECOTier itemTier = memory.tier();
+            shouldCellWork = formed && blockEntity.getTier() != null && blockEntity.getTier().supportsComponentTier(itemTier);
             ResourceLocation cellModel = shouldCellWork
                 ? ECOComputationModels.getFormedModel(itemStack.getItem())
                 : ECOComputationModels.getNormalModel(itemStack.getItem());
             if (shouldCellWork) {
                 cableTier = itemTier;
             }
-            tessellateModel(
+            if (cellModel != null) tessellateModel(
                 poseStack,
                 bufferSource,
                 cellModel,
@@ -73,7 +76,7 @@ public class ECOComputationDriveRenderer
             if (itemStack != null) {
                 if (shouldCellWork) {
                     poseStack.translate(0, 0, -0.35);
-                    cableModel = ECOComputationModels.getCableConnectedModel(cableTier);
+                    cableModel = ECOComputationModels.getCableConnectedModel(cableTier, blockEntity.getBlockState().getBlock());
                     connected = true;
                 } else {
                     if (blockEntity.isLowerDrive()) {
@@ -81,7 +84,7 @@ public class ECOComputationDriveRenderer
                     } else {
                         poseStack.translate(0, -0.688, -0.3);
                     }
-                    cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
+                    cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier, blockEntity.getBlockState().getBlock());
                 }
             } else {
                 if (blockEntity.isLowerDrive()) {
@@ -89,7 +92,7 @@ public class ECOComputationDriveRenderer
                 } else {
                     poseStack.translate(0, -0.688, -0.3);
                 }
-                cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
+                cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier, blockEntity.getBlockState().getBlock());
             }
         }
         if (blockEntity.isLowerDrive()) {

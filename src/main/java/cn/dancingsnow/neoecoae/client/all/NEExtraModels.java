@@ -45,6 +45,7 @@ public class NEExtraModels {
 
     @SubscribeEvent
     public static void onRegisterExtraModels(ModelEvent.RegisterAdditional event) {
+        ECOComputationModels.getAdditionalModels().forEach(model -> event.register(ModelResourceLocation.standalone(model)));
         for (ResourceLocation model : MODELS) {
             event.register(ModelResourceLocation.standalone(model));
         }

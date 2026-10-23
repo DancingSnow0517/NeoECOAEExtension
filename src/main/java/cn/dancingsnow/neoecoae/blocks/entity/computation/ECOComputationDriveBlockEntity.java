@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
+import cn.dancingsnow.neoecoae.api.computation.ECOComputationCells;
+
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
@@ -114,6 +116,7 @@ public class ECOComputationDriveBlockEntity
         super.updateState(updateExposed);
         formedState = cluster != null;
         if (cluster != null) {
+            cluster.reclassifyDrive(this);
             ECOComputationSystemBlockEntity controller = cluster.getController();
             if (controller != null) {
                 tier = controller.getTier();
@@ -137,6 +140,6 @@ public class ECOComputationDriveBlockEntity
 
     @Override
     public boolean isItemValid(ItemStack stack) {
-        return !stack.isEmpty() && stack.getItem() instanceof ECOComputationCellItem;
+        return ECOComputationCells.describe(stack) != null;
     }
 }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
+import cn.dancingsnow.neoecoae.api.computation.ECOComputationCells;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
@@ -28,9 +30,9 @@ public enum ECOComputationDriveProvider implements IBlockComponentProvider, ISer
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
         if (accessor.getBlockEntity() instanceof ECOComputationDriveBlockEntity drive
             && drive.getTier() != null
-            && drive.getCellStack() != null
-            && drive.getCellStack().getItem() instanceof ECOComputationCellItem cell) {
-            data.putBoolean("tierMismatch", !drive.getTier().supportsComponentTier(cell.getTier()));
+            && drive.getCellStack() != null) {
+            var memory = ECOComputationCells.describe(drive.getCellStack());
+            if (memory != null) data.putBoolean("tierMismatch", !drive.getTier().supportsComponentTier(memory.tier()));
         }
     }
 

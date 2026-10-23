@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
+
 import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerPanelState;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationDriveEntry;
 import java.util.ArrayList;
@@ -19,7 +21,9 @@ final class ComputationDriveLayout {
         List<ComputationDriveEntry> entries = new ArrayList<>(Collections.nCopies(slots, ComputationDriveEntry.EMPTY));
         if (drives == null) return entries;
         List<ECOComputationDriveBlockEntity> nearest = drives.stream()
-            .sorted(Comparator.comparingDouble(drive -> drive.getBlockPos().distSqr(controller)))
+            .sorted(Comparator.<ECOComputationDriveBlockEntity>comparingInt(
+                ECOMultiblockParts::order)
+                .thenComparingDouble(drive -> drive.getBlockPos().distSqr(controller)))
             .limit(slots)
             .toList();
         for (int slot = 0; slot < nearest.size(); slot++) {

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.computation;
 
+import cn.dancingsnow.neoecoae.api.computation.ECOComputationCells;
+
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
@@ -62,7 +64,7 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
         InteractionHand hand,
         BlockHitResult hit
     ) {
-        if (!(heldItem.getItem() instanceof ECOComputationCellItem)
+        if (!(ECOComputationCells.describe(heldItem) != null)
             || !(level.getBlockEntity(pos) instanceof ECOComputationSystemBlockEntity be)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }

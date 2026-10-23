@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.computation;
 
+import cn.dancingsnow.neoecoae.api.computation.ECOComputationCells;
+
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
@@ -31,7 +33,7 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
 
     @Override
     protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        if (heldItem.getItem() instanceof ECOComputationCellItem) {
+        if (ECOComputationCells.describe(heldItem) != null) {
             if (level.getBlockEntity(pos) instanceof ECOComputationDriveBlockEntity be) {
                 if (be.getCellStack() == null) {
                     if (level.isClientSide) return ItemInteractionResult.SUCCESS;

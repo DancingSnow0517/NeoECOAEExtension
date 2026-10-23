@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
+import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
+import cn.dancingsnow.neoecoae.api.computation.ECOComputationCells;
+
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingPlan;
@@ -112,7 +115,7 @@ public class NEComputationNetworkCluster {
                 return false;
             }
             topology.add(new EndgameHost(
-                controller.getTier().getTier() == ECOTier.L9.getTier(),
+                controller.getTier().supportsFeature(ECOFeature.VIRTUAL_CRAFTING),
                 controller.getSelectedBuildLength() == controller.getMaxBuildLength(),
                 controller.hasHighEnergyNetworkSwitch(),
                 hasAllDriveSlotsFilled(member)
@@ -139,7 +142,7 @@ public class NEComputationNetworkCluster {
             return false;
         }
         for (ItemStack stack : driveStacks) {
-            if (stack == null || stack.isEmpty() || !(stack.getItem() instanceof ECOComputationCellItem)) {
+            if (ECOComputationCells.describe(stack) == null) {
                 return false;
             }
         }
@@ -170,7 +173,7 @@ public class NEComputationNetworkCluster {
         for (NEComputationCluster member : members) {
             ECOComputationSystemBlockEntity controller = member.getController();
             if (controller != null) {
-                wrongTier |= controller.getTier().getTier() != ECOTier.L9.getTier();
+                wrongTier |= !controller.getTier().supportsFeature(ECOFeature.VIRTUAL_CRAFTING);
                 wrongLength |= controller.getSelectedBuildLength() != controller.getMaxBuildLength();
                 noHighEnergySwitch |= !controller.hasHighEnergyNetworkSwitch();
             }
