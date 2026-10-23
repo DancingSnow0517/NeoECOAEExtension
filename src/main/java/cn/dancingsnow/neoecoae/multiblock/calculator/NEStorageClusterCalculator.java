@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
+
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -128,9 +130,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             level,
             expandSide,
             upperEnergyCellStart,
-            (state, pos) -> state.getBlock() instanceof ECOEnergyCellBlock cell
-                && tier.supportsComponentTier(cell.getBlockEntity(level, pos).getTier())
-                && state.getValue(ECOEnergyCellBlock.FACING) == back
+            (state, pos) -> ECOMultiblockParts.matchesTiered(
+                ECOMultiblockParts.context(level, pos), ECOMultiblockParts.Role.ENERGY_CELL, tier,
+                state.getBlock() instanceof ECOEnergyCellBlock, back,
+                cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity.class)
         );
         if (upperEnergyCellResult.isEmpty()) {
             return false;
@@ -140,9 +143,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             && !validateBlock(
                 level,
                 upperEnergyCellStart,
-                state -> state.getBlock() instanceof ECOEnergyCellBlock cell
-                    && tier.supportsComponentTier(cell.getBlockEntity(level, upperEnergyCellEnd).getTier())
-                    && state.getValue(ECOEnergyCellBlock.FACING) == back
+                state -> ECOMultiblockParts.matchesTiered(
+                    ECOMultiblockParts.context(level, upperEnergyCellEnd), ECOMultiblockParts.Role.ENERGY_CELL, tier,
+                    state.getBlock() instanceof ECOEnergyCellBlock, back,
+                    cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity.class)
             )) {
             return false;
         }
@@ -151,9 +155,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             level,
             expandSide,
             lowerEnergyCellStart,
-            (state, pos) -> state.getBlock() instanceof ECOEnergyCellBlock cell
-                && tier.supportsComponentTier(cell.getBlockEntity(level, pos).getTier())
-                && state.getValue(ECOEnergyCellBlock.FACING) == back
+            (state, pos) -> ECOMultiblockParts.matchesTiered(
+                ECOMultiblockParts.context(level, pos), ECOMultiblockParts.Role.ENERGY_CELL, tier,
+                state.getBlock() instanceof ECOEnergyCellBlock, back,
+                cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity.class)
         );
         if (lowerEnergyCellResult.isEmpty()) {
             return false;
@@ -180,7 +185,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         return (te instanceof NEBlockEntity<?,?> neBlockEntity && neBlockEntity.getCalculator() instanceof NEStorageClusterCalculator);
     }
 
-    private boolean validateInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down) {
+    protected boolean validateInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down) {
         return validateInterface(level, interfacePos, top, down, NEBlocks.STORAGE_INTERFACE, NEBlocks.STORAGE_CASING);
     }
 }

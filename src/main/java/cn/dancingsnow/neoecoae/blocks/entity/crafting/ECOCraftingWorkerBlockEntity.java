@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
+
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
@@ -87,7 +89,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 LOADED_SERVER_WORKERS.add(this);
             }
         }
-        getMainNode().setIdlePowerUsage(64);
+        applyIdlePower(ECOPowerRole.CRAFTING_WORKER, 64, 0);
         reconcileJobTermination();
         refreshDisplayedJob();
     }

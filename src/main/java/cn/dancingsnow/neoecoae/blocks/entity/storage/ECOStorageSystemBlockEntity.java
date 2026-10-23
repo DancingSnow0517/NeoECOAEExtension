@@ -1,5 +1,9 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMachineKind;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockDefinitions;
+import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
+
 import appeng.api.stacks.AEKey;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
@@ -194,7 +198,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         super.onReady();
         infiniteMembersDirty = true;
         infiniteModeController.refreshHostAccess();
-        getMainNode().setIdlePowerUsage(256 + (1 << (1 + 4 * tier.getTier())));
+        applyIdlePower(ECOPowerRole.STORAGE_CONTROLLER, 256 + (1 << (1 + 4 * tier.getTier())), 0);
     }
 
     @Override
@@ -910,7 +914,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     public @Nullable MultiBlockDefinition getBuildDefinition() {
-        return NEMultiBlocks.getStorageSystemDefinition(tier);
+        return ECOMultiblockDefinitions.resolve(this,
+            ECOMachineKind.STORAGE, tier,
+            () -> NEMultiBlocks.getStorageSystemDefinition(tier));
     }
 
     @Override

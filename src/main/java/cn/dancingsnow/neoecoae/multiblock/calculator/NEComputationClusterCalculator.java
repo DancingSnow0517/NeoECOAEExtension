@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
+
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
@@ -299,7 +301,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             .setValue(cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, false), Block.UPDATE_CLIENTS);
     }
 
-    private boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
+    protected boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
         BlockPos center = controllerPos.relative(side);
         BlockState state = level.getBlockState(center);
         boolean sw = state.is(NEBlocks.COMPUTATION_NETWORK_SWITCH) || state.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH);
@@ -309,34 +311,40 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             && validateBlock(level, center.relative(down), BlockState::is, NEBlocks.COMPUTATION_CASING);
     }
 
-    private BiPredicate<BlockState, BlockPos> matchingParallelCore(
+    protected BiPredicate<BlockState, BlockPos> matchingParallelCore(
         Level level,
         IECOTier tier,
         Direction facing
     ) {
-        return (s, p) -> s.getBlock() instanceof ECOComputationParallelCore core
-            && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
-            && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
+        return (s, p) -> {
+            var context = ECOMultiblockParts.context(level, p);
+            return ECOMultiblockParts.matchesTiered(context, ECOMultiblockParts.Role.COMPUTATION_PARALLEL_CORE, tier,
+                s.getBlock() instanceof ECOComputationParallelCore, facing, cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity.class);
+        };
     }
 
-    private BiPredicate<BlockState, BlockPos> matchingThreadingCore(
+    protected BiPredicate<BlockState, BlockPos> matchingThreadingCore(
         Level level,
         IECOTier tier,
         Direction facing
     ) {
-        return (s, p) -> s.getBlock() instanceof ECOComputationThreadingCore core
-            && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
-            && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
+        return (s, p) -> {
+            var context = ECOMultiblockParts.context(level, p);
+            return ECOMultiblockParts.matchesTiered(context, ECOMultiblockParts.Role.COMPUTATION_THREADING_CORE, tier,
+                s.getBlock() instanceof ECOComputationThreadingCore, facing, cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity.class);
+        };
     }
 
-    private BiPredicate<BlockState, BlockPos> matchingCoolingController(
+    protected BiPredicate<BlockState, BlockPos> matchingCoolingController(
         Level level,
         IECOTier tier,
         Direction facing
     ) {
-        return (s, p) -> s.getBlock() instanceof ECOComputationCoolingController core
-            && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
-            && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
+        return (s, p) -> {
+            var context = ECOMultiblockParts.context(level, p);
+            return ECOMultiblockParts.matchesTiered(context, ECOMultiblockParts.Role.COOLING_CONTROLLER, tier,
+                s.getBlock() instanceof ECOComputationCoolingController, facing, ECOComputationCoolingControllerBlockEntity.class);
+        };
     }
 
 }

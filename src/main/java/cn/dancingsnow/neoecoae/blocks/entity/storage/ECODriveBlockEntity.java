@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
+
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -174,7 +176,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
                 power += cellInventory.getIdleDrain();
             }
         }
-        getMainNode().setIdlePowerUsage(power);
+        applyIdlePower(ECOPowerRole.STORAGE_DRIVE, 256, power - 256);
         IStorageProvider.requestUpdate(getMainNode());
     }
 

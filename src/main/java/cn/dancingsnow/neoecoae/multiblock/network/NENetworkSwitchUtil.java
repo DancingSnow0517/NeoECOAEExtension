@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.network;
 
+import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
+
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
@@ -22,7 +24,7 @@ public final class NENetworkSwitchUtil {
         return switchPos.equals(switchPosition(controllerPos, state, false))
             || switchPos.equals(switchPosition(controllerPos, state, true));
     }
-    public static boolean canUseNetworkSwitch(IECOTier tier) { return tier.getTier() == ECOTier.L9.getTier(); }
+    public static boolean canUseNetworkSwitch(IECOTier tier) { return tier.supportsFeature(ECOFeature.NETWORK_SWITCH); }
     public static void setFormed(net.minecraft.server.level.ServerLevel level, BlockPos pos, boolean formed) {
         BlockState state = level.getBlockState(pos);
         if (state.hasProperty(NENetworkSwitchBlock.FORMED) && state.getValue(NENetworkSwitchBlock.FORMED) != formed) level.setBlock(pos, state.setValue(NENetworkSwitchBlock.FORMED, formed), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);

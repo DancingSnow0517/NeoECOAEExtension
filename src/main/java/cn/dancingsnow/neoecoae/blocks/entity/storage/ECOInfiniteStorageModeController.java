@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
+
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
@@ -133,7 +135,7 @@ final class ECOInfiniteStorageModeController {
 
     private boolean canStartMigration() {
         return !host.isInfiniteExitRequested()
-                && host.getTier() == ECOTier.L9
+                && host.getTier().supportsFeature(ECOFeature.INFINITE_STORAGE_HOST)
                 && host.isFormed()
                 && host.getCluster() != null
                 && !host.isStorageInterfaceTransferMode()

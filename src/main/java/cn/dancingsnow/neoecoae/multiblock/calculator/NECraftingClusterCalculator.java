@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
+
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
@@ -260,7 +262,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH, false), Block.UPDATE_CLIENTS);
     }
 
-    private boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
+    protected boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
         BlockPos center = controllerPos.relative(side);
         BlockState state = level.getBlockState(center);
         boolean sw = state.is(NEBlocks.CRAFTING_NETWORK_SWITCH) || state.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH);
@@ -280,14 +282,15 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         return validateBlock(level, interfacePos.relative(down), BlockState::is, NEBlocks.OUTPUT_HATCH);
     }
 
-    private BiPredicate<BlockState, BlockPos> matchingParallelCore(
+    protected BiPredicate<BlockState, BlockPos> matchingParallelCore(
         Level level,
         IECOTier tier,
         Direction facing
     ) {
-        return (s, p) -> s.getBlock() instanceof ECOCraftingParallelCore core
-            && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
-            && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
+        return (s, p) -> ECOMultiblockParts.matchesTiered(
+            ECOMultiblockParts.context(level, p), ECOMultiblockParts.Role.CRAFTING_PARALLEL_CORE, tier,
+            s.getBlock() instanceof ECOCraftingParallelCore, facing,
+            cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity.class);
     }
 
 }

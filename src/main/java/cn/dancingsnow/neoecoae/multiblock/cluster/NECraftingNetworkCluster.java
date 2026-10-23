@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
+import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
+
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
@@ -9,12 +11,11 @@ import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import appeng.hooks.ticking.TickHandler;
 import net.neoforged.neoforge.fluids.FluidStack;
 
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Set;
 import java.util.function.DoublePredicate;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,8 +36,8 @@ public class NECraftingNetworkCluster {
     private final List<NECraftingCluster> members = new ArrayList<>();
     /** Changes when membership or one member's pattern-bus inventory changes. */
     private long patternDomainGeneration;
-    private final Set<ECOCraftingWorkerBlockEntity> availableWorkerSnapshot =
-        Collections.newSetFromMap(new IdentityHashMap<>());
+    private final ReferenceSet<ECOCraftingWorkerBlockEntity> availableWorkerSnapshot =
+        new ReferenceOpenHashSet<>();
     private long availabilitySnapshotTick = Long.MIN_VALUE;
 
     /** Group-wide once-per-tick bookkeeping for {@link #VIRTUAL_CRAFTING_POWER_PER_TICK}. */
@@ -461,7 +462,7 @@ public class NECraftingNetworkCluster {
                 return false;
             }
             topology.add(new CraftingCapabilitySnapshot.VirtualHost(
-                controller.getTier().getTier() == ECOTier.L9.getTier(),
+                controller.getTier().supportsFeature(ECOFeature.VIRTUAL_CRAFTING),
                 controller.hasHighEnergyNetworkSwitch(),
                 member.getWorkers().size(),
                 controller.getMaxBuildLength()

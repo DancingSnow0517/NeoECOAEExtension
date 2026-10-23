@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
+import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
@@ -16,7 +18,7 @@ public enum ECOStorageSystemProvider implements IBlockComponentProvider, IServer
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
         if (accessor.getBlockEntity() instanceof ECOStorageSystemBlockEntity host
-            && host.getTier() == ECOTier.L9 && host.isFormedInfiniteMode()) {
+            && host.getTier().supportsFeature(ECOFeature.INFINITE_STORAGE_HOST) && host.isFormedInfiniteMode()) {
             data.putString("ecoStorageDomain", host.getInfiniteDomainText());
         }
     }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
+
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
@@ -141,7 +143,7 @@ public class ECOEnergyCellBlockEntity extends cn.dancingsnow.neoecoae.blocks.ent
         final int value = this.level.getBlockState(this.worldPosition).getValue(ECOEnergyCellBlock.LEVEL);
         this.currentDisplayLevel = (byte) value;
         this.updateStateForPowerLevel();
-        getMainNode().setIdlePowerUsage(0);
+        applyIdlePower(ECOPowerRole.ENERGY_CELL, 0, 0);
     }
 
     @Override

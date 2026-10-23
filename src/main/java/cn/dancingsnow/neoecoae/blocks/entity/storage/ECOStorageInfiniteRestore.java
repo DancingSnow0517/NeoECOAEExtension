@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
+
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
@@ -159,7 +161,7 @@ final class ECOStorageInfiniteRestore {
             ECOInfiniteStorageMember.clearMember(simulationStack);
             IECOStorageCell simulatedCell = ECOStorageCells.getCellInventory(simulationStack, null);
             if (simulatedCell instanceof IECOStorageMigrationCell
-                    && simulatedCell.getTier() == ECOTier.L9
+                    && simulatedCell.getTier().supportsFeature(ECOFeature.INFINITE_STORAGE_CELL)
                     && simulatedCell.isInfiniteStorageEligible()) {
                 KeyCounter simulatedContents = new KeyCounter();
                 simulatedCell.getAvailableStacks(simulatedContents);

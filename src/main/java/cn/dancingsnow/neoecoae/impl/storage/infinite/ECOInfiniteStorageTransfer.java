@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
+
 import appeng.api.stacks.AEKey;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
@@ -27,7 +29,7 @@ public final class ECOInfiniteStorageTransfer {
 
     public static boolean isEligible(IECOStorageCell cell) {
         return cell instanceof IECOStorageMigrationCell && cell.isInfiniteStorageEligible()
-                && cell.getTier() == ECOTier.L9;
+                && cell.getTier().supportsFeature(ECOFeature.INFINITE_STORAGE_CELL);
     }
 
     /**

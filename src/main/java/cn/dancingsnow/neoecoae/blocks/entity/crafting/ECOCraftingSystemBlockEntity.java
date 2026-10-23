@@ -1,5 +1,10 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMachineKind;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockDefinitions;
+import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
+
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
@@ -178,7 +183,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     @Override
     public void onReady() {
         super.onReady();
-        getMainNode().setIdlePowerUsage(64);
+        applyIdlePower(ECOPowerRole.CRAFTING_CONTROLLER, 64, 0);
         updateInfo();
     }
 
@@ -1132,13 +1137,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             ECOCraftingSystemBlockEntity controller = member.getController();
             if (controller != null) {
                 highEnergy |= !controller.hasHighEnergyNetworkSwitch();
-                wrongTier |= controller.getTier().getTier() != cn.dancingsnow.neoecoae.api.ECOTier.L9.getTier();
+                wrongTier |= !controller.getTier().supportsFeature(ECOFeature.VIRTUAL_CRAFTING);
                 shortHost |= member.getWorkers().size() != controller.getMaxBuildLength();
             }
         }
         if (network == null) {
             highEnergy = !hasHighEnergyNetworkSwitch();
-            wrongTier = getTier().getTier() != cn.dancingsnow.neoecoae.api.ECOTier.L9.getTier();
+            wrongTier = !getTier().supportsFeature(ECOFeature.VIRTUAL_CRAFTING);
             shortHost = cluster == null || cluster.getWorkers().size() != getMaxBuildLength();
         }
         if (wrongTier) lines.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.f9"));
@@ -1238,7 +1243,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     @Override
     public @Nullable MultiBlockDefinition getBuildDefinition() {
-        return NEMultiBlocks.getCraftingSystemDefinition(tier);
+        return ECOMultiblockDefinitions.resolve(this,
+            ECOMachineKind.CRAFTING, tier,
+            () -> NEMultiBlocks.getCraftingSystemDefinition(tier));
     }
 
     @Override

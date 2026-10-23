@@ -69,6 +69,16 @@ class ECOStorageHostStatisticsTest {
     }
 
     @Test
+    void energyDisplayUsesAppliedHostAndDriveProfilesInsteadOfAddingCellDrainTwice() {
+        Fixture fixture = new Fixture();
+        var drive = fixture.addCell("items", AEKeyType.items(), 1, 5, 1, 100);
+        when(fixture.host.appliedIdlePower()).thenReturn(java.util.OptionalDouble.of(20));
+        when(drive.appliedIdlePower()).thenReturn(java.util.OptionalDouble.of(30));
+        when(drive.getCellInventory().getIdleDrain()).thenReturn(1_000d);
+        assertEquals(50, fixture.statistics.getEnergyConsumePerTick());
+    }
+
+    @Test
     void energyDisplayIncludesTheHostsNetworkSingularitySurcharge() {
         Fixture fixture = new Fixture();
         long baseline = fixture.statistics.getEnergyConsumePerTick();

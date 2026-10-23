@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -16,6 +18,6 @@ public class ECOCraftingVentBlockEntity extends cn.dancingsnow.neoecoae.blocks.e
     @Override
     public void onReady() {
         super.onReady();
-        getMainNode().setIdlePowerUsage(64);
+        applyIdlePower(ECOPowerRole.CRAFTING_VENT, 64, 0);
     }
 }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
+
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -24,7 +26,7 @@ public class ECOCraftingParallelCoreBlockEntity extends cn.dancingsnow.neoecoae.
     @Override
     public void onReady() {
         super.onReady();
-        getMainNode().setIdlePowerUsage(64);
+        applyIdlePower(ECOPowerRole.CRAFTING_PARALLEL_CORE, 64, 0);
     }
 }
 

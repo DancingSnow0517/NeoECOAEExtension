@@ -168,7 +168,17 @@ final class ECOStorageHostStatistics {
             maxEnergy = NEMath.saturatingAdd(maxEnergy, (long) energyCell.getAEMaxPower());
         }
 
-        long energyConsumePerTick = 256L + (1L << (1 + 4 * host.getTier().getTier()));
+        long energyConsumePerTick = Math.round(host.appliedIdlePower().orElse(
+            256L + (1L << (1 + 4 * host.getTier().getTier()))));
+        var members = host.getCluster().getBlockEntities();
+        while (members != null && members.hasNext()) {
+            var member = members.next();
+            if (member != host && member instanceof cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<?, ?> part
+                && !(member instanceof ECODriveBlockEntity)) {
+                energyConsumePerTick = NEMath.saturatingAdd(energyConsumePerTick,
+                    Math.max(0L, Math.round(part.appliedIdlePower().orElse(0))));
+            }
+        }
         Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
         List<StorageHostUI.CellEntry> cellEntries = new ArrayList<>();
         boolean hasSingularity = false;
@@ -179,6 +189,9 @@ final class ECOStorageHostStatistics {
                 continue;
             }
             DriveUiSnapshot view = driveUiSnapshot(drive);
+            double appliedDrivePower = drive.appliedIdlePower().orElse(-1);
+            if (appliedDrivePower >= 0) energyConsumePerTick = NEMath.saturatingAdd(
+                energyConsumePerTick, Math.max(0L, Math.round(appliedDrivePower)));
             var stack = drive.getCellStack();
             if (view == null) {
                 cellEntries.add(StorageHostUI.CellEntry.EMPTY.atDrive(drive.getBlockPos(),
@@ -189,7 +202,7 @@ final class ECOStorageHostStatistics {
             boolean supported = view.inventory() != null && host.getTier().compareTo(view.inventory().getTier()) >= 0;
             if (supported) {
                 hasSingularity |= BiggerAE2SingularityPowerService.isSingularity(stack);
-                energyConsumePerTick = NEMath.saturatingAdd(
+                if (appliedDrivePower < 0) energyConsumePerTick = NEMath.saturatingAdd(
                     energyConsumePerTick,
                     Math.max(0L, Math.round(view.inventory().getIdleDrain()))
                 );

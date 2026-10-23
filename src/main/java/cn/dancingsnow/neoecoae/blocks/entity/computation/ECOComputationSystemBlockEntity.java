@@ -1,5 +1,9 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMachineKind;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockDefinitions;
+import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
+
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.orientation.OrientationStrategies;
@@ -95,6 +99,12 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     ) {
         super(type, pos, blockState, NEComputationClusterCalculator::new);
         this.tier = tier;
+    }
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        applyIdlePower(ECOPowerRole.COMPUTATION_CONTROLLER, getTier().getComponentIdlePower(), 0);
     }
 
     @Override
@@ -515,7 +525,9 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
     @Override
     public @Nullable MultiBlockDefinition getBuildDefinition() {
-        return NEMultiBlocks.getComputationSystemDefinition(tier);
+        return ECOMultiblockDefinitions.resolve(this,
+            ECOMachineKind.COMPUTATION, tier,
+            () -> NEMultiBlocks.getComputationSystemDefinition(tier));
     }
 
     @Override
