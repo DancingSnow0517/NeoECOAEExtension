@@ -61,6 +61,8 @@ Machine tooltips show AE/t, FE/t, reserved FE and actual processing ticks. In co
 
 ## Parallelism and energy
 
+Temperature-band labels 4 / 6 / 9 correspond to coolant recipe tiers 2 / 6 / 9; the first labels differ.
+
 The normal batch limit is **256**. Temperature mode is enabled by default: enable overclocking and maintain the required temperature for higher parallelism. The server configuration can also disable temperature and use coolant mode below.
 
 | Tier | Continuous operating temperature | Batch limit | Energy per recipe |
@@ -141,7 +143,7 @@ Recovery requires active cooling to be enabled, **Cryotheum Solution** in the in
 
 Recovery requires **uninterrupted successful Cryotheum Solution consumption**. Disabled cooling, interrupted delivery, blocked output, disassembly or reloading clears progress and returns temperature to 100%, requiring a fresh 15 seconds. Water, sodium, custom high-tier coolants, toggling overclocking and simply waiting cannot clear the latch.
 
-## Troubleshooting
+## Operating states
 
 | Symptom | Action |
 | --- | --- |

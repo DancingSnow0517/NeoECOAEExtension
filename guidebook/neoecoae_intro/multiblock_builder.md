@@ -28,3 +28,7 @@ Materials are taken from the player's accessible inventory, including container 
 In survival mode, blocks are placed over server ticks and materials are consumed only when each block is placed. In creative mode, missing blocks are placed immediately if there are no conflicts.
 
 The builder does not overwrite conflicting blocks. Missing materials, conflicts or blocked positions can prevent or interrupt a build. Replenish materials and clear blocked positions, then retry from the corresponding host's builder window.
+
+## JEI / EMI Structure Previews
+
+The machines' recipe viewer pages support layers, length and formed appearance. Left-click cycle controls for the next choice, or right-click for the previous choice.
