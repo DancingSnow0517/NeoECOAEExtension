@@ -38,7 +38,7 @@ class WorkstationUpgradeCardRecipeTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @ParameterizedTest
-    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "aelt"})
+    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "aelt", "ae2cs"})
     void recipesKeepApprovedCostsAndOptionalModConditions(String variant) throws IOException {
         JsonObject json = resource(variant);
         assertEquals("neoecoae:large_integrated_working_station", json.get("type").getAsString());
@@ -87,6 +87,12 @@ class WorkstationUpgradeCardRecipeTest {
                     expected.merge("neoecoae:energized_superconductive_ingot", 256, Integer::sum);
                     expected.merge("neoecoae:superconducting_processor", 128, Integer::sum);
                 }
+                case "ae2cs" -> {
+                    expected.put("ae2cs:circuit_etcher", 4);
+                    expected.put("ae2cs:crystal_aggregator", 4);
+                    expected.put("ae2cs:purified_resonating_crystal", 256);
+                    expected.put("ae2cs:resonating_processor", 128);
+                }
                 case "aelt" -> {
                     expected.put("ae2lt:ultimate_overload_core", 16);
                     expected.put("ae2lt:overload_alloy_plate", 64);
@@ -109,7 +115,7 @@ class WorkstationUpgradeCardRecipeTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "aelt"})
+    @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "aelt", "ae2cs"})
     void nativeLargeRecipesAreAvailableWithoutAnyCardAndKeepFullBatchCosts(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
         var id = new ResourceLocation("test:card_" + variant);

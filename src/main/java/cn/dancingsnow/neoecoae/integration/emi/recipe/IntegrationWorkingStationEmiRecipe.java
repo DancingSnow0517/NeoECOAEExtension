@@ -5,6 +5,8 @@ import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEFluidKey;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import net.minecraft.resources.ResourceLocation;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
@@ -25,6 +27,8 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
     private final long energy;
     private final List<GenericStack> extraInputs;
     private final Component sourceType;
+    private List<SizedFluidIngredient> additionalFluidInputs = List.of();
+    private List<GenericStack> additionalOutputs = List.of();
 
     public IntegrationWorkingStationEmiRecipe(IntegratedWorkingStationRecipe holder) {
         this(NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION, holder.getId(), holder, holder.energy(), List.of(), null);
@@ -34,6 +38,12 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         this(NeoECOAEEmiPlugin.LARGE_WORKING_STATION,
             NeoECOAE.id("/large_workstation/" + recipe.id().getNamespace() + "/" + recipe.id().getPath()),
             recipe.display(), recipe.energy(), recipe.extraInputs(), recipe.sourceTypeDescription());
+        additionalFluidInputs = recipe.additionalFluidInputs();
+        additionalOutputs = recipe.additionalOutputs();
+        for (var input : additionalFluidInputs) inputs.add(NeoECOAEEmiPlugin.of(input));
+        for (var input : extraInputs) inputs.add(of(input));
+        for (var output : additionalOutputs) outputs.add(of(output));
+        height = 175;
     }
 
     private IntegrationWorkingStationEmiRecipe(EmiRecipeCategory category, ResourceLocation id,
@@ -79,19 +89,24 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
             ? Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy", energy)
             : Component.translatable("gui.neoecoae.integrated_working_station.energy", energy / 1000);
         widgets.addText(text, 24, 66, 0x403e53, false);
-        if (!extraInputs.isEmpty()) {
-            var extra = cn.dancingsnow.neoecoae.platform.JdkCompat.first(extraInputs);
-            widgets.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_amount",
-                extra.amount()), 0, 79, 0x403e53, false);
-            widgets.addText(extra.what().getDisplayName(), 0, 91, 0x403e53, false);
+        int additionalSlot = 0;
+        for (var fluid : additionalFluidInputs) {
+            widgets.addSlot(NeoECOAEEmiPlugin.of(fluid), 4 + additionalSlot++ * 18, 76);
+        }
+        for (var extra : extraInputs) {
+            widgets.addSlot(of(extra), 4 + additionalSlot++ * 18, 76);
+        }
+        additionalSlot = 0;
+        for (var output : additionalOutputs) {
+            widgets.addSlot(of(output), 4 + additionalSlot++ * 18, 96).recipeContext(this);
         }
         if (sourceType != null) {
             var font = Minecraft.getInstance().font;
             var lines = font.split(sourceType, 168);
             for (int i = 0; i < lines.size(); i++) {
-                widgets.addText(lines.get(i), 0, 105 + i * font.lineHeight, 0x403e53, false);
+                widgets.addText(lines.get(i), 0, 119 + i * font.lineHeight, 0x403e53, false);
             }
-            widgets.addTooltipText(List.of(sourceType), 0, 105, 168, 34);
+            widgets.addTooltipText(List.of(sourceType), 0, 119, 168, 34);
         }
 
         // input fluid
@@ -123,5 +138,11 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         if (!fluidOutput.isEmpty()) {
             widgets.addTank(EmiStack.of(fluidOutput.getFluid(), fluidOutput.getAmount()), 146, 8, 18, 60, 16000).recipeContext(this).drawBack(false);
         }
+    }
+
+    private static EmiStack of(GenericStack stack) {
+        if (stack.what() instanceof AEItemKey item) return EmiStack.of(item.toStack()).setAmount(stack.amount());
+        if (stack.what() instanceof AEFluidKey fluid) return EmiStack.of(fluid.getFluid(), stack.amount());
+        return EmiStack.of(GenericStack.wrapInItemStack(stack.what(), stack.amount()));
     }
 }

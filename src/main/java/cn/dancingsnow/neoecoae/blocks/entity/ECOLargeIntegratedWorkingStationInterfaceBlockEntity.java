@@ -338,6 +338,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
                 case REGULAR -> 0;
                 case ADVANCED_AE -> 1;
                 case EXTENDED_AE -> 2;
+                case CRYSTAL_SCIENCE -> 3;
                 case LIGHTNING_TECH -> 4;
             };
             icon.getOrCreateTag().putInt("CustomModelData", modelData);

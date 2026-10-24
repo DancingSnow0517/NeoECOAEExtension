@@ -11,7 +11,8 @@ public enum LargeWorkstationModule implements StringRepresentable {
     REGULAR("regular", 0x878FA5, ""),
     ADVANCED_AE("advanced_ae", 0xB668D0, "advanced_ae"),
     EXTENDED_AE("extendedae", 0x45D9A0, "extendedae"),
-    LIGHTNING_TECH("aelt", 0xED7CCC, "aelt");
+    LIGHTNING_TECH("aelt", 0xED7CCC, "aelt"),
+    CRYSTAL_SCIENCE("ae2cs", 0x7DCBE8, "ae2cs");
 
     private final String name;
     private final int color;
@@ -75,6 +76,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
             case "advanced_ae", "advancedae" -> ADVANCED_AE;
             case "extendedae", "expatternprovider" -> EXTENDED_AE;
             case "ae2lt" -> LIGHTNING_TECH;
+            case "ae2cs" -> CRYSTAL_SCIENCE;
             default -> throw new IllegalArgumentException("Unsupported workstation source: " + type);
         };
     }
@@ -82,7 +84,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
     public static boolean supportsSourceType(ResourceLocation type) {
         if (type == null || type.equals(LargeWorkstationRecipe.NATIVE_TYPE)) return true;
         return switch (type.getNamespace()) {
-            case "advanced_ae", "advancedae", "extendedae", "expatternprovider", "ae2lt" -> true;
+            case "advanced_ae", "advancedae", "extendedae", "expatternprovider", "ae2lt", "ae2cs" -> true;
             default -> false;
         };
     }

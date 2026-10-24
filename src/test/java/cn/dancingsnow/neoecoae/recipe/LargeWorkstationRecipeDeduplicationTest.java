@@ -59,21 +59,22 @@ class LargeWorkstationRecipeDeduplicationTest {
         assertEquals(List.of(extended), LargeWorkstationRecipes.selectForModule(recipes, LargeWorkstationModule.EXTENDED_AE, ops));
     }
 
-    @Test void fourCardsUnlockTheirFamilyAndRejectExcludedAndUnknownSources() {
+    @Test void fiveCardsUnlockTheirFamilyAndRejectExcludedAndUnknownSources() {
         var sources = java.util.Map.of(
             LargeWorkstationModule.ADVANCED_AE, new ResourceLocation("advanced_ae:reaction"),
             LargeWorkstationModule.EXTENDED_AE, new ResourceLocation("expatternprovider:crystal_assembler"),
-            LargeWorkstationModule.LIGHTNING_TECH, new ResourceLocation("ae2lt:lightning_assembly"));
+            LargeWorkstationModule.LIGHTNING_TECH, new ResourceLocation("ae2lt:lightning_assembly"),
+            LargeWorkstationModule.CRYSTAL_SCIENCE, new ResourceLocation("ae2cs:crystal_pulverizer_recipe"));
         for (var installed : LargeWorkstationModule.values()) {
             assertTrue(installed.unlocks(LargeWorkstationRecipe.NATIVE_TYPE));
             for (String source : List.of("test:uncarded_adapter", "extendedae_plus:crystal_assembler_plus",
-                    "ae2cs:circuit_etcher_recipe", "data_energistics:data_reassembler", "appgen:synthesizing")) {
+                    "data_energistics:data_reassembler", "appgen:synthesizing")) {
                 assertFalse(installed.unlocks(new ResourceLocation(source)));
             }
             for (var entry : sources.entrySet()) assertEquals(installed == entry.getKey(), installed.unlocks(entry.getValue()));
         }
         assertTrue(LargeWorkstationModule.EXTENDED_AE.unlocks(new ResourceLocation("extendedae:crystal_assembler")));
-        assertEquals(4, java.util.Arrays.stream(LargeWorkstationModule.values()).filter(LargeWorkstationModule::hasUpgradeCard).count());
+        assertEquals(5, java.util.Arrays.stream(LargeWorkstationModule.values()).filter(LargeWorkstationModule::hasUpgradeCard).count());
         assertFalse(LargeWorkstationModule.isUpgradeCard(new ItemStack(Items.PAPER)));
         assertEquals(LargeWorkstationModule.REGULAR, LargeWorkstationModule.fromUpgradeCard(ItemStack.EMPTY));
     }

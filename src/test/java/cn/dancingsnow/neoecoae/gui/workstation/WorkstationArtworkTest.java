@@ -63,14 +63,16 @@ class WorkstationArtworkTest {
     }
 
     @Test
-    void fourRetainedFamiliesKeepTheOriginalAtlasColumns() {
+    void fiveSupportedFamiliesKeepTheOriginalAtlasColumns() {
         assertEquals(0, WorkstationTextures.module(LargeWorkstationModule.REGULAR).spritePosition.x);
         assertEquals(15, WorkstationTextures.module(LargeWorkstationModule.ADVANCED_AE).spritePosition.x);
         assertEquals(30, WorkstationTextures.module(LargeWorkstationModule.EXTENDED_AE).spritePosition.x);
+        assertEquals(45, WorkstationTextures.module(LargeWorkstationModule.CRYSTAL_SCIENCE).spritePosition.x);
         assertEquals(60, WorkstationTextures.module(LargeWorkstationModule.LIGHTNING_TECH).spritePosition.x);
         assertEquals(0, WorkstationTextures.circuit(LargeWorkstationModule.REGULAR).spritePosition.x);
         assertEquals(28, WorkstationTextures.circuit(LargeWorkstationModule.ADVANCED_AE).spritePosition.x);
         assertEquals(56, WorkstationTextures.circuit(LargeWorkstationModule.EXTENDED_AE).spritePosition.x);
+        assertEquals(84, WorkstationTextures.circuit(LargeWorkstationModule.CRYSTAL_SCIENCE).spritePosition.x);
         assertEquals(112, WorkstationTextures.circuit(LargeWorkstationModule.LIGHTNING_TECH).spritePosition.x);
     }
 

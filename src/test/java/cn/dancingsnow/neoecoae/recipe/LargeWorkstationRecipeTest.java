@@ -175,8 +175,7 @@ class LargeWorkstationRecipeTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings={"ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe",
-        "appgen:synthesizing", "data_energistics:data_reassembler", "extendedae_plus:crystal_assembler_plus"})
+    @ValueSource(strings={"appgen:synthesizing", "data_energistics:data_reassembler", "extendedae_plus:crystal_assembler_plus"})
     void excludedRecipeFamiliesAreRejected(String type) {
         assertThrows(IllegalArgumentException.class,
             () -> LargeWorkstationRecipeAdapters.adapt(mock(Recipe.class), type));

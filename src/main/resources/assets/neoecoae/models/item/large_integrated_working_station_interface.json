@@ -15,6 +15,12 @@
     },
     {
       "predicate": {
+        "custom_model_data": 3
+      },
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off"
+    },
+    {
+      "predicate": {
         "custom_model_data": 4
       },
       "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off"

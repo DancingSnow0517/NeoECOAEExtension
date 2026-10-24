@@ -19,6 +19,7 @@ public final class LargeWorkstationRecipeAdapters {
 
     public static LargeWorkstationRecipe adapt(Recipe<?> source, String type) {
         return switch (type) {
+            case "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "ae2cs:crystal_pulverizer_recipe" -> CrystalScienceWorkstationRecipes.adapt(source, type);
             case "advanced_ae:reaction" -> Advanced.adapt(source);
             case "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation" -> Lightning.adapt(source, type);
             default -> throw new IllegalArgumentException("Unsupported recipe type: " + type);
