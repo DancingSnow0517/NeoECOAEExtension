@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-23",
+  "issue": "Computation controller CPU details remain hidden after selecting the active CPU row.",
+  "cause": "UIElement.setDisplay(true) did not override the JSON layout display:none.",
+  "baseline_commit": "7e4e4b9f1e057c3bc4138f57e5e718a435c98fe0",
+  "isolated_worktree": "build/cpu-status-fix-worktree",
+  "production_changes": [
+    "src/main/java/cn/dancingsnow/neoecoae/platform/ui/runtime/gui/ui/UIElement.java"
+  ],
+  "regression_tests": [
+    "cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoaderTest.runtimeDisplayCanRevealAndHideAnInitiallyHiddenJsonPanel",
+    "cn.dancingsnow.neoecoae.gui.computation.ComputationControllerUITest.selectedCpuOpensVisibleDetailsAndBackRestoresControllerAcrossRepeatedVisits"
+  ],
+  "before": {
+    "focused_tests": 10,
+    "failures": 2,
+    "failure": "Details remained undisplayed after the real visibility and selection callbacks.",
+    "log": "build/cpu-status-probe/regression-before.log"
+  },
+  "after": {
+    "focused_tests": 10,
+    "failures": 0,
+    "log": "build/cpu-status-probe/regression-after.log"
+  },
+  "full_build": {
+    "command": ".\\build-local.ps1 build --offline --console=plain",
+    "result": "success",
+    "java": 17,
+    "test_suites": 253,
+    "tests": 1530,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12,
+    "log": "build/cpu-status-probe/isolated-build.log"
+  },
+  "artifact": {
+    "path": "build/release/cpu-status-display/neoecoae-20.6.0-dev.jar",
+    "bytes": 7039604,
+    "sha256": "4f4a320dd2458cb3f2785415941e4fdcae2861de39444ee8e4f22ca419ed2d36"
+  },
+  "package_audit": {
+    "jar": "build/libs/neoecoae-20.6.0-dev.jar",
+    "sha256": "4f4a320dd2458cb3f2785415941e4fdcae2861de39444ee8e4f22ca419ed2d36",
+    "bytes": 7039604,
+    "source_files_checked": 976,
+    "packaged_classes": 1605,
+    "class_major_versions": {
+      "61": 1605
+    },
+    "registered_mixins": 64,
+    "registered_mixin_configs": [
+      "neoecoae.compat.advanced_ae.mixins.json",
+      "neoecoae.compat.extendedae.mixins.json",
+      "neoecoae.compat.thunderbolt.mixins.json",
+      "neoecoae.mixins.json",
+      "neoecoae.terminal_big_amount.mixins.json"
+    ],
+    "refmap_classes": 8,
+    "nested_jars": [
+      "META-INF/jarjar/Registrate-MC1.20-1.3.11.jar",
+      "META-INF/jarjar/mixinextras-forge-0.5.3.jar"
+    ],
+    "problems": {
+      "missing_source_classes": [],
+      "missing_required_resources": [],
+      "missing_registered_mixins": [],
+      "missing_mixin_plugins": [],
+      "unregistered_mixin_configs": [],
+      "missing_nested_jars": [],
+      "missing_translations": [],
+      "fake_upstream_classes": [],
+      "duplicate_entries": []
+    },
+    "result": "success",
+    "acceptance": "static package audit only; no client/server launch, interactions or ordinary installation"
+  },
+  "packaged_method_verified": "javap confirmed UIElement.setDisplay(boolean) writes Layout.display using FLEX/NONE.",
+  "runtime": {
+    "minecraft_process_present": true,
+    "bridge_url": "http://127.0.0.1:25599",
+    "bridge_listening": false,
+    "mcpfabric_requests": 0,
+    "observed_screen": "net.minecraft.client.gui.screens.PauseScreen",
+    "installed_new_package": false,
+    "restarted_client": false,
+    "actual_cpu_click_after_install_verified": false
+  },
+  "acceptance": "Source regression reproduction, full build and package audit passed. In-game interaction and screenshot acceptance after installation remain pending."
+}

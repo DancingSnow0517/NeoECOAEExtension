@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.json;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
@@ -55,6 +57,38 @@ class NeoUiJsonLoaderTest {
         assertTrue(result.selectId("title").anyMatch(TextElement.class::isInstance));
         assertTrue(result.selectId("start").anyMatch(Button.class::isInstance));
         assertTrue(configured.get());
+    }
+
+    @Test
+    void runtimeDisplayCanRevealAndHideAnInitiallyHiddenJsonPanel() {
+        JsonObject document = JsonParser.parseString("""
+            {"type":"element","id":"root","layout":{"width":100,"height":80},
+             "children":[{"type":"element","id":"details",
+                          "layout":{"position":"absolute","display":"none",
+                                    "left":5,"top":7,"width":60,"height":40}}]}
+            """).getAsJsonObject();
+        UIElement root = NeoUiJsonLoader.load(document, new ResourceLocation("neoecoae", "hidden-panel.json"),
+            NeoUiJsonContext.EMPTY);
+        UIElement details = root.selectId("details").findFirst().orElseThrow();
+        root.arrange();
+        assertFalse(details.isDisplayed());
+        assertFalse(details.isVisible());
+
+        for (int visit = 0; visit < 2; visit++) {
+            details.setDisplay(true);
+            root.arrange();
+            assertTrue(details.isDisplayed());
+            assertTrue(details.isVisible());
+            assertEquals(60, details.getSizeWidth());
+            assertEquals(40, details.getSizeHeight());
+            assertSame(details, root.hitTest(10, 12));
+
+            details.setDisplay(false);
+            root.arrange();
+            assertFalse(details.isDisplayed());
+            assertFalse(details.isVisible());
+            assertSame(root, root.hitTest(10, 12));
+        }
     }
 
     @Test

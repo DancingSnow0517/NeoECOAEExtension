@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.lowdragmc.lowdraglib.LDLib;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
@@ -33,6 +34,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
@@ -40,10 +43,11 @@ class ComputationControllerUITest {
     @BeforeAll
     static void bootstrap() throws ClassNotFoundException {
         InventoryTestBootstrap.initialize();
-        try (var mods = mockStatic(ModList.class)) {
+        try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {
             ModList modList = mock(ModList.class);
             when(modList.getAllScanData()).thenReturn(List.of());
             mods.when(ModList::get).thenReturn(modList);
+            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
             // NeoECOAE's static initialiser (used by theme icons) needs a ModList while the class loads.
             Class.forName(NeoECOAE.class.getName());
 
@@ -71,6 +75,64 @@ class ComputationControllerUITest {
             assertNotNull(find(root, "computation-cpu-list-toggle"));
             assertNotNull(find(root, "computation_status"));
         }
+    }
+
+    @Test
+    void selectedCpuOpensVisibleDetailsAndBackRestoresControllerAcrossRepeatedVisits() {
+        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            minecraft.when(Minecraft::getInstance).thenReturn(mock(Minecraft.class));
+            var config = config(() -> {}, () -> {}, () -> {});
+            UIElement root = ComputationControllerUI.create(config,
+                () -> ComputationControllerPanelState.UNFORMED, new UIElement());
+            UIElement main = find(root, "computation_main");
+            var selector = (ComputationCpuSelector) find(root, "computation_cpu_selector");
+            UIElement details = find(root, "computation_status");
+            root.arrange();
+            assertTrue(main.isDisplayed());
+            assertFalse(details.isDisplayed());
+
+            click(find(root, "computation-cpu-list-toggle"));
+            root.arrange();
+            var page = new net.minecraft.nbt.ListTag();
+            page.add(new ComputationCpuEntry(1, "CPU 1", null,
+                java.math.BigInteger.ZERO, java.math.BigInteger.ZERO, 0, 0, 1024, 4,
+                CpuSelectionMode.ANY, new net.minecraft.resources.ResourceLocation("neoecoae", "cpu.png"), "idle")
+                .write(config.registries()));
+            var snapshot = new CompoundTag();
+            snapshot.putInt("total", 1);
+            snapshot.putInt("selectedSerial", 1);
+            snapshot.put("page", page);
+            selector.setValue(snapshot);
+
+            for (int visit = 0; visit < 2; visit++) {
+                click(find(root, "computation-cpu-row-0"));
+                root.arrange();
+                assertFalse(main.isDisplayed());
+                assertTrue(details.isDisplayed());
+                assertTrue(details.isVisible());
+                assertEquals(326, root.getSizeWidth());
+                assertEquals(254, root.getSizeHeight());
+                assertEquals(326, details.getSizeWidth());
+                assertEquals(254, details.getSizeHeight());
+                assertTrue(find(root, "computation-status-back").effectivelyVisible());
+
+                click(find(root, "computation-status-back"));
+                root.arrange();
+                assertFalse(details.isDisplayed());
+                assertTrue(main.isVisible());
+                assertTrue(selector.effectivelyVisible());
+                assertEquals(362, root.getSizeWidth());
+                assertEquals(231, root.getSizeHeight());
+            }
+        }
+    }
+
+    private static void click(UIElement target) {
+        float x = target.getPositionX() + target.getSizeWidth() / 2F;
+        float y = target.getPositionY() + target.getSizeHeight() / 2F;
+        target.dispatchEvent(new UIEvent(UIEvents.MOUSE_DOWN, target, x, y, 0));
+        target.dispatchEvent(new UIEvent(UIEvents.MOUSE_UP, target, x, y, 0));
     }
 
     @Test

@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBi
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.*;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.*;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyDisplay;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.utils.Position;
@@ -67,7 +68,13 @@ public class UIElement extends WidgetGroup {
     protected void onModularUIChanged(UIEvent event){}
     private void detach(){rpcCallbacks.clear();modularUI=null;onRemoved();children.forEach(UIElement::detach);}
     public ModularUI getModularUI(){return modularUI;}
-    public UIElement setDisplay(boolean value){display=value;setVisible(value);markLayoutDirty();return this;}
+    public UIElement setDisplay(boolean value){
+        display=value;
+        // Match LDLib2: runtime visibility must also override a JSON display:none.
+        layout.display(value?TaffyDisplay.FLEX:TaffyDisplay.NONE);
+        setVisible(value);
+        return this;
+    }
     public boolean isDisplay(){return display;}
     public boolean isDisplayed(){return display&&getLayoutStyle().display!=cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyDisplay.NONE;}
     public boolean effectivelyVisible(){for(UIElement element=this;element!=null;element=element.getParentElement())if(!element.isVisible()||!element.isActive()||!element.isDisplayed())return false;return true;}
