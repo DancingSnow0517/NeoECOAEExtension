@@ -20,6 +20,26 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def convert_model_face_data(value):
+    """Port model emission without changing geometry, textures, or non-emissive faces."""
+    if isinstance(value, list):
+        return [convert_model_face_data(part) for part in value]
+    if not isinstance(value, dict):
+        return value
+    if "neoforge_data" in value and "forge_data" in value:
+        raise ValueError("Model declares both NeoForge and Forge face data")
+    converted = {("forge_data" if key == "neoforge_data" else key): convert_model_face_data(part)
+                 for key, part in value.items()}
+    data = converted.get("forge_data", {})
+    if data.get("block_light", 0) > 0 or data.get("sky_light", 0) > 0:
+        data["ambient_occlusion"] = False
+    faces = converted.get("faces", {})
+    if faces and all(face.get("forge_data", {}).get("block_light", 0) > 0
+                     or face.get("forge_data", {}).get("sky_light", 0) > 0 for face in faces.values()):
+        converted["shade"] = False
+    return converted
+
+
 def main():
     manifest_path = ROOT / "porting/data-resource-conversion.json"
     manifest = json.loads(manifest_path.read_bytes())
@@ -56,6 +76,11 @@ def main():
         after = after.replace(b'"neoforge:fluid_container"', b'"forge:fluid_container"')
         after = after.replace(b'"neoforge:item/bucket_drip"', b'"forge:item/bucket"')
         after = after.replace(b'ae2:block/generics/', b'neoecoae:block/workstation/generics/')
+        if "models" in path.parts:
+            original = json.loads(after)
+            converted = convert_model_face_data(original)
+            if converted != original:
+                after = encoded(converted)
         if after != before:
             path.write_bytes(after)
             changes.append({"path": path.relative_to(ROOT).as_posix(),

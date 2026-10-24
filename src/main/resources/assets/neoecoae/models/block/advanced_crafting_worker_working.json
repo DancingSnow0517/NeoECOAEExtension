@@ -31,7 +31,7 @@
           "uv": [4, 4, 12, 12],
           "texture": "#0",
           "cullface": "north",
-          "neoforge_data": {"block_light": 15, "sky_light": 15}
+          "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}
         }
       }
     }

@@ -28,7 +28,7 @@
       "to": [12, 12, -0.01],
       "shade": false,
       "faces": {
-        "north": {"uv": [4, 4, 12, 12], "texture": "#1", "cullface": "north", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+        "north": {"uv": [4, 4, 12, 12], "texture": "#1", "cullface": "north", "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}}
       }
     }
   ]
