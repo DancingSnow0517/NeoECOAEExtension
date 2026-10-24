@@ -300,6 +300,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.material_enough", "Enough materials");
         provider.add("gui.neoecoae.multiblock.material_missing", "Not enough materials");
         provider.add("gui.neoecoae.multiblock.item_required", "Required: %d");
+        provider.add("gui.neoecoae.multiblock.preview.length", "Length %d");
+        provider.add("gui.neoecoae.multiblock.preview.length.tooltip", "Structure length (%d-%d)");
+        provider.add("gui.neoecoae.multiblock.preview.layer", "Layer %d/%d");
+        provider.add("gui.neoecoae.multiblock.preview.layer.all", "All Layers");
+        provider.add("gui.neoecoae.multiblock.preview.layer.tooltip", "Show a single layer");
+        provider.add("gui.neoecoae.multiblock.preview.formed", "Formed");
+        provider.add("gui.neoecoae.multiblock.preview.formed.tooltip", "Preview the formed appearance");
+        provider.add("gui.neoecoae.multiblock.preview.cycle_hint", "Left-click: next, right-click: previous");
         provider.add("gui.neoecoae.multiblock.conflict_preview", "Conflict Preview");
         provider.add("gui.neoecoae.multiblock.no_conflicts", "No conflicts");
         provider.add("gui.neoecoae.multiblock.conflict_positions", "Conflict positions");

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
@@ -16,21 +17,22 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Scene;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.integration.xei.IngredientIO;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib2.gui.util.UISoundUtils;
 import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
+import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
-import org.appliedenergistics.yoga.YogaEdge;
-import org.appliedenergistics.yoga.YogaFlexDirection;
-import org.appliedenergistics.yoga.YogaGutter;
-import org.appliedenergistics.yoga.YogaPositionType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,11 +46,11 @@ public class MultiBlockInfoWrapper {
     public static final int EMI_VERTICAL_RESERVE = 105;
 
     private static final int PADDING = 4;
-    private static final int GAP = 2;
-    private static final int HEADER_HEIGHT = 22;
+    private static final int GAP = 3;
+    private static final int TITLE_HEIGHT = 10;
+    private static final int CONTROL_HEIGHT = 16;
     private static final int MATERIALS_HEIGHT = 27;
-    private static final int CONTROL_BUTTON_WIDTH = 44;
-    private static final int CONTROL_BUTTON_HEIGHT = 18;
+    private static final int TITLE_COLOR = 0x3f3d52;
 
     @Getter
     private final MultiBlockDefinition definition;
@@ -61,6 +63,7 @@ public class MultiBlockInfoWrapper {
     private Button expandButton;
     private Button layerButton;
     private Button formedButton;
+    private UIElement selectedSlot;
 
     private int expand = 1;
     private int layer = -1;
@@ -93,13 +96,11 @@ public class MultiBlockInfoWrapper {
     }
 
     public ModularUI createModularUI() {
-        int sceneHeight = height - PADDING * 2 - GAP * 2 - HEADER_HEIGHT - MATERIALS_HEIGHT;
-
         var root = new UIElement().layout(layout -> layout
-            .setWidth(width)
-            .setHeight(height)
-            .setPadding(YogaEdge.ALL, PADDING)
-            .setGap(YogaGutter.ALL, GAP)
+            .width(width)
+            .height(height)
+            .paddingAll(PADDING)
+            .gapAll(GAP)
         ).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
 
         root.addChild(new TextElement()
@@ -107,18 +108,16 @@ public class MultiBlockInfoWrapper {
             .textStyle(textStyle -> textStyle
                 .adaptiveWidth(false)
                 .adaptiveHeight(false)
-                .textWrap(TextWrap.WRAP)
-                .fontSize(8.5f)
-                .lineSpacing(1)
-                .textShadow(true))
+                .textWrap(TextWrap.HOVER_ROLL)
+                .textColor(TITLE_COLOR)
+                .textShadow(false))
             .layout(layout -> layout
-                .setWidthPercent(100)
-                .setHeight(HEADER_HEIGHT)));
+                .widthPercent(100)
+                .height(TITLE_HEIGHT)));
 
-        UIElement sceneContainer = new UIElement().layout(layout -> layout
-            .setWidthPercent(100)
-            .setHeight(sceneHeight)
-        );
+        UIElement sceneContainer = new UIElement()
+            .layout(layout -> layout.widthPercent(100).flexGrow(1).flexShrink(1))
+            .style(style -> style.backgroundTexture(NETextures.CARD_BACKGROUND));
         root.addChild(sceneContainer);
 
         scene = new Scene()
@@ -130,59 +129,62 @@ public class MultiBlockInfoWrapper {
             .setShowHoverBlockTips(true)
             .useCacheBuffer()
             .setOnSelected(this::onSelect);
-        scene.getLayout()
-            .positionType(YogaPositionType.ABSOLUTE)
-            .setWidthPercent(100)
-            .setHeightPercent(100)
-            .setPosition(YogaEdge.LEFT, 0)
-            .setPosition(YogaEdge.TOP, 0);
+        HostElements.absolute(scene, 0, 0, 0, 0).layout(layout -> layout.widthPercent(100).heightPercent(100));
         sceneContainer.addChild(scene);
 
-        UIElement buttons = new UIElement().layout(layout -> layout
-            .positionType(YogaPositionType.ABSOLUTE)
-            .setWidth(CONTROL_BUTTON_WIDTH * 3 + GAP * 2)
-            .setHeight(CONTROL_BUTTON_HEIGHT)
-            .flexDirection(YogaFlexDirection.ROW)
-            .setGap(YogaGutter.ALL, GAP)
-            .setPosition(YogaEdge.RIGHT, 2)
-            .setPosition(YogaEdge.TOP, 2)
-        );
-        expandButton = new Button().setText("E: " + expand).setOnClick(event -> expand());
-        expandButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
-        buttons.addChild(expandButton);
+        selectedSlot = new ItemSlot().bindDataSource(SupplierDataSource.of(() -> selectedItem));
+        HostElements.absolute(selectedSlot, 3, 3, 18, 18).setDisplay(false);
+        sceneContainer.addChild(selectedSlot);
 
-        layerButton = new Button().setText("L: " + layer).setOnClick(event -> nextLayer());
-        layerButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
-        buttons.addChild(layerButton);
-
-        formedButton = new Button().setText("F: " + formed).setOnClick(event -> cycleFormed());
-        formedButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
-        buttons.addChild(formedButton);
-
-        sceneContainer.addChild(buttons);
-
-        sceneContainer.addChild(new ItemSlot()
-            .bindDataSource(SupplierDataSource.of(() -> selectedItem))
-            .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
-                .setPosition(YogaEdge.LEFT, 2)
-                .setPosition(YogaEdge.TOP, 2))
-            .addClass("panel_border"));
+        UIElement controls = new UIElement().layout(layout -> layout
+            .widthPercent(100)
+            .height(CONTROL_HEIGHT)
+            .flexDirection(FlexDirection.ROW)
+            .gapAll(GAP));
+        expandButton = cycleButton(this::cycleExpand);
+        HostElements.tooltips(expandButton,
+            Component.translatable("gui.neoecoae.multiblock.preview.length.tooltip",
+                definition.getExpandMin(), definition.getExpandMax()),
+            Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint"));
+        layerButton = cycleButton(this::cycleLayer);
+        HostElements.tooltips(layerButton,
+            Component.translatable("gui.neoecoae.multiblock.preview.layer.tooltip"),
+            Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint"));
+        formedButton = new Button().setText("gui.neoecoae.multiblock.preview.formed", true)
+            .setOnClick(event -> toggleFormed());
+        formedButton.layout(layout -> layout.width(40).height(CONTROL_HEIGHT).paddingAll(0));
+        HostElements.tooltips(formedButton, Component.translatable("gui.neoecoae.multiblock.preview.formed.tooltip"));
+        controls.addChildren(expandButton, layerButton, formedButton);
+        root.addChild(controls);
 
         requiredItems = new ScrollerView();
         requiredItems.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         requiredItems.viewPort(c -> c
-            .layout(layout -> layout.paddingAll(1).paddingBottom(3))
+            .layout(layout -> layout.paddingAll(0).paddingBottom(3))
             .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
         requiredItems.viewContainer(c -> c
-            .layout(layout -> layout.flexDirection(YogaFlexDirection.ROW))
+            .layout(layout -> layout.flexDirection(FlexDirection.ROW))
             .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
-        requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(MATERIALS_HEIGHT));
+        requiredItems.layout(layout -> layout.widthPercent(100).height(MATERIALS_HEIGHT).flexShrink(0));
         root.addChild(requiredItems);
 
         initializeRequiredItemSlots();
         expandChanged.accept(expand);
         createScene();
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))));
+    }
+
+    /** Left click steps forward, right click steps back; both wrap around. */
+    private Button cycleButton(IntConsumer step) {
+        Button button = new Button().setOnClick(event -> step.accept(1));
+        button.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (event.button == 1) {
+                UISoundUtils.playButtonClickSound();
+                step.accept(-1);
+            }
+        });
+        button.layout(layout -> layout.flexGrow(1).flexBasis(0).height(CONTROL_HEIGHT).paddingAll(0));
+        return button;
     }
 
     public List<RequiredItem> getRequiredItems() {
@@ -193,46 +195,42 @@ public class MultiBlockInfoWrapper {
 
     private void onSelect(BlockPos blockPos, Direction direction) {
         BlockState state = world.getBlockState(blockPos);
-        if (!state.isAir()) {
-            selectedItem = new ItemStack(state.getBlock());
-        } else {
-            selectedItem = ItemStack.EMPTY;
-        }
+        selectedItem = state.isAir() ? ItemStack.EMPTY : new ItemStack(state.getBlock());
+        selectedSlot.setDisplay(!selectedItem.isEmpty());
     }
 
-    private void cycleFormed() {
-        formed = !formed;
-        formedButton.setText("F: " + formed);
+    private void toggleFormed() {
+        setFormed(!formed);
         createScene();
     }
 
-    private void expand() {
-        if (expand == definition.getExpandMax()) {
-            expand = definition.getExpandMin();
-        } else {
-            expand++;
-        }
-        expandChanged.accept(expand);
-        expandButton.setText("E: " + expand);
-        if (formed) {
-            cycleFormed();
-        } else {
-            createScene();
-        }
+    private void setFormed(boolean formed) {
+        this.formed = formed;
+        formedButton.buttonStyle(style -> style
+            .baseTexture(formed ? NETextures.BUTTON_HIGHLIGHTED : NETextures.BUTTON)
+            .hoverTexture(NETextures.BUTTON_HIGHLIGHTED)
+            .pressedTexture(NETextures.BUTTON_HIGHLIGHTED));
     }
 
-    private void nextLayer() {
-        if (layer + 1 > layerMax) {
-            layer = -1;
-        } else {
-            layer++;
-        }
-        layerButton.setText("L: " + layer);
-        if (formed) {
-            cycleFormed();
-        } else {
-            createScene();
-        }
+    private void cycleExpand(int step) {
+        int min = definition.getExpandMin();
+        expand = min + Math.floorMod(expand - min + step, definition.getExpandMax() - min + 1);
+        expandChanged.accept(expand);
+        setFormed(false);
+        createScene();
+    }
+
+    private void cycleLayer(int step) {
+        layer = Math.floorMod(layer + 1 + step, layerMax + 2) - 1;
+        setFormed(false);
+        createScene();
+    }
+
+    private void updateControlText() {
+        expandButton.setText(Component.translatable("gui.neoecoae.multiblock.preview.length", expand));
+        layerButton.setText(layer == -1
+            ? Component.translatable("gui.neoecoae.multiblock.preview.layer.all")
+            : Component.translatable("gui.neoecoae.multiblock.preview.layer", layer + 1, layerMax + 1));
     }
 
     private void createScene() {
@@ -253,6 +251,7 @@ public class MultiBlockInfoWrapper {
             }
             scene.setRenderedCore(rendered);
         }
+        updateControlText();
         updateRequiredItemSlots(context.getRequiredItems());
     }
 
