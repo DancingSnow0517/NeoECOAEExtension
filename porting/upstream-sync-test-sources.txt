@@ -22,6 +22,8 @@ cn/dancingsnow/neoecoae/crafting/execution/ECOAe2LtExistingInteropTest.java
 cn/dancingsnow/neoecoae/crafting/execution/ECOExternalCpuCompletionTest.java
 cn/dancingsnow/neoecoae/crafting/execution/ECOExternalCpuDagInteropTest.java
 cn/dancingsnow/neoecoae/crafting/execution/ECOExternalCpuOutputRouterTest.java
+cn/dancingsnow/neoecoae/crafting/execution/ECORequestedAmountTest.java
+cn/dancingsnow/neoecoae/integration/xei/multiblock/MultiBlockInfoWrapperTest.java
 cn/dancingsnow/neoecoae/crafting/execution/ECOOverloadAccountingIntegrationTest.java
 cn/dancingsnow/neoecoae/crafting/execution/ECOVirtualCraftingDispatchTest.java
 cn/dancingsnow/neoecoae/gui/common/HostPanelTextureStateTest.java

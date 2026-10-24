@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -9,11 +10,12 @@ import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.mixins.ae2.crafting.CraftingServiceMixin;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 class ECORequestedAmountTest {
     @BeforeAll
@@ -53,21 +55,26 @@ class ECORequestedAmountTest {
         assertEquals(9, requestedAmount(otherKey, 0, cluster));
     }
 
-    private static long requestedAmount(AEKey key, long vanillaAmount,
+    private static long requestedAmount(AEKey key, long originalAmount,
             NEComputationCluster... clusters) throws Exception {
         var mixin = mock(CraftingServiceMixin.class, CALLS_REAL_METHODS);
         var clusterField = CraftingServiceMixin.class.getDeclaredField("neoecoae$computationClusters");
         clusterField.setAccessible(true);
         clusterField.set(mixin, new HashSet<>(List.of(clusters)));
 
-        var hook = CraftingServiceMixin.class.getDeclaredMethod("neoecoae$earlyGetRequestedAmount",
-                AEKey.class, CallbackInfoReturnable.class);
+        var calls = new AtomicInteger();
+        Operation<Long> original = args -> {
+            assertEquals(1, args.length);
+            assertSame(key, args[0]);
+            calls.incrementAndGet();
+            return originalAmount;
+        };
+        var hook = CraftingServiceMixin.class.getDeclaredMethod("onGetRequestedAmount",
+                AEKey.class, Operation.class);
         hook.setAccessible(true);
-        // Match the real injector: setReturnValue requires a cancellable callback.
-        var callback = new CallbackInfoReturnable<Long>("getRequestedAmount",
-                true, vanillaAmount);
-        hook.invoke(mixin, key, callback);
-        return callback.getReturnValueJ();
+        long result = (long) hook.invoke(mixin, key, original);
+        assertEquals(1, calls.get());
+        return result;
     }
 
     private static NEComputationCluster cluster(ECOCraftingCPU... cpus) {

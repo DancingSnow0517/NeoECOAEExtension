@@ -34,6 +34,8 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalLongRef;
 import net.minecraft.nbt.CompoundTag;
@@ -797,19 +799,16 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         }
     }
 
-    @Override
-    @Unique
-    public void neoecoae$earlyGetRequestedAmount(
-            AEKey what,
-            CallbackInfoReturnable<Long> cir
-    ) {
-        long requested = cir.getReturnValueJ();
+    // Include other CPU addons' return injections, even when they cancel or use the original local value.
+    @WrapMethod(method = "getRequestedAmount")
+    private long onGetRequestedAmount(AEKey what, Operation<Long> original) {
+        long requested = original.call(what);
         for (var cluster : this.neoecoae$computationClusters) {
             for (var cpu : cluster.getActiveCPUs()) {
                 requested += cpu.getLogic().getWaitingFor(what);
             }
         }
-        cir.setReturnValue(requested);
+        return requested;
     }
 
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)

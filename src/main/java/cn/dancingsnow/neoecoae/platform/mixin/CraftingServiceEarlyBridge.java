@@ -18,5 +18,4 @@ public interface CraftingServiceEarlyBridge {
             MutableObject<UnsuitableCpus> unsuitableCpus);
     void neoecoae$earlyGetCpus(CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> result,
             ImmutableSet.Builder<ICraftingCPU> cpus);
-    void neoecoae$earlyGetRequestedAmount(AEKey key, CallbackInfoReturnable<Long> result);
 }

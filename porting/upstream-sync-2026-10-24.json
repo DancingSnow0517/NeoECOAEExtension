@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-24",
+  "minecraft": "1.20.1",
+  "loader": "Forge",
+  "initial_local_commit": "077319fbba74e7b5304a6f6c99e651cea1fabb74",
+  "original_baseline_unchanged": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "previously_synchronized_upstream": "458d0c687",
+  "approved_increment_target": "1d5f2cb2ef475fdc96b9bf762def86416ced393f",
+  "remote_main_observed": "feb27ea1379a563cf5f52b209462c53b732bbdb8",
+  "source_selection": "Latest committed local 1.21.1 main at task start, including its unpushed requested-amount fix. Uncommitted source changes are excluded.",
+  "upstream_commits": [
+    {
+      "commit": "feb27ea1379a563cf5f52b209462c53b732bbdb8",
+      "authored_at": "2026-10-24T21:42:54+08:00",
+      "subject": "feat: 重整多方块预览布局并增加本地化控件与双向切换"
+    },
+    {
+      "commit": "1d5f2cb2ef475fdc96b9bf762def86416ced393f",
+      "authored_at": "2026-10-24T22:11:57+08:00",
+      "subject": "fix: 修复合成等待量统计截断其他 CPU 附属注入"
+    }
+  ],
+  "scope": {
+    "workstation_variants": [
+      "regular",
+      "advanced_ae",
+      "extendedae",
+      "ae2lt"
+    ],
+    "source_lock_unchanged": true,
+    "uncommitted_source_changes_imported": false
+  },
+  "adaptations": [
+    "Preview uses the Forge retained UI, LDLib1 dummy world and Java 17 compatibility APIs. Equal-width controls use width(0) with flexGrow(1); both mouse buttons use the retained button release handler.",
+    "Requested amounts wrap the complete AE2 method, then add every active ECO CPU waiting count. Remove only the old high-priority requested-amount callback and bridge contract; retain insertion, submission and CPU-list early hooks.",
+    "Import only the eight new preview keys in each of the six existing languages."
+  ],
+  "validation": {
+    "command": "./build-local.ps1 -GradleArguments @(\"--offline\", \"--init-script\", \".gradle/upstream-sync-20261024.init.gradle\", \"compileJava\", \"upstreamSyncTest\", \"--tests\", \"*ECORequestedAmountTest\", \"--tests\", \"*MultiBlockInfoWrapperTest\", \"jar\", \"writeUpstreamSyncClasspath\")",
+    "log": ".gradle/upstream-sync-20261024-final.log",
+    "gradle_result": "BUILD SUCCESSFUL",
+    "compileJava": "success",
+    "jar": "success",
+    "reobfJar": "success",
+    "tests": [
+      {
+        "suite": "cn.dancingsnow.neoecoae.crafting.execution.ECORequestedAmountTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapperTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "upstream_preview_logic_parity": "Matches feb27ea13 after Forge/Java17 API mappings outside the adapted click handler.",
+    "packaged_languages": [
+      "en_us",
+      "en_ud",
+      "zh_cn",
+      "zh_hk",
+      "zh_tw",
+      "lzh"
+    ],
+    "preview_keys_per_language": 8,
+    "java_class_major": 61,
+    "packaged_classes_verified": [
+      "integration/xei/multiblock/MultiBlockInfoWrapper",
+      "mixins/ae2/crafting/CraftingServiceMixin",
+      "mixins/ae2/crafting/CraftingServiceEarlyMixin",
+      "platform/mixin/CraftingServiceEarlyBridge"
+    ],
+    "legacy_requested_callback_absent": true,
+    "test_libraries_and_test_classes_absent": true
+  },
+  "artifact": {
+    "path": ".gradle/upstream-sync-20261024-build/libs/neoecoae-20.5.0.jar",
+    "size_bytes": 7483895,
+    "sha256": "fd26d6b0227692e14da322fb2582adb6d1dc01022cd5bb4345d81dd389f54fd5"
+  },
+  "acceptance": {
+    "development_client_started": false,
+    "dedicated_server_started": false,
+    "in_game_visual_or_interaction_acceptance": false,
+    "ordinary_installation": false
+  },
+  "git": {
+    "local_commit_only": true,
+    "pushed": false
+  }
+}

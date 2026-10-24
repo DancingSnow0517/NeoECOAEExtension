@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** The four source order=500 callbacks run before normal-priority providers on Mixin 0.8.5. */
+/** Order-sensitive provider callbacks run before normal-priority providers on Mixin 0.8.5. */
 @Mixin(value = CraftingService.class, priority = 1500, remap = false)
 public abstract class CraftingServiceEarlyMixin {
     @Inject(method = "insertIntoCpus", at = @At(value = "RETURN", shift = At.Shift.BY, by = -1))
@@ -38,10 +38,5 @@ public abstract class CraftingServiceEarlyMixin {
     private void neoecoae$cpus(CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> result,
             @Local(name = "cpus") ImmutableSet.Builder<ICraftingCPU> cpus) {
         ((CraftingServiceEarlyBridge) this).neoecoae$earlyGetCpus(result, cpus);
-    }
-
-    @Inject(method = "getRequestedAmount", at = @At("RETURN"), cancellable = true)
-    private void neoecoae$requested(AEKey key, CallbackInfoReturnable<Long> result) {
-        ((CraftingServiceEarlyBridge) this).neoecoae$earlyGetRequestedAmount(key, result);
     }
 }
