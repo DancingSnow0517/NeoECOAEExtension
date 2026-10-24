@@ -1,0 +1,138 @@
+package cn.dancingsnow.neoecoae.integration.ae2omnicells;
+
+import appeng.api.storage.cells.ISaveProvider;
+import appeng.api.storage.cells.StorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
+import com.wintercogs.ae2omnicells.common.me.AEUniversalCellData;
+import com.wintercogs.ae2omnicells.common.me.AEUniversalCellHandler;
+import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Map;
+import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fml.util.thread.EffectiveSide;
+import net.minecraftforge.server.ServerLifecycleHooks;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public final class ECOUniversalCellHandler implements IECOCellHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOUniversalCellHandler.class);
+    private static final String UUID_TAG = "ae_universal_cell_uuid";
+    public static final ECOUniversalCellHandler INSTANCE = new ECOUniversalCellHandler();
+
+    private final Map<UUID, ISaveProvider> owners = new HashMap<>();
+    private final Map<ISaveProvider, UUID> ownerIds = new IdentityHashMap<>();
+
+    private ECOUniversalCellHandler() {}
+
+    @Override
+    public boolean isCell(ItemStack stack) {
+        return stack.getItem() instanceof ECOUniversalStorageCellItem && stack.getCount() == 1;
+    }
+
+    @Override
+    public @Nullable IECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+        if (!(stack.getItem() instanceof ECOUniversalStorageCellItem item) || stack.getCount() != 1) {
+            return null;
+        }
+        if (!EffectiveSide.get().isServer() || !prepareExistingIdentity(stack)) return null;
+        StorageCell delegate = AEUniversalCellHandler.INSTANCE.getCellInventory(stack, host);
+        if (delegate != null && host != null && claimUniqueStorage(stack, host)) {
+            delegate = AEUniversalCellHandler.INSTANCE.getCellInventory(stack, host);
+        }
+        return delegate == null ? null : new ECOUniversalStorageCell(delegate, stack, item);
+    }
+
+    @Override
+    public synchronized void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {
+        if (host == null) return;
+        UUID id = ownerIds.get(host);
+        if (id == null) id = getStorageId(stack);
+        if (id != null && owners.get(id) == host) {
+            owners.remove(id);
+            ownerIds.remove(host);
+        }
+    }
+
+    @Override
+    public synchronized void clearRuntimeState() {
+        owners.clear();
+        ownerIds.clear();
+    }
+
+    private synchronized boolean claimUniqueStorage(ItemStack stack, ISaveProvider host) {
+        UUID currentId = getStorageId(stack);
+        if (currentId == null) return false;
+        ISaveProvider owner = owners.get(currentId);
+        if (owner == null || owner == host) {
+            claim(currentId, host);
+            return false;
+        }
+        CompoundTag tag = stack.getOrCreateTag();
+        String originalLegacyId = tag.getString(UUID_TAG);
+        tag.remove(UUID_TAG);
+        AEUniversalCellData replacement = AEUniversalCellData.computeIfAbsentCellDataForItemStack(stack);
+        UUID replacementId = getStorageId(stack);
+        if (replacement == null || replacementId == null || replacementId.equals(currentId)) {
+            tag.putString(UUID_TAG, originalLegacyId);
+            throw new IllegalStateException("Unable to detach duplicated Omni storage UUID " + currentId);
+        }
+        replacement.getOriginalStorage().clear();
+        replacement.setDirty();
+        claim(replacementId, host);
+        LOGGER.warn("Detached duplicated Omni storage UUID {} -> {} for a second ECO drive host; replacement starts empty", currentId, replacementId);
+        return true;
+    }
+
+    private void claim(UUID id, ISaveProvider host) {
+        UUID previousId = ownerIds.put(host, id);
+        if (previousId != null && !previousId.equals(id) && owners.get(previousId) == host) owners.remove(previousId);
+        owners.put(id, host);
+    }
+
+    @Nullable static UUID getStorageId(@Nullable ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return null;
+        return resolveStorageId(null, stack.getTag() == null ? new CompoundTag() : stack.getTag());
+    }
+
+    @Nullable
+    static UUID resolveStorageId(@Nullable UUID componentId, CompoundTag tag) {
+        if (componentId != null) {
+            return componentId;
+        }
+        if (!tag.contains(UUID_TAG)) return null;
+        try { return UUID.fromString(tag.getString(UUID_TAG)); }
+        catch (IllegalArgumentException ignored) { return null; }
+    }
+
+    /** OmniCells 1.20 allocates a fresh UUID when a referenced file is absent; never orphan an old disk. */
+    private static boolean prepareExistingIdentity(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(UUID_TAG)) return true;
+        UUID id = getStorageId(stack);
+        if (id == null) {
+            LOGGER.error("Invalid Omni disk identity; original item NBT retained");
+            return false;
+        }
+        if (AEUniversalCellData.getCellDataByUUID(id) != null) return true;
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) return false;
+        var file = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+            .resolve("data/ae_universal_cell_data/" + id + ".dat");
+        if (java.nio.file.Files.exists(file) || IAEUniversalCell.getUsedBytes(stack) != 0L
+                || IAEUniversalCell.getUsedTypes(stack) != 0
+                || !IAEUniversalCell.getTooltipShowStacks(stack).isEmpty()) {
+            LOGGER.error("Cannot load Omni disk {}; referenced inventory retained without allocating a replacement", id);
+            return false;
+        }
+        var empty = new AEUniversalCellData(new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<>());
+        server.overworld().getDataStorage().set("ae_universal_cell_data/" + id, empty);
+        empty.setDirty();
+        return true;
+    }
+}

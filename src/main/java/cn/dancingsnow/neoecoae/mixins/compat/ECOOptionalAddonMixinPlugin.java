@@ -12,6 +12,8 @@ public final class ECOOptionalAddonMixinPlugin implements IMixinConfigPlugin {
 
     @Override public void onLoad(String mixinPackage) {
         anchor = switch (mixinPackage) {
+            case "cn.dancingsnow.neoecoae.mixins.compat.ae2omnicells" ->
+                    "com/wintercogs/ae2omnicells/common/me/IAEUniversalCell.class";
             case "cn.dancingsnow.neoecoae.mixins.compat.advancedae" ->
                     "net/pedroksl/advanced_ae/common/logic/AdvCraftingCPULogic.class";
             case "cn.dancingsnow.neoecoae.mixins.compat.extendedae" ->

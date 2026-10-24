@@ -3,6 +3,12 @@
   "forge": "47.4.28",
   "artifacts": [
     {
+      "mod_id": "ae2omnicells",
+      "filename": "AE2OmniCells20-release.jar",
+      "url": "https://cdn.modrinth.com/data/RYE1pYyr/versions/c2s3iMw8/ae2omnicells-1.20.1-forge-1.1.6.jar",
+      "sha256": "c3222ad905ddb0a0517bbd76b48722bfe5a2e5770375f1e393b427d4a26fd5e7"
+    },
+    {
       "mod_id": "ae2lt",
       "filename": "AE2LT20-release.jar",
       "url": "https://cdn.modrinth.com/data/ArHeh5Fz/versions/eS1qyjYH/ae2lt-forge-1.20.1-2.1.2-beta2.jar",

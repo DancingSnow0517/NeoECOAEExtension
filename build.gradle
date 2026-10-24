@@ -15,6 +15,7 @@ def runtimeProfiles = [
     advanced: ['advanced_ae', 'geckolib'],
     plus: ['expatternprovider', 'glodium', 'extendedae_plus'],
     lightning: ['ae2lt', 'thunderbolt'],
+    omni: ['ae2omnicells'],
     combined: ['expatternprovider', 'glodium', 'advanced_ae', 'geckolib',
                'extendedae_plus', 'ae2lt', 'thunderbolt']
 ]
@@ -38,7 +39,7 @@ def releaseJars = dependencyLock.artifacts.collectEntries { artifact ->
 def releaseVersions = [ae2: ae2_version, guideme: guideme_version, ldlib: ldlib_version,
     advanced_ae: '1.3.6-1.20.1', expatternprovider: '1.20-1.4.21-forge',
     extendedae_plus: '1.6.3', ae2lt: '2.1.2-beta2', thunderbolt: '2.0.3-beta2',
-    glodium: '1.20-1.5-forge', geckolib: '4.8.4']
+    glodium: '1.20-1.5-forge', geckolib: '4.8.4', ae2omnicells: '1.1.6-1.20.1-forge']
 def pinned = { String mod ->
     "porting.pinned:${releaseJars[mod].name.take(releaseJars[mod].name.length() - 4)}:${releaseVersions[mod]}"
 }
@@ -88,7 +89,7 @@ else if (hostArch in ['x86', 'i386'] && hostOs.contains('windows')) lwjglNatives
 dependencies {
     ['ae2', 'guideme', 'ldlib'].each { modImplementation pinned(it) }
     ['advanced_ae', 'expatternprovider', 'extendedae_plus', 'ae2lt', 'thunderbolt',
-     'glodium', 'geckolib'].each { modCompileOnly pinned(it) }
+     'glodium', 'geckolib', 'ae2omnicells'].each { modCompileOnly pinned(it) }
     modCompileOnly 'porting.pinned:AE2AddonLib20-embedded:1.0.4-1.20.1'
     runtimeProfiles[portingProfile].each { modRuntimeOnly pinned(it) }
     modApi "com.tterrag.registrate:Registrate:${registrate_version}"
@@ -153,6 +154,7 @@ legacyForge {
 
 sourceSets.main.resources.srcDir 'src/generated/resources'
 def ecoMixinConfigs = ['neoecoae.mixins.json', 'neoecoae.compat.advanced_ae.mixins.json',
+    'neoecoae.compat.ae2omnicells.mixins.json',
     'neoecoae.compat.extendedae.mixins.json', 'neoecoae.compat.thunderbolt.mixins.json',
     'neoecoae.terminal_big_amount.mixins.json']
 mixin {

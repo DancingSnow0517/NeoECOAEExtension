@@ -5876,126 +5876,171 @@
     {
       "source": "src/generated/resources/data/neoecoae/recipe/integrated_working_station/eco_complex_omni_cell_16m.json",
       "source_sha256": "12bf1f2a5c617e747c011671c8e821e0b059e64fac54aa7c79e68eb724ff102f",
-      "target": null,
-      "target_sha256": null,
-      "reason": "outside-scope addon data: ae2omnicells",
+      "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_complex_omni_cell_16m.json",
+      "target_sha256": "e9e5eeb90d314edf4b4db46ef7b8dcb4753d913d040af144e9c95e6b246eb016",
+      "reason": "Restore approved-main OmniCells recipe with Forge conditions for the actual 20.4.2 quantum disk compatibility fix",
       "revisions": [
         {
           "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_complex_omni_cell_16m.json",
           "sha256": "27fe315c24bd0a0acfb0d064f07c6fca4c34e2b5c7e2d6716fa099305836f59b",
           "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        },
+        {
+          "target": null,
+          "sha256": null,
+          "reason": "outside-scope addon data: ae2omnicells"
         }
       ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/integrated_working_station/eco_complex_omni_cell_256m.json",
       "source_sha256": "265cd4109e7d05bf75bbf0972668dcdbcaff524fae672b89399b794e50f8da70",
-      "target": null,
-      "target_sha256": null,
-      "reason": "outside-scope addon data: ae2omnicells",
+      "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_complex_omni_cell_256m.json",
+      "target_sha256": "9fdaa3bfa2ac5ed36db7808a85400a9b61e04724b9022fe9acecf74a88fc176d",
+      "reason": "Restore approved-main OmniCells recipe with Forge conditions for the actual 20.4.2 quantum disk compatibility fix",
       "revisions": [
         {
           "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_complex_omni_cell_256m.json",
           "sha256": "610723643f2de9a90dc9b94d126a906b01f9ea050f47a726c598dbee5eebb57a",
           "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        },
+        {
+          "target": null,
+          "sha256": null,
+          "reason": "outside-scope addon data: ae2omnicells"
         }
       ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/integrated_working_station/eco_complex_omni_cell_64m.json",
       "source_sha256": "41ef43e63e347839071c06a6dca8f488f29e763361981d0d6b66438b2f066f62",
-      "target": null,
-      "target_sha256": null,
-      "reason": "outside-scope addon data: ae2omnicells",
+      "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_complex_omni_cell_64m.json",
+      "target_sha256": "aa051bae9f84c5bd815c248b1474423f4b2fdc5c6b5443a5f5d63611247e9f0b",
+      "reason": "Restore approved-main OmniCells recipe with Forge conditions for the actual 20.4.2 quantum disk compatibility fix",
       "revisions": [
         {
           "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_complex_omni_cell_64m.json",
           "sha256": "b1f62a2afb5baf6093b7fe1025937384b83c5be8f4ecfc5fc08b7d528de334db",
           "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        },
+        {
+          "target": null,
+          "sha256": null,
+          "reason": "outside-scope addon data: ae2omnicells"
         }
       ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/integrated_working_station/eco_omni_cell_16m.json",
       "source_sha256": "293d666d8805d73a7863062bd8479178c9ab9d33df64b4dab07be343a364c0de",
-      "target": null,
-      "target_sha256": null,
-      "reason": "outside-scope addon data: ae2omnicells",
+      "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_omni_cell_16m.json",
+      "target_sha256": "3270163b5dfc460b4f56c678b76ccc4fbe82cf33397d35470a17d588d3fd8870",
+      "reason": "Restore approved-main OmniCells recipe with Forge conditions for the actual 20.4.2 quantum disk compatibility fix",
       "revisions": [
         {
           "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_omni_cell_16m.json",
           "sha256": "a3c225be09773b15251acdabe0f5e4c954f7187e036e4baa284a8d21782f0be7",
           "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        },
+        {
+          "target": null,
+          "sha256": null,
+          "reason": "outside-scope addon data: ae2omnicells"
         }
       ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/integrated_working_station/eco_omni_cell_256m.json",
       "source_sha256": "f36ad264105b2ece4884a3939b0f52e4a78441e5d057c3e577b63c9ec819ffdd",
-      "target": null,
-      "target_sha256": null,
-      "reason": "outside-scope addon data: ae2omnicells",
+      "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_omni_cell_256m.json",
+      "target_sha256": "664c24602c55161e25d9f3c55e585157e4b8154e278a98569fbfe3e91884cae9",
+      "reason": "Restore approved-main OmniCells recipe with Forge conditions for the actual 20.4.2 quantum disk compatibility fix",
       "revisions": [
         {
           "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_omni_cell_256m.json",
           "sha256": "5455632363f53b98d9ef2d387094dd138ac1e48c1938d254c4ae32223a82547b",
           "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        },
+        {
+          "target": null,
+          "sha256": null,
+          "reason": "outside-scope addon data: ae2omnicells"
         }
       ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/integrated_working_station/eco_omni_cell_64m.json",
       "source_sha256": "f275664ec7e878ae43c0125cb74ec91867c4cd1cee604e4fe6329250d4a39859",
-      "target": null,
-      "target_sha256": null,
-      "reason": "outside-scope addon data: ae2omnicells",
+      "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_omni_cell_64m.json",
+      "target_sha256": "300b16446b59680a23ecbf86e69f166c62f410bd7758af69f558049b7e76c93e",
+      "reason": "Restore approved-main OmniCells recipe with Forge conditions for the actual 20.4.2 quantum disk compatibility fix",
       "revisions": [
         {
           "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_omni_cell_64m.json",
           "sha256": "a7821f1533dbe5515d5e0955cf2c9f4b64a26b6516a66b9d07c200616e79f738",
           "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        },
+        {
+          "target": null,
+          "sha256": null,
+          "reason": "outside-scope addon data: ae2omnicells"
         }
       ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/integrated_working_station/eco_quantum_omni_cell_16m.json",
       "source_sha256": "d80aa610bbd64a8774dada9411298245f399640ea5f9f9d3beded7c0470aeee4",
-      "target": null,
-      "target_sha256": null,
-      "reason": "outside-scope addon data: ae2omnicells",
+      "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_quantum_omni_cell_16m.json",
+      "target_sha256": "a264ee71e0301ad7345a5b011b2ae9f0ad81c53e4bd81abe03cc9e9c5e1386e9",
+      "reason": "Restore approved-main OmniCells recipe with Forge conditions for the actual 20.4.2 quantum disk compatibility fix",
       "revisions": [
         {
           "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_quantum_omni_cell_16m.json",
           "sha256": "f055696b5812b9847c45b284190f2d488f8b324c075e351e763e6b942e2e1e9b",
           "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        },
+        {
+          "target": null,
+          "sha256": null,
+          "reason": "outside-scope addon data: ae2omnicells"
         }
       ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/integrated_working_station/eco_quantum_omni_cell_256m.json",
       "source_sha256": "7457575c3b6323b68b43c6ddb65b5bcd1d8e65e7d01bda8cf44263563be62a72",
-      "target": null,
-      "target_sha256": null,
-      "reason": "outside-scope addon data: ae2omnicells",
+      "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_quantum_omni_cell_256m.json",
+      "target_sha256": "c7dbe396f2ba919dfb16feac9c1cec59e5bc1252546106b72d1908bda243b3b2",
+      "reason": "Restore approved-main OmniCells recipe with Forge conditions for the actual 20.4.2 quantum disk compatibility fix",
       "revisions": [
         {
           "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_quantum_omni_cell_256m.json",
           "sha256": "5c2529ff701636961828ad4333626e3f93ea1ce0ea33f45fee572a77d4c86ded",
           "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        },
+        {
+          "target": null,
+          "sha256": null,
+          "reason": "outside-scope addon data: ae2omnicells"
         }
       ]
     },
     {
       "source": "src/generated/resources/data/neoecoae/recipe/integrated_working_station/eco_quantum_omni_cell_64m.json",
       "source_sha256": "dd42cc14b5f4a2c4974c59a4e881e36c2128522ac0d3ebc8a8940e51d8e2b842",
-      "target": null,
-      "target_sha256": null,
-      "reason": "outside-scope addon data: ae2omnicells",
+      "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_quantum_omni_cell_64m.json",
+      "target_sha256": "049f37d8d735beaeb448360fdb0d321c346be004f36b0a1f1066a222f1d46a64",
+      "reason": "Restore approved-main OmniCells recipe with Forge conditions for the actual 20.4.2 quantum disk compatibility fix",
       "revisions": [
         {
           "target": "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_quantum_omni_cell_64m.json",
           "sha256": "4b116e93e65e0774080a4e306a10955e9c1f4f2842fe9647d14309c2ba7e2d8c",
           "reason": "1.20 data directories, Forge conditions, common tags and stack JSON"
+        },
+        {
+          "target": null,
+          "sha256": null,
+          "reason": "outside-scope addon data: ae2omnicells"
         }
       ]
     },

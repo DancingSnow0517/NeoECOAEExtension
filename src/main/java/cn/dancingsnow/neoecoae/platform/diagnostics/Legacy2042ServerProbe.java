@@ -72,6 +72,10 @@ public final class Legacy2042ServerProbe {
     private static void check(boolean value, String message) { if (!value) throw new IllegalStateException(message); }
 
     private static void run(MinecraftServer server, String phase, Path root) throws Exception {
+        if (phase.startsWith("omni-")) {
+            cn.dancingsnow.neoecoae.integration.ae2omnicells.OmniCellCompatibilityProbe.run(server, root, phase);
+            return;
+        }
         if (phase.startsWith("player-")) {
             LegacyPlayerStorageProbe.run(server, root, phase);
             return;

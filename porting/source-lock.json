@@ -13,8 +13,22 @@
     "commit": "a6b3d776d677c3093954081d40d4871592864c3b",
     "selection": "Structure-terminal feature only. Other legacy implementation is excluded."
   },
-  "workstation_variants": ["regular", "advanced_ae", "extendedae", "ae2lt"],
-  "retained_addons": ["advanced_ae", "expatternprovider", "extendedae_plus", "ae2lt"],
+  "workstation_variants": [
+    "regular",
+    "advanced_ae",
+    "extendedae",
+    "ae2lt"
+  ],
+  "retained_addons": [
+    "advanced_ae",
+    "expatternprovider",
+    "extendedae_plus",
+    "ae2lt"
+  ],
   "machine_ui_auto_build_button": true,
-  "machine_ui_auto_build_scope": "2026-10-23 user request: four-row settings subwindow on crafting, storage and computation hosts; mirror switch and build action share the fourth row."
+  "machine_ui_auto_build_scope": "2026-10-23 user request: four-row settings subwindow on crafting, storage and computation hosts; mirror switch and build action share the fourth row.",
+  "legacy_storage_compatibility_addons": [
+    "ae2omnicells"
+  ],
+  "legacy_storage_compatibility_scope": "User-reported 20.4.2 quantum Omni disks: restore approved-main Omni/Complex/Quantum disk registration and storage adapter only; workstation variants and approved main commit remain fixed."
 }
