@@ -55,6 +55,7 @@ final class ECOStorageInterfaceTransfer {
             hostStorage,
             storageInterface.isStorageInputMode(),
             storageInterface.isIgnoringCreativeStorageInput(),
+            storageInterface.isExcludingStorageBusContainers(),
             IActionSource.ofMachine(storageInterface),
             storageInterface::acceptsStorageResource
         );

@@ -1,4 +1,7 @@
 {
+  "gui.neoecoae.storage_interface.exclude_storage_bus.on": "Exclude storage bus containers: On",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.off": "Exclude storage bus containers: Off",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.description": "Input and output modes: skip storage exposed through ME storage buses",
   "gui.neoecoae.large_integrated_working_station.recipe_type": "Source recipe type: %s",
   "recipe_type.neoecoae.neoecoae.integrated_working_station": "ECO: Integrated Working Station",
   "recipe_type.neoecoae.ae2lt.overload_processing": "AE2LT: Overload Processing",

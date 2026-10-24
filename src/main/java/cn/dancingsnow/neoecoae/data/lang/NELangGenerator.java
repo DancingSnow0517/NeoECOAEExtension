@@ -31,6 +31,9 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.big_order.requires_cpu", "This order uses an extended quantity; an idle, online ECO crafting CPU is required");
         provider.add("gui.neoecoae.import_jei_bookmarks", "★");
         provider.add("gui.neoecoae.import_jei_bookmarks.tooltip", "Import all JEI bookmarks into the component configuration");
+        provider.add("gui.neoecoae.storage_interface.exclude_storage_bus.on", "Exclude storage bus containers: On");
+        provider.add("gui.neoecoae.storage_interface.exclude_storage_bus.off", "Exclude storage bus containers: Off");
+        provider.add("gui.neoecoae.storage_interface.exclude_storage_bus.description", "Input and output modes: skip storage exposed through ME storage buses");
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
         provider.add("gui.neoecoae.crafting.ui.batch_parallel", "Batch");

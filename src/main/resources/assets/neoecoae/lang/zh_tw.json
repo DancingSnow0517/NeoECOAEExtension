@@ -1,4 +1,7 @@
 {
+  "gui.neoecoae.storage_interface.exclude_storage_bus.on": "排除儲存匯流排容器：開啟",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.off": "排除儲存匯流排容器：關閉",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.description": "吸入與輸出模式均生效：跳過透過 ME 儲存匯流排接入的儲存",
   "gui.neoecoae.large_integrated_working_station.recipe_type": "原配方類型：%s",
   "recipe_type.neoecoae.neoecoae.integrated_working_station": "ECO：整合工作站",
   "recipe_type.neoecoae.ae2lt.overload_processing": "AE2LT：過載加工",

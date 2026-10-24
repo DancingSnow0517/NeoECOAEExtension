@@ -94,7 +94,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private ECOStorageInterfaceMode storageInterfaceMode = ECOStorageInterfaceMode.STORAGE;
     @Persisted
     @DescSynced
-    private boolean ignoreCreativeStorageInput = false;
+    private boolean ignoreCreativeStorageInput = true;
+    // Persist the opt-in so older saves without this field also default to exclusion.
+    @Persisted
+    @DescSynced
+    private boolean includeStorageBusContainers = false;
     @Persisted
     private CompoundTag storageResourceFilters = new CompoundTag();
     private transient CompoundTag cachedStorageResourceFilters;
@@ -183,6 +187,15 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
     public long getTransferredLastTick() { return transferredLastTick; }
     public boolean isIgnoringCreativeStorageInput() { return ignoreCreativeStorageInput; }
+    public boolean isExcludingStorageBusContainers() { return !includeStorageBusContainers; }
+
+    public void toggleExcludeStorageBusContainers() {
+        if (level == null || level.isClientSide || !supportsStorageInterfaceUi()) return;
+        includeStorageBusContainers = !includeStorageBusContainers;
+        transferredLastTick = 0L;
+        setChanged();
+        markForUpdate();
+    }
 
     public CompoundTag getStorageResourceFilters() { return storageResourceFilters.copy(); }
 
