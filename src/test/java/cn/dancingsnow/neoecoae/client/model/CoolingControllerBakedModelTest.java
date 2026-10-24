@@ -14,6 +14,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.client.ChunkRenderTypeSet;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.BakedModelWrapper;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -78,9 +79,10 @@ class CoolingControllerBakedModelTest {
         var state = Blocks.GLASS.defaultBlockState();
         when(original.useAmbientOcclusion()).thenReturn(true);
         when(original.useAmbientOcclusion(any(net.minecraft.world.level.block.state.BlockState.class))).thenReturn(true);
-        when(original.getRenderTypes(eq(state), any(), eq(ModelData.EMPTY)))
+        when(original.useAmbientOcclusion(any(net.minecraft.world.level.block.state.BlockState.class), any())).thenReturn(true);
+        when(original.getRenderTypes(eq(state), any(), any(ModelData.class)))
             .thenReturn(ChunkRenderTypeSet.of(RenderType.cutout(), RenderType.translucent()));
-        when(original.getQuads(eq(state), nullable(Direction.class), any(), eq(ModelData.EMPTY), any()))
+        when(original.getQuads(eq(state), nullable(Direction.class), any(), any(ModelData.class), any()))
             .thenAnswer(inv -> inv.getArgument(1) != null ? List.of()
                 : List.of(inv.getArgument(4) == RenderType.cutout() ? opaque : glass));
         var wrapped = new CoolingControllerBakedModel(original);
@@ -93,5 +95,43 @@ class CoolingControllerBakedModelTest {
         verify(opaqueOutput).putBulkData(pose.last(), opaque, 1F, 1F, 1F, 1F, 123, 456, true);
         verify(glassOutput).putBulkData(pose.last(), glass, 1F, 1F, 1F, 1F, 123, 456, true);
         verifyNoMoreInteractions(opaqueOutput, glassOutput);
+    }
+
+    @Test
+    void addonModelWrappersKeepTheirMaterialChangesDuringFixedRendering() {
+        var state = Blocks.GLASS.defaultBlockState();
+        BakedModel base = mock(BakedModel.class);
+        BakedQuad opaque = mock(BakedQuad.class);
+        BakedQuad glass = mock(BakedQuad.class);
+        BakedQuad aliasedOpaque = mock(BakedQuad.class);
+        BakedQuad aliasedGlass = mock(BakedQuad.class);
+        when(base.useAmbientOcclusion(eq(state), any())).thenReturn(true);
+        when(base.getRenderTypes(eq(state), any(), any(ModelData.class)))
+            .thenReturn(ChunkRenderTypeSet.of(RenderType.cutout(), RenderType.translucent()));
+        when(base.getQuads(eq(state), nullable(Direction.class), any(), any(ModelData.class), any()))
+            .thenAnswer(inv -> inv.getArgument(1) != null ? List.of()
+                : List.of(inv.getArgument(4) == RenderType.cutout() ? opaque : glass));
+        var controller = new CoolingControllerBakedModel(base);
+        BakedModel aliased = new BakedModelWrapper<BakedModel>(controller) {
+            @Override
+            public List<BakedQuad> getQuads(net.minecraft.world.level.block.state.BlockState blockState,
+                    Direction side, RandomSource random, ModelData data, RenderType layer) {
+                var quads = super.getQuads(blockState, side, random, data, layer);
+                return quads.stream().map(quad -> quad == opaque ? aliasedOpaque : aliasedGlass).toList();
+            }
+        };
+        BakedModel outer = new BakedModelWrapper<BakedModel>(aliased) {};
+        VertexConsumer opaqueOutput = mock(VertexConsumer.class);
+        VertexConsumer glassOutput = mock(VertexConsumer.class);
+        var pose = new PoseStack();
+
+        assertTrue(outer.getQuads(state, null, RandomSource.create(), ModelData.EMPTY, RenderType.cutout()).isEmpty());
+        CoolingControllerBakedModel.renderFixed(outer, state, pose,
+            layer -> layer == RenderType.cutout() ? opaqueOutput : glassOutput, 123, 456);
+
+        verify(opaqueOutput).putBulkData(pose.last(), aliasedOpaque, 1F, 1F, 1F, 1F, 123, 456, true);
+        verify(glassOutput).putBulkData(pose.last(), aliasedGlass, 1F, 1F, 1F, 1F, 123, 456, true);
+        verifyNoMoreInteractions(opaqueOutput, glassOutput);
+        assertTrue(outer.getQuads(state, null, RandomSource.create(), ModelData.EMPTY, RenderType.cutout()).isEmpty());
     }
 }

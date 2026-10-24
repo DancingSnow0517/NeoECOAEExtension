@@ -1,4 +1,10 @@
 // Focused production-rendering regressions and optional real-client renderer validation.
+
+gradle.beforeProject { project ->
+    if (project.path == ':' && project.providers.gradleProperty('fixedGeometryBuildDir').isPresent()) {
+        project.layout.buildDirectory = project.file(project.providers.gradleProperty('fixedGeometryBuildDir').get())
+    }
+}
 gradle.afterProject { project ->
     if (project.path != ':') return
     def main = project.sourceSets.main
@@ -8,12 +14,15 @@ gradle.afterProject { project ->
         java.include 'cn/dancingsnow/neoecoae/client/rendering/FixedModelLightingTest.java'
         java.include 'cn/dancingsnow/neoecoae/client/rendering/DriveModelAmbientOcclusionTest.java'
         java.include 'cn/dancingsnow/neoecoae/client/rendering/CellModelResourceTest.java'
+        java.include 'cn/dancingsnow/neoecoae/client/rendering/CoolantEmissionTest.java'
+        java.include 'cn/dancingsnow/neoecoae/client/rendering/ForgeModelEmissionTest.java'
         java.include 'cn/dancingsnow/neoecoae/client/model/CoolingControllerBakedModelTest.java'
         java.include 'cn/dancingsnow/neoecoae/util/InventoryTestBootstrap.java'
         java.include 'cn/dancingsnow/neoecoae/util/LargeWorkstationTestKeys.java'
         compileClasspath += main.output + main.compileClasspath
         runtimeClasspath += main.output + main.runtimeClasspath
-        runtimeClasspath += project.files("build/moddev/artifacts/client-extra-${project.minecraft_version}-${project.forge_version}.jar")
+        runtimeClasspath += project.files(project.layout.buildDirectory.file(
+            "moddev/artifacts/client-extra-${project.minecraft_version}-${project.forge_version}.jar"))
     }
     project.configurations.fixedGeometryTestImplementation.extendsFrom project.configurations.testImplementation
     project.configurations.fixedGeometryTestRuntimeOnly.extendsFrom project.configurations.testRuntimeOnly
@@ -41,10 +50,29 @@ gradle.afterProject { project ->
             }
             project.dependencies.add('modRuntimeOnly', "porting.renderer:${jar.name.take(jar.name.length() - 4)}:0.3.31")
         }
+        def oculus = project.providers.gradleProperty('fixedGeometryOculusJar')
+        if (oculus.isPresent()) {
+            if (renderer == 'vanilla') throw new GradleException('Oculus validation requires Embeddium or Xenon')
+            def jar = project.file(oculus.get())
+            if (!jar.isFile()) throw new GradleException("Missing Oculus validation JAR: ${jar}")
+            project.repositories.ivy {
+                name = 'LocalFixedGeometryValidationOculus'
+                url = jar.parentFile.toURI()
+                patternLayout { artifact '[artifact].[ext]' }
+                metadataSources { artifact() }
+                content { includeGroup 'porting.oculus' }
+            }
+            project.dependencies.add('modRuntimeOnly', "porting.oculus:${jar.name.take(jar.name.length() - 4)}:1.8.0")
+        }
+        def variant = oculus.isPresent() ? "${renderer}-oculus" : renderer
         project.legacyForge.runs.configureEach {
-            gameDirectory = project.file("run/fixed-geometry/${renderer}/${name}")
+            gameDirectory = project.file("run/fixed-geometry/${variant}/${name}")
             systemProperty 'neoecoae.clientSmoke', 'true'
-            systemProperty 'neoecoae.multiblockAlignmentSmoke', renderer
+            systemProperty 'neoecoae.multiblockAlignmentSmoke', variant
+            systemProperty 'neoecoae.multiblockAlignmentTime',
+                project.providers.gradleProperty('fixedGeometryDayTime').getOrElse('6000')
+            systemProperty 'neoecoae.gtlModelWrapperJar',
+                project.providers.gradleProperty('fixedGeometryGtlCoreJar').getOrElse('')
         }
     }
 }

@@ -17,6 +17,7 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.model.BakedModelWrapper;
 import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelProperty;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -26,6 +27,8 @@ import java.util.Set;
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public final class CoolingControllerBakedModel extends BakedModelWrapper<BakedModel> {
     private static final Direction[] DIRECTIONS = Direction.values();
+    private static final ModelProperty<Boolean> FIXED_GEOMETRY = new ModelProperty<>();
+    private static final ModelData FIXED_MODEL_DATA = ModelData.builder().with(FIXED_GEOMETRY, true).build();
     private static final Set<String> CONTROLLERS = Set.of(
         "computation_cooling_controller_l4", "computation_cooling_controller_l6", "computation_cooling_controller_l9");
 
@@ -54,18 +57,25 @@ public final class CoolingControllerBakedModel extends BakedModelWrapper<BakedMo
     public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource random,
                                     ModelData data, @Nullable RenderType renderType) {
         // Breaking overlays and model previews query without a chunk render layer.
-        return renderType == null ? originalModel.getQuads(state, side, random, data, null) : List.of();
+        return renderType == null || Boolean.TRUE.equals(data.get(FIXED_GEOMETRY))
+            ? originalModel.getQuads(state, side, random, data, renderType) : List.of();
     }
 
     public void renderFixed(BlockState state, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
+        renderFixed(this, state, pose, buffers, light, overlay);
+    }
+
+    /** Query the outermost model so renderer addons retain their sprite and material transformations. */
+    public static void renderFixed(BakedModel model, BlockState state, PoseStack pose, MultiBufferSource buffers,
+                                   int light, int overlay) {
         RandomSource random = RandomSource.create(42);
-        for (RenderType layer : originalModel.getRenderTypes(state, random, ModelData.EMPTY)) {
+        for (RenderType layer : model.getRenderTypes(state, random, FIXED_MODEL_DATA)) {
             var buffer = buffers.getBuffer(layer);
-            boolean ao=originalModel.useAmbientOcclusion(state);
+            boolean ao = model.useAmbientOcclusion(state, layer);
             for (int side = 0; side <= DIRECTIONS.length; side++) {
                 random.setSeed(42);
                 Direction direction = side == DIRECTIONS.length ? null : DIRECTIONS[side];
-                for (BakedQuad quad : originalModel.getQuads(state, direction, random, ModelData.EMPTY, layer)) {
+                for (BakedQuad quad : model.getQuads(state, direction, random, FIXED_MODEL_DATA, layer)) {
                     BakedQuad rendered = ao ? quad : new BakedQuad(quad.getVertices(), quad.getTintIndex(),
                         quad.getDirection(), quad.getSprite(), quad.isShade(), false);
                     buffer.putBulkData(pose.last(), rendered, 1, 1, 1, 1, light, overlay, true);

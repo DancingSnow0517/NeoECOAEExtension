@@ -22,10 +22,7 @@ public class ECOComputationCoolingControllerRenderer implements IFixedBlockEntit
         BlockState blockState = blockEntity.getBlockState();
         if (!blockState.getValue(NEBlock.FORMED)) return;
         var model = Minecraft.getInstance().getBlockRenderer().getBlockModel(blockState);
-        if (model instanceof CoolingControllerBakedModel controller) {
-            // The baked blockstate already contains both the facing and the mirrored geometry,
-            // including the glass layer. Keep its resource-pack textures and render types intact.
-            controller.renderFixed(blockState, poseStack, bufferSource, packedLight, packedOverlay);
-        }
+        // Renderer addons may decorate our model. Keep that outer model and its material changes.
+        CoolingControllerBakedModel.renderFixed(model, blockState, poseStack, bufferSource, packedLight, packedOverlay);
     }
 }

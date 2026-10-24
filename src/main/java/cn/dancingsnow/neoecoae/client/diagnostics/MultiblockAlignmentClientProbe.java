@@ -78,12 +78,12 @@ final class MultiblockAlignmentClientProbe {
             .filter(id -> manager.getModel(id) == manager.getMissingModel()).toList();
         LOG.info("MULTIBLOCK_ALIGNMENT extraModels={} missing={}", models.size(), missing);
         require(missing.isEmpty(), "unregistered multiblock models: " + missing);
+        verifyCoolantEmission(client);
         for (var block : List.of(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4,
                 NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6, NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9)) {
             for (BlockState state : block.get().getStateDefinition().getPossibleStates()) {
                 if (state.getValue(NEBlock.FORMED)) {
-                    require(client.getBlockRenderer().getBlockModel(state) instanceof CoolingControllerBakedModel,
-                        "formed cooling model was not wrapped: " + state);
+                    verifyFixedCoolingGeometry(client.getBlockRenderer().getBlockModel(state), state);
                 }
             }
         }
@@ -99,6 +99,69 @@ final class MultiblockAlignmentClientProbe {
         LOG.info("MULTIBLOCK_ALIGNMENT pre-world definitionMax={} config={}/{}/{}",
             NEMultiBlocks.STORAGE_SYSTEM_L4.getExpandMax(), NEConfig.craftingSystemMaxLength,
             NEConfig.computationSystemMaxLength, NEConfig.storageSystemMaxLength);
+    }
+
+    private static void verifyCoolantEmission(Minecraft client) {
+        var coolantSprites = java.util.Set.of(new ResourceLocation("neoecoae", "block/compute/coolant"),
+            new ResourceLocation("neoecoae", "block/cryotheum_solution_still"));
+        int variants = 0;
+        int faces = 0;
+        for (var entry : List.of(NEBlocks.COMPUTATION_SYSTEM_L4, NEBlocks.COMPUTATION_SYSTEM_L6,
+                NEBlocks.COMPUTATION_SYSTEM_L9, NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4,
+                NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6, NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9,
+                NEBlocks.COMPUTATION_TRANSMITTER)) {
+            for (BlockState state : entry.get().getStateDefinition().getPossibleStates()) {
+                if (!state.getValue(NEBlock.FORMED)) continue;
+                int emitted = 0;
+                var model = client.getBlockRenderer().getBlockModel(state);
+                var directions = Direction.values();
+                for (int side = 0; side <= directions.length; side++) {
+                    Direction direction = side == directions.length ? null : directions[side];
+                    for (var quad : model.getQuads(state, direction, net.minecraft.util.RandomSource.create(42),
+                            net.minecraftforge.client.model.data.ModelData.EMPTY, null)) {
+                        if (!coolantSprites.contains(quad.getSprite().contents().name())) continue;
+                        require(!quad.isShade() && !quad.hasAmbientOcclusion(), "coolant is still shaded: " + state);
+                        for (int vertex = 0; vertex < 4; vertex++) {
+                            require(quad.getVertices()[vertex * net.minecraftforge.client.model.IQuadTransformer.STRIDE
+                                + net.minecraftforge.client.model.IQuadTransformer.UV2]
+                                == net.minecraft.client.renderer.LightTexture.FULL_BRIGHT,
+                                "coolant is not full bright: " + state);
+                        }
+                        emitted++;
+                    }
+                }
+                require(emitted > 0, "formed model has no coolant: " + state);
+                faces += emitted;
+                variants++;
+            }
+        }
+        LOG.info("MULTIBLOCK_ALIGNMENT coolantEmission PASSED variants={} faces={}", variants, faces);
+    }
+
+    private static void verifyFixedCoolingGeometry(net.minecraft.client.resources.model.BakedModel model,
+                                                   BlockState state) {
+        var builders = new java.util.IdentityHashMap<net.minecraft.client.renderer.RenderType,
+            com.mojang.blaze3d.vertex.BufferBuilder>();
+        CoolingControllerBakedModel.renderFixed(model, state, new com.mojang.blaze3d.vertex.PoseStack(),
+            layer -> builders.computeIfAbsent(layer, ignored -> {
+                var builder = new com.mojang.blaze3d.vertex.BufferBuilder(4096);
+                builder.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS,
+                    com.mojang.blaze3d.vertex.DefaultVertexFormat.BLOCK);
+                return builder;
+            }), net.minecraft.client.renderer.LightTexture.FULL_BRIGHT, 0);
+        int vertices = 0;
+        for (var builder : builders.values()) {
+            var buffer = builder.end();
+            vertices += buffer.drawState().vertexCount();
+            buffer.release();
+        }
+        require(vertices > 0, "formed cooling model emitted no fixed geometry: " + state + " model=" + model.getClass().getName());
+        for (var layer : model.getRenderTypes(state, net.minecraft.util.RandomSource.create(42),
+                net.minecraftforge.client.model.data.ModelData.EMPTY)) {
+            require(model.getQuads(state, null, net.minecraft.util.RandomSource.create(42),
+                net.minecraftforge.client.model.data.ModelData.EMPTY, layer).isEmpty(),
+                "fixed cooling geometry duplicated by normal chunk rendering: " + state);
+        }
     }
 
     static void tick(Minecraft client) {
@@ -164,7 +227,7 @@ final class MultiblockAlignmentClientProbe {
                     var level = player.serverLevel();
                     if (specimen == 0) {
                         level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, level.getServer());
-                        level.setDayTime(6000);
+                        level.setDayTime(Long.getLong("neoecoae.multiblockAlignmentTime", 6000L));
                         level.setWeatherParameters(6000, 0, false, false);
                         player.setGameMode(GameType.SPECTATOR);
                         for (BlockPos floor : BlockPos.betweenClosed(-5, 178, -5, 21, 178, 21)) {

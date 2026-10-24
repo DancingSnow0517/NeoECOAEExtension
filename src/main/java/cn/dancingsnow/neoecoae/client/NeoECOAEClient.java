@@ -45,6 +45,9 @@ public class NeoECOAEClient {
         if (!net.minecraftforge.fml.loading.FMLEnvironment.production && Boolean.getBoolean("neoecoae.clientSmoke")) {
             net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
                 cn.dancingsnow.neoecoae.client.diagnostics.ClientStartupProbe::tick);
+            modBus.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST, false,
+                net.minecraftforge.client.event.ModelEvent.ModifyBakingResult.class,
+                cn.dancingsnow.neoecoae.client.diagnostics.GtlModelWrapperClientProbe::wrap);
         }
         NEExtraModels.register();
         modBus.addListener(NeoECOAEClient::onClientSetup);
