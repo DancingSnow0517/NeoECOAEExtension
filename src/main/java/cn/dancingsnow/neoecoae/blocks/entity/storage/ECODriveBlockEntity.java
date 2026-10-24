@@ -52,6 +52,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     private ItemStack cellStack = null;
     @Persisted
     private CompoundTag legacy2042RestoreData = new CompoundTag();
+    @Persisted
+    private CompoundTag unresolvedCellStack = new CompoundTag();
 
     // UI requests identify this installation, independently of mutable or transient item components.
     // Recreated on load; no persistent disk data or save migration is needed.
@@ -117,6 +119,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public boolean isItemValid(ItemStack stack) {
+        if (!unresolvedCellStack.isEmpty()) return false;
         ECOStorageSystemBlockEntity controller = getStorageController();
         if (controller != null && !controller.canInsertStorageCell(stack)) return false;
         return ECOStorageCells.isCellHandled(stack);
@@ -136,6 +139,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     /** Shared by manual interaction and automation; querying this never releases ownership. */
     public CellExtractionBlockReason getCellExtractionBlockReason() {
+        if (!unresolvedCellStack.isEmpty()) return CellExtractionBlockReason.PERSISTENCE_FAILED;
         if (cachedCellInventory instanceof cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell ordinary
             && (!ordinary.storageData().canMutate() || ordinary.storageData().writeFailure() != null))
             return CellExtractionBlockReason.PERSISTENCE_FAILED;
@@ -244,6 +248,31 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         invalidateCellInventoryCache();
     }
 
+    @Override
+    public void loadCustomPersistedData(CompoundTag data) {
+        unresolvedCellStack = cn.dancingsnow.neoecoae.platform.nbt.DriveCellPersistence.unresolved(data, cellStack);
+        if (!unresolvedCellStack.isEmpty()) {
+            ItemStack recovered = ItemStack.of(unresolvedCellStack);
+            if (!recovered.isEmpty()) {
+                cellStack = recovered;
+                unresolvedCellStack = new CompoundTag();
+            } else {
+                cellStack = null;
+                org.slf4j.LoggerFactory.getLogger(ECODriveBlockEntity.class)
+                    .error("Unavailable ECO disk item {} at {}; complete item NBT retained",
+                        unresolvedCellStack.getString("id"), worldPosition);
+            }
+        } else if (cellStack != null && cellStack.isEmpty()) {
+            cellStack = null;
+        }
+        invalidateCellInventoryCache();
+    }
+
+    @Override
+    public void saveCustomPersistedData(CompoundTag data, boolean forDrop) {
+        if (!unresolvedCellStack.isEmpty()) data.put("cellStack", unresolvedCellStack.copy());
+    }
+
     private void invalidateCellInventoryCache() {
         cachedCellStack = null;
         cachedCellInventory = null;
@@ -290,6 +319,11 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Override
     public void onReady() {
         super.onReady();
+        if (level instanceof ServerLevel && getBlockState().hasProperty(ECODriveBlock.HAS_CELL)) {
+            boolean hasCell = cellStack != null && !cellStack.isEmpty() || !unresolvedCellStack.isEmpty();
+            if (getBlockState().getValue(ECODriveBlock.HAS_CELL) != hasCell)
+                level.setBlockAndUpdate(worldPosition, getBlockState().setValue(ECODriveBlock.HAS_CELL, hasCell));
+        }
         updateState();
     }
 
