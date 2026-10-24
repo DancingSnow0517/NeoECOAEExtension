@@ -695,6 +695,7 @@ public class NEBlocks {
 
     public static final BlockEntry<ECOMachineInterface<NEStorageCluster>> STORAGE_INTERFACE = REGISTRATE
         .block("storage_interface", ECOMachineInterface<NEStorageCluster>::new)
+        .lang("Storage Subsystem Communication I/O Port")
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()

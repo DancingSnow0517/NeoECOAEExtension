@@ -556,12 +556,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage_interface.filter.edit", "Left-click with a sample to set; right-click to clear. Fluid containers select the fluid; Shift selects the item.");
         provider.add("gui.neoecoae.storage_interface.filter.rule", "Input/output: an empty list allows all resources; otherwise only exact matches pass. Storage mode does not use this filter.");
         provider.add("gui.neoecoae.storage_interface.filter.unavailable", "This saved resource is unavailable. Clear or replace the filter to change it.");
-        provider.add("gui.neoecoae.storage_interface.title", "Storage Interface");
+        provider.add("gui.neoecoae.storage_interface.title", "Storage Subsystem Communication I/O Port");
         provider.add("gui.neoecoae.storage_interface.mode.storage", "Storage");
         provider.add("gui.neoecoae.storage_interface.mode.input", "Input");
         provider.add("gui.neoecoae.storage_interface.mode.output", "Output");
-        provider.add("jade.neoecoae.storage_interface.input", "Storage interface: Input mode");
-        provider.add("jade.neoecoae.storage_interface.output", "Storage interface: Output mode");
+        provider.add("jade.neoecoae.storage_interface.input", "Storage Subsystem Communication I/O Port: Input mode");
+        provider.add("jade.neoecoae.storage_interface.output", "Storage Subsystem Communication I/O Port: Output mode");
         provider.add("gui.neoecoae.storage_interface.structure", "Infinite");
         provider.add("gui.neoecoae.storage_interface.infinite_ready", "Ready");
         provider.add("gui.neoecoae.storage_interface.infinite_unavailable", "Not ready");
