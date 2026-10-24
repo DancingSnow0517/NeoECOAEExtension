@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
+import cn.dancingsnow.neoecoae.integration.recipe.LargeWorkstationRecipeDisplay;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
@@ -47,8 +48,9 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
         title = Component.translatable("category.neoecoae.integrated_working_station");
         var texture = large ? cn.dancingsnow.neoecoae.NeoECOAE.id("textures/guis/large_integration_working_station.png")
             : TextureConstants.INTEGRATED_WORKING_STATION;
-        background = helper.drawableBuilder(texture, 0, 0, 168, 75)
-            .setTextureSize(168, 75)
+        int height = large ? LargeWorkstationRecipeDisplay.BACKGROUND_HEIGHT : 75;
+        background = helper.drawableBuilder(texture, 0, 0, 168, height)
+            .setTextureSize(168, height)
             .build();
         progress = helper.drawableBuilder(TextureConstants.PROGRESS_BAR, 0, 0, 6, 18)
             .setTextureSize(6, 18)

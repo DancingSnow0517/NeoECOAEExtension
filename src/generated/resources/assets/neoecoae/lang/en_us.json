@@ -1,4 +1,7 @@
 {
+  "gui.neoecoae.large_integrated_working_station.module_support": "Recipe support",
+  "gui.neoecoae.large_integrated_working_station.module_required": "Upgrade card supporting this recipe: %s",
+  "gui.neoecoae.large_integrated_working_station.no_module_required": "No compatibility upgrade card required",
   "gui.neoecoae.storage_interface.exclude_storage_bus.on": "Exclude storage bus containers: On",
   "gui.neoecoae.storage_interface.exclude_storage_bus.off": "Exclude storage bus containers: Off",
   "gui.neoecoae.storage_interface.exclude_storage_bus.description": "Input and output modes: skip storage exposed through ME storage buses",
@@ -531,7 +534,7 @@
   "gui.neoecoae.large_integrated_working_station.energy": "AE Energy: %s / %s AE",
   "gui.neoecoae.large_integrated_working_station.input_fluid": "Input Fluid",
   "gui.neoecoae.large_integrated_working_station.lightning_amount": "Additional resource from ME: %s",
-  "gui.neoecoae.large_integrated_working_station.lightning_cost": "ME: %s × %s",
+  "gui.neoecoae.large_integrated_working_station.lightning_cost": "Extra required: %sx%s",
   "gui.neoecoae.large_integrated_working_station.no_task": "Task: Idle",
   "gui.neoecoae.large_integrated_working_station.output_fluid": "Output Fluid",
   "gui.neoecoae.large_integrated_working_station.overclock_button": "OC",

@@ -1,4 +1,9 @@
 {
+  "gui.neoecoae.large_integrated_working_station.lightning_cost": "另需：%sx%s",
+  "gui.neoecoae.large_integrated_working_station.recipe_energy": "耗能：%s AE",
+  "gui.neoecoae.large_integrated_working_station.module_support": "方術支援",
+  "gui.neoecoae.large_integrated_working_station.module_required": "此方所用升級卡：%s",
+  "gui.neoecoae.large_integrated_working_station.no_module_required": "無需兼容升級卡",
   "gui.neoecoae.storage_interface.exclude_storage_bus.on": "排除儲存匯流排容器：開啟",
   "gui.neoecoae.storage_interface.exclude_storage_bus.off": "排除儲存匯流排容器：關閉",
   "gui.neoecoae.storage_interface.exclude_storage_bus.description": "吸入與輸出模式均生效：跳過透過 ME 儲存匯流排接入的儲存",

@@ -1,4 +1,9 @@
 {
+  "gui.neoecoae.large_integrated_working_station.lightning_cost": "%2$sx%1$s :pǝɹınbǝɹ ɐɹʇxƎ",
+  "gui.neoecoae.large_integrated_working_station.recipe_energy": "ƎⱯ %s :ʎbɹǝuƎ",
+  "gui.neoecoae.large_integrated_working_station.module_support": "ʇɹoddns ǝdıɔǝᴚ",
+  "gui.neoecoae.large_integrated_working_station.module_required": "%s :ǝdıɔǝɹ sıɥʇ buıʇɹoddns pɹɐɔ ǝpɐɹbd∩",
+  "gui.neoecoae.large_integrated_working_station.no_module_required": "pǝɹınbǝɹ pɹɐɔ ǝpɐɹbdn ʎʇıןıqıʇɐdɯoɔ oN",
   "gui.neoecoae.large_integrated_working_station.recipe_type": "%1$s :ǝdʎʇ ǝdıɔǝɹ ǝɔɹnoS",
   "recipe_type.neoecoae.neoecoae.integrated_working_station": "uoıʇɐʇS buıʞɹoM pǝʇɐɹbǝʇuI :OƆƎ",
   "recipe_type.neoecoae.ae2lt.overload_processing": "buıssǝɔoɹԀ pɐoןɹǝʌO :⟘ꞀᄅƎⱯ",
