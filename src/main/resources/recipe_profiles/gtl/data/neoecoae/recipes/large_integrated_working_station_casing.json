@@ -1,0 +1,61 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtlcore"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:black_tungsten_alloy_casing"
+    },
+    {
+      "count": 2,
+      "item": "ae2:sky_stone_block"
+    },
+    {
+      "count": 2,
+      "item": "ae2:engineering_processor"
+    },
+    {
+      "count": 1,
+      "tag": "forge:storage_blocks/energized_fluix_crystal"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:eco_cell_component_16m"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "tag": "gtceu:circuits/iv",
+      "count": 2
+    },
+    {
+      "item": "gtceu:titanium_plate",
+      "count": 4
+    }
+  ],
+  "energy": 256000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 4,
+    "item": "neoecoae:large_integrated_working_station_casing"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:soldering_alloy",
+    "amount": 576
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtlcore"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2omnicells"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appmek"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 10,
+      "item": "ae2omnicells:quantum_omni_cell_component_16m"
+    },
+    {
+      "count": 1,
+      "item": "ae2omnicells:spent_nuclear_waste_component"
+    },
+    {
+      "count": 40,
+      "item": "mekanism:hdpe_sheet"
+    },
+    {
+      "count": 10,
+      "item": "mekanism:pellet_antimatter"
+    },
+    {
+      "count": 20,
+      "item": "mekanism:radioactive_waste_barrel"
+    },
+    {
+      "count": 2,
+      "item": "ae2omnicells:multidimensional_expansion_processor"
+    },
+    {
+      "count": 14,
+      "item": "ae2omnicells:spent_nuclear_waste_singularity"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:eco_spent_nuclear_waste_cell_housing"
+    },
+    {
+      "tag": "gtceu:circuits/iv",
+      "count": 4
+    }
+  ],
+  "energy": 1000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:eco_spent_nuclear_waste_cell_16m"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:soldering_alloy",
+    "amount": 144
+  }
+}

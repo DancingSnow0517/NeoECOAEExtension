@@ -1,0 +1,45 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 12,
+      "item": "ae2:cell_component_256k"
+    },
+    {
+      "count": 32,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:crystal_ingot"
+    },
+    {
+      "tag": "gtceu:circuits/ev",
+      "count": 4
+    },
+    {
+      "item": "gtceu:ev_field_generator",
+      "count": 2
+    }
+  ],
+  "energy": 16000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:eco_cell_component_16m"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:soldering_alloy",
+    "amount": 144
+  }
+}

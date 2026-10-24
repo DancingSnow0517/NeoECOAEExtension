@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "ingredients": [
+    {
+      "item": "neoecoae:aluminum_ingot"
+    }
+  ],
+  "result": {
+    "item": "gtceu:aluminium_ingot",
+    "count": 1
+  }
+}

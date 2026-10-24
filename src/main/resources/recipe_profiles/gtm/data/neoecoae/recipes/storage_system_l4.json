@@ -1,0 +1,45 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:storage_casing"
+    },
+    {
+      "count": 4,
+      "item": "ae2:drive"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "tag": "gtceu:circuits/iv",
+      "count": 4
+    },
+    {
+      "item": "gtceu:iv_field_generator",
+      "count": 2
+    }
+  ],
+  "energy": 16000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:storage_system_l4"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:soldering_alloy",
+    "amount": 288
+  }
+}

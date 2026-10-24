@@ -1,0 +1,19 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "tag": "neoecoae:compat/gt/aluminium_ingots"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "count": 1,
+    "item": "neoecoae:aluminum_dust"
+  },
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ]
+}

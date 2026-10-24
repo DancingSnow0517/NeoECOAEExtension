@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtlcore"
+    }
+  ],
+  "ingredients": [
+    {
+      "tag": "forge:storage_blocks/tungsten"
+    }
+  ],
+  "result": {
+    "item": "gtceu:tungsten_ingot",
+    "count": 9
+  }
+}

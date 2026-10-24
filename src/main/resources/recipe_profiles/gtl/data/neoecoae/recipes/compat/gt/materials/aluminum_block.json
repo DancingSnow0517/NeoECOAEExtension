@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtlcore"
+    }
+  ],
+  "ingredients": [
+    {
+      "item": "neoecoae:aluminum_block"
+    }
+  ],
+  "result": {
+    "item": "gtceu:aluminium_block",
+    "count": 1
+  }
+}

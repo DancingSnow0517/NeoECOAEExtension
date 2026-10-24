@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "neoecoae:aluminum_dust",
+      "required": false
+    },
+    {
+      "id": "gtceu:aluminium_dust",
+      "required": false
+    }
+  ]
+}

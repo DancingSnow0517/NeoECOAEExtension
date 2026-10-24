@@ -94,12 +94,15 @@ public class NeoECOAE {
         // These values govern server-authoritative gameplay and are also read by client-side
         // previews/tooltips. SERVER configs are synchronized to joining clients by Forge.
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON,
+            cn.dancingsnow.neoecoae.config.RecipeProfileConfig.SPEC, "neoecoae-recipes-common.toml");
 
         modBus.addListener(NeoECOAE::registerCapabilities);
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);
         modBus.addListener(NeoECOAE::addClassicPack);
+        modBus.addListener(cn.dancingsnow.neoecoae.recipe.profile.GTRecipeProfiles::addPackFinders);
         ECONetwork.register();
         cn.dancingsnow.neoecoae.platform.sync.ManagedRpcNetwork.register(
             net.minecraftforge.fml.ModList.get().getModContainerById(MOD_ID).orElseThrow()

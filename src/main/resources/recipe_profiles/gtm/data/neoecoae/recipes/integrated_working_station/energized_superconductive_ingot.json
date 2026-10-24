@@ -1,0 +1,37 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "inputItems": [
+    {
+      "tag": "forge:dusts/energized_fluix_crystal",
+      "count": 4
+    },
+    {
+      "tag": "neoecoae:compat/gt/aluminium_dusts",
+      "count": 4
+    },
+    {
+      "tag": "neoecoae:compat/gt/silicon",
+      "count": 4
+    },
+    {
+      "tag": "neoecoae:compat/gt/superconductor_ingots",
+      "count": 4
+    }
+  ],
+  "energy": 200000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 4,
+    "item": "neoecoae:energized_superconductive_ingot"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:argon",
+    "amount": 2000
+  }
+}

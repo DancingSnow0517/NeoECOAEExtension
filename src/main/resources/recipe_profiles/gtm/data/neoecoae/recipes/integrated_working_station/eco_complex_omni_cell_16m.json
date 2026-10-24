@@ -1,0 +1,45 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2omnicells"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 10,
+      "item": "ae2omnicells:complex_omni_cell_component_16m"
+    },
+    {
+      "count": 2,
+      "item": "ae2omnicells:complex_link_processor"
+    },
+    {
+      "count": 2,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:eco_complex_omni_cell_housing"
+    },
+    {
+      "tag": "gtceu:circuits/ev",
+      "count": 4
+    }
+  ],
+  "energy": 1000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:eco_complex_omni_cell_16m"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:soldering_alloy",
+    "amount": 144
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 128,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "count": 64,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:crystal_ingot"
+    },
+    {
+      "count": 2,
+      "item": "neoecoae:storage_system_l9"
+    },
+    {
+      "count": 16,
+      "item": "ae2:drive"
+    },
+    {
+      "item": "gtceu:uv_field_generator",
+      "count": 4
+    },
+    {
+      "item": "gtceu:neutronium_plate",
+      "count": 16
+    }
+  ],
+  "energy": 1000000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:eco_infinite_cell_component"
+  },
+  "inputFluid": {
+    "amount": 64000,
+    "fluid": "neoecoae:cryotheum_solution"
+  }
+}

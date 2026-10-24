@@ -1,0 +1,37 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2cs"
+    }
+  ],
+  "inputItems": [
+    {
+      "item": "neoecoae:integrated_working_station_module_empty",
+      "count": 1
+    },
+    {
+      "item": "neoecoae:crystal_ingot",
+      "count": 16
+    },
+    {
+      "item": "gtceu:ev_sensor",
+      "count": 2
+    },
+    {
+      "item": "neoecoae:superconducting_processor",
+      "count": 8
+    }
+  ],
+  "energy": 16000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "item": "neoecoae:integrated_working_station_module_ae2cs",
+    "count": 1
+  }
+}

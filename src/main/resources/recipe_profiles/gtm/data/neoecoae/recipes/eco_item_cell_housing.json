@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:crystal_matrix"
+    },
+    "B": {
+      "tag": "forge:dusts/redstone"
+    },
+    "C": {
+      "tag": "neoecoae:compat/gt/aluminium_ingots"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "B B",
+    "CCC"
+  ],
+  "result": {
+    "count": 1,
+    "item": "neoecoae:eco_item_cell_housing"
+  },
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ]
+}

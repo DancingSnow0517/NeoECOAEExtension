@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "ae2:silicon",
+      "required": false
+    },
+    {
+      "id": "gtceu:silicon_dust",
+      "required": false
+    },
+    {
+      "id": "gtceu:silicon_ingot",
+      "required": false
+    }
+  ]
+}

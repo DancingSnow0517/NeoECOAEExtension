@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "neoecoae:aluminum_block",
+      "required": false
+    },
+    {
+      "id": "gtceu:aluminium_block",
+      "required": false
+    }
+  ]
+}

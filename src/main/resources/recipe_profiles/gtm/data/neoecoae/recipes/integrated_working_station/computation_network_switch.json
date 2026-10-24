@@ -1,0 +1,57 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 2,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 16,
+      "item": "ae2:calculation_processor"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:computation_casing"
+    },
+    {
+      "count": 4,
+      "item": "ae2:cell_workbench"
+    },
+    {
+      "count": 4,
+      "item": "ae2:cell_component_256k"
+    },
+    {
+      "tag": "gtceu:circuits/luv",
+      "count": 4
+    },
+    {
+      "item": "gtceu:luv_sensor",
+      "count": 2
+    }
+  ],
+  "energy": 2000000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:computation_network_switch"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:soldering_alloy",
+    "amount": 1152
+  }
+}

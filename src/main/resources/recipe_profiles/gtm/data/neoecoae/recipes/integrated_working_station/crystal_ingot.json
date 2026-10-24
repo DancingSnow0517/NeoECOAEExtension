@@ -1,0 +1,41 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "inputItems": [
+    {
+      "tag": "forge:dusts/certus_quartz",
+      "count": 4
+    },
+    {
+      "tag": "forge:dusts/fluix",
+      "count": 4
+    },
+    {
+      "tag": "forge:dusts/energized_crystal",
+      "count": 4
+    },
+    {
+      "tag": "neoecoae:compat/gt/crystal_bases",
+      "count": 4
+    },
+    {
+      "item": "gtceu:quartzite_dust",
+      "count": 4
+    }
+  ],
+  "energy": 200000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 4,
+    "item": "neoecoae:crystal_ingot"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:argon",
+    "amount": 2000
+  }
+}

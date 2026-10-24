@@ -1,0 +1,46 @@
+{
+  "type": "gtceu:macerator",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "duration": 400,
+  "inputs": {
+    "gtceu:item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:raw_tungsten_ore"
+          }
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "gtceu:item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "gtceu:tungsten_dust"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "gtceu:eu": [
+      {
+        "content": {
+          "voltage": 1920,
+          "amperage": 1
+        }
+      }
+    ]
+  }
+}

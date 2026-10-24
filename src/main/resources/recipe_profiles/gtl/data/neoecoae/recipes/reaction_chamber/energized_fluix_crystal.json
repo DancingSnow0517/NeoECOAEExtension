@@ -1,0 +1,43 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtlcore"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "advanced_ae"
+    }
+  ],
+  "type": "advanced_ae:reaction",
+  "input_items": [
+    {
+      "amount": 64,
+      "ingredient": {
+        "tag": "forge:dusts/energized_crystal"
+      }
+    },
+    {
+      "amount": 64,
+      "ingredient": {
+        "tag": "forge:gems/fluix"
+      }
+    }
+  ],
+  "output": {
+    "#": 64,
+    "id": "neoecoae:energized_fluix_crystal",
+    "#c": "ae2:i"
+  },
+  "fluid": {
+    "fluidStack": {
+      "FluidName": "gtceu:distilled_water",
+      "Amount": 500
+    }
+  },
+  "energy": 500000
+}

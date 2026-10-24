@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "ingredients": [
+    {
+      "item": "neoecoae:tungsten_block"
+    }
+  ],
+  "result": {
+    "item": "gtceu:tungsten_block",
+    "count": 1
+  }
+}

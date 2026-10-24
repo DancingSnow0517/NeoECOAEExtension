@@ -1,0 +1,59 @@
+{
+  "type": "gtceu:electric_blast_furnace",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "duration": 400,
+  "inputs": {
+    "gtceu:item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:black_tungsten_alloy_dust"
+          }
+        }
+      }
+    ],
+    "gtceu:fluid": [
+      {
+        "content": {
+          "amount": 100,
+          "value": {
+            "fluid": "gtceu:argon"
+          }
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "gtceu:item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:black_tungsten_alloy_ingot"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "gtceu:eu": [
+      {
+        "content": {
+          "voltage": 1920,
+          "amperage": 1
+        }
+      }
+    ]
+  },
+  "data": {
+    "ebf_temp": 4500
+  }
+}

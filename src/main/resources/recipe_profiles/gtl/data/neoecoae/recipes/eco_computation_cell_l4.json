@@ -1,0 +1,49 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtlcore"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:eco_cell_component_16m"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:crystal_matrix"
+    },
+    {
+      "tag": "gtceu:circuits/iv",
+      "count": 4
+    },
+    {
+      "item": "gtceu:iv_sensor",
+      "count": 2
+    }
+  ],
+  "energy": 64000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:eco_computation_cell_l4"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:soldering_alloy",
+    "amount": 288
+  }
+}

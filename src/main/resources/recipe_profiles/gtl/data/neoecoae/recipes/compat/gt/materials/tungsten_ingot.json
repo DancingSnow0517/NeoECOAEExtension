@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtlcore"
+    }
+  ],
+  "ingredients": [
+    {
+      "item": "neoecoae:tungsten_ingot"
+    }
+  ],
+  "result": {
+    "item": "gtceu:tungsten_ingot",
+    "count": 1
+  }
+}

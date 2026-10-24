@@ -1,0 +1,37 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:cryotheum_crystal"
+    },
+    {
+      "count": 2,
+      "item": "neoecoae:energized_crystal"
+    },
+    {
+      "count": 2,
+      "tag": "forge:dusts/redstone"
+    },
+    {
+      "item": "gtceu:sodium_dust",
+      "count": 2
+    }
+  ],
+  "energy": 1000,
+  "processingTicks": 100,
+  "fluidOutput": {
+    "amount": 1000,
+    "fluid": "neoecoae:cryotheum_solution"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:distilled_water",
+    "amount": 1000
+  }
+}

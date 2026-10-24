@@ -1,0 +1,37 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2lt"
+    }
+  ],
+  "inputItems": [
+    {
+      "item": "neoecoae:integrated_working_station_module_empty",
+      "count": 1
+    },
+    {
+      "item": "ae2lt:lightning_assembly_chamber",
+      "count": 1
+    },
+    {
+      "item": "gtceu:ev_emitter",
+      "count": 2
+    },
+    {
+      "item": "neoecoae:superconducting_processor",
+      "count": 8
+    }
+  ],
+  "energy": 16000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "item": "neoecoae:integrated_working_station_module_aelt",
+    "count": 1
+  }
+}

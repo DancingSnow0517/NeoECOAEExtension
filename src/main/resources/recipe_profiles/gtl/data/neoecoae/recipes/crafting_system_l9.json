@@ -1,0 +1,49 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtlcore"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 1,
+      "item": "neoecoae:crafting_system_l6"
+    },
+    {
+      "count": 2,
+      "item": "neoecoae:crafting_parallel_core_l9"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "tag": "gtceu:circuits/uhv",
+      "count": 4
+    },
+    {
+      "item": "gtceu:uhv_emitter",
+      "count": 2
+    }
+  ],
+  "energy": 640000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:crafting_system_l9"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:soldering_alloy",
+    "amount": 4608
+  }
+}

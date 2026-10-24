@@ -1,0 +1,49 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "inputItems": [
+    {
+      "count": 1,
+      "item": "minecraft:water_bucket"
+    },
+    {
+      "count": 1,
+      "item": "minecraft:lava_bucket"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:crystal_matrix"
+    },
+    {
+      "tag": "gtceu:circuits/uv",
+      "count": 4
+    },
+    {
+      "item": "gtceu:uv_field_generator",
+      "count": 4
+    },
+    {
+      "item": "gtceu:neutronium_plate",
+      "count": 8
+    }
+  ],
+  "energy": 144000,
+  "processingTicks": 100,
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:eco_infinite_item_cell"
+  },
+  "inputFluid": {
+    "fluid": "gtceu:soldering_alloy",
+    "amount": 576
+  }
+}
