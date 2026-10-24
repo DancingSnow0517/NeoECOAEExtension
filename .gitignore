@@ -9,6 +9,7 @@ runs/
 logs/
 validation/
 .porting/
+/porting/
 libs/
 local.properties
 hs_err_pid*

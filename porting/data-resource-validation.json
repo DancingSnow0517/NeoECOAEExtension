@@ -1,8 +1,0 @@
-{
-  "data_files": 428,
-  "removed_data_files": 193,
-  "disassembly_contracts": 9,
-  "corrected_lightning_contracts": [],
-  "errors": [],
-  "scope": "static files and explicit material ledgers only; not datagen or runtime reload acceptance"
-}
