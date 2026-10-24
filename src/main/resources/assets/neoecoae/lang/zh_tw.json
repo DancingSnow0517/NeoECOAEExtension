@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.large_integrated_working_station.recipe_energy_label": "耗能",
+  "gui.neoecoae.large_integrated_working_station.extra_required_label": "額外需要",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "額外需要：%sx%s",
   "gui.neoecoae.large_integrated_working_station.module_support": "配方支援",
   "gui.neoecoae.large_integrated_working_station.module_required": "支援此配方的升級卡：%s",

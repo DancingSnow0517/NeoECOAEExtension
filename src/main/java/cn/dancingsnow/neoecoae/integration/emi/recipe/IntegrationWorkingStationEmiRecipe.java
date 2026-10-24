@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.integration.recipe.LargeWorkstationRecipeDisplay;
+import cn.dancingsnow.neoecoae.integration.recipe.WorkstationRecipeInfoLayout;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import appeng.api.stacks.GenericStack;
@@ -90,22 +91,17 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
 
         if (largeRecipe != null) {
             var font = Minecraft.getInstance().font;
-            widgets.addDrawable(0, 0, 168, backgroundHeight,
+            widgets.addDrawable(0, 0, 168, height,
                 (graphics, mouseX, mouseY, delta) -> LargeWorkstationRecipeDisplay.drawInfo(graphics, font, largeRecipe));
-            widgets.addTooltipText(List.of(LargeWorkstationRecipeDisplay.energy(largeRecipe)),
-                LargeWorkstationRecipeDisplay.TEXT_X, LargeWorkstationRecipeDisplay.ENERGY_Y,
-                LargeWorkstationRecipeDisplay.TEXT_WIDTH, (int) Math.ceil(9 * LargeWorkstationRecipeDisplay.TEXT_SCALE));
-            widgets.addTooltipText(LargeWorkstationRecipeDisplay.extraCosts(largeRecipe),
-                LargeWorkstationRecipeDisplay.TEXT_X, LargeWorkstationRecipeDisplay.EXTRA_Y,
-                LargeWorkstationRecipeDisplay.TEXT_WIDTH, (int) Math.ceil(9 * LargeWorkstationRecipeDisplay.TEXT_SCALE));
-            var card = LargeWorkstationRecipeDisplay.upgradeCard(largeRecipe);
-            if (!card.isEmpty()) {
-                var slot = widgets.addSlot(EmiStack.of(card), LargeWorkstationRecipeDisplay.CARD_X - 1,
-                    LargeWorkstationRecipeDisplay.CARD_Y - 1).drawBack(false).catalyst(true);
-                LargeWorkstationRecipeDisplay.moduleTooltip(largeRecipe).forEach(slot::appendTooltip);
-            } else {
-                widgets.addTooltipText(LargeWorkstationRecipeDisplay.moduleTooltip(largeRecipe),
-                    LargeWorkstationRecipeDisplay.CARD_X, LargeWorkstationRecipeDisplay.CARD_Y, 16, 16);
+            var cards = LargeWorkstationRecipeDisplay.cards(largeRecipe);
+            var infoLayout = new WorkstationRecipeInfoLayout(cards.size());
+            widgets.addTooltipText(LargeWorkstationRecipeDisplay.infoTooltip(largeRecipe),
+                LargeWorkstationRecipeDisplay.TEXT_X, infoLayout.energyY() - 1, infoLayout.textWidth(), 16);
+            for (int i = 0; i < cards.size(); i++) {
+                var card = cards.get(i);
+                var slot = widgets.addSlot(EmiStack.of(card.stack()), infoLayout.cardX(i) - 1,
+                    infoLayout.cardY(i) - 1).drawBack(false).catalyst(true);
+                card.tooltip().forEach(slot::appendTooltip);
             }
         } else {
             widgets.addText(Component.translatable("gui.neoecoae.integrated_working_station.energy", energy / 1000),
@@ -113,7 +109,8 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         }
         int additionalSlot = 0;
         for (var fluid : additionalFluidInputs) {
-            widgets.addSlot(NeoECOAEEmiPlugin.of(fluid), 3 + additionalSlot % 9 * 18, 99 + additionalSlot / 9 * 18);
+            widgets.addSlot(NeoECOAEEmiPlugin.of(fluid), LargeWorkstationRecipeDisplay.slotX(additionalSlot) - 1,
+                LargeWorkstationRecipeDisplay.slotY(largeRecipe, additionalSlot) - 1);
             additionalSlot++;
         }
         additionalSlot = 0;

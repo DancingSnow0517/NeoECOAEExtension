@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.large_integrated_working_station.recipe_energy_label": "Energy",
+  "gui.neoecoae.large_integrated_working_station.extra_required_label": "Extra required",
   "gui.neoecoae.large_integrated_working_station.module_support": "Recipe support",
   "gui.neoecoae.large_integrated_working_station.module_required": "Upgrade card supporting this recipe: %s",
   "gui.neoecoae.large_integrated_working_station.no_module_required": "No compatibility upgrade card required",

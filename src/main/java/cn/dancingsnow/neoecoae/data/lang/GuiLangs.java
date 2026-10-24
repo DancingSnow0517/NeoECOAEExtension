@@ -4,6 +4,8 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_label", "Energy");
+        provider.add("gui.neoecoae.large_integrated_working_station.extra_required_label", "Extra required");
         provider.add("recipe_type.neoecoae.ae2cs.crystal_pulverizer_recipe", "AE2CS: Crystal Pulverizing");
         provider.add("recipe_type.neoecoae.ae2cs.entropy_variation_reaction_chamber", "AE2CS: Entropy Variation");
         provider.add("recipe_type.neoecoae.ae2cs.circuit_etcher_recipe", "AE2CS: Circuit Etching");

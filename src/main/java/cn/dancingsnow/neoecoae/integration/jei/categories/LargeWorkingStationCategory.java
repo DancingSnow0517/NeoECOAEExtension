@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.jei.categories;
 
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.recipe.LargeWorkstationRecipeDisplay;
+import cn.dancingsnow.neoecoae.integration.recipe.WorkstationRecipeInfoLayout;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import appeng.api.stacks.AEFluidKey;
@@ -46,7 +47,7 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
         layout.setRecipe(builder, recipe.display(), focuses);
         int slot = 0;
         for (var fluid : recipe.additionalFluidInputs()) {
-            builder.addInputSlot(4 + slot % 9 * 18, 100 + slot / 9 * 18)
+            builder.addInputSlot(LargeWorkstationRecipeDisplay.slotX(slot), LargeWorkstationRecipeDisplay.slotY(recipe, slot))
                 .addIngredients(ForgeTypes.FLUID_STACK, Arrays.asList(fluid.getFluids()));
             slot++;
         }
@@ -54,12 +55,12 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
             builder.addInvisibleIngredients(RecipeIngredientRole.INPUT)
                 .addItemStack(GenericStack.wrapInItemStack(extra.what(), extra.amount()));
         }
-        var card = LargeWorkstationRecipeDisplay.upgradeCard(recipe);
-        if (!card.isEmpty()) {
-            builder.addSlot(RecipeIngredientRole.CATALYST, LargeWorkstationRecipeDisplay.CARD_X,
-                    LargeWorkstationRecipeDisplay.CARD_Y)
-                .addItemStack(card).addRichTooltipCallback((view, tooltip) ->
-                    tooltip.addAll(LargeWorkstationRecipeDisplay.moduleTooltip(recipe)));
+        var cards = LargeWorkstationRecipeDisplay.cards(recipe);
+        var infoLayout = new WorkstationRecipeInfoLayout(cards.size());
+        for (int i = 0; i < cards.size(); i++) {
+            var card = cards.get(i);
+            builder.addSlot(RecipeIngredientRole.CATALYST, infoLayout.cardX(i), infoLayout.cardY(i))
+                .addItemStack(card.stack()).addRichTooltipCallback((view, tooltip) -> tooltip.addAll(card.tooltip()));
         }
         slot = 0;
         for (var output : recipe.additionalOutputs()) {
@@ -82,8 +83,6 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
     @Override
     public void getTooltip(ITooltipBuilder tooltip, LargeWorkstationRecipe recipe, IRecipeSlotsView slots,
                                             double mouseX, double mouseY) {
-        if (!LargeWorkstationRecipeDisplay.upgradeCard(recipe).isEmpty()
-            && mouseX >= LargeWorkstationRecipeDisplay.CARD_X) return;
         tooltip.addAll(LargeWorkstationRecipeDisplay.tooltip(recipe, mouseX, mouseY));
     }
 }
