@@ -498,9 +498,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         text(context, tr("controls_heading"), 102, 72, 59, 0.7f, TEXT);
         centeredText(context, tr("overclock_short"), 102, 82, 15, 0.65f, TEXT);
         centeredText(context, tr("cooling"), 146, 82, 15, 0.65f, TEXT);
-        text(context, tr(state.getBoolean("overclocked") ? "enabled" : "disabled"), 120, 91, 25, 0.6f,
-            state.getBoolean("overclocked") ? SUCCESS : MUTED);
-        text(context, tr(temperatureEnabled() ? "thermal_mode" : "coolant_mode"), 120, 103, 25, 0.55f, MUTED);
+        drawControlReadout(context);
         centeredText(context, temperatureEnabled() ? tr("current_band", temperatureBandName())
             : tr("coolant_mode"), 99, 119, 64, 0.65f, MUTED);
         centeredText(context, tr("thermal_short"), 172, 70, 15, 0.65f, TEXT);
@@ -527,6 +525,22 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         text(context, tr(state.getBoolean("overclocked") ? "overclock_on" : "overclock_off"),
             198, 184, 44, 0.75f, state.getBoolean("overclocked") ? SUCCESS : TEXT);
         text(context, tr("parallel_short", number(state.getLong("parallelCapacity"))), 198, 194, 44, 0.65f, MUTED);
+    }
+
+    private void drawControlReadout(GUIContext context) {
+        boolean enabled = state.getBoolean("overclocked");
+        // Center the readout in the 29-pixel gap between the unchanged toggle slots.
+        fill(context, 119, 90, 25, 24, 0xFF9B9EB0);
+        fill(context, 120, 91, 23, 10, enabled ? 0xFFD4E6DE : 0xFFD5D6DF);
+        fill(context, 120, 102, 23, 11, 0xFFDADBE4);
+        controlReadoutText(context, tr(enabled ? "enabled" : "disabled"), 94, 0.6f, enabled ? SUCCESS : MUTED);
+        controlReadoutText(context, tr(temperatureEnabled() ? "thermal_mode" : "coolant_mode"), 105, 0.55f, MUTED);
+    }
+
+    private void controlReadoutText(GUIContext context, Component value, int y, float scale, int color) {
+        // Fit translated mode names inside the inset without clipping or an ellipsis.
+        int width = Minecraft.getInstance().font.width(value.getString());
+        centeredText(context, value, 120, y, 23, Math.min(scale, 22f / Math.max(1, width)), color);
     }
 
     private void drawTask(GUIContext context, Task task, int row) {
