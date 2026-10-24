@@ -6,6 +6,17 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WorkstationRecipeInfoLayoutTest {
+    @Test void threeSummaryRowsFitTheFooterAndKeepEveryCardOnTheRight() {
+        var layout = new WorkstationRecipeInfoLayout(2, 3);
+        assertEquals(28, layout.infoHeight());
+        assertEquals(104, layout.backgroundHeight());
+        assertTrue(layout.containsText(7, layout.energyY() + 2 * 8));
+        assertFalse(layout.containsText(7, layout.energyY() - 1 + 3 * 8));
+        for (int i = 0; i < 2; i++) {
+            assertTrue(layout.cardX(i) > WorkstationRecipeInfoLayout.TEXT_X + layout.textWidth());
+        }
+        assertTrue(layout.extraSlotsY() > WorkstationRecipeInfoLayout.INFO_Y + layout.infoHeight());
+    }
     @Test void noCardsReclaimsTheReservedSpace() {
         assertEquals(154, new WorkstationRecipeInfoLayout(0).textWidth());
         assertEquals(137, new WorkstationRecipeInfoLayout(1).textWidth());

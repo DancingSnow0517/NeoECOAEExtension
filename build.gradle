@@ -179,6 +179,8 @@ dependencies {
     // Verify custom JEI bookmark conversion against the optional addon's public API.
     testImplementation("curse.maven:ae2-jei-integration-1074338:7727898") { transitive = false }
     testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+    // Verify optional layout hooks against the JEI bytecode shipped to the development client.
+    testRuntimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}") { transitive = false }
     // Exercise the optional search bridges against released upstream APIs; neither mod is bundled.
     testRuntimeOnly("curse.maven:just-enough-characters-250702:8771217") { transitive = false }
     testImplementation("curse.maven:extendedae-plus-1337639:8755074") { transitive = false }

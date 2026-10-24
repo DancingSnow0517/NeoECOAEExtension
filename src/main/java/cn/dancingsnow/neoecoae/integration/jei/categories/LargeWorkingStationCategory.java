@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.integration.jei.categories;
 
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
+import cn.dancingsnow.neoecoae.integration.jei.WorkstationItemStackRenderer;
 import cn.dancingsnow.neoecoae.integration.recipe.LargeWorkstationRecipeDisplay;
 import cn.dancingsnow.neoecoae.integration.recipe.WorkstationRecipeInfoLayout;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
-import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -19,7 +19,6 @@ import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.crafting.RecipeHolder;
 
@@ -28,22 +27,17 @@ import java.util.Arrays;
 /** Separate category makes the formed-multiblock restriction visible during recipe lookup. */
 public final class LargeWorkingStationCategory implements IRecipeCategory<LargeWorkstationRecipe> {
     private final IntegrationWorkingStationCategory layout;
-    private final int height;
 
     public LargeWorkingStationCategory(IGuiHelper helper) {
         layout = new IntegrationWorkingStationCategory(helper, true);
-        var level = Minecraft.getInstance().level;
-        height = level == null ? LargeWorkstationRecipeDisplay.BACKGROUND_HEIGHT
-            : LargeWorkstationRecipes.getAll(level).stream()
-                .mapToInt(LargeWorkstationRecipeDisplay::height)
-                .max().orElse(LargeWorkstationRecipeDisplay.BACKGROUND_HEIGHT);
     }
 
     @Override public RecipeType<LargeWorkstationRecipe> getRecipeType() { return NeoECOAEJeiPlugin.LARGE_WORKING_STATION_TYPE; }
     @Override public Component getTitle() { return Component.translatable("category.neoecoae.large_integrated_working_station"); }
     @Override public IDrawable getIcon() { return layout.getIcon(); }
     @Override public int getWidth() { return layout.getWidth(); }
-    @Override public int getHeight() { return height; }
+    // JEI's category size is only a fallback; the JEI layout mixins size each recipe separately.
+    @Override public int getHeight() { return LargeWorkstationRecipeDisplay.BACKGROUND_HEIGHT; }
 
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, LargeWorkstationRecipe recipe, IFocusGroup focuses) {
@@ -67,9 +61,10 @@ public final class LargeWorkingStationCategory implements IRecipeCategory<LargeW
             else if (output.what() instanceof AEFluidKey fluid) outputSlot.addIngredients(NeoForgeTypes.FLUID_STACK,
                 java.util.List.of(fluid.toStack(Math.toIntExact(output.amount()))));
             else outputSlot.addItemStack(GenericStack.wrapInItemStack(output.what(), output.amount()));
+            WorkstationItemStackRenderer.configure(outputSlot);
         }
         var cards = LargeWorkstationRecipeDisplay.cards(recipe);
-        var infoLayout = new WorkstationRecipeInfoLayout(cards.size());
+        var infoLayout = LargeWorkstationRecipeDisplay.layout(recipe);
         for (int i = 0; i < cards.size(); i++) {
             var card = cards.get(i);
             builder.addSlot(RecipeIngredientRole.CATALYST, infoLayout.cardX(i), infoLayout.cardY(i))

@@ -93,7 +93,9 @@ ECOComputationModels.registerCableModel(tier, hostBlock, disconnectedModel, conn
 
 ## 工作站配方和模块
 
-`ECOWorkstationRecipeAdapters.register(id, priority, sourceRecipeType, adapter)` 将外部配方转换成 `LargeWorkstationRecipe`。必须保留源配方 ID 和类型，并完整提供输入、输出、AE 能耗和额外资源；无法准确表达时抛出异常使该配方停用。额外资源由本体执行器获取、记账及恢复。
+`ECOWorkstationRecipeAdapters.register(id, priority, sourceRecipeType, adapter)` 将外部配方转换成 `LargeWorkstationRecipe`。必须保留源配方 ID 和类型，并完整提供输入、输出、加工时间、AE/FE 能耗和额外资源；无法准确表达时抛出异常使该配方停用。额外资源由本体执行器获取、记账及恢复。
+
+旧构造器仍可使用；用 `.processing(ticks, feEnergy, feAlternative)` 明确时间与 FE 合同。基础时间最多为 200 tick，短配方保持原值，倍增样板仍同比增加时间。`energy()` 为 AE 预算，`feEnergy()` 为 FE 预算：二者都非零且 `feAlternative=false` 表示同时支付；设为 `true` 表示二选一；纯 FE 的 AE 预算仍设为零。FE 仅在 Applied Flux 真正加载时可从网络提取，缺额或未安装时允许按 AE2 配置用 AE 代偿，`requiresAppliedFlux()` 因此返回 `false`。详见[时间与网络 FE](WORKSTATION_PROCESSING_TIME_AND_FE_ZH_CN.md)。
 
 自定义模块通过 `ECOWorkstationModules.Module` 注册独立 ID、升级卡 Item ID、允许的源类型、完整/简短名称、颜色及可选界面图标、芯片图和两种模型。旧枚举与 BlockState 保存值保留，自定义模块在旧枚举视图中投影为 `OTHER`，实际配方限制以模块 ID 判断。使用 `getInstalledModuleId()` 或 `getInstalledModuleDescription()` 读取完整身份。
 

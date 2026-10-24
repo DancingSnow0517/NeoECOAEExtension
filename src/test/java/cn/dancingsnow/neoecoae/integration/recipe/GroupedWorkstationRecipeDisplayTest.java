@@ -1,13 +1,17 @@
 package cn.dancingsnow.neoecoae.integration.recipe;
 
 import appeng.api.stacks.GenericStack;
+import appeng.api.config.PowerMultiplier;
+import appeng.api.config.PowerUnit;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
+import cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipeGroup;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.moakiee.ae2lt.me.key.LightningKey;
 import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -24,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class GroupedWorkstationRecipeDisplayTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
@@ -42,18 +47,17 @@ class GroupedWorkstationRecipeDisplayTest {
             assertTrue(cards.getFirst().stack().is(Items.DIAMOND));
             assertTrue(cards.getLast().stack().is(Items.EMERALD));
             assertEquals(1, cards.getFirst().stack().getCount(), "Support cards are catalysts, not consumed ingredients");
-            var anyCard = assertInstanceOf(TranslatableContents.class, cards.getFirst().tooltip().get(1).getContents());
-            assertEquals("gui.neoecoae.large_integrated_working_station.module_any", anyCard.getKey());
-            assertEquals("First / Second", ((Component) anyCard.getArgs()[0]).getString());
-            var firstCost = assertInstanceOf(TranslatableContents.class, cards.getFirst().tooltip().getLast().getContents());
-            var secondCost = assertInstanceOf(TranslatableContents.class, cards.getLast().tooltip().getLast().getContents());
-            assertEquals(12345L, firstCost.getArgs()[1]);
-            assertEquals(67890L, secondCost.getArgs()[1]);
-            assertTrue(((Component) firstCost.getArgs()[2]).getString().startsWith("4x"));
-            assertTrue(((Component) secondCost.getArgs()[2]).getString().startsWith("32x"));
-            var exactExtra = assertInstanceOf(TranslatableContents.class,
-                cards.getLast().tooltip().getLast().getSiblings().getLast().getContents());
-            assertEquals(123456L, exactExtra.getArgs()[0]);
+            assertEquals("First", cards.getFirst().tooltip().getFirst().getString());
+            assertEquals("Second", cards.getLast().tooltip().getFirst().getString());
+            assertEquals(first.color(), cards.getFirst().tooltip().getFirst().getSiblings().getFirst().getStyle().getColor().getValue());
+            var firstCost = assertInstanceOf(TranslatableContents.class, cards.getFirst().tooltip().get(1).getSiblings().getFirst().getContents());
+            var secondCost = assertInstanceOf(TranslatableContents.class, cards.getLast().tooltip().get(1).getSiblings().getFirst().getContents());
+            assertEquals("12,345 AE", ((Component) firstCost.getArgs()[0]).getString());
+            assertEquals("67,890 AE", ((Component) secondCost.getArgs()[0]).getString());
+            assertEquals(3, cards.getFirst().tooltip().size(), "The material preview already shows the representative batch");
+            assertTrue(cards.getLast().tooltip().get(3).getString().contains("32"), "Different minimum batches remain explicit");
+            assertTrue(cards.getLast().tooltip().getLast().getString().contains("123,456"));
+            assertTrue(cards.stream().flatMap(card -> card.tooltip().stream()).noneMatch(line -> line.getString().contains("group_display_test:")));
             var layout = new WorkstationRecipeInfoLayout(cards.size());
             assertEquals(2, layout.cardColumns());
             assertTrue(layout.cardX(0) > layout.textWidth());
@@ -72,6 +76,29 @@ class GroupedWorkstationRecipeDisplayTest {
             assertEquals(1, cards.size());
             assertTrue(cards.getFirst().stack().is(Items.DIAMOND));
         } finally { ECOWorkstationModules.unregister(module.id()); }
+    }
+
+    @Test void feSummaryChoosesTheAvailableUnitAndKeepsTheUnitColorAndFractionalAeFallback() {
+        double oldAe = PowerUnit.AE.conversionRatio, oldFe = PowerUnit.FE.conversionRatio;
+        double oldMultiplier = PowerMultiplier.CONFIG.multiplier;
+        PowerUnit.AE.conversionRatio = 1;
+        PowerUnit.FE.conversionRatio = 0.5;
+        PowerMultiplier.CONFIG.multiplier = 1;
+        try (var flux = mockStatic(WorkstationFluxEnergy.class)) {
+            var recipe = recipe("fe", 4, 0, List.of()).processing(4, 1000, false);
+            var ae = LargeWorkstationRecipeDisplay.summaryEnergy(recipe);
+            assertEquals("500 AE", ae.getString());
+            assertEquals(ChatFormatting.DARK_PURPLE.getColor(), ae.getSiblings().getLast().getStyle().getColor().getValue());
+            assertEquals("0.5 AE", LargeWorkstationRecipeDisplay.summaryEnergy(recipe.processing(4, 1, false)).getString());
+            flux.when(WorkstationFluxEnergy::available).thenReturn(true);
+            var fe = LargeWorkstationRecipeDisplay.summaryEnergy(recipe);
+            assertEquals("1K FE", fe.getString());
+            assertEquals(ChatFormatting.DARK_GREEN.getColor(), fe.getSiblings().getLast().getStyle().getColor().getValue());
+        } finally {
+            PowerUnit.AE.conversionRatio = oldAe;
+            PowerUnit.FE.conversionRatio = oldFe;
+            PowerMultiplier.CONFIG.multiplier = oldMultiplier;
+        }
     }
 
     private static ECOWorkstationModules.Module module(String path, String card, String title) {

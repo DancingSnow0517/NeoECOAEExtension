@@ -46,6 +46,20 @@ The server option `largeWorkstationIgnoreUpgradeCards` defaults to `false`. Set 
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="2" y="1" z="1"></Block>
 </GameScene>
 
+## Processing time and network FE
+
+Base recipes longer than 200 ticks (10 seconds) are capped at 200 ticks; shorter recipes and total costs stay unchanged. Parallelism increases simultaneous operations. Crystal Science uses a 200 AE/t source reference, so a 57,600 AE recipe is capped from 288 to 200 ticks. The lightning overload factory defaults to 400,000 FE/t with a four-tick minimum; assembly and simulation use a 200 FE/t source reference. Data reassembly retains its duration within the cap. AdvancedAE, Applied Generators, ExtendedAE and EAEP keep their 100-tick reference.
+
+Multiplied patterns scale duration and costs proportionally. Waiting for output space does not charge processing energy; energy or cooling shortages preserve progress. Tasks accepted before this update retain their previous processing contract.
+
+Lightning routes retain their original FE budgets. **Applied Flux enables FE extraction from ME storage; missing FE can be paid with equivalent AE, including when Applied Flux is absent.** Only the FE deficit is substituted, using AE2's current conversion settings. Preheating and network operation still use AE. Lightning and other additional resources remain separate requirements.
+
+AdvancedAE reaction routes can use either AE or FE. The FE budget uses AE2's current conversion ratio and power multiplier. A task prefers AE when accepted; if AE cannot pay its first processing tick and network FE can, it selects FE. That FE budget also allows AE substitution later; processing pauses only when the required energy cannot be paid.
+
+JEI / EMI show energy, processing time and any additional resources. FE recipes prefer an FE value when Applied Flux is installed and an equivalent AE value otherwise. AE units are purple and FE units dark green. Hover the summary or cards for separate sections headed in each mod's theme color; different batch sizes remain explicit and FE supply requirements appear once at the bottom. JEI item counts use a smaller font and SI abbreviations from 1,000, with exact quantities in tooltips. Machine tooltips show actual AE/t and FE/t separately.
+
+In coolant mode, an overclocked task consumes 100 mB per actual processing tick, so longer recipes need more coolant per batch. Temperature mode generates heat from occupied processing load; active cooling retains its thermal rules.
+
 ## Parallelism and energy
 
 The normal batch limit is **256**. Temperature mode is enabled by default: enable overclocking and maintain the required temperature for higher parallelism. The server configuration can also disable temperature and use coolant mode below.
@@ -146,4 +160,4 @@ Encode a processing pattern with the complete item/fluid inputs and outputs, and
 
 AE2LT recipes retain their original lightning tier and quantity. The controller draws the required lightning from the connected ME network; it does not need to be added to the processing pattern. If lightning is missing, the batch pauses until that tier is available. Lightning scales with the number of crafts, without the overclock energy multiplier, and high-voltage lightning does not substitute for extreme-high-voltage lightning. Pending withdrawals survive save/reload, and cancelling an unfinished tracked crafting job returns the resources already withdrawn.
 
-Recipe energy is paid in AE. AE2LT's FE costs are converted using AE2's FE/AE ratio; the other integrations retain their AE cost. Super Crystal Assembler recipes use 2,000 AE per craft (200 progress × 10 AE). The existing overclock and coolant rules also apply to these recipes.
+Each route retains its AE or FE energy contract. Super Crystal Assembler recipes use 2,000 AE per craft (200 progress × 10 AE). Processing time and network FE requirements are described above; overclock and coolant rules also apply.

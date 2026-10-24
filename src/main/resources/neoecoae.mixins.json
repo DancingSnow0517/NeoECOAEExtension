@@ -39,6 +39,8 @@
     "minecraft.LightningBoltMixin"
   ],
   "client": [
+    "client.jei.RecipeLayoutMixin",
+    "client.jei.RecipeLayoutBuilderMixin",
     "client.accessor.MenuScreensAccessor",
     "client.ae2.AEBaseScreenGrayToolbarMixin",
     "client.ae2.CellWorkbenchScreenMixin",

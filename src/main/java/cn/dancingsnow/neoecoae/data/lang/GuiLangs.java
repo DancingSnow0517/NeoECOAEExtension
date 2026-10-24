@@ -4,6 +4,21 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_value", "Energy: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.fe_supply_hint", "Using %s requires Applied Flux");
+        provider.add("gui.neoecoae.large_integrated_working_station.fe_storage_hint", "and %s stored in the ME network.");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_amount", "Quantity: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.energy_or", "%s OR %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.energy_and", "%s + %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_duration", "%s ticks (%s s)");
+        provider.add("gui.neoecoae.large_integrated_working_station.route_label", "Route");
+        provider.add("gui.neoecoae.large_integrated_working_station.time_label", "Time");
+        provider.add("gui.neoecoae.large_integrated_working_station.batch_label", "Output / batch");
+        provider.add("gui.neoecoae.large_integrated_working_station.supply_label", "FE supply");
+        provider.add("gui.neoecoae.large_integrated_working_station.flux_optional", "FE option: Applied Flux + network FE");
+        provider.add("gui.neoecoae.large_integrated_working_station.flux_required", "Requires Applied Flux + network FE");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_variant_details", "%s: %s; %s; batch: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.preview_batch", "Material preview: representative batch. Each route below keeps its own batch size and costs.");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.applied_flux_missing", "Paused: Applied Flux is required for network FE");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.fe_missing", "Paused: Insufficient FE in the ME network");
         provider.add("gui.neoecoae.workstation.fe_value", "Network FE consumption: %s FE/t; reserved: %s FE");

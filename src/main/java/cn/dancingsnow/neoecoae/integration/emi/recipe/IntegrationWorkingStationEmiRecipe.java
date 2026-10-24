@@ -91,9 +91,9 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
             widgets.addDrawable(0, 0, 168, height,
                 (graphics, mouseX, mouseY, delta) -> LargeWorkstationRecipeDisplay.drawInfo(graphics, largeRecipe));
             var cards = LargeWorkstationRecipeDisplay.cards(largeRecipe);
-            var infoLayout = new WorkstationRecipeInfoLayout(cards.size());
+            var infoLayout = LargeWorkstationRecipeDisplay.layout(largeRecipe);
             widgets.addTooltipText(LargeWorkstationRecipeDisplay.infoTooltip(largeRecipe),
-                LargeWorkstationRecipeDisplay.TEXT_X, infoLayout.energyY() - 1, infoLayout.textWidth(), 16);
+                LargeWorkstationRecipeDisplay.TEXT_X, infoLayout.energyY() - 1, infoLayout.textWidth(), infoLayout.textRows() * WorkstationRecipeInfoLayout.ROW_HEIGHT);
             for (int i = 0; i < cards.size(); i++) {
                 var card = cards.get(i);
                 var cardSlot = widgets.addSlot(EmiStack.of(card.stack()), infoLayout.cardX(i) - 1,
