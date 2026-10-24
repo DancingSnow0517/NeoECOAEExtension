@@ -64,6 +64,55 @@ class CraftingPatternPreviewStateTest {
         assertEquals(34, state.getRowCount());
     }
 
+    @Test void aSparseFirstPageCanBeTakenBeforeTheFinalPageWithoutBuildingSearchKeywords() throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var first = f.page(true, false, true, -1, 7, 65_536, 0, 1);
+        var layout = new ListTag();
+        var bus = new CompoundTag(); bus.putLong("bus", 10); bus.putInt("count", 65_536); layout.add(bus);
+        first.put("layout", layout);
+        first.putIntArray("occupied", new int[]{0, 65_535});
+        try (var patterns = mockStatic(appeng.api.crafting.PatternDetailsHelper.class)) {
+            state.receive(first);
+            assertEquals(1, state.getRowCount());
+            assertNull(f.sync.clientSnapshot(), "a partial view must not be cached as complete");
+            patterns.verifyNoInteractions();
+            var act = CraftingPatternPreviewState.class.getDeclaredMethod("act", int.class, int.class, int.class);
+            act.setAccessible(true);
+            act.invoke(state, 0, 1, 0);
+            var payload = ArgumentCaptor.forClass(CompoundTag.class);
+            verify(f.host).rpcToServer(eq("actOnPatternPreview"), payload.capture());
+            assertEquals(7, payload.getValue().getInt("revision"));
+            assertEquals(0, payload.getValue().getInt("slot"));
+            state.receive(f.page(false, true, true, -1, 7, 65_536, 65_535, 1));
+            assertEquals(7, f.sync.clientSnapshot().revision());
+            assertTrue(f.sync.clientSnapshot().entries()[1].stack().isEmpty());
+            patterns.verifyNoInteractions();
+            state.setInputSearch("iron");
+            patterns.verify(() -> appeng.api.crafting.PatternDetailsHelper.decodePattern(any(ItemStack.class), eq(f.level)), times(1));
+        }
+    }
+
+    @Test void insertionDuringLoadingSkipsOccupiedSlotsWhosePagesHaveNotArrived() throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var first = f.page(true, false, true, -1, 7, 3, 1, 1);
+        var layout = new ListTag();
+        var bus = new CompoundTag(); bus.putLong("bus", 10); bus.putInt("count", 3); layout.add(bus);
+        first.put("layout", layout);
+        first.putIntArray("occupied", new int[]{0, 1});
+        state.receive(first);
+        var carried = new ItemStack(Items.DIAMOND);
+        when(f.player.containerMenu.getCarried()).thenReturn(carried);
+        try (var patterns = mockStatic(appeng.api.crafting.PatternDetailsHelper.class)) {
+            patterns.when(() -> appeng.api.crafting.PatternDetailsHelper.isEncodedPattern(carried)).thenReturn(true);
+            assertTrue(state.insertCarriedPattern(0));
+            var payload = ArgumentCaptor.forClass(CompoundTag.class);
+            verify(f.host).rpcToServer(eq("actOnPatternPreview"), payload.capture());
+            assertEquals(2, payload.getValue().getInt("slot"), "an unreceived occupied slot is not free capacity");
+        }
+    }
+
     @Test void reopeningRestoresDirectionalQueriesScrollAndCachedResultsBeforeAnyPacket() throws Exception {
         var f = new Fixture();
         var state = new CraftingPatternPreviewState(f.host, f.player);

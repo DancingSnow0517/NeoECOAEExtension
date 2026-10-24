@@ -42,6 +42,11 @@ public final class MenuDataTransport {
 
     public static void send(ServerPlayer player, Channel channel, Consumer<RegistryFriendlyByteBuf> encoder) {
         if (busy(player, channel)) throw new IllegalStateException("Menu stream is still in flight: " + channel);
+        sendQueued(player, channel, encoder);
+    }
+
+    /** Enqueues pages of one immutable snapshot in order; the shared byte budget still applies. */
+    public static void sendQueued(ServerPlayer player, Channel channel, Consumer<RegistryFriendlyByteBuf> encoder) {
         long start = System.nanoTime();
         var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(256, MenuStreamAssembler.MAX_BYTES), player.registryAccess());
         try {
@@ -49,8 +54,12 @@ public final class MenuDataTransport {
             byte[] bytes = new byte[buf.readableBytes()];
             buf.readBytes(bytes);
             if (bytes.length == 0) throw new IllegalArgumentException("Empty menu stream");
-            OUTGOING.computeIfAbsent(player, ignored -> new ArrayDeque<>())
-                .add(new Transfer(player.containerMenu, channel, ++nextTransfer, bytes));
+            var queue = OUTGOING.computeIfAbsent(player, ignored -> new ArrayDeque<>());
+            var page = new Transfer(player.containerMenu, channel, ++nextTransfer, bytes);
+            var head = queue.stream().filter(transfer -> transfer.menu == player.containerMenu
+                    && transfer.channel == channel).findFirst().orElse(null);
+            if (head == null) queue.addLast(page);
+            else head.following.addLast(page);
             Stats stats = STATS.computeIfAbsent(channel, ignored -> new Stats());
             stats.transfers++;
             stats.encodeNanos += System.nanoTime() - start;
@@ -81,6 +90,12 @@ public final class MenuDataTransport {
                 stats.packets++;
                 stats.bytes += length;
                 if (transfer.offset < transfer.bytes.length) queue.addLast(transfer);
+                else if (!transfer.following.isEmpty()) {
+                    // One head per channel preserves page order and round-robin fairness without rescanning pages.
+                    var next = transfer.following.removeFirst();
+                    next.following = transfer.following;
+                    queue.addLast(next);
+                }
             }
             peakPlayerTickBytes = Math.max(peakPlayerTickBytes, TICK_BYTES - budget);
             if (queue.isEmpty()) it.remove();
@@ -133,6 +148,7 @@ public final class MenuDataTransport {
         final Channel channel;
         final long id;
         final byte[] bytes;
+        ArrayDeque<Transfer> following = new ArrayDeque<>();
         int offset;
         Transfer(AbstractContainerMenu menu, Channel channel, long id, byte[] bytes) {
             this.menu = menu;

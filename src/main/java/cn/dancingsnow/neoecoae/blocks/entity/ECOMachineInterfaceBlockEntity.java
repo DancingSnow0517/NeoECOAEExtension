@@ -386,6 +386,44 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 && (patternTransferNoSpace > 0 || patternTransferIncompatible > 0));
     }
 
+    /** Provider capacities travel once; only occupied slots need individual preview entries. */
+    public ListTag getPatternPreviewLayout() {
+        ensurePatternInterfaceMapping();
+        ListTag layout = new ListTag();
+        for (int bus = 0; bus < patternBusPositions.length; bus++) {
+            CompoundTag entry = new CompoundTag();
+            entry.putLong("bus", patternBusPositions[bus]);
+            entry.putInt("count", patternBusSlotCounts[bus]);
+            layout.add(entry);
+        }
+        return layout;
+    }
+
+    public java.util.BitSet getOccupiedPatternPreviewSlots() {
+        ensurePatternInterfaceMapping();
+        java.util.BitSet occupied = new java.util.BitSet();
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) return occupied;
+        IECOPatternStorageService service = grid.getService(IECOPatternStorageService.class);
+        for (int busIndex = 0; busIndex < patternBusOffsets.length; busIndex++) {
+            int offset = patternBusOffsets[busIndex];
+            int count = patternBusSlotCounts[busIndex];
+            if (count <= 0) continue;
+            var bus = patternSlotRefs.get(offset).bus();
+            if (service instanceof PatternCatalog catalog) {
+                var slots = catalog.occupiedPatternSlots(bus);
+                for (int slot = slots.nextSetBit(0); slot >= 0 && slot < count; slot = slots.nextSetBit(slot + 1)) {
+                    occupied.set(offset + slot);
+                }
+            } else {
+                for (int slot = 0; slot < count; slot++) {
+                    if (!bus.getPatternSlotInventory().getStackInSlot(slot).isEmpty()) occupied.set(offset + slot);
+                }
+            }
+        }
+        return occupied;
+    }
+
     public PatternPreviewEntry getPatternPreviewEntry(int index) {
         PatternSlotRef ref = patternSlotRefs.get(index);
         PatternCatalog.PatternRecord record = getCatalogRecord(ref);

@@ -64,6 +64,40 @@ class MenuDataTransportTest {
         }
     }
 
+    @Test void queuedPatternPagesShareOneTickAndNeverOvertakeAnIncompletePage() {
+        var server = mock(MinecraftServer.class);
+        var player = player(server);
+        List<ECOMenuChunkS2CPacket> sent = new ArrayList<>();
+        var tick = new ServerTickEvent.Post(() -> true, server);
+        try (var packets = mockStatic(net.neoforged.neoforge.network.PacketDistributor.class)) {
+            packets.when(() -> net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(eq(player), any(ECOMenuChunkS2CPacket.class)))
+                    .thenAnswer(call -> { sent.add(call.getArgument(1)); return null; });
+            for (int i = 0; i < 3; i++) {
+                int value = i;
+                MenuDataTransport.sendQueued(player, MenuDataTransport.Channel.PATTERNS, buf -> buf.writeByte(value));
+            }
+            MenuDataTransport.tick(tick);
+            assertEquals(3, sent.size(), "small pages must not each wait for a new game tick");
+            assertFalse(MenuDataTransport.busy(player, MenuDataTransport.Channel.PATTERNS));
+            sent.clear();
+            MenuDataTransport.sendQueued(player, MenuDataTransport.Channel.PATTERNS, buf -> buf.writeBytes(new byte[50_000]));
+            MenuDataTransport.sendQueued(player, MenuDataTransport.Channel.PATTERNS, buf -> buf.writeByte(7));
+            MenuDataTransport.send(player, MenuDataTransport.Channel.GRAPH, buf -> buf.writeBytes(new byte[40_000]));
+            for (int i = 0; i < 5; i++) MenuDataTransport.tick(tick);
+            var assembler = new MenuStreamAssembler();
+            List<byte[]> completed = new ArrayList<>();
+            for (var packet : sent) {
+                if (packet.channel() != MenuDataTransport.Channel.PATTERNS) continue;
+                byte[] bytes = assembler.accept(packet.transfer(), packet.total(), packet.offset(), packet.bytes());
+                if (bytes != null) completed.add(bytes);
+            }
+            assertEquals(2, completed.size());
+            assertEquals(50_000, completed.get(0).length);
+            assertArrayEquals(new byte[]{7}, completed.get(1));
+            assertFalse(MenuDataTransport.busy(player, MenuDataTransport.Channel.PATTERNS));
+        }
+    }
+
     private static ServerPlayer player(MinecraftServer server) {
         var player = mock(ServerPlayer.class);
         player.containerMenu = mock(AbstractContainerMenu.class);

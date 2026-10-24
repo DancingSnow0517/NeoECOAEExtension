@@ -44,6 +44,9 @@ final class CraftingPatternPreviewState {
     private PatternPreviewEntry[] pending;
     private final Int2ObjectOpenHashMap<PatternPreviewEntry> pendingChanges = new Int2ObjectOpenHashMap<>();
     private boolean pendingFull;
+    private boolean sparseFull;
+    private final BitSet awaitingEntries = new BitSet();
+    private final BitSet localizedEntries = new BitSet();
     private int pendingRevision;
     private long pendingEpoch;
     private int revision = -1;
@@ -81,6 +84,7 @@ final class CraftingPatternPreviewState {
                 entries = snapshot.entries();
                 revision = snapshot.revision();
                 epoch = snapshot.epoch();
+                localizeForSearch();
                 rows.reset(entries);
                 scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
             }
@@ -147,7 +151,7 @@ final class CraftingPatternPreviewState {
     }
 
     private void act(int visualSlot, int action, int button) {
-        if (!player.level().isClientSide || revision < 0
+        if (!player.level().isClientSide || operationRevision() < 0
                 || menuId != player.containerMenu.containerId) return;
         int index = displayed[visualSlot];
         if (index < 0 || index >= entries.length) return;
@@ -161,10 +165,14 @@ final class CraftingPatternPreviewState {
         sendAction(entry, action, button);
     }
 
+    private int operationRevision() {
+        return pending != null && pendingFull ? pendingRevision : revision;
+    }
+
     private void sendAction(PatternPreviewEntry entry, int action, int button) {
         CompoundTag payload = new CompoundTag();
         payload.putInt("menu", menuId);
-        payload.putInt("revision", revision);
+        payload.putInt("revision", operationRevision());
         payload.putLong("bus", entry.busPosition());
         payload.putInt("slot", entry.physicalSlot());
         payload.put("stack", entry.stack().saveOptional(player.level().registryAccess()));
@@ -180,10 +188,12 @@ final class CraftingPatternPreviewState {
 
     /** Inserts into an actual empty bus slot, including slots outside the current viewport and search. */
     boolean insertCarriedPattern(int button) {
-        if ((button != 0 && button != 1) || !player.level().isClientSide || revision < 0
+        if ((button != 0 && button != 1) || !player.level().isClientSide || operationRevision() < 0
                 || menuId != player.containerMenu.containerId) return false;
         if (!hasCarriedPattern()) return false;
-        for (PatternPreviewEntry entry : entries) {
+        for (int index = 0; index < entries.length; index++) {
+            PatternPreviewEntry entry = entries[index];
+            if (entry == null || awaitingEntries.get(index)) continue;
             if (entry.auxiliaryDisk() || !entry.stack().isEmpty()) continue;
             // The existing RPC rechecks the menu, physical slot, carried stack, duplicates and mutation lock.
             sendAction(entry, 0, button);
@@ -206,7 +216,7 @@ final class CraftingPatternPreviewState {
     private void beginQuickMoveDrag(int visualSlot) {
         quickMoveTargets.clear();
         quickMoveDrag = true;
-        quickMoveRevision = revision;
+        quickMoveRevision = operationRevision();
         lastQuickMoveVisualSlot = visualSlot;
         queueQuickMove(visualSlot);
     }
@@ -263,16 +273,18 @@ final class CraftingPatternPreviewState {
         // no bus takes simply finds no slot over there.
         if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)
                 && !PatternDiskSupport.isAuxiliaryContainer(source.getItem())) return false;
-        if (!player.level().isClientSide || revision < 0
+        if (!player.level().isClientSide || operationRevision() < 0
                 || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return false;
-        for (PatternPreviewEntry entry : entries) {
+        for (int index = 0; index < entries.length; index++) {
+            PatternPreviewEntry entry = entries[index];
+            if (entry == null || awaitingEntries.get(index)) continue;
             // A disk's slot reads as empty here too, so skipping on the stack alone would aim the insert at the
             // disk: the server refuses it (the slot is not empty), but this method has already reported success,
             // so the click would be swallowed and placing a pattern would appear to do nothing.
             if (entry.auxiliaryDisk() || !entry.stack().isEmpty()) continue;
             CompoundTag payload = new CompoundTag();
             payload.putInt("menu", menuId);
-            payload.putInt("revision", revision);
+            payload.putInt("revision", operationRevision());
             payload.putLong("bus", entry.busPosition());
             payload.putInt("slot", entry.physicalSlot());
             payload.put("stack", entry.stack().saveOptional(player.level().registryAccess()));
@@ -310,12 +322,17 @@ final class CraftingPatternPreviewState {
             int size = payload.getInt("size");
             if (size < 0 || size > PatternPreviewCodec.MAX_SLOTS || (!full && size != entries.length)) return;
             pendingFull = full;
-            pending = full ? new PatternPreviewEntry[size] : entries;
+            sparseFull = full && payload.contains("layout", Tag.TAG_LIST);
+            if (full) localizedEntries.clear();
+            awaitingEntries.clear();
+            pending = full ? emptyBaseline(payload, size) : entries;
             pendingRevision = payload.getInt("revision");
             menuId = payload.getInt("menu");
         }
         if (pending == null || incomingEpoch != pendingEpoch || payload.getInt("revision") != pendingRevision) return;
         var batch = payload.getList("entries", Tag.TAG_COMPOUND);
+        BitSet pageChanges = new BitSet();
+        boolean diskRowsChanged = false;
         for (int index = 0; index < batch.size(); index++) {
             CompoundTag entry = batch.getCompound(index);
             int logicalSlot = entry.getInt("index");
@@ -324,7 +341,9 @@ final class CraftingPatternPreviewState {
                 return;
             }
             receivedEntries++;
-            PatternPreviewEntry decoded = localize(PatternPreviewEntry.decode(entry, craftingInterface.getLevel().registryAccess()));
+            PatternPreviewEntry decoded = PatternPreviewEntry.decode(entry, craftingInterface.getLevel().registryAccess());
+            if (hasSearch()) decoded = localize(decoded);
+            localizedEntries.set(logicalSlot, hasSearch());
             if (!pendingFull && entry.contains("diskSize")) {
                 int diskSize = entry.getInt("diskSize");
                 if (diskSize < 0 || diskSize > PatternPreviewCodec.MAX_SLOTS) { pending = null; return; }
@@ -336,18 +355,31 @@ final class CraftingPatternPreviewState {
                     CompoundTag change = changes.getCompound(recipe);
                     int target = change.getInt("recipe");
                     if (target < 0 || target >= diskSize) { pending = null; return; }
-                    disk.set(target, localize(PatternPreviewEntry.DiskPattern.decode(change, player.level().registryAccess())));
+                    var diskRecipe = PatternPreviewEntry.DiskPattern.decode(change, player.level().registryAccess());
+                    disk.set(target, hasSearch() ? localize(diskRecipe) : diskRecipe);
                 }
                 if (disk.contains(null)) { pending = null; return; }
                 decoded = new PatternPreviewEntry(decoded.busPosition(), decoded.physicalSlot(), decoded.stack(),
                         decoded.inputKeywords(), decoded.outputKeywords(), disk, decoded.auxiliaryDisk());
             }
-            if (pendingFull) pending[logicalSlot] = decoded;
-            else pendingChanges.put(logicalSlot, decoded);
+            if (pendingFull) {
+                diskRowsChanged |= !decoded.diskPatterns().isEmpty();
+                pending[logicalSlot] = decoded;
+                awaitingEntries.clear(logicalSlot);
+                pageChanges.set(logicalSlot);
+            } else pendingChanges.put(logicalSlot, decoded);
+        }
+        if (sparseFull) {
+            // The layout establishes empty capacity once. Later pages update their actual cells only.
+            entries = pending;
+            if (payload.getBoolean("first")) rows.reset(entries);
+            else rows.changed(pageChanges, diskRowsChanged);
+            clampScroll();
+            updateSlots();
         }
         if (!payload.getBoolean("last")) {
             // Show received patterns immediately. A completed cached view stays visible during refreshes.
-            if (pendingFull && revision < 0) {
+            if (pendingFull && !sparseFull && revision < 0) {
                 entries = pending;
                 rows.reset(entries);
                 rebuildFilter();
@@ -355,6 +387,7 @@ final class CraftingPatternPreviewState {
             return;
         }
         if (pendingFull) {
+            if (!awaitingEntries.isEmpty()) { pending = null; return; }
             for (PatternPreviewEntry entry : pending) {
                 if (entry == null) {
                     pending = null;
@@ -381,13 +414,47 @@ final class CraftingPatternPreviewState {
         revision = pendingRevision;
         epoch = pendingEpoch;
         craftingInterface.getPatternPreviewSync().cacheClientSnapshot(epoch, revision, entries);
-        if (pendingFull) {
+        if (pendingFull && !sparseFull) {
             rows.reset(entries);
             rebuildFilter();
         }
         else {
             clampScroll();
             updateSlots();
+        }
+    }
+
+    private PatternPreviewEntry[] emptyBaseline(CompoundTag payload, int size) {
+        PatternPreviewEntry[] baseline = new PatternPreviewEntry[size];
+        if (!sparseFull) return baseline;
+        ListTag layout = payload.getList("layout", Tag.TAG_COMPOUND);
+        int offset = 0;
+        for (int bus = 0; bus < layout.size(); bus++) {
+            CompoundTag provider = layout.getCompound(bus);
+            int count = provider.getInt("count");
+            if (count < 0 || count > size - offset) throw new IllegalArgumentException("Invalid preview layout");
+            for (int slot = 0; slot < count; slot++) {
+                baseline[offset++] = new PatternPreviewEntry(provider.getLong("bus"), slot, ItemStack.EMPTY,
+                        "", "", List.of(), false);
+            }
+        }
+        if (offset != size) throw new IllegalArgumentException("Incomplete preview layout");
+        for (int occupied : payload.getIntArray("occupied")) {
+            if (occupied < 0 || occupied >= size) throw new IllegalArgumentException("Invalid occupied preview slot");
+            awaitingEntries.set(occupied);
+        }
+        return baseline;
+    }
+
+    private boolean hasSearch() { return !inputSearch.isBlank() || !outputSearch.isBlank(); }
+
+    private void localizeForSearch() {
+        if (!hasSearch()) return;
+        for (int index = 0; index < entries.length; index++) {
+            if (entries[index] != null && !localizedEntries.get(index)) {
+                entries[index] = localize(entries[index]);
+                localizedEntries.set(index);
+            }
         }
     }
 
@@ -415,7 +482,10 @@ final class CraftingPatternPreviewState {
                 return PatternSearchKeywords.Directions.EMPTY;
             }
         });
-        return fallback.append(localized);
+        // Cached snapshots may already contain these client terms; never append them repeatedly.
+        return new PatternSearchKeywords.Directions(
+                inputs.contains(localized.inputs()) ? inputs : inputs + '\n' + localized.inputs(),
+                output.contains(localized.output()) ? output : output + '\n' + localized.output());
     }
 
     void setInputSearch(String value) {
@@ -448,6 +518,7 @@ final class CraftingPatternPreviewState {
     }
 
     private void rebuildFilter() {
+        localizeForSearch();
         rows.filter(inputSearch, outputSearch);
         clampScroll();
         updateSlots();

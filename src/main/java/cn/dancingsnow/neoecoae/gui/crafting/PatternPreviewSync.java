@@ -42,7 +42,7 @@ public final class PatternPreviewSync {
     private int cachedRevision = -1;
     private boolean building;
     private int buildCursor;
-    private int uncached;
+    private ListTag layout = new ListTag();
     private WeakReference<Consumer<CompoundTag>> receiver = new WeakReference<>(null);
 
     private record ClientCacheKey(String dimension, long position) {}
@@ -210,9 +210,9 @@ public final class PatternPreviewSync {
             cachedEntries.clear();
             for (int index = 0; index < size; index++) cachedEntries.add(null);
             dirtySlots.clear();
-            dirtySlots.set(0, size);
+            layout = host.getPatternPreviewLayout();
+            dirtySlots.or(host.getOccupiedPatternPreviewSlots());
             buildCursor = 0;
-            uncached = size;
             building = true;
             for (Viewer viewer : viewers.values()) {
                 viewer.revision = -1;
@@ -229,21 +229,22 @@ public final class PatternPreviewSync {
             if (index < 0 || index >= size) index = dirtySlots.nextSetBit(0);
             if (index < 0 || index >= size) break;
             CompoundTag entry = encode(index);
-            if (cachedEntries.get(index) == null) uncached--;
-            if (!entry.equals(cachedEntries.get(index))) {
+            // Capacity is described by the provider layout. Empty slots have no content record.
+            if (entry.getCompound("stack").isEmpty() && !entry.getBoolean("diskSlot")
+                    && entry.getList("disk", net.minecraft.nbt.Tag.TAG_COMPOUND).isEmpty()
+                    && entry.getString("inputs").isEmpty() && entry.getString("output").isEmpty()) entry = null;
+            if (!java.util.Objects.equals(entry, cachedEntries.get(index))) {
                 cachedEntries.set(index, entry);
                 for (Viewer viewer : viewers.values()) viewer.changed.set(index);
             }
             dirtySlots.clear(index);
             buildCursor = index + 1;
             visited++;
-            if (--budget == 0 || (budget <= SLOTS_PER_TICK - 16 && System.nanoTime() >= deadline)) break;
+            // Like AE2's terminal, the initial snapshot reads the already indexed occupied slots directly.
+            // Only subsequent dirty work is spread over ticks; unused capacity never delays opening.
+            if (!full && (--budget == 0 || (budget <= SLOTS_PER_TICK - 16 && System.nanoTime() >= deadline))) break;
         }
         building = !dirtySlots.isEmpty();
-        if (uncached > 0) {
-            for (ServerPlayer player : active) drain(player, viewers.get(player.getUUID()));
-            return;
-        }
         // Publish completed slices even under continuous automation. Remaining dirty slots follow in the
         // next delta; clicks validate physical contents rather than treating this revision as an inventory lock.
         cachedRevision = revision;
@@ -279,13 +280,23 @@ public final class PatternPreviewSync {
                 boolean sendFull = viewer.revision < 0;
                 List<CompoundTag> changes = new ArrayList<>();
                 if (sendFull) {
-                    changes.addAll(cachedEntries);
                     viewer.disks.clear();
-                    for (int index = 0; index < size; index++) rememberDisk(viewer, index, cachedEntries.get(index));
+                    for (int index = 0; index < size; index++) {
+                        CompoundTag entry = cachedEntries.get(index);
+                        if (entry != null) {
+                            changes.add(entry);
+                            rememberDisk(viewer, index, entry);
+                        }
+                    }
                 }
                 else for (int index = viewer.changed.nextSetBit(0); index >= 0;
-                          index = viewer.changed.nextSetBit(index + 1)) changes.add(diskDelta(viewer, index, cachedEntries.get(index)));
-                viewer.pending = new Pending(sendFull, viewer.revision, cachedRevision, size, changes);
+                          index = viewer.changed.nextSetBit(index + 1)) {
+                    CompoundTag entry = cachedEntries.get(index);
+                    // A removed pattern must still send its physical address as a tombstone.
+                    changes.add(diskDelta(viewer, index, entry == null ? encode(index) : entry));
+                }
+                viewer.pending = new Pending(sendFull, viewer.revision, cachedRevision, size, changes,
+                        sendFull ? layout : null);
                 viewer.changed.clear();
             }
             drain(player, viewer);
@@ -321,26 +332,30 @@ public final class PatternPreviewSync {
         if (viewer == null || viewer.menu != player.containerMenu || viewer.pending == null
                 || MenuDataTransport.busy(player, MenuDataTransport.Channel.PATTERNS)) return;
         Pending pending = viewer.pending;
-        int end = Math.min(pending.entries.size(), pending.offset + SLOTS_PER_TICK);
-        send(player, pending, end);
-        pending.offset = end;
-        if (end == pending.entries.size()) {
-            viewer.revision = pending.revision;
-            viewer.pending = null;
-        }
+        // Queue the immutable pages together. Transport drains as many as fit in its byte budget,
+        // instead of spending a whole game tick on each (possibly tiny) page.
+        do {
+            int end = Math.min(pending.entries.size(), pending.offset + SLOTS_PER_TICK);
+            send(player, pending, end);
+            pending.offset = end;
+        } while (pending.offset < pending.entries.size());
+        viewer.revision = pending.revision;
+        viewer.pending = null;
     }
 
     private static final class Pending {
         final boolean full;
         final int base, revision, size;
         final List<CompoundTag> entries;
+        final ListTag layout;
         int offset;
-        Pending(boolean full, int base, int revision, int size, List<CompoundTag> entries) {
+        Pending(boolean full, int base, int revision, int size, List<CompoundTag> entries, ListTag layout) {
             this.full = full;
             this.base = base;
             this.revision = revision;
             this.size = size;
             this.entries = entries;
+            this.layout = layout;
         }
     }
 
@@ -373,7 +388,7 @@ public final class PatternPreviewSync {
         payload.putBoolean("first", true);
         payload.putBoolean("last", true);
         payload.put("entries", new ListTag());
-        MenuDataTransport.send(player, MenuDataTransport.Channel.PATTERNS, buf -> {
+        MenuDataTransport.sendQueued(player, MenuDataTransport.Channel.PATTERNS, buf -> {
             buf.writeBlockPos(host.getBlockPos());
             PatternPreviewCodec.write(buf, payload);
         });
@@ -396,10 +411,14 @@ public final class PatternPreviewSync {
         payload.putBoolean("full", pending.full);
         payload.putBoolean("first", pending.offset == 0);
         payload.putBoolean("last", end == pending.entries.size());
+        if (pending.full && pending.offset == 0) {
+            payload.put("layout", pending.layout);
+            payload.putIntArray("occupied", pending.entries.stream().mapToInt(entry -> entry.getInt("index")).toArray());
+        }
         ListTag batch = new ListTag();
         batch.addAll(pending.entries.subList(pending.offset, end));
         payload.put("entries", batch);
-        MenuDataTransport.send(player, MenuDataTransport.Channel.PATTERNS, buf -> {
+        MenuDataTransport.sendQueued(player, MenuDataTransport.Channel.PATTERNS, buf -> {
             buf.writeBlockPos(host.getBlockPos());
             PatternPreviewCodec.write(buf, payload);
         });

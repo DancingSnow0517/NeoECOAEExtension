@@ -24,7 +24,18 @@ public final class PatternPreviewCodec {
         buf.writeVarInt(payload.getInt("size"));
         buf.writeByte((payload.getBoolean("full") ? 1 : 0)
                 | (payload.getBoolean("first") ? 2 : 0) | (payload.getBoolean("last") ? 4 : 0)
-                | (payload.getBoolean("reuse") ? 8 : 0));
+                | (payload.getBoolean("reuse") ? 8 : 0) | (payload.contains("layout") ? 16 : 0));
+        if (payload.contains("layout")) {
+            ListTag layout = payload.getList("layout", Tag.TAG_COMPOUND);
+            buf.writeVarInt(layout.size());
+            for (int i = 0; i < layout.size(); i++) {
+                buf.writeLong(layout.getCompound(i).getLong("bus"));
+                buf.writeVarInt(layout.getCompound(i).getInt("count"));
+            }
+            int[] occupied = payload.getIntArray("occupied");
+            buf.writeVarInt(occupied.length);
+            for (int index : occupied) buf.writeVarInt(index);
+        }
         ListTag entries = payload.getList("entries", Tag.TAG_COMPOUND);
         Object2IntOpenHashMap<CompoundTag> dictionary = new Object2IntOpenHashMap<>();
         dictionary.defaultReturnValue(-1);
@@ -81,6 +92,30 @@ public final class PatternPreviewCodec {
         payload.putBoolean("first", (flags & 2) != 0);
         payload.putBoolean("last", (flags & 4) != 0);
         payload.putBoolean("reuse", (flags & 8) != 0);
+        if ((flags & 16) != 0) {
+            if ((flags & 3) != 3) throw new IllegalArgumentException("Layout outside first full page");
+            ListTag layout = new ListTag();
+            int buses = bounded(buf.readVarInt(), MAX_SLOTS);
+            int total = 0;
+            for (int i = 0; i < buses; i++) {
+                CompoundTag bus = new CompoundTag();
+                bus.putLong("bus", buf.readLong());
+                int slots = bounded(buf.readVarInt(), size - total);
+                bus.putInt("count", slots);
+                total += slots;
+                layout.add(bus);
+            }
+            if (total != size) throw new IllegalArgumentException("Preview layout size mismatch");
+            int[] occupied = new int[bounded(buf.readVarInt(), size)];
+            int previous = -1;
+            for (int i = 0; i < occupied.length; i++) {
+                int index = bounded(buf.readVarInt(), size - 1);
+                if (index <= previous) throw new IllegalArgumentException("Unordered occupied slots");
+                occupied[i] = previous = index;
+            }
+            payload.put("layout", layout);
+            payload.putIntArray("occupied", occupied);
+        }
         int count = bounded(buf.readVarInt(), MAX_PAGE_ENTRIES);
         List<CompoundTag> contents = new ArrayList<>(count);
         NbtAccounter accounting = NbtAccounter.create(32L * 1024 * 1024);

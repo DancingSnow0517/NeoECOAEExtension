@@ -68,6 +68,28 @@ class PatternPreviewCodecTest {
         } finally { buf.release(); }
     }
 
+    @Test void sparseFullSnapshotDescribesCapacityOnceAndOnlyCarriesOccupiedStacks() {
+        var payload = payload(65_536);
+        var layout = new ListTag();
+        var bus = new CompoundTag(); bus.putLong("bus", 42); bus.putInt("count", 65_536); layout.add(bus);
+        payload.put("layout", layout);
+        payload.putIntArray("occupied", new int[]{2, 65_535});
+        var entries = new ListTag();
+        entries.add(encoded(2, new ItemStack(Items.STONE), List.of(), false));
+        entries.add(encoded(65_535, new ItemStack(Items.DIAMOND), List.of(), false));
+        payload.put("entries", entries);
+        var buf = buffer();
+        try {
+            PatternPreviewCodec.write(buf, payload);
+            assertTrue(buf.readableBytes() < 512, "empty capacity must not create content pages");
+            var decoded = PatternPreviewCodec.read(buf);
+            assertEquals(layout, decoded.getList("layout", Tag.TAG_COMPOUND));
+            assertArrayEquals(new int[]{2, 65_535}, decoded.getIntArray("occupied"));
+            assertEquals(2, decoded.getList("entries", Tag.TAG_COMPOUND).size());
+            assertFalse(buf.isReadable());
+        } finally { buf.release(); }
+    }
+
     @Test void rejectsOversizedCatalogueBeforeAllocatingEntries() {
         var buf = buffer();
         try {
