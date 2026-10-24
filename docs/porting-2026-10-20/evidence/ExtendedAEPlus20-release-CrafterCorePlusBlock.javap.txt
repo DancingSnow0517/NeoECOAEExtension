@@ -1,5 +1,0 @@
-Compiled from "CrafterCorePlusBlock.java"
-public class com.extendedae_plus.content.matrix.CrafterCorePlusBlock extends com.glodblock.github.extendedae.common.blocks.matrix.BlockAssemblerMatrixBase<com.extendedae_plus.content.matrix.CrafterCorePlusBlockEntity> {
-  public com.extendedae_plus.content.matrix.CrafterCorePlusBlock();
-  public net.minecraft.world.item.Item getPresentItem();
-}

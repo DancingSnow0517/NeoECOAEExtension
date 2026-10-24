@@ -1,6 +1,0 @@
-Compiled from "IManualCraftingState.java"
-public interface com.extendedae_plus.api.crafting.IManualCraftingState {
-  public abstract void eap$setManualWaiting(appeng.api.stacks.KeyCounter);
-  public abstract long eap$getManualWaitingAmount(appeng.api.stacks.AEKey);
-  public abstract java.util.Map<appeng.api.stacks.AEKey, java.lang.Long> eap$getManualWaitingSnapshot();
-}

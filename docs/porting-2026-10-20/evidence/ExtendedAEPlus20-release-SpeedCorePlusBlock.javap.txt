@@ -1,6 +1,0 @@
-Compiled from "SpeedCorePlusBlock.java"
-public class com.extendedae_plus.content.matrix.SpeedCorePlusBlock extends com.glodblock.github.extendedae.common.blocks.matrix.BlockAssemblerMatrixBase<com.extendedae_plus.content.matrix.SpeedCorePlusBlockEntity> {
-  public com.extendedae_plus.content.matrix.SpeedCorePlusBlock();
-  public com.extendedae_plus.content.matrix.SpeedCorePlusBlock(net.minecraft.world.level.block.state.BlockBehaviour$Properties);
-  public net.minecraft.world.item.Item getPresentItem();
-}

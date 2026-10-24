@@ -1,9 +1,0 @@
-[
-  {
-    "repo": "https://github.com/GlodBlock/ExtendedAE",
-    "ref": "1.20-1.4.21-forge",
-    "sha": "4d28c36b370c42f6614db6719366b00f0bdd941f",
-    "gradle_properties": "org.gradle.daemon=false\norg.gradle.debug=false\n\nminecraft_release=26.1.2\nminecraft_version=26.1.2\nminecraft_version_range=[26.1.2,)\nneoforge_version=26.1.2.21-beta\nneoforge_version_range=[26.1.2.21-beta,)\nloader_version_range=[1,)\n\nmod_id=extendedae\nmod_name=ExtendedAE\nmod_license=LGPL-3.0\nmod_version=26.1-1.0.4-neoforge\nmod_group_id=com.glodblock.github.extendedae\nmod_authors=GlodBlock\nmod_description=Add some QoL extended contents for AE2\n\nuse_Xei=jei",
-    "decision": "Rejected as 1.20.1 source: actual Minecraft/build metadata is 26.1.2. Use the explicit 1.20.1 branch/commit plus released Forge JAR."
-  }
-]

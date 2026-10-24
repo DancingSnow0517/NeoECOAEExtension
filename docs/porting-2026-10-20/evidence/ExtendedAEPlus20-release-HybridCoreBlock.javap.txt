@@ -1,6 +1,0 @@
-Compiled from "HybridCoreBlock.java"
-public class com.extendedae_plus.content.matrix.HybridCoreBlock extends com.glodblock.github.extendedae.common.blocks.matrix.BlockAssemblerMatrixBase<com.extendedae_plus.content.matrix.HybridCoreBlockEntity> {
-  public com.extendedae_plus.content.matrix.HybridCoreBlock();
-  public net.minecraft.world.item.Item getPresentItem();
-  public void m_6861_(net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.world.level.block.Block, net.minecraft.core.BlockPos, boolean);
-}

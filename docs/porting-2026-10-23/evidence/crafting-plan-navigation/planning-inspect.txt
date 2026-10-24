@@ -1,9 +1,0 @@
-screen=appeng.client.gui.me.crafting.CraftAmountScreen
-clientPlayerLoaded=true
-clientMenu=appeng.menu.me.crafting.CraftAmountMenu
-clientLocator=null
-clientHost=appeng.parts.encoding.PatternEncodingTerminalPart
-button=absent
-serverPlayers=1
-serverMenu=net.minecraft.world.inventory.InventoryMenu
-serverLocator=serverHost=

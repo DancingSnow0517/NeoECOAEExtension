@@ -1,4 +1,0 @@
-Compiled from "IProviderLookupPattern.java"
-public interface com.moakiee.thunderbolt.core.crafting.pattern.IProviderLookupPattern {
-  public abstract appeng.api.crafting.IPatternDetails providerLookupPattern();
-}

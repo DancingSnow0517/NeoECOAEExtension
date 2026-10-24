@@ -1,5 +1,0 @@
-screen=net.minecraft.client.gui.screens.PauseScreen
-clientMenu=net.minecraft.world.inventory.InventoryMenu
-clientContainerId=0
-serverMenu=net.minecraft.world.inventory.InventoryMenu
-serverContainerId=0

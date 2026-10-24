@@ -1,6 +1,0 @@
-Compiled from "UploadCoreBlock.java"
-public class com.extendedae_plus.content.matrix.UploadCoreBlock extends com.glodblock.github.extendedae.common.blocks.matrix.BlockAssemblerMatrixBase<com.extendedae_plus.content.matrix.UploadCoreBlockEntity> {
-  public com.extendedae_plus.content.matrix.UploadCoreBlock();
-  public com.extendedae_plus.content.matrix.UploadCoreBlock(net.minecraft.world.level.block.state.BlockBehaviour$Properties);
-  public net.minecraft.world.item.Item getPresentItem();
-}

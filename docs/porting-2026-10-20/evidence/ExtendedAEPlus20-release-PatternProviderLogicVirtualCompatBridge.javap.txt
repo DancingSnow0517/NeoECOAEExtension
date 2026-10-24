@@ -1,6 +1,0 @@
-Compiled from "PatternProviderLogicVirtualCompatBridge.java"
-public interface com.extendedae_plus.compat.PatternProviderLogicVirtualCompatBridge {
-  public abstract boolean eap$compatIsVirtualCraftingEnabled();
-  public abstract appeng.api.networking.IGrid eap$compatGetGrid();
-  public abstract appeng.api.networking.IManagedGridNode eap$compatGetMainNode();
-}

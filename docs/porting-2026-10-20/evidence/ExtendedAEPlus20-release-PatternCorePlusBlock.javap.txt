@@ -1,5 +1,0 @@
-Compiled from "PatternCorePlusBlock.java"
-public class com.extendedae_plus.content.matrix.PatternCorePlusBlock extends com.glodblock.github.extendedae.common.blocks.matrix.BlockAssemblerMatrixBase<com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity> {
-  public com.extendedae_plus.content.matrix.PatternCorePlusBlock();
-  public net.minecraft.world.item.Item getPresentItem();
-}

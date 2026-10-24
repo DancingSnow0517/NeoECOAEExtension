@@ -34,7 +34,7 @@ def dependencyLock = new groovy.json.JsonSlurper().parse(file('porting/dependenc
 def releaseJars = dependencyLock.artifacts.collectEntries { artifact ->
     def artifactFile = file("libs/pinned/${artifact.filename}")
     if (!artifactFile.isFile()) {
-        throw new GradleException('Run python tools/porting/prepare_dependencies.py before building.')
+        throw new GradleException("Missing pinned release ${artifact.filename}; download it from porting/dependencies.lock.json into libs/pinned/ before building.")
     }
     def actualHash = java.security.MessageDigest.getInstance('SHA-256')
         .digest(artifactFile.bytes).encodeHex().toString()

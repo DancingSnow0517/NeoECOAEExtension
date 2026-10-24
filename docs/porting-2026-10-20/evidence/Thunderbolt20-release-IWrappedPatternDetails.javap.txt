@@ -1,4 +1,0 @@
-Compiled from "IWrappedPatternDetails.java"
-public interface com.moakiee.thunderbolt.core.crafting.pattern.IWrappedPatternDetails {
-  public abstract appeng.api.crafting.IPatternDetails wrappedPatternDetails();
-}

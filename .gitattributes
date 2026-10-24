@@ -9,4 +9,3 @@ gradlew.bat text eol=crlf
 *.jar binary
 *.png binary
 *.ogg binary
-docs/porting-2026-10-20/evidence/** -text -diff

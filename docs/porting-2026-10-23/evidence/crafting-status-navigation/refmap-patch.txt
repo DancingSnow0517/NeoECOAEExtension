@@ -1,4 +1,0 @@
-mapper=org.spongepowered.asm.mixin.refmap.ReferenceMapper
-before=Lcom/mojang/blaze3d/vertex/PoseStack;popPose()V
-after=Lcom/mojang/blaze3d/vertex/PoseStack;m_85849_()V
-patchedConfigs=1

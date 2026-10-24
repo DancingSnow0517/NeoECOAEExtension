@@ -1,7 +1,0 @@
-Compiled from "TileExIOPort.java"
-public class com.glodblock.github.extendedae.common.tileentities.TileExIOPort extends appeng.blockentity.storage.IOPortBlockEntity {
-  private final appeng.util.inv.AppEngInternalInventory inputCells;
-  private static final int NUMBER_OF_CELL_SLOTS;
-  public com.glodblock.github.extendedae.common.tileentities.TileExIOPort(net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
-  public appeng.api.networking.ticking.TickRateModulation tickingRequest(appeng.api.networking.IGridNode, int);
-}

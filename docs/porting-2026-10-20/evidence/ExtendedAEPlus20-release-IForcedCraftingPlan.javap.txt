@@ -1,5 +1,0 @@
-Compiled from "IForcedCraftingPlan.java"
-public interface com.extendedae_plus.api.crafting.IForcedCraftingPlan {
-  public abstract appeng.api.stacks.KeyCounter eap$getManualMissingItems();
-  public abstract java.util.Map<appeng.api.stacks.AEKey, java.lang.Long> eap$getManualMissingSnapshot();
-}
