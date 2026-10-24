@@ -90,16 +90,14 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
 
         if (largeRecipe != null) {
             var font = Minecraft.getInstance().font;
-            widgets.addText(LargeWorkstationRecipeDisplay.clipped(font, LargeWorkstationRecipeDisplay.energy(largeRecipe)),
-                LargeWorkstationRecipeDisplay.TEXT_X, LargeWorkstationRecipeDisplay.ENERGY_Y, 0x403e53, false);
-            widgets.addText(LargeWorkstationRecipeDisplay.clipped(font, LargeWorkstationRecipeDisplay.extraSummary(largeRecipe)),
-                LargeWorkstationRecipeDisplay.TEXT_X, LargeWorkstationRecipeDisplay.EXTRA_Y, 0x403e53, false);
+            widgets.addDrawable(0, 0, 168, backgroundHeight,
+                (graphics, mouseX, mouseY, delta) -> LargeWorkstationRecipeDisplay.drawInfo(graphics, font, largeRecipe));
             widgets.addTooltipText(List.of(LargeWorkstationRecipeDisplay.energy(largeRecipe)),
                 LargeWorkstationRecipeDisplay.TEXT_X, LargeWorkstationRecipeDisplay.ENERGY_Y,
-                LargeWorkstationRecipeDisplay.TEXT_WIDTH, 9);
+                LargeWorkstationRecipeDisplay.TEXT_WIDTH, (int) Math.ceil(9 * LargeWorkstationRecipeDisplay.TEXT_SCALE));
             widgets.addTooltipText(LargeWorkstationRecipeDisplay.extraCosts(largeRecipe),
                 LargeWorkstationRecipeDisplay.TEXT_X, LargeWorkstationRecipeDisplay.EXTRA_Y,
-                LargeWorkstationRecipeDisplay.TEXT_WIDTH, 9);
+                LargeWorkstationRecipeDisplay.TEXT_WIDTH, (int) Math.ceil(9 * LargeWorkstationRecipeDisplay.TEXT_SCALE));
             var card = LargeWorkstationRecipeDisplay.upgradeCard(largeRecipe);
             if (!card.isEmpty()) {
                 var slot = widgets.addSlot(EmiStack.of(card), LargeWorkstationRecipeDisplay.CARD_X - 1,

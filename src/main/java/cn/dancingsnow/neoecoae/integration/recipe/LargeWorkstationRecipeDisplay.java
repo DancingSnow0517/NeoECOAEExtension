@@ -18,8 +18,10 @@ public final class LargeWorkstationRecipeDisplay {
     public static final int CARD_Y = 74;
     public static final int TEXT_X = 7;
     public static final int TEXT_WIDTH = 137;
+    public static final float TEXT_SCALE = 0.75f;
     public static final int ENERGY_Y = 74;
-    public static final int EXTRA_Y = 83;
+    public static final int EXTRA_Y = 84;
+    public static final int DIVIDER_Y = 82;
     public static final int EXTRA_SLOTS_Y = 100;
     public static final int COLUMNS = 9;
     private static final String PREFIX = "gui.neoecoae.large_integrated_working_station.";
@@ -64,19 +66,30 @@ public final class LargeWorkstationRecipeDisplay {
     }
 
     public static Component clipped(Font font, Component text) {
-        if (font.width(text) <= TEXT_WIDTH) return text;
-        return Component.literal(font.plainSubstrByWidth(text.getString(), TEXT_WIDTH - font.width("...")) + "...");
+        int availableWidth = (int) (TEXT_WIDTH / TEXT_SCALE);
+        if (font.width(text) <= availableWidth) return text;
+        return Component.literal(font.plainSubstrByWidth(text.getString(), availableWidth - font.width("...")) + "...");
     }
 
     public static void drawInfo(GuiGraphics graphics, Font font, LargeWorkstationRecipe recipe) {
-        graphics.drawString(font, clipped(font, energy(recipe)), TEXT_X, ENERGY_Y, 0x403e53, false);
-        graphics.drawString(font, clipped(font, extraSummary(recipe)), TEXT_X, EXTRA_Y, 0x403e53, false);
+        graphics.fill(TEXT_X, DIVIDER_Y, TEXT_X + TEXT_WIDTH, DIVIDER_Y + 1, 0xFF878FA5);
+        drawLine(graphics, font, energy(recipe), ENERGY_Y);
+        drawLine(graphics, font, extraSummary(recipe), EXTRA_Y);
+    }
+
+    private static void drawLine(GuiGraphics graphics, Font font, Component text, int y) {
+        var pose = graphics.pose();
+        pose.pushPose();
+        pose.translate(TEXT_X, y, 0);
+        pose.scale(TEXT_SCALE, TEXT_SCALE, 1);
+        graphics.drawString(font, clipped(font, text), 0, 0, 0x403e53, false);
+        pose.popPose();
     }
 
     public static List<Component> tooltip(LargeWorkstationRecipe recipe, double mouseX, double mouseY) {
         if (mouseX >= TEXT_X && mouseX < TEXT_X + TEXT_WIDTH) {
             if (mouseY >= ENERGY_Y && mouseY < EXTRA_Y) return List.of(energy(recipe));
-            if (mouseY >= EXTRA_Y && mouseY < EXTRA_Y + 9) return extraCosts(recipe);
+            if (mouseY >= EXTRA_Y && mouseY < EXTRA_Y + 9 * TEXT_SCALE) return extraCosts(recipe);
         }
         if (mouseX >= CARD_X && mouseX < CARD_X + 16 && mouseY >= CARD_Y && mouseY < CARD_Y + 16) {
             return moduleTooltip(recipe);
