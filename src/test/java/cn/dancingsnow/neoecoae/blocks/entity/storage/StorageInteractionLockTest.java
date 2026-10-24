@@ -21,7 +21,7 @@ class StorageInteractionLockTest {
 
     @Test
     void onlySuccessfulInstallationsChangeTheInteractionIdentity() {
-        ECODriveBlockEntity drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        ECODriveBlockEntity drive = StorageDriveTestFixtures.drive();
         doReturn(mock(IManagedGridNode.class)).when(drive).getMainNode();
         doNothing().when(drive).setChanged();
         doReturn(true).when(drive).isItemValid(any());
@@ -56,7 +56,7 @@ class StorageInteractionLockTest {
 
     @Test
     void migrationMarkerBlocksEvenWithoutAnInfiniteHostAndClearingItUnlocks() throws Exception {
-        ECODriveBlockEntity drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        ECODriveBlockEntity drive = StorageDriveTestFixtures.drive();
         ItemStack stack = new ItemStack(Items.STONE);
         var field = ECODriveBlockEntity.class.getDeclaredField("cellStack");
         field.setAccessible(true);
@@ -81,7 +81,7 @@ class StorageInteractionLockTest {
 
     @Test
     void infiniteMemberKeepsItsOwnReasonAndCannotBeClearedThroughSetter() {
-        ECODriveBlockEntity drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        ECODriveBlockEntity drive = StorageDriveTestFixtures.drive();
         doReturn(true).when(drive).isLockedByInfiniteMode();
         assertEquals(ECODriveBlockEntity.CellExtractionBlockReason.INFINITE_MEMBER,
             drive.getCellExtractionBlockReason());
@@ -95,7 +95,7 @@ class StorageInteractionLockTest {
 
     @Test
     void completedInfiniteModeAllowsMemberExtraction() {
-        ECODriveBlockEntity drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        ECODriveBlockEntity drive = StorageDriveTestFixtures.drive();
         ECOStorageSystemBlockEntity host = mock(ECOStorageSystemBlockEntity.class);
         doReturn(true).when(drive).isLockedByInfiniteMode();
         doReturn(host).when(drive).getStorageController();

@@ -140,7 +140,7 @@ class ECOInfiniteStorageAccessTest {
         var drives = new ArrayList<ECODriveBlockEntity>();
         var members = new ArrayList<ItemStack>();
         for (int i = 0; i < 13; i++) {
-            var drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+            var drive = StorageDriveTestFixtures.drive();
             doReturn(false).when(drive).hasLegacyRestoreReceipts();
             field(drive, "cluster", cluster);
             doReturn(mock(IManagedGridNode.class)).when(drive).getMainNode();
@@ -230,7 +230,7 @@ class ECOInfiniteStorageAccessTest {
         ECOInfiniteStorageMember.markMember(member, host.infiniteDomainId());
         var memberDrive = mock(ECODriveBlockEntity.class);
         when(memberDrive.getCellStack()).thenReturn(member);
-        var specialDrive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        var specialDrive = StorageDriveTestFixtures.drive();
         field(specialDrive, "cluster", cluster);
         field(specialDrive, "cellStack", new ItemStack(Items.DIRT));
         doNothing().when(specialDrive).setChanged();
