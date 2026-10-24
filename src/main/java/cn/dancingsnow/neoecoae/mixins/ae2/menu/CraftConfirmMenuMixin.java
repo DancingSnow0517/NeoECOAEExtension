@@ -18,6 +18,7 @@ import appeng.menu.guisync.GuiSync;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
+import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
@@ -34,6 +35,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.platform.mixin.CraftConfirmPlanningBridge;
+import cn.dancingsnow.neoecoae.platform.mixin.RouteCraftingPlanning;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -362,6 +364,20 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         neoecoae$originalOptions = null;
         neoecoae$lastStartDiagnostic = null;
         neoecoae$nextStartDiagnosticTick = 0;
+    }
+
+    @RouteCraftingPlanning(at = @At(value = "INVOKE",
+        target = "Lappeng/api/networking/crafting/ICraftingService;beginCraftingCalculation(Lnet/minecraft/world/level/Level;Lappeng/api/networking/crafting/ICraftingSimulationRequester;Lappeng/api/stacks/AEKey;JLappeng/api/networking/crafting/CalculationStrategy;)Ljava/util/concurrent/Future;"))
+    private Future<ICraftingPlan> neoecoae$routeInterfacePlanning(ICraftingService service, Level level,
+            ICraftingSimulationRequester requester, AEKey what, long amount, CalculationStrategy strategy) {
+        return CraftConfirmPlanningBridge.routePlanningRequest(service, level, requester, what, amount, strategy, this);
+    }
+
+    @RouteCraftingPlanning(require = 0, at = @At(value = "INVOKE",
+        target = "Lappeng/me/service/CraftingService;beginCraftingCalculation(Lnet/minecraft/world/level/Level;Lappeng/api/networking/crafting/ICraftingSimulationRequester;Lappeng/api/stacks/AEKey;JLappeng/api/networking/crafting/CalculationStrategy;)Ljava/util/concurrent/Future;"))
+    private Future<ICraftingPlan> neoecoae$routeConcretePlanning(CraftingService service, Level level,
+            ICraftingSimulationRequester requester, AEKey what, long amount, CalculationStrategy strategy) {
+        return CraftConfirmPlanningBridge.routePlanningRequest(service, level, requester, what, amount, strategy, this);
     }
 
     /**

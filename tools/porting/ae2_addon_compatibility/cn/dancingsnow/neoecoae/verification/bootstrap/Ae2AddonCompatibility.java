@@ -16,8 +16,10 @@ import net.minecraft.launchwrapper.Launch;
 import net.minecraft.launchwrapper.LaunchClassLoader;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -39,6 +41,9 @@ public final class Ae2AddonCompatibility {
 
     public static void main(String[] args) throws Exception {
         String mode = args[0];
+        System.out.println("AE2_ADDON_RUNTIME_SOURCES production=" + Ae2AddonCompatibility.class.getClassLoader()
+            .getResource("cn/dancingsnow/neoecoae/platform/mixin/CraftingMenuPlanningMixinPlugin.class")
+            + " mixinExtras=" + MixinExtrasBootstrap.class.getProtectionDomain().getCodeSource().getLocation());
         var runtimeSample = JsonParser.parseString(Files.readString(Path.of(args[3]))).getAsJsonObject();
         sample = runtimeSample.getAsJsonObject("targets").getAsJsonObject(args[1]);
         addonMixin = runtimeSample.get("mixin_package").getAsString() + "." + sample.get("mixin").getAsString();
@@ -46,9 +51,10 @@ public final class Ae2AddonCompatibility {
         boolean craftConfirm = args.length > 1 && args[1].equals("craft-confirm");
         boolean craftingStyle = args.length > 1 && args[1].equals("crafting-style");
         boolean planningRoute = args.length > 1 && args[1].equals("planning-route");
+        boolean planningWrapper = args.length > 1 && args[1].equals("planning-wrapper");
         boolean submissionRoute = args.length > 1 && args[1].equals("submission-route");
         String target = craftingStyle ? "appeng.client.gui.style.StyleManager" :
-            craftConfirm || planningRoute ? "appeng.menu.me.crafting.CraftConfirmMenu" :
+            craftConfirm || planningRoute || planningWrapper ? "appeng.menu.me.crafting.CraftConfirmMenu" :
             submissionRoute ? "appeng.me.service.CraftingService" :
             selectionList ? "appeng.client.gui.widgets.CPUSelectionList" : TARGET;
         var urls = new ArrayList<URL>();
@@ -65,6 +71,7 @@ public final class Ae2AddonCompatibility {
         if (mode.equals("before") && !craftingStyle) {
             if (craftConfirm) restoreOldConfirmationIds(overrides);
             else if (planningRoute) restoreOldPlanningEntries(overrides);
+            else if (planningWrapper) restoreUnsafePlanningEntries(overrides);
             else if (submissionRoute) restoreOldSubmissionPoint(overrides);
             else restoreOldPriority(overrides);
         }
@@ -102,7 +109,7 @@ public final class Ae2AddonCompatibility {
         MixinBootstrap.init();
         var environment = MixinEnvironment.getDefaultEnvironment();
         environment.setSide(selectionList || craftingStyle ? MixinEnvironment.Side.CLIENT : MixinEnvironment.Side.SERVER);
-        if ((selectionList || craftConfirm || planningRoute) && args.length > 2 && args[2].equals("searge")) environment.setObfuscationContext("searge");
+        if ((selectionList || craftConfirm || planningRoute || planningWrapper) && args.length > 2 && args[2].equals("searge")) environment.setObfuscationContext("searge");
         MixinExtrasBootstrap.init();
         Mixins.addConfiguration("neoecoae.mixins.json");
         if (!mode.equals("base")) Mixins.addConfiguration("ae2-addon-regression.mixins.json");
@@ -113,6 +120,13 @@ public final class Ae2AddonCompatibility {
 
         try {
             var transformed = Class.forName(target, false, Launch.classLoader);
+            if (planningWrapper) {
+                // Force JVM method verification; exporting a ClassNode alone does not detect VerifyError.
+                transformed.getDeclaredMethods();
+                if (mode.equals("before")) throw new AssertionError("Unsafe planning rewrite unexpectedly verified");
+                verifyWrappedPlanning(mode, target);
+                return;
+            }
             if (craftingStyle) {
                 verifyCraftingStyle(mode, target, transformed);
                 return;
@@ -144,12 +158,17 @@ public final class Ae2AddonCompatibility {
                 System.out.println("AE2_ADDON_CPU_COMPAT PASS mode=" + mode + " transformed=true jobWrapper=true dispatch=true lifecycle=true");
             }
         } catch (Throwable failure) {
+            if (planningWrapper && mode.equals("before") && hasStackUnderflow(failure)) {
+                System.out.println("AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=before reproduced=VerifyError_operand_stack_underflow");
+                return;
+            }
             if (!mode.equals("before") || !isOriginalFailure(failure)) throw failure;
             System.out.println("AE2_ADDON_CPU_COMPAT PASS mode=before reproduced=InvalidInjectionException priority1000_vs_" + sample.get("overwrite_priority").getAsInt());
         }
     }
 
     private static void restoreOldPlanningEntries(Path overrides) throws Exception {
+        removeTrackedPlanningInjectors(overrides);
         try (var input = Ae2AddonCompatibility.class.getClassLoader().getResourceAsStream("neoecoae.mixins.json")) {
             if (input == null) throw new IllegalStateException("Missing production Mixin config");
             var config = JsonParser.parseReader(new InputStreamReader(input,
@@ -157,6 +176,75 @@ public final class Ae2AddonCompatibility {
             config.addProperty("plugin", "cn.dancingsnow.neoecoae.verification.bootstrap.LegacyPlanningEntryPlugin");
             Files.writeString(overrides.resolve("neoecoae.mixins.json"), config.toString());
         }
+    }
+
+    private static void restoreUnsafePlanningEntries(Path overrides) throws Exception {
+        removeTrackedPlanningInjectors(overrides);
+        try (var input = Ae2AddonCompatibility.class.getClassLoader().getResourceAsStream("neoecoae.mixins.json")) {
+            var config = JsonParser.parseReader(new InputStreamReader(input,
+                java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            config.addProperty("plugin", "cn.dancingsnow.neoecoae.verification.bootstrap.UnsafePlanningEntryPlugin");
+            Files.writeString(overrides.resolve("neoecoae.mixins.json"), config.toString());
+        }
+    }
+
+    private static void removeTrackedPlanningInjectors(Path overrides) throws Exception {
+        String resource = "cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftConfirmMenuMixin.class";
+        var node = productionClass(resource);
+        for (var method : node.methods) {
+            if (method.visibleAnnotations != null) method.visibleAnnotations.removeIf(annotation ->
+                annotation.desc.equals("Lcn/dancingsnow/neoecoae/platform/mixin/RouteCraftingPlanning;"));
+        }
+        writeOverride(overrides, resource, node);
+    }
+
+    private static boolean hasStackUnderflow(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof VerifyError && cause.getMessage().contains("Operand stack underflow")
+                    && cause.getMessage().contains("CraftConfirmMenu.planJob(")) return true;
+        }
+        return false;
+    }
+
+    private static boolean routesPlanning(ClassNode node, MethodNode method, java.util.Set<String> visited) {
+        if (!visited.add(method.name + method.desc)) return false;
+        for (var instruction : method.instructions) {
+            if (instruction instanceof MethodInsnNode call) {
+                if (call.name.equals("routePlanningRequest")
+                        && call.owner.equals("cn/dancingsnow/neoecoae/platform/mixin/CraftConfirmPlanningBridge")) return true;
+                if (call.owner.equals(node.name) && routesPlanning(node, call.name, call.desc, visited)) return true;
+            } else if (instruction instanceof InvokeDynamicInsnNode dynamic) {
+                for (Object argument : dynamic.bsmArgs) {
+                    if (argument instanceof Handle handle && handle.getOwner().equals(node.name)
+                            && routesPlanning(node, handle.getName(), handle.getDesc(), visited)) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean routesPlanning(ClassNode node, String name, String descriptor, java.util.Set<String> visited) {
+        return node.methods.stream().filter(method -> method.name.equals(name) && method.desc.equals(descriptor))
+            .anyMatch(method -> routesPlanning(node, method, visited));
+    }
+
+    private static void verifyWrappedPlanning(String mode, String target) throws Exception {
+        var node = exportedClass(target);
+        var nativeEntry = node.methods.stream().filter(method -> method.name.equals("planJob")).findFirst().orElseThrow();
+        require(routesPlanning(node, nativeEntry, new java.util.HashSet<>()), "Native wrapper bypassed ECO planning");
+        String wrapper = sample.get("wrapper").getAsString();
+        require(calls(nativeEntry, wrapper) == !mode.equals("base"), "Lost the addon's operation wrapper");
+        int additional = 0;
+        for (var name : sample.getAsJsonArray("planning_entries")) {
+            var entries = node.methods.stream().filter(method -> method.name.contains(name.getAsString())).toList();
+            require(entries.isEmpty() == mode.equals("base"), "Unexpected addon entry: " + name);
+            for (var entry : entries) {
+                require(routesPlanning(node, entry, new java.util.HashSet<>()), "Addon entry bypassed ECO: " + entry.name);
+                additional++;
+            }
+        }
+        System.out.println("AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=" + mode
+            + " jvmVerified=true addonWrapper=" + !mode.equals("base") + " addonEntries=" + additional);
     }
 
     private static void restoreOldSubmissionPoint(Path overrides) throws Exception {
@@ -209,20 +297,18 @@ public final class Ae2AddonCompatibility {
 
     private static void verifyPlanningRoute(String mode, String target) throws Exception {
         var node = exportedClass(target);
-        var nativeEntries = node.methods.stream().filter(method -> method.name.equals("planJob")
-            && (calls(method, "routePlanningRequest") || calls(method, "beginCraftingCalculation"))).toList();
+        var nativeEntries = node.methods.stream().filter(method -> method.name.equals("planJob")).toList();
         require(!nativeEntries.isEmpty(), "Missing native calculation entry");
         for (var entry : nativeEntries) {
-            require(calls(entry, "routePlanningRequest"), "Native calculation bypassed ECO");
+            require(routesPlanning(node, entry, new java.util.HashSet<>()), "Native calculation bypassed ECO");
             require(!calls(entry, "beginCraftingCalculation"), "Unwrapped native calculation remains");
         }
         int additionalEntries = 0;
         for (var name : sample.getAsJsonArray("planning_entries")) {
-            var entries = node.methods.stream().filter(method -> method.name.contains(name.getAsString())
-                && (calls(method, "routePlanningRequest") || calls(method, "beginCraftingCalculation"))).toList();
+            var entries = node.methods.stream().filter(method -> method.name.contains(name.getAsString())).toList();
             require(entries.isEmpty() == mode.equals("base"), "Unexpected addon calculation entries: " + name);
             for (var entry : entries) {
-                require(calls(entry, "routePlanningRequest") != mode.equals("before"),
+                require(routesPlanning(node, entry, new java.util.HashSet<>()) != mode.equals("before"),
                     "Unexpected addon planning route: " + entry.name + entry.desc);
                 require(calls(entry, "beginCraftingCalculation") == mode.equals("before"),
                     "Unexpected original addon calculation call: " + entry.name + entry.desc);

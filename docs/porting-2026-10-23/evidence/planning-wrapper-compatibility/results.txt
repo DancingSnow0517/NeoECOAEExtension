@@ -1,0 +1,37 @@
+AE2 planning-wrapper compatibility fix
+artifact_sha256=dc92d45ee8ed6c6fd71282597b0291a446a2a92fbe5c7d0ea8eea70b5ebd61cb
+installed_sha256=dc92d45ee8ed6c6fd71282597b0291a446a2a92fbe5c7d0ea8eea70b5ebd61cb
+
+installed_ae2_independent_wrapper
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=before reproduced=VerifyError_operand_stack_underflow
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=addon jvmVerified=true addonWrapper=true addonEntries=2
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=base jvmVerified=true addonWrapper=false addonEntries=0
+
+development_ae2_independent_wrapper
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=before reproduced=VerifyError_operand_stack_underflow
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=addon jvmVerified=true addonWrapper=true addonEntries=2
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=base jvmVerified=true addonWrapper=false addonEntries=0
+
+appliedenhancements_1_0_7
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=before reproduced=VerifyError_operand_stack_underflow
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=addon jvmVerified=true addonWrapper=true addonEntries=1
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=base jvmVerified=true addonWrapper=false addonEntries=0
+
+appliedenhancements_1_1_4
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=before reproduced=VerifyError_operand_stack_underflow
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=addon jvmVerified=true addonWrapper=true addonEntries=1
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=base jvmVerified=true addonWrapper=false addonEntries=0
+
+unknown_addon_planning_route
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=before native=1 addon=1 wrapped=false
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=addon native=1 addon=1 wrapped=true
+AE2_ADDON_PLANNING_ROUTE_COMPAT PASS mode=base native=1 addon=0 wrapped=true
+
+packaged_actual_runtime
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=before reproduced=VerifyError_operand_stack_underflow
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=addon jvmVerified=true addonWrapper=true addonEntries=1
+AE2_ADDON_PLANNING_WRAPPER_COMPAT PASS mode=base jvmVerified=true addonWrapper=false addonEntries=0
+
+focused_unit_tests={"errors": 0, "failures": 0, "skipped": 0, "tests": 9}
+package_audit=success
+full_client_started=false; save_loaded=false; real_crafting_interaction=false
