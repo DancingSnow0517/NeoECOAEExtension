@@ -1,88 +1,30 @@
 ---
 navigation:
   title: Multiblock Auto Builder
-  icon: neoecoae:crafting_system_l9
+  icon: neoecoae:structure_terminal
   parent: neoecoae_intro/index.md
 ---
 
 # Multiblock Auto Builder
 
-Neo ECO AE provides an automatic building feature for its main multiblock systems, making large structures much easier to assemble.
+To build an [ECO Storage System](storage_system.md), [ECO Computation System](computation_system.md) or [ECO Crafting System](crafting_system.md), right-click its host with an empty hand and use the Build button inside the host's UI. Each system's L4/L6/L9 hosts use their own screens.
 
-## Supported Systems
+## Selecting the Length and Building
 
-The auto builder currently supports the following multiblock systems:
+Place the host and confirm its facing, then click its Build button to open the settings window. The window has four rows: a length label, a length input, length adjustment buttons, and the mirror switch with the build button. Enter a length directly or adjust it with the −10, −1, +1 and +10 buttons. The input tooltip shows the allowed range.
 
-- [ECO Storage System](storage_system.md)
-- [ECO Computation System](computation_system.md)
-- [ECO Crafting System](crafting_system.md)
+Check the length, mirror setting and materials, then start building. The return button in the upper-right corner closes the window and retains its settings. Settings and building are unavailable while the structure is formed or a build is already in progress.
 
-## Opening the Builder Panel
+## Structure Terminal
 
-When you open a multiblock controller GUI, a structure builder button appears on the side of the interface. Clicking it opens a separate floating panel.
+Opening the <ItemLink id="neoecoae:structure_terminal" /> displays only this notice: “Please use the Build button in the corresponding host's UI.” Structure previews remain available on the machines' recipe viewer pages.
 
-The panel can be dragged, allowing you to inspect system information and builder controls at the same time.
+<RecipeFor id="neoecoae:structure_terminal" />
 
-## Panel Features
+## Materials and Build Progress
 
-The auto builder panel provides the following features:
+Materials are taken from the player's accessible inventory, including container items that expose an item handler capability, such as supported shulker boxes and backpacks.
 
-- Length adjustment: selects the current multiblock length to build
-- Preview: checks missing blocks, conflicting blocks, reusable blocks, and required item counts
-- Build: starts automatic placement after confirming the required materials
-- Status display: shows preview results, build progress, and interruption states
+In survival mode, blocks are placed over server ticks and materials are consumed only when each block is placed. In creative mode, missing blocks are placed immediately if there are no conflicts.
 
-## Preview Behavior
-
-When you click Preview, the system generates a structure plan based on the controller orientation and selected length, then reports:
-
-- Missing blocks
-- Conflicting blocks
-- Reusable blocks
-- Required item count
-
-If the world already contains blocks that should not be replaced, they are marked as conflicts and the auto builder will not overwrite them automatically.
-
-## Auto Build Behavior
-
-### Creative Mode
-
-In creative mode, if the structure has no conflicts, all missing blocks are placed instantly.
-
-### Survival Mode
-
-In survival mode, the structure is built step by step on server ticks instead of being placed all at once.
-
-This behavior exists to:
-
-- Avoid large world changes in a single instant
-- Keep material consumption aligned with actual block placement
-- Allow the build process to stop cleanly when blocked
-
-## Material Consumption Rules
-
-The auto builder does not consume all materials up front. Instead, it consumes items only when a block is successfully placed.
-
-The system can count and consume materials from accessible inventory sources, including container items with item handler support, such as:
-
-- Shulker-like containers
-- Backpack-type items
-- Other container items that expose an item handler capability
-
-## Conflicts and Interruptions
-
-The auto builder may fail to start or may stop midway in cases such as:
-
-- Conflicting blocks in the planned structure
-- Missing materials
-- The player leaving or becoming unavailable for the build session
-- Target positions becoming blocked during the build process
-
-The panel will show the corresponding state so you can preview again and adjust the structure.
-
-## Tips
-
-- Place the controller first and confirm its facing before using the auto builder
-- For large structures, preview first to confirm the selected length and available space
-- Watch the preview counts before changing structure scale
-- In survival mode, keep enough materials available in your inventory or supported container items
+The builder does not overwrite conflicting blocks. Missing materials, conflicts or blocked positions can prevent or interrupt a build. Replenish materials and clear blocked positions, then retry from the corresponding host's builder window.

@@ -11,7 +11,6 @@ import com.lowdragmc.lowdraglib.gui.factory.HeldItemUIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
@@ -24,22 +23,10 @@ import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Structure Terminal — a handheld tool for configuring and executing
- * multiblock structure builds.
- *
- * <p>Behaviour:
- * <ul>
- *   <li><b>Right-click (air or block, no shift)</b>: Opens the terminal
- *       config UI to set the build length. The length is stored in the
- *       item's NBT under key {@value #TAG_BUILD_LENGTH}.</li>
- *   <li><b>Shift + right-click on a multiblock host</b>: Executes
- *       {@link INEMultiblockBuildHost#autoBuild(ServerPlayer, int)}
- *       using the length stored in this item.</li>
- *   <li><b>Shift + right-click on a non-host block</b>: Passes through.</li>
- * </ul>
+ * Directs players to the builder in the corresponding host's UI.
+ * Legacy Shift-right-click operations retain the settings stored on existing items.
  */
 public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHeldItemUIHolder {
 
@@ -47,12 +34,6 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
     public static final String TAG_HOST_TYPE = "HostType";
     public static final String TAG_HOST_TIER = "HostTier";
     public static final String TAG_OPERATION_MODE = "OperationMode";
-    public static final String TAG_PREVIEW_MIRRORED = "PreviewMirrored";
-    public static final String TAG_PREVIEW_FORMED = "PreviewFormed";
-    public static final String TAG_PREVIEW_LAYER = "PreviewLayer";
-    public static final String TAG_PREVIEW_MATERIAL_SCROLL = "PreviewMaterialScroll";
-    public static final String TAG_TARGET_DIMENSION = "TargetDimension";
-    public static final String TAG_TARGET_POS = "TargetPos";
     public static final int DEFAULT_BUILD_LENGTH = 1;
     public static final int MIN_BUILD_LENGTH = 1;
 
@@ -116,8 +97,6 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         CompoundTag tag = stack.getOrCreateTag();
         tag.putString(TAG_HOST_TYPE, hostType.name());
         tag.putInt(TAG_HOST_TIER, StructureTerminalHostType.clampTier(tier));
-        tag.remove(TAG_TARGET_DIMENSION);
-        tag.remove(TAG_TARGET_POS);
         setBuildLength(stack, getBuildLength(stack));
     }
 
@@ -151,44 +130,6 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         return mode;
     }
 
-    public static boolean isPreviewMirrored(ItemStack stack) {
-        CompoundTag tag = stack.getTag();
-        return tag != null && tag.getBoolean(TAG_PREVIEW_MIRRORED);
-    }
-
-    public static void setPreviewMirrored(ItemStack stack, boolean mirrored) {
-        stack.getOrCreateTag().putBoolean(TAG_PREVIEW_MIRRORED, mirrored);
-    }
-
-    public static boolean isPreviewFormed(ItemStack stack) {
-        CompoundTag tag = stack.getTag();
-        return tag != null && tag.getBoolean(TAG_PREVIEW_FORMED);
-    }
-
-    public static void setPreviewFormed(ItemStack stack, boolean formed) {
-        stack.getOrCreateTag().putBoolean(TAG_PREVIEW_FORMED, formed);
-    }
-
-    public static int getPreviewLayer(ItemStack stack) {
-        CompoundTag tag = stack.getTag();
-        return tag == null || !tag.contains(TAG_PREVIEW_LAYER) ? -1 : tag.getInt(TAG_PREVIEW_LAYER);
-    }
-
-    public static void setPreviewLayer(ItemStack stack, int layer) {
-        stack.getOrCreateTag().putInt(TAG_PREVIEW_LAYER, layer);
-    }
-
-    public static int getPreviewMaterialScroll(ItemStack stack) {
-        CompoundTag tag = stack.getTag();
-        return tag == null || !tag.contains(TAG_PREVIEW_MATERIAL_SCROLL)
-                ? 0
-                : Math.max(0, tag.getInt(TAG_PREVIEW_MATERIAL_SCROLL));
-    }
-
-    public static void setPreviewMaterialScroll(ItemStack stack, int scroll) {
-        stack.getOrCreateTag().putInt(TAG_PREVIEW_MATERIAL_SCROLL, Math.max(0, scroll));
-    }
-
     private static void setHostTarget(ItemStack stack, INEMultiblockBuildHost host) {
         MultiBlockDefinition definition = host.getBuildDefinition();
         StructureTerminalHostType hostType = StructureTerminalHostType.fromDefinition(definition);
@@ -197,42 +138,17 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         }
     }
 
-    public static void rememberTarget(ItemStack stack, Level level, INEMultiblockBuildHost host) {
-        CompoundTag tag = stack.getOrCreateTag();
-        tag.putString(TAG_TARGET_DIMENSION, level.dimension().location().toString());
-        tag.putLong(TAG_TARGET_POS, host.getHostPos().asLong());
-    }
-
-    public static @Nullable INEMultiblockBuildHost findLinkedHost(Player player, ItemStack stack) {
-        CompoundTag tag = stack.getTag();
-        if (tag == null || !tag.contains(TAG_TARGET_DIMENSION) || !tag.contains(TAG_TARGET_POS)) {
-            return null;
-        }
-        ResourceLocation targetDimension = ResourceLocation.tryParse(tag.getString(TAG_TARGET_DIMENSION));
-        if (targetDimension == null || !player.level().dimension().location().equals(targetDimension)) {
-            return null;
-        }
-        BlockPos targetPos = BlockPos.of(tag.getLong(TAG_TARGET_POS));
-        if (!player.level().hasChunkAt(targetPos)
-                || player.distanceToSqr(targetPos.getX() + 0.5D, targetPos.getY() + 0.5D, targetPos.getZ() + 0.5D)
-                        > 4096.0D) {
-            return null;
-        }
-        BlockEntity blockEntity = player.level().getBlockEntity(targetPos);
-        return blockEntity instanceof INEMultiblockBuildHost host ? host : null;
-    }
-
     // ── Item behaviour ──
 
     /**
-     * Right-click in air → open terminal config UI.
+     * Right-click in air → show the host-builder notice.
      * Shift + right-click in air → no action (blocked).
      */
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
-        // Shift + air → do nothing, prevent config UI
+        // Shift + air → do nothing, prevent the notice UI
         if (player.isShiftKeyDown()) {
             return InteractionResultHolder.pass(stack);
         }
@@ -242,7 +158,7 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         }
 
         if (player instanceof ServerPlayer serverPlayer) {
-            openTerminalConfig(serverPlayer, hand);
+            openTerminalNotice(serverPlayer, hand);
             return InteractionResultHolder.consume(stack);
         }
 
@@ -252,7 +168,7 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
     /**
      * Right-click on a block.
      * <ul>
-     *   <li>No shift → open terminal config UI (same as air right-click).</li>
+     *   <li>No shift → show the host-builder notice (same as air right-click).</li>
      *   <li>Shift + host → execute auto-build with stored length.</li>
      *   <li>Shift + non-host → PASS.</li>
      * </ul>
@@ -269,7 +185,7 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         BlockPos pos = ctx.getClickedPos();
 
         if (!player.isShiftKeyDown()) {
-            // Normal right-click on any block → open config UI
+            // Normal right-click on any block → show the host-builder notice
             if (level.isClientSide()) {
                 return InteractionResult.SUCCESS;
             }
@@ -277,9 +193,8 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
                 BlockEntity be = level.getBlockEntity(pos);
                 if (be instanceof INEMultiblockBuildHost host) {
                     setHostTarget(stack, host);
-                    rememberTarget(stack, level, host);
                 }
-                openTerminalConfig(serverPlayer, ctx.getHand());
+                openTerminalNotice(serverPlayer, ctx.getHand());
             }
             return InteractionResult.CONSUME;
         }
@@ -296,7 +211,6 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         }
 
         setHostTarget(stack, host);
-        rememberTarget(stack, level, host);
         int requestedLength = StructureTerminalItem.getBuildLength(stack, host.getMaxBuildLength());
         ServerPlayer serverPlayer = (ServerPlayer) player;
         switch (StructureTerminalItem.consumeOperationMode(stack)) {
@@ -310,7 +224,7 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
 
     // ── Internal ──
 
-    private void openTerminalConfig(ServerPlayer player, InteractionHand hand) {
+    private void openTerminalNotice(ServerPlayer player, InteractionHand hand) {
         NELDLibScreenOpener.openHeldItemUi(player, hand);
     }
 

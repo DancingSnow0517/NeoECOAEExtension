@@ -1,93 +1,30 @@
 ---
 navigation:
-  title: Structure Terminal
+  title: Multiblock Auto Builder
   icon: neoecoae:structure_terminal
   parent: neoecoae_intro/index.md
 ---
 
-# Structure Terminal
+# Multiblock Auto Builder
 
-The Forge 1.20.1 edition uses the <ItemLink id="neoecoae:structure_terminal" /> to preview and build multiblocks.
+To build an [ECO Storage System](storage_system.md), [ECO Computation System](computation_system.md) or [ECO Crafting System](crafting_system.md), right-click its host with an empty hand and use the Build button inside the host's UI. Each system's L4/L6/L9 hosts use their own screens.
+
+## Selecting the Length and Building
+
+Place the host and confirm its facing, then click its Build button to open the settings window. The window has four rows: a length label, a length input, length adjustment buttons, and the mirror switch with the build button. Enter a length directly or adjust it with the −10, −1, +1 and +10 buttons. The input tooltip shows the allowed range.
+
+Check the length, mirror setting and materials, then start building. The return button in the upper-right corner closes the window and retains its settings. Settings and building are unavailable while the structure is formed or a build is already in progress.
+
+## Structure Terminal
+
+Opening the <ItemLink id="neoecoae:structure_terminal" /> displays only this notice: “Please use the Build button in the corresponding host's UI.” Structure previews remain available on the machines' recipe viewer pages.
 
 <RecipeFor id="neoecoae:structure_terminal" />
 
-## Supported Systems
+## Materials and Build Progress
 
-The auto builder currently supports the following multiblock systems:
+Materials are taken from the player's accessible inventory, including container items that expose an item handler capability, such as supported shulker boxes and backpacks.
 
-- [ECO Storage System](storage_system.md)
-- [ECO Computation System](computation_system.md)
-- [ECO Crafting System](crafting_system.md)
-- Large Integrated Working Station
+In survival mode, blocks are placed over server ticks and materials are consumed only when each block is placed. In creative mode, missing blocks are placed immediately if there are no conflicts.
 
-Storage, computation and crafting systems retain all L4/L6/L9 tiers. The large workstation has a fixed structure.
-
-## Configuring the Terminal
-
-Hold the terminal and right-click to open its configuration. Right-click a controller to link it, then select the structure type, tier and length. Use the preview controls to inspect mirrored layouts, formed appearance and individual layers.
-
-Select Build, Mirrored Build or Dismantle, then Shift-right-click the target controller to execute that operation. Machine screens have no automatic-building button or floating builder window.
-
-## Panel Features
-
-The auto builder panel provides the following features:
-
-- Length adjustment: selects the current multiblock length to build
-- Preview: inspect structure layers, missing blocks, conflicts, reusable blocks and required materials
-- Build: Shift-right-click the controller to start the selected operation
-- Status display: shows preview results, build progress, and interruption states
-
-## Preview Behavior
-
-The terminal generates a structure plan from the controller orientation and selected length, then reports:
-
-- Missing blocks
-- Conflicting blocks
-- Reusable blocks
-- Required item count
-
-If the world already contains blocks that should not be replaced, they are marked as conflicts and the auto builder will not overwrite them automatically.
-
-## Auto Build Behavior
-
-### Creative Mode
-
-In creative mode, if the structure has no conflicts, all missing blocks are placed instantly.
-
-### Survival Mode
-
-In survival mode, the structure is built step by step on server ticks instead of being placed all at once.
-
-This behavior exists to:
-
-- Avoid large world changes in a single instant
-- Keep material consumption aligned with actual block placement
-- Allow the build process to stop cleanly when blocked
-
-## Material Consumption Rules
-
-The auto builder does not consume all materials up front. Instead, it consumes items only when a block is successfully placed.
-
-The system can count and consume materials from accessible inventory sources, including container items with item handler support, such as:
-
-- Shulker-like containers
-- Backpack-type items
-- Other container items that expose an item handler capability
-
-## Conflicts and Interruptions
-
-The auto builder may fail to start or may stop midway in cases such as:
-
-- Conflicting blocks in the planned structure
-- Missing materials
-- The player leaving or becoming unavailable for the build session
-- Target positions becoming blocked during the build process
-
-Reopen the terminal to check the target and material state before retrying.
-
-## Tips
-
-- Place the controller first and confirm its facing before using the auto builder
-- For large structures, preview first to confirm the selected length and available space
-- Watch the preview counts before changing structure scale
-- In survival mode, keep enough materials available in your inventory or supported container items
+The builder does not overwrite conflicting blocks. Missing materials, conflicts or blocked positions can prevent or interrupt a build. Replenish materials and clear blocked positions, then retry from the corresponding host's builder window.
