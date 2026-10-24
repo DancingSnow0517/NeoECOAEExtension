@@ -27,8 +27,10 @@ public final class LargeWorkstationRecipeDisplay {
     public static final int CARD_Y = INFO_Y + CARD_PADDING;
     public static final int TEXT_X = 7;
     public static final int TEXT_WIDTH = CARD_X - TEXT_X - 2;
+    public static final float TEXT_SCALE = 0.75f;
     public static final int ENERGY_Y = 74;
-    public static final int EXTRA_Y = 83;
+    public static final int EXTRA_Y = 84;
+    public static final int DIVIDER_Y = 82;
     public static final int EXTRA_SLOTS_Y = 100;
     public static final int COLUMNS = 9;
     private static final int COLOR = 0x403e53;
@@ -87,16 +89,23 @@ public final class LargeWorkstationRecipeDisplay {
     }
 
     public static void drawInfo(GuiGraphics graphics, LargeWorkstationRecipe recipe) {
+        graphics.fill(TEXT_X, DIVIDER_Y, TEXT_X + TEXT_WIDTH, DIVIDER_Y + 1, 0xFF878FA5);
         drawLine(graphics, energy(recipe.energy()), ENERGY_Y);
         if (!recipe.extraInputs().isEmpty()) drawLine(graphics, extraSummary(recipe.extraInputs()), EXTRA_Y);
     }
 
     private static void drawLine(GuiGraphics graphics, Component component, int y) {
         var font = Minecraft.getInstance().font;
+        int availableWidth = (int) (TEXT_WIDTH / TEXT_SCALE);
         String text = component.getString();
-        if (font.width(text) > TEXT_WIDTH) {
-            text = font.plainSubstrByWidth(text, TEXT_WIDTH - font.width("…")) + "…";
+        if (font.width(text) > availableWidth) {
+            text = font.plainSubstrByWidth(text, availableWidth - font.width("…")) + "…";
         }
-        graphics.drawString(font, text, TEXT_X, y, COLOR, false);
+        var pose = graphics.pose();
+        pose.pushPose();
+        pose.translate(TEXT_X, y, 0);
+        pose.scale(TEXT_SCALE, TEXT_SCALE, 1);
+        graphics.drawString(font, text, 0, 0, COLOR, false);
+        pose.popPose();
     }
 }
