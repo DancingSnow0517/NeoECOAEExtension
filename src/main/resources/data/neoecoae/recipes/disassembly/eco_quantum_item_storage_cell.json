@@ -1,0 +1,20 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "bigger_ae2"
+    }
+  ],
+  "type": "neoecoae:storage_cell_disassembly",
+  "cell": "neoecoae:eco_quantum_item_storage_cell",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "item": "neoecoae:eco_item_cell_housing"
+    },
+    {
+      "count": 1,
+      "item": "bigger_ae2:quantum_cell_component"
+    }
+  ]
+}

@@ -7,5 +7,8 @@ import cn.dancingsnow.neoecoae.grid.PatternCatalog;
 public class NEGridServices {
     public static void register() {
         GridServices.register(IECOPatternStorageService.class, PatternCatalog.class);
+        GridServices.register(
+            cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerService.class,
+            cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerService.class);
     }
 }

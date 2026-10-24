@@ -1,0 +1,24 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "bigger_ae2"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appex"
+    }
+  ],
+  "type": "neoecoae:storage_cell_disassembly",
+  "cell": "neoecoae:eco_quantum_experience_storage_cell",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "item": "neoecoae:eco_experience_cell_housing"
+    },
+    {
+      "count": 1,
+      "item": "bigger_ae2:quantum_cell_component"
+    }
+  ]
+}

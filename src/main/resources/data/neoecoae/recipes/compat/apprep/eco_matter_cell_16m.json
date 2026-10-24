@@ -1,0 +1,22 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "apprep"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "neoecoae:eco_matter_cell_housing"
+    },
+    {
+      "item": "neoecoae:eco_cell_component_16m"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "item": "neoecoae:eco_matter_cell_16m"
+  }
+}

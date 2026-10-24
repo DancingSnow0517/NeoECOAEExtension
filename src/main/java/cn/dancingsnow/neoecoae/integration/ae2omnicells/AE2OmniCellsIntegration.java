@@ -25,6 +25,7 @@ public final class AE2OmniCellsIntegration {
             NEOmniItems.ECO_COMPLEX_OMNI_CELL_64M, NEOmniItems.ECO_COMPLEX_OMNI_CELL_256M);
         registerModels("quantum_omni", NEOmniItems.ECO_QUANTUM_OMNI_CELL_16M,
             NEOmniItems.ECO_QUANTUM_OMNI_CELL_64M, NEOmniItems.ECO_QUANTUM_OMNI_CELL_256M);
+        if (wasteEnabled()) NEOmniWasteCells.registerModels(false);
 
         NeoECOAE.MOD_BUS.addListener(this::commonSetup);
     }
@@ -36,11 +37,13 @@ public final class AE2OmniCellsIntegration {
             NEOmniItems.ECO_COMPLEX_OMNI_CELL_64M, NEOmniItems.ECO_COMPLEX_OMNI_CELL_256M);
         registerResolvedModels("quantum_omni", NEOmniItems.ECO_QUANTUM_OMNI_CELL_16M,
             NEOmniItems.ECO_QUANTUM_OMNI_CELL_64M, NEOmniItems.ECO_QUANTUM_OMNI_CELL_256M);
+        if (wasteEnabled()) NEOmniWasteCells.registerModels(true);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOUniversalCellHandler.INSTANCE);
+            if (wasteEnabled()) NEOmniWasteCells.registerUpgrades();
             String group = GuiText.StorageCells.getTranslationKey();
             for (ItemEntry<ECOUniversalStorageCellItem> cell : allCells()) {
                 Upgrades.add(AEItems.FUZZY_CARD.asItem(), cell, 1, group);
@@ -48,6 +51,10 @@ public final class AE2OmniCellsIntegration {
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
             }
         });
+    }
+
+    private static boolean wasteEnabled() {
+        return net.minecraftforge.fml.ModList.get().isLoaded("appmek");
     }
 
     private static List<ItemEntry<ECOUniversalStorageCellItem>> allCells() {

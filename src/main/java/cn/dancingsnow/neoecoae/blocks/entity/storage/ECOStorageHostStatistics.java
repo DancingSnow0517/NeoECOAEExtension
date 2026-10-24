@@ -187,6 +187,8 @@ final class ECOStorageHostStatistics {
             int cellTypeId = view.type();
             boolean supported = view.inventory() != null && host.getTier().compareTo(view.inventory().getTier()) >= 0;
             if (supported) {
+                hasSingularity |= cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerService
+                    .isSingularity(stack);
                 energyConsumePerTick = NEMath.saturatingAdd(
                     energyConsumePerTick,
                     Math.max(0L, Math.round(view.inventory().getIdleDrain()))
@@ -222,6 +224,12 @@ final class ECOStorageHostStatistics {
                     StorageTypeTotals::add
                 );
             }
+        }
+        if (hasSingularity && host.getMainNode().getGrid() != null) {
+            double surcharge = host.getMainNode().getGrid().getService(
+                cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerService.class)
+                .getAdditionalIdleDrain(host);
+            energyConsumePerTick = NEMath.saturatingAdd(energyConsumePerTick, Math.max(0L, Math.round(surcharge)));
         }
         if (host.isFormedInfiniteMode()) {
             addInfiniteStorageTypes(storageTypes);

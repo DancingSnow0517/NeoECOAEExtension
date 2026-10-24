@@ -16,8 +16,15 @@ def runtimeProfiles = [
     plus: ['expatternprovider', 'glodium', 'extendedae_plus'],
     lightning: ['ae2lt', 'thunderbolt'],
     omni: ['ae2omnicells'],
+    storage: ['appbot', 'botania', 'curios', 'patchouli', 'appflux', 'glodium',
+              'appmek', 'mekanism', 'mekanismgenerators', 'megacells', 'cloth_config', 'ae2omnicells'],
+    storageMinimal: ['megacells', 'cloth_config'],
     combined: ['expatternprovider', 'glodium', 'advanced_ae', 'geckolib',
                'extendedae_plus', 'ae2lt', 'thunderbolt']
+]
+runtimeProfiles.storageAll = runtimeProfiles.storage + [
+    'bigger_ae2', 'appliedpneumatics', 'pneumaticcraft', 'arseng', 'ars_nouveau', 'geckolib',
+    'ae2lt', 'thunderbolt'
 ]
 def portingProfile = providers.gradleProperty('portingProfile').getOrElse('base')
 if (!runtimeProfiles.containsKey(portingProfile)) {
@@ -39,7 +46,13 @@ def releaseJars = dependencyLock.artifacts.collectEntries { artifact ->
 def releaseVersions = [ae2: ae2_version, guideme: guideme_version, ldlib: ldlib_version,
     advanced_ae: '1.3.6-1.20.1', expatternprovider: '1.20-1.4.21-forge',
     extendedae_plus: '1.6.3', ae2lt: '2.1.2-beta2', thunderbolt: '2.0.3-beta2',
-    glodium: '1.20-1.5-forge', geckolib: '4.8.4', ae2omnicells: '1.1.6-1.20.1-forge']
+    glodium: '1.20-1.5-forge', geckolib: '4.8.4', ae2omnicells: '1.1.6-1.20.1-forge',
+    appbot: '1.5.2-forge', appflux: '1.20-1.3.7-forge', appmek: '1.4.3',
+    megacells: '2.4.6-1.20.1', botania: '1.20.1-455-FORGE', mekanism: '10.4.16.80',
+    mekanismgenerators: '10.4.16.80',
+    cloth_config: '11.1.136-forge', curios: '5.14.1+1.20.1', patchouli: '1.20.1-85-FORGE',
+    bigger_ae2: '20.2.1', appliedpneumatics: '1.0.8', pneumaticcraft: '6.0.23',
+    arseng: '1.2.0', ars_nouveau: '4.12.7']
 def pinned = { String mod ->
     "porting.pinned:${releaseJars[mod].name.take(releaseJars[mod].name.length() - 4)}:${releaseVersions[mod]}"
 }
@@ -89,7 +102,8 @@ else if (hostArch in ['x86', 'i386'] && hostOs.contains('windows')) lwjglNatives
 dependencies {
     ['ae2', 'guideme', 'ldlib'].each { modImplementation pinned(it) }
     ['advanced_ae', 'expatternprovider', 'extendedae_plus', 'ae2lt', 'thunderbolt',
-     'glodium', 'geckolib', 'ae2omnicells'].each { modCompileOnly pinned(it) }
+     'glodium', 'geckolib', 'ae2omnicells', 'appbot', 'appflux', 'appmek', 'megacells',
+     'mekanism', 'botania', 'cloth_config', 'bigger_ae2'].each { modCompileOnly pinned(it) }
     modCompileOnly 'porting.pinned:AE2AddonLib20-embedded:1.0.4-1.20.1'
     runtimeProfiles[portingProfile].each { modRuntimeOnly pinned(it) }
     modApi "com.tterrag.registrate:Registrate:${registrate_version}"
@@ -145,6 +159,7 @@ legacyForge {
             systemProperty 'neoecoae.clientSmokeEnergy', providers.gradleProperty('clientSmokeEnergy').getOrElse('false')
             systemProperty 'neoecoae.storageSavedDataSmoke', providers.gradleProperty('storageSavedDataSmoke').getOrElse('')
             systemProperty 'neoecoae.legacy2042Smoke', providers.gradleProperty('legacy2042Smoke').getOrElse('')
+            systemProperty 'neoecoae.optionalStorageSmoke', providers.gradleProperty('optionalStorageSmoke').getOrElse('')
         }
     }
     mods {

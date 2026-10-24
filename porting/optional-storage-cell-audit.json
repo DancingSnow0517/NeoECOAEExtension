@@ -1,0 +1,1528 @@
+{
+  "minecraft": "1.20.1",
+  "forge": "47.4.28",
+  "mod_version": "20.2.10",
+  "approved_main": "dc8344f48ee866e57e02c285fdda5e0fb5da9421",
+  "total_cells": 73,
+  "positive_production_runtime_cells": 51,
+  "dependency_absent_cells_without_positive_runtime": 22,
+  "converted_recipe_resources": 160,
+  "source_only_references": [
+    {
+      "repository": "https://github.com/alec016/Applied-Experienced.git",
+      "ref": "origin/1.21",
+      "commit": "e461ae7627d4301128a6128cc4b00ff421d86492",
+      "key_type_evidence": "origin/1.21:src/main/java/es/degrassi/appexp/me/key/ExperienceKeyType.java:25:    super(AppliedExperienced.id(\"experience\"), AEExperienceKey.class, AExpText.EXPERIENCE.formatted());\n"
+    },
+    {
+      "repository": "https://github.com/Y-Xiao233/AppliedSoul.git",
+      "ref": "origin/1.20.1-forge",
+      "commit": "bf5b9929981fc9ca52c47171f70b55e45abd34d8",
+      "key_type_evidence": "origin/1.20.1-forge:src/main/java/net/yxiao233/appliedsoul/common/key/SoulAEKeyType.java:17:        super(SoulKey.RL, SoulKey.class, Component.translatable(\"aekey.soulkey.description\"));\norigin/1.20.1-forge:src/main/java/net/yxiao233/appliedsoul/common/key/SoulKey.java:20:    public static ResourceLocation RL = AppliedSoul.makeId(\"soulkey\");\n"
+    },
+    {
+      "repository": "https://github.com/Lapis256/Applied-Replicatics.git",
+      "ref": "origin/1.21.1",
+      "commit": "62245debc3bb1837034010e801a6d5cbf3a32b59",
+      "key_type_evidence": "\nsrc/api/kotlin/dev/lapis256/apprep/api/ae2/stack/MatterKeyType.kt\nobject MatterKeyType : AEKeyType(\n    AppliedReplicaticsAPI.rl(\"m\"),"
+    },
+    {
+      "repository": "https://github.com/MOAKIEE/AppliedCreate.git",
+      "ref": "origin/1.21.1-neoforge",
+      "commit": "fdf6fb959ecdc9e6bceceb6142417006ea1f63d8",
+      "key_type_evidence": "\nsrc/main/kotlin/com/loliball/appliedcreate/storage/StressKeyType.kt\nclass StressKeyType private constructor() : AEKeyType(\n        val ID: ResourceLocation = ResourceLocation.fromNamespaceAndPath(AppliedCreate.MOD_ID, \"stress\")\n        val TYPE = StressKeyType()"
+    },
+    {
+      "repository": "https://github.com/ModularMCLib/DataEnergistics.git",
+      "ref": "origin/1.21",
+      "commit": "b7646a701aac1108641a0d96b9c036b69d4b5af8",
+      "key_type_evidence": "origin/1.21:src/main/java/com/fish_dan_/data_energistics/integration/magic/astral/AstralSorceryKeyType.java:27:        super(Data_Energistics.id(\"astral_sorcery\"), AstralSorceryKey.class,\norigin/1.21:src/main/java/com/fish_dan_/data_energistics/integration/magic/forbiddenarcanus/digitalsupply/ForbiddenArcanusEssenceKeyType.java:28:        super(Data_Energistics.id(\"forbidden_arcanus_essence\"), ForbiddenArcanusEssenceKey.class,\norigin/1.21:src/main/java/com/fish_dan_/data_energistics/integration/magic/naturesaura/digitalsupply/NaturesAuraKeyType.java:27:        super(Data_Energistics.id(\"natures_aura\"), NaturesAuraKey.class,\norigin/1.21:src/main/java/com/fish_dan_/data_energistics/integration/ae/ae2/key/DataKey.java:25:    public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(Data_Energistics.MODID, \"data\");\n\nsrc/main/java/com/fish_dan_/data_energistics/integration/ae/ae2/key/DigitalizationKeyType.java\n    public static final DigitalizationKeyType TYPE = new DigitalizationKeyType();\n    private DigitalizationKeyType() {\n                Data_Energistics.id(\"digitalization\"),\nsrc/main/java/com/fish_dan_/data_energistics/integration/ae/ae2/key/ManifestBinaryKeyType.java\n    public static final ManifestBinaryKeyType TYPE = new ManifestBinaryKeyType();\n    private ManifestBinaryKeyType() {\n                Data_Energistics.id(\"manifest_binary\"),"
+    }
+  ],
+  "cells": [
+    {
+      "id": "eco_mana_storage_cell_16m",
+      "channel": "mana",
+      "housing": "eco_mana_cell_housing",
+      "mods": [
+        "appbot"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_mana_storage_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_mana_storage_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/mana_infusion/eco_mana_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mana_storage_cell_64m",
+      "channel": "mana",
+      "housing": "eco_mana_cell_housing",
+      "mods": [
+        "appbot"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_mana_storage_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_mana_storage_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/mana_infusion/eco_mana_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mana_storage_cell_256m",
+      "channel": "mana",
+      "housing": "eco_mana_cell_housing",
+      "mods": [
+        "appbot"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_mana_storage_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_mana_storage_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/mana_infusion/eco_mana_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_fe_storage_cell_16m",
+      "channel": "fe",
+      "housing": "eco_fe_cell_housing",
+      "mods": [
+        "appflux"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fe_storage_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_fe_storage_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fe_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_fe_storage_cell_64m",
+      "channel": "fe",
+      "housing": "eco_fe_cell_housing",
+      "mods": [
+        "appflux"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fe_storage_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_fe_storage_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fe_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_fe_storage_cell_256m",
+      "channel": "fe",
+      "housing": "eco_fe_cell_housing",
+      "mods": [
+        "appflux"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fe_storage_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_fe_storage_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fe_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_chemical_storage_cell_16m",
+      "channel": "chemical",
+      "housing": "eco_chemical_cell_housing",
+      "mods": [
+        "appmek"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_chemical_storage_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_chemical_storage_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_chemical_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_chemical_storage_cell_64m",
+      "channel": "chemical",
+      "housing": "eco_chemical_cell_housing",
+      "mods": [
+        "appmek"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_chemical_storage_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_chemical_storage_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_chemical_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_chemical_storage_cell_256m",
+      "channel": "chemical",
+      "housing": "eco_chemical_cell_housing",
+      "mods": [
+        "appmek"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_chemical_storage_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_chemical_storage_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_chemical_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_source_storage_cell_16m",
+      "channel": "source",
+      "housing": "eco_source_cell_housing",
+      "mods": [
+        "arseng"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_source_storage_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_source_storage_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/enchanting_apparatus/eco_source_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_source_storage_cell_64m",
+      "channel": "source",
+      "housing": "eco_source_cell_housing",
+      "mods": [
+        "arseng"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_source_storage_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_source_storage_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/enchanting_apparatus/eco_source_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_source_storage_cell_256m",
+      "channel": "source",
+      "housing": "eco_source_cell_housing",
+      "mods": [
+        "arseng"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_source_storage_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_source_storage_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/enchanting_apparatus/eco_source_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_air_cell_16m",
+      "channel": "air",
+      "housing": "eco_air_cell_housing",
+      "mods": [
+        "appliedpneumatics"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/air/eco_air_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/air/disassembly_eco_air_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/air/eco_air_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_air_cell_64m",
+      "channel": "air",
+      "housing": "eco_air_cell_housing",
+      "mods": [
+        "appliedpneumatics"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/air/eco_air_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/air/disassembly_eco_air_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/air/eco_air_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_air_cell_256m",
+      "channel": "air",
+      "housing": "eco_air_cell_housing",
+      "mods": [
+        "appliedpneumatics"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/air/eco_air_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/air/disassembly_eco_air_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/air/eco_air_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_experience_cell_16m",
+      "channel": "experience",
+      "housing": "eco_experience_cell_housing",
+      "mods": [
+        "appex"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/eco_experience_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/disassembly_eco_experience_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/eco_experience_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_experience_cell_64m",
+      "channel": "experience",
+      "housing": "eco_experience_cell_housing",
+      "mods": [
+        "appex"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/eco_experience_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/disassembly_eco_experience_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/eco_experience_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_experience_cell_256m",
+      "channel": "experience",
+      "housing": "eco_experience_cell_housing",
+      "mods": [
+        "appex"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/eco_experience_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/disassembly_eco_experience_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/eco_experience_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_soul_cell_16m",
+      "channel": "soul",
+      "housing": "eco_soul_cell_housing",
+      "mods": [
+        "appliedsoul"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/soul/eco_soul_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/soul/disassembly_eco_soul_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/soul/eco_soul_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_soul_cell_64m",
+      "channel": "soul",
+      "housing": "eco_soul_cell_housing",
+      "mods": [
+        "appliedsoul"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/soul/eco_soul_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/soul/disassembly_eco_soul_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/soul/eco_soul_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_soul_cell_256m",
+      "channel": "soul",
+      "housing": "eco_soul_cell_housing",
+      "mods": [
+        "appliedsoul"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/soul/eco_soul_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/soul/disassembly_eco_soul_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/soul/eco_soul_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_matter_cell_16m",
+      "channel": "matter",
+      "housing": "eco_matter_cell_housing",
+      "mods": [
+        "apprep"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/apprep/eco_matter_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/apprep/disassembly_eco_matter_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/apprep/eco_matter_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_matter_cell_64m",
+      "channel": "matter",
+      "housing": "eco_matter_cell_housing",
+      "mods": [
+        "apprep"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/apprep/eco_matter_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/apprep/disassembly_eco_matter_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/apprep/eco_matter_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_matter_cell_256m",
+      "channel": "matter",
+      "housing": "eco_matter_cell_housing",
+      "mods": [
+        "apprep"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/apprep/eco_matter_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/apprep/disassembly_eco_matter_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/apprep/eco_matter_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_stress_cell_16m",
+      "channel": "stress",
+      "housing": "eco_stress_cell_housing",
+      "mods": [
+        "appliedcreate"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/appliedcreate/eco_stress_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/appliedcreate/disassembly_eco_stress_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/appliedcreate/eco_stress_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_stress_cell_64m",
+      "channel": "stress",
+      "housing": "eco_stress_cell_housing",
+      "mods": [
+        "appliedcreate"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/appliedcreate/eco_stress_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/appliedcreate/disassembly_eco_stress_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/appliedcreate/eco_stress_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_stress_cell_256m",
+      "channel": "stress",
+      "housing": "eco_stress_cell_housing",
+      "mods": [
+        "appliedcreate"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/appliedcreate/eco_stress_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/appliedcreate/disassembly_eco_stress_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/appliedcreate/eco_stress_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_data_storage_cell_16m",
+      "channel": "data",
+      "housing": "eco_data_cell_housing",
+      "mods": [
+        "data_energistics"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_data_storage_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_data_storage_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_data_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_data_storage_cell_64m",
+      "channel": "data",
+      "housing": "eco_data_cell_housing",
+      "mods": [
+        "data_energistics"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_data_storage_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_data_storage_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_data_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_data_storage_cell_256m",
+      "channel": "data",
+      "housing": "eco_data_cell_housing",
+      "mods": [
+        "data_energistics"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/eco_data_storage_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/generated/resources/data/neoecoae/recipes/disassembly/eco_data_storage_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_data_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_lightning_cell_16m",
+      "channel": "lightning",
+      "housing": "eco_lightning_cell_housing",
+      "mods": [
+        "ae2lt"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2lt/disassembly_eco_lightning_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_lightning_cell_64m",
+      "channel": "lightning",
+      "housing": "eco_lightning_cell_housing",
+      "mods": [
+        "ae2lt"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2lt/disassembly_eco_lightning_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_lightning_cell_256m",
+      "channel": "lightning",
+      "housing": "eco_lightning_cell_housing",
+      "mods": [
+        "ae2lt"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2lt/disassembly_eco_lightning_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2lt/eco_lightning_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_omni_cell_16m",
+      "channel": "item",
+      "housing": "eco_omni_cell_housing",
+      "mods": [
+        "ae2omnicells"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_omni_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_omni_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_omni_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_omni_cell_64m",
+      "channel": "item",
+      "housing": "eco_omni_cell_housing",
+      "mods": [
+        "ae2omnicells"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_omni_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_omni_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_omni_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_omni_cell_256m",
+      "channel": "item",
+      "housing": "eco_omni_cell_housing",
+      "mods": [
+        "ae2omnicells"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_omni_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_omni_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_omni_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_complex_omni_cell_16m",
+      "channel": "item",
+      "housing": "eco_complex_omni_cell_housing",
+      "mods": [
+        "ae2omnicells"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_complex_omni_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_complex_omni_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_complex_omni_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_complex_omni_cell_64m",
+      "channel": "item",
+      "housing": "eco_complex_omni_cell_housing",
+      "mods": [
+        "ae2omnicells"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_complex_omni_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_complex_omni_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_complex_omni_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_complex_omni_cell_256m",
+      "channel": "item",
+      "housing": "eco_complex_omni_cell_housing",
+      "mods": [
+        "ae2omnicells"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_complex_omni_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_complex_omni_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_complex_omni_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_quantum_omni_cell_16m",
+      "channel": "item",
+      "housing": "eco_quantum_omni_cell_housing",
+      "mods": [
+        "ae2omnicells"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_quantum_omni_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_quantum_omni_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_quantum_omni_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_quantum_omni_cell_64m",
+      "channel": "item",
+      "housing": "eco_quantum_omni_cell_housing",
+      "mods": [
+        "ae2omnicells"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_quantum_omni_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_quantum_omni_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_quantum_omni_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_quantum_omni_cell_256m",
+      "channel": "item",
+      "housing": "eco_quantum_omni_cell_housing",
+      "mods": [
+        "ae2omnicells"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_quantum_omni_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_quantum_omni_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_quantum_omni_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_spent_nuclear_waste_cell_16m",
+      "channel": "spent_nuclear_waste",
+      "housing": "eco_spent_nuclear_waste_cell_housing",
+      "mods": [
+        "ae2omnicells",
+        "appmek"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_spent_nuclear_waste_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_spent_nuclear_waste_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_spent_nuclear_waste_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_spent_nuclear_waste_cell_64m",
+      "channel": "spent_nuclear_waste",
+      "housing": "eco_spent_nuclear_waste_cell_housing",
+      "mods": [
+        "ae2omnicells",
+        "appmek"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_spent_nuclear_waste_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_spent_nuclear_waste_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_spent_nuclear_waste_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_spent_nuclear_waste_cell_256m",
+      "channel": "spent_nuclear_waste",
+      "housing": "eco_spent_nuclear_waste_cell_housing",
+      "mods": [
+        "ae2omnicells",
+        "appmek"
+      ],
+      "assembly": [
+        "src/generated/resources/data/neoecoae/recipes/integrated_working_station/eco_spent_nuclear_waste_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/disassembly_eco_spent_nuclear_waste_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/ae2omnicells/eco_spent_nuclear_waste_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mega_item_cell_4g",
+      "channel": "item",
+      "housing": "mega_item_cell_housing",
+      "mods": [
+        "megacells"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_item_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_item_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_item_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mega_fluid_cell_4g",
+      "channel": "fluid",
+      "housing": "mega_fluid_cell_housing",
+      "mods": [
+        "megacells"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_fluid_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_fluid_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_fluid_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mega_long_bulk_cell",
+      "channel": "item",
+      "housing": "eco_bulk_item_cell_housing",
+      "mods": [
+        "megacells"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_long_bulk_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_long_bulk_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_bulk_item_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mega_energy_cell_4g",
+      "channel": "fe",
+      "housing": "mega_energy_cell_housing",
+      "mods": [
+        "megacells",
+        "appflux"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_energy_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_energy_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_energy_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mega_chemical_cell_4g",
+      "channel": "chemical",
+      "housing": "mega_chemical_cell_housing",
+      "mods": [
+        "megacells",
+        "appmek"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_chemical_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_chemical_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_chemical_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_radioactive_chemical_cell_16m",
+      "channel": "radioactive_chemical",
+      "housing": "eco_radioactive_chemical_cell_housing",
+      "mods": [
+        "megacells",
+        "appmek"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_radioactive_chemical_cell_16m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_radioactive_chemical_cell_16m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_radioactive_chemical_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_radioactive_chemical_cell_64m",
+      "channel": "radioactive_chemical",
+      "housing": "eco_radioactive_chemical_cell_housing",
+      "mods": [
+        "megacells",
+        "appmek"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_radioactive_chemical_cell_64m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_radioactive_chemical_cell_64m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_radioactive_chemical_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_radioactive_chemical_cell_256m",
+      "channel": "radioactive_chemical",
+      "housing": "eco_radioactive_chemical_cell_housing",
+      "mods": [
+        "megacells",
+        "appmek"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_radioactive_chemical_cell_256m.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_radioactive_chemical_cell_256m.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_radioactive_chemical_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mega_mana_cell_4g",
+      "channel": "mana",
+      "housing": "mega_mana_cell_housing",
+      "mods": [
+        "megacells",
+        "appbot"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_mana_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_mana_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_mana_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mega_source_cell_4g",
+      "channel": "source",
+      "housing": "mega_source_cell_housing",
+      "mods": [
+        "megacells",
+        "arseng"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_source_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_source_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_source_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mega_air_cell_4g",
+      "channel": "air",
+      "housing": "mega_air_cell_housing",
+      "mods": [
+        "megacells",
+        "appliedpneumatics"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_air_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_air_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_air_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_mega_experience_cell_4g",
+      "channel": "experience",
+      "housing": "mega_experience_cell_housing",
+      "mods": [
+        "megacells",
+        "appex"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_experience_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_experience_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_experience_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_mega_soul_cell_4g",
+      "channel": "soul",
+      "housing": "mega_soul_cell_housing",
+      "mods": [
+        "megacells",
+        "appliedsoul"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_soul_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_soul_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_soul_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_mega_matter_cell_4g",
+      "channel": "matter",
+      "housing": "mega_matter_cell_housing",
+      "mods": [
+        "megacells",
+        "apprep"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_matter_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_matter_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_matter_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_mega_stress_cell_4g",
+      "channel": "stress",
+      "housing": "mega_stress_cell_housing",
+      "mods": [
+        "megacells",
+        "appliedcreate"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_stress_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_stress_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_stress_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_mega_data_cell_4g",
+      "channel": "data",
+      "housing": "mega_data_cell_housing",
+      "mods": [
+        "megacells",
+        "data_energistics"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/eco_mega_data_cell_4g.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/disassembly_eco_mega_data_cell_4g.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/megacells/mega_data_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_quantum_item_storage_cell",
+      "channel": "item",
+      "housing": "eco_item_cell_housing",
+      "mods": [
+        "bigger_ae2"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_quantum_item_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_quantum_item_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_item_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_digital_singularity_item_storage_cell",
+      "channel": "item",
+      "housing": "eco_item_cell_housing",
+      "mods": [
+        "bigger_ae2"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_digital_singularity_item_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_digital_singularity_item_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_item_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_quantum_fluid_storage_cell",
+      "channel": "fluid",
+      "housing": "eco_fluid_cell_housing",
+      "mods": [
+        "bigger_ae2"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_quantum_fluid_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_quantum_fluid_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fluid_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_digital_singularity_fluid_storage_cell",
+      "channel": "fluid",
+      "housing": "eco_fluid_cell_housing",
+      "mods": [
+        "bigger_ae2"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_digital_singularity_fluid_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_digital_singularity_fluid_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fluid_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_quantum_chemical_storage_cell",
+      "channel": "chemical",
+      "housing": "eco_chemical_cell_housing",
+      "mods": [
+        "bigger_ae2",
+        "appmek"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_quantum_chemical_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_quantum_chemical_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_chemical_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_digital_singularity_chemical_storage_cell",
+      "channel": "chemical",
+      "housing": "eco_chemical_cell_housing",
+      "mods": [
+        "bigger_ae2",
+        "appmek"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_digital_singularity_chemical_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_digital_singularity_chemical_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_chemical_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_quantum_fe_storage_cell",
+      "channel": "fe",
+      "housing": "eco_fe_cell_housing",
+      "mods": [
+        "bigger_ae2",
+        "appflux"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_quantum_fe_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_quantum_fe_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fe_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_digital_singularity_fe_storage_cell",
+      "channel": "fe",
+      "housing": "eco_fe_cell_housing",
+      "mods": [
+        "bigger_ae2",
+        "appflux"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_digital_singularity_fe_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_digital_singularity_fe_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/eco_fe_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_quantum_experience_storage_cell",
+      "channel": "experience",
+      "housing": "eco_experience_cell_housing",
+      "mods": [
+        "bigger_ae2",
+        "appex"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_quantum_experience_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_quantum_experience_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/eco_experience_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_digital_singularity_experience_storage_cell",
+      "channel": "experience",
+      "housing": "eco_experience_cell_housing",
+      "mods": [
+        "bigger_ae2",
+        "appex"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_digital_singularity_experience_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_digital_singularity_experience_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/main/resources/data/neoecoae/recipes/compat/experience/eco_experience_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "absent-without-dependencies; positive runtime not verified"
+    },
+    {
+      "id": "eco_quantum_source_storage_cell",
+      "channel": "source",
+      "housing": "eco_source_cell_housing",
+      "mods": [
+        "bigger_ae2",
+        "arseng"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_quantum_source_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_quantum_source_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/enchanting_apparatus/eco_source_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    },
+    {
+      "id": "eco_digital_singularity_source_storage_cell",
+      "channel": "source",
+      "housing": "eco_source_cell_housing",
+      "mods": [
+        "bigger_ae2",
+        "arseng"
+      ],
+      "assembly": [
+        "src/main/resources/data/neoecoae/recipes/eco_digital_singularity_source_storage_cell.json"
+      ],
+      "disassembly": [
+        "src/main/resources/data/neoecoae/recipes/disassembly/eco_digital_singularity_source_storage_cell.json"
+      ],
+      "housing_recipes": [
+        "src/generated/resources/data/neoecoae/recipes/enchanting_apparatus/eco_source_cell_housing.json"
+      ],
+      "registration_conditions_checked": true,
+      "recipes_models_and_names_checked": true,
+      "runtime_acceptance": "production-write-and-cold-read"
+    }
+  ]
+}

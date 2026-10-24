@@ -1,0 +1,65 @@
+{
+  "result": "PASS_WITH_EXPLICIT_RUNTIME_BOUNDARY",
+  "generated_at_utc": "2026-10-24T04:53:56.876899+00:00",
+  "version": "20.2.10",
+  "java_major": 17,
+  "minecraft": "1.20.1",
+  "forge": "47.4.28",
+  "full_test": {
+    "tests": 1561,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12,
+    "passed": 1549
+  },
+  "package": {
+    "path": "build/libs/neoecoae-20.2.10.jar",
+    "sha256": "83a5f964ce1f833143aeacca319c6ea7645e630c9a7393f3c2c5d6fc5a5c3c59",
+    "bytes": 7273214,
+    "classes": 1687,
+    "class_major": 61
+  },
+  "optional_cell_count": 73,
+  "production_positive_count": 51,
+  "positive_runtime_unverified_count": 22,
+  "converted_recipe_resources": 160,
+  "profiles": [
+    {
+      "profile": "full",
+      "registered": 51,
+      "absent_without_dependencies": 22,
+      "write": "PASS",
+      "cold_read": "PASS",
+      "jar_sha256": "83a5f964ce1f833143aeacca319c6ea7645e630c9a7393f3c2c5d6fc5a5c3c59",
+      "write_report": "production-full-write.json",
+      "write_log_sha256": "a34dd1c96fbedd4e6ea1fdd4fb61ca448435db7daf49e4166f1496577e9ca6ca",
+      "read_report": "production-full-read.json",
+      "read_log_sha256": "6cc40faa70024863c3a9660d0f25c13a2a442d6f2f7393a56e70e08620149a7c"
+    },
+    {
+      "profile": "base",
+      "registered": 0,
+      "absent_without_dependencies": 73,
+      "write": "PASS",
+      "cold_read": "PASS",
+      "jar_sha256": "83a5f964ce1f833143aeacca319c6ea7645e630c9a7393f3c2c5d6fc5a5c3c59",
+      "write_report": "production-base-write.json",
+      "write_log_sha256": "70353af0a1c82e85864c706efcbc1f2b6c9f1159dd6e7a1b027ce2c3aa3ed5ba",
+      "read_report": "production-base-read.json",
+      "read_log_sha256": "932d3342b42078c8929c0c9e1051b0876074ff4f7d76c52d9892fa4caa510318"
+    },
+    {
+      "profile": "minimal",
+      "registered": 3,
+      "absent_without_dependencies": 70,
+      "write": "PASS",
+      "cold_read": "PASS",
+      "jar_sha256": "83a5f964ce1f833143aeacca319c6ea7645e630c9a7393f3c2c5d6fc5a5c3c59",
+      "write_report": "production-minimal-write.json",
+      "write_log_sha256": "0853fa7ae44715940358e8b7e225c78ae11caf8774cbae2f3bb9dfd38e51776f",
+      "read_report": "production-minimal-read.json",
+      "read_log_sha256": "5a72b1ac9f29555fe73c888f4f367a88a49ba0dd4ba1b59fb6034da53a0cd2e9"
+    }
+  ],
+  "boundary": "No client visual/manual interaction acceptance or ordinary modpack deployment. 22 dependency-absent cells have static checks and negative registration checks only."
+}

@@ -30,5 +30,22 @@
   "legacy_storage_compatibility_addons": [
     "ae2omnicells"
   ],
-  "legacy_storage_compatibility_scope": "User-reported 20.4.2 quantum Omni disks: restore approved-main Omni/Complex/Quantum disk registration and storage adapter only; workstation variants and approved main commit remain fixed."
+  "legacy_storage_compatibility_scope": "User-reported 20.4.2 quantum Omni disks: restore approved-main Omni/Complex/Quantum disk registration and storage adapter only; workstation variants and approved main commit remain fixed.",
+  "optional_storage_compatibility_addons": [
+    "appbot",
+    "appflux",
+    "appmek",
+    "arseng",
+    "appliedpneumatics",
+    "appliedsoul",
+    "appex",
+    "apprep",
+    "appliedcreate",
+    "data_energistics",
+    "megacells",
+    "bigger_ae2",
+    "ae2omnicells",
+    "ae2lt"
+  ],
+  "optional_storage_compatibility_scope": "User request: check and restore all optional storage cells from the approved main. Adapt only storage registration, resource keys, recipes, persistence and required storage services; the main commit and four workstation variants remain fixed."
 }

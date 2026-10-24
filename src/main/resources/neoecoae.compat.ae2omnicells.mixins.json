@@ -4,7 +4,12 @@
   "package": "cn.dancingsnow.neoecoae.mixins.compat.ae2omnicells",
   "plugin": "cn.dancingsnow.neoecoae.mixins.compat.ECOOptionalAddonMixinPlugin",
   "compatibilityLevel": "JAVA_17",
-  "mixins": ["AEUniversalCellInventoryMixin"],
-  "injectors": {"defaultRequire": 1},
+  "mixins": [
+    "AEUniversalCellInventoryMixin",
+    "OmniWasteCellRecognitionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
   "refmap": "neoecoae.refmap.json"
 }

@@ -1,0 +1,28 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2omnicells"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appmek"
+    }
+  ],
+  "type": "neoecoae:storage_cell_disassembly",
+  "cell": "neoecoae:eco_spent_nuclear_waste_cell_64m",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "item": "neoecoae:eco_spent_nuclear_waste_cell_housing"
+    },
+    {
+      "count": 10,
+      "item": "ae2omnicells:quantum_omni_cell_component_64m"
+    },
+    {
+      "count": 1,
+      "item": "ae2omnicells:spent_nuclear_waste_component"
+    }
+  ]
+}

@@ -23,6 +23,8 @@ public final class ECOOptionalAddonMixinPlugin implements IMixinConfigPlugin {
     }
 
     @Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.endsWith(".OmniWasteCellRecognitionMixin")
+            && getClass().getClassLoader().getResource("me/ramidzkh/mekae2/ae2/MekanismKey.class") == null) return false;
         return anchor != null && getClass().getClassLoader().getResource(anchor) != null;
     }
 

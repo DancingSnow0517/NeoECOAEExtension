@@ -38,7 +38,8 @@
     "ldlib.AsyncThreadDataMixin",
     "minecraft.LightningBoltMixin",
     "minecraft.RecipeManagerAccessor",
-    "ae2.menu.CraftingStatusSuspensionMixin"
+    "ae2.menu.CraftingStatusSuspensionMixin",
+    "ae2.storage.DigitalSingularityEnergyServiceMixin"
   ],
   "client": [
     "client.ldlib.UIFactoryMixin",

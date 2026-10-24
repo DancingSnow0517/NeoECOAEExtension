@@ -1,0 +1,24 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "bigger_ae2"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appmek"
+    }
+  ],
+  "type": "neoecoae:storage_cell_disassembly",
+  "cell": "neoecoae:eco_digital_singularity_chemical_storage_cell",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "item": "neoecoae:eco_chemical_cell_housing"
+    },
+    {
+      "count": 1,
+      "item": "bigger_ae2:digital_singularity_cell_component"
+    }
+  ]
+}
