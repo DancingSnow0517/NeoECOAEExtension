@@ -53,7 +53,7 @@ public final class LargeWorkstationRecipes {
     private static final Logger LOGGER = LoggerFactory.getLogger(LargeWorkstationRecipes.class);
     private static final Set<String> COMPAT_TYPES = Set.of(
         "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation",
-        "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "appgen:synthesizing",
+        "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "ae2cs:crystal_pulverizer_recipe", "appgen:synthesizing",
         "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler",
         "data_energistics:data_reassembler", "data_energistics:data_charger",
         "data_energistics:data_integrated_charger", "data_energistics:data_charge_press");
@@ -88,6 +88,10 @@ public final class LargeWorkstationRecipes {
                     recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
                 } else if (holder.value() instanceof IntegratedWorkingStationRecipe nativeRecipe) {
                     recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
+                } else if (holder.value() instanceof appeng.recipes.entropy.EntropyRecipe entropy
+                        && CrystalScienceWorkstationRecipes.isPresent()) {
+                    var adapted = CrystalScienceWorkstationRecipes.entropy(holder.id(), entropy);
+                    if (adapted != null) recipes.add(adapted);
                 } else {
                     String type = typeId(holder.value().getType());
                     var sourceType = ResourceLocation.tryParse(type);
@@ -169,16 +173,17 @@ public final class LargeWorkstationRecipes {
                     Object predicate = itemPredicate(input.ingredient(), ops);
                     items.merge(predicate, (long) input.count(), Math::addExact);
                 }
-                var fluid = display.inputFluid();
+                Map<Object, Long> fluids = new HashMap<>();
+                for (var fluid : recipe.inputFluids()) {
+                    fluids.merge(fluidPredicate(fluid.ingredient(), ops), (long) fluid.amount(), Math::addExact);
+                }
                 Map<AEKey, Long> resources = new HashMap<>();
                 for (var extra : recipe.extraInputs()) {
                     if (!isLightning(extra)) resources.merge(extra.what(), extra.amount(), Math::addExact);
                 }
-                var contract = new MaterialContract(Map.copyOf(items), fluid.ingredient().isEmpty() ? null
-                    : new FluidInput(fluidPredicate(fluid.ingredient(), ops), fluid.amount()),
-                    Map.copyOf(resources),
-                    display.hasItemOutput() ? new GenericStack(AEItemKey.of(display.itemOutput()), display.itemOutput().getCount()) : null,
-                    display.hasFluidOutput() ? new GenericStack(AEFluidKey.of(display.fluidOutput()), display.fluidOutput().getAmount()) : null);
+                Map<AEKey, Long> outputs = new HashMap<>();
+                for (var output : recipe.outputs()) outputs.merge(output.what(), output.amount(), Math::addExact);
+                var contract = new MaterialContract(Map.copyOf(items), Map.copyOf(fluids), Map.copyOf(resources), Map.copyOf(outputs));
                 unique.merge(contract, recipe, (first, second) -> COST_ORDER.compare(first, second) <= 0 ? first : second);
             } catch (RuntimeException failure) {
                 // Unknown predicates remain available rather than being merged by their display stacks.
@@ -216,10 +221,9 @@ public final class LargeWorkstationRecipes {
         return FluidIngredient.CODEC.encodeStart(ops, ingredient).getOrThrow();
     }
 
-    private record FluidInput(Object predicate, long amount) {}
     private record ComponentPredicate(Set<ResourceLocation> alternatives, DataComponentPredicate components, boolean strict) {}
-    private record MaterialContract(Map<Object, Long> items, @Nullable FluidInput fluid, Map<AEKey, Long> resources,
-                                    @Nullable GenericStack itemOutput, @Nullable GenericStack fluidOutput) {}
+    private record MaterialContract(Map<Object, Long> items, Map<Object, Long> fluids,
+                                    Map<AEKey, Long> resources, Map<AEKey, Long> outputs) {}
 
     private static boolean isLightning(GenericStack stack) {
         return stack.what().getType().getId().getNamespace().equals("ae2lt");
@@ -320,8 +324,8 @@ public final class LargeWorkstationRecipes {
                 energy = (long) Math.ceil(PowerUnit.FE.convertTo(PowerUnit.AE, data.get("totalEnergy").getAsLong()));
                 extras = List.of(LightningInput.decode(data));
             }
-            case "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe" -> {
-                for (String name : List.of("input_a", "input_b", "input_c")) {
+            case "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "ae2cs:crystal_pulverizer_recipe" -> {
+                for (String name : List.of("input", "input_a", "input_b", "input_c")) {
                     if (data.has(name)) {
                         var item = parse(SizedIngredient.FLAT_CODEC, ops, data.get(name));
                         if (!item.ingredient().isEmpty()) items.add(item);

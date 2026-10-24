@@ -187,19 +187,79 @@ class DataWorkstationRecipeTest {
         assertEquals(flow, GenericStack.readTag(registries, GenericStack.writeTag(registries, flow)));
     }
 
-    @ParameterizedTest @ValueSource(strings = {"fluid", "items", "resource", "modifier"})
-    void unsupportedOutputOrMultipleFluidSemanticsFailClosed(String kind) {
+    @ParameterizedTest @ValueSource(strings = {"resource", "modifier"})
+    void invalidResourcesAndDynamicOutputSemanticsFailClosed(String kind) {
         var data = fixture("data_reassembler");
         switch (kind) {
-            case "fluid" -> data.getAsJsonObject("inputs").getAsJsonArray("fluids")
-                .add(JsonParser.parseString("{\"fluid\":\"minecraft:lava\",\"amount\":1}"));
-            case "items" -> data.getAsJsonObject("outputs").getAsJsonArray("items")
-                .add(JsonParser.parseString("{\"id\":\"minecraft:emerald\"}"));
-            case "resource" -> data.getAsJsonObject("outputs").add("resource", JsonParser.parseString("{}"));
+            case "resource" -> data.getAsJsonObject("outputs").add("resource", JsonParser.parseString("""
+                {"key_type":"data_energistics:digitalization","resource":"data_energistics:data_flow","amount":0}
+                """));
             default -> data.getAsJsonObject("outputs").getAsJsonArray("items").get(0).getAsJsonObject()
                 .addProperty("modifier", "data_energistics:assign_quantum_frequency");
         }
         assertThrows(IllegalArgumentException.class, () -> decode("data_reassembler", data));
+    }
+
+    @Test void multipleFluidsAndOutputsKeepTheirEntireScaledContract() {
+        var data = fixture("data_reassembler");
+        data.getAsJsonObject("inputs").getAsJsonArray("fluids")
+            .add(JsonParser.parseString("{\"fluid\":\"minecraft:lava\",\"amount\":100}"));
+        data.getAsJsonObject("outputs").getAsJsonArray("fluids")
+            .add(JsonParser.parseString("{\"fluid\":\"minecraft:water\",\"amount\":50}"));
+        data.getAsJsonObject("outputs").getAsJsonArray("items")
+            .add(JsonParser.parseString("{\"id\":\"minecraft:emerald\",\"count\":3}"));
+        data.getAsJsonObject("outputs").add("resource", JsonParser.parseString("""
+            {"key_type":"data_energistics:digitalization","resource":"data_energistics:data_flow","amount":67}
+            """));
+        var recipe = decode("data_reassembler", data);
+        assertEquals(2, recipe.inputFluids().size());
+        assertEquals(5, recipe.outputs().size());
+        var inputs = new KeyCounter();
+        inputs.add(AEItemKey.of(Items.IRON_INGOT), 8);
+        inputs.add(AEFluidKey.of(Fluids.WATER), 500);
+        inputs.add(AEFluidKey.of(Fluids.LAVA), 200);
+        var outputs = new KeyCounter();
+        outputs.add(AEItemKey.of(Items.DIAMOND), 4);
+        outputs.add(AEItemKey.of(Items.EMERALD), 6);
+        outputs.add(AEFluidKey.of(Fluids.LAVA), 250);
+        outputs.add(AEFluidKey.of(Fluids.WATER), 100);
+        outputs.add(LargeWorkstationTestKeys.DATA_FLOW, 134);
+        assertEquals(2, recipe.matchingMultiplier(inputs, outputs));
+        inputs.remove(AEFluidKey.of(Fluids.LAVA), 200);
+        assertEquals(0, recipe.matchingMultiplier(inputs, outputs), "Material fluids cannot be omitted as ME-only extras");
+        inputs.add(AEFluidKey.of(Fluids.WATER), 200);
+        assertEquals(0, recipe.matchingMultiplier(inputs, outputs), "A matching total amount cannot replace a different fluid");
+        inputs.remove(AEFluidKey.of(Fluids.WATER), 200);
+        inputs.add(AEFluidKey.of(Fluids.LAVA), 200);
+        outputs.remove(AEItemKey.of(Items.EMERALD), 6);
+        assertEquals(0, recipe.matchingMultiplier(inputs, outputs));
+    }
+
+    @Test void splitAndReorderedFluidEntriesDeduplicateButDifferentFluidsAndByproductsRemainDistinct() {
+        var firstData = fixture("data_reassembler");
+        firstData.getAsJsonObject("inputs").getAsJsonArray("fluids")
+            .add(JsonParser.parseString("{\"fluid\":\"minecraft:lava\",\"amount\":100}"));
+        var reordered = firstData.deepCopy();
+        reordered.getAsJsonObject("inputs").add("fluids", JsonParser.parseString("""
+            [{"fluid":"minecraft:lava","amount":100},{"fluid":"minecraft:water","amount":125},
+             {"fluid":"minecraft:water","amount":125}]
+            """));
+        var withByproduct = firstData.deepCopy();
+        withByproduct.getAsJsonObject("outputs").getAsJsonArray("items")
+            .add(JsonParser.parseString("{\"id\":\"minecraft:emerald\"}"));
+        var moreFluid = firstData.deepCopy();
+        moreFluid.getAsJsonObject("inputs").getAsJsonArray("fluids").get(1).getAsJsonObject().addProperty("amount", 101);
+        var first = decode("data_reassembler", firstData);
+        var equivalent = decode("data_reassembler", reordered);
+        var ops = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).createSerializationContext(JsonOps.INSTANCE);
+        assertEquals(1, LargeWorkstationRecipes.deduplicate(List.of(first, equivalent), ops).size());
+        assertEquals(3, LargeWorkstationRecipes.deduplicate(List.of(first, decode("data_reassembler", withByproduct),
+            decode("data_reassembler", moreFluid)), ops).size());
+        var inputs = new KeyCounter();
+        inputs.add(AEItemKey.of(Items.IRON_INGOT), 4);
+        inputs.add(AEFluidKey.of(Fluids.WATER), 250);
+        inputs.add(AEFluidKey.of(Fluids.LAVA), 100);
+        assertTrue(equivalent.matchesInputs(inputs));
     }
 
     @ParameterizedTest @ValueSource(strings = {"data_flow", "power"})

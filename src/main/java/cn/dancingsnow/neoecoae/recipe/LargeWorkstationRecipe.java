@@ -6,6 +6,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -14,7 +15,8 @@ import java.util.List;
 
 /** Runtime-only recipe contract. Never registered in the single-block recipe type. */
 public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
-                                     long energy, List<GenericStack> extraInputs, ResourceLocation sourceType) {
+                                     long energy, List<GenericStack> extraInputs, ResourceLocation sourceType,
+                                     List<SizedFluidIngredient> additionalFluidInputs, List<GenericStack> additionalOutputs) {
     public static final ResourceLocation NATIVE_TYPE = ResourceLocation.parse("neoecoae:integrated_working_station");
 
     public LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
@@ -22,8 +24,38 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
         this(id, display, energy, extraInputs, NATIVE_TYPE);
     }
 
+    public LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
+                                  long energy, List<GenericStack> extraInputs, ResourceLocation sourceType) {
+        this(id, display, energy, extraInputs, sourceType, List.of(), List.of());
+    }
+
     public LargeWorkstationRecipe {
         if (energy < 0) throw new IllegalArgumentException("Negative recipe energy");
+        extraInputs = List.copyOf(extraInputs);
+        additionalFluidInputs = List.copyOf(additionalFluidInputs);
+        additionalOutputs = List.copyOf(additionalOutputs);
+        for (var input : additionalFluidInputs) {
+            if (input.ingredient().isEmpty() || input.amount() <= 0) throw new IllegalArgumentException("Empty fluid input");
+        }
+        for (var output : additionalOutputs) {
+            if (output.what() == null || output.amount() <= 0) throw new IllegalArgumentException("Empty output");
+        }
+    }
+
+    /** Complete virtual contract; the single-block display only holds the first fluid and outputs. */
+    public List<SizedFluidIngredient> inputFluids() {
+        var fluids = new ArrayList<SizedFluidIngredient>();
+        if (!display.inputFluid().ingredient().isEmpty()) fluids.add(display.inputFluid());
+        fluids.addAll(additionalFluidInputs);
+        return List.copyOf(fluids);
+    }
+
+    public List<GenericStack> outputs() {
+        var outputs = new ArrayList<GenericStack>();
+        if (display.hasItemOutput()) outputs.add(GenericStack.fromItemStack(display.itemOutput()));
+        if (display.hasFluidOutput()) outputs.add(GenericStack.fromFluidStack(display.fluidOutput()));
+        outputs.addAll(additionalOutputs);
+        return List.copyOf(outputs);
     }
 
     public Component sourceTypeDescription() {
@@ -68,8 +100,7 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
 
     private KeyCounter outputAmounts() {
         KeyCounter expected = new KeyCounter();
-        if (display.hasItemOutput()) expected.add(AEItemKey.of(display.itemOutput()), display.itemOutput().getCount());
-        if (display.hasFluidOutput()) expected.add(AEFluidKey.of(display.fluidOutput()), display.fluidOutput().getAmount());
+        for (var output : outputs()) expected.add(output.what(), output.amount());
         return expected;
     }
 
@@ -88,22 +119,28 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
             remaining.remove(extra.what(), supplied);
         }
         List<GenericStack> items = new ArrayList<>();
-        long fluidAmount = 0;
+        List<GenericStack> fluids = new ArrayList<>();
         for (var entry : remaining) {
             long amount = entry.getLongValue();
             if (amount == 0) continue;
             if (amount < 0) return false;
             if (entry.getKey() instanceof AEItemKey) {
                 items.add(new GenericStack(entry.getKey(), amount));
-            } else if (entry.getKey() instanceof AEFluidKey fluid) {
-                if (display.inputFluid().ingredient().isEmpty()
-                    || !display.inputFluid().ingredient().test(fluid.toStack(1))) return false;
-                fluidAmount = Math.addExact(fluidAmount, amount);
+            } else if (entry.getKey() instanceof AEFluidKey) {
+                fluids.add(new GenericStack(entry.getKey(), amount));
             } else return false;
         }
-        long requiredFluid = display.inputFluid().ingredient().isEmpty() ? 0
-            : Math.multiplyExact((long) display.inputFluid().amount(), multiplier);
-        if (fluidAmount != requiredFluid) return false;
+        var requiredFluids = inputFluids();
+        long[] fluidSupplied = fluids.stream().mapToLong(GenericStack::amount).toArray();
+        long[] fluidNeeded = requiredFluids.stream().mapToLong(r -> Math.multiplyExact((long) r.amount(), multiplier)).toArray();
+        boolean[][] fluidAccepts = new boolean[fluids.size()][requiredFluids.size()];
+        for (int i = 0; i < fluids.size(); i++) {
+            var stack = ((AEFluidKey) fluids.get(i).what()).toStack(1);
+            for (int j = 0; j < requiredFluids.size(); j++) {
+                fluidAccepts[i][j] = requiredFluids.get(j).ingredient().test(stack);
+            }
+        }
+        if (!matchesQuantities(fluidSupplied, fluidNeeded, fluidAccepts)) return false;
 
         // Integral max flow handles overlapping tags without greedy allocation failures, and
         // keeps large ingredient quantities compact instead of expanding them into 64-item stacks.

@@ -33,25 +33,38 @@ final class DataWorkstationRecipes {
         ItemStack result = ItemStack.EMPTY;
         FluidStack fluidResult = FluidStack.EMPTY;
         List<GenericStack> extras = List.of();
+        List<SizedFluidIngredient> additionalFluids = new ArrayList<>();
+        List<GenericStack> additionalOutputs = new ArrayList<>();
         long energy;
         switch (type) {
             case "data_energistics:data_reassembler" -> {
                 var inputs = data.getAsJsonObject("inputs");
                 readItems(inputs, "items", items, ops);
-                fluid = fluidInput(singleFluid(inputs, ops));
+                var fluids = fluids(inputs, ops);
+                if (!fluids.isEmpty()) {
+                    fluid = fluidInput(fluids.getFirst());
+                    for (int i = 1; i < fluids.size(); i++) additionalFluids.add(fluidInput(fluids.get(i)));
+                }
                 if (inputs.has("resource")) extras = List.of(resource(inputs.getAsJsonObject("resource"), ops));
                 var outputs = data.getAsJsonObject("outputs");
-                if (outputs.has("resource")) throw new IllegalArgumentException("Custom resource outputs are not supported");
+                if (outputs.has("resource")) additionalOutputs.add(resource(outputs.getAsJsonObject("resource"), ops));
                 if (outputs.has("items")) {
                     var outputsItems = outputs.getAsJsonArray("items");
-                    if (outputsItems.size() > 1) throw new IllegalArgumentException("Multiple item outputs are not supported");
-                    if (!outputsItems.isEmpty()) {
-                        var output = outputsItems.get(0).getAsJsonObject();
+                    for (var value : outputsItems) {
+                        var output = value.getAsJsonObject();
                         if (output.has("modifier")) throw new IllegalArgumentException("Dynamic output modifiers are not supported");
-                        result = parse(ItemStack.CODEC, ops, output);
+                        var stack = parse(ItemStack.CODEC, ops, output);
+                        if (result.isEmpty()) result = stack;
+                        else additionalOutputs.add(GenericStack.fromItemStack(stack));
                     }
                 }
-                fluidResult = singleFluid(outputs, ops);
+                var outputFluids = fluids(outputs, ops);
+                if (!outputFluids.isEmpty()) {
+                    fluidResult = outputFluids.getFirst();
+                    for (int i = 1; i < outputFluids.size(); i++) {
+                        additionalOutputs.add(GenericStack.fromFluidStack(outputFluids.get(i)));
+                    }
+                }
                 // Upstream charges idle AE but no per-operation AE for reassembly. The host retains its own idle drain.
                 energy = 0;
             }
@@ -84,13 +97,10 @@ final class DataWorkstationRecipes {
         if (items.isEmpty() && fluid.ingredient().isEmpty() && extras.isEmpty()) {
             throw new IllegalArgumentException("Empty input");
         }
-        if (items.size() > LargeIntegratedWorkingStationRecipe.MAX_ITEM_INPUTS) {
-            throw new IllegalArgumentException("Too many workstation inputs");
-        }
-        if (result.isEmpty() && fluidResult.isEmpty()) throw new IllegalArgumentException("Empty output");
+        if (result.isEmpty() && fluidResult.isEmpty() && additionalOutputs.isEmpty()) throw new IllegalArgumentException("Empty output");
         var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
-        return new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type));
+        return new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type), additionalFluids, additionalOutputs);
     }
 
     private static void readItems(JsonObject data, String field, List<SizedIngredient> items, DynamicOps<JsonElement> ops) {
@@ -103,11 +113,12 @@ final class DataWorkstationRecipes {
         }
     }
 
-    private static FluidStack singleFluid(JsonObject data, DynamicOps<JsonElement> ops) {
-        if (!data.has("fluids")) return FluidStack.EMPTY;
+    private static List<FluidStack> fluids(JsonObject data, DynamicOps<JsonElement> ops) {
+        if (!data.has("fluids")) return List.of();
         var fluids = data.getAsJsonArray("fluids");
-        if (fluids.size() > 1) throw new IllegalArgumentException("Multiple fluids are not supported");
-        return fluids.isEmpty() ? FluidStack.EMPTY : fluid(fluids.get(0).getAsJsonObject(), ops);
+        var result = new ArrayList<FluidStack>();
+        for (var entry : fluids) result.add(fluid(entry.getAsJsonObject(), ops));
+        return result;
     }
 
     private static FluidStack fluid(JsonObject entry, DynamicOps<JsonElement> ops) {

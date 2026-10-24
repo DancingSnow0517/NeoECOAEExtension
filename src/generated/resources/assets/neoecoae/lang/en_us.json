@@ -6,6 +6,8 @@
   "recipe_type.neoecoae.ae2lt.lightning_simulation": "AE2LT: Lightning Simulation",
   "recipe_type.neoecoae.ae2cs.circuit_etcher_recipe": "AE2CS: Circuit Etching",
   "recipe_type.neoecoae.ae2cs.crystal_aggregator_recipe": "AE2CS: Crystal Aggregation",
+  "recipe_type.neoecoae.ae2cs.crystal_pulverizer_recipe": "AE2CS: Crystal Pulverizing",
+  "recipe_type.neoecoae.ae2cs.entropy_variation_reaction_chamber": "AE2CS: Entropy Variation",
   "recipe_type.neoecoae.appgen.synthesizing": "Applied Generators: Synthesizing",
   "recipe_type.neoecoae.advanced_ae.reaction": "AdvancedAE: Reaction Chamber",
   "recipe_type.neoecoae.extendedae_plus.crystal_assembler_plus": "ExtendedAE Plus: Crystal Assembling",
