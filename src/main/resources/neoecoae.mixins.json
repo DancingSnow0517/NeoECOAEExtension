@@ -46,6 +46,7 @@
     "client.ae2.AEBaseScreenGrayToolbarMixin",
     "client.ae2.WorkstationInterfaceIconMixin",
     "client.ae2.WorkstationInterfaceIconButtonMixin",
+    "client.ae2.WorkstationInterfaceTabButtonMixin",
     "client.ae2.WorkstationInterfaceWidgetContainerAccessor",
     "client.ae2.CellWorkbenchScreenMixin",
     "client.ae2.CpuSelectionListMixin",
