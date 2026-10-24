@@ -76,6 +76,39 @@ class OverloadCrystalCyclePlanningTest {
         });
     }
 
+    @ParameterizedTest
+    @CsvSource({"100", "1000000"})
+    void crystalOrdersReuseTheSeedsLeftOverFromEachBatch(long requested) {
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            var crush = pattern(new GenericStack(dust, 1), new GenericStack(crystal, 1));
+            var makeSeeds = pattern(new GenericStack(seed, 32), new GenericStack(dust, 8),
+                new GenericStack(fluix, 16), new GenericStack(charged, 8));
+            var grow = pattern(new GenericStack(crystal, 1), new GenericStack(seed, 1));
+            var service = mock(ICraftingService.class);
+            when(service.getCraftingFor(dust)).thenReturn(List.of(crush));
+            when(service.getCraftingFor(seed)).thenReturn(List.of(makeSeeds));
+            when(service.getCraftingFor(crystal)).thenReturn(List.of(grow));
+            var network = new CraftingNetworkCompiler(List.of(new AE2PatternSemanticAdapter()))
+                .compile(service, crystal, true, ECOCancellation.NONE);
+            var inventory = new KeyCounter();
+            inventory.add(dust, 8);
+            long batches = (requested + 23L) / 24L;
+            inventory.add(fluix, batches * 16L);
+            inventory.add(charged, batches * 8L);
+            var result = plan(network, inventory, requested);
+            assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
+            var cycle = cn.dancingsnow.neoecoae.platform.JdkCompat.first(result.trace().cycles()).solveResult();
+            assertTrue(cycle.producedOutputs().get(seed) <= batches * 32L,
+                "One batch grows 32 crystals and recycles 8; its other seeds must not be discarded: "
+                    + cycle.producedOutputs());
+            assertEquals(batches, result.state().patternTimes().get(makeSeeds));
+            assertTrue(cycle.deliverableOutputs().get(crystal) >= requested);
+            assertTrue(cycle.executionPlan().size() < 100, "Large orders must retain a compact firing order");
+            assertEquals(8L, inventory.get(dust), "Planning must not mutate the network inventory");
+            result.state().executionProvenance().requireComplete();
+        });
+    }
+
     private CompiledNetwork network() throws Exception {
         var crush = pattern(new GenericStack(dust, 1), new GenericStack(crystal, 1));
         var makeSeeds = pattern(new GenericStack(seed, 32), new GenericStack(dust, 8),

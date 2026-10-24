@@ -343,6 +343,11 @@ public final class BoundedCycleSolver implements CycleSolver {
             if (witness == null || witness.isEmpty()
                     || witness.stream().anyMatch(run -> run.repetitions().compareTo(PlannerAmount.ONE) > 0)) return null;
             CircuitSummary lap = summarizePlain(model, witness, 0, witness.size());
+            for (int key = 0; key < model.keyCount(); key++) {
+                // A unit-target lap may leave reusable intermediates (e.g. 23 of a batch's 32 seeds).
+                // Repeating it scales that waste with the order. Let whole-order balance reuse the surplus.
+                if (unitTarget[key].isZero() && model.consumedKeys[key] && lap.delta[key].signum() > 0) return null;
+            }
             PlannerAmount repetitions = PlannerAmount.ZERO;
             for (int key = 0; key < model.keyCount(); key++) {
                 probe.checkpoint();
