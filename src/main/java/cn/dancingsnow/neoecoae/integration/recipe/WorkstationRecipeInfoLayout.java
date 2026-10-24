@@ -1,19 +1,26 @@
 package cn.dancingsnow.neoecoae.integration.recipe;
 
 /** Pixel geometry shared by both viewers; additional card rows expand the footer, never cover inputs. */
-public record WorkstationRecipeInfoLayout(int cardCount) {
+public record WorkstationRecipeInfoLayout(int cardCount, int textRows) {
     public static final int INFO_X = 4, INFO_Y = 72, INFO_WIDTH = 160;
     public static final int CARD_SIZE = 16, CARD_PADDING = 2, CARD_GAP = 2;
     public static final int TEXT_X = 7, ROW_HEIGHT = 8;
     public static final int MAX_CARD_COLUMNS = 4;
 
+    public WorkstationRecipeInfoLayout(int cardCount) { this(cardCount, 2); }
+
     public WorkstationRecipeInfoLayout {
         if (cardCount < 0) throw new IllegalArgumentException("Negative card count");
+        if (textRows < 1) throw new IllegalArgumentException("At least one information row required");
     }
 
     public int cardColumns() { return Math.min(cardCount, MAX_CARD_COLUMNS); }
     public int cardRows() { return (cardCount + MAX_CARD_COLUMNS - 1) / MAX_CARD_COLUMNS; }
-    public int infoHeight() { return Math.max(20, CARD_PADDING * 2 + cardRows() * (CARD_SIZE + CARD_GAP) - CARD_GAP); }
+    public int infoHeight() {
+        int textHeight = 4 + textRows * ROW_HEIGHT;
+        int cardHeight = CARD_PADDING * 2 + cardRows() * (CARD_SIZE + CARD_GAP) - CARD_GAP;
+        return Math.max(20, Math.max(textHeight, cardHeight));
+    }
     public int extraHeight() { return infoHeight() - 20; }
     public int backgroundHeight() { return 96 + extraHeight(); }
     public int extraSlotsY() { return 100 + extraHeight(); }
@@ -22,7 +29,7 @@ public record WorkstationRecipeInfoLayout(int cardCount) {
             : INFO_X + INFO_WIDTH - CARD_PADDING - cardColumns() * (CARD_SIZE + CARD_GAP) + CARD_GAP - 2;
         return right - TEXT_X;
     }
-    public int energyY() { return INFO_Y + (infoHeight() - ROW_HEIGHT * 2) / 2 + 1; }
+    public int energyY() { return INFO_Y + (infoHeight() - ROW_HEIGHT * textRows) / 2 + 1; }
     public int extraY() { return energyY() + ROW_HEIGHT; }
 
     public int cardX(int index) {
@@ -41,7 +48,7 @@ public record WorkstationRecipeInfoLayout(int cardCount) {
     }
     public boolean containsText(double x, double y) {
         return x >= TEXT_X - 1 && x < TEXT_X + textWidth() + 1
-            && y >= energyY() - 1 && y < extraY() - 1 + ROW_HEIGHT;
+            && y >= energyY() - 1 && y < energyY() - 1 + ROW_HEIGHT * textRows;
     }
     private void checkIndex(int index) {
         if (index < 0 || index >= cardCount) throw new IndexOutOfBoundsException(index);

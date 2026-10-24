@@ -119,6 +119,8 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:5.15.2'
     testImplementation 'org.slf4j:slf4j-api:2.0.16'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // Exercise optional per-recipe layout hooks against the same JEI release as the API.
+    testRuntimeOnly('mezz.jei:jei-1.20.1-forge:15.48.0.177') { transitive = false }
     ['lwjgl', 'lwjgl-glfw', 'lwjgl-opengl', 'lwjgl-stb'].each {
         testRuntimeOnly "org.lwjgl:${it}:3.3.1:${lwjglNatives}"
     }

@@ -16,7 +16,9 @@ import java.util.List;
 /** Runtime-only recipe contract. Never registered in the single-block recipe type. */
 public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
                                      long energy, List<GenericStack> extraInputs, ResourceLocation sourceType,
-                                     List<SizedFluidIngredient> additionalFluidInputs, List<GenericStack> additionalOutputs) {
+                                     List<SizedFluidIngredient> additionalFluidInputs, List<GenericStack> additionalOutputs,
+                                     int processingTicks, long feEnergy, boolean feAlternative) {
+    public static final int MAX_PROCESSING_TICKS = 200;
     public static final ResourceLocation NATIVE_TYPE = new ResourceLocation("neoecoae:integrated_working_station");
 
     public LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
@@ -29,8 +31,38 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
         this(id, display, energy, extraInputs, sourceType, List.of(), List.of());
     }
 
+    public LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
+                                  long energy, List<GenericStack> extraInputs, ResourceLocation sourceType,
+                                  List<SizedFluidIngredient> additionalFluidInputs, List<GenericStack> additionalOutputs) {
+        this(id, display, energy, extraInputs, sourceType, additionalFluidInputs, additionalOutputs,
+            referenceTicks(sourceType, display, energy), 0, false);
+    }
+
+    /** AE and FE are separate budgets. Alternative means either complete budget, never both. */
+    public LargeWorkstationRecipe processing(int ticks, long fe, boolean alternative) {
+        return new LargeWorkstationRecipe(id, display, energy, extraInputs, sourceType,
+            additionalFluidInputs, additionalOutputs, ticks, fe, alternative);
+    }
+
+    /** FE can always be paid with equivalent AE, so Applied Flux is optional. */
+    public boolean requiresAppliedFlux() { return false; }
+
+    private static int referenceTicks(ResourceLocation type, IntegratedWorkingStationRecipe display, long energy) {
+        if (type.equals(NATIVE_TYPE)) return display.processingTicks();
+        if (type.getNamespace().equals("ae2cs")) return (int) Math.max(1, Math.min(Integer.MAX_VALUE, energy / 200 + (energy % 200 == 0 ? 0 : 1)));
+        return switch (type.toString()) {
+            case "expatternprovider:crystal_assembler", "advanced_ae:reaction", "extendedae:crystal_assembler" -> 100;
+            case "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation" -> 4;
+            default -> 200;
+        };
+    }
+
     public LargeWorkstationRecipe {
         if (energy < 0) throw new IllegalArgumentException("Negative recipe energy");
+        if (processingTicks <= 0 || feEnergy < 0 || feAlternative && (energy <= 0 || feEnergy <= 0)) {
+            throw new IllegalArgumentException("Invalid processing duration or FE budget");
+        }
+        processingTicks = Math.min(processingTicks, MAX_PROCESSING_TICKS);
         extraInputs = List.copyOf(extraInputs);
         additionalFluidInputs = List.copyOf(additionalFluidInputs);
         additionalOutputs = List.copyOf(additionalOutputs);

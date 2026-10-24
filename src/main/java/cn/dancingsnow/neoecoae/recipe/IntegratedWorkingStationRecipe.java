@@ -19,14 +19,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public record IntegratedWorkingStationRecipe(List<SizedIngredient> inputItems, SizedFluidIngredient inputFluid,
-        ItemStack itemOutput, FluidStack fluidOutput, int energy, ResourceLocation id)
+        ItemStack itemOutput, FluidStack fluidOutput, int energy, ResourceLocation id, int processingTicks)
         implements Recipe<IntegratedWorkingStationRecipe.Input> {
     public IntegratedWorkingStationRecipe(List<SizedIngredient> items, SizedFluidIngredient fluid,
             ItemStack itemOutput, FluidStack fluidOutput, int energy) {
         this(items, fluid, itemOutput, fluidOutput, energy, new ResourceLocation("neoecoae", "runtime_display"));
     }
 
+    public IntegratedWorkingStationRecipe(List<SizedIngredient> items, SizedFluidIngredient fluid,
+            ItemStack itemOutput, FluidStack fluidOutput, int energy, ResourceLocation id) {
+        this(items, fluid, itemOutput, fluidOutput, energy, id, 100);
+    }
+
     public IntegratedWorkingStationRecipe {
+        if (processingTicks <= 0) throw new IllegalArgumentException("Processing time must be positive");
         inputItems = List.copyOf(inputItems);
         itemOutput = itemOutput.copy();
         fluidOutput = fluidOutput.copy();
@@ -83,7 +89,7 @@ public record IntegratedWorkingStationRecipe(List<SizedIngredient> inputItems, S
             var fluid = json.has("inputFluid") ? SizedFluidIngredient.fromJson(json.get("inputFluid"))
                 : new SizedFluidIngredient(FluidIngredient.empty(), 1);
             var recipe = new IntegratedWorkingStationRecipe(inputs, fluid, RecipeJson.item(json.get("itemOutput")),
-                RecipeJson.fluid(json.get("fluidOutput")), GsonHelper.getAsInt(json, "energy"), id);
+                RecipeJson.fluid(json.get("fluidOutput")), GsonHelper.getAsInt(json, "energy"), id, GsonHelper.getAsInt(json, "processingTicks", 100));
             validate(recipe, maxInputs);
             return recipe;
         }
@@ -97,6 +103,7 @@ public record IntegratedWorkingStationRecipe(List<SizedIngredient> inputItems, S
             if (recipe.hasItemOutput()) json.add("itemOutput", RecipeJson.item(recipe.itemOutput()));
             if (recipe.hasFluidOutput()) json.add("fluidOutput", RecipeJson.fluid(recipe.fluidOutput()));
             json.addProperty("energy", recipe.energy());
+            if (recipe.processingTicks() != 100) json.addProperty("processingTicks", recipe.processingTicks());
             return json;
         }
 
@@ -112,7 +119,7 @@ public record IntegratedWorkingStationRecipe(List<SizedIngredient> inputItems, S
             for (int i = 0; i < size; i++) inputs.add(SizedIngredient.read(buffer));
             var fluid = SizedFluidIngredient.read(buffer);
             var recipe = new IntegratedWorkingStationRecipe(inputs, fluid, RecipeJson.readItem(buffer),
-                buffer.readFluidStack(), buffer.readVarInt(), id);
+                buffer.readFluidStack(), buffer.readVarInt(), id, buffer.readVarInt());
             validate(recipe, maxInputs);
             return recipe;
         }
@@ -129,6 +136,7 @@ public record IntegratedWorkingStationRecipe(List<SizedIngredient> inputItems, S
             RecipeJson.writeItem(buffer, recipe.itemOutput());
             buffer.writeFluidStack(recipe.fluidOutput());
             buffer.writeVarInt(recipe.energy());
+            buffer.writeVarInt(recipe.processingTicks());
         }
 
         private static void validate(IntegratedWorkingStationRecipe recipe, int maxInputs) {

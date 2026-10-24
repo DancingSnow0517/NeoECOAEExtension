@@ -4,6 +4,28 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.large_integrated_working_station.module_any", "Supported upgrade cards (any one): %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.variant_costs", "Each route retains its own batch size and costs:");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_value", "Energy: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.fe_supply_hint", "Using %s requires Applied Flux");
+        provider.add("gui.neoecoae.large_integrated_working_station.fe_storage_hint", "and %s stored in the ME network.");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_amount", "Quantity: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.energy_or", "%s OR %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.energy_and", "%s + %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_duration", "%s ticks (%s s)");
+        provider.add("gui.neoecoae.large_integrated_working_station.route_label", "Route");
+        provider.add("gui.neoecoae.large_integrated_working_station.time_label", "Time");
+        provider.add("gui.neoecoae.large_integrated_working_station.batch_label", "Output / batch");
+        provider.add("gui.neoecoae.large_integrated_working_station.supply_label", "FE supply");
+        provider.add("gui.neoecoae.large_integrated_working_station.flux_optional", "FE option: Applied Flux + network FE");
+        provider.add("gui.neoecoae.large_integrated_working_station.flux_required", "Requires Applied Flux + network FE");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_variant_details", "%s: %s; %s; batch: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.preview_batch", "Material preview: representative batch. Each route below keeps its own batch size and costs.");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.applied_flux_missing", "Paused: Applied Flux is required for network FE");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.fe_missing", "Paused: Insufficient FE in the ME network");
+        provider.add("gui.neoecoae.workstation.fe_value", "Network FE consumption: %s FE/t; reserved: %s FE");
+        provider.add("gui.neoecoae.workstation.fe_requirement", "Network FE requires Applied Flux; missing FE can be paid with equivalent AE.");
+        provider.add("gui.neoecoae.workstation.task_duration", "Processing time: %s / %s ticks");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_label", "Energy");
         provider.add("gui.neoecoae.large_integrated_working_station.extra_required_label", "Extra required");
         provider.add("recipe_type.neoecoae.ae2cs.crystal_pulverizer_recipe", "AE2CS: Crystal Pulverizing");

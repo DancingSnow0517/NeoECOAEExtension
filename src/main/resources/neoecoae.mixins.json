@@ -43,6 +43,8 @@
     "ae2.storage.DigitalSingularityEnergyServiceMixin"
   ],
   "client": [
+    "client.jei.RecipeLayoutMixin",
+    "client.jei.RecipeLayoutBuilderMixin",
     "client.ldlib.UIFactoryMixin",
     "client.accessor.MenuScreensAccessor",
     "client.ae2.AEBaseScreenGrayToolbarMixin",

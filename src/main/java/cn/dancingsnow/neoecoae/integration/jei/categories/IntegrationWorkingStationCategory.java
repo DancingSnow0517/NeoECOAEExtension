@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.integration.jei.categories;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
+import cn.dancingsnow.neoecoae.integration.jei.WorkstationItemStackRenderer;
 import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import mezz.jei.api.constants.VanillaTypes;
@@ -100,14 +101,16 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Integr
             var x = (large ? 26 : 38) + i % columns * 18;
             var y = 12 + i / columns * 18;
             if (!input.ingredient().isEmpty()) {
-                builder.addInputSlot(x, y).addIngredients(VanillaTypes.ITEM_STACK, Arrays.asList(input.getItems()));
+                var slot = builder.addInputSlot(x, y).addIngredients(VanillaTypes.ITEM_STACK, Arrays.asList(input.getItems()));
+                if (large) WorkstationItemStackRenderer.configure(slot);
             }
         }
 
         // output item
         ItemStack itemOutput = recipe.itemOutput();
         if (!itemOutput.isEmpty()) {
-            builder.addOutputSlot(114, 31).addItemStack(itemOutput);
+            var slot = builder.addOutputSlot(114, 31).addItemStack(itemOutput);
+            if (large) WorkstationItemStackRenderer.configure(slot);
         }
 
         // output fluid

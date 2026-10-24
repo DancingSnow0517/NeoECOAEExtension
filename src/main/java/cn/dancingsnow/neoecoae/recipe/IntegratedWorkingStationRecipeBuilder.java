@@ -29,6 +29,13 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     ItemStack itemOutput = ItemStack.EMPTY;
     FluidStack fluidOutput = FluidStack.EMPTY;
     int energy = 1000;
+    int processingTicks = 100;
+
+    public IntegratedWorkingStationRecipeBuilder processingTicks(int ticks) {
+        if (ticks <= 0) throw new IllegalArgumentException("Processing time must be positive");
+        this.processingTicks = ticks;
+        return this;
+    }
 
     public IntegratedWorkingStationRecipeBuilder energy(int energy) {
         this.energy = energy;
@@ -146,7 +153,7 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
             throw new IllegalStateException("Recipe must have at least one input");
         }
 
-        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy, id);
+        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy, id, processingTicks);
         recipeOutput.accept(new NEFinishedRecipe(id, serializer, IntegratedWorkingStationRecipe.Serializer.toJson(recipe)));
     }
 }

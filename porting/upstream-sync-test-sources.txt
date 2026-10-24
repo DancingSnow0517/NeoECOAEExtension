@@ -45,3 +45,13 @@ cn/dancingsnow/neoecoae/util/LargeWorkstationTestKeys.java
 cn/dancingsnow/neoecoae/util/NativePatternTestSupport.java
 cn/dancingsnow/neoecoae/util/RecipeTestSupport.java
 cn/dancingsnow/neoecoae/util/UiTestSupport.java
+# Workstation processing-time, FE and route-display contracts (existing Forge integration scope).
+cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationProcessingTest.java
+cn/dancingsnow/neoecoae/integration/appflux/WorkstationFluxEnergyTest.java
+cn/dancingsnow/neoecoae/integration/jei/WorkstationRecipeHeightTest.java
+cn/dancingsnow/neoecoae/integration/recipe/GroupedWorkstationRecipeDisplayTest.java
+cn/dancingsnow/neoecoae/integration/recipe/WorkstationRecipeInfoLayoutTest.java
+cn/dancingsnow/neoecoae/recipe/WorkstationProcessingContractTest.java
+cn/dancingsnow/neoecoae/recipe/WorkstationEnergyTest.java
+cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipeTest.java
+cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationPatternScalingTest.java

@@ -54,6 +54,17 @@ class LargeWorkstationBatchPersistenceTest {
             assertEquals(tag, save.invoke(restored));
             assertEquals(65_535L * 7, (long) progress.getInt(restored) * 262_144 + remainder.getLong(restored));
 
+            tag.putInt("processingTicks", 7);
+            tag.putLong("fePerCraft", 9_007_199_254_740_993L);
+            tag.putLong("feRemainder", 5);
+            tag.putBoolean("legacyTiming", false);
+            var timed = load.invoke(null, tag, 234L);
+            assertNotNull(timed);
+            assertEquals(tag, save.invoke(timed), "Duration, selected energy source and fractional FE survive reload");
+            tag.putLong("feRemainder", 7);
+            assertNull(load.invoke(null, tag, 234L));
+            tag.putLong("feRemainder", 5);
+
             tag.putLong("progressRemainder", -1);
             assertNull(load.invoke(null, tag, 234L));
             tag.putLong("progressRemainder", 262_144);
@@ -96,6 +107,15 @@ class LargeWorkstationBatchPersistenceTest {
             assertEquals(tag, resaved);
             assertEquals(5_000_000_000L, resaved.getLong("energyPerCraft"));
             assertEquals(18, ((KeyCounter) missingField.get(restored)).get(LightningKey.EXTREME_HIGH_VOLTAGE));
+
+            var legacy = tag.copy();
+            for (String field : java.util.List.of("processingTicks", "fePerCraft", "feRemainder", "legacyTiming")) legacy.remove(field);
+            var legacyBatch = load.invoke(null, legacy, 234L);
+            assertNotNull(legacyBatch);
+            var legacyTag = (CompoundTag) save.invoke(legacyBatch);
+            assertEquals(200, legacyTag.getInt("processingTicks"));
+            assertEquals(0, legacyTag.getLong("fePerCraft"));
+            assertTrue(legacyTag.getBoolean("legacyTiming"));
 
             // Legacy batches stored an int; NBT numeric widening must preserve that energy cost.
             tag.putInt("energyPerCraft", 12345);

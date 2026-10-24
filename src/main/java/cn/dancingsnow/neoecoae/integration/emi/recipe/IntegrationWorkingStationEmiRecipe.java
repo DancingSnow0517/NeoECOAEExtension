@@ -45,8 +45,7 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         for (var input : additionalFluidInputs) inputs.add(NeoECOAEEmiPlugin.of(input));
         for (var input : recipe.extraInputs()) inputs.add(of(input));
         for (var output : additionalOutputs) outputs.add(of(output));
-        var card = LargeWorkstationRecipeDisplay.upgradeCard(recipe);
-        if (!card.isEmpty()) catalysts.add(EmiStack.of(card));
+        for (var card : LargeWorkstationRecipeDisplay.cards(recipe)) catalysts.add(EmiStack.of(card.stack()));
         height = LargeWorkstationRecipeDisplay.height(recipe);
     }
 
@@ -94,9 +93,9 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
             widgets.addDrawable(0, 0, 168, height,
                 (graphics, mouseX, mouseY, delta) -> LargeWorkstationRecipeDisplay.drawInfo(graphics, font, largeRecipe));
             var cards = LargeWorkstationRecipeDisplay.cards(largeRecipe);
-            var infoLayout = new WorkstationRecipeInfoLayout(cards.size());
+            var infoLayout = LargeWorkstationRecipeDisplay.layout(largeRecipe);
             widgets.addTooltipText(LargeWorkstationRecipeDisplay.infoTooltip(largeRecipe),
-                LargeWorkstationRecipeDisplay.TEXT_X, infoLayout.energyY() - 1, infoLayout.textWidth(), 16);
+                LargeWorkstationRecipeDisplay.TEXT_X, infoLayout.energyY() - 1, infoLayout.textWidth(), infoLayout.textRows() * WorkstationRecipeInfoLayout.ROW_HEIGHT);
             for (int i = 0; i < cards.size(); i++) {
                 var card = cards.get(i);
                 var slot = widgets.addSlot(EmiStack.of(card.stack()), infoLayout.cardX(i) - 1,

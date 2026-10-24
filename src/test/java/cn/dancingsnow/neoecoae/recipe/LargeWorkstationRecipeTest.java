@@ -158,11 +158,22 @@ class LargeWorkstationRecipeTest {
             {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
              "totalEnergy":10000000000,"lightningCost":7,"lightningTier":"extreme_high_voltage",
             """ + output + "}");
-        assertTrue(recipe.energy() > Integer.MAX_VALUE);
+        assertEquals(0, recipe.energy());
+        assertEquals(10_000_000_000L, recipe.feEnergy());
+        assertEquals(200, recipe.processingTicks());
         assertEquals(7, cn.dancingsnow.neoecoae.platform.JdkCompat.first(recipe.extraInputs()).amount());
         assertEquals(com.moakiee.ae2lt.me.key.LightningKey.EXTREME_HIGH_VOLTAGE, cn.dancingsnow.neoecoae.platform.JdkCompat.first(recipe.extraInputs()).what());
         assertEquals(4, cn.dancingsnow.neoecoae.platform.JdkCompat.first(recipe.display().inputItems()).count());
         if (type.endsWith("overload_processing")) assertEquals(1000, recipe.display().inputFluid().amount());
+    }
+
+    @Test void cappedLightningDurationKeepsEvenTheLargestFeBudgetExecutable() {
+        var recipe = decode("ae2lt:lightning_assembly", """
+            {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":1}],
+             "totalEnergy":9223372036854775807,"result":{"id":"minecraft:diamond"}}
+            """);
+        assertEquals(Long.MAX_VALUE, recipe.feEnergy());
+        assertEquals(200, recipe.processingTicks());
     }
 
     @Test void rebornDefaultLightningCostIsNotLostWhenCodecOmitsDefaults() {
@@ -318,16 +329,19 @@ class LargeWorkstationRecipeTest {
         var regularOnly = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR);
         assertEquals(List.of(nativeRecipe), regularOnly, "An uninstalled lightning card must not hide the native recipe");
         var lightning = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.LIGHTNING_TECH);
-        assertEquals(List.of(adapted), lightning);
+        assertEquals(List.of(adapted, nativeRecipe), lightning,
+            "Execution retains all legal routes even when viewers show one material group");
         assertSame(lightning, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.LIGHTNING_TECH));
         assertSame(regularOnly, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR));
         assertSame(adapted, LargeWorkstationRecipes.getById(manager, registries, optionalId),
             "Removing a card must not invalidate an already accepted recipe ID");
 
         NEConfig.largeWorkstationIgnoreUpgradeCards = true;
+        var unrestricted = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR);
+        assertEquals(List.of(adapted, nativeRecipe), unrestricted);
         for (var card : LargeWorkstationModule.values()) {
-            assertSame(enabled, LargeWorkstationRecipes.getAvailable(manager, registries, card),
-                "Ignoring cards unlocks all supported recipes for every card and the empty slot");
+            assertSame(unrestricted, LargeWorkstationRecipes.getAvailable(manager, registries, card),
+                "Ignoring cards unlocks all original execution routes and keeps a stable provider cache");
         }
         assertNotSame(regularOnly, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR),
             "The provider must see a changed recipe list when card requirements are bypassed");
@@ -391,7 +405,7 @@ class LargeWorkstationRecipeTest {
         assertEquals(List.of(cheaperId), listed.stream().map(LargeWorkstationRecipe::id).toList());
         var savedBatchRecipe = LargeWorkstationRecipes.getById(manager, registries, expensiveId);
         assertNotNull(savedBatchRecipe);
-        assertTrue(savedBatchRecipe.energy() > cn.dancingsnow.neoecoae.platform.JdkCompat.first(listed).energy());
+        assertTrue(savedBatchRecipe.feEnergy() > cn.dancingsnow.neoecoae.platform.JdkCompat.first(listed).feEnergy());
         assertEquals(7, cn.dancingsnow.neoecoae.platform.JdkCompat.first(savedBatchRecipe.extraInputs()).amount());
         assertSame(savedBatchRecipe, LargeWorkstationRecipes.getById(manager, registries, expensiveId));
 
