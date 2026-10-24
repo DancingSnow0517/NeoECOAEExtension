@@ -121,6 +121,8 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 
 Every normal switch contributes 2 and every high-energy switch contributes 8 to one network-wide multiplier: **M = 2a + 8b**. Every physical FX lane in the logical network uses the same **512 x M** batch size; switches are not split into separate multiplier pools.
 
+The same multiplier also applies to the sum of all members' local FT parallel capacity. Thus **total FT = local FT sum x M** and **total batch capacity = physical FX count x 512 x M**. Parallel capacity and batch capacity grow together, preserving the overflow ratio of an equally equipped F9 network. A single host does not apply an exchange multiplier.
+
 #### Shared Exchange Rules
 
 | Topic | Behavior |
@@ -185,7 +187,8 @@ Enable active cooling to further enhance performance and eliminate extra energy 
 
 The crafting system now separates structural overclock capability from coolant quality.
 
-- The structure determines theoretical overflow overclock from parallel-core processing capacity that exceeds FX worker capacity. Every 5% overflow adds one speed level, up to level 9.
+- The parallel panel's **Limit** equals the queue's current actual batch capacity, including overclock and exchange multipliers. Overflow is **max(0, FT parallel capacity - Limit)**; its percentage uses total FT parallel capacity as the denominator. The theoretical speed level is the overflow percentage divided by 5%, rounded to the nearest integer and capped at 9.
+- Ordinary processing time is **ceil(10 / (effective overclock + 1)) ticks**. With matching upper and lower FT cores, overclocking enabled and no coolant tier cap, standalone F4/F6/F9 hosts have theoretical levels **0/5/9** and processing times **10/2/1 ticks**. Virtual crafting uses its separate one-tick path and does not calculate finite overflow from unlimited capacity.
 - Overflow overclock shortens task duration only. It neither adds task slots nor participates in the x2/x8 per-slot batch multiplier.
 - Active coolant determines the effective overclock that can actually be used
 - If the coolant tier is lower than the structure's capability, the system does not stop refilling coolant; instead, it runs at the lower effective overclock

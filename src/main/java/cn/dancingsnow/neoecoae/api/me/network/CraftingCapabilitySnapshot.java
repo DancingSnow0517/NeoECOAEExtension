@@ -60,7 +60,13 @@ public record CraftingCapabilitySnapshot(
             NEMath.saturatingMultiply(highEnergyHosts, 8L)
         );
         int multiplier = (int) Math.min(Integer.MAX_VALUE, multiplierLong);
-        boolean exchange = normalHosts + highEnergyHosts >= 2 && multiplier > 0;
+        boolean exchange = (long) normalHosts + highEnergyHosts >= 2 && multiplier > 0;
+        // Input is the sum of the hosts' local FT values. Apply the shared exchange multiplier once,
+        // just as for batch capacity, so expanding a network preserves its ordinary timing ratio.
+        long ftParallel = Math.max(0L, input.ftParallelCapacity());
+        if (exchange) {
+            ftParallel = NEMath.saturatingMultiply(ftParallel, multiplier);
+        }
 
         boolean virtualEligible = input.virtualTopologyEligible();
         // Unlimited virtual crafting is an explicitly enabled endgame mode: the complete physical
@@ -82,8 +88,8 @@ public record CraftingCapabilitySnapshot(
             totalCapacity = Capacity.finite(NEMath.saturatingMultiply(physicalFx, finiteBatchPerFx));
         }
 
-        long baseFxCapacity = NEMath.saturatingMultiply(physicalFx, BASE_BATCH_PER_FX);
-        int theoretical = calculateOverclock(input.ftParallelCapacity(), baseFxCapacity);
+        int theoretical = totalCapacity.unlimited() ? 0
+            : calculateOverclock(ftParallel, totalCapacity.finiteValue());
         int effective = input.overclocked()
             ? (input.activeCooling()
                 ? Math.min(theoretical, Math.max(0, input.coolantState().maxSupportedOverclock()))
@@ -103,7 +109,7 @@ public record CraftingCapabilitySnapshot(
             multiplier,
             batchPerFx,
             totalCapacity,
-            input.ftParallelCapacity(),
+            ftParallel,
             input.runningBatchCount(),
             theoretical,
             effective,
@@ -114,18 +120,19 @@ public record CraftingCapabilitySnapshot(
         );
     }
 
-    /** 与耗时加速使用相同的基础 FX 容量，不受超频批量或交换网络倍率影响。 */
+    /** 与面板 Limit 和普通耗时超频统一使用当前实际批量容量；虚拟模式独立执行。 */
     public long overflowCapacity() {
-        return calculateOverflow(ftParallelCapacity, NEMath.saturatingMultiply(physicalFxCount, BASE_BATCH_PER_FX));
+        return totalBatchCapacity.unlimited() ? 0L
+            : calculateOverflow(ftParallelCapacity, totalBatchCapacity.finiteValue());
     }
 
-    private static long calculateOverflow(long ftParallelCapacity, long baseFxCapacity) {
-        return Math.max(0L, Math.max(0L, ftParallelCapacity) - Math.max(0L, baseFxCapacity));
+    private static long calculateOverflow(long ftParallelCapacity, long batchCapacity) {
+        return Math.max(0L, Math.max(0L, ftParallelCapacity) - Math.max(0L, batchCapacity));
     }
 
-    static int calculateOverclock(long ftParallelCapacity, long baseFxCapacity) {
+    static int calculateOverclock(long ftParallelCapacity, long batchCapacity) {
         long ft = Math.max(0L, ftParallelCapacity);
-        long overflow = calculateOverflow(ft, baseFxCapacity);
+        long overflow = calculateOverflow(ft, batchCapacity);
         if (ft <= 0L || overflow <= 0L) {
             return 0;
         }
@@ -152,6 +159,7 @@ public record CraftingCapabilitySnapshot(
         int requiredFxCount
     ) {}
 
+    /** FT capacity is local/unmultiplied; the calculator applies any exchange multiplier. */
     public record Input(
         int physicalFxCount,
         int activeFxCount,

@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
-import cn.dancingsnow.neoecoae.platform.JdkCompat;
-
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
@@ -364,22 +362,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     static int getParallelCoreMultiplier(BlockPos corePos, Map<BlockPos, Integer> workerCapacityMultipliers) {
         return 1;
-    }
-
-    /**
-     * Overclock level implied by how far the FT parallel cores overshoot the FX worker queue capacity.
-     *
-     * <p>{@code availableThreads} must be the un-overclocked worker capacity. Feeding it the overclocked
-     * capacity makes the ratio shrink as soon as the player enables overclocking, which is exactly the
-     * inversion that used to pin every balanced build at level 0.
-     */
-    static int calculateOverclockTimes(long threadCount, long availableThreads) {
-        long overflow = threadCount - availableThreads;
-        if (threadCount <= 0 || overflow <= 0) {
-            return 0;
-        }
-        double overflowRatio = (double) overflow / (double) threadCount;
-        return (int) JdkCompat.clamp(Math.round(overflowRatio / 0.05D), 0L, MAX_OVERCLOCK_TIMES);
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {

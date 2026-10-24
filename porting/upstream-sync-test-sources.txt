@@ -1,4 +1,5 @@
 # All selected increment regressions and their real Forge test fixtures.
+cn/dancingsnow/neoecoae/api/me/network/CraftingCapabilitySnapshotTest.java
 cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationBatchPersistenceTest.java
 cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationOutputRoutingTest.java
 cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationPatternInventoryTest.java
@@ -8,6 +9,7 @@ cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationThermalTest.java
 cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationThermalUsageTest.java
 cn/dancingsnow/neoecoae/blocks/entity/storage/ECOInfiniteStorageAccessTest.java
 cn/dancingsnow/neoecoae/blocks/entity/storage/InfiniteMemberInteractionTest.java
+cn/dancingsnow/neoecoae/blocks/entity/storage/StorageDriveTestFixtures.java
 cn/dancingsnow/neoecoae/client/gui/workstation/WorkstationPatternViewportTest.java
 cn/dancingsnow/neoecoae/client/gui/workstation/WorkstationInterfaceArtworkTest.java
 cn/dancingsnow/neoecoae/compat/ae2lt/ECOAe2LtCancellationBridgeTest.java
@@ -24,6 +26,7 @@ cn/dancingsnow/neoecoae/crafting/execution/ECOOverloadAccountingIntegrationTest.
 cn/dancingsnow/neoecoae/crafting/execution/ECOVirtualCraftingDispatchTest.java
 cn/dancingsnow/neoecoae/gui/common/HostPanelTextureStateTest.java
 cn/dancingsnow/neoecoae/gui/common/HostProgressTestSupport.java
+cn/dancingsnow/neoecoae/gui/crafting/CraftingControllerTooltipsTest.java
 cn/dancingsnow/neoecoae/gui/computation/ComputationControllerUITest.java
 cn/dancingsnow/neoecoae/gui/crafting/CraftingHostPanelRenderingTest.java
 cn/dancingsnow/neoecoae/gui/storage/StorageHostProgressAnimationTest.java

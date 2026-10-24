@@ -18,7 +18,7 @@ For structure assembly, see [ECO Crafting System](crafting_system.md) or [Multib
 1. **Worker row**: one column per physical FX Worker, with upper and lower FT markers and task outputs when work is present.
 2. **Mode switches**: active cooling on the left; overclocking on the right. A blue upper indicator means enabled.
 3. **Queue**: accepted craft count, batch capacity, and utilization. Hover for full numbers.
-4. **Parallel capacity**: FT capacity, base FX capacity, and overflow. Hover for processing time and effective overclock.
+4. **Parallel capacity**: FT capacity, current actual batch capacity (the same Limit as the queue's capacity), and overflow. Exchange multiplies both FT capacity and batch capacity by the same network multiplier. Hover for processing time and effective overclock.
 5. **Power and fluids**: energy use, converted coolant buffer, and fluid in the output hatch.
 6. **Status summary**: active / total FX, FT capacity, coolant tier, exchange modules, and network multiplier.
 

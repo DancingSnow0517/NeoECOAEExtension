@@ -71,6 +71,33 @@ class ECOVirtualCraftingDispatchTest {
 
     @AfterEach void closeTicks() { ticks.close(); }
 
+    @ParameterizedTest
+    @CsvSource({
+        "2,0,112640,45056,67584",
+        "1,1,281600,112640,168960",
+        "0,2,450560,180224,270336"
+    })
+    void finiteNetworksExposeScaledParallelAndActualCapacityToEveryHost(
+            int normal, int highEnergy, long parallel, int capacity, long overflow) throws Exception {
+        var fixture = new Fixture(normal, highEnergy, false);
+        var snapshot = fixture.network.getCapabilitySnapshot();
+
+        assertFalse(snapshot.virtualMode());
+        assertEquals(parallel, snapshot.ftParallelCapacity());
+        assertEquals(overflow, snapshot.overflowCapacity());
+        assertEquals(9, snapshot.effectiveOverclock());
+        assertEquals(1, cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI
+            .formatRecipeTimeTicks(snapshot.effectiveOverclock()));
+        for (var host : fixture.hosts) {
+            assertSame(snapshot, host.getCapabilitySnapshot());
+            assertEquals(parallel, host.getPooledParallelism());
+            assertEquals(capacity, host.getDispatchThreadCapacity());
+        }
+        // Cache invalidation must rebuild from local FT values rather than multiplying a previous snapshot.
+        fixture.network.invalidateCapabilitySnapshot();
+        assertEquals(parallel, fixture.network.getCapabilitySnapshot().ftParallelCapacity());
+    }
+
     @Test
     void enablingCoolingReplacesAnAlreadyCachedFiniteDispatchCapacity() throws Exception {
         var fixture = new Fixture(false);
@@ -163,9 +190,13 @@ class ECOVirtualCraftingDispatchTest {
         ECOCraftingCPULogic logic;
 
         Fixture(boolean cooling) throws Exception {
+            this(0, 8, cooling);
+        }
+
+        Fixture(int normalHosts, int highEnergyHosts, boolean cooling) throws Exception {
             when(level.dimension()).thenReturn(Level.OVERWORLD);
             var clusters = new ArrayList<NECraftingCluster>();
-            for (int hostIndex = 0; hostIndex < 8; hostIndex++) {
+            for (int hostIndex = 0; hostIndex < normalHosts + highEnergyHosts; hostIndex++) {
                 var cluster = new NECraftingCluster(BlockPos.ZERO, BlockPos.ZERO);
                 var host = mock(ECOCraftingSystemBlockEntity.class, CALLS_REAL_METHODS);
                 setField(NEBlockEntity.class, host, "cluster", cluster);
@@ -174,8 +205,8 @@ class ECOVirtualCraftingDispatchTest {
                 doReturn(new BlockPos(hostIndex * 16, 0, 0)).when(host).getBlockPos();
                 doReturn(ECOTier.L9).when(host).getTier();
                 doReturn(11).when(host).getMaxBuildLength();
-                doReturn(true).when(host).hasHighEnergyNetworkSwitch();
-                doReturn(false).when(host).hasNormalNetworkSwitch();
+                doReturn(hostIndex >= normalHosts).when(host).hasHighEnergyNetworkSwitch();
+                doReturn(hostIndex < normalHosts).when(host).hasNormalNetworkSwitch();
                 doReturn(14_080L).when(host).getLocalFtParallelCapacity();
                 doReturn(9).when(host).getLocalCoolingMaxOverclock();
                 doNothing().when(host).setChanged();
