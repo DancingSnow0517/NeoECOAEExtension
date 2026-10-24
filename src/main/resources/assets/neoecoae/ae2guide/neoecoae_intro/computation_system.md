@@ -23,6 +23,8 @@ item_ids:
   - neoecoae:eco_computation_cell_l4
   - neoecoae:eco_computation_cell_l6
   - neoecoae:eco_computation_cell_l9
+  - neoecoae:computation_network_switch
+  - neoecoae:computation_high_energy_network_switch
 ---
 
 # ECO Computation System
@@ -39,9 +41,9 @@ There are three tiers of computation systems available:
 
 | Tier | Controller | Accelerators | Threads | Storage per Cell |
 |------|------------|--------------|---------|------------------|
-| C4 | <ItemLink id="neoecoae:computation_system_l4" /> | 64 | 1 | 64MB |
-| C6 | <ItemLink id="neoecoae:computation_system_l6" /> | 192 | 2 | 256MB |
-| C9 | <ItemLink id="neoecoae:computation_system_l9" /> | 576 | 4 | 1GB |
+| C4 | <ItemLink id="neoecoae:computation_system_l4" /> | 64 | 4 | 64 MiB |
+| C6 | <ItemLink id="neoecoae:computation_system_l6" /> | 192 | 16 | 256 MiB |
+| C9 | <ItemLink id="neoecoae:computation_system_l9" /> | 576 | 64 | 1 GiB |
 
 ## Structure Components
 
@@ -125,13 +127,14 @@ The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the m
 
 <ItemLink id="neoecoae:computation_network_switch" /> and <ItemLink id="neoecoae:computation_high_energy_network_switch" /> link C9 computation hosts on the same ME network. While facing the controller front, replace the adjacent central casing on the right for a normal structure or on the left for a mirrored structure. At least two linked C9 hosts are required; a single host remains at **x1**.
 
+Groups require the same dimension, online ME network and logical frequency. Computation and crafting group separately. Select frequency 1–4; each group has at most eight hosts. Endgame mode has no additional cooling-controller requirement. Hover over the information tooltip for missing conditions.
+
 #### Exchange Multipliers
 
 | Topic | Normal | High-energy |
 |-------|--------|-------------|
 | Resource multiplier | **x2** threads, accelerators, and CPU storage | **x8** threads, accelerators, and CPU storage |
 | Power draw | **x4** | **x16** |
-| Cooling controller | A valid cooling controller on the host | A **C9** cooling controller on the host; otherwise the host contributes at **x1** |
 
 #### Shared Exchange Rules
 
@@ -140,7 +143,7 @@ The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the m
 | Activation | At least two linked C9 hosts are required. A single host remains at **x1**. |
 | Resource aggregation | Each physical host is evaluated independently, then its effective threads, accelerators, and storage are added to the ME network. |
 | Module mixing | Normal and high-energy modules can be mixed; each host contributes resources according to its installed module tier. |
-| Ultimate mode | At least **8 high-energy C9 hosts** must each have at least **10 Threading Cores** and every upper and lower Computation Drive filled with a valid Flash Array. The aggregate CPU then uses **INT32_MAX (2,147,483,647)** parallelism and **INT64_MAX (9,223,372,036,854,775,807 bytes)** storage. Active job bytes are still deducted from available storage; normal x2 hosts do not qualify. |
+| Ultimate mode | Exactly **8 high-energy C9 hosts** in one logical group must each reach the configured maximum build length and have every upper and lower Computation Drive filled with a valid Flash Array. The aggregate CPU then uses **INT32_MAX (2,147,483,647)** threads and parallelism and **INT64_MAX (9,223,372,036,854,775,807 bytes)** storage. Active job bytes are still deducted from available storage; normal x2 hosts do not qualify. |
 
 ## Building the Structure
 
@@ -207,3 +210,6 @@ The computation system supports different CPU selection modes:
 - More parallel cores = faster individual crafting operations
 - Ensure sufficient computation cell storage for large crafting jobs
 - The total storage across all cells must meet the crafting job requirements
+
+
+Fast planning requires an online host that accepts the request source. Cyclic routes also require Cycle Planning and actual startup seeds; an unfinished search is different from missing materials. In the computation interface, hold a sample and left-click to mark an item whose component differences may be ignored, or right-click to clear it. Samples are not consumed, and the physical pattern and machine must still accept the inputs.

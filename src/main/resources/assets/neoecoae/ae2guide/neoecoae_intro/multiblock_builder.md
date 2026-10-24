@@ -51,23 +51,11 @@ In creative mode, if the structure has no conflicts, all missing blocks are plac
 
 ### Survival Mode
 
-In survival mode, the structure is built step by step on server ticks instead of being placed all at once.
-
-This behavior exists to:
-
-- Avoid large world changes in a single instant
-- Keep material consumption aligned with actual block placement
-- Allow the build process to stop cleanly when blocked
+In Survival, blocks are placed gradually as materials are consumed.
 
 ## Material Consumption Rules
 
-The auto builder does not consume all materials up front. Instead, it consumes items only when a block is successfully placed.
-
-The system can count and consume materials from accessible inventory sources, including container items with item handler support, such as:
-
-- Shulker-like containers
-- Backpack-type items
-- Other container items that expose an item handler capability
+Materials come from the player inventory and supported container items, including shulker boxes and backpacks. Materials are consumed when their blocks are placed.
 
 ## Conflicts and Interruptions
 
@@ -86,3 +74,6 @@ The panel will show the corresponding state so you can preview again and adjust 
 - For large structures, preview first to confirm the selected length and available space
 - Watch the preview counts before changing structure scale
 - In survival mode, keep enough materials available in your inventory or supported container items
+
+
+JEI / EMI structure previews offer layers, length and formed appearance. Left-click cycle controls for the next choice, or right-click for the previous choice.

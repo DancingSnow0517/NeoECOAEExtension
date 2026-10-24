@@ -34,11 +34,11 @@ The storage subsystem acts as a high-capacity storage extension for your AE2 net
 
 There are three tiers of storage systems available:
 
-| Tier | Controller | Storage Capacity | Power Storage |
+| Tier | Controller | Base Cell Capacity | Energy per Energy Cell |
 |------|------------|------------------|---------------|
-| L4 | <ItemLink id="neoecoae:storage_system_l4" /> | 16MB per cell | 10,000,000 AE |
-| L6 | <ItemLink id="neoecoae:storage_system_l6" /> | 64MB per cell | 100,000,000 AE |
-| L9 | <ItemLink id="neoecoae:storage_system_l9" /> | 256MB per cell | 1,000,000,000 AE |
+| L4 | <ItemLink id="neoecoae:storage_system_l4" /> | 16 MiB per cell | 10,000,000 AE |
+| L6 | <ItemLink id="neoecoae:storage_system_l6" /> | 64 MiB per cell | 100,000,000 AE |
+| L9 | <ItemLink id="neoecoae:storage_system_l9" /> | 256 MiB per cell | 1,000,000,000 AE |
 
 ## Structure Components
 
@@ -116,9 +116,9 @@ The following ECO storage cells can be used in the drives:
   <ItemIcon id="neoecoae:eco_item_storage_cell_256m" />
 </ItemGrid>
 
-- <ItemLink id="neoecoae:eco_item_storage_cell_16m" /> - 16MB capacity
-- <ItemLink id="neoecoae:eco_item_storage_cell_64m" /> - 64MB capacity
-- <ItemLink id="neoecoae:eco_item_storage_cell_256m" /> - 256MB capacity
+- <ItemLink id="neoecoae:eco_item_storage_cell_16m" /> - 16 MiB capacity
+- <ItemLink id="neoecoae:eco_item_storage_cell_64m" /> - 64 MiB capacity
+- <ItemLink id="neoecoae:eco_item_storage_cell_256m" /> - 256 MiB capacity
 
 ### Fluid Storage
 
@@ -128,9 +128,9 @@ The following ECO storage cells can be used in the drives:
   <ItemIcon id="neoecoae:eco_fluid_storage_cell_256m" />
 </ItemGrid>
 
-- <ItemLink id="neoecoae:eco_fluid_storage_cell_16m" /> - 16MB capacity
-- <ItemLink id="neoecoae:eco_fluid_storage_cell_64m" /> - 64MB capacity
-- <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256MB capacity
+- <ItemLink id="neoecoae:eco_fluid_storage_cell_16m" /> - 16 MiB capacity
+- <ItemLink id="neoecoae:eco_fluid_storage_cell_64m" /> - 64 MiB capacity
+- <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256 MiB capacity
 
 Storage matrices for AE2 Omni Cells and AE2 Lightning Tech are documented in [Compatibility Storage Matrices](compat_storage_matrices.md).
 
@@ -141,3 +141,10 @@ Once formed, the storage system will automatically connect to the ME Network thr
 The GUI displays:
 - Current energy storage level
 - Energy capacity percentage
+
+
+The communication IO port defaults to Storage mode, exposing local matrices to the ME network. Input moves network stock into this host; Output moves host stock into other network storage. Its 27 filters allow everything when empty and otherwise match complete resource keys. Hold a sample and left-click to set, or right-click to clear; samples are not consumed. Fluid containers select their fluid unless Shift is held to select the container item.
+
+Ignore Creative Storage Input defaults to on and affects Input only. Exclude Storage Bus Containers defaults to on and affects both directions. Check these switches, filters and destination capacity if nothing moves. Capacity utilization and resource distribution describe space usage and inventory composition separately; hover for exact amounts.
+
+An L9 host can migrate from Storage mode with at least 12 eligible L9 matrices in that host and 64 Infinite Storage Components in its component slot. Missing original members pause domain access. Component removal requires restoring all stock to compatible normal matrices with enough capacity and type slots. Bigger AE2 Digital Singularity cells do not participate in finite-cell migration.

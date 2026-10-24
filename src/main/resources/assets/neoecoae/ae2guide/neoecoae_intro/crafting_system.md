@@ -17,6 +17,8 @@ item_ids:
   - neoecoae:crafting_vent
   - neoecoae:input_hatch
   - neoecoae:output_hatch
+  - neoecoae:crafting_network_switch
+  - neoecoae:crafting_high_energy_network_switch
 ---
 
 # ECO Crafting System
@@ -60,6 +62,8 @@ The <ItemLink id="neoecoae:crafting_worker" /> provides one independent physical
 <BlockImage id="neoecoae:crafting_pattern_bus" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_pattern_bus" /> holds crafting patterns. In an exchange group, every member publishes the union of all member pattern buses to the ME network.
+
+Each pattern bus defaults to one page of 63 slots; `craftingPatternBusPages` allows 1–8 pages. The communication interface provides search and organization. A pattern matches either the Materials or Output field; all space-separated words within one field must match. With a held pattern, left-click the list to prefer an actual empty slot, or right-click an occupied pattern to replace it. Leave inventory space and check organization or migration results.
 
 ### Parallel Core
 
@@ -117,6 +121,8 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 
 <ItemLink id="neoecoae:crafting_network_switch" /> and <ItemLink id="neoecoae:crafting_high_energy_network_switch" /> link F9 crafting hosts on the same ME network. While facing the controller front, replace the adjacent central casing on the right for a normal structure or on the left for a mirrored structure. At least two linked F9 hosts are required; a single host remains at **x1**.
 
+Groups require the same dimension, online ME network and logical frequency. Computation and crafting group separately. Select frequency 1–4; each logical group holds at most eight hosts.
+
 #### Exchange Multipliers
 
 Every normal switch contributes 2 and every high-energy switch contributes 8 to one network-wide multiplier: **M = 2a + 8b**. Every physical FX lane in the logical network uses the same **512 x M** batch size; switches are not split into separate multiplier pools.
@@ -127,7 +133,7 @@ Every normal switch contributes 2 and every high-energy switch contributes 8 to 
 |-------|----------|
 | Activation | At least two linked F9 hosts are required. A single host remains at **x1**. |
 | Patterns | All member pattern buses are combined into one pattern set; work is routed to a member host with a free physical FX lane. |
-| Power and UI | Each host continuously draws its full rated power for all available FX threads while exchange is active. Insufficient power pauses affected tasks, and the shared UI reports aggregate network energy use. |
+| Power and UI | In finite exchange mode, each host continuously draws its full rated power for all available FX threads while exchange is active. Insufficient power pauses affected tasks, and the shared UI reports aggregate network energy use. |
 | Shared controls | The network shares one GUI for exchange state, overclocking, active cooling, and aggregate energy use. The shared UI also controls active cooling. |
 | Cooling pool | When active cooling is enabled, cached coolant from every member forms one pool. Ordinary finite batches pay the existing per-craft coolant cost when accepted. Coolant quality limits effective overclock, not the network multiplier. |
 | Virtual tick cooling | Only final virtual mode uses a flat tick cost: each active physical FX lane pays 10000 coolant per tick when active cooling is enabled. Craft count never participates in this virtual cost. |
@@ -141,6 +147,9 @@ Virtual crafting mode requires a logical exchange network of **exactly 8 F9 host
 - The virtual task completes and returns its aggregated outputs on its first worker tick.
 - Each executing virtual lane consumes a fixed **10000 coolant points per tick** from the shared pool and requires tier-9 coolant. Cryotheum Solution is allowed by default; add-ons may register additional coolants, and the information tooltip lists the allowed fluids. If the pool cannot pay the full amount, that lane waits.
 - The supported task quantity follows the signed 64-bit range. Only true virtual mode is displayed as **infinite**; large finite capacities always display their real number.
+
+
+Virtual work pays **10,000,000 AE once per group per tick**, subject to AE2's power multiplier. This replaces per-craft, per-batch and occupied-slot processing charges; other network components retain their own costs.
 
 ## Building the Structure
 

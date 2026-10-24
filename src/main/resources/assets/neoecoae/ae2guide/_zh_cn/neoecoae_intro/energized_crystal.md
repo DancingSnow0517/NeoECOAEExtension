@@ -10,6 +10,7 @@ item_ids:
   - neoecoae:chipped_budding_energized_crystal
   - neoecoae:damaged_budding_energized_crystal
   - neoecoae:energized_crystal
+  - neoecoae:energized_crystal_block
 ---
 
 # 获取盈能水晶母岩
@@ -44,7 +45,7 @@ item_ids:
 - <ItemLink id="neoecoae:chipped_budding_energized_crystal" /> - 中等品质
 - <ItemLink id="neoecoae:damaged_budding_energized_crystal" /> - 最低品质
 
-品质越高，水晶生长速度越快，耐久性越好。
+四种品质使用相同的生长概率；品质区别在于退化阶段。完美母岩不会退化，其他品质在成功生长后有概率退化。
 
 获得母岩后，等待它自然长出盈能水晶簇，再从晶簇中收获水晶。
 
@@ -60,7 +61,7 @@ item_ids:
 
 | 输入 | 输出 | 成功率 |
 |------|------|--------|
-| <ItemLink id="neoecoae:energized_crystal" /> | <ItemLink id="neoecoae:damaged_budding_energized_crystal" /> | 80% |
+| <ItemLink id="neoecoae:energized_crystal_block" /> | <ItemLink id="neoecoae:damaged_budding_energized_crystal" /> | 80% |
 | <ItemLink id="neoecoae:damaged_budding_energized_crystal" /> | <ItemLink id="neoecoae:chipped_budding_energized_crystal" /> | 80% |
 | <ItemLink id="neoecoae:chipped_budding_energized_crystal" /> | <ItemLink id="neoecoae:flawed_budding_energized_crystal" /> | 5% |
 

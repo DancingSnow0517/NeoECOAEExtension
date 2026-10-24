@@ -83,7 +83,8 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
 
 
     public ECOIntegratedWorkingStation(Properties props) {
-        super(props);
+        // The recessed screen and cutout models must not hide neighbouring block faces.
+        super(props.noOcclusion());
         registerDefaultState(getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false)
             .setValue(FORMED, false).setValue(MODULE, LargeWorkstationModule.REGULAR));
     }

@@ -20,8 +20,8 @@ The <ItemLink id="neoecoae:integrated_working_station" /> is an advanced craftin
 ## Features
 
 - **9 Input Slots** - Supports up to 9 different input items
-- **Fluid Input/Output** - Supports fluid ingredients and outputs (16,000 mB capacity each)
-- **Energy Powered** - Consumes FE (Forge Energy) for crafting
+- **Fluid Input/Output** - Supports fluid ingredients and outputs (64,000 mB capacity each)
+- **Energy Powered** - Consumes AE for crafting
 - **ME Network Integration** - Connects to your AE2 network for power supply
 - **Auto Export** - Can automatically export finished products
 - **Upgrade Support** - Supports AE2 speed upgrades to accelerate crafting
@@ -36,7 +36,7 @@ The Integrated Working Station is crafted using components from various AE2 mach
 
 1. **Place the station** and connect it to your ME Network
 2. **Input materials** - Place items in the 9 input slots and/or fill the fluid input tank
-3. **Provide power** - Ensure sufficient FE is available (from ME Network or external sources)
+3. **Provide power** - Ensure sufficient AE is available (from ME Network or external sources)
 4. **Wait for processing** - The station will automatically process when requirements are met
 5. **Collect output** - Retrieve finished items from the output slot or enable auto-export
 

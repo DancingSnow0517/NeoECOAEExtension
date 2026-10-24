@@ -17,7 +17,7 @@ item_ids:
 
 Each communication block starts with **4 rows / 36 pattern slots**. Insert up to **4 native AE2 capacity cards** in the right-hand upgrade panel. Each card immediately adds one row, up to **8 rows / 72 slots**.
 
-The viewport shows up to 5 rows and scrolls smoothly with the mouse wheel and draggable scrollbar, clipping partial rows at both edges. Empty the last row before removing a capacity card. Existing patterns outside the currently unlocked capacity remain retrievable when loading older saves; reinstall capacity cards to insert patterns into those rows again.
+The viewport shows up to 7 rows and scrolls smoothly with the mouse wheel and draggable scrollbar, clipping partial rows at both edges. Empty the last row before removing a capacity card. Existing patterns outside the currently unlocked capacity remain retrievable when loading older saves; reinstall capacity cards to insert patterns into those rows again.
 
 ## Upgrade cards and recipe compatibility
 
@@ -62,12 +62,14 @@ In coolant mode, an overclocked task consumes 100 mB per actual processing tick,
 
 ## Parallelism and energy
 
+Temperature-band labels 4 / 6 / 9 correspond to coolant recipe tiers 2 / 6 / 9; the first labels differ.
+
 The normal batch limit is **256**. Temperature mode is enabled by default: enable overclocking and maintain the required temperature for higher parallelism. The server configuration can also disable temperature and use coolant mode below.
 
 | Tier | Continuous operating temperature | Batch limit | Energy per recipe |
 | --- | ---: | ---: | ---: |
 | Normal | None | 256 | 1× |
-| 2 | ≥20% | 16,384 | 1× |
+| 4 | ≥20% | 16,384 | 1× |
 | 6 | ≥50% | 65,536 | 1× |
 | 9 | ≥80% | 262,144 | 1× |
 
@@ -136,7 +138,7 @@ Recovery requires active cooling to be enabled, **Cryotheum Solution** in the in
 
 Recovery requires **uninterrupted successful Cryotheum Solution consumption**. Disabled cooling, interrupted delivery, blocked output, disassembly or reloading clears progress and returns temperature to 100%, requiring a fresh 15 seconds. Water, sodium, custom high-tier coolants, toggling overclocking and simply waiting cannot clear the latch.
 
-## Troubleshooting
+## Operating states
 
 | Symptom | Action |
 | --- | --- |

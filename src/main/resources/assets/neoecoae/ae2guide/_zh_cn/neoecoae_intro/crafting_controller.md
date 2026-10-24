@@ -13,7 +13,7 @@ navigation:
 
 先阅读 [ECO 合成系统](crafting_system.md)，或使用 [自动搭建](multiblock_builder.md)。
 
-## 先认识界面
+## 界面说明
 
 ![合成控制器界面，标出六个主要区域](../screenshots/crafting/overview.png)
 
@@ -107,7 +107,7 @@ ECO 合成主机执行样板，合成 CPU 负责安排任务。
 
 CPU 的使用方式见 [ECO 计算系统](computation_system.md)。
 
-## 出现问题时，先看这几处
+## 运行状态
 
 ### 输出仓满了
 

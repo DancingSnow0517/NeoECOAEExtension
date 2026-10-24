@@ -76,6 +76,41 @@ class OverloadCrystalCyclePlanningTest {
         });
     }
 
+    @ParameterizedTest
+    @CsvSource({"100,true", "1000000,true", "1000000,false"})
+    void crystalOrdersReuseTheSeedsLeftOverFromEachBatch(long requested, boolean improveCompletedPlans) {
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            var crush = pattern(new GenericStack(dust, 1), new GenericStack(crystal, 1));
+            var makeSeeds = pattern(new GenericStack(seed, 32), new GenericStack(dust, 8),
+                new GenericStack(fluix, 16), new GenericStack(charged, 8));
+            var grow = pattern(new GenericStack(crystal, 1), new GenericStack(seed, 1));
+            var service = mock(ICraftingService.class);
+            when(service.getCraftingFor(dust)).thenReturn(List.of(crush));
+            when(service.getCraftingFor(seed)).thenReturn(List.of(makeSeeds));
+            when(service.getCraftingFor(crystal)).thenReturn(List.of(grow));
+            var network = new CraftingNetworkCompiler(List.of(new AE2PatternSemanticAdapter()))
+                .compile(service, crystal, true, ECOCancellation.NONE);
+            var inventory = new KeyCounter();
+            inventory.add(dust, 8);
+            long batches = Math.ceilDiv(requested, 24L);
+            inventory.add(fluix, batches * 16L);
+            inventory.add(charged, batches * 8L);
+            var cancellation = improveCompletedPlans ? ECOCancellation.NONE
+                : ECOCancellation.firstSolution(ECOCancellation.NONE);
+            var result = plan(network, inventory, requested, cancellation);
+            assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
+            var cycle = result.trace().cycles().getFirst().solveResult();
+            assertTrue(cycle.producedOutputs().get(seed) <= batches * 32L,
+                "One batch grows 32 crystals and recycles 8; its other seeds must not be discarded: "
+                    + cycle.producedOutputs());
+            assertEquals(batches, result.state().patternTimes().get(makeSeeds));
+            assertTrue(cycle.deliverableOutputs().get(crystal) >= requested);
+            assertTrue(cycle.executionPlan().size() < 100, "Large orders must retain a compact firing order");
+            assertEquals(8L, inventory.get(dust), "Planning must not mutate the network inventory");
+            result.state().executionProvenance().requireComplete();
+        });
+    }
+
     private CompiledNetwork network() throws Exception {
         var crush = pattern(new GenericStack(dust, 1), new GenericStack(crystal, 1));
         var makeSeeds = pattern(new GenericStack(seed, 32), new GenericStack(dust, 8),
@@ -90,11 +125,16 @@ class OverloadCrystalCyclePlanningTest {
     }
 
     private ComponentPlanner.Outcome plan(CompiledNetwork network, KeyCounter inventory, long requested) throws Exception {
-        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        return plan(network, inventory, requested, ECOCancellation.NONE);
+    }
+
+    private ComponentPlanner.Outcome plan(CompiledNetwork network, KeyCounter inventory, long requested,
+            ECOCancellation cancellation) throws Exception {
+        var graph = new CraftingGraphBuilder().build(network, cancellation);
         var condensation = CondensationGraph.build(graph,
-            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+            new TarjanSccAnalyzer().analyze(graph, cancellation), cancellation);
         return new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
-            .plan(network, condensation, inventory, requested, true, ECOCancellation.NONE);
+            .plan(network, condensation, inventory, requested, true, cancellation);
     }
 
     private KeyCounter stock(long crystals) {

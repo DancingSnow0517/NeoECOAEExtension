@@ -10,6 +10,7 @@ item_ids:
   - neoecoae:chipped_budding_energized_crystal
   - neoecoae:damaged_budding_energized_crystal
   - neoecoae:energized_crystal
+  - neoecoae:energized_crystal_block
 ---
 
 # Obtaining Energized Budding Crystal
@@ -31,7 +32,7 @@ There are four quality tiers of Energized Budding Crystal:
 - <ItemLink id="neoecoae:chipped_budding_energized_crystal" /> - Medium quality
 - <ItemLink id="neoecoae:damaged_budding_energized_crystal" /> - Lowest quality
 
-Higher quality crystals grow faster and have better durability.
+All four qualities use the same growth probability. Quality determines the remaining degradation stages; Flawless never degrades.
 
 ## Method 1: Lightning Strike
 
@@ -70,7 +71,7 @@ If you have the ExtendedAE mod installed, you can use the Crystal Fixer to upgra
 
 | Input | Output | Success Rate |
 |-------|--------|--------------|
-| <ItemLink id="neoecoae:energized_crystal" /> | <ItemLink id="neoecoae:damaged_budding_energized_crystal" /> | 80% |
+| <ItemLink id="neoecoae:energized_crystal_block" /> | <ItemLink id="neoecoae:damaged_budding_energized_crystal" /> | 80% |
 | <ItemLink id="neoecoae:damaged_budding_energized_crystal" /> | <ItemLink id="neoecoae:chipped_budding_energized_crystal" /> | 80% |
 | <ItemLink id="neoecoae:chipped_budding_energized_crystal" /> | <ItemLink id="neoecoae:flawed_budding_energized_crystal" /> | 5% |
 
