@@ -31,6 +31,19 @@ public final class ECOIOPortTransfer {
 
     public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
                          boolean ignoreCreativeInput, IActionSource source, Predicate<AEKey> filter) {
+        return transfer(grid, hostStorage, fillHost, ignoreCreativeInput, true, source, filter);
+    }
+
+    public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
+                         boolean ignoreCreativeInput, boolean excludeStorageBuses,
+                         IActionSource source, Predicate<AEKey> filter) {
+        return StorageBusTransferFilter.transfer(excludeStorageBuses,
+            () -> transferContents(grid, hostStorage, fillHost, ignoreCreativeInput, excludeStorageBuses, source, filter));
+    }
+
+    private long transferContents(IGrid grid, MEStorage hostStorage, boolean fillHost,
+                                  boolean ignoreCreativeInput, boolean excludeStorageBuses,
+                                  IActionSource source, Predicate<AEKey> filter) {
         MEStorage networkStorage = grid.getStorageService().getInventory();
         MEStorage from;
         MEStorage destination;
@@ -38,7 +51,13 @@ public final class ECOIOPortTransfer {
         if (fillHost) {
             from = networkStorage;
             destination = hostStorage;
-            available = grid.getStorageService().getCachedInventory();
+            if (excludeStorageBuses) {
+                // The shared cache includes bus inventories and must stay unchanged for ordinary network users.
+                available = new KeyCounter();
+                networkStorage.getAvailableStacks(available);
+            } else {
+                available = grid.getStorageService().getCachedInventory();
+            }
         } else {
             from = hostStorage;
             destination = networkStorage;
