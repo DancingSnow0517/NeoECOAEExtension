@@ -86,6 +86,8 @@ class LargeWorkstationPatternScalingTest {
         var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
         assertEquals(3L, value(batch, "craftCount"));
         assertEquals(200L, value(batch, "energyPerCraft"));
+        assertEquals(200, value(batch, "processingTicks"), "Doubled patterns occupy their lanes for twice the base duration");
+        assertEquals(false, value(batch, "legacyTiming"));
         assertEquals(job, value(batch, "craftingJobId"));
         assertEquals(24L, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
         assertEquals(12L, ((KeyCounter) value(batch, "outputTotal")).get(AEItemKey.of(Items.DIAMOND)));
@@ -135,6 +137,28 @@ class LargeWorkstationPatternScalingTest {
         var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
         assertEquals(150L, value(batch, "energyPerCraft"));
         assertEquals(exact.id(), value(batch, "recipeId"));
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void alternativeEnergyLocksFeOnlyWhenAppliedFluxAndNetworkFeAreAvailable(boolean installed) throws Exception {
+        var controller = controller();
+        doReturn(0.0).when(controller).extractAEPower(anyDouble(), any(), any());
+        var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
+        when(controller.getMainNode().getGrid()).thenReturn(grid);
+        var recipe = recipe().processing(4, 200, true);
+        var holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 4)};
+        try (var flux = mockStatic(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.class);
+             var recipes = mockStatic(LargeWorkstationRecipes.class, CALLS_REAL_METHODS)) {
+            flux.when(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy::available).thenReturn(installed);
+            flux.when(() -> cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.extract(any(), anyLong(), any(), any()))
+                .thenAnswer(call -> call.getArgument(1));
+            recipes.when(() -> LargeWorkstationRecipes.getAvailable(controller.getLevel(), LargeWorkstationModule.REGULAR)).thenReturn(List.of(recipe));
+            assertTrue(controller.acceptPatternBatch(pattern(4, 2), holders, 1, null));
+            var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
+            assertEquals(installed ? 0L : 100L, value(batch, "energyPerCraft"));
+            assertEquals(installed ? 200L : 0L, value(batch, "fePerCraft"));
+            assertEquals(4, value(batch, "processingTicks"));
+        }
     }
 
     private static ECOLargeIntegratedWorkingStationBlockEntity controller() throws Exception {

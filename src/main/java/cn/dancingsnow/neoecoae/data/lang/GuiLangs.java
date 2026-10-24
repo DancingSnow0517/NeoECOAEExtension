@@ -4,6 +4,11 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.applied_flux_missing", "Paused: Applied Flux is required for network FE");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.fe_missing", "Paused: Insufficient FE in the ME network");
+        provider.add("gui.neoecoae.workstation.fe_value", "Network FE consumption: %s FE/t; reserved: %s FE");
+        provider.add("gui.neoecoae.workstation.fe_requirement", "Network FE requires Applied Flux; missing FE can be paid with equivalent AE.");
+        provider.add("gui.neoecoae.workstation.task_duration", "Processing time: %s / %s ticks");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_label", "Energy");
         provider.add("gui.neoecoae.large_integrated_working_station.extra_required_label", "Extra required");
         provider.add("recipe_type.neoecoae.ae2cs.crystal_pulverizer_recipe", "AE2CS: Crystal Pulverizing");

@@ -163,7 +163,10 @@ class LargeWorkstationRecipeGroupTest {
         assertTrue(borrowed.borrowed());
         assertFalse(borrowed.unlocks(module(LargeWorkstationModule.ADVANCED_AE)));
         assertTrue(borrowed.unlocks(module(LargeWorkstationModule.LIGHTNING_TECH)));
-        assertEquals((long) Math.ceil(PowerUnit.FE.convertTo(PowerUnit.AE, 10000)), borrowed.recipe().energy());
+        assertEquals(0, borrowed.recipe().energy());
+        assertEquals(10000, borrowed.recipe().feEnergy());
+        assertEquals(4, borrowed.recipe().processingTicks());
+        assertFalse(borrowed.recipe().requiresAppliedFlux());
         assertEquals(List.of(new GenericStack(LightningKey.HIGH_VOLTAGE, 1)), borrowed.recipe().extraInputs());
         var groups = LargeWorkstationRecipes.group(List.of(LargeWorkstationRecipeSources.direct(source), borrowed),
             registries().createSerializationContext(JsonOps.INSTANCE));
@@ -185,6 +188,8 @@ class LargeWorkstationRecipeGroupTest {
                 assertEquals(2, group.variants().size());
                 assertSame(source, group.representative(), "Viewers retain the real source ID for recipe/bookmark lookup");
                 assertEquals(1, group.variants().stream().filter(LargeWorkstationRecipeGroup.Variant::borrowed).count());
+                assertNotNull(match(catalog, LargeWorkstationModule.LIGHTNING_TECH, 4), "AE substitution keeps FE recipes executable without Applied Flux");
+                when(modList.isLoaded("appflux")).thenReturn(true);
                 var match = match(catalog, LargeWorkstationModule.LIGHTNING_TECH, 4);
                 assertNotNull(match);
                 assertSame(match.recipe(), LargeWorkstationRecipes.getById(catalog.manager(), catalog.registries(), match.recipe().id()));
@@ -261,7 +266,11 @@ class LargeWorkstationRecipeGroupTest {
             var borrowed = groups.getFirst().availableVariants(module(LargeWorkstationModule.LIGHTNING_TECH)).getFirst().recipe();
             assertSame(nativeRecipe.display().inputFluid(), borrowed.display().inputFluid());
             assertEquals(10000, nativeRecipe.energy());
-            assertEquals((long) Math.ceil(PowerUnit.FE.convertTo(PowerUnit.AE, 10000)), borrowed.energy());
+            assertEquals(0, borrowed.energy());
+            assertEquals(10000, borrowed.feEnergy());
+            assertEquals(100, nativeRecipe.processingTicks());
+            assertTrue(nativeRecipe.feAlternative());
+            assertEquals(LargeWorkstationRecipes.feEquivalent(10000), nativeRecipe.feEnergy());
             var inputs = items(4);
             inputs.add(AEFluidKey.of(Fluids.WATER), 250);
             assertEquals(1, borrowed.matchingMultiplier(inputs, outputs(4)));

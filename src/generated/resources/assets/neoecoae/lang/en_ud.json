@@ -855,5 +855,10 @@
   "gui.neoecoae.workstation.temperature_cooling_rate": "s\\sʇuıod ǝbɐʇuǝɔɹǝd %1$s- :buıןooɔ ǝʌıʇɔⱯ",
   "gui.neoecoae.workstation.temperature_natural_rate": "s\\sʇuıod ǝbɐʇuǝɔɹǝd %1$s- :buıןooɔ ןɐɹnʇɐN",
   "gui.neoecoae.workstation.temperature_slowing_hint": "˙sǝbuɐɥɔ ןɐnʇɔɐ ɟo puoɔǝs ʇsɐן ǝɥʇ ʍoɥs sǝʇɐɹ ؛sǝsıɹ ǝɹnʇɐɹǝdɯǝʇ sɐ sʍoןs buıʇɐǝH",
-  "gui.neoecoae.workstation.preheat_right_click_hint": "˙puɐq ʇxǝu ǝɥʇ oʇ buıʇɐǝɥǝɹd doʇs ɹo ʇɹɐʇs oʇ ʞɔoןɔɹǝʌO ʞɔıןɔ-ʇɥbıᴚ"
+  "gui.neoecoae.workstation.preheat_right_click_hint": "˙puɐq ʇxǝu ǝɥʇ oʇ buıʇɐǝɥǝɹd doʇs ɹo ʇɹɐʇs oʇ ʞɔoןɔɹǝʌO ʞɔıןɔ-ʇɥbıᴚ",
+  "gui.neoecoae.large_integrated_working_station.pause.applied_flux_missing": "Paused: Applied Flux is required for network FE",
+  "gui.neoecoae.large_integrated_working_station.pause.fe_missing": "Paused: Insufficient FE in the ME network",
+  "gui.neoecoae.workstation.fe_value": "Network FE consumption: %s FE/t; reserved: %s FE",
+  "gui.neoecoae.workstation.fe_requirement": "Network FE requires Applied Flux; missing FE can be paid with equivalent AE.",
+  "gui.neoecoae.workstation.task_duration": "Processing time: %s / %s ticks"
 }

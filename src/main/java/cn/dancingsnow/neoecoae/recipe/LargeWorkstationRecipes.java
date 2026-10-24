@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.recipe;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationRecipeAdapters;
 
-import appeng.api.config.PowerUnit;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -277,16 +276,29 @@ public final class LargeWorkstationRecipes {
         int lightning = Boolean.compare(first.extraInputs().stream().noneMatch(LargeWorkstationRecipes::isLightning),
             second.extraInputs().stream().noneMatch(LargeWorkstationRecipes::isLightning));
         if (lightning != 0) return lightning;
+        // Different currencies have no universal price ordering. Keep a deterministic contract order.
+        int currency = Integer.compare(energyKind(first), energyKind(second));
+        if (currency != 0) return currency;
         int energy = BigInteger.valueOf(first.energy()).multiply(BigInteger.valueOf(firstMultiplier))
             .compareTo(BigInteger.valueOf(second.energy()).multiply(BigInteger.valueOf(secondMultiplier)));
         if (energy != 0) return energy;
-        return extraCost(first).multiply(BigInteger.valueOf(firstMultiplier))
+        int fe = BigInteger.valueOf(first.feEnergy()).multiply(BigInteger.valueOf(firstMultiplier))
+            .compareTo(BigInteger.valueOf(second.feEnergy()).multiply(BigInteger.valueOf(secondMultiplier)));
+        if (fe != 0) return fe;
+        int extras = extraCost(first).multiply(BigInteger.valueOf(firstMultiplier))
             .compareTo(extraCost(second).multiply(BigInteger.valueOf(secondMultiplier)));
+        if (extras != 0) return extras;
+        return BigInteger.valueOf(first.processingTicks()).multiply(BigInteger.valueOf(firstMultiplier))
+            .compareTo(BigInteger.valueOf(second.processingTicks()).multiply(BigInteger.valueOf(secondMultiplier)));
     }
 
     private static BigInteger extraCost(LargeWorkstationRecipe recipe) {
         return recipe.extraInputs().stream().map(input -> BigInteger.valueOf(input.amount()))
             .reduce(BigInteger.ZERO, BigInteger::add);
+    }
+
+    private static int energyKind(LargeWorkstationRecipe recipe) {
+        return recipe.feEnergy() == 0 ? 0 : recipe.energy() == 0 ? 1 : recipe.feAlternative() ? 2 : 3;
     }
 
     private static synchronized List<LargeWorkstationRecipe> executionRecipes(Level level) {
@@ -395,6 +407,8 @@ public final class LargeWorkstationRecipes {
             if (multiplier == 0) continue;
             try {
                 Math.multiplyExact(recipe.energy(), multiplier);
+                Math.multiplyExact(recipe.feEnergy(), multiplier);
+                Math.toIntExact(Math.multiplyExact((long) recipe.processingTicks(), multiplier));
                 for (var extra : recipe.extraInputs()) Math.multiplyExact(extra.amount(), multiplier);
             } catch (ArithmeticException overflow) {
                 // An unpayable preferred route must not hide another legal variant of this pattern.
@@ -432,6 +446,8 @@ public final class LargeWorkstationRecipes {
         FluidStack fluidResult = FluidStack.EMPTY;
         List<GenericStack> extras = List.of();
         long energy;
+        long feEnergy = 0;
+        boolean feAlternative = false;
         switch (type) {
             case "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation" -> {
                 if (data.has("inputs")) for (var input : data.getAsJsonArray("inputs")) {
@@ -451,8 +467,9 @@ public final class LargeWorkstationRecipes {
                     }
                     if (data.has("resultFluid")) fluidResult = parse(FluidStack.OPTIONAL_CODEC, ops, data.get("resultFluid"));
                 } else result = parse(ItemStack.CODEC, ops, data.get("result"));
-                // AE2LT Reborn's totalEnergy is FE; the workstation consumes its AE equivalent.
-                energy = (long) Math.ceil(PowerUnit.FE.convertTo(PowerUnit.AE, data.get("totalEnergy").getAsLong()));
+                // Preserve the original FE budget; AE substitution is settled by the host per tick.
+                feEnergy = data.get("totalEnergy").getAsLong();
+                energy = 0;
                 extras = List.of(LightningInput.decode(data));
             }
             case "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "ae2cs:crystal_pulverizer_recipe" -> {
@@ -488,6 +505,9 @@ public final class LargeWorkstationRecipes {
                     else if (output.what() instanceof AEFluidKey key) fluidResult = key.toStack(count);
                     else throw new IllegalArgumentException("Unsupported output key");
                     energy = data.get("input_energy").getAsLong();
+                    // The reaction chamber can refill its AE power sink with network FE through Applied Flux.
+                    feEnergy = feEquivalent(energy);
+                    feAlternative = feEnergy > 0 && energy > 0;
                 } else {
                     result = parse(ItemStack.CODEC, ops, data.get("output"));
                     energy = 2000; // EAEP: 200 progress * 10 AE per progress per operation.
@@ -498,7 +518,14 @@ public final class LargeWorkstationRecipes {
         if (result.isEmpty() && fluidResult.isEmpty()) throw new IllegalArgumentException("Empty output");
         var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
-        return new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type));
+        var recipe = new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type));
+        int ticks = recipe.processingTicks();
+        if (type.startsWith("ae2lt:")) ticks = LightningWorkstationTiming.ticks(type, feEnergy);
+        return recipe.processing(ticks, feEnergy, feAlternative);
+    }
+
+    static long feEquivalent(long ae) {
+        return WorkstationEnergy.feEquivalent(ae);
     }
 
     private static <T> T parse(Codec<T> codec, DynamicOps<JsonElement> ops, JsonElement value) {

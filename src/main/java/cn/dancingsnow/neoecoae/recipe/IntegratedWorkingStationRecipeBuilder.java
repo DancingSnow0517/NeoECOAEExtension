@@ -30,6 +30,13 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     FluidStack fluidOutput = FluidStack.EMPTY;
     @Setter
     int energy = 1000;
+    int processingTicks = 100;
+
+    public IntegratedWorkingStationRecipeBuilder processingTicks(int ticks) {
+        if (ticks <= 0) throw new IllegalArgumentException("Processing time must be positive");
+        this.processingTicks = ticks;
+        return this;
+    }
 
     public IntegratedWorkingStationRecipeBuilder require(SizedIngredient ingredient) {
         inputItems.add(ingredient);
@@ -138,7 +145,7 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
             throw new IllegalStateException("Recipe must have at least one input");
         }
 
-        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy);
+        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy, processingTicks);
         recipeOutput.accept(id, recipe, null);
     }
 }

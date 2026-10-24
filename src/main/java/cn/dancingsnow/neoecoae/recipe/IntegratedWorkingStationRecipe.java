@@ -28,8 +28,18 @@ public record IntegratedWorkingStationRecipe(
     SizedFluidIngredient inputFluid,
     ItemStack itemOutput,
     FluidStack fluidOutput,
-    int energy
+    int energy,
+    int processingTicks
 ) implements Recipe<IntegratedWorkingStationRecipe.Input> {
+
+    public IntegratedWorkingStationRecipe(List<SizedIngredient> inputItems, SizedFluidIngredient inputFluid,
+            ItemStack itemOutput, FluidStack fluidOutput, int energy) {
+        this(inputItems, inputFluid, itemOutput, fluidOutput, energy, 100);
+    }
+
+    public IntegratedWorkingStationRecipe {
+        if (processingTicks <= 0) throw new IllegalArgumentException("Processing time must be positive");
+    }
 
     public static IntegratedWorkingStationRecipeBuilder builder() {
         return new IntegratedWorkingStationRecipeBuilder();
@@ -120,7 +130,8 @@ public record IntegratedWorkingStationRecipe(
                 SizedFluidIngredient.FLAT_CODEC.optionalFieldOf("inputFluid", new SizedFluidIngredient(FluidIngredient.empty(), 1)).forGetter(IntegratedWorkingStationRecipe::inputFluid),
                 ItemStack.OPTIONAL_CODEC.optionalFieldOf("itemOutput", ItemStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::itemOutput),
                 FluidStack.OPTIONAL_CODEC.optionalFieldOf("fluidOutput", FluidStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::fluidOutput),
-                Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy)
+                Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy),
+                Codec.intRange(1, Integer.MAX_VALUE).optionalFieldOf("processingTicks", 100).forGetter(IntegratedWorkingStationRecipe::processingTicks)
             ).apply(ins, IntegratedWorkingStationRecipe::new));
         }
 
@@ -136,6 +147,8 @@ public record IntegratedWorkingStationRecipe(
                 IntegratedWorkingStationRecipe::fluidOutput,
                 ByteBufCodecs.VAR_INT,
                 IntegratedWorkingStationRecipe::energy,
+                ByteBufCodecs.VAR_INT,
+                IntegratedWorkingStationRecipe::processingTicks,
                 IntegratedWorkingStationRecipe::new
             );
         }

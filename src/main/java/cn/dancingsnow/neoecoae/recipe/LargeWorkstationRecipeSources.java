@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.recipe;
 
-import appeng.api.config.PowerUnit;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 import net.minecraft.resources.ResourceLocation;
@@ -54,12 +53,14 @@ final class LargeWorkstationRecipeSources {
             + source.id().getNamespace() + "/" + source.id().getPath());
         // Upstream passes ReactionChamberRecipe.getEnergy() into the factory's FE budget unchanged.
         // Mirror that budget once, then retain the source fluid predicate and all material quantities.
-        long energy = (long) Math.ceil(PowerUnit.FE.convertTo(PowerUnit.AE, source.energy()));
+        long energy = source.energy();
         var display = source.display();
         var borrowedDisplay = new IntegratedWorkingStationRecipe(display.inputItems(), display.inputFluid(),
             display.itemOutput(), display.fluidOutput(), (int) Math.min(Integer.MAX_VALUE, energy));
-        var recipe = new LargeWorkstationRecipe(id, borrowedDisplay, energy,
-            List.of(new GenericStack(com.moakiee.ae2lt.me.key.LightningKey.HIGH_VOLTAGE, 1)), LIGHTNING);
+        int ticks = LightningWorkstationTiming.ticks(LIGHTNING.toString(), energy);
+        var recipe = new LargeWorkstationRecipe(id, borrowedDisplay, 0,
+            List.of(new GenericStack(com.moakiee.ae2lt.me.key.LightningKey.HIGH_VOLTAGE, 1)), LIGHTNING)
+            .processing(ticks, energy, false);
         return new LargeWorkstationRecipeGroup.Variant(recipe, source.id(), source.sourceType(),
             Set.of(ECOWorkstationModules.fromSourceType(LIGHTNING).id()), false, true);
     }

@@ -194,7 +194,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                 : ItemStack.parseOptional(registries, entry.getCompound("item")), registries == null ? FluidStack.EMPTY
                 : FluidStack.parseOptional(registries, entry.getCompound("fluid")), entry.getLong("amount"),
                 entry.getInt("progress"), entry.getString("status"), entry.getString("detail"), entry.getBoolean("returnable"),
-                entry.getBoolean("current"), moduleDescription(entry, "moduleId", "module")));
+                entry.getBoolean("current"), moduleDescription(entry, "moduleId", "module"),
+                entry.getInt("elapsedTicks"), entry.getInt("processingTicks")));
         }
         int first = state.contains("taskOffset") ? state.getInt("taskOffset") : state.getInt("offset");
         if (taskScroll.receive(state.getInt("totalTasks"), first, decoded.size())) tasks = List.copyOf(decoded);
@@ -293,6 +294,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(Component.translatable(task.status()).withColor(task.statusColor()));
         if (!task.detail().isEmpty()) lines.add(Component.translatable(task.detail()));
         lines.add(tr("progress", Math.clamp(task.progress(), 0, 200) / 2));
+        if (task.processingTicks() > 0) lines.add(tr("task_duration", task.elapsedTicks(), task.processingTicks()));
         if (task.returnable()) lines.add(hint("task_return_hint"));
         return lines;
     }
@@ -334,6 +336,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     private List<Component> energyTooltip() {
         return List.of(title("energy"), tr("energy_value", decimal(state.getDouble("energyUsage"))),
+            tr("fe_value", decimal(state.getDouble("feUsage")), HostText.expandedNumber(state.getLong("feBuffer"))),
+            hint("fe_requirement"),
             tr("energy_stored", HostText.expandedNumber((long) state.getDouble("energyStored")),
                 HostText.expandedNumber((long) state.getDouble("energyCapacity"))), hint("energy_hint"));
     }
@@ -633,7 +637,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     }
 
     private record Task(UUID id, ItemStack item, FluidStack fluid, long amount, int progress, String status, String detail,
-                        boolean returnable, boolean current, ECOWorkstationModules.Module module) {
+                        boolean returnable, boolean current, ECOWorkstationModules.Module module,
+                        int elapsedTicks, int processingTicks) {
         Component title() { return !item.isEmpty() ? item.getHoverName() : !fluid.isEmpty() ? fluid.getHoverName() : tr("empty_task"); }
         boolean problem() { return current && !status.isEmpty() && !status.endsWith(".none") && !status.equals(PREFIX + "task_output"); }
         int statusColor() {

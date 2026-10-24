@@ -250,7 +250,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     public int getMaxProcessingTime() {
-        return MAX_PROCESSING_STEPS;
+        var task = getTask();
+        return task == null ? MAX_PROCESSING_STEPS : (int) Math.min(Integer.MAX_VALUE, (long) task.processingTicks() * 2);
     }
 
     @Override
@@ -409,9 +410,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                         default -> 2; // 100 ticks
                     };
 
-                final int progressReq = MAX_PROCESSING_STEPS - this.getProcessingTime();
+                final int progressReq = getMaxProcessingTime() - this.getProcessingTime();
                 final float powerRatio = progressReq < speedFactor ? (float) progressReq / speedFactor : 1;
-                final int requiredTicks = Mth.ceil((float) MAX_PROCESSING_STEPS / speedFactor);
+                final int requiredTicks = Mth.ceil((float) getMaxProcessingTime() / speedFactor);
                 final int powerConsumption = Mth.floor(((float) getTask().energy() / requiredTicks) * powerRatio);
                 final double powerThreshold = powerConsumption - 0.01;
 
@@ -654,7 +655,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         return IntegratedWorkstationUI.create(new IntegratedWorkstationUI.Config(
             getInputTank(), getOutputTank(), (IItemHandlerModifiable) getExposedItemHandler(null),
-            (IItemHandlerModifiable) upgrades.toItemHandler(), () -> processingTime, MAX_PROCESSING_STEPS,
+            (IItemHandlerModifiable) upgrades.toItemHandler(), () -> (int) ((long) processingTime * MAX_PROCESSING_STEPS / Math.max(1, getMaxProcessingTime())), MAX_PROCESSING_STEPS,
             this::clearFluid, this::clearFluidOut, () -> shouldAutoExport,
             enabled -> {
                 shouldAutoExport = enabled;

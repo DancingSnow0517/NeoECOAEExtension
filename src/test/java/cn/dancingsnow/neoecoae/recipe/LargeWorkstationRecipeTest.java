@@ -163,11 +163,22 @@ class LargeWorkstationRecipeTest {
             {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":4}],
              "totalEnergy":10000000000,"lightningCost":7,"lightningTier":"extreme_high_voltage",
             """ + output + "}");
-        assertTrue(recipe.energy() > Integer.MAX_VALUE);
+        assertEquals(0, recipe.energy());
+        assertEquals(10_000_000_000L, recipe.feEnergy());
+        assertEquals(200, recipe.processingTicks());
         assertEquals(7, recipe.extraInputs().getFirst().amount());
         assertEquals(com.moakiee.ae2lt.me.key.LightningKey.EXTREME_HIGH_VOLTAGE, recipe.extraInputs().getFirst().what());
         assertEquals(4, recipe.display().inputItems().getFirst().count());
         if (type.endsWith("overload_processing")) assertEquals(1000, recipe.display().inputFluid().amount());
+    }
+
+    @Test void cappedLightningDurationDoesNotRejectLongFeBudgetsBeforeTheCapIsApplied() {
+        var recipe = decode("ae2lt:lightning_assembly", """
+            {"inputs":[{"ingredient":{"item":"minecraft:iron_ingot"},"count":1}],
+             "totalEnergy":9223372036854775807,"result":{"id":"minecraft:diamond"}}
+            """);
+        assertEquals(Long.MAX_VALUE, recipe.feEnergy());
+        assertEquals(200, recipe.processingTicks());
     }
 
     @Test void rebornDefaultLightningCostIsNotLostWhenCodecOmitsDefaults() {
@@ -409,7 +420,7 @@ class LargeWorkstationRecipeTest {
         assertEquals(List.of(cheaperId), listed.stream().map(LargeWorkstationRecipe::id).toList());
         var savedBatchRecipe = LargeWorkstationRecipes.getById(manager, registries, expensiveId);
         assertNotNull(savedBatchRecipe);
-        assertTrue(savedBatchRecipe.energy() > listed.getFirst().energy());
+        assertTrue(savedBatchRecipe.feEnergy() > listed.getFirst().feEnergy());
         assertEquals(7, savedBatchRecipe.extraInputs().getFirst().amount());
         assertSame(savedBatchRecipe, LargeWorkstationRecipes.getById(manager, registries, expensiveId));
 

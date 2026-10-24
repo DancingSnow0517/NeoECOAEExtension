@@ -55,6 +55,12 @@ public interface IntegratedWorkingStationSchema {
             save();
             return this;
         }
+
+        public IntegratedWorkingStationKubeRecipe processingTicks(int ticks) {
+            setValue(PROCESSING_TICKS, ticks);
+            save();
+            return this;
+        }
     }
 
     ListRecipeComponent<SizedIngredient> LIST_INPUT = ListRecipeComponent.create(SizedIngredientComponent.OPTIONAL_FLAT.instance(), true, false, IntBounds.OPTIONAL, Optional.empty());
@@ -64,8 +70,9 @@ public interface IntegratedWorkingStationSchema {
     RecipeKey<ItemStack> ITEM_OUTPUT = ItemStackComponent.OPTIONAL_ITEM_STACK.outputKey("itemOutput").defaultOptional();
     RecipeKey<FluidStack> FLUID_OUTPUT = FluidStackComponent.OPTIONAL_FLUID_STACK.outputKey("fluidOutput").defaultOptional();
     RecipeKey<Integer> ENERGY = NumberComponent.intRange(0, Integer.MAX_VALUE).otherKey("energy");
+    RecipeKey<Integer> PROCESSING_TICKS = NumberComponent.intRange(1, Integer.MAX_VALUE).otherKey("processingTicks").optional(100);
 
-    RecipeSchema SCHEMA = new RecipeSchema(ENERGY, INPUT_ITEMS, INPUT_FLUID, ITEM_OUTPUT, FLUID_OUTPUT)
+    RecipeSchema SCHEMA = new RecipeSchema(ENERGY, INPUT_ITEMS, INPUT_FLUID, ITEM_OUTPUT, FLUID_OUTPUT, PROCESSING_TICKS)
         .factory(new KubeRecipeFactory(NeoECOAE.id("integrated_working_station"), IntegratedWorkingStationKubeRecipe.class, IntegratedWorkingStationKubeRecipe::new))
         .constructor(ENERGY, INPUT_ITEMS, INPUT_FLUID, ITEM_OUTPUT, FLUID_OUTPUT);
 }

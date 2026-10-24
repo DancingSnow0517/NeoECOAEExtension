@@ -100,7 +100,9 @@ final class DataWorkstationRecipes {
         if (result.isEmpty() && fluidResult.isEmpty() && additionalOutputs.isEmpty()) throw new IllegalArgumentException("Empty output");
         var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
-        return new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type), additionalFluids, additionalOutputs);
+        var recipe = new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type), additionalFluids, additionalOutputs);
+        return type.equals("data_energistics:data_reassembler")
+            ? recipe.processing(data.has("duration") ? data.get("duration").getAsInt() : 200, 0, false) : recipe;
     }
 
     private static void readItems(JsonObject data, String field, List<SizedIngredient> items, DynamicOps<JsonElement> ops) {
