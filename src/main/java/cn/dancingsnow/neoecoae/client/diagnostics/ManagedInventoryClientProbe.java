@@ -3,6 +3,10 @@ package cn.dancingsnow.neoecoae.client.diagnostics;
 import appeng.util.inv.AppEngInternalInventory;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.RetainedUIGuiContainer;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer;
 import com.lowdragmc.lowdraglib.syncdata.AccessorOp;
 import com.lowdragmc.lowdraglib.syncdata.IContentChangeAware;
@@ -74,6 +78,10 @@ final class ManagedInventoryClientProbe {
                     var player = client.getSingleplayerServer().getPlayerList().getPlayer(playerId);
                     player.serverLevel().setBlockAndUpdate(position, Blocks.AIR.defaultBlockState());
                     player.serverLevel().setBlockAndUpdate(position.below(), Blocks.BEDROCK.defaultBlockState());
+                    player.getInventory().clearContent();
+                    for (int slot : new int[] {1, 4, 8, 9, 22, 35}) {
+                        player.getInventory().setItem(slot, playerInventoryMarker(slot));
+                    }
                     player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(block));
                     player.inventoryMenu.broadcastChanges();
                     prepared = true;
@@ -152,13 +160,86 @@ final class ManagedInventoryClientProbe {
                     screen.mouseMoved(0,0);
                     LOG.info("INVENTORY_SMOKE fitted screen: scale={}, last filter slot reachable=true",screen.getRenderScale());
                 }
+                verifyPlayerInventory(client, root);
+                for (int slot : new int[] {1, 4, 8, 9, 22, 35}) {
+                    require(ItemStack.matches(playerInventoryMarker(slot), client.player.getInventory().getItem(slot)),
+                        "player inventory marker missing at " + slot + " for " + blockId);
+                }
+                LOG.info("PLAYER_INVENTORY_SMOKE bound: {}, 36 native player slots, main inventory/hotbar counts and NBT", blockId);
                 LOG.info("INVENTORY_SMOKE menu displayed: {}", blockId);
                 Screenshot.grab(client.gameDirectory, "neoecoae-inventory-" + blockId.getPath() + ".png",
                     client.getMainRenderTarget(), message -> LOG.info("INVENTORY_SMOKE screenshot: {}", message.getString()));
+                if (specimen < 3 || specimen >= 8) {
+                    clickInventorySlot(screen, 22);
+                    advance();
+                } else {
+                    client.player.closeContainer();
+                    stage = 9;
+                    ticks = 0;
+                }
+            }
+            case 5 -> {
+                if (ticks < 10) return;
+                require(client.player.getInventory().getItem(22).isEmpty(), "screen pickup left the source occupied");
+                require(ItemStack.matches(playerInventoryMarker(22), client.player.containerMenu.getCarried()),
+                    "screen pickup lost the count or NBT");
+                serverVerified = false;
+                var playerId = client.player.getUUID();
+                client.getSingleplayerServer().execute(() -> {
+                    try {
+                        var player = client.getSingleplayerServer().getPlayerList().getPlayer(playerId);
+                        require(player.getInventory().getItem(22).isEmpty(), "pickup packet did not reach the server");
+                        require(ItemStack.matches(playerInventoryMarker(22), player.containerMenu.getCarried()),
+                            "server pickup lost the count or NBT");
+                        serverVerified = true;
+                    } catch (Throwable failure) {
+                        serverFailure = failure;
+                    }
+                });
+                advance();
+            }
+            case 6 -> {
+                if (!serverVerified || ticks < 5) return;
+                clickInventorySlot((RetainedUIGuiContainer) client.screen, 23);
+                advance();
+            }
+            case 7 -> {
+                if (ticks < 10) return;
+                require(client.player.containerMenu.getCarried().isEmpty(), "screen placement retained the carried stack");
+                require(ItemStack.matches(playerInventoryMarker(22), client.player.getInventory().getItem(23)),
+                    "screen placement lost the stack");
+                serverVerified = false;
+                var playerId = client.player.getUUID();
+                client.getSingleplayerServer().execute(() -> {
+                    try {
+                        var player = client.getSingleplayerServer().getPlayerList().getPlayer(playerId);
+                        require(player.containerMenu.getCarried().isEmpty(), "server placement retained the carried stack");
+                        require(ItemStack.matches(playerInventoryMarker(22), player.getInventory().getItem(23)),
+                            "placement packet did not reach the server");
+                        var updated = playerInventoryMarker(22);
+                        updated.setCount(12);
+                        updated.getOrCreateTag().putBoolean("server_sync_smoke", true);
+                        player.getInventory().setItem(23, updated);
+                        player.containerMenu.broadcastChanges();
+                        serverVerified = true;
+                    } catch (Throwable failure) {
+                        serverFailure = failure;
+                    }
+                });
+                advance();
+            }
+            case 8 -> {
+                if (!serverVerified || ticks < 10) return;
+                var updated = client.player.getInventory().getItem(23);
+                require(updated.getCount() == 12 && updated.hasTag() && updated.getTag().getBoolean("server_sync_smoke"),
+                    "server inventory update was not synchronized to the client");
+                var screen = (RetainedUIGuiContainer) client.screen;
+                verifyPlayerInventory(client, (UIElement) screen.modularUI.mainGroup);
+                LOG.info("PLAYER_INVENTORY_SMOKE interaction PASS: {}, screen pickup/placement, server packets, incremental count/NBT sync", blockId);
                 client.player.closeContainer();
                 advance();
             }
-            case 5 -> {
+            case 9 -> {
                 if (client.screen != null || ticks < 10) return;
                 specimen++;
                 stage = 0;
@@ -166,6 +247,46 @@ final class ManagedInventoryClientProbe {
             }
             default -> throw new IllegalStateException("Unknown inventory regression stage " + stage);
         }
+    }
+
+    private static ItemStack playerInventoryMarker(int slot) {
+        var item = switch (slot) {
+            case 1 -> Items.DIAMOND;
+            case 4 -> Items.EMERALD;
+            case 8 -> Items.REDSTONE;
+            case 9 -> Items.GOLD_INGOT;
+            case 22 -> Items.IRON_INGOT;
+            case 35 -> Items.LAPIS_LAZULI;
+            default -> throw new IllegalArgumentException("Unknown player inventory marker slot " + slot);
+        };
+        var stack = new ItemStack(item, slot + 1);
+        stack.getOrCreateTag().putInt("player_slot_smoke", slot);
+        return stack;
+    }
+
+    private static void verifyPlayerInventory(Minecraft client, UIElement root) {
+        var inventory = client.player.getInventory();
+        var slots = client.player.containerMenu.slots.stream().filter(slot -> slot.container == inventory).toList();
+        require(slots.size() == 36 && slots.stream().map(slot -> slot.getContainerSlot()).distinct().count() == 36,
+            "menu does not expose 36 distinct native player slots");
+        var elements = root.getModularUI().getElementsByType(InventorySlots.class);
+        require(elements.size() == 1, "menu does not contain exactly one player inventory element");
+        elements.get(0).apply(element -> {
+            var slot = element.getSlot();
+            require(slot.container == inventory, "display slot is not bound to the menu player's inventory");
+            require(ItemStack.matches(inventory.getItem(slot.getContainerSlot()), element.getValue()),
+                "display slot differs from the actual player stack");
+        });
+    }
+
+    private static void clickInventorySlot(RetainedUIGuiContainer screen, int index) {
+        var root = (UIElement) screen.modularUI.mainGroup;
+        var inventory = root.getModularUI().getElementsByType(InventorySlots.class).get(0);
+        ItemSlot slot = index < 9 ? inventory.hotbar.slots[index] : inventory.rows[index / 9 - 1].slots[index % 9];
+        double x = screen.toScreen(slot.getPositionX() + 9), y = screen.toScreen(slot.getPositionY() + 9);
+        screen.mouseMoved(x, y);
+        require(screen.mouseClicked(x, y, 0), "player slot did not accept screen mouse input");
+        screen.mouseReleased(x, y, 0);
     }
 
     private static void verifySnapshotRoundTrip() {
