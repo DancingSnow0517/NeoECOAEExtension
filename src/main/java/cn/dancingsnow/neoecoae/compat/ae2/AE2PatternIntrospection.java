@@ -48,11 +48,11 @@ public final class AE2PatternIntrospection {
     }
 
     /**
-     * Identifies recipes whose ingredient match depends on an ItemStack component/NBT payload. This includes
-     * vanilla shaped recipes using NeoForge's {@code neoforge:components} ingredient type: AE2 records the
-     * selected concrete stack in the pattern, so its component patch remains visible through the input key.
+     * Identifies recipes whose ingredient match depends on an ItemStack NBT payload. AE2 records the
+     * selected concrete stack in the pattern, so tag-sensitive shaped and shapeless inputs remain visible
+     * through the input key.
      *
-     * <p>This deliberately examines the encoded input stacks instead of recipe serializer classes. A component
+     * <p>This deliberately examines the encoded input stacks instead of recipe serializer classes. An NBT
      * ingredient is still an ordinary shaped/shapeless recipe, not a {@code SpecialRecipe}.</p>
      */
     public static boolean isSpecialNbtPattern(IPatternDetails details) {

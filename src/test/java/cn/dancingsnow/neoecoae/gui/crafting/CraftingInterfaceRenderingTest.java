@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
 class CraftingInterfaceRenderingTest {
     @BeforeAll static void bootstrap() throws ClassNotFoundException {
         InventoryTestBootstrap.initialize();
-        // LDLib discovers widget types from NeoForge's scan data, which the unit runner does not install.
+        // LDLib discovers widget types from Forge's scan data, which the unit runner does not install.
         try (var modList = mockStatic(ModList.class);
              var registrate = mockStatic(NERegistrate.class)) {
             var mods = mock(ModList.class);

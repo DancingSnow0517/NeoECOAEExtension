@@ -1,0 +1,24 @@
+{
+  "java_files": 974,
+  "json_files": 1499,
+  "findings": [],
+  "jar": null,
+  "retained": [
+    {
+      "path": "build.gradle",
+      "reason": "net.neoforged.moddev.legacyforge is the Forge 1.20.1 build plugin"
+    },
+    {
+      "path": "settings.gradle",
+      "reason": "NeoForged Maven hosts the LegacyForge build plugin"
+    },
+    {
+      "path": "src/main/resources/META-INF/licenses/ae2-v19.2.18-NOTICE.txt",
+      "reason": "Historical source attribution must retain its upstream tag"
+    },
+    {
+      "path": "tools/porting, porting, docs",
+      "reason": "Conversion inputs, test fixtures, approved baselines and historical evidence"
+    }
+  ]
+}

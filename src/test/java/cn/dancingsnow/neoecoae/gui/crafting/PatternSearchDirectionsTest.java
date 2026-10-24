@@ -22,7 +22,7 @@ class PatternSearchDirectionsTest {
         var input = mock(IPatternDetails.IInput.class);
         var iron = new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1);
         var copper = new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 1);
-        // Unit bootstrap has no NeoForge fluid-type registry; use the same AE fluid-key API with a named key.
+        // Unit bootstrap has no Forge fluid-type registry; use the same AE fluid-key API with a named key.
         var fluid = mock(AEFluidKey.class);
         when(fluid.getDisplayName()).thenReturn(Component.literal("Water"));
         var water = new GenericStack(fluid, 1000);

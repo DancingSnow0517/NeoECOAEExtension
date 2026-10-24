@@ -12,7 +12,7 @@ class PatternSearchMatcherTest {
     @TempDir Path directory;
 
     @Test void releasedJecMatchesFullPinyinInitialsMixedTextAndFluids() throws Exception {
-        // NeoForge normally expands nested jars. An isolated JVM needs JEC's bundled PinIn explicitly.
+        // Forge normally expands nested jars. An isolated JVM needs JEC's bundled PinIn explicitly.
         Path pinIn = directory.resolve("PinIn.jar");
         ClassLoader parent = getClass().getClassLoader();
         try (var input = parent.getResourceAsStream("META-INF/jarjar/PinIn-1.6.0.jar")) {
