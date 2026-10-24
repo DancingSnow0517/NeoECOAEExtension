@@ -1,4 +1,9 @@
 {
+  "gui.neoecoae.large_integrated_working_station.module_any": "Supported upgrade cards (any one): %s",
+  "gui.neoecoae.large_integrated_working_station.variant_costs": "Each route retains its own batch size and costs:",
+  "gui.neoecoae.large_integrated_working_station.recipe_variant": "%s: %s AE; batch: %s",
+  "gui.neoecoae.large_integrated_working_station.recipe_energy_label": "Energy",
+  "gui.neoecoae.large_integrated_working_station.extra_required_label": "Extra required",
   "gui.neoecoae.large_integrated_working_station.module_support": "Recipe support",
   "gui.neoecoae.large_integrated_working_station.module_required": "Upgrade card supporting this recipe: %s",
   "gui.neoecoae.large_integrated_working_station.no_module_required": "No compatibility upgrade card required",

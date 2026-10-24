@@ -1,4 +1,9 @@
 {
+  "gui.neoecoae.large_integrated_working_station.module_any": "支持的升级卡（任选其一）：%s",
+  "gui.neoecoae.large_integrated_working_station.variant_costs": "各路线保留各自批量与费用：",
+  "gui.neoecoae.large_integrated_working_station.recipe_variant": "%s：%s AE；单批产出：%s",
+  "gui.neoecoae.large_integrated_working_station.recipe_energy_label": "耗能",
+  "gui.neoecoae.large_integrated_working_station.extra_required_label": "额外需要",
   "gui.neoecoae.large_integrated_working_station.module_support": "配方支持",
   "gui.neoecoae.large_integrated_working_station.module_required": "支持此配方的升级卡：%s",
   "gui.neoecoae.large_integrated_working_station.no_module_required": "无需兼容升级卡",

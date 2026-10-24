@@ -1,4 +1,9 @@
 {
+  "gui.neoecoae.large_integrated_working_station.module_any": "可用之卡（擇一）：%s",
+  "gui.neoecoae.large_integrated_working_station.variant_costs": "諸法各存其批量與耗用：",
+  "gui.neoecoae.large_integrated_working_station.recipe_variant": "%s：耗能 %s AE；每批所得：%s",
+  "gui.neoecoae.large_integrated_working_station.recipe_energy_label": "耗能",
+  "gui.neoecoae.large_integrated_working_station.extra_required_label": "另需",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "另需：%sx%s",
   "gui.neoecoae.large_integrated_working_station.recipe_energy": "耗能：%s AE",
   "gui.neoecoae.large_integrated_working_station.module_support": "方術支援",

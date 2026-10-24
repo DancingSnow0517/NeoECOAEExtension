@@ -1,4 +1,9 @@
 {
+  "gui.neoecoae.large_integrated_working_station.module_any": "Supported upgrade cards (any one): %s",
+  "gui.neoecoae.large_integrated_working_station.variant_costs": "Each route retains its own batch size and costs:",
+  "gui.neoecoae.large_integrated_working_station.recipe_variant": "%s: %s AE; batch: %s",
+  "gui.neoecoae.large_integrated_working_station.recipe_energy_label": "ʎbɹǝuƎ",
+  "gui.neoecoae.large_integrated_working_station.extra_required_label": "pǝɹınbǝɹ ɐɹʇxƎ",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "%2$sx%1$s :pǝɹınbǝɹ ɐɹʇxƎ",
   "gui.neoecoae.large_integrated_working_station.recipe_energy": "ƎⱯ %s :ʎbɹǝuƎ",
   "gui.neoecoae.large_integrated_working_station.module_support": "ʇɹoddns ǝdıɔǝᴚ",

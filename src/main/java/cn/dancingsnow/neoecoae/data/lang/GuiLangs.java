@@ -4,6 +4,8 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_label", "Energy");
+        provider.add("gui.neoecoae.large_integrated_working_station.extra_required_label", "Extra required");
         provider.add("recipe_type.neoecoae.ae2cs.crystal_pulverizer_recipe", "AE2CS: Crystal Pulverizing");
         provider.add("recipe_type.neoecoae.ae2cs.entropy_variation_reaction_chamber", "AE2CS: Entropy Variation");
         provider.add("category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
@@ -11,6 +13,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.large_integrated_working_station.pause.lightning_missing", "Paused: Missing additional resources");
         provider.add("gui.neoecoae.large_integrated_working_station.lightning_cost", "Extra required: %sx%s");
         provider.add("gui.neoecoae.large_integrated_working_station.module_support", "Recipe support");
+        provider.add("gui.neoecoae.large_integrated_working_station.module_any", "Supported upgrade cards (any one): %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.variant_costs", "Each route retains its own batch size and costs:");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_variant", "%s: %s AE; batch: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.module_required", "Upgrade card supporting this recipe: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.no_module_required", "No compatibility upgrade card required");
         provider.add("gui.neoecoae.large_integrated_working_station.lightning_amount", "Additional resource from ME: %s");

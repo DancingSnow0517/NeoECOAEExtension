@@ -23,7 +23,9 @@ The viewport shows up to 5 rows and scrolls smoothly with the mouse wheel and dr
 
 Supported compatible recipes load by default. Insert one card in the **Upgrade module** slot to unlock its recipe family: Advanced AE, Extended AE (including EAEP), Crystal Science, Lightning Tech, Data Energistics, or Applied Generators. The blank card adds no recipe family. Native recipes and adapters without a dedicated card remain available.
 
-The Applied Generators card supports Genesis Synthesizer recipes from versions 0.2.x and 0.3.0, including fluid products. Patterns must include all item inputs, charged ember crystals and input fluids; multiplied patterns scale all materials and AE costs together. Installing the card gives the controller lights, screen and interface circuits an ember-orange theme. Craft the card in the large workstation for 16,384,000 AE.
+Equivalent recipes share one entry in JEI / EMI. The cards on the right are alternatives: install **any one** to use its supported route. Hover a card to see that route's original batch output, AE cost and additional resources. Proportional batches also share an entry, but keep their original minimum sizes: a Crystal Science route producing 32 items cannot run as a four-item batch. Routes with different materials, yields or byproducts remain separate.
+
+The Applied Generators card supports Genesis Synthesizer recipes from versions 0.2.x and 0.3.0, including fluid products. Patterns must include every item and fluid required by that particular recipe; charged ember crystals are consumed only when listed. Multiplied patterns scale all materials and AE costs together. Installing the card gives the controller lights, screen and interface circuits an ember-orange theme. Craft the card in the large workstation for 16,384,000 AE.
 
 Changing cards refreshes the communication interface's available patterns. Accepted tasks retain their materials and progress and can finish after a card is removed.
 

@@ -1,4 +1,9 @@
 {
+  "gui.neoecoae.large_integrated_working_station.module_any": "支援的升級卡（任選其一）：%s",
+  "gui.neoecoae.large_integrated_working_station.variant_costs": "各路線保留各自批量與費用：",
+  "gui.neoecoae.large_integrated_working_station.recipe_variant": "%s：%s AE；單批產出：%s",
+  "gui.neoecoae.large_integrated_working_station.recipe_energy_label": "耗能",
+  "gui.neoecoae.large_integrated_working_station.extra_required_label": "額外需要",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "額外需要：%sx%s",
   "gui.neoecoae.large_integrated_working_station.recipe_energy": "耗能：%s AE",
   "gui.neoecoae.large_integrated_working_station.module_support": "配方支援",

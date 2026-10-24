@@ -37,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -59,13 +60,37 @@ public final class LargeWorkstationRecipes {
         "data_energistics:data_integrated_charger", "data_energistics:data_charge_press");
     private static final Map<RecipeManager, Cache> CACHE = new WeakHashMap<>();
     // Lightning recipes have explicit priority. AE cost, lightning amount and ID break ties.
-    private static final Comparator<LargeWorkstationRecipe> COST_ORDER = Comparator
-        .comparing((LargeWorkstationRecipe recipe) -> recipe.extraInputs().stream().noneMatch(LargeWorkstationRecipes::isLightning))
-        .thenComparingLong(LargeWorkstationRecipe::energy)
-        .thenComparingLong(recipe -> recipe.extraInputs().stream().mapToLong(GenericStack::amount).sum())
-        .thenComparing(recipe -> recipe.id().toString());
+    private static final Comparator<LargeWorkstationRecipe> COST_ORDER = (first, second) -> {
+        int costs = compareCosts(first, 1, second, 1);
+        return costs != 0 ? costs : first.id().toString().compareTo(second.id().toString());
+    };
 
     private LargeWorkstationRecipes() {}
+
+    /** Tags may change ingredient equivalence without replacing the recipe collection. */
+    public static synchronized void invalidate() { CACHE.clear(); }
+
+    public static List<LargeWorkstationRecipeGroup> getGroups(Level level) {
+        return getGroups(level.getRecipeManager(), level.registryAccess());
+    }
+
+    public static synchronized List<LargeWorkstationRecipeGroup> getGroups(RecipeManager manager, HolderLookup.Provider registries) {
+        getAll(manager, registries);
+        return CACHE.get(manager).groups;
+    }
+
+    /** Accepts any original or borrowed variant ID, including a representative returned by getAll(). */
+    @Nullable
+    public static LargeWorkstationRecipeGroup getGroup(Level level, ResourceLocation recipeId) {
+        return getGroup(level.getRecipeManager(), level.registryAccess(), recipeId);
+    }
+
+    @Nullable
+    public static synchronized LargeWorkstationRecipeGroup getGroup(RecipeManager manager,
+            HolderLookup.Provider registries, ResourceLocation recipeId) {
+        getAll(manager, registries);
+        return CACHE.get(manager).groupsById.get(recipeId);
+    }
 
     public static List<LargeWorkstationRecipe> getAll(Level level) {
         return getAll(level.getRecipeManager(), level.registryAccess());
@@ -106,10 +131,32 @@ public final class LargeWorkstationRecipes {
                 LOGGER.warn("Cannot adapt large workstation recipe {}", holder.id(), failure);
             }
         }
-        var result = deduplicate(recipes, ops);
         Map<ResourceLocation, LargeWorkstationRecipe> recipesById = new HashMap<>();
         for (var recipe : recipes) recipesById.put(recipe.id(), recipe);
-        CACHE.put(manager, new Cache(sources, result, Map.copyOf(recipesById),
+        var variants = new ArrayList<LargeWorkstationRecipeGroup.Variant>();
+        for (var recipe : recipes) variants.add(LargeWorkstationRecipeSources.direct(recipe));
+        // Add only explicitly supported execution capabilities, never a recursively combined upstream catalog.
+        for (var holder : sources) {
+            var recipe = recipesById.get(holder.id());
+            if (recipe == null) continue;
+            try {
+                var borrowed = LargeWorkstationRecipeSources.borrowed(holder, recipe);
+                if (borrowed != null) {
+                    if (recipesById.putIfAbsent(borrowed.recipe().id(), borrowed.recipe()) == null) variants.add(borrowed);
+                    else LOGGER.warn("Borrowed workstation recipe ID collides with a datapack recipe: {}", borrowed.recipe().id());
+                }
+            } catch (RuntimeException | LinkageError failure) {
+                LOGGER.warn("Cannot borrow large workstation recipe {}", holder.id(), failure);
+            }
+        }
+        var groups = group(variants, ops);
+        var result = groups.stream().map(LargeWorkstationRecipeGroup::representative).toList();
+        Map<ResourceLocation, LargeWorkstationRecipeGroup> groupsById = new HashMap<>();
+        for (var group : groups) for (var variant : group.variants()) groupsById.put(variant.recipe().id(), group);
+        var executionRecipes = variants.stream().map(LargeWorkstationRecipeGroup.Variant::recipe)
+            .sorted(Comparator.comparing(recipe -> recipe.id().toString())).toList();
+        CACHE.put(manager, new Cache(sources, result, executionRecipes, List.copyOf(variants), groups,
+            Map.copyOf(recipesById), Map.copyOf(groupsById),
             new EnumMap<>(LargeWorkstationModule.class), new HashMap<>(),
             ECOWorkstationRecipeAdapters.revision(),
             ECOWorkstationModules.revision()));
@@ -122,11 +169,8 @@ public final class LargeWorkstationRecipes {
         var manager = level.getRecipeManager();
         getAll(manager, level.registryAccess());
         Cache cache = CACHE.get(manager);
-        if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.recipes;
-        return cache.customModuleRecipes.computeIfAbsent(moduleId, installed -> deduplicate(
-            cache.recipesById.values().stream().filter(recipe ->
-                ECOWorkstationModules.unlocks(installed, recipe.sourceType())).toList(),
-            level.registryAccess().createSerializationContext(JsonOps.INSTANCE)));
+        if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.executionRecipes;
+        return cache.customModuleRecipes.computeIfAbsent(moduleId, installed -> available(cache.variants, installed));
     }
 
     public static List<LargeWorkstationRecipe> getAvailable(Level level, LargeWorkstationModule module) {
@@ -137,9 +181,17 @@ public final class LargeWorkstationRecipes {
             HolderLookup.Provider registries, LargeWorkstationModule module) {
         getAll(manager, registries);
         Cache cache = CACHE.get(manager);
-        if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.recipes;
-        return cache.moduleRecipes.computeIfAbsent(module, installed -> selectForModule(
-            cache.recipesById.values(), installed, registries.createSerializationContext(JsonOps.INSTANCE)));
+        if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.executionRecipes;
+        return cache.moduleRecipes.computeIfAbsent(module, installed -> available(cache.variants,
+            ECOWorkstationModules.builtin(installed).id()));
+    }
+
+    /** Execution lists retain every legal batch and resource-cost variant, unlike viewer representatives. */
+    private static List<LargeWorkstationRecipe> available(List<LargeWorkstationRecipeGroup.Variant> variants,
+            ResourceLocation installed) {
+        return variants.stream().filter(variant -> variant.unlocks(installed))
+            .map(LargeWorkstationRecipeGroup.Variant::recipe)
+            .sorted(Comparator.comparing(recipe -> recipe.id().toString())).toList();
     }
 
     /** Filter before deduplication: a locked cheaper adapter must not hide an unlocked native recipe. */
@@ -161,39 +213,85 @@ public final class LargeWorkstationRecipes {
         return CACHE.get(manager).recipesById.get(id);
     }
 
-    /** Material inputs and outputs define equivalence; source mod and processing costs do not. */
+    /** Legacy selection helper; the same grouping rules are used by the runtime catalog. */
     static List<LargeWorkstationRecipe> deduplicate(List<LargeWorkstationRecipe> recipes, DynamicOps<JsonElement> ops) {
-        Map<MaterialContract, LargeWorkstationRecipe> unique = new HashMap<>();
-        List<LargeWorkstationRecipe> result = new ArrayList<>();
-        for (var recipe : recipes) {
+        return group(recipes.stream().map(LargeWorkstationRecipeSources::direct).toList(), ops).stream()
+            .map(LargeWorkstationRecipeGroup::representative).toList();
+    }
+
+    /** Proportional material contracts share a viewer entry; no execution recipe is divided or discarded. */
+    static List<LargeWorkstationRecipeGroup> group(List<LargeWorkstationRecipeGroup.Variant> variants,
+            DynamicOps<JsonElement> ops) {
+        Map<MaterialContract, List<LargeWorkstationRecipeGroup.Variant>> grouped = new HashMap<>();
+        Map<ResourceLocation, Long> scales = new HashMap<>();
+        List<LargeWorkstationRecipeGroup> result = new ArrayList<>();
+        for (var variant : variants) {
+            var recipe = variant.recipe();
             try {
-                var display = recipe.display();
-                Map<Object, Long> items = new HashMap<>();
-                for (var input : display.inputItems()) {
-                    Object predicate = itemPredicate(input.ingredient(), ops);
-                    items.merge(predicate, (long) input.count(), Math::addExact);
-                }
-                Map<Object, Long> fluids = new HashMap<>();
-                for (var fluid : recipe.inputFluids()) {
-                    fluids.merge(fluidPredicate(fluid.ingredient(), ops), (long) fluid.amount(), Math::addExact);
-                }
-                Map<AEKey, Long> resources = new HashMap<>();
-                for (var extra : recipe.extraInputs()) {
-                    if (!isLightning(extra)) resources.merge(extra.what(), extra.amount(), Math::addExact);
-                }
-                Map<AEKey, Long> outputs = new HashMap<>();
-                for (var output : recipe.outputs()) outputs.merge(output.what(), output.amount(), Math::addExact);
-                var contract = new MaterialContract(Map.copyOf(items), Map.copyOf(fluids), Map.copyOf(resources), Map.copyOf(outputs));
-                unique.merge(contract, recipe, (first, second) -> COST_ORDER.compare(first, second) <= 0 ? first : second);
+                var contract = materialContract(recipe, ops);
+                long scale = contract.scale();
+                scales.put(recipe.id(), scale);
+                grouped.computeIfAbsent(contract.divide(scale), ignored -> new ArrayList<>()).add(variant);
             } catch (RuntimeException failure) {
-                // Unknown predicates remain available rather than being merged by their display stacks.
-                LOGGER.warn("Cannot compare large workstation recipe {} for duplicates", recipe.id(), failure);
-                result.add(recipe);
+                // A predicate that cannot be compared is still executable, but never guessed equivalent.
+                LOGGER.warn("Cannot group large workstation recipe {}", recipe.id(), failure);
+                result.add(new LargeWorkstationRecipeGroup(recipe, List.of(variant)));
             }
         }
-        result.addAll(unique.values());
-        result.sort(Comparator.comparing(recipe -> recipe.id().toString()));
+        for (var entries : grouped.values()) {
+            entries.sort(Comparator.comparing(variant -> variant.recipe().id().toString()));
+            // Viewer/bookmark identities stay on a real datapack source, not a virtual borrowing alias.
+            var displayed = entries.stream().filter(variant -> !variant.borrowed()).toList();
+            if (displayed.isEmpty()) displayed = entries;
+            var representative = displayed.stream().map(LargeWorkstationRecipeGroup.Variant::recipe).min((first, second) -> {
+                // Compare both candidates at the same material scale, without long multiplication overflow.
+                int costs = compareCosts(first, scales.get(second.id()), second, scales.get(first.id()));
+                return costs != 0 ? costs : first.id().toString().compareTo(second.id().toString());
+            }).orElseThrow();
+            result.add(new LargeWorkstationRecipeGroup(representative, entries));
+        }
+        result.sort(Comparator.comparing(group -> group.representative().id().toString()));
         return List.copyOf(result);
+    }
+
+    private static MaterialContract materialContract(LargeWorkstationRecipe recipe, DynamicOps<JsonElement> ops) {
+        Map<Object, Long> items = new HashMap<>();
+        for (var input : recipe.display().inputItems()) {
+            items.merge(itemPredicate(input.ingredient(), ops), (long) input.count(), Math::addExact);
+        }
+        Map<Object, Long> fluids = new HashMap<>();
+        for (var fluid : recipe.inputFluids()) {
+            fluids.merge(fluidPredicate(fluid.ingredient(), ops), (long) fluid.amount(), Math::addExact);
+        }
+        Map<AEKey, Long> resources = new HashMap<>();
+        for (var extra : recipe.extraInputs()) {
+            if (!isLightning(extra)) resources.merge(extra.what(), extra.amount(), Math::addExact);
+        }
+        Map<AEKey, Long> outputs = new HashMap<>();
+        for (var output : recipe.outputs()) outputs.merge(output.what(), output.amount(), Math::addExact);
+        return new MaterialContract(Map.copyOf(items), Map.copyOf(fluids), Map.copyOf(resources), Map.copyOf(outputs));
+    }
+
+    private static int compareCosts(LargeWorkstationRecipe first, long firstMultiplier,
+            LargeWorkstationRecipe second, long secondMultiplier) {
+        int lightning = Boolean.compare(first.extraInputs().stream().noneMatch(LargeWorkstationRecipes::isLightning),
+            second.extraInputs().stream().noneMatch(LargeWorkstationRecipes::isLightning));
+        if (lightning != 0) return lightning;
+        int energy = BigInteger.valueOf(first.energy()).multiply(BigInteger.valueOf(firstMultiplier))
+            .compareTo(BigInteger.valueOf(second.energy()).multiply(BigInteger.valueOf(secondMultiplier)));
+        if (energy != 0) return energy;
+        return extraCost(first).multiply(BigInteger.valueOf(firstMultiplier))
+            .compareTo(extraCost(second).multiply(BigInteger.valueOf(secondMultiplier)));
+    }
+
+    private static BigInteger extraCost(LargeWorkstationRecipe recipe) {
+        return recipe.extraInputs().stream().map(input -> BigInteger.valueOf(input.amount()))
+            .reduce(BigInteger.ZERO, BigInteger::add);
+    }
+
+    private static synchronized List<LargeWorkstationRecipe> executionRecipes(Level level) {
+        getAll(level);
+        return CACHE.get(level.getRecipeManager()).executionRecipes;
     }
 
     private static Object itemPredicate(Ingredient ingredient, DynamicOps<JsonElement> ops) {
@@ -223,7 +321,35 @@ public final class LargeWorkstationRecipes {
 
     private record ComponentPredicate(Set<ResourceLocation> alternatives, DataComponentPredicate components, boolean strict) {}
     private record MaterialContract(Map<Object, Long> items, Map<Object, Long> fluids,
-                                    Map<AEKey, Long> resources, Map<AEKey, Long> outputs) {}
+                                    Map<AEKey, Long> resources, Map<AEKey, Long> outputs) {
+        long scale() {
+            long scale = 0;
+            for (var entries : List.of(items, fluids, resources, outputs)) {
+                for (long amount : entries.values()) {
+                    if (amount <= 0) throw new IllegalArgumentException("Non-positive material quantity");
+                    long next = amount;
+                    while (next != 0) {
+                        long remainder = scale % next;
+                        scale = next;
+                        next = remainder;
+                    }
+                }
+            }
+            if (scale == 0 || outputs.isEmpty()) throw new IllegalArgumentException("Empty material contract");
+            return scale;
+        }
+
+        MaterialContract divide(long divisor) {
+            return new MaterialContract(divide(items, divisor), divide(fluids, divisor),
+                divide(resources, divisor), divide(outputs, divisor));
+        }
+
+        private static <K> Map<K, Long> divide(Map<K, Long> amounts, long divisor) {
+            Map<K, Long> result = new HashMap<>();
+            amounts.forEach((key, amount) -> result.put(key, amount / divisor));
+            return Map.copyOf(result);
+        }
+    }
 
     private static boolean isLightning(GenericStack stack) {
         return stack.what().getType().getId().getNamespace().equals("ae2lt");
@@ -231,25 +357,22 @@ public final class LargeWorkstationRecipes {
 
     @Nullable
     public static LargeWorkstationRecipe find(Level level, KeyCounter inputs, KeyCounter outputs) {
-        return find(getAll(level), inputs, outputs);
+        return find(executionRecipes(level), inputs, outputs);
     }
 
     private static LargeWorkstationRecipe find(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
-        LargeWorkstationRecipe fallback = null;
+        LargeWorkstationRecipe best = null;
         for (var recipe : recipes) {
             if (!recipe.matches(inputs, outputs)) continue;
-            // Distinct ingredient predicates can still overlap for one concrete pattern.
-            // Duplicate material contracts have already been resolved by COST_ORDER.
-            if (recipe.extraInputs().isEmpty()) return recipe;
-            if (fallback == null) fallback = recipe;
+            if (best == null || COST_ORDER.compare(recipe, best) < 0) best = recipe;
         }
-        return fallback;
+        return best;
     }
 
-    /** Prefer an exact recipe before interpreting an encoded pattern as multiple recipe operations. */
+    /** Matches original legal batches; proportional viewer grouping never enables fractional operations. */
     @Nullable
     public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs) {
-        return findScaled(getAll(level), inputs, outputs);
+        return findScaled(executionRecipes(level), inputs, outputs);
     }
 
     @Nullable
@@ -265,18 +388,26 @@ public final class LargeWorkstationRecipes {
     }
 
     @Nullable
-    private static PatternMatch findScaled(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
-        var exact = find(recipes, inputs, outputs);
-        if (exact != null) return new PatternMatch(exact, 1);
-        PatternMatch fallback = null;
+    static PatternMatch findScaled(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
+        PatternMatch best = null;
         for (var recipe : recipes) {
             long multiplier = recipe.matchingMultiplier(inputs, outputs);
             if (multiplier == 0) continue;
+            try {
+                Math.multiplyExact(recipe.energy(), multiplier);
+                for (var extra : recipe.extraInputs()) Math.multiplyExact(extra.amount(), multiplier);
+            } catch (ArithmeticException overflow) {
+                // An unpayable preferred route must not hide another legal variant of this pattern.
+                continue;
+            }
             var match = new PatternMatch(recipe, multiplier);
-            if (recipe.extraInputs().isEmpty()) return match;
-            if (fallback == null) fallback = match;
+            if (best == null) best = match;
+            else {
+                int costs = compareCosts(recipe, multiplier, best.recipe(), best.multiplier());
+                if (costs < 0 || costs == 0 && recipe.id().toString().compareTo(best.recipe().id().toString()) < 0) best = match;
+            }
         }
-        return fallback;
+        return best;
     }
 
     public record PatternMatch(LargeWorkstationRecipe recipe, long multiplier) {}
@@ -387,7 +518,10 @@ public final class LargeWorkstationRecipes {
     }
 
     private record Cache(Collection<RecipeHolder<?>> sources, List<LargeWorkstationRecipe> recipes,
+                         List<LargeWorkstationRecipe> executionRecipes, List<LargeWorkstationRecipeGroup.Variant> variants,
+                         List<LargeWorkstationRecipeGroup> groups,
                          Map<ResourceLocation, LargeWorkstationRecipe> recipesById,
+                         Map<ResourceLocation, LargeWorkstationRecipeGroup> groupsById,
                          Map<LargeWorkstationModule, List<LargeWorkstationRecipe>> moduleRecipes,
                          Map<ResourceLocation, List<LargeWorkstationRecipe>> customModuleRecipes,
                          long adapterRevision, long moduleRevision) {}

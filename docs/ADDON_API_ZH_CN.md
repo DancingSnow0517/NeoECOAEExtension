@@ -99,6 +99,10 @@ ECOComputationModels.registerCableModel(tier, hostBlock, disconnectedModel, conn
 
 升级卡识别、广告样板筛选、实际配方匹配、队列来源、终端分组、界面图标/芯片及成型模型均读取该身份。源类型被自定义模块认领后，需要对应卡；服务器原有的忽略卡配置仍可统一解除限制。配方/模块注册版本变化会使配方与样板广告缓存失效。
 
+大型工作站现在区分展示分组与执行变体。`LargeWorkstationRecipes.getAll(level)` 返回每组一个代表配方；`getGroups(level)` 返回完整分组；`getGroup(level, recipeId)` 可用任一原始或借用变体 ID 查组。分组的 `supportedModules()`、`upgradeCards()`、`availableWithoutCard()` 用于展示卡片，`availableVariants(moduleId)` 提供对应卡的原始批量与费用。每个 `Variant` 保留 `sourceId`、`sourceType` 和 `borrowed`，不要用代表配方的单一来源推断整组权限。
+
+`getAvailable(level, moduleId)` 返回当前卡的全部合法执行变体，可能多于展示条目；忽略卡配置也只解除权限，不移除材料、额外资源或最小批量。`findScaled(...)` 按完整样板匹配实际变体并比较同批次费用，返回的 `recipe().id()` 应用于保存任务。配方组不会把 32 个一批的配方变成 4 个一批。标签重载、配方替换及模块/适配器注册变更都会重建分组缓存。
+
 界面图标为 15×15，芯片图为 28×28。可选模型为完整的控制器模型，使用北向坐标；本体按放置朝向旋转。只有成型主机使用自定义模型，原有小型工作站不受影响。缺失模型回落原模型。模块卡本身保存在原物品槽，旧存档无需转换。
 
 ## 验证范围

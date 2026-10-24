@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.integration.recipe.LargeWorkstationRecipeDisplay;
+import cn.dancingsnow.neoecoae.integration.recipe.WorkstationRecipeInfoLayout;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import appeng.api.stacks.GenericStack;
@@ -44,7 +45,7 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         for (var input : additionalFluidInputs) inputs.add(NeoECOAEEmiPlugin.of(input));
         for (var input : recipe.extraInputs()) inputs.add(of(input));
         for (var output : additionalOutputs) outputs.add(of(output));
-        height = LargeWorkstationRecipeDisplay.height(additionalFluidInputs.size(), additionalOutputs.size());
+        height = LargeWorkstationRecipeDisplay.height(recipe);
     }
 
     private IntegrationWorkingStationEmiRecipe(EmiRecipeCategory category, ResourceLocation id,
@@ -87,17 +88,17 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/recipe/progress_bar.png"), 136, 30, 6, 18, 0, 0, 6, 18, 6, 18, 2000, false, true, false);
 
         if (large) {
-            widgets.addDrawable(0, 0, 168, backgroundHeight,
+            widgets.addDrawable(0, 0, 168, height,
                 (graphics, mouseX, mouseY, delta) -> LargeWorkstationRecipeDisplay.drawInfo(graphics, largeRecipe));
+            var cards = LargeWorkstationRecipeDisplay.cards(largeRecipe);
+            var infoLayout = new WorkstationRecipeInfoLayout(cards.size());
             widgets.addTooltipText(LargeWorkstationRecipeDisplay.infoTooltip(largeRecipe),
-                LargeWorkstationRecipeDisplay.INFO_X, LargeWorkstationRecipeDisplay.INFO_Y,
-                LargeWorkstationRecipeDisplay.CARD_X - LargeWorkstationRecipeDisplay.INFO_X - 2,
-                LargeWorkstationRecipeDisplay.INFO_HEIGHT);
-            var card = LargeWorkstationRecipeDisplay.upgradeCard(largeRecipe);
-            if (!card.isEmpty()) {
-                var cardSlot = widgets.addSlot(EmiStack.of(card), LargeWorkstationRecipeDisplay.CARD_X - 1,
-                    LargeWorkstationRecipeDisplay.CARD_Y - 1).drawBack(false).catalyst(true);
-                for (var line : LargeWorkstationRecipeDisplay.moduleTooltip(largeRecipe)) cardSlot.appendTooltip(line);
+                LargeWorkstationRecipeDisplay.TEXT_X, infoLayout.energyY() - 1, infoLayout.textWidth(), 16);
+            for (int i = 0; i < cards.size(); i++) {
+                var card = cards.get(i);
+                var cardSlot = widgets.addSlot(EmiStack.of(card.stack()), infoLayout.cardX(i) - 1,
+                    infoLayout.cardY(i) - 1).drawBack(false).catalyst(true);
+                for (var line : card.tooltip()) cardSlot.appendTooltip(line);
             }
         } else {
             widgets.addText(Component.translatable("gui.neoecoae.integrated_working_station.energy", energy / 1000),
@@ -106,12 +107,12 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         int additionalSlot = 0;
         for (var fluid : additionalFluidInputs) {
             widgets.addSlot(NeoECOAEEmiPlugin.of(fluid), LargeWorkstationRecipeDisplay.slotX(additionalSlot) - 1,
-                LargeWorkstationRecipeDisplay.slotY(additionalSlot++) - 1);
+                LargeWorkstationRecipeDisplay.slotY(largeRecipe, additionalSlot++) - 1);
         }
         additionalSlot = 0;
         for (var output : additionalOutputs) {
             widgets.addSlot(of(output), LargeWorkstationRecipeDisplay.slotX(additionalSlot) - 1,
-                LargeWorkstationRecipeDisplay.slotY(additionalSlot++) - 1
+                LargeWorkstationRecipeDisplay.slotY(largeRecipe, additionalSlot++) - 1
                     + LargeWorkstationRecipeDisplay.rows(additionalFluidInputs.size()) * 18).recipeContext(this);
         }
 

@@ -219,6 +219,7 @@ public class NeoECOAE {
     }
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {
+        cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes.invalidate();
         AE2PatternIntrospection.onRecipeReloadOrServerReload();
     }
 }
