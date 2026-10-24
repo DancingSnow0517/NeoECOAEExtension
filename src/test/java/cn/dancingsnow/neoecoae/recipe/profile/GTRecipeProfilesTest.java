@@ -17,6 +17,7 @@ import net.minecraftforge.resource.PathPackResources;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
@@ -37,6 +38,22 @@ class GTRecipeProfilesTest {
     private static final Path ROOT = Path.of("src/main/resources/recipe_profiles");
 
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+
+    @Test void autoWithoutGtKeepsStandaloneWithoutInspectingGtClasses() {
+        for (var mods : List.of(Set.<String>of(), Set.of("gtlcore"))) {
+            assertEquals(List.of(), GTRecipeProfiles.packPaths(Profile.AUTO, mods::contains,
+                () -> { throw new AssertionError("GT API queried without gtceu"); }));
+        }
+    }
+
+    @ParameterizedTest @EnumSource(Schema.class)
+    void autoSelectsGtlBeforeGtmAndUsesTheInstalledMachineSchema(Schema schema) {
+        var machinePack = "gt_" + schema.name().toLowerCase(java.util.Locale.ROOT);
+        assertEquals(List.of("gtm", machinePack), GTRecipeProfiles.packPaths(Profile.AUTO,
+            "gtceu"::equals, () -> schema));
+        assertEquals(List.of("gtl", machinePack), GTRecipeProfiles.packPaths(Profile.AUTO,
+            Set.of("gtceu", "gtlcore")::contains, () -> schema));
+    }
 
     @Test void standaloneDoesNotInspectOptionalModsOrGtClasses() {
         assertEquals(List.of(), GTRecipeProfiles.packPaths(Profile.STANDALONE,
@@ -68,8 +85,10 @@ class GTRecipeProfilesTest {
         }
     }
 
-    @Test void requiredPacksOverrideOldRecipesAndSurviveDatapackReload() throws Exception {
-        var paths = GTRecipeProfiles.packPaths(Profile.GTM, mod -> true, () -> Schema.LEGACY);
+    @ParameterizedTest @ValueSource(strings = {"gtm", "gtl"})
+    void automaticallySelectedPacksOverrideOldRecipesAndSurviveDatapackReload(String profile) throws Exception {
+        var mods = profile.equals("gtl") ? Set.of("gtceu", "gtlcore") : Set.of("gtceu");
+        var paths = GTRecipeProfiles.packPaths(Profile.AUTO, mods::contains, () -> Schema.LEGACY);
         var repository = new PackRepository(consumer -> paths.forEach(name -> consumer.accept(pack(name))));
         repository.reload();
         assertEquals(2, repository.getSelectedIds().size());
@@ -78,7 +97,7 @@ class GTRecipeProfilesTest {
         assertEquals(2, repository.getSelectedIds().size());
         try (var manager = new MultiPackResourceManager(PackType.SERVER_DATA, List.of(
             new PathPackResources("base", true, Path.of("src/generated/resources")),
-            new PathPackResources("profile", true, ROOT.resolve("gtm")),
+            new PathPackResources("profile", true, ROOT.resolve(paths.get(0))),
             new PathPackResources("machine", true, ROOT.resolve("gt_legacy"))))) {
             var id = new ResourceLocation("neoecoae:recipes/aluminum_alloy_dust.json");
             try (var reader = manager.getResource(id).orElseThrow().openAsReader()) {

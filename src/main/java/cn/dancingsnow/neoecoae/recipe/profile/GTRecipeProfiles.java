@@ -10,6 +10,8 @@ import net.minecraft.server.packs.repository.PackSource;
 import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.resource.PathPackResources;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Locale;
@@ -18,6 +20,8 @@ import java.util.function.Supplier;
 
 /** Optional GT progression is expressed as ordinary, required server datapacks. */
 public final class GTRecipeProfiles {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GTRecipeProfiles.class);
+
     public enum Schema {
         LEGACY, MODERN;
 
@@ -34,7 +38,9 @@ public final class GTRecipeProfiles {
 
     public static void addPackFinders(AddPackFindersEvent event) {
         if (event.getPackType() != PackType.SERVER_DATA) return;
-        var packs = packPaths(RecipeProfileConfig.profile(), ModList.get()::isLoaded, GTRecipeProfiles::detectSchema);
+        var profile = RecipeProfileConfig.profile();
+        var packs = packPaths(profile, ModList.get()::isLoaded, GTRecipeProfiles::detectSchema);
+        LOGGER.info("Recipe profile {} selected {}", profile, packs.isEmpty() ? "STANDALONE" : packs);
         if (packs.isEmpty()) return;
         var modFile = ModList.get().getModFileById(NeoECOAE.MOD_ID).getFile();
         event.addRepositorySource(consumer -> {
@@ -51,6 +57,10 @@ public final class GTRecipeProfiles {
     }
 
     static List<String> packPaths(Profile profile, Predicate<String> loaded, Supplier<Schema> schema) {
+        if (profile == Profile.AUTO) {
+            if (!loaded.test("gtceu")) return List.of();
+            profile = loaded.test("gtlcore") ? Profile.GTL : Profile.GTM;
+        }
         if (profile == Profile.STANDALONE) return List.of();
         if (!loaded.test("gtceu")) {
             throw new IllegalStateException("NeoECOAE recipe profile " + profile + " requires gtceu; "
