@@ -46,8 +46,9 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Integr
         title = Component.translatable("category.neoecoae.integrated_working_station");
         var texture = large ? cn.dancingsnow.neoecoae.NeoECOAE.id("textures/guis/large_integration_working_station.png")
             : TextureConstants.INTEGRATED_WORKING_STATION;
-        background = helper.drawableBuilder(texture, 0, 0, 168, 75)
-            .setTextureSize(168, 75)
+        int backgroundHeight = large ? 96 : 75;
+        background = helper.drawableBuilder(texture, 0, 0, 168, backgroundHeight)
+            .setTextureSize(168, backgroundHeight)
             .build();
         progress = helper.drawableBuilder(TextureConstants.PROGRESS_BAR, 0, 0, 6, 18)
             .setTextureSize(6, 18)

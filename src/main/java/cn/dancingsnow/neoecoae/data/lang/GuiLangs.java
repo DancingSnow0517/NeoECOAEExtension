@@ -14,9 +14,12 @@ public class GuiLangs {
         provider.add("category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
         provider.add("emi.category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.lightning_missing", "Paused: Missing additional resources");
-        provider.add("gui.neoecoae.large_integrated_working_station.lightning_cost", "ME: %s \u00d7 %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.lightning_cost", "Extra required: %sx%s");
         provider.add("gui.neoecoae.large_integrated_working_station.lightning_amount", "Additional resource from ME: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy", "Energy: %s AE");
+        provider.add("gui.neoecoae.large_integrated_working_station.module_support", "Recipe support");
+        provider.add("gui.neoecoae.large_integrated_working_station.module_required", "Upgrade card supporting this recipe: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.no_module_required", "No compatibility upgrade card required");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_type", "Source recipe type: %s");
         provider.add("recipe_type.neoecoae.neoecoae.integrated_working_station", "ECO: Integrated Working Station");
         provider.add("recipe_type.neoecoae.ae2lt.overload_processing", "AE2LT: Overload Processing");
