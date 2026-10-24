@@ -62,14 +62,14 @@ final class WorkstationOutputPanel {
         UIElement cell = new UIElement();
         cell.addChild(new OutputSideButton(config, internalSide(uiSide), labelKey)
             .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
-                .left(10).top(0).width(20).height(20).paddingAll(0)));
+                .left(6).top(0).width(18).height(18).paddingAll(0)));
         cell.addChild(new TextElement()
             .setText(labelKey, true)
             .textStyle(style -> style.adaptiveWidth(false).adaptiveHeight(false)
                 .textWrap(TextWrap.NONE).textAlignHorizontal(Horizontal.CENTER)
-                .textColor(0x413f54).textShadow(false))
+                .fontSize(7).textColor(0x413f54).textShadow(false))
             .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
-                .left(0).top(22).width(40).height(10)));
+                .left(0).top(19).width(30).height(8)));
         return cell;
     }
 
@@ -161,10 +161,10 @@ final class WorkstationOutputPanel {
             IGuiTexture icon = neighbor.isEmpty()
                 ? AETextures.icon(allowed ? ECOIcon.AUTO_EXPORT_ON : ECOIcon.AUTO_EXPORT_OFF)
                 : new ItemStackTexture(neighbor);
-            context.drawTexture(icon, getPositionX() + 2, getPositionY() + 1, 16, 16);
+            context.drawTexture(icon, getPositionX() + 1, getPositionY() + 1, 16, 16);
             // Keep the selected state visible even while hovering or displaying a neighbor item.
             context.drawTexture(allowed ? ENABLED_MARK : DISABLED_MARK,
-                getPositionX() + 14, getPositionY() + 13, 3, 3);
+                getPositionX() + 13, getPositionY() + 13, 3, 3);
         }
     }
 

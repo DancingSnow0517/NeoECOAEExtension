@@ -605,8 +605,8 @@ class WorkstationUIInteractionTest {
             panel.layout(layout -> layout.display(cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyDisplay.FLEX));
             ModularUI ui = cn.dancingsnow.neoecoae.util.UiTestSupport.createUI(UI.of(root));
             List<UIElement> buttons = panel.query(".workstation-output-side");
-            int[] x = {78, 38, 78, 118, 78, 118};
-            int[] y = {23, 55, 55, 55, 87, 87};
+            int[] x = {79, 49, 79, 109, 79, 109};
+            int[] y = {28, 56, 56, 56, 84, 84};
             for (int width : List.of(640, 800)) {
                 cn.dancingsnow.neoecoae.util.UiTestSupport.init(ui, width, 480);
                 assertEquals(176, panel.getSizeWidth());
@@ -617,8 +617,8 @@ class WorkstationUIInteractionTest {
                     UIElement button = buttons.get(index);
                     assertEquals(panel.getPositionX() + x[index], button.getPositionX());
                     assertEquals(panel.getPositionY() + y[index], button.getPositionY());
-                    assertEquals(20, button.getSizeWidth());
-                    assertEquals(20, button.getSizeHeight());
+                    assertEquals(18, button.getSizeWidth());
+                    assertEquals(18, button.getSizeHeight());
                     assertSame(button, root.hitTest(button.getPositionX() + 10, button.getPositionY() + 10));
                 }
             }
@@ -640,9 +640,9 @@ class WorkstationUIInteractionTest {
             GUIContext context = mock(GUIContext.class);
             button.drawBackgroundAdditional(context);
             verify(context).drawTexture(same(NETextures.AE2_BUTTON_HIGHLIGHTED),
-                eq((float) button.getPositionX()), eq((float) button.getPositionY()), eq(20F), eq(20F));
+                eq((float) button.getPositionX()), eq((float) button.getPositionY()), eq(18F), eq(18F));
             verify(context).drawTexture(same(AETextures.icon(ECOIcon.AUTO_EXPORT_ON)),
-                eq(button.getPositionX() + 2F), eq(button.getPositionY() + 1F), eq(16F), eq(16F));
+                eq(button.getPositionX() + 1F), eq(button.getPositionY() + 1F), eq(16F), eq(16F));
 
             receiveOutputState(button, false);
             assertEquals(false, ((IBindable<?>) button).getValue());
@@ -651,9 +651,9 @@ class WorkstationUIInteractionTest {
             context = mock(GUIContext.class);
             button.drawBackgroundAdditional(context);
             verify(context).drawTexture(same(NETextures.AE2_BUTTON),
-                eq((float) button.getPositionX()), eq((float) button.getPositionY()), eq(20F), eq(20F));
+                eq((float) button.getPositionX()), eq((float) button.getPositionY()), eq(18F), eq(18F));
             verify(context).drawTexture(same(AETextures.icon(ECOIcon.AUTO_EXPORT_OFF)),
-                eq(button.getPositionX() + 2F), eq(button.getPositionY() + 1F), eq(16F), eq(16F));
+                eq(button.getPositionX() + 1F), eq(button.getPositionY() + 1F), eq(16F), eq(16F));
             assertEquals("gui.neoecoae.integrated_working_station.allow_outputs.disabled",
                 cn.dancingsnow.neoecoae.platform.JdkCompat.last(button.collectHoverTooltips().tooltips()).getString());
         }

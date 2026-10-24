@@ -34,16 +34,16 @@
       ]
     },
     { "type": "custom", "custom": "output_side", "side": "top",
-      "layout": { "position": "absolute", "left": 68, "top": 23, "width": 40, "height": 32 } },
+      "layout": { "position": "absolute", "left": 73, "top": 28, "width": 30, "height": 27 } },
     { "type": "custom", "custom": "output_side", "side": "left",
-      "layout": { "position": "absolute", "left": 28, "top": 55, "width": 40, "height": 32 } },
+      "layout": { "position": "absolute", "left": 43, "top": 56, "width": 30, "height": 27 } },
     { "type": "custom", "custom": "output_side", "side": "front",
-      "layout": { "position": "absolute", "left": 68, "top": 55, "width": 40, "height": 32 } },
+      "layout": { "position": "absolute", "left": 73, "top": 56, "width": 30, "height": 27 } },
     { "type": "custom", "custom": "output_side", "side": "right",
-      "layout": { "position": "absolute", "left": 108, "top": 55, "width": 40, "height": 32 } },
+      "layout": { "position": "absolute", "left": 103, "top": 56, "width": 30, "height": 27 } },
     { "type": "custom", "custom": "output_side", "side": "bottom",
-      "layout": { "position": "absolute", "left": 68, "top": 87, "width": 40, "height": 32 } },
+      "layout": { "position": "absolute", "left": 73, "top": 84, "width": 30, "height": 27 } },
     { "type": "custom", "custom": "output_side", "side": "back",
-      "layout": { "position": "absolute", "left": 108, "top": 87, "width": 40, "height": 32 } }
+      "layout": { "position": "absolute", "left": 103, "top": 84, "width": 30, "height": 27 } }
   ]
 }
