@@ -480,10 +480,11 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         if (parallelWidth > 0) sprite(context, WorkstationTextures.widget(18, 161, parallelWidth, 7), 103, 59, parallelWidth, 7);
         text(context, tr("controls_heading"), 102, 72, 59, 0.7f, TEXT);
         centeredText(context, tr("overclock_short"), 102, 82, 15, 0.65f, TEXT);
-        centeredText(context, tr("cooling"), 146, 82, 15, 0.65f, TEXT);
+        centeredText(context, tr("cooling"), 140, 82, 27, 0.65f, TEXT);
         text(context, tr(state.getBoolean("overclocked") ? "enabled" : "disabled"), 120, 91, 25, 0.6f,
             state.getBoolean("overclocked") ? SUCCESS : MUTED);
-        text(context, tr(temperatureEnabled() ? "thermal_mode" : "coolant_mode"), 120, 103, 25, 0.55f, MUTED);
+        wrappedText(context, tr(temperatureEnabled() ? "thermal_mode" : "coolant_mode"),
+            120, 101, 25, 0.55f, 2, MUTED);
         centeredText(context, temperatureEnabled() ? tr("current_band", temperatureBandName())
             : tr("coolant_mode"), 99, 119, 64, 0.65f, MUTED);
         centeredText(context, tr("thermal_short"), 172, 70, 15, 0.65f, TEXT);
@@ -515,26 +516,26 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private void drawTask(GUIContext context, Task task, int row) {
         int y = 38 + row * 26;
         sprite(context, WorkstationTextures.widget(0, 62, 69, 24), 9, y, 69, 24);
-        if (!task.item().isEmpty()) context.graphics.renderItem(task.item(), Math.round(getPositionX()) + 13, Math.round(getPositionY()) + y + 4);
+        if (!task.item().isEmpty()) context.graphics.renderItem(task.item(), Math.round(getPositionX()) + 13, Math.round(getPositionY()) + y + 3);
         else if (!task.fluid().isEmpty()) {
             // AE2 blits fluids immediately; submit the buffered card background before drawing its icon.
             context.graphics.flush();
             context.pose.pushPose();
-            context.pose.translate(getPositionX() + 13, getPositionY() + y + 4, 0);
+            context.pose.translate(getPositionX() + 13, getPositionY() + y + 3, 0);
             AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, AEFluidKey.of(task.fluid()));
             context.pose.popPose();
         }
-        text(context, task.title(), 33, y + 1, 43, 0.7f, TEXT);
-        text(context, Component.literal("×" + number(task.amount())), 33, y + 8, 23, 0.6f, MUTED);
+        wrappedText(context, task.title(), 33, y + 1, 43, 0.6f, 2, TEXT);
+        centeredText(context, Component.literal("×" + number(task.amount())), 12, y + 19, 18, 0.5f, MUTED);
+        int detailWidth = task.returnable() ? 30 : 43;
         text(context, tr(!task.current() ? "task_queued" : task.progress() >= 200 ? "task_output"
-            : task.problem() ? "status_paused" : "status_running"), 58, y + 8, 18, 0.55f, task.statusColor());
+            : task.problem() ? "status_paused" : "status_running"), 33, y + 13, detailWidth, 0.55f, task.statusColor());
         // A recessed three-pixel track stays visible even for queued tasks at zero progress.
-        fill(context, 33, y + 17, 30, 4, 0xFF413F54);
-        fill(context, 34, y + 18, 28, 2, 0xFF696D88);
-        int progress = task.progress() <= 0 ? 0 : Math.max(1, (int) Math.round(28 * ratio(task.progress(), 200)));
+        fill(context, 33, y + 20, detailWidth, 3, 0xFF413F54);
+        fill(context, 34, y + 21, detailWidth - 2, 1, 0xFF696D88);
+        int progress = task.progress() <= 0 ? 0 : Math.max(1, (int) Math.round((detailWidth - 2) * ratio(task.progress(), 200)));
         if (progress > 0) {
-            fill(context, 34, y + 18, progress, 2, task.progress() >= 200 ? 0xFF57CDAE : 0xFFED7CCC);
-            fill(context, 34, y + 18, progress, 1, task.progress() >= 200 ? 0xFFB3F1D8 : 0xFFFFB6E7);
+            fill(context, 34, y + 21, progress, 1, task.progress() >= 200 ? 0xFFB3F1D8 : 0xFFFFB6E7);
         }
     }
 
@@ -566,9 +567,26 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private void centeredText(GUIContext context, Component value, int x, int y, int width, float scale, int color) {
         drawText(context, value, x, y, width, scale, color, true);
     }
+    private void wrappedText(GUIContext context, Component value, int x, int y, int width, float scale, int maxLines, int color) {
+        var font = Minecraft.getInstance().font;
+        var lines = font.getSplitter().splitLines(value, Math.max(1, (int) (width / scale)), value.getStyle());
+        if (lines.size() > maxLines && scale > 0.5f) {
+            scale = 0.5f;
+            lines = font.getSplitter().splitLines(value, Math.max(1, (int) (width / scale)), value.getStyle());
+        }
+        int lineHeight = (int) Math.ceil(font.lineHeight * scale);
+        for (int line = 0; line < Math.min(lines.size(), maxLines); line++) {
+            String text = lines.get(line).getString();
+            if (line == maxLines - 1 && lines.size() > maxLines) text += "…";
+            text(context, Component.literal(text), x, y + line * lineHeight, width, scale, color);
+        }
+    }
     private void drawText(GUIContext context, Component value, int x, int y, int width, float scale, int color, boolean centered) {
         var font = Minecraft.getInstance().font;
         String text = value.getString();
+        // Fit labels before shortening them, while retaining a readable lower bound.
+        float fittedScale = width / (float) Math.max(1, font.width(text));
+        scale = Math.min(scale, Math.max(Math.min(scale, 0.5f), fittedScale));
         int available = Math.max(1, (int) (width / scale));
         if (font.width(text) > available) text = font.plainSubstrByWidth(text, Math.max(0, available - font.width("…"))) + "…";
         context.pose.pushPose();

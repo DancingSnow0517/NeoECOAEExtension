@@ -56,6 +56,7 @@ final class ComputationControllerArtwork extends UIElement {
     private static final int ROW_Y = 102;
     private static final int ROW_SPACING = 7;
     private static final int ROW_WIDTH = 44;
+    private static final int ROW_TEXT_GAP = 3;
     private static final int SWITCH_LABEL_WIDTH = 23;
     private final ComputationControllerUI.Config config;
     private final Supplier<ComputationControllerPanelState> panelState;
@@ -268,9 +269,10 @@ final class ComputationControllerArtwork extends UIElement {
 
     private void drawLabels(GUIContext context) {
         Font font = Minecraft.getInstance().font;
-        Component title = Component.translatable("gui.neoecoae.computation.ui.title");
-        float titleScale = Math.min(HostText.TITLE_SCALE, 92.0F / Math.max(1, font.width(title)));
-        drawText(context, title, HostText.TITLE_X, HostText.TITLE_Y, titleScale, TEXT_COLOR);
+        String title = font.plainSubstrByWidth(
+            Component.translatable("gui.neoecoae.computation.ui.title").getString(), 105);
+        context.graphics.drawString(font, title, Math.round(getPositionX()) + HostText.TITLE_X,
+            Math.round(getPositionY()) + HostText.TITLE_Y, PANEL_PRIMARY, true);
         drawText(context, Component.translatable("gui.neoecoae.computation.ui.control_heading"), 9, 90, TEXT_COLOR);
         drawSwitchLabels(context);
         for (int i = 0; i < PANEL_KEYS.length; i++) {
@@ -412,7 +414,8 @@ final class ComputationControllerArtwork extends UIElement {
         Font font = Minecraft.getInstance().font;
         int x = PANEL_X[panel] + 5;
         int y = ROW_Y + row * ROW_SPACING;
-        float room = ROW_WIDTH - font.width(label) * TEXT_SCALE - 2;
+        int labelWidth = font.width(label);
+        float room = ROW_WIDTH - labelWidth * TEXT_SCALE - ROW_TEXT_GAP;
         String value = candidates[candidates.length - 1];
         for (String candidate : candidates) {
             if (font.width(candidate) * TEXT_SCALE <= room) {
@@ -420,8 +423,12 @@ final class ComputationControllerArtwork extends UIElement {
                 break;
             }
         }
-        drawText(context, label, x, y, LABEL_COLOR);
-        drawText(context, Component.literal(value), x + ROW_WIDTH - font.width(value) * TEXT_SCALE, y, valueColor);
+        int valueWidth = font.width(value);
+        float scale = Math.min(TEXT_SCALE,
+            (ROW_WIDTH - ROW_TEXT_GAP) / (float) Math.max(1, labelWidth + valueWidth));
+        float textY = y + (font.lineHeight - 1) * (TEXT_SCALE - scale) / 2.0F;
+        drawText(context, label, x, textY, scale, LABEL_COLOR);
+        drawText(context, Component.literal(value), x + ROW_WIDTH - valueWidth * scale, textY, scale, valueColor);
     }
 
     private void drawText(GUIContext context, Component text, float x, float y, int color) {
@@ -456,9 +463,11 @@ final class ComputationControllerArtwork extends UIElement {
     private static String[] byteCandidates(long bytes) {
         String full = NEByteFormatter.format(bytes);
         int space = full.lastIndexOf(' ');
-        String rounded = new BigDecimal(full.substring(0, space).replace(",", "")).setScale(1, RoundingMode.HALF_UP)
-            .stripTrailingZeros().toPlainString() + full.substring(space);
-        return new String[] {full, rounded, rounded.replace(" ", "")};
+        BigDecimal amount = new BigDecimal(full.substring(0, space).replace(",", ""));
+        String rounded = amount.setScale(1, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
+            + full.substring(space);
+        String compact = amount.setScale(0, RoundingMode.HALF_UP).toPlainString() + full.substring(space + 1);
+        return new String[] {full, rounded, rounded.replace(" ", ""), compact};
     }
 
     private static int permille(long numerator, long denominator) {
