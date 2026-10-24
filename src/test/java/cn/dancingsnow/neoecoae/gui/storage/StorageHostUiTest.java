@@ -62,9 +62,9 @@ class StorageHostUiTest {
     }
 
     @Test
-    void guiAtlasLoadsTheOriginalInfinitySheetWithItsAnimationMetadata() throws Exception {
+    void blockAtlasLoadsTheOriginalInfinitySheetWithItsAnimationMetadata() throws Exception {
         var loader = getClass().getClassLoader();
-        try (var atlas = loader.getResourceAsStream("assets/minecraft/atlases/gui.json")) {
+        try (var atlas = loader.getResourceAsStream("assets/minecraft/atlases/blocks.json")) {
             assertNotNull(atlas);
             var source = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(atlas,
                 java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonArray("sources")
@@ -88,6 +88,21 @@ class StorageHostUiTest {
                 assertEquals(3, parsed.getDefaultFrameTime());
                 assertTrue(parsed.isInterpolatedFrames());
             }
+        }
+
+        // Exercise the adapter too: validating an unused GUI atlas allowed this porting bug through.
+        try (var minecraft = mockStatic(Minecraft.class)) {
+            var client = mock(Minecraft.class);
+            minecraft.when(Minecraft::getInstance).thenReturn(client);
+            var sprite = mock(net.minecraft.client.renderer.texture.TextureAtlasSprite.class);
+            when(client.getTextureAtlas(net.minecraft.world.inventory.InventoryMenu.BLOCK_ATLAS))
+                .thenReturn(id -> {
+                    assertEquals("neoecoae:storage/infinity", id.toString());
+                    return sprite;
+                });
+            var graphics = mock(GuiGraphics.class);
+            StoragePanelTextures.INFINITE_ANIMATION.draw(graphics, 0, 0, 2, 3, 12, 12, 0);
+            verify(graphics).blit(2, 3, 0, 12, 12, sprite);
         }
     }
 

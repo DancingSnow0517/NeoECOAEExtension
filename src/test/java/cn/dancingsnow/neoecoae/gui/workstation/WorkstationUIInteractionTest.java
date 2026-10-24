@@ -458,6 +458,34 @@ class WorkstationUIInteractionTest {
     }
 
     @Test
+    void coolingHoverDistinguishesModpackRecipeCapabilityFromTheEffectiveWorkstationBand() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            for (boolean thermal : List.of(true, false)) {
+                var snapshot = new CompoundTag();
+                snapshot.putBoolean("temperatureEnabled", thermal);
+                snapshot.putBoolean("activeCooling", true);
+                snapshot.putInt("coolantMaxOverclock", 15);
+                snapshot.putInt("coolantTier", 9);
+                var panel = taskPanel(snapshot);
+                UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                hover.target = taskRegion(panel, "cooling-info");
+                hover.target.dispatchEvent(hover);
+                var lines = hover.hoverTooltips.tooltips().stream()
+                    .map(line -> line.getContents())
+                    .filter(net.minecraft.network.chat.contents.TranslatableContents.class::isInstance)
+                    .map(net.minecraft.network.chat.contents.TranslatableContents.class::cast).toList();
+                var raw = lines.stream().filter(line -> line.getKey().equals(
+                    "gui.neoecoae.workstation.coolant_recipe_max_overclock")).findFirst().orElseThrow();
+                var effective = lines.stream().filter(line -> line.getKey().equals(
+                    "gui.neoecoae.workstation.coolant_effective_tier")).findFirst().orElseThrow();
+                assertEquals(15, raw.getArgs()[0]);
+                assertEquals(9, effective.getArgs()[0]);
+            }
+        }
+    }
+
+    @Test
     void temperatureHoverShowsActualSignedRatesAndHidesThemInCoolantMode() {
         try (var ldlib = mockStatic(LDLib.class)) {
             ldlib.when(LDLib::isRemote).thenReturn(true);

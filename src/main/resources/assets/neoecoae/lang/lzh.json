@@ -1,4 +1,7 @@
 {
+  "gui.neoecoae.storage_interface.exclude_storage_bus.on": "排除儲存匯流排容器：開啟",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.off": "排除儲存匯流排容器：關閉",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.description": "吸入與輸出模式均生效：跳過透過 ME 儲存匯流排接入的儲存",
   "gui.neoecoae.large_integrated_working_station.recipe_type": "原方類：%s",
   "recipe_type.neoecoae.neoecoae.integrated_working_station": "ECO：集成工坊",
   "recipe_type.neoecoae.ae2lt.overload_processing": "AE2LT：過載加工",
@@ -895,6 +898,8 @@
   "gui.neoecoae.workstation.cooling": "冷卻",
   "gui.neoecoae.workstation.coolant": "冷卻液",
   "gui.neoecoae.workstation.coolant_value": "冷卻液檔位：%s",
+  "gui.neoecoae.workstation.coolant_recipe_max_overclock": "方之至超頻：%s",
+  "gui.neoecoae.workstation.coolant_effective_tier": "工坊實用冷卻檔：%s",
   "gui.neoecoae.workstation.cooling_on": "冷卻：開啓",
   "gui.neoecoae.workstation.cooling_off": "冷卻：關閉",
   "gui.neoecoae.workstation.no_coolant": "無冷卻液",

@@ -1,4 +1,7 @@
 {
+  "gui.neoecoae.storage_interface.exclude_storage_bus.on": "排除存储总线容器：开启",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.off": "排除存储总线容器：关闭",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.description": "吸入和输出模式均生效：跳过通过 ME 存储总线接入的存储",
   "gui.neoecoae.workstation.module_short.ae2cs": "晶体科学",
   "gui.neoecoae.workstation.module.ae2cs": "晶体科学",
   "item.neoecoae.integrated_working_station_module_ae2cs": "晶体科学集成工作站升级卡",
@@ -1104,6 +1107,8 @@
   "gui.neoecoae.workstation.energy_value": "实时耗能：%s AE/t",
   "gui.neoecoae.workstation.energy_stored": "储能：%s / %s AE",
   "gui.neoecoae.workstation.coolant_value": "冷却液档位：%s",
+  "gui.neoecoae.workstation.coolant_recipe_max_overclock": "配方最高超频：%s",
+  "gui.neoecoae.workstation.coolant_effective_tier": "工作站有效冷却档位：%s",
   "gui.neoecoae.workstation.overclock": "超频控制",
   "gui.neoecoae.workstation.cooling": "冷却",
   "gui.neoecoae.workstation.overclocked": "超频已启用",

@@ -14,8 +14,9 @@ final class StoragePanelTextures {
     // Deep purple stays legible on both the grey type cards and the light host panel.
     static final int VALUE_TEXT = 0x32204F;
     private static final ResourceLocation ATLAS = id("storage_widget.png");
-    // Let the GUI atlas consume .mcmeta. GeckoLib replaces raw animated textures with a
-    // single uploaded frame, so sampling that texture as a 12x120 sheet breaks the UVs.
+    // Let the block atlas consume .mcmeta; the 1.20.1 adapter reads InventoryMenu.BLOCK_ATLAS.
+    // GeckoLib replaces raw animated textures with a single uploaded frame, so sampling
+    // that texture as a 12x120 sheet breaks the UVs.
     static final VanillaSpriteTexture INFINITE_ANIMATION = VanillaSpriteTexture.of(
         new ResourceLocation("neoecoae", "storage/infinity"));
     // Keep the central glyph at its native size; only the side filler repeats.

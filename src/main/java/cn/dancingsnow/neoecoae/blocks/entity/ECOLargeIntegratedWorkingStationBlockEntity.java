@@ -475,7 +475,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         CoolingRecipe holder = getCoolingRecipeForInput();
         CoolingRecipe recipe = holder == null ? null : holder;
         LargeWorkstationOverclock profile = recipe == null
-            ? null : LargeWorkstationOverclock.forCoolingTier(recipe.maxOverclock());
+            ? null : LargeWorkstationOverclock.forCoolantCapability(recipe.maxOverclock());
         String tier = profile == null ? "none" : switch (profile.coolingTier()) {
             case 2 -> "water";
             case 6 -> "sodium";
@@ -670,7 +670,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putBoolean("ignoreUpgradeCards", NEConfig.largeWorkstationIgnoreUpgradeCards);
         snapshot.putInt("currentTier", isTemperatureEnabled()
             ? LargeWorkstationOverclock.forTemperature(true, temperature).coolingTier() : getCurrentBatchProfile().coolingTier());
-        snapshot.putInt("coolantTier", getCoolingTierId());
+        CoolingRecipe coolantRecipe = getCoolingRecipeForInput();
+        snapshot.putInt("coolantTier", coolingTierForRecipe(coolantRecipe));
+        snapshot.putInt("coolantMaxOverclock", coolantRecipe == null ? 0 : coolantRecipe.maxOverclock());
         snapshot.putDouble("temperature", isTemperatureEnabled() ? temperature : 0);
         var thermalRates = isTemperatureEnabled()
             ? uiThermalUsage.rates(level == null ? 0 : level.getGameTime()) : LargeWorkstationThermalUsage.Rates.ZERO;
@@ -747,9 +749,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             ? text.getKey() : PauseReason.NONE.translationKey;
     }
 
-    private int getCoolingTierId() {
-        CoolingRecipe holder = getCoolingRecipeForInput();
-        return holder == null ? 0 : holder.maxOverclock();
+    private static int coolingTierForRecipe(@Nullable CoolingRecipe recipe) {
+        var profile = recipe == null ? null : LargeWorkstationOverclock.forCoolantCapability(recipe.maxOverclock());
+        return profile == null ? 0 : profile.coolingTier();
     }
 
     @Nullable
@@ -1390,7 +1392,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             if (!overheated || recoveryFluid) {
                 CoolingTickPlan plan = prepareCoolingTick(holder);
                 if (plan != null && consumeCoolingTick(plan)) {
-                    coolingTier = overheated ? 9 : holder.maxOverclock();
+                    coolingTier = overheated ? 9 : coolingTierForRecipe(holder);
                     consumed = true;
                 }
             }
@@ -1420,7 +1422,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return null;
         }
         CoolingRecipe holder = getCoolingRecipeForInput();
-        if (holder != null && holder.maxOverclock() < requiredTier) {
+        if (holder != null && coolingTierForRecipe(holder) < requiredTier) {
             setPauseReason(PauseReason.COOLANT_TIER_LOW);
             return null;
         }
@@ -1438,8 +1440,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return null;
         }
         CoolingRecipe recipe = holder;
-        LargeWorkstationOverclock current = LargeWorkstationOverclock.forCoolingTier(recipe.maxOverclock());
-        if (current == null) {
+        if (coolingTierForRecipe(recipe) == 0) {
             coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
             return null;
         }

@@ -6,6 +6,7 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.NetworkStorage;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.StorageBusTransferFilter;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -97,13 +98,24 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
     }
 
     @WrapOperation(
+        method = "insert",
+        at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;insert(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J")
+    )
+    private long neoecoae$excludeStorageBusOutput(MEStorage storage, AEKey key, long amount,
+            Actionable mode, IActionSource source, Operation<Long> original) {
+        if (StorageBusTransferFilter.excludes(storage)) return 0L;
+        return original.call(storage, key, amount, mode, source);
+    }
+
+    @WrapOperation(
         method = "extract",
         at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;extract(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J")
     )
     private long neoecoae$filterCreativeInput(MEStorage storage, appeng.api.stacks.AEKey key, long amount,
             appeng.api.config.Actionable mode, appeng.api.networking.security.IActionSource source,
             Operation<Long> original) {
-        if (cn.dancingsnow.neoecoae.impl.storage.transfer.StorageExtractionExclusions.contains(storage)) {
+        if (StorageBusTransferFilter.excludes(storage)
+                || cn.dancingsnow.neoecoae.impl.storage.transfer.StorageExtractionExclusions.contains(storage)) {
             return 0L;
         }
         return cn.dancingsnow.neoecoae.impl.storage.transfer.ECOCreativeExtractionFilter.extractSource(
@@ -120,6 +132,7 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
     private void neoecoae$getAvailableStacksSaturated(
         MEStorage storage, KeyCounter output, Operation<Void> original
     ) {
+        if (StorageBusTransferFilter.excludes(storage)) return;
         // Reuse an isolated counter for sources without a saturating listing. This keeps
         // Long.MAX_VALUE + ordinary stock safe in either mount order, while trusted ECO
         // sources can append directly without copying their entire inventory.

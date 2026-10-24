@@ -67,6 +67,52 @@ class StorageInterfaceUiTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void leftToolbarAddsTheBusSwitchAndItsIconTracksTheServerState() {
+        try (var ldlib = mockStatic(LDLib.class)) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            var host = host();
+            when(host.isExcludingStorageBusContainers()).thenReturn(true);
+            UIElement toolbar = node(StorageInterfaceUI.createRoot(host, player(), () -> 0), "toolbar");
+            assertEquals(2, toolbar.getChildren().size());
+            Button button = (Button) toolbar.getChildren().get(1).getChildren().get(0);
+            UIElement image = button.getChildren().get(0);
+            BindableValue<Boolean> state = (BindableValue<Boolean>) button.getChildren().stream()
+                .filter(BindableValue.class::isInstance).findFirst().orElseThrow();
+            assertEquals(Boolean.TRUE, state.getValue());
+            for (boolean excluded : List.of(true, false, true)) {
+                state.setValue(excluded);
+                SpriteTexture icon = (SpriteTexture) image.getStyle().backgroundTexture();
+                assertEquals("neoecoae:textures/gui/widget/exclude_storage_bus_"
+                    + (excluded ? "on" : "off") + ".png", icon.getImageLocation().toString());
+            }
+            verify(host, never()).toggleExcludeStorageBusContainers();
+        }
+    }
+
+    @Test
+    void busExclusionDefaultsOnAndOnlyTheServerCanToggleIt() throws Exception {
+        var host = mock(ECOMachineInterfaceBlockEntity.class, CALLS_REAL_METHODS);
+        assertTrue(host.isExcludingStorageBusContainers());
+        host.toggleExcludeStorageBusContainers();
+        assertTrue(host.isExcludingStorageBusContainers());
+        Level level = mock(Level.class);
+        host.setLevel(level);
+        doReturn(true).when(host).supportsStorageInterfaceUi();
+        doNothing().when(host).setChanged();
+        doNothing().when(host).markForUpdate();
+        host.toggleExcludeStorageBusContainers();
+        assertFalse(host.isExcludingStorageBusContainers());
+        host.toggleExcludeStorageBusContainers();
+        assertTrue(host.isExcludingStorageBusContainers());
+        verify(host, times(2)).setChanged();
+        verify(host, times(2)).markForUpdate();
+        var field = ECOMachineInterfaceBlockEntity.class.getDeclaredField("includeStorageBusContainers");
+        assertTrue(java.util.Arrays.stream(field.getAnnotations()).anyMatch(a -> a.annotationType().getSimpleName().equals("Persisted")));
+        assertTrue(java.util.Arrays.stream(field.getAnnotations()).anyMatch(a -> a.annotationType().getSimpleName().equals("DescSynced")));
+    }
+
+    @Test
     void jsonPositionsTheInterfaceControlsAndTwentySevenPhantomFilters() {
         try (var ldlib = mockStatic(LDLib.class)) {
             ldlib.when(LDLib::isRemote).thenReturn(true);

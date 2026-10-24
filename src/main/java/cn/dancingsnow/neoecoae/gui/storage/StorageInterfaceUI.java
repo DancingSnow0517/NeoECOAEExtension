@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 import cn.dancingsnow.neoecoae.gui.common.CreativeStorageInputButton;
+import cn.dancingsnow.neoecoae.gui.common.StorageBusExclusionButton;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
@@ -78,8 +79,9 @@ public final class StorageInterfaceUI {
                     root.addChild(mode);
                     yield root;
                 }
-                case "toolbar" -> HostSideButtonBar.left(CreativeStorageInputButton.create(
-                    host::isIgnoringCreativeStorageInput, host::toggleIgnoreCreativeStorageInput));
+                case "toolbar" -> HostSideButtonBar.left(
+                    CreativeStorageInputButton.create(host::isIgnoringCreativeStorageInput, host::toggleIgnoreCreativeStorageInput),
+                    StorageBusExclusionButton.create(host::isExcludingStorageBusContainers, host::toggleExcludeStorageBusContainers));
                 case "title" -> label(() -> GuiTitleProvider.title(host.getBlockState(),
                     Component.translatable("gui.neoecoae.storage_interface.title")), fontSize);
                 case "mode_caption" -> modeCaption();

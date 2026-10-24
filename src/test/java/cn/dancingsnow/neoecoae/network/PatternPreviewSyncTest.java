@@ -37,6 +37,7 @@ class PatternPreviewSyncTest {
         when(host.getLevel()).thenReturn(level);
         when(host.getBlockPos()).thenReturn(BlockPos.ZERO);
         when(host.getPatternInterfaceSlotCount()).thenReturn(2);
+        stubLayout(host, 2);
         when(host.getPatternContentRevision()).thenReturn(1);
         when(host.getPatternPreviewEntry(anyInt())).thenAnswer(call -> entry(call.getArgument(0), "first"));
         var sync = spy(new PatternPreviewSync(host));
@@ -46,7 +47,7 @@ class PatternPreviewSyncTest {
         try (var transport = mockStatic(MenuDataTransport.class)) {
             transport.when(() -> MenuDataTransport.busy(player, MenuDataTransport.Channel.PATTERNS))
                 .thenAnswer(call -> busy.get());
-            transport.when(() -> MenuDataTransport.send(eq(player), eq(MenuDataTransport.Channel.PATTERNS), any()))
+            transport.when(() -> MenuDataTransport.sendQueued(eq(player), eq(MenuDataTransport.Channel.PATTERNS), any()))
                 .thenAnswer(call -> {
                     Consumer<FriendlyByteBuf> encoder = call.getArgument(2);
                     var buf = new FriendlyByteBuf(Unpooled.buffer());
@@ -192,9 +193,10 @@ class PatternPreviewSyncTest {
             f.player.containerMenu = mock(AbstractContainerMenu.class);
             int before = f.sent.size();
             f.tick();
-            assertEquals(before + 1, f.sent.size());
+            assertEquals(before + 3, f.sent.size(), "all pages are queued on opening, without a tick per page");
             assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getBoolean("full"));
-            assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.last(f.sent).getBoolean("first"));
+            assertTrue(f.sent.get(before).getBoolean("first"));
+            assertTrue(f.sent.get(before + 2).getBoolean("last"));
         }
     }
 
@@ -207,7 +209,7 @@ class PatternPreviewSyncTest {
             doReturn(true).when(f.sync).isViewer(second);
             when(f.level.players()).thenReturn(List.of(f.player, second));
             List<CompoundTag> secondPackets = new ArrayList<>();
-            f.transport.when(() -> MenuDataTransport.send(eq(second), eq(MenuDataTransport.Channel.PATTERNS), any()))
+            f.transport.when(() -> MenuDataTransport.sendQueued(eq(second), eq(MenuDataTransport.Channel.PATTERNS), any()))
                     .thenAnswer(call -> {
                         Consumer<FriendlyByteBuf> encoder = call.getArgument(2);
                         var buf = new FriendlyByteBuf(Unpooled.buffer());
@@ -260,6 +262,55 @@ class PatternPreviewSyncTest {
         }
     }
 
+    private static void stubLayout(ECOMachineInterfaceBlockEntity<?> host, int size) {
+        var layout = new net.minecraft.nbt.ListTag();
+        var bus = new CompoundTag();
+        bus.putLong("bus", 0);
+        bus.putInt("count", size);
+        layout.add(bus);
+        when(host.getPatternPreviewLayout()).thenReturn(layout);
+        var occupied = new java.util.BitSet();
+        occupied.set(0, size);
+        when(host.getOccupiedPatternPreviewSlots()).thenReturn(occupied);
+    }
+
+    @Test void largeEmptyCapacityOnlyEncodesOccupiedSlotsAndPublishesOnTheFirstTick() {
+        try (Fixture f = new Fixture(65_536)) {
+            var occupied = new java.util.BitSet();
+            occupied.set(42); occupied.set(65_535);
+            when(f.host.getOccupiedPatternPreviewSlots()).thenReturn(occupied);
+            f.tick();
+            assertEquals(1, f.sent.size());
+            assertTrue(f.sent.get(0).getBoolean("first"));
+            assertTrue(f.sent.get(0).getBoolean("last"));
+            assertEquals(2, f.sent.get(0).getList("entries", Tag.TAG_COMPOUND).size());
+            assertArrayEquals(new int[]{42, 65_535}, f.sent.get(0).getIntArray("occupied"));
+            verify(f.host, times(2)).getPatternPreviewEntry(anyInt());
+        }
+    }
+
+    @Test void anEmptyNetworkSendsOnlyItsLayoutAndADeletionSendsItsOriginalAddress() {
+        try (Fixture f = new Fixture(4096)) {
+            when(f.host.getOccupiedPatternPreviewSlots()).thenReturn(new java.util.BitSet());
+            f.tick();
+            assertEquals(1, f.sent.size());
+            assertTrue(f.sent.get(0).getList("entries", Tag.TAG_COMPOUND).isEmpty());
+            verify(f.host, never()).getPatternPreviewEntry(anyInt());
+            when(f.host.getPatternPreviewEntry(100)).thenReturn(entry(100, "new pattern"));
+            when(f.host.getPatternContentRevision()).thenReturn(2);
+            f.sync.dirty(100, 1);
+            f.tick();
+            assertEquals(100, f.sent.get(1).getList("entries", Tag.TAG_COMPOUND).getCompound(0).getInt("index"));
+            when(f.host.getPatternPreviewEntry(100)).thenReturn(entry(100, ""));
+            when(f.host.getPatternContentRevision()).thenReturn(3);
+            f.sync.dirty(100, 1);
+            f.tick();
+            var removed = f.sent.get(2).getList("entries", Tag.TAG_COMPOUND).getCompound(0);
+            assertEquals(100, removed.getInt("slot"));
+            assertTrue(removed.getCompound("stack").isEmpty());
+        }
+    }
+
     private static final class Fixture implements AutoCloseable {
         final ECOMachineInterfaceBlockEntity<?> host = mock(ECOMachineInterfaceBlockEntity.class);
         final ServerLevel level = mock(ServerLevel.class);
@@ -277,11 +328,12 @@ class PatternPreviewSyncTest {
             when(host.getLevel()).thenReturn(level);
             when(host.getBlockPos()).thenReturn(BlockPos.ZERO);
             when(host.getPatternInterfaceSlotCount()).thenReturn(size);
+            stubLayout(host, size);
             when(host.getPatternContentRevision()).thenReturn(1);
             when(host.getPatternPreviewEntry(anyInt())).thenAnswer(call -> entry(call.getArgument(0), "first"));
             sync = spy(new PatternPreviewSync(host));
             doReturn(true).when(sync).isViewer(player);
-            transport.when(() -> MenuDataTransport.send(eq(player), eq(MenuDataTransport.Channel.PATTERNS), any()))
+            transport.when(() -> MenuDataTransport.sendQueued(eq(player), eq(MenuDataTransport.Channel.PATTERNS), any()))
                     .thenAnswer(call -> {
                         Consumer<FriendlyByteBuf> encoder = call.getArgument(2);
                         var buf = new FriendlyByteBuf(Unpooled.buffer());

@@ -133,11 +133,12 @@ class LargeWorkstationThermalControllerTest {
             new FluidStack(cryotheum, 1).getDisplayName());
     }
 
-    @Test
-    void strongCoolantLowersIdleMachineTemperatureAndAdvertisedCapacity() throws Exception {
+    @ParameterizedTest
+    @ValueSource(ints = {9, 15, Integer.MAX_VALUE})
+    void strongCoolantLowersIdleMachineTemperatureAndAdvertisedCapacity(int capability) throws Exception {
         field(host, "temperature", 20.0);
         field(host, "activeCooling", true);
-        coolant(Fluids.WATER, 9, FluidStack.EMPTY);
+        coolant(Fluids.WATER, capability, FluidStack.EMPTY);
         input.setFluid(new FluidStack(Fluids.WATER, 1000));
         assertEquals(16_384, host.getMaxBatchParallelism());
         tick();
@@ -158,17 +159,18 @@ class LargeWorkstationThermalControllerTest {
         assertEquals(1000, input.getFluidAmount());
     }
 
-    @Test
-    void recoveryRequiresRealCryotheumAndThreeHundredActualConsumptionTicks() throws Exception {
+    @ParameterizedTest
+    @ValueSource(ints = {9, 15})
+    void recoveryRequiresRealCryotheumAndThreeHundredActualConsumptionTicks(int capability) throws Exception {
         field(host, "temperature", 100.0);
         field(host, "overheated", true);
         field(host, "activeCooling", true);
-        coolant(Fluids.WATER, 9, FluidStack.EMPTY);
+        coolant(Fluids.WATER, capability, FluidStack.EMPTY);
         input.setFluid(new FluidStack(Fluids.WATER, 50_000));
         tick();
         assertEquals(0, value(host, "recoveryTicks"));
         assertEquals(50_000, input.getFluidAmount(), "A custom tier-9 water recipe cannot bypass cryotheum recovery");
-        coolant(cryotheum, 9, FluidStack.EMPTY);
+        coolant(cryotheum, capability, FluidStack.EMPTY);
         input.setFluid(new FluidStack(cryotheum, 50_000));
         for (int i = 0; i < 299; i++) tick();
         assertTrue((boolean) value(host, "overheated"));
@@ -266,7 +268,7 @@ class LargeWorkstationThermalControllerTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"0,256", "2,16384", "6,65536", "9,262144"})
+    @CsvSource({"0,256", "1,256", "2,16384", "4,16384", "5,16384", "6,65536", "8,65536", "9,262144", "15,262144"})
     void disabledTemperatureUsesCoolantTierRegardlessOfHeatOrSelectedMaximum(int tier, int expected) throws Exception {
         NEConfig.largeWorkstationTemperatureEnabled = false;
         field(host, "activeCooling", true);
@@ -432,7 +434,7 @@ class LargeWorkstationThermalControllerTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"2,0.1", "6,0.3", "9,0.6"})
+    @CsvSource({"2,0.1", "4,0.1", "6,0.3", "8,0.3", "9,0.6", "15,0.6"})
     void menuReportsActualCoolingSpeedAndZeroWhenCoolantIsNotConsumed(int tier, double speed) throws Exception {
         field(host, "temperature", 40.0);
         field(host, "activeCooling", true);
@@ -1217,6 +1219,77 @@ class LargeWorkstationThermalControllerTest {
         tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
         for (String key : List.of("processingHeatPerSecond", "preheatPerSecond", "coolingPerSecond",
             "naturalCoolingPerSecond", "temperatureChangePerSecond")) assertEquals(0, tag.getDouble(key), key);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void modpackRecipePreservesRawCapabilityAndByproductsInBothModes(boolean thermal) throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = thermal;
+        field(host, "temperature", 90.0);
+        field(host, "activeCooling", true);
+        var recipe = modpackCoolant();
+        input.setFluid(new FluidStack(cryotheum, 1000));
+        var batch = queuedBatch(9);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+
+        assertEquals(262_144, host.getMaxBatchParallelism());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        tick();
+
+        assertEquals(200, value(batch, "progress"));
+        assertEquals(900, input.getFluidAmount());
+        assertEquals(10_000, output.getFluidAmount());
+        assertEquals(Fluids.LAVA, output.getFluid().getFluid());
+        verify(host).extractAEPower(eq(100_000.0), eq(Actionable.MODULATE), any());
+        assertEquals(15, recipe.maxOverclock(), "The shared recipe keeps its modpack-defined capability");
+        assertEquals(25_000, recipe.coolant());
+        if (thermal) assertTrue(host.getTemperature() < 90, "Mapped tier 9 must actually dissipate heat");
+        else assertEquals(90, host.getTemperature(), "Coolant mode keeps thermal state frozen");
+
+        var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
+        snapshot.setAccessible(true);
+        var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
+        assertEquals(15, tag.getInt("coolantMaxOverclock"));
+        assertEquals(9, tag.getInt("coolantTier"));
+        assertEquals(262_144, tag.getLong("parallelCapacity"));
+        assertTrue(tag.getString("coolingProblem").endsWith(".none"));
+    }
+
+    @Test
+    void modpackByproductBackpressurePausesAndResumesWithoutLosingInputsOrChargingTwice() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        field(host, "activeCooling", true);
+        modpackCoolant();
+        input.setFluid(new FluidStack(cryotheum, 1000));
+        output.setFluid(new FluidStack(Fluids.LAVA, 95_000));
+        var batch = queuedBatch(9);
+        doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
+
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(0, value(batch, "progress"));
+        assertEquals(1000, input.getFluidAmount());
+        assertEquals(95_000, output.getFluidAmount());
+        assertEquals(400, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        assertEquals("gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked",
+            ((net.minecraft.network.chat.contents.TranslatableContents) host.getPauseReasonText().getContents()).getKey());
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+
+        output.drain(10_000, net.minecraftforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(200, value(batch, "progress"));
+        assertEquals(900, input.getFluidAmount());
+        assertEquals(95_000, output.getFluidAmount());
+        assertTrue(((KeyCounter) value(batch, "inputTotal")).isEmpty());
+        assertEquals(100, ((KeyCounter) value(batch, "pendingOutput")).get(AEItemKey.of(Items.DIAMOND)));
+        verify(host).extractAEPower(eq(100_000.0), eq(Actionable.MODULATE), any());
+    }
+
+    private CoolingRecipe modpackCoolant() {
+        var recipe = new CoolingRecipe(SizedFluidIngredient.of(cryotheum, 100),
+            new FluidStack(Fluids.LAVA, 10_000), 25_000, 15,
+            new ResourceLocation("neoecoae:cooling/cryotheum_solution"));
+        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(recipe));
+        return recipe;
     }
 
     private void coolant(Fluid fluid, int tier, FluidStack byproduct) {

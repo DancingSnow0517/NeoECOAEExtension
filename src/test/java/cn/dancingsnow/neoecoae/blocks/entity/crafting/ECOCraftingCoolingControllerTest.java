@@ -61,6 +61,19 @@ class ECOCraftingCoolingControllerTest {
     }
 
     @Test
+    void modpackRecipeKeepsItsOriginalLevelAndCoolingValueOutsideTheWorkstation() {
+        when(recipe.maxOverclock()).thenReturn(15);
+        when(recipe.coolant()).thenReturn(25_000);
+
+        cooling.tick();
+
+        assertEquals(ECOCraftingSystemBlockEntity.MAX_COOLANT, amount);
+        assertEquals(15, tier);
+        assertEquals(15, cooling.getCurrentCoolingMaxOverclock());
+        assertEquals(12_000, input.getFluidAmount());
+    }
+
+    @Test
     void refillsWhileIdleWithoutCoresAndWithCoolingDisabled() {
         cooling.tick();
         assertEquals(ECOCraftingSystemBlockEntity.MAX_COOLANT, amount);

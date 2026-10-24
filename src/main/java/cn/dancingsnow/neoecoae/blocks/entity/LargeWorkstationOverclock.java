@@ -18,12 +18,22 @@ public record LargeWorkstationOverclock(int coolingTier, int maxParallelism, int
     }
 
     /** Legacy coolant mode has no temperature or selected-tier requirement. */
-    public static LargeWorkstationOverclock forCoolant(boolean overclocked, boolean activeCooling, int coolingTier) {
+    public static LargeWorkstationOverclock forCoolant(boolean overclocked, boolean activeCooling, int maxOverclock) {
         if (!overclocked || !activeCooling) return NORMAL;
-        LargeWorkstationOverclock profile = forCoolingTier(coolingTier);
+        LargeWorkstationOverclock profile = forCoolantCapability(maxOverclock);
         return profile == null ? NORMAL : profile;
     }
 
+    /** Map recipe capability to an existing workstation band without changing the shared recipe. */
+    @Nullable
+    public static LargeWorkstationOverclock forCoolantCapability(int maxOverclock) {
+        for (int tier : DESCENDING_TIERS) {
+            if (maxOverclock >= tier) return forCoolingTier(tier);
+        }
+        return null;
+    }
+
+    /** Exact workstation bands, also used to validate persisted batches. */
     @Nullable
     public static LargeWorkstationOverclock forCoolingTier(int coolingTier) {
         return switch (coolingTier) {

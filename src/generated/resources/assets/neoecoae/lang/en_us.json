@@ -1,4 +1,7 @@
 {
+  "gui.neoecoae.storage_interface.exclude_storage_bus.on": "Exclude storage bus containers: On",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.off": "Exclude storage bus containers: Off",
+  "gui.neoecoae.storage_interface.exclude_storage_bus.description": "Input and output modes: skip storage exposed through ME storage buses",
   "gui.neoecoae.workstation.module_short.ae2cs": "Crystal Sci.",
   "gui.neoecoae.workstation.module.ae2cs": "Crystal Science",
   "item.neoecoae.integrated_working_station_module_ae2cs": "AE2 Crystal Science Integrated Working Station Upgrade Card",
@@ -1102,6 +1105,8 @@
   "gui.neoecoae.workstation.energy_value": "Power: %s AE/t",
   "gui.neoecoae.workstation.energy_stored": "Stored: %s / %s AE",
   "gui.neoecoae.workstation.coolant_value": "Coolant tier: %s",
+  "gui.neoecoae.workstation.coolant_recipe_max_overclock": "Recipe max overclock: %s",
+  "gui.neoecoae.workstation.coolant_effective_tier": "Effective workstation cooling band: %s",
   "gui.neoecoae.workstation.overclock": "Overclock",
   "gui.neoecoae.workstation.cooling": "Cooling",
   "gui.neoecoae.workstation.overclocked": "Overclock enabled",

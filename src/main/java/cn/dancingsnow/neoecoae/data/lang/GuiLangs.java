@@ -96,6 +96,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.energy_value", "Power: %s AE/t");
         provider.add("gui.neoecoae.workstation.energy_stored", "Stored: %s / %s AE");
         provider.add("gui.neoecoae.workstation.coolant_value", "Coolant tier: %s");
+        provider.add("gui.neoecoae.workstation.coolant_recipe_max_overclock", "Recipe max overclock: %s");
+        provider.add("gui.neoecoae.workstation.coolant_effective_tier", "Effective workstation cooling band: %s");
         provider.add("gui.neoecoae.workstation.overclock", "Overclock");
         provider.add("gui.neoecoae.workstation.cooling", "Cooling");
         provider.add("gui.neoecoae.workstation.overclocked", "Overclock enabled");

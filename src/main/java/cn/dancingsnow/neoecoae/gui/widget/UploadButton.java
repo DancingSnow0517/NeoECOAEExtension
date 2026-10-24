@@ -1,49 +1,36 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
+import appeng.client.gui.Icon;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
 public class UploadButton extends Button {
-    public static final ResourceLocation ICON_TEXTURE = NeoECOAE.id("textures/gui/widget/upload.png");
+    private final ItemStack iconStack;
 
-    public UploadButton(int x, int y, OnPress onPress) {
-        super(
-            x,
-            y,
-            18,
-            20,
-            Component.empty(),
-            onPress,
-            unused -> Component.empty()
-        );
+    public UploadButton(int x, int y, ItemStack iconStack, OnPress onPress) {
+        this(x, y, 20, 22, iconStack, onPress);
+    }
+
+    public UploadButton(int x, int y, int width, int height, ItemStack iconStack, OnPress onPress) {
+        super(x, y, width, height, Component.empty(), onPress, unused -> Component.empty());
+        this.iconStack = iconStack.copy();
+        this.iconStack.setCount(1);
     }
 
     @Override
     protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        int yOffset = isHovered() ? 1 : 0;
-        ECOIcon bgIcon = isHovered() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
-            : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
-        bgIcon.blit(guiGraphics, getX() - 1, getY() + yOffset, 100);
+        Icon background = isHoveredOrFocused() ? Icon.HORIZONTAL_TAB_FOCUS : Icon.HORIZONTAL_TAB;
+        background.getBlitter().dest(getX(), getY()).blit(guiGraphics);
 
-        guiGraphics.blit(
-            ICON_TEXTURE,
-            getX(),
-            getY() + 2 + yOffset,
-            200,
-            0,
-            0,
-            16,
-            16,
-            16,
-            16
-        );
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0.0F, 0.0F, 100.0F);
+        guiGraphics.renderItem(this.iconStack, getX() + 1, getY() + 3);
+        guiGraphics.pose().popPose();
 
         if (isHovered()) {
             guiGraphics.renderComponentTooltip(

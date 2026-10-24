@@ -3,6 +3,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
+/** 1.20.1 has no vanilla GUI sprite atlas; register these sprites in minecraft:blocks. */
 public final class VanillaSpriteTexture implements IGuiTexture {
     private final ResourceLocation sprite;
     private VanillaSpriteTexture(ResourceLocation sprite){this.sprite=sprite;}

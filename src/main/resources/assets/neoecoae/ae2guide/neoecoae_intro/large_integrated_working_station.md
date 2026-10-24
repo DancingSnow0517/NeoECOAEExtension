@@ -56,6 +56,12 @@ The normal batch limit is **256**. Temperature mode is enabled by default: enabl
 
 Energy scales with actual base-recipe operations. **1× does not mean an entire batch costs only one recipe's energy**: a batch of 100 operations pays 100 base recipe costs. Electrical preheating is charged separately.
 
+## Custom cooling recipes in modpacks
+
+The large workstation maps a cooling recipe's `max_overclock` capability to an existing band: **2–5 selects band 2, 6–8 selects band 6, and 9 or higher selects band 9**. Values below 2 cannot provide overclock cooling. For example, cryotheum with a custom capability of 15 still dissipates heat and supports up to 262,144 parallel crafts in coolant mode. Temperature mode still determines parallelism from temperature. This mapping applies only to the large workstation; other crafting systems keep the recipe's original capability and coolant value.
+
+The Active Cooling tooltip shows both the recipe's maximum overclock and the effective workstation cooling band. Byproducts follow the custom recipe's input/output ratio. Insufficient output space prevents coolant consumption; in coolant mode, the batch retains its inputs and progress until output space becomes available. Custom capabilities do not increase the existing bands' cooling rates or change the requirement for 15 seconds of uninterrupted cryotheum cooling to recover from overheating.
+
 ## Configuration: disabling temperature
 
 The server setting `largeWorkstationTemperatureEnabled` defaults to `true`. Set it to `false`, then reopen the world or restart the server to select parallelism directly from coolant tier. This mode requires no preheating or operating temperature and has no overheating or 15-second recovery requirement.

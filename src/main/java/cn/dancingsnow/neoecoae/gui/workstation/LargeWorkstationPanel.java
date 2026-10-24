@@ -396,6 +396,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(title("active_cooling"));
         lines.add(settingState(state.getBoolean("activeCooling")));
         lines.add(tr("coolant_value", coolantTitle()));
+        if (state.contains("coolantMaxOverclock")) {
+            lines.add(tr("coolant_recipe_max_overclock", state.getInt("coolantMaxOverclock")));
+            lines.add(tr("coolant_effective_tier", state.getInt("coolantTier")));
+        }
         if (temperatureEnabled()) {
             lines.add(tr("cooling_rate", precise(state.getDouble("coolingPerSecond"))));
             lines.add(tr("cooling_capacity", decimal(LargeWorkstationThermal.coolingPerSecond(state.getInt("coolantTier"))))

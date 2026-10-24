@@ -565,6 +565,16 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         return stack.isEmpty() ? null : createRecord(bus, physicalSlot, stack);
     }
 
+    /** Physical slots already indexed as patterns or auxiliary containers; no empty-capacity scan. */
+    public BitSet occupiedPatternSlots(PatternStorageHost host) {
+        BitSet occupied = new BitSet();
+        Int2ObjectMap<PatternRecord> records = busPatternRecords.get(host);
+        if (records != null) for (int slot : records.keySet()) occupied.set(slot);
+        BitSet auxiliary = busAuxiliarySlots.get(host);
+        if (auxiliary != null) occupied.or(auxiliary);
+        return occupied;
+    }
+
     public void refresh() {
         refreshPatternIndexes();
     }
