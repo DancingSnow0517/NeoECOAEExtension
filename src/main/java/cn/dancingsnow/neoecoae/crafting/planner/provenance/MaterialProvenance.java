@@ -16,11 +16,23 @@ public final class MaterialProvenance {
     private final Map<UUID, MaterialDemand> demands = new LinkedHashMap<>();
     private final List<SupplyAllocation> allocations = new ArrayList<>();
     private final Map<UUID, PlannerAmount> allocated = new LinkedHashMap<>();
+    /** Only outstanding demands, in their original registration order, indexed by the complete AE key. */
+    private final Map<AEKey, PendingDemands> pending = new LinkedHashMap<>();
+
+    private static final class PendingDemands {
+        final Map<UUID, MaterialDemand> demands = new LinkedHashMap<>();
+        PlannerAmount amount = PlannerAmount.ZERO;
+    }
 
     public void register(MaterialDemand demand) {
         MaterialDemand previous = demands.putIfAbsent(demand.id(), demand);
         if (previous != null && !previous.equals(demand)) {
             throw new IllegalStateException("Conflicting demand identity: " + demand.id());
+        }
+        if (previous == null) {
+            PendingDemands bucket = pending.computeIfAbsent(demand.key(), ignored -> new PendingDemands());
+            bucket.demands.put(demand.id(), demand);
+            bucket.amount = bucket.amount.add(demand.amount());
         }
     }
 
@@ -32,27 +44,37 @@ public final class MaterialProvenance {
     }
 
     public PlannerAmount pendingAmount(AEKey key) {
-        PlannerAmount result = PlannerAmount.ZERO;
-        for (MaterialDemand demand : demands.values()) {
-            if (demand.key().equals(key)) result = result.add(remaining(demand));
-        }
-        return result;
+        PendingDemands bucket = pending.get(key);
+        return bucket == null ? PlannerAmount.ZERO : bucket.amount;
     }
 
     /** Apportions an aggregated numeric draw to the original demands in registration order. */
     public void allocatePending(AEKey key, AEKey material, MaterialSource source, PlannerAmount amount) {
+        allocatePending(key, material, source, amount, true);
+    }
+
+    private void allocatePending(AEKey key, AEKey material, MaterialSource source, PlannerAmount amount,
+            boolean recordSupply) {
         requirePositive(amount);
-        if (pendingAmount(key).compareTo(amount) < 0) {
+        PendingDemands bucket = pending.get(key);
+        if (bucket == null || bucket.amount.compareTo(amount) < 0) {
             throw new IllegalStateException("Supply exceeds pending demand: " + key + " amount=" + amount);
         }
         PlannerAmount left = amount;
-        for (MaterialDemand demand : demands.values()) {
-            if (!demand.key().equals(key)) continue;
-            PlannerAmount take = remaining(demand).min(left);
-            if (take.signum() > 0) allocate(demand, material, source, take);
+        var iterator = bucket.demands.values().iterator();
+        while (left.signum() > 0 && iterator.hasNext()) {
+            MaterialDemand demand = iterator.next();
+            PlannerAmount remaining = remaining(demand);
+            PlannerAmount take = remaining.min(left);
+            SupplyAllocation allocation = new SupplyAllocation(demand.id(), material, source, take);
+            if (recordSupply) supplied(material, source, take);
+            allocations.add(allocation);
+            allocated.merge(demand.id(), take, PlannerAmount::add);
+            bucket.amount = bucket.amount.subtract(take);
+            if (take.equals(remaining)) iterator.remove();
             left = left.subtract(take);
-            if (left.isZero()) break;
         }
+        if (bucket.amount.isZero()) pending.remove(key);
     }
 
     public void consumePendingCredit(AEKey key, PlannerAmount amount) {
@@ -60,26 +82,25 @@ public final class MaterialProvenance {
         if (pendingAmount(key).compareTo(amount) < 0) {
             throw new IllegalStateException("Credit exceeds pending demand: " + key);
         }
-        MaterialProvenance candidate = copy();
-        Map<IPatternDetails, PlannerAmount> consumed = candidate.consumeCredit(key, amount);
-        // The diagnostic draw was already recorded. Remove it before allocating the exact portions.
+        Map<IPatternDetails, PlannerAmount> consumed = previewCredit(key, amount);
+        applyCreditDraw(key, consumed);
         consumed.forEach((pattern, count) -> {
             MaterialSource source = new MaterialSource.PatternOutput(pattern, false);
-            Map<MaterialSource, PlannerAmount> sources = candidate.suppliers.get(key);
-            PlannerAmount left = sources.get(source).subtract(count);
-            if (left.isZero()) sources.remove(source); else sources.put(source, left);
-            candidate.allocatePending(key, key, source, count);
+            allocatePending(key, key, source, count, false);
         });
-        replaceWith(candidate);
     }
 
     /** An external solve's root demand belongs to its requesting cycle, not to the player's final output. */
     public MaterialProvenance forCycleBoundary(int componentId) {
         MaterialProvenance copy = copy();
-        copy.demands.replaceAll((id, demand) -> demand.kind() == MaterialDemand.Kind.GOAL
-            ? new MaterialDemand(id, MaterialDemand.Kind.CYCLE_BOUNDARY, null, -1, componentId,
-                demand.key(), demand.amount())
-            : demand);
+        copy.demands.replaceAll((id, demand) -> {
+            if (demand.kind() != MaterialDemand.Kind.GOAL) return demand;
+            MaterialDemand boundary = new MaterialDemand(id, MaterialDemand.Kind.CYCLE_BOUNDARY,
+                null, -1, componentId, demand.key(), demand.amount());
+            PendingDemands bucket = copy.pending.get(demand.key());
+            if (bucket != null && bucket.demands.containsKey(id)) bucket.demands.put(id, boundary);
+            return boundary;
+        });
         return copy;
     }
 
@@ -126,6 +147,7 @@ public final class MaterialProvenance {
         supplied(material, source, amount);
         allocations.add(allocation);
         allocated.merge(demand.id(), amount, PlannerAmount::add);
+        subtractPending(demand, amount);
     }
 
     /** Consumes credit and assigns it to one demand atomically. Unused credit creates no allocation. */
@@ -134,15 +156,16 @@ public final class MaterialProvenance {
         if (remaining(demand).compareTo(amount) < 0) {
             throw new IllegalStateException("Demand over-allocation: " + demand.id());
         }
-        MaterialProvenance candidate = copy();
-        Map<IPatternDetails, PlannerAmount> consumed = candidate.consumeCredit(material, amount);
-        // consumeCredit already updated the diagnostic source totals.
+        Map<IPatternDetails, PlannerAmount> consumed = previewCredit(material, amount);
+        List<SupplyAllocation> planned = new ArrayList<>(consumed.size());
         consumed.forEach((pattern, count) -> {
-            candidate.allocations.add(new SupplyAllocation(demand.id(), material,
+            planned.add(new SupplyAllocation(demand.id(), material,
                 new MaterialSource.PatternOutput(pattern, false), count));
-            candidate.allocated.merge(demand.id(), count, PlannerAmount::add);
         });
-        replaceWith(candidate);
+        applyCreditDraw(material, consumed);
+        allocations.addAll(planned);
+        allocated.merge(demand.id(), amount, PlannerAmount::add);
+        subtractPending(demand, amount);
     }
 
     public void credit(AEKey key, IPatternDetails pattern, PlannerAmount amount) {
@@ -153,6 +176,13 @@ public final class MaterialProvenance {
 
     /** Consumes exactly {@code amount} in insertion order, or fails before changing the ledger. */
     public Map<IPatternDetails, PlannerAmount> consumeCredit(AEKey key, PlannerAmount amount) {
+        Map<IPatternDetails, PlannerAmount> consumed = previewCredit(key, amount);
+        applyCreditDraw(key, consumed);
+        return consumed;
+    }
+
+    /** Preflight the entire draw, including source validity, before changing either ledger. */
+    private Map<IPatternDetails, PlannerAmount> previewCredit(AEKey key, PlannerAmount amount) {
         requirePositive(amount);
         Map<IPatternDetails, PlannerAmount> credits = creditLedger.get(key);
         PlannerAmount available = PlannerAmount.ZERO;
@@ -164,22 +194,28 @@ public final class MaterialProvenance {
         }
         Map<IPatternDetails, PlannerAmount> consumed = new LinkedHashMap<>();
         PlannerAmount remaining = amount;
-        var iterator = credits.entrySet().iterator();
-        while (iterator.hasNext() && remaining.signum() > 0) {
-            var entry = iterator.next();
+        for (var entry : credits.entrySet()) {
+            if (remaining.isZero()) break;
             PlannerAmount drawn = remaining.min(entry.getValue());
             if (drawn.signum() <= 0) continue;
+            new MaterialSource.PatternOutput(entry.getKey(), false);
             consumed.put(entry.getKey(), drawn);
-            supplied(key, new MaterialSource.PatternOutput(entry.getKey(), false), drawn);
             remaining = remaining.subtract(drawn);
-            PlannerAmount left = entry.getValue().subtract(drawn);
-            if (left.isZero()) iterator.remove(); else entry.setValue(left);
         }
-        if (credits.isEmpty()) creditLedger.remove(key);
         if (remaining.signum() > 0) {
             throw new IllegalStateException("Crafted credit and provenance ledger diverged for " + key);
         }
         return consumed;
+    }
+
+    private void applyCreditDraw(AEKey key, Map<IPatternDetails, PlannerAmount> consumed) {
+        Map<IPatternDetails, PlannerAmount> credits = creditLedger.get(key);
+        consumed.forEach((pattern, amount) -> {
+            PlannerAmount left = credits.get(pattern).subtract(amount);
+            if (left.isZero()) credits.remove(pattern); else credits.put(pattern, left);
+            supplied(key, new MaterialSource.PatternOutput(pattern, false), amount);
+        });
+        if (credits.isEmpty()) creditLedger.remove(key);
     }
 
     public void supplied(AEKey key, MaterialSource source, PlannerAmount amount) {
@@ -214,9 +250,12 @@ public final class MaterialProvenance {
                 throw new IllegalStateException("Demand over-allocation during merge: " + demand.id());
             }
         }
-        demands.putAll(other.demands);
+        other.demands.values().forEach(this::register);
         allocations.addAll(other.allocations);
-        other.allocated.forEach((id, amount) -> allocated.merge(id, amount, PlannerAmount::add));
+        other.allocated.forEach((id, amount) -> {
+            allocated.merge(id, amount, PlannerAmount::add);
+            subtractPending(demands.get(id), amount);
+        });
         other.suppliers.forEach((key, sources) -> sources.forEach((source, amount) ->
             suppliers.computeIfAbsent(key, ignored -> new LinkedHashMap<>())
                 .merge(source, amount, PlannerAmount::add)));
@@ -229,7 +268,15 @@ public final class MaterialProvenance {
         demands.clear();
         allocations.clear();
         allocated.clear();
+        pending.clear();
         mergeFrom(other);
+    }
+
+    private void subtractPending(MaterialDemand demand, PlannerAmount amount) {
+        PendingDemands bucket = pending.get(demand.key());
+        bucket.amount = bucket.amount.subtract(amount);
+        if (allocated.get(demand.id()).equals(demand.amount())) bucket.demands.remove(demand.id());
+        if (bucket.amount.isZero()) pending.remove(demand.key());
     }
 
     public ExecutionProvenance freeze() {
