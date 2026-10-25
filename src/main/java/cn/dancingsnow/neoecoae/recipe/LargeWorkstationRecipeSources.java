@@ -59,7 +59,7 @@ final class LargeWorkstationRecipeSources {
             display.itemOutput(), display.fluidOutput(), (int) Math.min(Integer.MAX_VALUE, energy));
         int ticks = LightningWorkstationTiming.ticks(LIGHTNING.toString(), energy);
         var recipe = new LargeWorkstationRecipe(id, borrowedDisplay, 0,
-            List.of(new GenericStack(com.moakiee.ae2lt.me.key.LightningKey.HIGH_VOLTAGE, 1)), LIGHTNING)
+            List.of(LightningBorrowing.input()), LIGHTNING)
             .processing(ticks, energy, false);
         return new LargeWorkstationRecipeGroup.Variant(recipe, source.id(), source.sourceType(),
             Set.of(ECOWorkstationModules.fromSourceType(LIGHTNING).id()), false, true);
@@ -70,10 +70,15 @@ final class LargeWorkstationRecipeSources {
         return mods != null && mods.isLoaded(mod);
     }
 
+    /** Keep optional AE2LT types out of the class verified for every ordinary recipe. */
     private static final class LightningBorrowing {
         private static final boolean SUPPORTED = probe();
 
         static boolean supported() { return SUPPORTED; }
+
+        static GenericStack input() {
+            return new GenericStack(com.moakiee.ae2lt.me.key.LightningKey.HIGH_VOLTAGE, 1);
+        }
 
         private static boolean probe() {
             try {
