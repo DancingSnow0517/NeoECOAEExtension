@@ -209,6 +209,38 @@ class CraftingPatternPreviewStateTest {
         assertTrue(preview.getChildren().get(1).isVisible());
     }
 
+    @Test void ordinaryPickupDoesNotReleaseTheSameGestureIntoTheVanillaSlotAfterItsRpc() throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        state.receive(f.page(true, true, true, -1, 7, 3, 0, 3));
+        var preview = CraftingInterfaceUI.patternPreview(state);
+        preview.layout(layout -> layout.width(162).height(108));
+        preview.arrange();
+        var slot = (PatternItemSlot) preview.getChildren().get(0);
+        var nativeUi = mock(com.lowdragmc.lowdraglib.gui.modular.ModularUI.class);
+        var screen = mock(com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer.class);
+        when(nativeUi.getModularUIGui()).thenReturn(screen);
+        cn.dancingsnow.neoecoae.util.UiTestSupport.set(slot.widgets.get(0), "gui", nativeUi);
+        try (var ui = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
+            ui.when(UIElement::isShiftDown).thenReturn(false);
+            assertTrue(preview.mouseClicked(9, 9, 0));
+            var action = ArgumentCaptor.forClass(CompoundTag.class);
+            verify(f.host).rpcToServer(eq("actOnPatternPreview"), action.capture());
+            assertEquals(0, action.getValue().getInt("action"));
+            assertEquals(0, action.getValue().getInt("slot"));
+
+            // The carried stack can arrive before the independently queued preview delta.
+            when(f.player.containerMenu.getCarried()).thenReturn(new ItemStack(Items.STONE));
+            assertTrue(preview.mouseReleased(9, 9, 0));
+        }
+        verify(screen, never()).superMouseReleased(anyDouble(), anyDouble(), anyInt());
+        assertFalse(slot.getValue().isEmpty(), "the preview still awaits its authoritative content delta");
+        state.receive(f.emptyPage(false, 7, 8, 3, 0, 1));
+        assertTrue(slot.getValue().isEmpty());
+        assertFalse(slot.isVisible());
+        assertTrue(preview.getChildren().get(1).isVisible());
+    }
+
     @Test void cacheProbeWaitsForTheNewMenuAndUsesItsIdOnce() throws Exception {
         var f = new Fixture();
         var state = new CraftingPatternPreviewState(f.host, f.player);

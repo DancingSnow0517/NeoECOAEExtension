@@ -32,6 +32,7 @@ public class UIElement extends WidgetGroup {
     private boolean display=true,layoutDirty=true,hover,allowHitTest=true,focusable;
     private final ElementTransform transform=new ElementTransform();
     private UIElement pressedTarget;
+    private boolean retainedPointerPress;
     private ModularUI modularUI;
     private IDataSource<?> localSource;
     public UIElement(){super(0,0,0,0);}
@@ -153,17 +154,22 @@ public class UIElement extends WidgetGroup {
         return target.parent instanceof UIElement p&&nativePointer(p,type,x,y,button,delta);
     }
     @Override public boolean mouseClicked(double x,double y,int button){
+        retainedPointerPress=false;
         var target=hitTest(x,y);if(target==null)return false;pressedTarget=target;
         if(modularUI!=null)modularUI.pointerDown(button,(float)x,(float)y);
         var event=pointer(UIEvents.MOUSE_DOWN,target,x,y,button,0);
-        return event.hasHandler||event.isPropagationStopped()||nativePointer(target,UIEvents.MOUSE_DOWN,x,y,button,0);
+        retainedPointerPress=event.hasHandler||event.isPropagationStopped();
+        return retainedPointerPress||nativePointer(target,UIEvents.MOUSE_DOWN,x,y,button,0);
     }
     @Override public boolean mouseReleased(double x,double y,int button){
+        boolean retainedPress=retainedPointerPress;
         var target=hitTest(x,y);if(target==null)target=this;
         var event=pointer(UIEvents.MOUSE_UP,target,x,y,button,0);
         if(pressedTarget!=null&&pressedTarget!=target)pointer(UIEvents.MOUSE_UP,pressedTarget,x,y,button,0);
-        boolean result=nativePointer(pressedTarget==null?target:pressedTarget,UIEvents.MOUSE_UP,x,y,button,0);pressedTarget=null;
-        if(modularUI!=null)modularUI.pointerUp();return result||event.hasHandler||event.isPropagationStopped();
+        // A retained press owns its release too. A lone native release can issue a second vanilla slot action.
+        boolean result=!retainedPress&&nativePointer(pressedTarget==null?target:pressedTarget,UIEvents.MOUSE_UP,x,y,button,0);
+        pressedTarget=null;retainedPointerPress=false;
+        if(modularUI!=null)modularUI.pointerUp();return retainedPress||result||event.hasHandler||event.isPropagationStopped();
     }
     @Override public boolean mouseWheelMove(double x,double y,double delta){
         var target=hitTest(x,y);if(target==null)return false;var event=pointer(UIEvents.MOUSE_WHEEL,target,x,y,-1,delta);
@@ -183,8 +189,8 @@ public class UIElement extends WidgetGroup {
     }
     @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){
         mouseMoved(x,y);if(modularUI!=null&&modularUI.getDragHandler().isDragging()){modularUI.getDragHandler().update((float)x,(float)y);return true;}
-        if(pressedTarget!=null)for(var widget:pressedTarget.widgets)if(!(widget instanceof UIElement)&&widget.mouseDragged(x,y,button,dx,dy))return true;
-        return false;
+        if(!retainedPointerPress&&pressedTarget!=null)for(var widget:pressedTarget.widgets)if(!(widget instanceof UIElement)&&widget.mouseDragged(x,y,button,dx,dy))return true;
+        return retainedPointerPress;
     }
     public void markLayoutDirty(){layoutDirty=true;if(parent instanceof UIElement element)element.markLayoutDirty();}
     public void arrange(){for(int pass=0;pass<4;pass++){layoutDirty=false;LayoutEngine.arrange(this);if(!layoutDirty)break;}}

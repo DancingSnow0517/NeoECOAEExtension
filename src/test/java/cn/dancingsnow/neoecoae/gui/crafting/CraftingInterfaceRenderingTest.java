@@ -228,7 +228,8 @@ class CraftingInterfaceRenderingTest {
             buffers.when(com.mojang.blaze3d.vertex.Tesselator::getInstance).thenReturn(tessellator);
             // Exercise the actual AE2 blitter while keeping OpenGL outside this headless test.
             scrollbar.drawBackgroundAdditional(context);
-            verify(vertices, atLeastOnce()).uv(12F / 256, 0F);
+            verify(vertices, atLeastOnce()).uv(12F / 38, 0F);
+            verify(vertices, atLeastOnce()).uv(24F / 38, 1F);
             assertEquals(12, cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG.disabledBlitter().getSrcWidth());
             assertEquals(15, cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG.disabledBlitter().getSrcHeight());
             clearInvocations(vertices);
@@ -237,6 +238,7 @@ class CraftingInterfaceRenderingTest {
             when(state.getScrollOffset()).thenReturn(54.0);
             scrollbar.drawBackgroundAdditional(context);
             verify(vertices, atLeastOnce()).uv(0F, 0F);
+            verify(vertices, atLeastOnce()).uv(12F / 38, 1F);
             verify(context.pose).translate(0F, 91F, 0F);
 
             when(state.getScrollOffset()).thenReturn(9.5);
