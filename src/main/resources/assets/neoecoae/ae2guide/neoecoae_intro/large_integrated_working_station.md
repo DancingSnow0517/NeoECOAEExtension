@@ -50,7 +50,7 @@ The server option `largeWorkstationIgnoreUpgradeCards` defaults to `false`. Set 
 
 Base recipes longer than 200 ticks (10 seconds) are capped at 200 ticks; shorter recipes and total costs stay unchanged. Parallelism increases simultaneous operations. Crystal Science uses a 200 AE/t source reference, so a 57,600 AE recipe is capped from 288 to 200 ticks. The lightning overload factory defaults to 400,000 FE/t with a four-tick minimum; assembly and simulation use a 200 FE/t source reference. Data reassembly retains its duration within the cap. AdvancedAE, Applied Generators, ExtendedAE and EAEP keep their 100-tick reference.
 
-Multiplied patterns first scale base duration and costs proportionally, then apply the tier at batch acceptance: **tier 4 takes 0.5× the base duration, tier 6 takes 0.2×, and tier 9 always takes 1 tick, including multiplied patterns**. Fractional ticks round up, with a one-tick minimum. These rules apply in both temperature and coolant modes; total recipe costs stay unchanged. Waiting for output space does not charge processing energy; energy or cooling shortages preserve progress. Tasks accepted before this update retain their previous processing contract.
+Multiplied patterns scale duration and costs proportionally. Waiting for output space does not charge processing energy; energy or cooling shortages preserve progress. Tasks accepted before this update retain their previous processing contract.
 
 Lightning routes retain their original FE budgets. **Applied Flux enables FE extraction from ME storage; missing FE can be paid with equivalent AE, including when Applied Flux is absent.** Only the FE deficit is substituted, using AE2's current conversion settings. Preheating and network operation still use AE. Lightning and other additional resources remain separate requirements.
 
@@ -66,12 +66,12 @@ Temperature-band labels 4 / 6 / 9 correspond to coolant recipe tiers 2 / 6 / 9; 
 
 The normal batch limit is **256**. Temperature mode is enabled by default: enable overclocking and maintain the required temperature for higher parallelism. The server configuration can also disable temperature and use coolant mode below.
 
-| Tier | Continuous operating temperature | Batch limit | Processing time | Energy per recipe |
-| --- | ---: | ---: | --- | ---: |
-| Normal | None | 256 | Base duration | 1× |
-| 4 | ≥20% | 16,384 | Base duration ×0.5 | 1× |
-| 6 | ≥50% | 65,536 | Base duration ×0.2 | 1× |
-| 9 | ≥80% | 262,144 | 1 tick | 1× |
+| Tier | Continuous operating temperature | Batch limit | Energy per recipe |
+| --- | ---: | ---: | ---: |
+| Normal | None | 256 | 1× |
+| 4 | ≥20% | 16,384 | 1× |
+| 6 | ≥50% | 65,536 | 1× |
+| 9 | ≥80% | 262,144 | 1× |
 
 Energy scales with actual base-recipe operations. **1× does not mean an entire batch costs only one recipe's energy**: a batch of 100 operations pays 100 base recipe costs. Electrical preheating is charged separately.
 
@@ -79,12 +79,12 @@ Energy scales with actual base-recipe operations. **1× does not mean an entire 
 
 The server setting `largeWorkstationTemperatureEnabled` defaults to `true`. Set it to `false`, then reopen the world or restart the server to select parallelism directly from coolant tier. This mode requires no preheating or operating temperature and has no overheating or 15-second recovery requirement.
 
-| Coolant | Batch limit | Processing time | Energy per recipe |
-| --- | ---: | --- | ---: |
-| No coolant, or overclock / active cooling disabled | 256 | Base duration | 1× |
-| Water (tier 2) | 16,384 | Base duration ×0.5 | 1× |
-| Sodium (tier 6) | 65,536 | Base duration ×0.2 | 1× |
-| Cryotheum Solution (tier 9) | 262,144 | 1 tick | 1× |
+| Coolant | Batch limit | Energy per recipe |
+| --- | ---: | ---: |
+| No coolant, or overclock / active cooling disabled | 256 | 1× |
+| Water (tier 2) | 16,384 | 1× |
+| Sodium (tier 6) | 65,536 | 1× |
+| Cryotheum Solution (tier 9) | 262,144 | 1× |
 
 Coolant mode provides higher parallelism only while **Overclock** and **Active Cooling** are both enabled and the coolant meets the batch requirement. Coolant tier directly determines the limit for new batches; temperature thresholds do not apply. An overclocked batch consumes **100 mB per processing tick that actually advances work**. Idle, unpowered and paused machines consume none. Insufficient coolant, a coolant tier below the accepted batch's requirement or blocked byproducts pause the batch without losing inputs or progress. Higher-tier coolant can keep an existing lower-tier batch running.
 
