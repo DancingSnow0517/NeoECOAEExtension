@@ -31,11 +31,11 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import appeng.menu.implementations.CellWorkbenchMenu;
-import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
+import appeng.client.gui.Icon;
+import appeng.client.gui.widgets.IconButton;
+import cn.dancingsnow.neoecoae.integration.xei.RecipeViewerBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOImportJeiBookmarksC2SPacket;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import cn.dancingsnow.neoecoae.network.ECONetwork;
 
@@ -96,40 +96,33 @@ public class NeoECOAEClient {
         ECOCraftConfirmScreenIntegration.onScreenInitPost(event);
     }
 
-    public static Button createJeiBookmarkButton(CellWorkbenchMenu menu) {
-        Button importButton = new JeiBookmarkButton(
+    public static Button createBookmarkButton(CellWorkbenchMenu menu) {
+        Button importButton = new BookmarkButton(
             Component.translatable("gui.neoecoae.import_jei_bookmarks"), ignored -> {
-                if (!JeiBookmarkAccess.isAvailable()) return;
-                var keys = JeiBookmarkAccess.bookmarkedKeys();
+                if (!RecipeViewerBookmarkAccess.isAvailable()) return;
+                var keys = RecipeViewerBookmarkAccess.bookmarkedKeys();
                 ECONetwork.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
             });
-        importButton.active = JeiBookmarkAccess.isAvailable();
+        importButton.active = RecipeViewerBookmarkAccess.isAvailable();
         importButton.visible = importButton.active;
-        importButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip")));
         return importButton;
     }
 
-    /** Vanilla-screen counterpart of the AE2 toolbar buttons used by the side rails. */
-    private static final class JeiBookmarkButton extends Button {
-        private static final net.minecraft.resources.ResourceLocation ICON_TEXTURE =
-            NeoECOAE.id("textures/gui/widget/upload.png");
-
-        private JeiBookmarkButton(Component message, OnPress onPress) {
-            super(0, 0, 16, 16, message, onPress, Button.DEFAULT_NARRATION);
+    /** Use the same 1.20.1 atlas, background and tooltip handling as the neighboring AE2 buttons. */
+    private static final class BookmarkButton extends IconButton {
+        private BookmarkButton(Component message, OnPress onPress) {
+            super(onPress);
+            setMessage(message);
         }
 
         @Override
-        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            int yOffset = isHovered() ? 1 : 0;
-            ECOIcon background = isHovered()
-                ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
-                : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
-                : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
-            background.blit(graphics, getX() - 1, getY() + yOffset, 100);
+        protected Icon getIcon() {
+            return Icon.ARROW_UP;
+        }
 
-            graphics.blit(ICON_TEXTURE, getX(), getY() + 2 + yOffset,
-                200, 0, 0, 16, 16, 16, 16);
+        @Override
+        public java.util.List<Component> getTooltipMessage() {
+            return java.util.List.of(Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip"));
         }
     }
 

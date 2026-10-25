@@ -20,7 +20,7 @@ import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
+import cn.dancingsnow.neoecoae.integration.xei.RecipeViewerBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 import java.math.BigInteger;
 import java.util.List;
@@ -197,7 +197,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         graph.active = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && (!mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty()
                 || mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0);
-        bookmarkMissing.active = JeiBookmarkAccess.isAvailable()
+        bookmarkMissing.active = RecipeViewerBookmarkAccess.isAvailable()
             && exactMaterials().stream().anyMatch(node -> node.missingBigInteger().signum() > 0);
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()) {
             start.active = false;
@@ -407,7 +407,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     private void bookmarkMissing() {
         if (!bookmarkMissing.active) return;
-        JeiBookmarkAccess.addMissingToBookmarks(exactMaterials().stream()
+        RecipeViewerBookmarkAccess.addMissingToBookmarks(exactMaterials().stream()
             .filter(node -> node.missingBigInteger().signum() > 0)
             .map(CraftingGraphSnapshot.MaterialNode::key).toList());
     }

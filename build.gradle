@@ -126,7 +126,8 @@ dependencies {
     }
     modCompileOnly 'mezz.jei:jei-1.20.1-forge-api:15.48.0.177'
     modCompileOnly 'mezz.jei:jei-1.20.1-common-api:15.48.0.177'
-    modCompileOnly 'dev.emi:emi-forge:1.1.24+1.20.1:api'
+    // EMI's favorites list is an internal client API; keep the full jar compile-only and optional.
+    modCompileOnly 'dev.emi:emi-forge:1.1.24+1.20.1'
 }
 
 legacyForge {

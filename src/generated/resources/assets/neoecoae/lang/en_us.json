@@ -523,7 +523,7 @@
   "gui.neoecoae.host.network_frequency.cycle": "Cycle Network Frequency (Current: %d)",
   "gui.neoecoae.host.network_frequency.cycle.unassigned": "Cycle Network Frequency (Unassigned)",
   "gui.neoecoae.import_jei_bookmarks": "★",
-  "gui.neoecoae.import_jei_bookmarks.tooltip": "Import all JEI bookmarks into the component configuration",
+  "gui.neoecoae.import_jei_bookmarks.tooltip": "Import all EMI/JEI bookmarks into the component configuration",
   "gui.neoecoae.integrated_working_station.allow_outputs": "Output Sides",
   "gui.neoecoae.integrated_working_station.allow_outputs.disabled": "Disabled",
   "gui.neoecoae.integrated_working_station.allow_outputs.enabled": "Enabled",

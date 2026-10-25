@@ -32,7 +32,7 @@
   "gui.neoecoae.crafting_report.loading_details": "正在加载合成详情…",
   "gui.neoecoae.crafting_report.bookmark_missing": "收藏缺失",
   "gui.neoecoae.import_jei_bookmarks": "★",
-  "gui.neoecoae.import_jei_bookmarks.tooltip": "将 JEI 收藏全部导入元件配置",
+  "gui.neoecoae.import_jei_bookmarks.tooltip": "将 EMI/JEI 收藏全部导入元件配置",
   "gui.neoecoae.crafting_report.quantity_unknown": "数量未确定",
   "gui.neoecoae.crafting_report.planning_failed": "规划未完成（悬停 CPU 按钮查看原因）",
   "gui.neoecoae.crafting_report.search_incomplete": "路线搜索未完成，已保留已算出的材料",

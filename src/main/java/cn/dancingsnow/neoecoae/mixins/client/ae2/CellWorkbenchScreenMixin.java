@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.Unique;
 @Mixin(value = CellWorkbenchScreen.class, remap = false)
 public abstract class CellWorkbenchScreenMixin extends UpgradeableScreen<CellWorkbenchMenu> {
     @Unique
-    private Button neoecoae$importJeiBookmarks;
+    private Button neoecoae$importBookmarks;
 
     protected CellWorkbenchScreenMixin(CellWorkbenchMenu menu, Inventory playerInventory,
                                        Component title, ScreenStyle style) {
@@ -23,9 +23,9 @@ public abstract class CellWorkbenchScreenMixin extends UpgradeableScreen<CellWor
 
     @Override
     public void init() {
-        if (neoecoae$importJeiBookmarks == null) {
-            neoecoae$importJeiBookmarks = addToLeftToolbar(
-                NeoECOAEClient.createJeiBookmarkButton(menu));
+        if (neoecoae$importBookmarks == null) {
+            neoecoae$importBookmarks = addToLeftToolbar(
+                NeoECOAEClient.createBookmarkButton(menu));
         }
         super.init();
     }
