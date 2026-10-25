@@ -51,6 +51,10 @@ public record PlannerDiagnostic(Code code, String message) {
         /** A consumed input had no numeric material attribution and will use conservative schedule fallback. */
         PROVENANCE_UNATTRIBUTED,
         CANCELLED,
-        INTERNAL_ERROR
+        INTERNAL_ERROR,
+        /** Even an optimistic quantity bound over all producers cannot cover the requested order. */
+        ROUTE_QUANTITY_BOUND,
+        /** A quantity proof excluded an entire producer-choice subtree before numeric planning. */
+        ROUTE_BRANCH_PRUNED
     }
 }

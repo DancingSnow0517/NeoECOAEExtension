@@ -3,13 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.solve;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
-import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /** Presence-only overapproximation: a negative answer proves impossibility, a positive one proves nothing. */
@@ -18,42 +12,43 @@ final class RouteAvailabilityProof {
 
     static boolean goalUnreachable(CompiledNetwork network, PlannerInventorySnapshot stock,
             ECOCancellation cancellation) throws InterruptedException {
-        Set<AEKey> available = new HashSet<>(network.emittable());
+        OptimisticSupplyModel model = OptimisticSupplyModel.compile(network, cancellation);
+        if (model == null) return false;
+        Set<AEKey> available = new HashSet<>(model.emitted);
         for (var entry : stock.toKeyCounter()) {
             cancellation.checkpoint();
             if (entry.getLongValue() > 0L) available.add(entry.getKey());
         }
         if (available.contains(network.goal())) return false;
-
-        List<CompiledPattern> patterns = network.producers().values().stream()
-                .flatMap(List::stream).distinct().toList();
-        int[] missing = new int[patterns.size()];
-        Map<AEKey, List<Integer>> waiting = new HashMap<>();
-        ArrayDeque<Integer> ready = new ArrayDeque<>();
-        for (int index = 0; index < patterns.size(); index++) {
-            cancellation.checkpoint();
-            CompiledPattern pattern = patterns.get(index);
-            // Unknown, fuzzy, substitution and special-input contracts require their real resolver.
-            // Decline this proof rather than excluding an alternative that could actually work.
-            if (!pattern.fastSupported() || !pattern.semantics().completeForStaticPlanning()
-                    || pattern.specialAnalysis().special()) return false;
-            Set<AEKey> needed = new HashSet<>();
-            for (var input : pattern.inputs()) {
-                if (!input.fastSupported() || input.ignoresComponents()) return false;
-                if (!available.contains(input.key())) needed.add(input.key());
+        record Slot(int recipe, int input) {}
+        int[] missing = new int[model.recipes.size()];
+        boolean[][] satisfied = new boolean[model.recipes.size()][];
+        var waiting = new java.util.HashMap<AEKey, java.util.List<Slot>>();
+        var ready = new java.util.ArrayDeque<Integer>();
+        for (int r = 0; r < model.recipes.size(); r++) {
+            var recipe = model.recipes.get(r);
+            satisfied[r] = new boolean[recipe.inputs().size()];
+            for (int i = 0; i < recipe.inputs().size(); i++) {
+                cancellation.checkpoint();
+                var input = recipe.inputs().get(i);
+                if (input.available(available)) satisfied[r][i] = true;
+                else {
+                    missing[r]++;
+                    for (var alternative : input.alternatives()) waiting
+                        .computeIfAbsent(alternative.key(), ignored -> new java.util.ArrayList<>()).add(new Slot(r, i));
+                }
             }
-            missing[index] = needed.size();
-            for (AEKey key : needed) waiting.computeIfAbsent(key, ignored -> new ArrayList<>()).add(index);
-            if (needed.isEmpty()) ready.add(index);
+            if (missing[r] == 0) ready.add(r);
         }
         while (!ready.isEmpty()) {
             cancellation.checkpoint();
-            CompiledPattern pattern = patterns.get(ready.removeFirst());
-            for (var output : pattern.grossOutputs()) {
-                if (output.amount() <= 0L || !available.add(output.what())) continue;
-                if (output.what().equals(network.goal())) return false;
-                for (int dependent : waiting.getOrDefault(output.what(), List.of())) {
-                    if (--missing[dependent] == 0) ready.addLast(dependent);
+            for (AEKey output : model.recipes.get(ready.removeFirst()).outputs().keySet()) {
+                if (!available.add(output)) continue;
+                if (output.equals(network.goal())) return false;
+                for (Slot slot : waiting.getOrDefault(output, java.util.List.of())) {
+                    if (satisfied[slot.recipe()][slot.input()]) continue;
+                    satisfied[slot.recipe()][slot.input()] = true;
+                    if (--missing[slot.recipe()] == 0) ready.add(slot.recipe());
                 }
             }
         }

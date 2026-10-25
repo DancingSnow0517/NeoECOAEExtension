@@ -59,9 +59,9 @@ class ReachableRouteSearchTest {
             PlannerInventorySnapshot.of(stock), 1L, false, ECOCancellation.NONE);
 
         assertNotEquals(PlanningStatus.SUCCESS, result.status());
-        // The preferred route, then goal -> blocked once (the e producers are unreachable there), then only the
-        // reachable e1/e2/e3 deviations: 3 singles + 3 pairs + 1 triple. The Cartesian enumerator needed 16.
-        verify(acyclic, times(9)).solve(same(network), any(), any(PlannerInventorySnapshot.class), eq(1L),
+        // Only the preferred material report and the cyclic goal alternative require numeric planning.
+        // Every prefix still choosing c lacks four scarce units regardless of e1/e2/e3 combinations.
+        verify(acyclic, times(2)).solve(same(network), any(), any(PlannerInventorySnapshot.class), eq(1L),
             anyMap(), anySet(), eq(false), any());
         assertEquals(1, cycleSolves.get(), "The seedless cycle must be solved once and then reused");
         assertEquals(1L, stock.get(scarce));

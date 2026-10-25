@@ -243,15 +243,21 @@ class ByproductReviewProbeTest {
         when(requester.getGridNode()).thenReturn(node);
         when(requester.getActionSource()).thenReturn(new BaseActionSource());
         when(storage.getCachedInventory()).thenReturn(inventory);
-        var calculation = new CraftingCalculation(mock(Level.class), grid, requester,
-            new GenericStack(key, amount), CalculationStrategy.REPORT_MISSING_ITEMS);
-        // Run AE2's actual synchronous calculation without registering a server tick callback.
-        var running = CraftingCalculation.class.getDeclaredField("running");
-        running.setAccessible(true);
-        running.setBoolean(calculation, true);
-        var compute = CraftingCalculation.class.getDeclaredMethod("computePlan");
-        compute.setAccessible(true);
-        return (ICraftingPlan) compute.invoke(calculation);
+        // The Forge AE2 constructor consults launcher-owned config even in the cached-inventory mode.
+        try (var configuration = mockStatic(appeng.core.AEConfig.class)) {
+            var config = mock(appeng.core.AEConfig.class);
+            configuration.when(appeng.core.AEConfig::instance).thenReturn(config);
+            when(config.isCraftingSimulatedExtraction()).thenReturn(false);
+            var calculation = new CraftingCalculation(mock(Level.class), grid, requester,
+                new GenericStack(key, amount), CalculationStrategy.REPORT_MISSING_ITEMS);
+            // Run AE2's actual synchronous calculation without registering a server tick callback.
+            var running = CraftingCalculation.class.getDeclaredField("running");
+            running.setAccessible(true);
+            running.setBoolean(calculation, true);
+            var compute = CraftingCalculation.class.getDeclaredMethod("computePlan");
+            compute.setAccessible(true);
+            return (ICraftingPlan) compute.invoke(calculation);
+        }
     }
 
     private static void replay(ECOPlanningResult result, KeyCounter inventory, AEKey output, long amount) {

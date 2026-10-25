@@ -753,20 +753,30 @@ public final class ComponentPlanner {
                     "No producer route can start from the current stock, even with quantities and consumption ignored"));
                 return preferred;
             }
+            RouteQuantityProof.Prepared supply = null;
+            if (preferred.status() != PlanningStatus.SUCCESS) {
+                supply = RouteQuantityProof.prepare(network, snapshot, cancellation);
+                var bound = supply == null ? null : supply.insufficientOutput(amount, Map.of(), Set.of(), cancellation);
+                if (bound != null) {
+                    preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_QUANTITY_BOUND,
+                        "Even optimistic supply across all producers yields at most " + bound
+                            + " of the goal, below requested " + amount
+                            + "; retaining the completed route's material report"));
+                    return preferred;
+                }
+            }
             if (maxRouteAttempts == 0)
                 preferred = new JointRouteOptimizer().optimize(network, snapshot, amount, preferred, true, cancellation);
             if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
             return searchAlternativeRoutes(network, universe, activeSelection, inventory, snapshot, amount,
-                ignorePatternSubstitutions, cancellation, failures, preferred, externalDemandPlanner);
+                ignorePatternSubstitutions, cancellation, failures, preferred, externalDemandPlanner, supply);
         } catch (cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget.Exhausted exhausted) {
             // The interrupted alternative is speculative. The completed route still owns a valid
             // material report and cycle diagnostics; never replace those with an empty shell.
             preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED,
                 "stage=alternative_routes " + exhausted.getMessage()
                     + "; retaining the completed route's material report"));
-            return new Outcome(preferred.status() == PlanningStatus.SUCCESS ? PlanningStatus.SUCCESS
-                    : PlanningStatus.CYCLE_UNRESOLVED, preferred.state(), preferred.trace(),
-                preferred.cycles(), preferred.components(), preferred.executionComponentOrder());
+            return incompleteSearch(preferred);
         }
     }
 
@@ -774,7 +784,7 @@ public final class ComponentPlanner {
                         ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
                         PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
                         ECOCancellation cancellation, CycleFailureCache failures, Outcome preferred,
-                        ExternalDemandPlanner externalDemandPlanner)
+                        ExternalDemandPlanner externalDemandPlanner, RouteQuantityProof.Prepared supply)
             throws InterruptedException {
         Map<AEKey, Integer> baseline = new Object2ObjectLinkedOpenHashMap<>();
         // The numeric pass can retry an acyclic producer, while cycle-owned keys are deliberately
@@ -793,9 +803,11 @@ public final class ComponentPlanner {
             baseline.put(key, selected);
         }
         long startedNanos = ECOPlanningStageLogger.start();
-        var routes = new RouteSearch(network, baseline);
+        var routes = new RouteSearch(network, baseline, (choices, fixed, check) -> supply != null
+            && supply.rejectsBranch(amount, choices, fixed, check));
         int attempts = 1;
         boolean success = false;
+        ECOPlanTrace resultTrace = preferred.trace();
         try {
             Map<AEKey, Integer> choices;
             while ((choices = routes.next(cancellation)) != null) {
@@ -804,8 +816,7 @@ public final class ComponentPlanner {
                         PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED,
                         "Producer route search stopped after " + attempts
                             + " attempts; unvisited combinations may still be feasible"));
-                    return new Outcome(PlanningStatus.CYCLE_UNRESOLVED, preferred.state(), preferred.trace(),
-                        preferred.cycles(), preferred.components(), preferred.executionComponentOrder());
+                    return incompleteSearch(preferred);
                 }
                 attempts++;
                 ActiveRouteSelector.Selection candidate = activeRouteSelector.selectWithChoices(
@@ -816,15 +827,30 @@ public final class ComponentPlanner {
                     ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner, true);
                 if (alternative.status() == PlanningStatus.SUCCESS) {
                     success = true;
+                    resultTrace = alternative.trace();
                     return alternative;
                 }
             }
             return preferred;
         } finally {
+            if (routes.prunedBranches() > 0) resultTrace.addDiagnostic(new PlannerDiagnostic(
+                PlannerDiagnostic.Code.ROUTE_BRANCH_PRUNED,
+                "Optimistic quantity proofs excluded " + routes.prunedBranches()
+                    + " infeasible producer prefixes before full route planning"));
             ECOPlanningStageLogger.finish("alternative_routes", startedNanos, success,
                 "attempts=" + attempts + " pass=" + routes.pass() + " expansions=" + routes.expansions()
+                    + " pruned=" + routes.prunedBranches()
                     + " cycleSolves=" + failures.solverCalls() + " cycleReuses=" + failures.reusedFailures());
         }
+    }
+
+    private static Outcome incompleteSearch(Outcome preferred) {
+        PlanningStatus status = preferred.status() == PlanningStatus.SUCCESS ? PlanningStatus.SUCCESS
+            : preferred.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE
+                || !preferred.state().executionAmountIssues().isEmpty()
+                    ? PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE : PlanningStatus.CYCLE_UNRESOLVED;
+        return new Outcome(status, preferred.state(), preferred.trace(), preferred.cycles(),
+            preferred.components(), preferred.executionComponentOrder());
     }
 
     private static int normalizeChoice(int choice, int candidateCount) {

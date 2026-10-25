@@ -52,7 +52,9 @@ class ComponentExternalDemandCacheTest {
 
         assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
         assertEquals(Map.of(feasible.details(), 1L), result.state().patternTimes());
-        verify(solver, times(4)).solve(same(network), any(), any(PlannerInventorySnapshot.class), eq(1L),
+        // The original shortage is calculated once. Quantity proofs discard the two equivalent
+        // blocked goal prefixes before numeric planning, then the fuel route succeeds.
+        verify(solver, times(2)).solve(same(network), any(), any(PlannerInventorySnapshot.class), eq(1L),
             anyMap(), anySet(), eq(false), any());
         verify(solver).solveDemands(any(), any(), eq(Map.of(boundary, 1L)), anyMap(), anySet(), eq(false), any());
         // The missing original is solved once; optional seed retention cannot run before a whole-order success.
