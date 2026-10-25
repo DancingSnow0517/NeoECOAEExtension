@@ -6,5 +6,7 @@ public enum ECOPatternInsertionResult {
     ALREADY_PRESENT,
     NO_SPACE,
     INCOMPATIBLE,
-    NO_TARGET
+    NO_TARGET,
+    /** Migration already targets the source slot; keep its item and do not count a move. */
+    UNCHANGED
 }

@@ -192,6 +192,16 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     /** Routes a pattern only within one crafting host or Network Switch domain. */
     public ECOPatternInsertion insertPreparedPatternReporting(@Nullable Object domain,
                                                               ECOPreparedPattern prepared) {
+        return insertPreparedPatternReporting(domain, prepared, null);
+    }
+
+    /**
+     * Migration routing excludes the physical source from duplicate checks. A unique pattern already
+     * installed in the destination domain stays in its slot, including when that host has no free slots.
+     */
+    public ECOPatternInsertion insertPreparedPatternReporting(@Nullable Object domain,
+                                                              ECOPreparedPattern prepared,
+                                                              @Nullable ECOPatternSourceSlot source) {
         if (prepared == null || prepared.stack().isEmpty()
                 || !(prepared.details() instanceof IMolecularAssemblerSupportedPattern)) {
             return ECOPatternInsertion.of(ECOPatternInsertionResult.INCOMPATIBLE);
@@ -201,8 +211,15 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             refreshPatternIndexes();
         }
         AEItemKey patternKey = AEItemKey.of(patternItem);
-        if (patternKey != null && containsPatternInDomain(domain, patternKey)) {
+        if (patternKey != null && containsPatternOtherThanSource(domain, patternKey, source)) {
             return ECOPatternInsertion.of(ECOPatternInsertionResult.ALREADY_PRESENT);
+        }
+        if (source != null && source.source() instanceof PatternStorageHost host
+                && matchesDomain(host, domain) && busPatternRecords.containsKey(host)
+                && busPatternRecords.get(host).containsKey(source.slot())
+                && source.slot() >= 0 && source.slot() < sourceSlots(source.source()).size()
+                && prepared.matches(sourceSlots(source.source()).getStackInSlot(source.slot()))) {
+            return ECOPatternInsertion.of(ECOPatternInsertionResult.UNCHANGED);
         }
         // The container pass is the only one that consumes the pattern's item; a slot keeps it as a stack.
         ECOPatternInsertionResult auxiliary = tryAuxiliaryPass(patternItem, prepared, domain);
@@ -215,7 +232,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         }
         // The container pass already ran and declined, so the slot path must not run it a second time: a
         // second write window could absorb the pattern while this method reports it as slot-held.
-        return ECOPatternInsertion.of(tryInsertPatternInternal(patternItem, prepared, true, domain));
+        return ECOPatternInsertion.of(tryInsertPatternInternal(patternItem, prepared, true, domain, source));
     }
 
     /**
@@ -359,6 +376,14 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                                                                  @Nullable ECOPreparedPattern prepared,
                                                                  boolean auxiliaryAlreadyTried,
                                                                  @Nullable Object domain) {
+        return tryInsertPatternInternal(patternItem, prepared, auxiliaryAlreadyTried, domain, null);
+    }
+
+    private ECOPatternInsertionResult tryInsertPatternInternal(ItemStack patternItem,
+                                                                 @Nullable ECOPreparedPattern prepared,
+                                                                 boolean auxiliaryAlreadyTried,
+                                                                 @Nullable Object domain,
+                                                                 @Nullable ECOPatternSourceSlot source) {
         if (prepared != null && !prepared.matches(patternItem)) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
@@ -367,7 +392,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             refreshPatternIndexes();
         }
         AEItemKey patternKey = AEItemKey.of(patternItem);
-        if (patternKey != null && containsPatternInDomain(domain, patternKey)) {
+        if (patternKey != null && containsPatternOtherThanSource(domain, patternKey, source)) {
             return ECOPatternInsertionResult.ALREADY_PRESENT;
         }
 
@@ -600,12 +625,23 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     /** Duplicate check restricted to the target bus's local or shared Network Switch domain. */
     public boolean containsPatternOtherThan(PatternStorageHost targetBus, int targetSlot,
                                              AEItemKey key, @Nullable Object domain) {
+        return containsPatternExceptSlot(targetBus, targetSlot, key, domain);
+    }
+
+    private boolean containsPatternOtherThanSource(@Nullable Object domain, AEItemKey key,
+                                                    @Nullable ECOPatternSourceSlot source) {
+        return source == null ? containsPatternInDomain(domain, key)
+                : containsPatternExceptSlot(source.source(), source.slot(), key, domain);
+    }
+
+    private boolean containsPatternExceptSlot(Object source, int sourceSlot,
+                                              AEItemKey key, @Nullable Object domain) {
         refreshPatternIndexes();
         Set<PatternLocation> locations = patternLocationsByKey.get(key);
         if (locations != null) {
             for (PatternLocation location : locations) {
                 if (matchesDomain(location.bus(), domain)
-                        && (location.bus() != targetBus || location.physicalSlot() != targetSlot)) {
+                        && (location.container() != source || location.physicalSlot() != sourceSlot)) {
                     return true;
                 }
             }
@@ -712,6 +748,12 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
 
     @Override
     public ExternalPatternClaim claimExternalPatternCandidates(IGrid grid, UUID owner, int maxCandidates) {
+        return claimExternalPatternCandidates(grid, owner, maxCandidates, Set.of());
+    }
+
+    /** Leaves this pass's skipped slots available to other owners without reclaiming them in a loop. */
+    public ExternalPatternClaim claimExternalPatternCandidates(IGrid grid, UUID owner, int maxCandidates,
+                                                               Set<ECOPatternSourceSlot> excluded) {
         if (owner == null || maxCandidates <= 0) {
             return new ExternalPatternClaim(false, externalPatternScannedSlots, externalPatternTotalSlots, List.of(),
                     externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK,
@@ -723,10 +765,15 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 ignored -> new HashSet<>());
         externalPatternClaimTicks.put(owner, externalPatternTick);
         List<ECOPatternSourceSlot> claimed = new ArrayList<>(Math.min(maxCandidates, 64));
-        while (claimed.size() < maxCandidates && !externalAvailable.isEmpty()) {
+        int remaining = externalAvailable.size();
+        while (claimed.size() < maxCandidates && remaining-- > 0 && !externalAvailable.isEmpty()) {
             ECOPatternSourceSlot candidate = externalAvailable.removeFirst();
             BitSet slots = externalPatternSlots.get(candidate.source());
             if (slots == null || !slots.get(candidate.slot()) || externalPatternClaims.containsKey(candidate)) continue;
+            if (excluded.contains(candidate)) {
+                externalAvailable.addLast(candidate);
+                continue;
+            }
             externalPatternClaims.put(candidate, owner);
             owned.add(candidate);
             claimed.add(candidate);

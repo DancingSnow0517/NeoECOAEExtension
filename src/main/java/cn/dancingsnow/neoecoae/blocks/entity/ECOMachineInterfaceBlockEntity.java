@@ -80,6 +80,8 @@ import java.util.UUID;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(
+            ECOMachineInterfaceBlockEntity.class);
     private static final int PATTERN_TRANSFER_SAFETY_LIMIT_PER_TICK = 256;
     private static final int PATTERN_ORGANIZE_SAFETY_LIMIT_PER_TICK = 256;
     public static final int FUZZY_PLANNING_SLOT_COUNT = 63;
@@ -116,6 +118,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private int patternTransferNoSpace;
     private int patternTransferNoTarget;
     private int patternTransferIncompatible;
+    private int patternTransferUnchanged;
+    private int patternTransferSourceChanged;
     private boolean patternTransferUnavailable;
     private boolean patternTransferPerformed;
     private boolean patternTransferInProgress;
@@ -1433,7 +1437,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             operationsThisTick++;
             migrationScannedThisTick++;
             patternTransferScannedSlots++;
-            ItemStack stack = step.inventory().getStackInSlot(step.slot());
+            ItemStack stack = step.snapshot();
             if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
                 task.removeCandidate(step.candidate());
                 continue;
@@ -1444,15 +1448,22 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 patternTransferIncompatible++;
                 continue;
             }
+            if (!task.isSourceUnchanged(step)) {
+                task.skipCandidate(step.candidate());
+                patternTransferSourceChanged++;
+                continue;
+            }
 
             ECOPreparedPattern prepared = new ECOPreparedPattern(stack, details, AEItemKey.of(stack));
             cn.dancingsnow.neoecoae.api.ECOPatternInsertion insertion =
-                    task.catalog().insertPreparedPatternReporting(task.domain(), prepared);
+                    task.catalog().insertPreparedPatternReporting(task.domain(), prepared, step.candidate());
             switch (insertion.result()) {
                 case INSERTED -> {
                     if (!task.isSourceUnchanged(step)) {
                         // Somebody else touched the source between the snapshot and now. Leave it to a later
                         // pass rather than refunding for a pattern this pass did not take.
+                        task.skipCandidate(step.candidate());
+                        patternTransferSourceChanged++;
                         break;
                     }
                     // Only a container consumes the pattern's item. A slot stores it as a stack, so the network
@@ -1461,6 +1472,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                     boolean consumed = insertion.consumedSource();
                     boolean covered = !consumed || refundConsumedPattern(insertion.blankReplacement());
                     if (!cn.dancingsnow.neoecoae.grid.PatternRefund.mayClearSource(consumed, covered)) {
+                        task.skipCandidate(step.candidate());
                         patternTransferNoSpace++;
                         continue;
                     }
@@ -1471,6 +1483,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 }
                 case ALREADY_PRESENT -> {
                     if (!task.isSourceUnchanged(step)) {
+                        task.skipCandidate(step.candidate());
+                        patternTransferSourceChanged++;
                         break;
                     }
                     // The network already reaches this recipe, so the source item would be destroyed without
@@ -1478,6 +1492,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                     // recipe the storage counts must not make the caller's copy disappear.
                     if (!cn.dancingsnow.neoecoae.grid.PatternRefund.mayClearSource(true,
                             refundConsumedPattern(task.storageService().blankPatternReplacementFor(stack)))) {
+                        task.skipCandidate(step.candidate());
                         patternTransferNoSpace++;
                         continue;
                     }
@@ -1495,7 +1510,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                     finishPatternTransfer(serverLevel, false);
                     return;
                 }
-                case INCOMPATIBLE -> patternTransferIncompatible++;
+                case INCOMPATIBLE -> {
+                    task.skipCandidate(step.candidate());
+                    patternTransferIncompatible++;
+                }
+                case UNCHANGED -> {
+                    task.skipCandidate(step.candidate());
+                    patternTransferUnchanged++;
+                }
             }
         }
         if (task.isFinished()) {
@@ -1514,6 +1536,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternTransferNoSpace = 0;
         patternTransferNoTarget = 0;
         patternTransferIncompatible = 0;
+        patternTransferUnchanged = 0;
+        patternTransferSourceChanged = 0;
         patternTransferUnavailable = false;
         patternTransferScannedSlots = 0;
         patternTransferTotalSlots = 0;
@@ -1534,6 +1558,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (task != null) {
             task.releaseClaims();
             task.coordinator().release(this);
+            var report = unavailable || patternTransferNoSpace > 0 || patternTransferNoTarget > 0
+                    || patternTransferIncompatible > 0 || patternTransferSourceChanged > 0
+                    ? LOGGER.atWarn() : LOGGER.atInfo();
+            report.log("Pattern migration at {}: inserted={}, alreadyPresent={}, unchanged={}, noSpace={}, "
+                            + "noTarget={}, incompatible={}, sourceChanged={}, unavailable={}",
+                    worldPosition, patternTransferInserted, patternTransferAlreadyPresent,
+                    patternTransferUnchanged, patternTransferNoSpace, patternTransferNoTarget,
+                    patternTransferIncompatible, patternTransferSourceChanged, unavailable);
         }
         patternTransferTask = null;
         patternTransferInProgress = false;
@@ -1818,6 +1850,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         private void skipCandidate(ECOPatternSourceSlot candidate) {
             skippedCandidates.add(candidate);
+            storageService.releaseExternalPatternCandidate(candidate);
         }
 
         private void releaseClaims() {
@@ -1825,7 +1858,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
 
         private boolean isSourceUnchanged(PatternTransferStep step) {
-            ItemStack current = step.inventory().getStackInSlot(step.slot());
+            if (step.candidate().source().getGrid() != grid) {
+                return false;
+            }
+            InternalInventory inventory = PatternCatalog.sourceSlots(step.candidate().source());
+            if (step.slot() < 0 || step.slot() >= inventory.size() || step.slot() >= step.inventory().size()) {
+                return false;
+            }
+            ItemStack current = inventory.getStackInSlot(step.slot());
             return current.getCount() == step.snapshot().getCount()
                     && ItemStack.isSameItemSameComponents(current, step.snapshot());
         }
@@ -1836,6 +1876,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 while (candidateIndex < candidates.size()) {
                     ECOPatternSourceSlot candidate = candidates.get(candidateIndex++);
                     if (skippedCandidates.contains(candidate)) {
+                        storageService.releaseExternalPatternCandidate(candidate);
                         continue;
                     }
                     PatternContainer source = candidate.source();
@@ -1844,18 +1885,19 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                         continue;
                     }
                     InternalInventory inventory = PatternCatalog.sourceSlots(source);
-                    if (candidate.slot() < inventory.size()) {
+                    if (candidate.slot() >= 0 && candidate.slot() < inventory.size()) {
                         ItemStack snapshot = inventory.getStackInSlot(candidate.slot()).copy();
                         return new PatternTransferStep(candidate, inventory, candidate.slot(), snapshot);
                     }
-                    removeCandidate(candidate);
+                    skipCandidate(candidate);
+                    patternTransferSourceChanged++;
                 }
 
                 if (noMoreCandidates) {
                     return null;
                 }
                 IECOPatternStorageService.ExternalPatternClaim claim =
-                        storageService.claimExternalPatternCandidates(grid, owner, CANDIDATE_BATCH_SIZE);
+                        catalog.claimExternalPatternCandidates(grid, owner, CANDIDATE_BATCH_SIZE, skippedCandidates);
                 indexScannedSlots = claim.scannedSlots();
                 indexTotalSlots = claim.totalSlots();
                 indexReady = claim.ready();
