@@ -202,6 +202,11 @@ final class ECOCraftingTaskScheduler {
                 }
 
                 var pattern = candidate.pattern();
+                if (current.isProcessingStepStopped(pattern)) {
+                    logReason(current, candidate, "user-stopped-step", "waiting for the player to resume this processing step");
+                    if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
+                    continue;
+                }
                 // The explicit execution runtime owns phase/cycle gating. Legacy jobs retain the growth barrier.
                 if (current.executionRuntime == null && !current.canDispatchAfterGrowth(pattern)) {
                     logReason(current, candidate, "legacy-growth-barrier", "pattern is blocked by growth ordering");

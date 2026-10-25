@@ -15,6 +15,7 @@ import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.helpers.patternprovider.PatternProviderTarget;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOPatternPushDiagnostics;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -30,7 +31,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Observes existing calls only: no extra target probes, insertion, or changes to AE2's return value. */
 @Mixin(value = PatternProviderLogic.class, remap = false)
-public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushDiagnostics {
+public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushDiagnostics, ECOProcessingTargetProvider {
     @Shadow @Final private PatternProviderLogicHost host;
     @Shadow @Final private List<GenericStack> sendList;
     @Shadow private Direction sendDirection;
@@ -38,6 +39,12 @@ public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushD
     @Unique private final Set<Reason> neoecoae$rejectReasons = EnumSet.noneOf(Reason.class);
     @Unique private boolean neoecoae$observingPush;
     @Unique private boolean neoecoae$foundTarget;
+    @Unique private boolean neoecoae$capturingTarget;
+    @Unique private Direction neoecoae$targetSide;
+    @Unique private Target neoecoae$processingTarget;
+
+    @Override
+    public Target neoecoae$getProcessingTarget() { return neoecoae$processingTarget; }
 
     @Override
     public void neoecoae$clearPushDiagnostics() {
@@ -61,18 +68,26 @@ public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushD
     @WrapMethod(method = "pushPattern")
     private boolean neoecoae$observePush(IPatternDetails pattern, KeyCounter[] inputs,
             Operation<Boolean> original) {
-        if (!NEConfig.ecoDispatchWatchdogDebug) return original.call(pattern, inputs);
-        neoecoae$clearPushDiagnostics();
-        neoecoae$observingPush = true;
+        neoecoae$processingTarget = null;
+        neoecoae$targetSide = null;
+        neoecoae$capturingTarget = true;
+        neoecoae$observingPush = NEConfig.ecoDispatchWatchdogDebug;
+        if (neoecoae$observingPush) neoecoae$clearPushDiagnostics();
         try {
             boolean accepted = original.call(pattern, inputs);
-            if (accepted) neoecoae$rejectReasons.clear();
-            else if (neoecoae$rejectReasons.isEmpty()) {
+            var be = host.getBlockEntity();
+            if (accepted && neoecoae$targetSide != null && be.getLevel() != null) {
+                neoecoae$processingTarget = new Target(be.getLevel().dimension().location(),
+                    be.getBlockPos().relative(neoecoae$targetSide));
+            }
+            if (neoecoae$observingPush && accepted) neoecoae$rejectReasons.clear();
+            else if (neoecoae$observingPush && neoecoae$rejectReasons.isEmpty()) {
                 neoecoae$rejectReasons.add(neoecoae$foundTarget ? Reason.UNKNOWN : Reason.NO_EXTERNAL_TARGET);
             }
             return accepted;
         } finally {
             neoecoae$observingPush = false;
+            neoecoae$capturingTarget = false;
         }
     }
 
@@ -109,6 +124,7 @@ public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushD
     @Inject(method = "findAdapter", at = @At("RETURN"))
     private void neoecoae$observeTarget(Direction side, CallbackInfoReturnable<PatternProviderTarget> cir) {
         if (neoecoae$observingPush && cir.getReturnValue() != null) neoecoae$foundTarget = true;
+        if (neoecoae$capturingTarget && cir.getReturnValue() != null) neoecoae$targetSide = side;
     }
 
     @Inject(method = "adapterAcceptsAll", at = @At("RETURN"))
@@ -124,6 +140,7 @@ public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushD
     private boolean neoecoae$observeMachine(ICraftingMachine machine, IPatternDetails pattern,
             KeyCounter[] inputs, Direction side, Operation<Boolean> original) {
         boolean accepted = original.call(machine, pattern, inputs, side);
+        if (neoecoae$capturingTarget && accepted) neoecoae$targetSide = side.getOpposite();
         if (neoecoae$observingPush) {
             neoecoae$foundTarget = true;
             if (!accepted) neoecoae$rejectReasons.add(Reason.MACHINE_REJECTED);

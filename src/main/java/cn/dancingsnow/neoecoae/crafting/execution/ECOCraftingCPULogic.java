@@ -89,6 +89,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     private final ListCraftingInventory inventory = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ECOCraftingCPULogic.this::postChange);
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     private final ECOCraftingJobAttachments jobAttachments = new ECOCraftingJobAttachments();
+    private final ECOProcessingMonitor processingMonitor = new ECOProcessingMonitor();
     /**
      * 如果 CPU 正在尝试清空库存但无法完成，则为 true。
      */
@@ -120,7 +121,10 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                 this::markCpuDirty, TickHandler.instance()::getCurrentTick);
         this.dispatchAccounting = new ECOCraftingDispatchAccounting(
                 this::postChange, this::markCpuDirty, this::createJobContext,
-                ECOCraftingLifecycle::firePatternDispatched);
+                event -> {
+                    processingMonitor.dispatched(event);
+                    ECOCraftingLifecycle.firePatternDispatched(event);
+                });
         this.fastPathDispatcher = new ECOCraftingFastPathDispatcher(this, energyTransaction, dispatchAccounting);
         this.providerDispatcher = new ECOCraftingProviderDispatcher(
                 this, fastPathDispatcher, energyTransaction, dispatchAccounting);
@@ -508,6 +512,58 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     ECOCraftingJobAttachments jobAttachmentsForLifecycle() {
         return jobAttachments;
+    }
+
+    public ECOProcessingMonitor getProcessingMonitor() { return processingMonitor; }
+
+    @Nullable public UUID getProcessingJobId() { return job == null ? null : job.link.getCraftingID(); }
+
+    public java.util.List<IPatternDetails> getProcessingPatterns(AEKey output) {
+        if (job == null) return java.util.List.of();
+        return job.tasks.keySet().stream().filter(pattern -> java.util.Arrays.stream(pattern.getOutputs())
+            .anyMatch(stack -> output.equals(stack.what()))).toList();
+    }
+
+    public boolean isProcessingStepStopped(AEKey output) {
+        return job != null && job.isProcessingOutputStopped(output);
+    }
+
+    public boolean canControlProcessingStep(AEKey output) {
+        return job != null && getProcessingPatterns(output).stream()
+            .anyMatch(pattern -> job.isProcessingStepStopped(pattern) || job.tasks.get(pattern).value > 0);
+    }
+
+    /** Stops future dispatch only. Already accepted inputs and their expected outputs retain their ownership. */
+    public boolean setProcessingStepStopped(AEKey output, boolean stopped) {
+        if (job == null || !canControlProcessingStep(output)) return false;
+        boolean changed;
+        if (stopped) changed = job.stoppedProcessingOutputs.add(output);
+        else {
+            changed = false;
+            for (var pattern : getProcessingPatterns(output)) {
+                for (var result : pattern.getOutputs()) changed |= job.stoppedProcessingOutputs.remove(result.what());
+            }
+        }
+        if (changed) {
+            job.invalidateProcessingSteps();
+            taskScheduler.resetDispatchState();
+            taskScheduler.progress(TickHandler.instance().getCurrentTick());
+            markCpuDirty();
+            for (var pattern : getProcessingPatterns(output)) for (var result : pattern.getOutputs()) postChange(result.what());
+        }
+        return changed;
+    }
+
+    public void refreshProcessingProgress() {
+        Level level = cpu.getLevel();
+        if (job != null && level != null) processingMonitor.advance(level, level.getGameTime());
+    }
+
+    public cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress getProcessingProgress(AEKey key) {
+        Level level = cpu.getLevel();
+        return job == null || getWaitingFor(key) <= 0 || level == null
+            ? cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.EMPTY
+            : processingMonitor.sample(level, key, level.getGameTime());
     }
 
     ECOCraftingEnergyTransaction energyTransactionForPersistence() {

@@ -90,6 +90,27 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     final Map<AEKey, java.math.BigInteger> deferredEmitted = new LinkedHashMap<>();
     /** Outputs of successful multi-craft dispatches in this job, used by the ECO status page. */
     final Set<AEKey> batchedOutputs = new HashSet<>();
+    final Set<AEKey> stoppedProcessingOutputs = new HashSet<>();
+    private Set<AEKey> stoppedProcessingDisplay;
+
+    boolean isProcessingStepStopped(IPatternDetails pattern) {
+        for (var output : pattern.getOutputs()) if (stoppedProcessingOutputs.contains(output.what())) return true;
+        return false;
+    }
+
+    boolean isProcessingOutputStopped(AEKey output) {
+        if (stoppedProcessingOutputs.isEmpty()) return false;
+        if (stoppedProcessingDisplay == null) {
+            var display = new HashSet<AEKey>();
+            for (var pattern : tasks.keySet()) if (isProcessingStepStopped(pattern)) {
+                for (var result : pattern.getOutputs()) display.add(result.what());
+            }
+            stoppedProcessingDisplay = Set.copyOf(display);
+        }
+        return stoppedProcessingDisplay.contains(output);
+    }
+
+    void invalidateProcessingSteps() { stoppedProcessingDisplay = null; }
     Set<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds = Set.of();
     @Nullable
     Integer playerId;
@@ -193,6 +214,10 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
             if (key != null) batchedOutputs.add(key);
         }
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
+        for (var tag : data.getList("stoppedProcessingOutputs", Tag.TAG_COMPOUND)) {
+            var key = AEKey.fromTagGeneric((CompoundTag) tag);
+            if (key != null) stoppedProcessingOutputs.add(key);
+        }
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
             this.playerId = data.getInt(NBT_PLAYER_ID);
         } else {
@@ -319,6 +344,9 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         ListTag batched = new ListTag();
         batchedOutputs.forEach(key -> batched.add(key.toTagGeneric()));
         data.put(NBT_BATCHED_OUTPUTS, batched);
+        ListTag stopped = new ListTag();
+        stoppedProcessingOutputs.forEach(key -> stopped.add(key.toTagGeneric()));
+        if (!stopped.isEmpty()) data.put("stoppedProcessingOutputs", stopped);
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
 
         final ListTag list = new ListTag();

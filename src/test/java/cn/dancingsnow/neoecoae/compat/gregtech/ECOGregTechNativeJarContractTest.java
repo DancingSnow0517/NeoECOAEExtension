@@ -68,6 +68,28 @@ class ECOGregTechNativeJarContractTest {
         }
     }
 
+    @Test void realGtReleaseExposesTheReadOnlyMachineAndControllerProgressContracts() throws Exception {
+        try (var jar = release("gtProcessingGtmJar")) {
+            method(read(jar, "com/gregtechceu/gtceu/api/blockentity/MetaMachineBlockEntity"),
+                "getMetaMachine", "()Lcom/gregtechceu/gtceu/api/machine/MetaMachine;");
+            var machine = read(jar, "com/gregtechceu/gtceu/api/machine/MetaMachine");
+            method(machine, "getLevel", "()Lnet/minecraft/world/level/Level;");
+            method(machine, "getPos", "()Lnet/minecraft/core/BlockPos;");
+            var part = read(jar, "com/gregtechceu/gtceu/api/machine/multiblock/part/MultiblockPartMachine");
+            assertTrue(part.fields.stream().anyMatch(field -> field.name.equals("controllerPositions")
+                && field.desc.equals("Ljava/util/Set;")));
+            var recipe = read(jar, "com/gregtechceu/gtceu/api/recipe/GTRecipe");
+            assertTrue(recipe.fields.stream().anyMatch(field -> field.name.equals("outputs") && field.desc.equals("Ljava/util/Map;")));
+            var logic = read(jar, "com/gregtechceu/gtceu/api/machine/trait/RecipeLogic");
+            method(logic, "getLastRecipe", "()Lcom/gregtechceu/gtceu/api/recipe/GTRecipe;");
+            method(logic, "getProgress", "()I");
+            method(logic, "getMaxProgress", "()I");
+            method(logic, "isWorking", "()Z");
+            method(logic, "isWaiting", "()Z");
+            method(logic, "isSuspend", "()Z");
+        }
+    }
+
     private static JarFile release(String property) throws Exception {
         String path = System.getProperty("neoecoae." + property, "");
         assumeTrue(!path.isBlank(), "Supply -P" + property + " to verify a real optional dependency release");

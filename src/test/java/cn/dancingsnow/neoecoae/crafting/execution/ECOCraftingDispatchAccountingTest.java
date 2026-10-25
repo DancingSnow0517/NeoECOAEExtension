@@ -119,14 +119,19 @@ class ECOCraftingDispatchAccountingTest {
             stacks.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(output, 30));
             var job = newJob();
             job.batchedOutputs.addAll(Set.of(output, secondary));
+            job.stoppedProcessingOutputs.add(output);
             job.fuzzyPlanningItemIds = Set.of(new net.minecraft.resources.ResourceLocation("minecraft:iron_pickaxe"));
             var saved = job.writeToNBT();
             var restored = new ExecutingCraftingJob(saved, ignored -> {}, logic);
             assertEquals(job.batchedOutputs, restored.batchedOutputs);
+            assertEquals(job.stoppedProcessingOutputs, restored.stoppedProcessingOutputs);
+            assertTrue(restored.isProcessingStepStopped(pattern));
             assertEquals(job.fuzzyPlanningItemIds, restored.fuzzyPlanningItemIds);
             saved.remove("batchedOutputs");
+            saved.remove("stoppedProcessingOutputs");
             saved.remove("fuzzyPlanningItemIds");
             assertTrue(new ExecutingCraftingJob(saved, ignored -> {}, logic).batchedOutputs.isEmpty());
+            assertTrue(new ExecutingCraftingJob(saved, ignored -> {}, logic).stoppedProcessingOutputs.isEmpty());
             assertTrue(new ExecutingCraftingJob(saved, ignored -> {}, logic).fuzzyPlanningItemIds.isEmpty());
         }
     }
