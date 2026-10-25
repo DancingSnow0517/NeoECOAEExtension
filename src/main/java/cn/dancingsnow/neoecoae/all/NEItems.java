@@ -259,7 +259,7 @@ public class NEItems {
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(NETags.Items.ALUMINUM_ALLOY_INGOT)
-                .requires(NEItems.ENERGIZED_FLUIX_CRYSTAL)
+                .requires(NETags.Items.ENERGIZED_FLUIX_CRYSTAL)
                 .unlockedBy("has_aliminim_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
                 .save(prov);
         })
@@ -371,7 +371,7 @@ public class NEItems {
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
-                .requires(NEItems.ENERGIZED_FLUIX_CRYSTAL)
+                .requires(NETags.Items.ENERGIZED_FLUIX_CRYSTAL)
                 .unlockedBy("has_black_tungsten_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
                 .save(prov);
         })
