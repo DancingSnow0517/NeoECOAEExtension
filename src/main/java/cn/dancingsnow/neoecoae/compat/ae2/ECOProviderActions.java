@@ -5,13 +5,17 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.me.service.CraftingService;
 import appeng.parts.AEBasePart;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider.Target;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import java.util.LinkedHashMap;
 import java.util.List;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 /** User-triggered lookup of the current job's real providers; never scans neighbors or loads chunks. */
@@ -27,6 +31,22 @@ public final class ECOProviderActions {
             if (source != null) sources.putIfAbsent(source.id(), source);
         }
         return List.copyOf(sources.values());
+    }
+
+    public static List<Source> findMachines(List<Target> targets, Level context) {
+        if (context == null || context.isClientSide || context.getServer() == null) return List.of();
+        var machines = new LinkedHashMap<String, Source>();
+        for (var target : targets) {
+            var level = context.getServer().getLevel(ResourceKey.create(Registries.DIMENSION, target.dimension()));
+            if (level == null || !level.hasChunkAt(target.position())) continue;
+            var be = level.getBlockEntity(target.position());
+            if (be == null || be.isRemoved()) continue;
+            Object machine = member(be, "getMetaMachine");
+            if (machine == null || member(machine, "getRecipeLogic") == null) continue;
+            var source = new Source(machine, be, null, be.getBlockState().getBlock().getName());
+            machines.putIfAbsent(source.id(), source);
+        }
+        return List.copyOf(machines.values());
     }
 
     static Source locate(ICraftingProvider provider) {
@@ -67,16 +87,25 @@ public final class ECOProviderActions {
         }
 
         public boolean open(ServerPlayer player) {
-            var level = blockEntity.getLevel();
-            if (level == null || level != player.level() || !level.hasChunkAt(blockEntity.getBlockPos())
-                || blockEntity.isRemoved() || level.getBlockEntity(blockEntity.getBlockPos()) != blockEntity
-                || !level.mayInteract(player, blockEntity.getBlockPos())) return false;
+            if (!available(player)) return false;
             if (host instanceof PatternProviderLogicHost patternHost) {
                 var previous = player.containerMenu;
                 patternHost.openMenu(player, new ECORemoteProviderLocator(blockEntity, side));
                 return previous != player.containerMenu;
             }
             return ECORemoteMachineUI.open(blockEntity, host, player);
+        }
+
+        public boolean openMachine(ServerPlayer player) {
+            return available(player) && member(blockEntity, "getMetaMachine") == host
+                && member(host, "getRecipeLogic") != null && ECORemoteMachineUI.open(blockEntity, host, player);
+        }
+
+        private boolean available(ServerPlayer player) {
+            var level = blockEntity.getLevel();
+            return level != null && level == player.level() && level.hasChunkAt(blockEntity.getBlockPos())
+                && !blockEntity.isRemoved() && level.getBlockEntity(blockEntity.getBlockPos()) == blockEntity
+                && level.mayInteract(player, blockEntity.getBlockPos());
         }
     }
 

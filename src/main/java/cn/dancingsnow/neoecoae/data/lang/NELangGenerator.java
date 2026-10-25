@@ -49,10 +49,16 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.processing.page", "Details %s / %s · Shift + wheel to change page");
         provider.add("gui.neoecoae.processing.recipe", "Recipe: %s");
         provider.add("gui.neoecoae.processing.parallel", "Actual parallels: %s");
-        provider.add("gui.neoecoae.processing.time", "Cycle: %s%% · %s / %s game seconds (20 ticks/s)");
-        provider.add("gui.neoecoae.processing.remaining", "Cycle remaining: approximately %s game seconds");
+        provider.add("gui.neoecoae.processing.cycle", "Cycle %s%%");
+        provider.add("gui.neoecoae.processing.time", "%s / %s t");
+        provider.add("gui.neoecoae.processing.remaining", "Remaining %s t");
+        provider.add("gui.neoecoae.processing.folded", "... %s more machines collapsed");
+        provider.add("gui.neoecoae.processing.dimension.overworld", "Overworld");
+        provider.add("gui.neoecoae.processing.dimension.nether", "The Nether");
+        provider.add("gui.neoecoae.processing.dimension.end", "The End");
         provider.add("gui.neoecoae.processing.reason", "Reason: %s");
         provider.add("gui.neoecoae.processing.unloaded", "Chunk or dimension unloaded");
+        provider.add("gui.neoecoae.processing.unformed", "Multiblock structure is not formed");
         provider.add("gui.neoecoae.processing.state.running", "Processing");
         provider.add("gui.neoecoae.processing.state.waiting", "Blocked");
         provider.add("gui.neoecoae.processing.state.paused", "Machine paused");
@@ -61,6 +67,9 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.processing.action.locate", "View pattern locations");
         provider.add("gui.neoecoae.processing.pattern_location", "Pattern for %s: %s, dimension: %s, coordinates: %s");
         provider.add("gui.neoecoae.processing.action.open", "Open pattern provider");
+        provider.add("gui.neoecoae.processing.action.open_machine", "Open processing machine UI");
+        provider.add("gui.neoecoae.processing.no_machine", "No associated processing machine is available to open.");
+        provider.add("gui.neoecoae.processing.machine_open_unavailable", "Cannot open the machine UI. Check that the machine is loaded and in your dimension.");
         provider.add("gui.neoecoae.processing.action.stop", "Stop this processing step");
         provider.add("gui.neoecoae.processing.action.resume", "Resume this processing step");
         provider.add("gui.neoecoae.processing.stop_hint", "Stops future dispatch; accepted batches continue and dependent steps wait. Co-products of the same pattern stop together.");

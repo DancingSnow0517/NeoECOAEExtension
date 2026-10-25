@@ -13,6 +13,8 @@ import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,6 +64,7 @@ public final class ECOGregTechMachineStatus {
         private final ArrayDeque<Target> pending = new ArrayDeque<>();
         private final HashSet<Target> visited = new HashSet<>();
         private final java.util.LinkedHashMap<String, Machine> machines = new java.util.LinkedHashMap<>();
+        private final LinkedHashSet<Target> machineTargets = new LinkedHashSet<>();
         private final AEKey output;
 
         public Scan(Iterable<Target> roots, AEKey output) {
@@ -71,6 +74,7 @@ public final class ECOGregTechMachineStatus {
 
         public boolean complete() { return pending.isEmpty(); }
         public List<Machine> machines() { return new ArrayList<>(machines.values()); }
+        public List<Target> machineTargets() { return List.copyOf(machineTargets); }
         public void addRoot(Target target) { if (!visited.contains(target)) pending.addLast(target); }
 
         /** One step visits at most one coordinate, including duplicate and unavailable coordinates. */
@@ -89,6 +93,7 @@ public final class ECOGregTechMachineStatus {
             if (machine == null) return;
             Object logic = value(machine, "getRecipeLogic");
             if (logic != null) {
+                machineTargets.add(target);
                 machines.put(location(target), sampleMachine(logic, be.getBlockState().getBlock().getName(), location(target), output));
                 return;
             }
@@ -105,21 +110,47 @@ public final class ECOGregTechMachineStatus {
         boolean matches = recipe != null && produces(recipe, output);
         int duration = matches ? positiveInt(value(logic, "getMaxProgress", "getDuration", "duration")) : 0;
         int progress = duration > 0 ? positiveInt(value(logic, "getProgress", "progress")) : 0;
-        State state = Boolean.TRUE.equals(value(logic, "isSuspend")) ? State.PAUSED
-            : matches && Boolean.TRUE.equals(value(logic, "isWaiting")) ? State.WAITING
-            : matches && Boolean.TRUE.equals(value(logic, "isWorking")) ? State.RUNNING : State.QUEUED;
-        if (state == State.QUEUED) { duration = 0; progress = 0; }
-        Component reason = Component.empty();
-        if (state == State.WAITING || state == State.QUEUED) {
-            reason = component(value(logic, "getWaitingReason", "getBestFailureReason"));
-            Object result = value(logic, state == State.WAITING ? "getWorkingStatus" : "getRecipeStatus");
-            Component gtlReason = component(value(result, "reason"));
-            if (!gtlReason.getString().isEmpty()) reason = gtlReason;
-        }
-        long parallel = matches ? positiveLong(value(recipe, "getRealParallels", "getTotalRuns", "parallels")) : 0;
-        Object id = matches ? value(recipe, "getId", "id") : null;
+        boolean paused = Boolean.TRUE.equals(value(logic, "isSuspend"));
+        boolean waiting = Boolean.TRUE.equals(value(logic, "isWaiting"));
+        boolean working = Boolean.TRUE.equals(value(logic, "isWorking"));
+        Component reason = paused || waiting || !working ? failureReason(logic, waiting || paused) : Component.empty();
+        State state = paused ? State.PAUSED
+            : waiting || (!working && !reason.getString().isEmpty()) ? State.WAITING
+            : matches && working ? State.RUNNING : State.QUEUED;
+        if (state == State.QUEUED || (!working && !waiting && !paused)) { duration = 0; progress = 0; }
+        long parallel = duration > 0 ? positiveLong(value(recipe, "getRealParallels", "getTotalRuns", "parallels")) : 0;
+        Object id = duration > 0 ? value(recipe, "getId", "id") : null;
         return new Machine(name, location, id == null ? "" : id.toString(), progress, duration,
             parallel, state, reason);
+    }
+
+    /** Observe native failures even before a recipe has started; never retry recipes or infer energy from WAITING. */
+    private static Component failureReason(Object logic, boolean duringCycle) {
+        var reasons = new LinkedHashMap<String, Component>();
+        if (duringCycle) addReason(reasons, resultReason(value(logic, "getWorkingStatus")));
+        for (String name : List.of("getWaitingReason", "waitingReason", "getBestFailureReason", "bestFailureReason")) {
+            addReason(reasons, component(value(logic, name)));
+        }
+        addReason(reasons, resultReason(value(logic, "getRecipeStatus")));
+        Object machine = value(logic, "getMachine", "machine");
+        if (Boolean.FALSE.equals(value(machine, "isFormed"))) {
+            addReason(reasons, Component.translatable("gui.neoecoae.processing.unformed"));
+        }
+        var combined = Component.empty();
+        for (var reason : reasons.values()) {
+            if (!combined.getString().isEmpty()) combined.append("；");
+            combined.append(reason.copy());
+        }
+        return combined;
+    }
+
+    private static Component resultReason(Object result) {
+        return Boolean.TRUE.equals(value(result, "isSuccess", "isSuccessful")) ? Component.empty()
+            : component(value(result, "reason", "getReason"));
+    }
+
+    private static void addReason(Map<String, Component> reasons, Component reason) {
+        if (!reason.getString().isBlank()) reasons.putIfAbsent(reason.getString(), reason);
     }
 
     private static boolean produces(Object recipe, AEKey output) {

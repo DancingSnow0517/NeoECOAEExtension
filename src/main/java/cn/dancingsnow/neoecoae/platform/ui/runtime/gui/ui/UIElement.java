@@ -262,8 +262,9 @@ public class UIElement extends WidgetGroup {
             var hovered=hitTest(mouseX,mouseY);if(hovered==null)return;
             var event=new UIEvent(UIEvents.HOVER_TOOLTIPS,hovered,mouseX,mouseY,-1);hovered.dispatchEvent(event);
             if(event.hoverTooltips!=null&&!event.hoverTooltips.tooltips().isEmpty()){
-                if(gui!=null&&gui.getModularUIGui()!=null)gui.getModularUIGui().setHoverTooltip(event.hoverTooltips.tooltips(),event.hoverTooltips.image() instanceof net.minecraft.world.item.ItemStack stack ? stack : net.minecraft.world.item.ItemStack.EMPTY,null,null);
-                else graphics.renderComponentTooltip(net.minecraft.client.Minecraft.getInstance().font,event.hoverTooltips.tooltips(),mouseX,mouseY);
+                var tooltipComponent=event.hoverTooltips.image() instanceof net.minecraft.world.inventory.tooltip.TooltipComponent component ? component : null;
+                if(gui!=null&&gui.getModularUIGui()!=null)gui.getModularUIGui().setHoverTooltip(event.hoverTooltips.tooltips(),event.hoverTooltips.image() instanceof net.minecraft.world.item.ItemStack stack ? stack : net.minecraft.world.item.ItemStack.EMPTY,null,tooltipComponent);
+                else graphics.renderTooltip(net.minecraft.client.Minecraft.getInstance().font,event.hoverTooltips.tooltips(),java.util.Optional.ofNullable(tooltipComponent),mouseX,mouseY);
             }
         }
     }

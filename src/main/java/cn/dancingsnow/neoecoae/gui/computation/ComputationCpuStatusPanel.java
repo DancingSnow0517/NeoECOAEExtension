@@ -300,9 +300,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (item.batched()) {
                 lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withStyle(neColor -> neColor.withColor(0xC7A6FF)));
             }
-            lines.addAll(ComputationProcessingTooltips.describe(item));
-            lines.add(Component.translatable("gui.neoecoae.processing.context_hint").withStyle(ChatFormatting.DARK_GRAY));
-            event.hoverTooltips = HoverTooltips.empty().append(lines.toArray(Component[]::new));
+            event.hoverTooltips = ComputationProcessingTooltips.create(lines, item);
         });
         return hitbox;
     }
@@ -663,6 +661,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             var list = new ListTag();
             for (var source : sources) list.add(source.describe());
             response.put("sources", list);
+            logic.getProcessingProgress(key);
+            var machines = cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.findMachines(
+                logic.getProcessingMonitor().machineTargets(key), cpu.getLevel());
+            var machineList = new ListTag();
+            for (var machine : machines) machineList.add(machine.describe());
+            response.put("machines", machineList);
             response.putBoolean("stopped", logic.isProcessingStepStopped(key));
             response.putBoolean("canStop", logic.canControlProcessingStep(key));
             if (action.equals("open")) {
@@ -672,6 +676,17 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                         || target.isEmpty() || !target.get().open(player)) response.putString("error", "gui.neoecoae.processing.open_unavailable");
                 } catch (RuntimeException | LinkageError unsupported) {
                     response.putString("error", "gui.neoecoae.processing.open_unavailable");
+                }
+            }
+            if (action.equals("open_machine")) {
+                var target = machines.stream().filter(machine -> machine.id().equals(request.getString("machine"))).findFirst();
+                try {
+                    if (!(config.player() instanceof net.minecraft.server.level.ServerPlayer player)
+                        || target.isEmpty() || !target.get().openMachine(player)) {
+                        response.putString("error", "gui.neoecoae.processing.machine_open_unavailable");
+                    } else response.putBoolean("close", true);
+                } catch (RuntimeException | LinkageError unsupported) {
+                    response.putString("error", "gui.neoecoae.processing.machine_open_unavailable");
                 }
             }
         }

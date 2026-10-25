@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.WeakHashMap;
@@ -89,6 +90,15 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
         return survey.published.refreshing(survey.scan != null);
     }
 
+    /** Actual recipe controllers resolved by the same budgeted status scan, never the pattern holder or input bus. */
+    public List<Target> machineTargets(AEKey output) {
+        var survey = surveys.get(output);
+        if (survey == null) return List.of();
+        var resolved = new LinkedHashSet<>(survey.machineTargets);
+        if (survey.scan != null) resolved.addAll(survey.scan.machineTargets());
+        return List.copyOf(resolved);
+    }
+
     /** Called by visible menus. Repeated viewers of the same CPU share both samples and the per-tick budget. */
     public void advance(Level level, long tick) {
         if (level == null || level.isClientSide || level.getServer() == null) return;
@@ -110,6 +120,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
             try {
                 survey.scan.step(level);
                 if (survey.scan.complete()) {
+                    survey.machineTargets = survey.scan.machineTargets();
                     survey.published = ECOProcessingProgress.summarize(survey.scan.machines());
                     survey.scan = null;
                     survey.nextTick = tick + REFRESH_INTERVAL;
@@ -194,6 +205,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
         final AEKey output;
         ECOGregTechMachineStatus.Scan scan;
         ECOProcessingProgress published = ECOProcessingProgress.EMPTY;
+        List<Target> machineTargets = List.of();
         long nextTick, requestedTick;
         boolean queued;
         Survey(AEKey output) { this.output = output; }

@@ -19,15 +19,16 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-/** One contextual menu and a provider chooser; locations are written to the player's chat. */
+/** Contextual actions with separate choices for pattern holders and actual processing machines. */
 final class ComputationItemActionsPopup extends UIElement {
     private static final SpriteTexture BACKGROUND = SpriteTexture.of(new ResourceLocation("neoecoae", "textures/gui/vendor/ae2/context_background.png"))
         .setSprite(0, 0, 256, 256).setBorder(2);
     private static final int PAGE_SIZE = 4;
-    private enum Mode { MENU, CHOOSE, MESSAGE }
+    private enum Mode { MENU, CHOOSE, CHOOSE_MACHINE, MESSAGE }
     private final Consumer<CompoundTag> request;
     private final Consumer<Component> chat;
     private final List<CompoundTag> sources = new ArrayList<>();
+    private final List<CompoundTag> machines = new ArrayList<>();
     private ComputationCpuItemEntry item;
     private CompoundTag context = new CompoundTag();
     private long sequence;
@@ -59,15 +60,17 @@ final class ComputationItemActionsPopup extends UIElement {
         });
         addEventListener(UIEvents.MOUSE_MOVE, event -> hovered = row(event.x, event.y));
         addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (mode == Mode.CHOOSE) turnPage(event.deltaY < 0 ? 1 : -1);
+            if (mode == Mode.CHOOSE || mode == Mode.CHOOSE_MACHINE) turnPage(event.deltaY < 0 ? 1 : -1);
             event.stopImmediatePropagation();
         });
         addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             int row = row(event.x, event.y);
-            if (mode == Mode.MENU && row == 2) event.hoverTooltips = HoverTooltips.empty().append(
+            if (mode == Mode.MENU && row == 3) event.hoverTooltips = HoverTooltips.empty().append(
                 Component.translatable("gui.neoecoae.processing.stop_hint"));
             if (mode == Mode.MENU && (row == 0 || row == 1) && loaded && sources.isEmpty()) event.hoverTooltips =
                 HoverTooltips.empty().append(Component.translatable("gui.neoecoae.processing.no_pattern"));
+            if (mode == Mode.MENU && row == 2 && loaded && machines.isEmpty()) event.hoverTooltips =
+                HoverTooltips.empty().append(Component.translatable("gui.neoecoae.processing.no_machine"));
         });
     }
 
@@ -80,7 +83,8 @@ final class ComputationItemActionsPopup extends UIElement {
         stopped = item.stepStopped();
         page = 0;
         sources.clear();
-        place(x, y, 138, 82);
+        machines.clear();
+        place(x, y, 154, 98);
         setDisplay(true);
         var request = new CompoundTag();
         request.putString("action", "inspect");
@@ -99,6 +103,8 @@ final class ComputationItemActionsPopup extends UIElement {
         canStop = response.getBoolean("canStop");
         sources.clear();
         for (var raw : response.getList("sources", Tag.TAG_COMPOUND)) sources.add(((CompoundTag) raw).copy());
+        machines.clear();
+        for (var raw : response.getList("machines", Tag.TAG_COMPOUND)) machines.add(((CompoundTag) raw).copy());
         if (response.contains("error")) {
             message = Component.translatable(response.getString("error"));
             mode = Mode.MESSAGE;
@@ -120,7 +126,7 @@ final class ComputationItemActionsPopup extends UIElement {
     }
 
     private void dialog() {
-        int rows = mode == Mode.MESSAGE ? 1 : Math.min(PAGE_SIZE, Math.max(1, sources.size()));
+        int rows = mode == Mode.MESSAGE ? 1 : Math.min(PAGE_SIZE, Math.max(1, choices().size()));
         place((ComputationCpuStatusPanel.WIDTH - 230) / 2F, 36, 230, 24 + rows * 30 + 22);
     }
 
@@ -128,14 +134,14 @@ final class ComputationItemActionsPopup extends UIElement {
         if (!isMouseOverElement(x, y)) return -1;
         float localY = y - getPositionY();
         if (mode == Mode.MENU) {
-            if (localY >= 22 && localY < 54) return (int) ((localY - 22) / 16);
-            return localY >= 60 && localY < 76 ? 2 : -1;
+            if (localY >= 22 && localY < 70) return (int) ((localY - 22) / 16);
+            return localY >= 76 && localY < 92 ? 3 : -1;
         }
         if (localY >= getSizeHeight() - 20) {
             return 100 + Math.min(2, Math.max(0, (int) ((x - getPositionX()) / (getSizeWidth() / 3))));
         }
         int index = (int) ((localY - 24) / 30);
-        return localY >= 24 && index >= 0 && index < PAGE_SIZE && page * PAGE_SIZE + index < sources.size() ? index : -1;
+        return localY >= 24 && index >= 0 && index < PAGE_SIZE && page * PAGE_SIZE + index < choices().size() ? index : -1;
     }
 
     private void activate(int row) {
@@ -145,16 +151,22 @@ final class ComputationItemActionsPopup extends UIElement {
             if (row == 0 && !sources.isEmpty()) showLocations();
             else if (row == 1 && sources.size() == 1) send("open", 0);
             else if (row == 1 && sources.size() > 1) { mode = Mode.CHOOSE; dialog(); }
-            else if (row == 2 && canStop) send(stopped ? "resume" : "stop", -1);
+            else if (row == 2 && machines.size() == 1) send("open_machine", 0);
+            else if (row == 2 && machines.size() > 1) { mode = Mode.CHOOSE_MACHINE; dialog(); }
+            else if (row == 3 && canStop) send(stopped ? "resume" : "stop", -1);
         } else if (row >= 100) {
             if (row == 100) turnPage(-1);
             else if (row == 101) turnPage(1);
             else close();
-        } else if (mode == Mode.CHOOSE) send("open", page * PAGE_SIZE + row);
+        } else if (mode == Mode.CHOOSE || mode == Mode.CHOOSE_MACHINE) {
+            send(mode == Mode.CHOOSE_MACHINE ? "open_machine" : "open", page * PAGE_SIZE + row);
+        }
     }
 
+    private List<CompoundTag> choices() { return mode == Mode.CHOOSE_MACHINE ? machines : sources; }
+
     private void turnPage(int change) {
-        page = Math.max(0, Math.min(Math.max(0, (sources.size() - 1) / PAGE_SIZE), page + change));
+        page = Math.max(0, Math.min(Math.max(0, (choices().size() - 1) / PAGE_SIZE), page + change));
     }
 
     private void showLocations() {
@@ -180,7 +192,10 @@ final class ComputationItemActionsPopup extends UIElement {
         tag.putLong("sequence", sequence);
         tag.put("key", item.key().toTagGeneric());
         if (context.hasUUID("job")) tag.putUUID("job", context.getUUID("job"));
-        if (source >= 0 && source < sources.size()) tag.putString("source", sources.get(source).getString("id"));
+        var targets = action.equals("open_machine") ? machines : sources;
+        if (source >= 0 && source < targets.size()) {
+            tag.putString(action.equals("open_machine") ? "machine" : "source", targets.get(source).getString("id"));
+        }
         request.accept(tag);
     }
 
@@ -189,20 +204,21 @@ final class ComputationItemActionsPopup extends UIElement {
         context.graphics.flush();
         context.drawTexture(BACKGROUND, x, y, width, getSizeHeight());
         Component title = item == null ? Component.empty() : item.key().getDisplayName();
-        if (mode == Mode.CHOOSE) title = title.copy().append(" · " + (page + 1) + "/" + Math.max(1, (sources.size() + PAGE_SIZE - 1) / PAGE_SIZE));
+        if (mode == Mode.CHOOSE || mode == Mode.CHOOSE_MACHINE) title = title.copy().append(" · " + (page + 1) + "/" + Math.max(1, (choices().size() + PAGE_SIZE - 1) / PAGE_SIZE));
         text(context, title, 7, 6, 0x413F54);
         divider(context, 18);
         if (mode == Mode.MENU) {
             row(context, 0, 22, "gui.neoecoae.processing.action.locate", loaded && !sources.isEmpty());
             row(context, 1, 38, "gui.neoecoae.processing.action.open", loaded && !sources.isEmpty());
-            divider(context, 56);
-            row(context, 2, 60, stopped ? "gui.neoecoae.processing.action.resume" : "gui.neoecoae.processing.action.stop", loaded && canStop);
+            row(context, 2, 54, "gui.neoecoae.processing.action.open_machine", loaded && !machines.isEmpty());
+            divider(context, 72);
+            row(context, 3, 76, stopped ? "gui.neoecoae.processing.action.resume" : "gui.neoecoae.processing.action.stop", loaded && canStop);
         } else {
             if (mode == Mode.MESSAGE) text(context, message, 7, 29, 0xA22D37);
-            else for (int index = 0; index < PAGE_SIZE && page * PAGE_SIZE + index < sources.size(); index++) {
-                var source = sources.get(page * PAGE_SIZE + index);
+            else for (int index = 0; index < PAGE_SIZE && page * PAGE_SIZE + index < choices().size(); index++) {
+                var source = choices().get(page * PAGE_SIZE + index);
                 float top = 24 + index * 30;
-                if (mode == Mode.CHOOSE && hovered == index) context.graphics.fill(Math.round(x + 4), Math.round(y + top - 2), Math.round(x + width - 4), Math.round(y + top + 28), 0x807B81B8);
+                if ((mode == Mode.CHOOSE || mode == Mode.CHOOSE_MACHINE) && hovered == index) context.graphics.fill(Math.round(x + 4), Math.round(y + top - 2), Math.round(x + width - 4), Math.round(y + top + 28), 0x807B81B8);
                 Component name = Component.Serializer.fromJson(source.getString("name"));
                 text(context, name == null ? Component.empty() : name, 7, top, 0x413F54);
                 text(context, Component.literal(source.getString("dimension")), 7, top + 9, 0x666477);
