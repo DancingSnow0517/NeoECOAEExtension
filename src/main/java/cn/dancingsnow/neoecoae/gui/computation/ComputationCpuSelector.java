@@ -46,11 +46,13 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     private final ComputationControllerUI.Config config;
     private final IntConsumer openDetails;
     private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
-    private final BindableValue<Integer> scrollRequest = new BindableValue<>(0);
+    private final BindableValue<CompoundTag> scrollRequest = new BindableValue<>(new CompoundTag());
     private final ComputationScrollbar scrollbar;
     private final HostProgressAnimation opening = new HostProgressAnimation();
     private List<ComputationCpuEntry> page = List.of();
     private int selectedSerial = -1, total, offset, pageOffset;
+    private boolean scrollPending;
+    private long scrollSequence;
 
     ComputationCpuSelector(ComputationControllerUI.Config config, IntConsumer openDetails,
             CpuSelectionState.Identities<ECOCraftingCPU> identities) {
@@ -64,7 +66,8 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         bind(DataBindingBuilder.create(server::snapshot, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
         selectionRequest.bind(DataBindingBuilder.intValC2S(server::select).build());
-        scrollRequest.bind(DataBindingBuilder.intValC2S(server::scroll).build());
+        scrollRequest.bind(DataBindingBuilder.<CompoundTag>create(null, server::scroll)
+            .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
         selectionRequest.setDisplay(false);
         scrollRequest.setDisplay(false);
         addChildren(selectionRequest, scrollRequest);
@@ -91,12 +94,17 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         super.setValue(value, notify);
         if (value == null || !value.contains("total")) return this;
         total = value.getInt("total");
-        offset = pageOffset = value.getInt("offset");
+        offset = JdkCompat.clamp(offset, 0, Math.max(0, total - ROWS));
         selectedSerial = value.getInt("selectedSerial");
-        page = value.getList("page", Tag.TAG_COMPOUND).stream()
-            .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
+        int receivedOffset = value.getInt("offset");
+        if (!scrollPending || value.getLong("scrollSequence") == scrollSequence) {
+            offset = pageOffset = receivedOffset;
+            page = value.getList("page", Tag.TAG_COMPOUND).stream()
+                .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
+            scrollPending = false;
+            scrollRequest.setValue(scrollTag(scrollSequence, offset), false);
+        }
         scrollbar.update(offset, total - ROWS, ROWS / 3);
-        scrollRequest.setValue(offset, false);
         selectionRequest.setValue(selectedSerial, false);
         return this;
     }
@@ -129,9 +137,19 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     }
 
     private void scrollTo(int requested) {
-        offset = JdkCompat.clamp(requested, 0, Math.max(0, total - ROWS));
+        int next = JdkCompat.clamp(requested, 0, Math.max(0, total - ROWS));
+        if (next == offset) return;
+        offset = next;
+        scrollPending = true;
         scrollbar.update(offset, total - ROWS, ROWS / 3);
-        scrollRequest.setValue(offset);
+        scrollRequest.setValue(scrollTag(++scrollSequence, offset));
+    }
+
+    private static CompoundTag scrollTag(long sequence, int offset) {
+        var tag = new CompoundTag();
+        tag.putLong("sequence", sequence);
+        tag.putInt("offset", offset);
+        return tag;
     }
 
     @Override
@@ -142,7 +160,8 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         context.graphics.flush();
         text(context, font, GuiText.CPUs.text().getString() + " (" + total + ")", x + 8, y + 6, 70, 0.75F, 0x3F3D52);
         for (int row = 0; row < ROWS; row++) {
-            ComputationCpuEntry entry = rowEntry(row);
+            // Retain the last complete page until the requested page arrives.
+            ComputationCpuEntry entry = row < page.size() ? page.get(row) : null;
             if (entry != null) drawRow(context, font, entry, x + LIST_X, y + LIST_Y + row * ROW_STRIDE);
         }
     }
@@ -246,7 +265,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         private final ComputationControllerUI.Config config;
         private final CpuSelectionState<ECOCraftingCPU> selection;
         private CompoundTag cached;
-        private long sampledTick = Long.MIN_VALUE, revision;
+        private long sampledTick = Long.MIN_VALUE, revision, scrollSequence;
 
         private ServerState(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
             this.config = config;
@@ -263,10 +282,11 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
             cached = null;
             revision++;
         }
-        private void scroll(int offset) {
+        private void scroll(CompoundTag request) {
             if (!config.canInteract().getAsBoolean()) return;
             refresh();
-            selection.scroll(offset);
+            selection.scroll(request.getInt("offset"));
+            scrollSequence = request.getLong("sequence");
             cached = null;
             revision++;
         }
@@ -279,6 +299,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
             tag.putLong("revision", revision);
             tag.putInt("total", selection.size());
             tag.putInt("offset", selection.offset());
+            tag.putLong("scrollSequence", scrollSequence);
             tag.putInt("selectedSerial", selection.selectedSerial());
             var registries = config.registries();
             ListTag page = new ListTag();

@@ -68,8 +68,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
 
     private final ComputationControllerUI.Config config;
     private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
-    private final BindableValue<Integer> cpuScrollRequest = new BindableValue<>(0);
-    private final BindableValue<Integer> itemScrollRequest = new BindableValue<>(0);
+    private final BindableValue<CompoundTag> cpuScrollRequest = new BindableValue<>(new CompoundTag());
+    private final BindableValue<CompoundTag> itemScrollRequest = new BindableValue<>(new CompoundTag());
     private final StatusButton pauseButton = new StatusButton();
     private final StatusButton cancelButton = new StatusButton();
     private final ComputationScrollbar cpuScrollbar;
@@ -78,6 +78,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private List<ComputationCpuItemEntry> items = List.of();
     private ComputationCpuEntry selected;
     private int selectedSerial = -1, total, cpuOffset, cpuPageOffset, itemTotal, itemOffset, itemPageOffset;
+    private boolean cpuScrollPending, itemScrollPending;
+    private long cpuScrollSequence, itemScrollSequence;
     private Runnable backAction = () -> {};
 
     ComputationCpuStatusPanel(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
@@ -91,8 +93,10 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         bind(DataBindingBuilder.create(server::snapshot, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
         selectionRequest.bind(DataBindingBuilder.intValC2S(server::select).build());
-        cpuScrollRequest.bind(DataBindingBuilder.intValC2S(server::scrollCpu).build());
-        itemScrollRequest.bind(DataBindingBuilder.intValC2S(server::scrollItems).build());
+        cpuScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(null, server::scrollCpu)
+            .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
+        itemScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(null, server::scrollItems)
+            .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
         selectionRequest.setDisplay(false);
         cpuScrollRequest.setDisplay(false);
         itemScrollRequest.setDisplay(false);
@@ -138,6 +142,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     void setBackAction(Runnable action) { backAction = action; }
 
     void open(int serial) {
+        itemScrollPending = false;
         selectedSerial = serial;
         selectionRequest.setValue(serial);
     }
@@ -147,18 +152,28 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         super.setValue(value, notify);
         if (value == null || !value.contains("total")) return this;
         total = value.getInt("total");
-        cpuOffset = cpuPageOffset = value.getInt("cpuOffset");
         selectedSerial = value.getInt("selectedSerial");
         itemTotal = value.getInt("itemTotal");
-        itemOffset = itemPageOffset = value.getInt("itemOffset");
-        cpus = value.getList("cpus", Tag.TAG_COMPOUND).stream()
-            .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
-        items = value.getList("items", Tag.TAG_COMPOUND).stream()
-            .map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, config.registries())).toList();
+        cpuOffset = JdkCompat.clamp(cpuOffset, 0, Math.max(0, total - ROWS));
+        itemOffset = JdkCompat.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
+        int receivedCpuOffset = value.getInt("cpuOffset");
+        if (!cpuScrollPending || value.getLong("cpuScrollSequence") == cpuScrollSequence) {
+            cpuOffset = cpuPageOffset = receivedCpuOffset;
+            cpus = value.getList("cpus", Tag.TAG_COMPOUND).stream()
+                .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
+            cpuScrollPending = false;
+            cpuScrollRequest.setValue(scrollTag(cpuScrollSequence, cpuOffset), false);
+        }
+        int receivedItemOffset = value.getInt("itemOffset");
+        if (!itemScrollPending || value.getLong("itemScrollSequence") == itemScrollSequence) {
+            itemOffset = itemPageOffset = receivedItemOffset;
+            items = value.getList("items", Tag.TAG_COMPOUND).stream()
+                .map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, config.registries())).toList();
+            itemScrollPending = false;
+            itemScrollRequest.setValue(scrollTag(itemScrollSequence, itemOffset), false);
+        }
         selected = value.contains("selected")
             ? ComputationCpuEntry.read(value.getCompound("selected"), config.registries()) : null;
-        cpuScrollRequest.setValue(cpuOffset, false);
-        itemScrollRequest.setValue(itemOffset, false);
         selectionRequest.setValue(selectedSerial, false);
         cpuScrollbar.update(cpuOffset, total - ROWS, ROWS / 3);
         itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal), 1);
@@ -173,6 +188,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         UIElement hitbox = hitbox(CPU_X, CPU_Y + row * CPU_STRIDE, CPU_WIDTH, CPU_HEIGHT);
         hitbox.addEventListener(UIEvents.MOUSE_UP, event -> {
             if (event.button != 0 || cpuOffset != cpuPageOffset || row >= cpus.size()) return;
+            itemScrollPending = false;
             selectedSerial = cpus.get(row).serial();
             selectionRequest.setValue(selectedSerial);
             event.stopImmediatePropagation();
@@ -203,15 +219,28 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private void scrollCpuTo(int value) {
-        cpuOffset = JdkCompat.clamp(value, 0, Math.max(0, total - ROWS));
+        int next = JdkCompat.clamp(value, 0, Math.max(0, total - ROWS));
+        if (next == cpuOffset) return;
+        cpuOffset = next;
+        cpuScrollPending = true;
         cpuScrollbar.update(cpuOffset, total - ROWS, ROWS / 3);
-        cpuScrollRequest.setValue(cpuOffset);
+        cpuScrollRequest.setValue(scrollTag(++cpuScrollSequence, cpuOffset));
     }
 
     private void scrollItemsTo(int value) {
-        itemOffset = JdkCompat.clamp(value / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
+        int next = JdkCompat.clamp(value / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
+        if (next == itemOffset) return;
+        itemOffset = next;
+        itemScrollPending = true;
         itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal), 1);
-        itemScrollRequest.setValue(itemOffset);
+        itemScrollRequest.setValue(scrollTag(++itemScrollSequence, itemOffset));
+    }
+
+    private static CompoundTag scrollTag(long sequence, int offset) {
+        var tag = new CompoundTag();
+        tag.putLong("sequence", sequence);
+        tag.putInt("offset", offset);
+        return tag;
     }
 
     private static int maxItemRows(int total) {
@@ -225,8 +254,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         context.graphics.flush();
         context.graphics.drawString(font, GuiText.CraftingCPUs.text(), Math.round(x + CPU_X), Math.round(y + 7), 0xFF000000 | TEXT, false);
         context.graphics.drawString(font, title(selected, itemTotal > 0), Math.round(x + ITEM_X - 1), Math.round(y + 7), 0xFF000000 | TEXT, false);
-        for (int row = 0; cpuOffset == cpuPageOffset && row < cpus.size() && row < ROWS; row++) drawCpu(context, font, cpus.get(row), x + CPU_X, y + CPU_Y + row * CPU_STRIDE);
-        for (int index = 0; itemOffset == itemPageOffset && index < items.size() && index < ITEM_PAGE; index++) {
+        // Keep the last complete pages visible while server-side pagination catches up.
+        for (int row = 0; row < cpus.size() && row < ROWS; row++) drawCpu(context, font, cpus.get(row), x + CPU_X, y + CPU_Y + row * CPU_STRIDE);
+        for (int index = 0; index < items.size() && index < ITEM_PAGE; index++) {
             drawItem(context, font, items.get(index), x + ITEM_X + (index % ITEM_COLS) * ITEM_COLUMN_STRIDE,
                 y + ITEM_Y + (index / ITEM_COLS) * ITEM_STRIDE, AEConfig.instance().isUseColoredCraftingStatus());
         }
@@ -362,6 +392,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private CompoundTag cached;
         private long sampledTick = Long.MIN_VALUE;
         private int itemOffset;
+        private long cpuScrollSequence, itemScrollSequence;
 
         private ServerState(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
             this.config = config;
@@ -381,18 +412,20 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             cached = null;
         }
 
-        private void scrollCpu(int offset) {
+        private void scrollCpu(CompoundTag request) {
             if (!config.canInteract().getAsBoolean()) return;
             refresh();
-            selection.scroll(offset);
+            selection.scroll(request.getInt("offset"));
+            cpuScrollSequence = request.getLong("sequence");
             cached = null;
         }
 
-        private void scrollItems(int offset) {
+        private void scrollItems(CompoundTag request) {
             if (!config.canInteract().getAsBoolean()) return;
             refresh();
             int total = selectedItems(selection.selected()).size();
-            itemOffset = JdkCompat.clamp(offset / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
+            itemOffset = JdkCompat.clamp(request.getInt("offset") / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
+            itemScrollSequence = request.getLong("sequence");
             cached = null;
         }
 
@@ -415,6 +448,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             CompoundTag tag = new CompoundTag();
             tag.putInt("total", selection.size());
             tag.putInt("cpuOffset", selection.offset());
+            tag.putLong("cpuScrollSequence", cpuScrollSequence);
+            tag.putLong("itemScrollSequence", itemScrollSequence);
             tag.putInt("selectedSerial", selection.selectedSerial());
             var registries = config.registries();
             ListTag cpuPage = new ListTag();
