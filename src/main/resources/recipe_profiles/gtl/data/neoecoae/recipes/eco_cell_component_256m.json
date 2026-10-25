@@ -28,11 +28,11 @@
       "item": "neoecoae:crystal_ingot"
     },
     {
-      "tag": "gtceu:circuits/uhv",
+      "tag": "gtceu:circuits/iv",
       "count": 4
     },
     {
-      "item": "gtceu:uhv_field_generator",
+      "item": "gtceu:iv_field_generator",
       "count": 2
     }
   ],

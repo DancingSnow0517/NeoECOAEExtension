@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PLAN = ROOT / "docs/GTM_GTL_WORKSTATION_RECIPE_PLAN.json"
+PLAN = ROOT / "scripts/gt-recipe-plan.json"
 OUTPUT = ROOT / "src/main/resources/recipe_profiles"
 PACKS = ("gtm", "gtl", "gt_legacy", "gt_modern")
 
@@ -118,7 +118,7 @@ def compile_packs() -> dict[str, dict[str, dict]]:
             # Forge's empty conditional recipe explicitly removes an overridden recipe.
             pack[recipe_path(recipe_id)] = {"type": "forge:conditional", "recipes": []}
         for row in plan["native_workstation_recipes"]:
-            pack[recipe_path(row["replaces"])] = workstation(row["profiles"][profile], profile)
+            pack[recipe_path(row["replaces"])] = workstation(row, profile)
         for row in plan["module_recipes"]:
             card = row["item_output"]["item"].split("integrated_working_station_module_", 1)[1]
             pack[recipe_path(f"neoecoae:integrated_working_station/module_{card}")] = workstation(row, profile)

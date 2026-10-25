@@ -40,11 +40,11 @@
       "item": "ae2:cell_component_256k"
     },
     {
-      "tag": "gtceu:circuits/zpm",
+      "tag": "gtceu:circuits/ev",
       "count": 4
     },
     {
-      "item": "gtceu:zpm_sensor",
+      "item": "gtceu:ev_sensor",
       "count": 2
     }
   ],

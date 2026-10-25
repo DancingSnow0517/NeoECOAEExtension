@@ -1,0 +1,2748 @@
+{
+  "schema": "neoecoae.gt-recipe-plan.v1",
+  "native_workstation_recipes": [
+    {
+      "replaces": "neoecoae:computation_system_l4",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:computation_casing"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:computation_parallel_core_l4"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_field_generator",
+          "count": 2
+        }
+      ],
+      "ae_energy": 16000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:computation_system_l4"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 288
+      }
+    },
+    {
+      "replaces": "neoecoae:computation_system_l6",
+      "item_inputs": [
+        {
+          "count": 1,
+          "item": "neoecoae:computation_system_l4"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:computation_parallel_core_l6"
+        },
+        {
+          "count": 32,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 32,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_sensor",
+          "count": 2
+        }
+      ],
+      "ae_energy": 160000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:computation_system_l6"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 1152
+      }
+    },
+    {
+      "replaces": "neoecoae:computation_system_l9",
+      "item_inputs": [
+        {
+          "count": 1,
+          "item": "neoecoae:computation_system_l6"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:computation_parallel_core_l9"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 4
+        },
+        {
+          "item": "gtceu:iv_emitter",
+          "count": 2
+        }
+      ],
+      "ae_energy": 640000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:computation_system_l9"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 4608
+      }
+    },
+    {
+      "replaces": "neoecoae:crafting_system_l4",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:crafting_casing"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:crafting_parallel_core_l4"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_field_generator",
+          "count": 2
+        }
+      ],
+      "ae_energy": 16000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:crafting_system_l4"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 288
+      }
+    },
+    {
+      "replaces": "neoecoae:crafting_system_l6",
+      "item_inputs": [
+        {
+          "count": 1,
+          "item": "neoecoae:crafting_system_l4"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:crafting_parallel_core_l6"
+        },
+        {
+          "count": 32,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 32,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_sensor",
+          "count": 2
+        }
+      ],
+      "ae_energy": 160000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:crafting_system_l6"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 1152
+      }
+    },
+    {
+      "replaces": "neoecoae:crafting_system_l9",
+      "item_inputs": [
+        {
+          "count": 1,
+          "item": "neoecoae:crafting_system_l6"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:crafting_parallel_core_l9"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 4
+        },
+        {
+          "item": "gtceu:iv_emitter",
+          "count": 2
+        }
+      ],
+      "ae_energy": 640000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:crafting_system_l9"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 4608
+      }
+    },
+    {
+      "replaces": "neoecoae:eco_cell_component_16m",
+      "item_inputs": [
+        {
+          "count": 12,
+          "item": "ae2:cell_component_256k"
+        },
+        {
+          "count": 32,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 4,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:crystal_ingot"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_field_generator",
+          "count": 2
+        }
+      ],
+      "ae_energy": 16000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_cell_component_16m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 144
+      }
+    },
+    {
+      "replaces": "neoecoae:eco_cell_component_256m",
+      "item_inputs": [
+        {
+          "count": 3,
+          "item": "neoecoae:eco_cell_component_64m"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:crystal_ingot"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 4
+        },
+        {
+          "item": "gtceu:iv_field_generator",
+          "count": 2
+        }
+      ],
+      "ae_energy": 144000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_cell_component_256m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 2304
+      }
+    },
+    {
+      "replaces": "neoecoae:eco_cell_component_64m",
+      "item_inputs": [
+        {
+          "count": 3,
+          "item": "neoecoae:eco_cell_component_16m"
+        },
+        {
+          "count": 48,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:crystal_ingot"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_field_generator",
+          "count": 2
+        }
+      ],
+      "ae_energy": 48000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_cell_component_64m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 576
+      }
+    },
+    {
+      "replaces": "neoecoae:eco_computation_cell_l4",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:eco_cell_component_16m"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 4,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:crystal_matrix"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_sensor",
+          "count": 2
+        }
+      ],
+      "ae_energy": 64000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_computation_cell_l4"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 288
+      }
+    },
+    {
+      "replaces": "neoecoae:eco_computation_cell_l6",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:eco_cell_component_64m"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:crystal_matrix"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_sensor",
+          "count": 2
+        }
+      ],
+      "ae_energy": 256000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_computation_cell_l6"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 1152
+      }
+    },
+    {
+      "replaces": "neoecoae:eco_computation_cell_l9",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:eco_cell_component_256m"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:crystal_matrix"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 4
+        },
+        {
+          "item": "gtceu:iv_sensor",
+          "count": 2
+        }
+      ],
+      "ae_energy": 1024000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_computation_cell_l9"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 4608
+      }
+    },
+    {
+      "replaces": "neoecoae:eco_infinite_cell_component",
+      "item_inputs": [
+        {
+          "count": 128,
+          "item": "neoecoae:eco_cell_component_256m"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 64,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:crystal_ingot"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:storage_system_l9"
+        },
+        {
+          "count": 16,
+          "item": "ae2:drive"
+        },
+        {
+          "item": "gtceu:zpm_field_generator",
+          "count": 4
+        },
+        {
+          "item": "gtceu:naquadah_alloy_plate",
+          "count": 16
+        }
+      ],
+      "ae_energy": 1000000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_infinite_cell_component"
+      },
+      "input_fluid": {
+        "amount": 64000,
+        "fluid": "neoecoae:cryotheum_solution"
+      }
+    },
+    {
+      "replaces": "neoecoae:eco_infinite_item_cell",
+      "item_inputs": [
+        {
+          "count": 1,
+          "item": "minecraft:water_bucket"
+        },
+        {
+          "count": 1,
+          "item": "minecraft:lava_bucket"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_cell_component_256m"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:crystal_matrix"
+        },
+        {
+          "tag": "gtceu:circuits/zpm",
+          "count": 4
+        },
+        {
+          "item": "gtceu:zpm_field_generator",
+          "count": 4
+        },
+        {
+          "item": "gtceu:naquadah_alloy_plate",
+          "count": 8
+        }
+      ],
+      "ae_energy": 144000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_infinite_item_cell"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 576
+      }
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/computation_high_energy_network_switch",
+      "item_inputs": [
+        {
+          "count": 2,
+          "item": "neoecoae:computation_network_switch"
+        },
+        {
+          "count": 8,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 32,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:black_tungsten_alloy_block"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:eco_cell_component_256m"
+        },
+        {
+          "count": 4,
+          "item": "gtceu:iv_sensor"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 8
+        }
+      ],
+      "ae_energy": 8000000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:computation_high_energy_network_switch"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 4608
+      }
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/computation_network_switch",
+      "item_inputs": [
+        {
+          "count": 2,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 16,
+          "item": "ae2:calculation_processor"
+        },
+        {
+          "count": 8,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 8,
+          "item": "neoecoae:computation_casing"
+        },
+        {
+          "count": 4,
+          "item": "ae2:cell_workbench"
+        },
+        {
+          "count": 4,
+          "item": "ae2:cell_component_256k"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_sensor",
+          "count": 2
+        }
+      ],
+      "ae_energy": 2000000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:computation_network_switch"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 1152
+      }
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/crafting_high_energy_network_switch",
+      "item_inputs": [
+        {
+          "count": 2,
+          "item": "neoecoae:crafting_network_switch"
+        },
+        {
+          "count": 8,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 32,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:black_tungsten_alloy_block"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:eco_cell_component_256m"
+        },
+        {
+          "count": 4,
+          "item": "neoecoae:crystal_matrix"
+        },
+        {
+          "count": 4,
+          "item": "gtceu:iv_emitter"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 8
+        }
+      ],
+      "ae_energy": 8000000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:crafting_high_energy_network_switch"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 4608
+      }
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/crafting_network_switch",
+      "item_inputs": [
+        {
+          "count": 2,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 16,
+          "item": "ae2:engineering_processor"
+        },
+        {
+          "count": 8,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 8,
+          "item": "neoecoae:crafting_casing"
+        },
+        {
+          "count": 4,
+          "item": "ae2:molecular_assembler"
+        },
+        {
+          "count": 2,
+          "item": "ae2:256k_crafting_storage"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_sensor",
+          "count": 2
+        }
+      ],
+      "ae_energy": 2000000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:crafting_network_switch"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 1152
+      }
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/cryotheum_solution",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:cryotheum_crystal"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:energized_crystal"
+        },
+        {
+          "count": 2,
+          "tag": "forge:dusts/redstone"
+        },
+        {
+          "item": "gtceu:sodium_dust",
+          "count": 2
+        }
+      ],
+      "ae_energy": 1000,
+      "ticks": 100,
+      "fluid_output": {
+        "amount": 1000,
+        "fluid": "neoecoae:cryotheum_solution"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:distilled_water",
+        "amount": 1000
+      }
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/crystal_ingot",
+      "item_inputs": [
+        {
+          "tag": "forge:dusts/certus_quartz",
+          "count": 4
+        },
+        {
+          "tag": "forge:dusts/fluix",
+          "count": 4
+        },
+        {
+          "tag": "forge:dusts/energized_crystal",
+          "count": 4
+        },
+        {
+          "tag": "neoecoae:compat/gt/crystal_bases",
+          "count": 4
+        },
+        {
+          "item": "gtceu:quartzite_dust",
+          "count": 4
+        }
+      ],
+      "ae_energy": 200000,
+      "ticks": 100,
+      "item_output": {
+        "count": 4,
+        "item": "neoecoae:crystal_ingot"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:argon",
+        "amount": 2000
+      }
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_complex_omni_cell_16m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:complex_omni_cell_component_16m"
+        },
+        {
+          "count": 2,
+          "item": "ae2omnicells:complex_link_processor"
+        },
+        {
+          "count": 2,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_complex_omni_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        }
+      ],
+      "ae_energy": 1000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_complex_omni_cell_16m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 144
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_complex_omni_cell_256m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:complex_omni_cell_component_256m"
+        },
+        {
+          "count": 8,
+          "item": "ae2omnicells:complex_link_processor"
+        },
+        {
+          "count": 32,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_complex_omni_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 4
+        }
+      ],
+      "ae_energy": 144000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_complex_omni_cell_256m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 2304
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_complex_omni_cell_64m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:complex_omni_cell_component_64m"
+        },
+        {
+          "count": 4,
+          "item": "ae2omnicells:complex_link_processor"
+        },
+        {
+          "count": 8,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_complex_omni_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        }
+      ],
+      "ae_energy": 12000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_complex_omni_cell_64m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 576
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_omni_cell_16m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:omni_cell_component_16m"
+        },
+        {
+          "count": 2,
+          "item": "ae2omnicells:omni_link_processor"
+        },
+        {
+          "count": 1,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_omni_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        }
+      ],
+      "ae_energy": 1000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_omni_cell_16m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 144
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_omni_cell_256m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:omni_cell_component_256m"
+        },
+        {
+          "count": 8,
+          "item": "ae2omnicells:omni_link_processor"
+        },
+        {
+          "count": 16,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_omni_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 4
+        }
+      ],
+      "ae_energy": 144000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_omni_cell_256m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 2304
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_omni_cell_64m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:omni_cell_component_64m"
+        },
+        {
+          "count": 4,
+          "item": "ae2omnicells:omni_link_processor"
+        },
+        {
+          "count": 4,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_omni_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        }
+      ],
+      "ae_energy": 12000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_omni_cell_64m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 576
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_quantum_omni_cell_16m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:quantum_omni_cell_component_16m"
+        },
+        {
+          "count": 2,
+          "item": "ae2omnicells:multidimensional_expansion_processor"
+        },
+        {
+          "count": 4,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_quantum_omni_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        }
+      ],
+      "ae_energy": 1000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_quantum_omni_cell_16m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 144
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_quantum_omni_cell_256m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:quantum_omni_cell_component_256m"
+        },
+        {
+          "count": 8,
+          "item": "ae2omnicells:multidimensional_expansion_processor"
+        },
+        {
+          "count": 64,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_quantum_omni_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 4
+        }
+      ],
+      "ae_energy": 144000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_quantum_omni_cell_256m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 2304
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_quantum_omni_cell_64m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:quantum_omni_cell_component_64m"
+        },
+        {
+          "count": 4,
+          "item": "ae2omnicells:multidimensional_expansion_processor"
+        },
+        {
+          "count": 16,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_quantum_omni_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        }
+      ],
+      "ae_energy": 12000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_quantum_omni_cell_64m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 576
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_spent_nuclear_waste_cell_16m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:quantum_omni_cell_component_16m"
+        },
+        {
+          "count": 1,
+          "item": "ae2omnicells:spent_nuclear_waste_component"
+        },
+        {
+          "count": 40,
+          "item": "mekanism:hdpe_sheet"
+        },
+        {
+          "count": 10,
+          "item": "mekanism:pellet_antimatter"
+        },
+        {
+          "count": 20,
+          "item": "mekanism:radioactive_waste_barrel"
+        },
+        {
+          "count": 2,
+          "item": "ae2omnicells:multidimensional_expansion_processor"
+        },
+        {
+          "count": 14,
+          "item": "ae2omnicells:spent_nuclear_waste_singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_spent_nuclear_waste_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        }
+      ],
+      "ae_energy": 1000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_spent_nuclear_waste_cell_16m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 144
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        },
+        {
+          "type": "forge:mod_loaded",
+          "modid": "appmek"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_spent_nuclear_waste_cell_256m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:quantum_omni_cell_component_256m"
+        },
+        {
+          "count": 1,
+          "item": "ae2omnicells:spent_nuclear_waste_component"
+        },
+        {
+          "count": 40,
+          "item": "mekanism:hdpe_sheet"
+        },
+        {
+          "count": 10,
+          "item": "mekanism:pellet_antimatter"
+        },
+        {
+          "count": 20,
+          "item": "mekanism:radioactive_waste_barrel"
+        },
+        {
+          "count": 8,
+          "item": "ae2omnicells:multidimensional_expansion_processor"
+        },
+        {
+          "count": 74,
+          "item": "ae2omnicells:spent_nuclear_waste_singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_spent_nuclear_waste_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 4
+        }
+      ],
+      "ae_energy": 144000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_spent_nuclear_waste_cell_256m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 2304
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        },
+        {
+          "type": "forge:mod_loaded",
+          "modid": "appmek"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/eco_spent_nuclear_waste_cell_64m",
+      "item_inputs": [
+        {
+          "count": 10,
+          "item": "ae2omnicells:quantum_omni_cell_component_64m"
+        },
+        {
+          "count": 1,
+          "item": "ae2omnicells:spent_nuclear_waste_component"
+        },
+        {
+          "count": 40,
+          "item": "mekanism:hdpe_sheet"
+        },
+        {
+          "count": 10,
+          "item": "mekanism:pellet_antimatter"
+        },
+        {
+          "count": 20,
+          "item": "mekanism:radioactive_waste_barrel"
+        },
+        {
+          "count": 4,
+          "item": "ae2omnicells:multidimensional_expansion_processor"
+        },
+        {
+          "count": 26,
+          "item": "ae2omnicells:spent_nuclear_waste_singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_spent_nuclear_waste_cell_housing"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        }
+      ],
+      "ae_energy": 12000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:eco_spent_nuclear_waste_cell_64m"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 576
+      },
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2omnicells"
+        },
+        {
+          "type": "forge:mod_loaded",
+          "modid": "appmek"
+        }
+      ]
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/energized_crystal",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "ae2:charged_certus_quartz_crystal"
+        },
+        {
+          "count": 4,
+          "tag": "forge:dusts/energized_crystal"
+        }
+      ],
+      "ae_energy": 62500,
+      "ticks": 100,
+      "item_output": {
+        "count": 8,
+        "item": "neoecoae:energized_crystal"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:distilled_water",
+        "amount": 250
+      }
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/energized_fluix_crystal",
+      "item_inputs": [
+        {
+          "count": 8,
+          "tag": "forge:dusts/energized_crystal"
+        },
+        {
+          "count": 8,
+          "tag": "forge:gems/fluix"
+        }
+      ],
+      "ae_energy": 62500,
+      "ticks": 100,
+      "item_output": {
+        "count": 8,
+        "item": "neoecoae:energized_fluix_crystal"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:distilled_water",
+        "amount": 250
+      }
+    },
+    {
+      "replaces": "neoecoae:integrated_working_station/energized_superconductive_ingot",
+      "item_inputs": [
+        {
+          "tag": "forge:dusts/energized_fluix_crystal",
+          "count": 4
+        },
+        {
+          "tag": "neoecoae:compat/gt/aluminium_dusts",
+          "count": 4
+        },
+        {
+          "tag": "neoecoae:compat/gt/silicon",
+          "count": 4
+        },
+        {
+          "tag": "neoecoae:compat/gt/superconductor_ingots",
+          "count": 4
+        }
+      ],
+      "ae_energy": 200000,
+      "ticks": 100,
+      "item_output": {
+        "count": 4,
+        "item": "neoecoae:energized_superconductive_ingot"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:argon",
+        "amount": 2000
+      }
+    },
+    {
+      "replaces": "neoecoae:large_integrated_working_station_casing",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:black_tungsten_alloy_casing"
+        },
+        {
+          "count": 2,
+          "item": "ae2:sky_stone_block"
+        },
+        {
+          "count": 2,
+          "item": "ae2:engineering_processor"
+        },
+        {
+          "count": 1,
+          "tag": "forge:storage_blocks/energized_fluix_crystal"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_cell_component_16m"
+        },
+        {
+          "count": 8,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 8,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 2
+        },
+        {
+          "item": "gtceu:titanium_plate",
+          "count": 4
+        }
+      ],
+      "ae_energy": 256000,
+      "ticks": 100,
+      "item_output": {
+        "count": 4,
+        "item": "neoecoae:large_integrated_working_station_casing"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 576
+      }
+    },
+    {
+      "replaces": "neoecoae:large_integrated_working_station_input_hatch",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:large_integrated_working_station_casing"
+        },
+        {
+          "count": 2,
+          "item": "ae2:import_bus"
+        },
+        {
+          "count": 1,
+          "item": "ae2:interface"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_fluid_cell_housing"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "item": "gtceu:ev_electric_pump",
+          "count": 2
+        },
+        {
+          "item": "gtceu:ev_conveyor_module",
+          "count": 2
+        }
+      ],
+      "ae_energy": 128000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:large_integrated_working_station_input_hatch"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 288
+      }
+    },
+    {
+      "replaces": "neoecoae:large_integrated_working_station_interface",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:large_integrated_working_station_casing"
+        },
+        {
+          "count": 1,
+          "item": "ae2:interface"
+        },
+        {
+          "count": 2,
+          "item": "ae2:singularity"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_cell_component_16m"
+        },
+        {
+          "count": 4,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 4,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 2
+        },
+        {
+          "item": "gtceu:ev_sensor",
+          "count": 2
+        }
+      ],
+      "ae_energy": 256000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:large_integrated_working_station_interface"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 576
+      }
+    },
+    {
+      "replaces": "neoecoae:large_integrated_working_station_output_hatch",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:large_integrated_working_station_casing"
+        },
+        {
+          "count": 2,
+          "item": "ae2:export_bus"
+        },
+        {
+          "count": 1,
+          "item": "ae2:interface"
+        },
+        {
+          "count": 1,
+          "item": "neoecoae:eco_fluid_cell_housing"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 2,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "item": "gtceu:ev_electric_pump",
+          "count": 2
+        },
+        {
+          "item": "gtceu:ev_conveyor_module",
+          "count": 2
+        }
+      ],
+      "ae_energy": 128000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:large_integrated_working_station_output_hatch"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 288
+      }
+    },
+    {
+      "replaces": "neoecoae:storage_system_l4",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "neoecoae:storage_casing"
+        },
+        {
+          "count": 4,
+          "item": "ae2:drive"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 16,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_field_generator",
+          "count": 2
+        }
+      ],
+      "ae_energy": 16000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:storage_system_l4"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 288
+      }
+    },
+    {
+      "replaces": "neoecoae:storage_system_l6",
+      "item_inputs": [
+        {
+          "count": 1,
+          "item": "neoecoae:storage_system_l4"
+        },
+        {
+          "count": 8,
+          "item": "ae2:drive"
+        },
+        {
+          "count": 32,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 32,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "gtceu:ev_sensor",
+          "count": 2
+        }
+      ],
+      "ae_energy": 160000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:storage_system_l6"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 1152
+      }
+    },
+    {
+      "replaces": "neoecoae:storage_system_l9",
+      "item_inputs": [
+        {
+          "count": 1,
+          "item": "neoecoae:storage_system_l6"
+        },
+        {
+          "count": 16,
+          "item": "ae2:drive"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:energized_superconductive_ingot"
+        },
+        {
+          "count": 64,
+          "item": "neoecoae:superconducting_processor"
+        },
+        {
+          "tag": "gtceu:circuits/iv",
+          "count": 4
+        },
+        {
+          "item": "gtceu:iv_emitter",
+          "count": 2
+        }
+      ],
+      "ae_energy": 640000,
+      "ticks": 100,
+      "item_output": {
+        "count": 1,
+        "item": "neoecoae:storage_system_l9"
+      },
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 4608
+      }
+    }
+  ],
+  "gt_bootstrap_recipes": [
+    {
+      "key": "B01",
+      "recipe_type": "gtceu:mixer",
+      "item_inputs": [
+        {
+          "tag": "forge:dusts/iron",
+          "count": 1
+        },
+        {
+          "tag": "neoecoae:compat/gt/aluminium_dusts",
+          "count": 1
+        },
+        {
+          "tag": "forge:dusts/certus_quartz",
+          "count": 2
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:aluminum_alloy_dust",
+        "count": 1
+      },
+      "eu_per_tick": 120,
+      "ticks": 200,
+      "conditions": []
+    },
+    {
+      "key": "B02",
+      "recipe_type": "gtceu:mixer",
+      "item_inputs": [
+        {
+          "tag": "forge:dusts/tungsten",
+          "count": 1
+        },
+        {
+          "tag": "forge:dusts/aluminum_alloy",
+          "count": 1
+        },
+        {
+          "tag": "forge:dusts/fluix",
+          "count": 2
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:black_tungsten_alloy_dust",
+        "count": 1
+      },
+      "eu_per_tick": 480,
+      "ticks": 200,
+      "conditions": []
+    },
+    {
+      "key": "B03",
+      "recipe_type": "gtceu:alloy_smelter",
+      "item_inputs": [
+        {
+          "item": "neoecoae:aluminum_alloy_dust",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:aluminum_alloy_ingot",
+        "count": 1
+      },
+      "eu_per_tick": 120,
+      "ticks": 200,
+      "conditions": []
+    },
+    {
+      "key": "B04",
+      "recipe_type": "gtceu:electric_blast_furnace",
+      "item_inputs": [
+        {
+          "item": "neoecoae:black_tungsten_alloy_dust",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:black_tungsten_alloy_ingot",
+        "count": 1
+      },
+      "eu_per_tick": 1920,
+      "ticks": 400,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:argon",
+        "amount": 100
+      },
+      "blast_temperature": 3600
+    },
+    {
+      "key": "B05",
+      "recipe_type": "gtceu:autoclave",
+      "item_inputs": [
+        {
+          "count": 4,
+          "item": "ae2:charged_certus_quartz_crystal"
+        },
+        {
+          "count": 4,
+          "tag": "forge:dusts/energized_crystal"
+        }
+      ],
+      "item_output": {
+        "count": 8,
+        "item": "neoecoae:energized_crystal"
+      },
+      "eu_per_tick": 480,
+      "ticks": 100,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:distilled_water",
+        "amount": 250
+      }
+    },
+    {
+      "key": "B06",
+      "recipe_type": "gtceu:autoclave",
+      "item_inputs": [
+        {
+          "count": 8,
+          "tag": "forge:dusts/energized_crystal"
+        },
+        {
+          "count": 8,
+          "tag": "forge:gems/fluix"
+        }
+      ],
+      "item_output": {
+        "count": 8,
+        "item": "neoecoae:energized_fluix_crystal"
+      },
+      "eu_per_tick": 480,
+      "ticks": 100,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:distilled_water",
+        "amount": 250
+      }
+    },
+    {
+      "key": "B07",
+      "recipe_type": "gtceu:mixer",
+      "item_inputs": [
+        {
+          "tag": "forge:dusts/certus_quartz",
+          "count": 4
+        },
+        {
+          "tag": "forge:dusts/fluix",
+          "count": 4
+        },
+        {
+          "tag": "forge:dusts/energized_crystal",
+          "count": 4
+        },
+        {
+          "tag": "neoecoae:compat/gt/crystal_bases",
+          "count": 4
+        },
+        {
+          "item": "gtceu:quartzite_dust",
+          "count": 4
+        }
+      ],
+      "item_output": {
+        "count": 4,
+        "item": "neoecoae:crystal_ingot"
+      },
+      "eu_per_tick": 480,
+      "ticks": 400,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:argon",
+        "amount": 2000
+      }
+    },
+    {
+      "key": "B08",
+      "recipe_type": "gtceu:mixer",
+      "item_inputs": [
+        {
+          "tag": "forge:dusts/energized_fluix_crystal",
+          "count": 4
+        },
+        {
+          "tag": "neoecoae:compat/gt/aluminium_dusts",
+          "count": 4
+        },
+        {
+          "tag": "neoecoae:compat/gt/silicon",
+          "count": 4
+        },
+        {
+          "tag": "neoecoae:compat/gt/superconductor_ingots",
+          "count": 4
+        }
+      ],
+      "item_output": {
+        "count": 4,
+        "item": "neoecoae:energized_superconductive_ingot"
+      },
+      "eu_per_tick": 1920,
+      "ticks": 400,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:argon",
+        "amount": 2000
+      }
+    },
+    {
+      "key": "B09",
+      "recipe_type": "gtceu:circuit_assembler",
+      "item_inputs": [
+        {
+          "item": "neoecoae:superconducting_processor_print",
+          "count": 4
+        },
+        {
+          "item": "neoecoae:crystal_matrix",
+          "count": 4
+        },
+        {
+          "item": "ae2:printed_silicon",
+          "count": 4
+        },
+        {
+          "tag": "gtceu:circuits/hv",
+          "count": 1
+        },
+        {
+          "item": "gtceu:fine_gold_wire",
+          "count": 8
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:superconducting_processor",
+        "count": 4
+      },
+      "eu_per_tick": 1920,
+      "ticks": 200,
+      "conditions": [
+        {
+          "cleanroom": "cleanroom"
+        }
+      ],
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 144
+      }
+    },
+    {
+      "key": "B10",
+      "recipe_type": "gtceu:assembler",
+      "item_inputs": [
+        {
+          "item": "gtceu:ev_machine_hull",
+          "count": 1
+        },
+        {
+          "item": "neoecoae:aluminum_alloy_casing",
+          "count": 4
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 4
+        },
+        {
+          "item": "ae2:molecular_assembler",
+          "count": 1
+        },
+        {
+          "item": "ae2:256k_crafting_storage",
+          "count": 1
+        },
+        {
+          "item": "ae2:cell_workbench",
+          "count": 1
+        },
+        {
+          "item": "neoecoae:superconducting_processor",
+          "count": 2
+        },
+        {
+          "item": "ae2:interface",
+          "count": 1
+        },
+        {
+          "item": "gtceu:ev_electric_motor",
+          "count": 2
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:integrated_working_station",
+        "count": 1
+      },
+      "eu_per_tick": 1920,
+      "ticks": 600,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 576
+      }
+    },
+    {
+      "key": "B11",
+      "recipe_type": "gtceu:assembler",
+      "item_inputs": [
+        {
+          "item": "neoecoae:aluminum_alloy_ingot",
+          "count": 4
+        },
+        {
+          "item": "gtceu:aluminium_plate",
+          "count": 4
+        },
+        {
+          "item": "ae2:quartz_vibrant_glass",
+          "count": 4
+        },
+        {
+          "item": "neoecoae:crystal_ingot",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:aluminum_alloy_casing",
+        "count": 2
+      },
+      "eu_per_tick": 480,
+      "ticks": 100,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 144
+      }
+    },
+    {
+      "key": "B12",
+      "recipe_type": "gtceu:assembler",
+      "item_inputs": [
+        {
+          "item": "neoecoae:black_tungsten_alloy_ingot",
+          "count": 4
+        },
+        {
+          "item": "gtceu:titanium_plate",
+          "count": 4
+        },
+        {
+          "item": "ae2:quartz_vibrant_glass",
+          "count": 4
+        },
+        {
+          "item": "neoecoae:crystal_ingot",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:black_tungsten_alloy_casing",
+        "count": 2
+      },
+      "eu_per_tick": 1920,
+      "ticks": 200,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 144
+      }
+    },
+    {
+      "key": "B13",
+      "recipe_type": "gtceu:assembler",
+      "item_inputs": [
+        {
+          "item": "neoecoae:black_tungsten_alloy_casing",
+          "count": 4
+        },
+        {
+          "item": "ae2:engineering_processor",
+          "count": 2
+        },
+        {
+          "tag": "forge:storage_blocks/energized_fluix_crystal",
+          "count": 1
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 2
+        },
+        {
+          "item": "gtceu:stainless_steel_plate",
+          "count": 4
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:crafting_casing",
+        "count": 1
+      },
+      "eu_per_tick": 1920,
+      "ticks": 200,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 288
+      }
+    },
+    {
+      "key": "B14",
+      "recipe_type": "gtceu:assembler",
+      "item_inputs": [
+        {
+          "item": "neoecoae:aluminum_alloy_casing",
+          "count": 4
+        },
+        {
+          "item": "ae2:logic_processor",
+          "count": 2
+        },
+        {
+          "tag": "forge:storage_blocks/energized_fluix_crystal",
+          "count": 1
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 2
+        },
+        {
+          "item": "gtceu:titanium_plate",
+          "count": 4
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:storage_casing",
+        "count": 1
+      },
+      "eu_per_tick": 1920,
+      "ticks": 200,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 288
+      }
+    },
+    {
+      "key": "B15",
+      "recipe_type": "gtceu:assembler",
+      "item_inputs": [
+        {
+          "item": "neoecoae:aluminum_alloy_casing",
+          "count": 4
+        },
+        {
+          "item": "ae2:calculation_processor",
+          "count": 2
+        },
+        {
+          "tag": "forge:storage_blocks/energized_fluix_crystal",
+          "count": 1
+        },
+        {
+          "tag": "gtceu:circuits/ev",
+          "count": 2
+        },
+        {
+          "item": "gtceu:titanium_plate",
+          "count": 4
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:computation_casing",
+        "count": 1
+      },
+      "eu_per_tick": 1920,
+      "ticks": 200,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 288
+      }
+    },
+    {
+      "key": "B16",
+      "recipe_type": "gtceu:assembler",
+      "item_inputs": [
+        {
+          "item": "ae2:advanced_card",
+          "count": 1
+        },
+        {
+          "item": "gtceu:polyethylene_plate",
+          "count": 4
+        },
+        {
+          "item": "neoecoae:superconducting_processor",
+          "count": 2
+        },
+        {
+          "tag": "gtceu:circuits/hv",
+          "count": 2
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:integrated_working_station_module_empty",
+        "count": 4
+      },
+      "eu_per_tick": 480,
+      "ticks": 100,
+      "conditions": [],
+      "input_fluid": {
+        "fluid": "gtceu:soldering_alloy",
+        "amount": 144
+      }
+    }
+  ],
+  "ore_processing_recipes": [
+    {
+      "key": "O01",
+      "recipe_type": "gtceu:macerator",
+      "item_inputs": [
+        {
+          "item": "neoecoae:aluminum_ore",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:raw_aluminum_ore",
+        "count": 2
+      },
+      "eu_per_tick": 120,
+      "ticks": 200,
+      "conditions": []
+    },
+    {
+      "key": "O02",
+      "recipe_type": "gtceu:macerator",
+      "item_inputs": [
+        {
+          "item": "neoecoae:raw_aluminum_ore",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "gtceu:aluminium_dust",
+        "count": 1
+      },
+      "eu_per_tick": 120,
+      "ticks": 200,
+      "conditions": []
+    },
+    {
+      "key": "O03",
+      "recipe_type": "gtceu:macerator",
+      "item_inputs": [
+        {
+          "item": "neoecoae:tungsten_ore",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:raw_tungsten_ore",
+        "count": 2
+      },
+      "eu_per_tick": 480,
+      "ticks": 200,
+      "conditions": []
+    },
+    {
+      "key": "O04",
+      "recipe_type": "gtceu:macerator",
+      "item_inputs": [
+        {
+          "item": "neoecoae:raw_tungsten_ore",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "gtceu:tungsten_dust",
+        "count": 1
+      },
+      "eu_per_tick": 1920,
+      "ticks": 400,
+      "conditions": []
+    }
+  ],
+  "module_recipes": [
+    {
+      "key": "U01",
+      "recipe_type": "neoecoae:integrated_working_station",
+      "item_inputs": [
+        {
+          "item": "neoecoae:integrated_working_station_module_empty",
+          "count": 1
+        },
+        {
+          "item": "advanced_ae:reaction_chamber",
+          "count": 1
+        },
+        {
+          "item": "gtceu:ev_field_generator",
+          "count": 2
+        },
+        {
+          "item": "neoecoae:superconducting_processor",
+          "count": 8
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:integrated_working_station_module_advanced_ae",
+        "count": 1
+      },
+      "ae_energy": 16000,
+      "ticks": 100,
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "advanced_ae"
+        }
+      ]
+    },
+    {
+      "key": "U02",
+      "recipe_type": "neoecoae:integrated_working_station",
+      "item_inputs": [
+        {
+          "item": "neoecoae:integrated_working_station_module_empty",
+          "count": 1
+        },
+        {
+          "item": "expatternprovider:ex_molecular_assembler",
+          "count": 1
+        },
+        {
+          "item": "gtceu:ev_robot_arm",
+          "count": 2
+        },
+        {
+          "item": "neoecoae:superconducting_processor",
+          "count": 8
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:integrated_working_station_module_extendedae",
+        "count": 1
+      },
+      "ae_energy": 16000,
+      "ticks": 100,
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "expatternprovider"
+        }
+      ]
+    },
+    {
+      "key": "U03",
+      "recipe_type": "neoecoae:integrated_working_station",
+      "item_inputs": [
+        {
+          "item": "neoecoae:integrated_working_station_module_empty",
+          "count": 1
+        },
+        {
+          "item": "ae2lt:lightning_assembly_chamber",
+          "count": 1
+        },
+        {
+          "item": "gtceu:ev_emitter",
+          "count": 2
+        },
+        {
+          "item": "neoecoae:superconducting_processor",
+          "count": 8
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:integrated_working_station_module_aelt",
+        "count": 1
+      },
+      "ae_energy": 16000,
+      "ticks": 100,
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2lt"
+        }
+      ]
+    },
+    {
+      "key": "U04",
+      "recipe_type": "neoecoae:integrated_working_station",
+      "item_inputs": [
+        {
+          "item": "neoecoae:integrated_working_station_module_empty",
+          "count": 1
+        },
+        {
+          "item": "neoecoae:crystal_ingot",
+          "count": 16
+        },
+        {
+          "item": "gtceu:ev_sensor",
+          "count": 2
+        },
+        {
+          "item": "neoecoae:superconducting_processor",
+          "count": 8
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:integrated_working_station_module_ae2cs",
+        "count": 1
+      },
+      "ae_energy": 16000,
+      "ticks": 100,
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "ae2cs"
+        }
+      ]
+    }
+  ],
+  "finished_material_conversions": [
+    {
+      "key": "M01",
+      "recipe_type": "minecraft:crafting_shapeless",
+      "item_inputs": [
+        {
+          "item": "neoecoae:aluminum_ingot",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "gtceu:aluminium_ingot",
+        "count": 1
+      },
+      "ticks": 0,
+      "energy": 0
+    },
+    {
+      "key": "M02",
+      "recipe_type": "minecraft:crafting_shapeless",
+      "item_inputs": [
+        {
+          "item": "neoecoae:aluminum_dust",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "gtceu:aluminium_dust",
+        "count": 1
+      },
+      "ticks": 0,
+      "energy": 0
+    },
+    {
+      "key": "M03",
+      "recipe_type": "minecraft:crafting_shapeless",
+      "item_inputs": [
+        {
+          "item": "neoecoae:aluminum_block",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "gtceu:aluminium_block",
+        "count": 1
+      },
+      "ticks": 0,
+      "energy": 0
+    },
+    {
+      "key": "M04",
+      "recipe_type": "minecraft:crafting_shapeless",
+      "item_inputs": [
+        {
+          "item": "neoecoae:tungsten_ingot",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "gtceu:tungsten_ingot",
+        "count": 1
+      },
+      "ticks": 0,
+      "energy": 0
+    },
+    {
+      "key": "M05",
+      "recipe_type": "minecraft:crafting_shapeless",
+      "item_inputs": [
+        {
+          "item": "neoecoae:tungsten_dust",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "gtceu:tungsten_dust",
+        "count": 1
+      },
+      "ticks": 0,
+      "energy": 0
+    },
+    {
+      "key": "M06",
+      "recipe_type": "minecraft:crafting_shapeless",
+      "item_inputs": [
+        {
+          "item": "neoecoae:tungsten_block",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "gtceu:tungsten_block",
+        "count": 1
+      },
+      "ticks": 0,
+      "energy": 0
+    }
+  ],
+  "private_material_tags": {
+    "neoecoae:compat/gt/aluminium_ingots": {
+      "item_ids": [
+        "neoecoae:aluminum_ingot",
+        "gtceu:aluminium_ingot"
+      ]
+    },
+    "neoecoae:compat/gt/aluminium_dusts": {
+      "item_ids": [
+        "neoecoae:aluminum_dust",
+        "gtceu:aluminium_dust"
+      ]
+    },
+    "neoecoae:compat/gt/aluminium_blocks": {
+      "item_ids": [
+        "neoecoae:aluminum_block",
+        "gtceu:aluminium_block"
+      ]
+    },
+    "neoecoae:compat/gt/silicon": {
+      "item_ids": [
+        "ae2:silicon",
+        "gtceu:silicon_dust",
+        "gtceu:silicon_ingot"
+      ]
+    },
+    "neoecoae:compat/gt/crystal_bases": {
+      "tag_ids": [
+        "forge:gems/diamond"
+      ]
+    },
+    "neoecoae:compat/gt/superconductor_ingots": {
+      "item_ids": [
+        "gtceu:mercury_barium_calcium_cuprate_ingot",
+        "gtceu:niobium_titanium_ingot",
+        "gtceu:vanadium_gallium_ingot",
+        "gtceu:yttrium_barium_cuprate_ingot"
+      ]
+    }
+  },
+  "local_input_rebindings": {
+    "forge:ingots/aluminum": "neoecoae:compat/gt/aluminium_ingots",
+    "forge:dusts/aluminum": "neoecoae:compat/gt/aluminium_dusts",
+    "forge:storage_blocks/aluminum": "neoecoae:compat/gt/aluminium_blocks"
+  },
+  "canonical_pure_metal_packing": {
+    "aluminium": {
+      "block": "gtceu:aluminium_block",
+      "ingot": "gtceu:aluminium_ingot",
+      "ingots_per_block": 9
+    },
+    "tungsten": {
+      "block": "gtceu:tungsten_block",
+      "ingot": "gtceu:tungsten_ingot",
+      "ingots_per_block": 9
+    }
+  },
+  "disable_old_recipe_ids_when_profile_active": [
+    "neoecoae:aluminum_alloy_casing",
+    "neoecoae:aluminum_alloy_dust",
+    "neoecoae:aluminum_alloy_ingot_from_dusts_aluminum_alloy_blasting",
+    "neoecoae:aluminum_alloy_ingot_from_dusts_aluminum_alloy_smelting",
+    "neoecoae:aluminum_ingot_from_dusts_aluminum_blasting",
+    "neoecoae:aluminum_ingot_from_dusts_aluminum_smelting",
+    "neoecoae:aluminum_ingot_from_ores_aluminum_blasting",
+    "neoecoae:aluminum_ingot_from_ores_aluminum_smelting",
+    "neoecoae:aluminum_ingot_from_raw_materials_aluminum_blasting",
+    "neoecoae:aluminum_ingot_from_raw_materials_aluminum_smelting",
+    "neoecoae:black_tungsten_alloy_casing",
+    "neoecoae:black_tungsten_alloy_dust",
+    "neoecoae:black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_blasting",
+    "neoecoae:black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_smelting",
+    "neoecoae:computation_casing",
+    "neoecoae:crafting_casing",
+    "neoecoae:integrated_working_station",
+    "neoecoae:storage_casing",
+    "neoecoae:transform/crystal_ingot",
+    "neoecoae:transform/energized_fluix_crystal",
+    "neoecoae:transform/energized_superconductive_ingot",
+    "neoecoae:tungsten_ingot_from_dusts_tungsten_blasting",
+    "neoecoae:tungsten_ingot_from_dusts_tungsten_smelting",
+    "neoecoae:tungsten_ingot_from_ores_tungsten_blasting",
+    "neoecoae:tungsten_ingot_from_ores_tungsten_smelting",
+    "neoecoae:tungsten_ingot_from_raw_materials_tungsten_blasting",
+    "neoecoae:tungsten_ingot_from_raw_materials_tungsten_smelting"
+  ],
+  "addon_recipe_adjustments": [
+    {
+      "recipe_id": "neoecoae:reaction_chamber/energized_crystal",
+      "recipe_type": "advanced_ae:reaction",
+      "item_inputs_source": [
+        {
+          "amount": 32,
+          "ingredient": {
+            "item": "ae2:charged_certus_quartz_crystal"
+          }
+        },
+        {
+          "amount": 32,
+          "ingredient": {
+            "tag": "forge:dusts/energized_crystal"
+          }
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:energized_crystal",
+        "count": 64
+      },
+      "input_fluid": {
+        "fluid": "gtceu:distilled_water",
+        "amount": 500
+      },
+      "ae_energy": 500000,
+      "ticks": 100,
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "advanced_ae"
+        }
+      ]
+    },
+    {
+      "recipe_id": "neoecoae:reaction_chamber/energized_fluix_crystal",
+      "recipe_type": "advanced_ae:reaction",
+      "item_inputs_source": [
+        {
+          "amount": 64,
+          "ingredient": {
+            "tag": "forge:dusts/energized_crystal"
+          }
+        },
+        {
+          "amount": 64,
+          "ingredient": {
+            "tag": "forge:gems/fluix"
+          }
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:energized_fluix_crystal",
+        "count": 64
+      },
+      "input_fluid": {
+        "fluid": "gtceu:distilled_water",
+        "amount": 500
+      },
+      "ae_energy": 500000,
+      "ticks": 100,
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "advanced_ae"
+        }
+      ]
+    }
+  ]
+}

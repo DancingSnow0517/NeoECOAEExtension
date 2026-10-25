@@ -36,11 +36,11 @@
       "item": "ae2:256k_crafting_storage"
     },
     {
-      "tag": "gtceu:circuits/luv",
+      "tag": "gtceu:circuits/ev",
       "count": 4
     },
     {
-      "item": "gtceu:luv_sensor",
+      "item": "gtceu:ev_sensor",
       "count": 2
     }
   ],

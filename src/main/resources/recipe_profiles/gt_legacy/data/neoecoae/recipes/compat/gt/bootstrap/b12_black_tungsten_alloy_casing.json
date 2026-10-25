@@ -23,7 +23,7 @@
           "type": "gtceu:sized",
           "count": 4,
           "ingredient": {
-            "item": "gtceu:tungsten_steel_plate"
+            "item": "gtceu:titanium_plate"
           }
         }
       },

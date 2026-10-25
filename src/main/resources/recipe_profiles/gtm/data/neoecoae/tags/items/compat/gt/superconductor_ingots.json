@@ -2,6 +2,10 @@
   "replace": false,
   "values": [
     {
+      "id": "gtceu:mercury_barium_calcium_cuprate_ingot",
+      "required": false
+    },
+    {
       "id": "gtceu:niobium_titanium_ingot",
       "required": false
     },

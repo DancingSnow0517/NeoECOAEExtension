@@ -40,11 +40,11 @@
       "item": "ae2:256k_crafting_storage"
     },
     {
-      "tag": "gtceu:circuits/zpm",
+      "tag": "gtceu:circuits/ev",
       "count": 4
     },
     {
-      "item": "gtceu:zpm_sensor",
+      "item": "gtceu:ev_sensor",
       "count": 2
     }
   ],

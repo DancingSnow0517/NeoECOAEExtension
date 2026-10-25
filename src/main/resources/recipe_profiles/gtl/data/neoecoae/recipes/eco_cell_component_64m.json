@@ -28,11 +28,11 @@
       "item": "neoecoae:crystal_ingot"
     },
     {
-      "tag": "gtceu:circuits/zpm",
+      "tag": "gtceu:circuits/ev",
       "count": 4
     },
     {
-      "item": "gtceu:zpm_field_generator",
+      "item": "gtceu:ev_field_generator",
       "count": 2
     }
   ],

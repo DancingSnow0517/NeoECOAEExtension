@@ -28,11 +28,11 @@
       "item": "neoecoae:crystal_matrix"
     },
     {
-      "tag": "gtceu:circuits/uhv",
+      "tag": "gtceu:circuits/iv",
       "count": 4
     },
     {
-      "item": "gtceu:uhv_sensor",
+      "item": "gtceu:iv_sensor",
       "count": 2
     }
   ],

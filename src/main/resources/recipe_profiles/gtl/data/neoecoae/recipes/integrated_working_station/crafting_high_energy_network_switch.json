@@ -41,10 +41,10 @@
     },
     {
       "count": 4,
-      "item": "gtceu:uhv_emitter"
+      "item": "gtceu:iv_emitter"
     },
     {
-      "tag": "gtceu:circuits/uhv",
+      "tag": "gtceu:circuits/iv",
       "count": 8
     }
   ],

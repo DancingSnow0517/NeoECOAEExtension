@@ -32,11 +32,11 @@
       "item": "neoecoae:superconducting_processor"
     },
     {
-      "item": "gtceu:iv_electric_pump",
+      "item": "gtceu:ev_electric_pump",
       "count": 2
     },
     {
-      "item": "gtceu:iv_conveyor_module",
+      "item": "gtceu:ev_conveyor_module",
       "count": 2
     }
   ],

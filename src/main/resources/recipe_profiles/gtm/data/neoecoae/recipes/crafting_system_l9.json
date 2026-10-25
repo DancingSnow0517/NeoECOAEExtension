@@ -24,11 +24,11 @@
       "item": "neoecoae:superconducting_processor"
     },
     {
-      "tag": "gtceu:circuits/uv",
+      "tag": "gtceu:circuits/iv",
       "count": 4
     },
     {
-      "item": "gtceu:uv_emitter",
+      "item": "gtceu:iv_emitter",
       "count": 2
     }
   ],

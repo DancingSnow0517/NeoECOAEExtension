@@ -33,10 +33,10 @@
     },
     {
       "count": 4,
-      "item": "gtceu:uv_sensor"
+      "item": "gtceu:iv_sensor"
     },
     {
-      "tag": "gtceu:circuits/uv",
+      "tag": "gtceu:circuits/iv",
       "count": 8
     }
   ],

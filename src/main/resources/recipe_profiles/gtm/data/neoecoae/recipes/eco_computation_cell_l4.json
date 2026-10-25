@@ -24,11 +24,11 @@
       "item": "neoecoae:crystal_matrix"
     },
     {
-      "tag": "gtceu:circuits/iv",
+      "tag": "gtceu:circuits/ev",
       "count": 4
     },
     {
-      "item": "gtceu:iv_sensor",
+      "item": "gtceu:ev_sensor",
       "count": 2
     }
   ],

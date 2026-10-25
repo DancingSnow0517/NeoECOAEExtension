@@ -169,7 +169,10 @@ class GTRecipeProfilesTest {
             assertEquals(1, eu.getAsJsonObject().get("amperage").getAsInt());
         } else assertEquals(1920, eu.getAsInt());
         var blast = recipe("gt_" + schema, "compat/gt/bootstrap/b04_black_tungsten_alloy_ingot");
-        assertEquals(4500, blast.getAsJsonObject("data").get("ebf_temp").getAsInt());
+        assertEquals(3600, blast.getAsJsonObject("data").get("ebf_temp").getAsInt());
+        var casing = recipe("gt_" + schema, "compat/gt/bootstrap/b12_black_tungsten_alloy_casing");
+        assertTrue(casing.toString().contains("gtceu:titanium_plate"));
+        assertFalse(casing.toString().contains("gtceu:tungsten_steel_plate"));
         var processor = recipe("gt_" + schema, "compat/gt/bootstrap/b09_superconducting_processor");
         assertEquals(prefix + "cleanroom", processor.getAsJsonArray("recipeConditions")
             .get(0).getAsJsonObject().get("type").getAsString());
@@ -186,19 +189,53 @@ class GTRecipeProfilesTest {
         }
     }
 
-    @Test void gtlReplacesOnlyTheSpecifiedTiersAndKeepsTheIvLargeStructure() throws Exception {
-        var gtm = recipe("gtm", "eco_cell_component_16m").toString();
-        var gtl = recipe("gtl", "eco_cell_component_16m").toString();
-        assertTrue(gtm.contains("gtceu:ev_field_generator"));
-        assertTrue(gtl.contains("gtceu:iv_field_generator"));
-        assertTrue(recipe("gtl", "eco_cell_component_64m").toString().contains("gtceu:zpm_field_generator"));
-        assertTrue(recipe("gtl", "eco_cell_component_256m").toString().contains("gtceu:uhv_field_generator"));
-        var casing = recipe("gtl", "large_integrated_working_station_casing");
+    @ParameterizedTest @ValueSource(strings = {"gtm", "gtl"})
+    void hostsCellsAndNetworkSwitchesStopAtIv(String profile) throws Exception {
+        for (String level : List.of("l4", "l6", "l9")) {
+            String tier = level.equals("l9") ? "iv" : "ev";
+            for (String machine : List.of("crafting_system_", "storage_system_", "computation_system_",
+                    "eco_computation_cell_")) {
+                assertGtTier(recipe(profile, machine + level), tier);
+            }
+        }
+        for (String capacity : List.of("16m", "64m", "256m")) {
+            String tier = capacity.equals("256m") ? "iv" : "ev";
+            assertGtTier(recipe(profile, "eco_cell_component_" + capacity), tier);
+            for (String family : List.of("omni", "complex_omni", "quantum_omni", "spent_nuclear_waste")) {
+                assertGtTier(recipe(profile, "integrated_working_station/eco_" + family + "_cell_" + capacity), tier);
+            }
+        }
+        for (String machine : List.of("crafting", "computation")) {
+            assertGtTier(recipe(profile, "integrated_working_station/" + machine + "_network_switch"), "ev");
+            assertGtTier(recipe(profile, "integrated_working_station/" + machine + "_high_energy_network_switch"), "iv");
+        }
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"gtm", "gtl"})
+    void largeWorkstationStructureAndRequiredMaterialsAreAvailableAtEv(String profile) throws Exception {
+        for (String part : List.of("casing", "interface", "input_hatch", "output_hatch")) {
+            assertGtTier(recipe(profile, "large_integrated_working_station_" + part), "ev");
+        }
+        assertGtTier(recipe(profile, "eco_cell_component_16m"), "ev");
+        var superconductors = read(ROOT.resolve(profile).resolve(
+            "data/neoecoae/tags/items/compat/gt/superconductor_ingots.json"));
+        assertTrue(superconductors.getAsJsonArray("values").asList().stream().anyMatch(value ->
+            value.getAsJsonObject().get("id").getAsString().equals("gtceu:mercury_barium_calcium_cuprate_ingot")));
+        var casing = recipe(profile, "large_integrated_working_station_casing");
         assertEquals(4, casing.getAsJsonObject("itemOutput").get("count").getAsInt());
         assertTrue(casing.toString().contains("neoecoae:eco_cell_component_16m"));
-        var infinite = recipe("gtl", "eco_infinite_cell_component");
-        assertTrue(infinite.toString().contains("gtceu:quantanium_ingot"));
-        assertTrue(infinite.toString().contains("gtceu:uev_field_generator"));
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"gtm", "gtl"})
+    void infiniteStorageUsesZpmComponentsAndMaterials(String profile) throws Exception {
+        for (String name : List.of("eco_infinite_cell_component", "eco_infinite_item_cell")) {
+            var recipe = recipe(profile, name);
+            assertGtTier(recipe, "zpm");
+            assertTrue(recipe.toString().contains("gtceu:naquadah_alloy_plate"));
+            assertFalse(recipe.toString().contains("gtceu:quantanium_ingot"));
+            assertFalse(recipe.toString().contains("gtceu:neutronium_plate"));
+        }
+        var infinite = recipe(profile, "eco_infinite_cell_component");
         assertEquals(128, infinite.getAsJsonArray("inputItems").get(0).getAsJsonObject().get("count").getAsInt());
     }
 
@@ -275,6 +312,24 @@ class GTRecipeProfilesTest {
                 assertEquals(1, conversion.getAsJsonObject("result").get("count").getAsInt());
             }
         }
+    }
+
+    private static void assertGtTier(JsonObject recipe, String expectedTier) {
+        boolean foundTier = false;
+        for (var element : recipe.getAsJsonArray("inputItems")) {
+            var input = element.getAsJsonObject();
+            if (input.has("tag") && input.get("tag").getAsString().startsWith("gtceu:circuits/")) {
+                assertEquals("gtceu:circuits/" + expectedTier, input.get("tag").getAsString());
+                foundTier = true;
+            } else if (input.has("item")) {
+                String item = input.get("item").getAsString();
+                if (item.matches("gtceu:(?:ulv|lv|mv|hv|ev|iv|luv|zpm|uv|uhv|uev|uiv|uxv|opv)_.*")) {
+                    assertEquals(expectedTier, item.substring("gtceu:".length(), item.indexOf('_')), item);
+                    foundTier = true;
+                }
+            }
+        }
+        assertTrue(foundTier, "Recipe must have a GT progression requirement: " + recipe);
     }
 
     private static Pack pack(String name) {

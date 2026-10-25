@@ -36,11 +36,11 @@
       "item": "neoecoae:superconducting_processor"
     },
     {
-      "tag": "gtceu:circuits/iv",
+      "tag": "gtceu:circuits/ev",
       "count": 2
     },
     {
-      "item": "gtceu:iv_sensor",
+      "item": "gtceu:ev_sensor",
       "count": 2
     }
   ],
