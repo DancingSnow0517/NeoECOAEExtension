@@ -38,14 +38,21 @@ public final class ECOBatchInputLease {
 
     /** Only a linear batch may refund a proportional, explicitly rejected suffix. */
     public void commitLinear(long accepted, long offered) {
+        commitScaled(accepted, offered, ECOBatchInputScaling.LINEAR);
+    }
+
+    /** An accepted prefix retains configuration inputs once, even when its materials are partially refunded. */
+    public void commitScaled(long accepted, long offered, ECOBatchInputScaling scaling) {
         if (settled) throw new IllegalStateException("Batch input lease already settled");
         if (offered <= 0 || accepted < 0 || accepted > offered || !exactInputs.isEmpty()) {
             throw new IllegalArgumentException("Invalid linear batch settlement");
         }
         var refund = new java.util.ArrayList<GenericStack>();
         for (var input : inputs) {
-            if (input.amount() % offered != 0) throw new IllegalArgumentException("Non-linear batch inputs");
-            long amount = Math.multiplyExact(input.amount() / offered, offered - accepted);
+            long supplied = scaling.multiplier(input.what(), offered);
+            long retained = scaling.multiplier(input.what(), accepted);
+            if (input.amount() % supplied != 0) throw new IllegalArgumentException("Invalid scaled batch inputs");
+            long amount = Math.multiplyExact(input.amount() / supplied, supplied - retained);
             if (amount > 0) refund.add(new GenericStack(input.what(), amount));
         }
         settled = true;

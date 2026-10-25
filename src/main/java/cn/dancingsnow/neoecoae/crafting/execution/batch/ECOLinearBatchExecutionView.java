@@ -22,11 +22,19 @@ public final class ECOLinearBatchExecutionView implements ECOBatchExecutionView 
 
     public ECOLinearBatchExecutionView(IPatternDetails originalPattern, long craftCount, KeyCounter[] inputCounters,
             KeyCounter outputCounter, KeyCounter remainderCounter, Level level) {
+        this(originalPattern, craftCount, inputCounters, outputCounter, remainderCounter, level,
+                ECOBatchInputScaling.LINEAR);
+    }
+
+    public ECOLinearBatchExecutionView(IPatternDetails originalPattern, long craftCount, KeyCounter[] inputCounters,
+            KeyCounter outputCounter, KeyCounter remainderCounter, Level level, ECOBatchInputScaling inputScaling) {
         this.originalPattern = Objects.requireNonNull(originalPattern, "originalPattern");
         this.craftCount = craftCount;
         this.level = Objects.requireNonNull(level, "level");
         this.inputs = Arrays.stream(inputCounters)
-                .map(counter -> ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(counter), craftCount))
+                .map(counter -> inputScaling == ECOBatchInputScaling.LINEAR
+                        ? ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(counter), craftCount)
+                        : ECOFastPathStacks.copyCounter(inputScaling.scale(counter, craftCount)))
                 .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         this.outputs = ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(outputCounter), craftCount);
         this.remainders = ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(remainderCounter), craftCount);

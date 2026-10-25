@@ -10,6 +10,20 @@ authors="${mod_authors}"
 description='''Neo ECO AE Extension: Forge 1.20.1 port under development.'''
 
 [[dependencies.neoecoae]]
+modId="gtceu"
+mandatory=false
+versionRange="*"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.neoecoae]]
+modId="gtlcore"
+mandatory=false
+versionRange="*"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.neoecoae]]
 modId="ae2omnicells"
 mandatory=false
 versionRange="[1.1.6,)"

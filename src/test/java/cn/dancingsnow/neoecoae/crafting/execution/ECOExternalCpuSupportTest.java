@@ -111,11 +111,15 @@ class ECOExternalCpuSupportTest {
 
     void assertRejectedByCpuHooks(ICraftingPlan plan) throws Exception {
         for (var type : List.of(Ae2CraftingCpuFastPathMixin.class, AdvancedAeCraftingCpuLogicMixin.class)) {
-            var hook = type.getDeclaredMethod("neoecoae$validatePlan", IGrid.class, ICraftingPlan.class,
+            boolean nativeCpu = type == Ae2CraftingCpuFastPathMixin.class;
+            var hook = nativeCpu
+                ? type.getDeclaredMethod("neoecoae$validatePlan", CallbackInfoReturnable.class, ICraftingPlan.class)
+                : type.getDeclaredMethod("neoecoae$validatePlan", IGrid.class, ICraftingPlan.class,
                     IActionSource.class, ICraftingRequester.class, CallbackInfoReturnable.class);
             hook.setAccessible(true);
             var callback = new CallbackInfoReturnable<ICraftingSubmitResult>("trySubmitJob", true);
-            hook.invoke(mock(type, CALLS_REAL_METHODS), null, plan, null, null, callback);
+            hook.invoke(mock(type, CALLS_REAL_METHODS), nativeCpu
+                ? new Object[]{callback, plan} : new Object[]{null, plan, null, null, callback});
             assertTrue(callback.isCancelled());
             assertSame(CraftingSubmitResult.NO_CPU_FOUND, callback.getReturnValue());
         }

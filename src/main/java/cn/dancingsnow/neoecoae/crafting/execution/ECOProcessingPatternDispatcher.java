@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOProcessingExecutionPattern;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.compat.gregtech.ECOGregTechProcessingDispatch;
 import cn.dancingsnow.neoecoae.compat.advanced_ae.ECOAdvancedAEPatternScaling;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
@@ -82,7 +83,12 @@ final class ECOProcessingPatternDispatcher {
                 || isScaledAttemptBudgetExhausted() || isScaledDispatchDeferred(request, provider)
                 || !supportsScaledDispatchCached(request, provider)) return null;
         var direct = ECOAe2LtDirectDispatch.open(provider);
+        boolean gtBuffer = direct == null && ECOGregTechProcessingDispatch.isBuffer(provider);
         Object logic = direct == null ? providerLogic(provider) : null;
+        Object gtTarget = logic == null ? provider : logic;
+        var inputScaling = direct == null ? ECOGregTechProcessingDispatch.inputScaling(gtTarget)
+                : ECOBatchInputScaling.LINEAR;
+        boolean negotiatedCapacity = gtBuffer || ECOGregTechProcessingDispatch.hasCapacityContract(gtTarget);
         boolean advancedPattern = direct == null && ECOAdvancedAEPatternScaling.isAdvancedPattern(request.pattern());
         long transportLimit = direct == null ? Long.MAX_VALUE : direct.maxBatchSize(request.pattern());
         var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
@@ -95,7 +101,7 @@ final class ECOProcessingPatternDispatcher {
                 .computeIfAbsent(request.pattern(), x -> new ProbeState());
         long limit = Math.min(request.allowedCrafts(), budget);
         var ramp = state.beginRun(tick, SCALE_PROBE_INTERVAL_TICKS);
-        var planning = ECOBatchDispatchPlanning.prepare(request, provider);
+        var planning = ECOBatchDispatchPlanning.prepare(request, provider, inputScaling);
         IPatternDetails cachedExecutionPattern = null;
         long cachedCopies = 0;
         int visitAttempts = 0;
@@ -103,27 +109,47 @@ final class ECOProcessingPatternDispatcher {
                 && visitAttempts < MAX_ATTEMPTS_PER_VISIT && !provider.isBusy()) {
             attempts++;
             visitAttempts++;
-            long offer = Math.min(ramp.offer(limit - ramp.owned), transportLimit);
+            long offer = Math.min(negotiatedCapacity && !ramp.backingOff
+                    ? limit - ramp.owned : ramp.offer(limit - ramp.owned), transportLimit);
             var plan = planning.plan(offer, limit - ramp.owned, onePower, service, ECOBatchMode.LINEAR);
             if (plan == null) {
                 state.nextDispatchTick = tick + 1;
                 break;
             }
+            if (negotiatedCapacity) {
+                long capacity = ECOGregTechProcessingDispatch.maxOperations(gtTarget, request.pattern(),
+                        request.inputs(), plan.craftCount());
+                if (capacity == 0) {
+                    state.nextDispatchTick = state.nextFallbackTick = tick + 1;
+                    break;
+                }
+                if (capacity < plan.craftCount()) {
+                    plan = planning.plan(capacity, limit - ramp.owned, onePower, service, ECOBatchMode.LINEAR);
+                    if (plan == null) break;
+                }
+            }
             offer = plan.craftCount();
             if (direct == null && cachedCopies != offer) {
                 cachedExecutionPattern = offer == 1 ? request.pattern()
                         : advancedPattern ? ECOAdvancedAEPatternScaling.scale(request.pattern(), offer)
-                        : new ECOProcessingExecutionPattern(request.pattern(), offer);
+                        : new ECOProcessingExecutionPattern(request.pattern(), offer, inputScaling);
                 cachedCopies = offer;
             }
             IPatternDetails executionPattern = cachedExecutionPattern;
+            var dispatchPlan = plan;
             ECOBatchAdmission admission;
             try {
                 admission = ECOBatchExecutor.execute(plan, request.inputs(), request.outputs(), request.remainders(),
                         request.inventory(), request.level(), request.job().link.getCraftingID(),
-                        () -> energy.reserve(service, onePower, plan.craftCount()), batch -> {
+                        () -> energy.reserve(service, onePower, dispatchPlan.craftCount()), batch -> {
                             mark.accept(provider);
                             if (direct != null) return direct.submit(request.pattern(), request.inputs(), batch.craftCount());
+                            if (gtBuffer) {
+                                return ECOGregTechProcessingDispatch.pushBuffer(provider, request.pattern(),
+                                        executionPattern, batch.inputCounters())
+                                        ? ECOBatchAdmission.accepted(batch.craftCount(), true)
+                                        : ECOBatchAdmission.rejected();
+                            }
                             // Only this external API boundary needs an AE2 pattern-shaped execution view.
                             // The task, plan and accounting retain the original pattern identity.
                             if (executionPattern == null) return ECOBatchAdmission.rejected();
@@ -133,7 +159,7 @@ final class ECOProcessingPatternDispatcher {
                             return normalPush.push(scaledRequest, provider)
                                     ? ECOBatchAdmission.accepted(batch.craftCount(), fullyInserted(logic))
                                     : ECOBatchAdmission.rejected();
-                        });
+                        }, inputScaling);
             } catch (ECOIndeterminateBatchException failure) {
                 request.job().failPermanently("AMBIGUOUS_SCALED_PROVIDER_OWNERSHIP");
                 return null;
@@ -190,6 +216,11 @@ final class ECOProcessingPatternDispatcher {
     static boolean supportsScaledDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
         if (ECOExternalProviderBlocking.isEnabled(provider)) return false;
         if (provider instanceof ECOParallelCraftingProvider) return false;
+        if (ECOGregTechProcessingDispatch.isBuffer(provider)) {
+            return request.pattern().supportsPushInputsToExternalInventory()
+                    && request.pattern().getInputs().length > 0 && request.pattern().getOutputs().length > 0
+                    && ECOGregTechProcessingDispatch.supportsInputs(request.inputs());
+        }
         // A successful push can still own overflow. Require a live observation of AE2's send buffer.
         if (ECOAe2LtDirectDispatch.isProvider(provider)) {
             return ECOAe2LtDirectDispatch.open(provider) != null

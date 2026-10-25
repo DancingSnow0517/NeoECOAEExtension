@@ -25,7 +25,12 @@ final class ECOBatchDispatchPlanning {
     }
 
     static Prepared prepare(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
-        return new Prepared(request, provider);
+        return prepare(request, provider, ECOBatchInputScaling.LINEAR);
+    }
+
+    static Prepared prepare(ECOCraftingDispatchRequest request, ICraftingProvider provider,
+            ECOBatchInputScaling inputScaling) {
+        return new Prepared(request, provider, inputScaling);
     }
 
     /** Reuses recipe structure within one visit; all mutable resource limits are read for every offer. */
@@ -35,9 +40,12 @@ final class ECOBatchDispatchPlanning {
         private final Object2LongOpenHashMap<AEKey> inputs = new Object2LongOpenHashMap<>();
         private final Object2LongOpenHashMap<AEKey> waitingPerCraft = new Object2LongOpenHashMap<>();
         private final long arithmetic;
+        private final ECOBatchInputScaling inputScaling;
 
-        private Prepared(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+        private Prepared(ECOCraftingDispatchRequest request, ICraftingProvider provider,
+                ECOBatchInputScaling inputScaling) {
             this.request = request;
+            this.inputScaling = inputScaling;
             this.identity = ECOPatternIdentity.of(request.pattern(), provider);
             long limit;
             try {
@@ -46,7 +54,8 @@ final class ECOBatchDispatchPlanning {
                 for (var counter : request.inputs()) accumulate(counter, inputs);
                 accumulate(request.outputs(), waitingPerCraft);
                 accumulate(request.remainders(), waitingPerCraft);
-                limit = Math.min(arithmeticLimit(inputs), arithmeticLimit(waitingPerCraft));
+                limit = Math.min(arithmeticLimit(inputs, inputScaling),
+                        arithmeticLimit(waitingPerCraft, ECOBatchInputScaling.LINEAR));
             } catch (ArithmeticException overflow) {
                 limit = 0L;
             }
@@ -63,10 +72,13 @@ final class ECOBatchDispatchPlanning {
             }
         }
 
-        private static long arithmeticLimit(Object2LongOpenHashMap<AEKey> totals) {
+        private static long arithmeticLimit(Object2LongOpenHashMap<AEKey> totals, ECOBatchInputScaling scaling) {
             long limit = Long.MAX_VALUE;
-            for (var it = totals.values().iterator(); it.hasNext();) {
-                limit = Math.min(limit, ECOBatchCraftingHelper.maxBatchSizeForAmount(it.nextLong()));
+            for (var it = totals.object2LongEntrySet().fastIterator(); it.hasNext();) {
+                var input = it.next();
+                if (!scaling.perBatch().test(input.getKey())) {
+                    limit = Math.min(limit, ECOBatchCraftingHelper.maxBatchSizeForAmount(input.getLongValue()));
+                }
             }
             return limit;
         }
@@ -95,7 +107,11 @@ final class ECOBatchDispatchPlanning {
                 } else {
                     available = Math.max(0L, Math.max(0L, request.inventory().list.get(input.getKey())) - seed);
                 }
-                material = Math.min(material, available / input.getLongValue());
+                if (inputScaling.perBatch().test(input.getKey())) {
+                    if (available < input.getLongValue()) return null;
+                } else {
+                    material = Math.min(material, available / input.getLongValue());
+                }
                 if (material == 0) return null;
             }
             long waiting = Math.min(upper, ECOCraftingEnergyTransaction.maxSafeCrafts(singlePower));

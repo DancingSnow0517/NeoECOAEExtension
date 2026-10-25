@@ -65,6 +65,54 @@ class ECOBatchExecutorTest {
         verify(energy).refund();
     }
 
+    @Test void partialAcceptanceRetainsConfigurationOnceAndRefundsOnlyUnacceptedMaterials() {
+        var configuration = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        inventory.insert(configuration, 1, Actionable.MODULATE);
+        var configInput = new KeyCounter();
+        configInput.add(configuration, 1);
+        var scaling = new ECOBatchInputScaling(configuration::equals);
+        var result = ECOBatchExecutor.execute(plan(10), new KeyCounter[]{input, configInput}, input,
+                new KeyCounter(), inventory, level, UUID.randomUUID(), () -> energy, batch -> {
+                    assertEquals(20, batch.inputCounters()[0].get(key));
+                    assertEquals(1, batch.inputCounters()[1].get(configuration));
+                    assertEquals(1, batch.executionView().scaledInputs().get(1).get(0).amount());
+                    assertEquals(20, batch.outputCounter().get(key));
+                    batch.inputCounters()[1].clear();
+                    return ECOBatchAdmission.accepted(4, false);
+                }, scaling);
+        assertEquals(4, result.acceptedCrafts());
+        assertEquals(92, inventory.list.get(key));
+        assertEquals(0, inventory.list.get(configuration));
+        verify(energy).refundUnaccepted(4, 10);
+    }
+
+    @Test void repeatedConfigurationSlotsHaveOneAggregatedOwnershipReceipt() {
+        var configuration = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        inventory.insert(configuration, 2, Actionable.MODULATE);
+        var configInput = new KeyCounter();
+        configInput.add(configuration, 1);
+        var result = ECOBatchExecutor.execute(plan(10), new KeyCounter[]{input, configInput, configInput},
+                new KeyCounter(), new KeyCounter(), inventory, level, UUID.randomUUID(), () -> energy,
+                batch -> ECOBatchAdmission.accepted(3, false), new ECOBatchInputScaling(configuration::equals));
+        assertEquals(3, result.acceptedCrafts());
+        assertEquals(94, inventory.list.get(key));
+        assertEquals(0, inventory.list.get(configuration));
+        assertEquals(1, configInput.get(configuration));
+    }
+
+    @Test void missingConfigurationRollsBackAnyMaterialExtractionBeforeNativeAdmission() {
+        var configuration = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        var configInput = new KeyCounter();
+        configInput.add(configuration, 1);
+        var provider = mock(ECOBatchProvider.class);
+        assertEquals(ECOBatchAdmission.Status.REJECTED, ECOBatchExecutor.execute(plan(10),
+                new KeyCounter[]{input, configInput}, new KeyCounter(), new KeyCounter(), inventory, level,
+                UUID.randomUUID(), () -> energy, provider, new ECOBatchInputScaling(configuration::equals)).status());
+        assertEquals(100, inventory.list.get(key));
+        verifyNoInteractions(provider);
+        verify(energy).refund();
+    }
+
     @Test void uncertainOrInvalidAdmissionRetainsResourcesAndCannotFallBack() {
         for (var receipt : List.of(ECOBatchAdmission.indeterminate(), ECOBatchAdmission.accepted(11, false))) {
             inventory.list.set(key, 100);

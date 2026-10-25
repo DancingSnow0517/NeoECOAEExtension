@@ -14,11 +14,19 @@ public final class ECOBatchMaterialized {
     private final KeyCounter remainderCounter;
     private final ECOBatchInputLease inputLease;
     private final ECOBatchExecutionView executionView;
+    private final ECOBatchInputScaling inputScaling;
     private boolean settled;
 
     public ECOBatchMaterialized(ECOPatternIdentity identity, long craftCount, KeyCounter[] inputCounters,
             KeyCounter outputCounter, KeyCounter remainderCounter, ECOBatchInputLease inputLease,
             ECOBatchExecutionView executionView) {
+        this(identity, craftCount, inputCounters, outputCounter, remainderCounter, inputLease,
+                executionView, ECOBatchInputScaling.LINEAR);
+    }
+
+    public ECOBatchMaterialized(ECOPatternIdentity identity, long craftCount, KeyCounter[] inputCounters,
+            KeyCounter outputCounter, KeyCounter remainderCounter, ECOBatchInputLease inputLease,
+            ECOBatchExecutionView executionView, ECOBatchInputScaling inputScaling) {
         this.identity = Objects.requireNonNull(identity, "identity");
         this.originalPattern = identity.originalPattern();
         this.craftCount = craftCount;
@@ -27,6 +35,7 @@ public final class ECOBatchMaterialized {
         this.remainderCounter = remainderCounter;
         this.inputLease = Objects.requireNonNull(inputLease, "inputLease");
         this.executionView = Objects.requireNonNull(executionView, "executionView");
+        this.inputScaling = Objects.requireNonNull(inputScaling, "inputScaling");
     }
 
     public ECOPatternIdentity identity() { return identity; }
@@ -46,7 +55,7 @@ public final class ECOBatchMaterialized {
 
     public void commitLinear(long accepted) {
         ensureOpen();
-        inputLease.commitLinear(accepted, craftCount);
+        inputLease.commitScaled(accepted, craftCount, inputScaling);
         settled = true;
     }
 

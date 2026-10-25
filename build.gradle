@@ -171,6 +171,7 @@ legacyForge {
 
 sourceSets.main.resources.srcDir 'src/generated/resources'
 def ecoMixinConfigs = ['neoecoae.mixins.json', 'neoecoae.compat.advanced_ae.mixins.json',
+    'neoecoae.compat.gregtech.mixins.json',
     'neoecoae.compat.ae2omnicells.mixins.json',
     'neoecoae.compat.extendedae.mixins.json', 'neoecoae.compat.thunderbolt.mixins.json',
     'neoecoae.terminal_big_amount.mixins.json']
@@ -306,6 +307,11 @@ tasks.withType(JavaCompile).configureEach {
 tasks.named('test', Test) {
     useJUnitPlatform()
     maxHeapSize = '2G'
+    ['gtProcessingGtmJar', 'gtProcessingGtlJar'].each { name ->
+        if (providers.gradleProperty(name).isPresent()) {
+            systemProperty "neoecoae.${name}", providers.gradleProperty(name).get()
+        }
+    }
 }
 
 tasks.named('processResources', ProcessResources) {

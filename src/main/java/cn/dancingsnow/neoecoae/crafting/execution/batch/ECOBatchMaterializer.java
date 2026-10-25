@@ -21,11 +21,18 @@ public final class ECOBatchMaterializer {
 
     public ECOBatchMaterialized materialize(ECOBatchPlan plan, KeyCounter[] perCraftInputs,
             KeyCounter perCraftOutputs, KeyCounter perCraftRemainders, ListCraftingInventory inventory, Level level) {
+        return materialize(plan, perCraftInputs, perCraftOutputs, perCraftRemainders, inventory, level,
+                ECOBatchInputScaling.LINEAR);
+    }
+
+    public ECOBatchMaterialized materialize(ECOBatchPlan plan, KeyCounter[] perCraftInputs,
+            KeyCounter perCraftOutputs, KeyCounter perCraftRemainders, ListCraftingInventory inventory, Level level,
+            ECOBatchInputScaling inputScaling) {
         if (plan.mode() == ECOBatchMode.STATEFUL_FAST_PATH) {
             throw new IllegalArgumentException("Stateful batches require verified prepared totals");
         }
         long count = plan.craftCount();
-        KeyCounter[] inputs = scaleCounters(perCraftInputs, count);
+        KeyCounter[] inputs = inputScaling.scale(perCraftInputs, count);
         KeyCounter outputs = scaleCounter(perCraftOutputs, count);
         KeyCounter remainders = scaleCounter(perCraftRemainders, count);
         // Aggregate equal keys across slots before debiting; each key has one physical owner.
@@ -34,18 +41,13 @@ public final class ECOBatchMaterializer {
         if (lease == null) return null;
         try {
             var view = new ECOLinearBatchExecutionView(plan.identity().originalPattern(), count,
-                    perCraftInputs, perCraftOutputs, perCraftRemainders, level);
-            return new ECOBatchMaterialized(plan.identity(), count, inputs, outputs, remainders, lease, view);
+                    perCraftInputs, perCraftOutputs, perCraftRemainders, level, inputScaling);
+            return new ECOBatchMaterialized(plan.identity(), count, inputs, outputs, remainders, lease, view,
+                    inputScaling);
         } catch (RuntimeException failure) {
             lease.rollback();
             throw failure;
         }
-    }
-
-    private static KeyCounter[] scaleCounters(KeyCounter[] counters, long count) {
-        KeyCounter[] result = new KeyCounter[counters.length];
-        for (int i = 0; i < counters.length; i++) result[i] = scaleCounter(counters[i], count);
-        return result;
     }
 
     private static KeyCounter scaleCounter(KeyCounter counter, long count) {

@@ -1,0 +1,19 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.compat.gregtech",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.compat.ECOOptionalAddonMixinPlugin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "GTMEPatternBufferMixin"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixinextras": {
+    "minVersion": "0.5.3"
+  },
+  "refmap": "neoecoae.refmap.json"
+}
