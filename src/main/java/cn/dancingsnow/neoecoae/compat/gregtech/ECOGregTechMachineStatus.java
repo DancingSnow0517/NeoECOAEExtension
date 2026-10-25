@@ -89,6 +89,11 @@ public final class ECOGregTechMachineStatus {
             }
             var be = level.getBlockEntity(target.position());
             if (be == null || be.isRemoved()) return;
+            if (be instanceof cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity workstation) {
+                machineTargets.add(target);
+                machines.put(location(target), workstation.getProcessingStatus(output));
+                return;
+            }
             Object machine = value(be, "getMetaMachine");
             if (machine == null) return;
             Object logic = value(machine, "getRecipeLogic");

@@ -38,14 +38,13 @@ class ComputationProcessingDisplayTest {
         verifyNoMoreInteractions(graphics);
     }
 
-    @Test void missingMachineDataKeepsAVisibleTrackWithoutFabricatingAFilledPercentage() {
+    @Test void missingMachineDataDoesNotDisplayAProgressTrack() {
         var context = mock(GUIContext.class);
         UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
         var entry = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ONE, BigInteger.ZERO, false);
         ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20);
-        verify(context.graphics).fill(12, 39, 75, 41, 0xFF5B566B);
-        verifyNoMoreInteractions(context.graphics);
+        verifyNoInteractions(context.graphics);
         assertTrue(ComputationProcessingTooltips.describe(entry).stream()
             .anyMatch(line -> key(line).equals("gui.neoecoae.processing.progress_unavailable")));
     }
