@@ -101,7 +101,8 @@ public final class CraftingPatternBusUI {
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
                 ItemSlot slot = new PatternItemSlot(new ItemHandlerSlot(config.inventory(), slotIndex));
-                slot.slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_BLANK_PATTERN)))
+                slot.slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_BLANK_PATTERN))
+                    .showSlotOverlayOnlyEmpty(true))
                     .addClass("eco-pattern-slot");
                 quickMove.attach(slot);
                 rowInv.addChild(slot);
