@@ -536,7 +536,7 @@ final class CraftingPatternPreviewState {
     private void updateSlots() {
         int start = scrollRow * CraftingInterfaceUI.PREVIEW_COLUMNS;
         for (int visual = 0; visual < slots.length; visual++) {
-            int position = start + visual;
+            int position = start + viewportSlot(visual);
             PatternPreviewRows.Cell cell = rows.cell(position);
             int index = cell == null ? -1 : cell.entry();
             int sub = cell == null ? -1 : cell.recipe();
@@ -553,10 +553,10 @@ final class CraftingPatternPreviewState {
             if (slots[visual] != null && !ItemStack.matches(slots[visual].getSlot().getItem(), shown))
                 slots[visual].setItem(shown.copy(), false);
             if (slots[visual] != null) {
-                double y = visual / CraftingInterfaceUI.PREVIEW_COLUMNS * 18 - getRowOffset();
-                boolean occupied = !shown.isEmpty() && y < CraftingInterfaceUI.PREVIEW_ROWS * 18 && y + 18 > 0;
-                slots[visual].setVisible(occupied);
-                slots[visual].setActive(occupied);
+                // Keep the spare row populated; the parent clip handles both partial edges.
+                boolean occupied = !shown.isEmpty();
+                if (slots[visual].isVisible() != occupied) slots[visual].setVisible(occupied);
+                if (slots[visual].isActive() != occupied) slots[visual].setActive(occupied);
             }
         }
         updateSlotTransforms();
@@ -603,14 +603,24 @@ final class CraftingPatternPreviewState {
 
     private void moveScrollTo(double pixels) {
         if (scrollOffset == pixels) return;
+        int previousRow = scrollRow;
         scrollOffset = pixels;
         scrollRow = (int) (pixels / 18);
-        updateSlots();
+        if (previousRow != scrollRow) updateSlots();
+        else updateSlotTransforms();
+    }
+
+    private int viewportSlot(int visual) {
+        int columns = CraftingInterfaceUI.PREVIEW_COLUMNS;
+        int bufferRows = CraftingInterfaceUI.PREVIEW_ROWS + 1;
+        return Math.floorMod(visual / columns - scrollRow, bufferRows) * columns + visual % columns;
     }
 
     private void updateSlotTransforms() {
-        float offset = (float) -getRowOffset();
-        for (PatternItemSlot slot : slots) {
+        for (int visual = 0; visual < slots.length; visual++) {
+            PatternItemSlot slot = slots[visual];
+            float offset = (float) ((viewportSlot(visual) / CraftingInterfaceUI.PREVIEW_COLUMNS
+                - visual / CraftingInterfaceUI.PREVIEW_COLUMNS) * 18 - getRowOffset());
             if (slot != null) slot.transform(transform -> transform.translate(0, offset));
         }
     }
