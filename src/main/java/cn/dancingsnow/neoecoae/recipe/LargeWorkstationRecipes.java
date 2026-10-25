@@ -152,9 +152,10 @@ public final class LargeWorkstationRecipes {
         var result = groups.stream().map(LargeWorkstationRecipeGroup::representative).toList();
         Map<ResourceLocation, LargeWorkstationRecipeGroup> groupsById = new HashMap<>();
         for (var group : groups) for (var variant : group.variants()) groupsById.put(variant.recipe().id(), group);
-        var executionRecipes = variants.stream().map(LargeWorkstationRecipeGroup.Variant::recipe)
+        var executionRecipes = groups.stream().flatMap(group -> selectExecutionVariants(group.variants()).stream())
+            .map(LargeWorkstationRecipeGroup.Variant::recipe)
             .sorted(Comparator.comparing(recipe -> recipe.id().toString())).toList();
-        CACHE.put(manager, new Cache(sources, result, executionRecipes, List.copyOf(variants), groups,
+        CACHE.put(manager, new Cache(sources, result, executionRecipes, groups,
             Map.copyOf(recipesById), Map.copyOf(groupsById),
             new EnumMap<>(LargeWorkstationModule.class), new HashMap<>(),
             ECOWorkstationRecipeAdapters.revision(),
@@ -169,7 +170,7 @@ public final class LargeWorkstationRecipes {
         getAll(manager, level.registryAccess());
         Cache cache = CACHE.get(manager);
         if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.executionRecipes;
-        return cache.customModuleRecipes.computeIfAbsent(moduleId, installed -> available(cache.variants, installed));
+        return cache.customModuleRecipes.computeIfAbsent(moduleId, installed -> available(cache.groups, installed));
     }
 
     public static List<LargeWorkstationRecipe> getAvailable(Level level, LargeWorkstationModule module) {
@@ -181,16 +182,30 @@ public final class LargeWorkstationRecipes {
         getAll(manager, registries);
         Cache cache = CACHE.get(manager);
         if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.executionRecipes;
-        return cache.moduleRecipes.computeIfAbsent(module, installed -> available(cache.variants,
+        return cache.moduleRecipes.computeIfAbsent(module, installed -> available(cache.groups,
             ECOWorkstationModules.builtin(installed).id()));
     }
 
-    /** Execution lists retain every legal batch and resource-cost variant, unlike viewer representatives. */
-    private static List<LargeWorkstationRecipe> available(List<LargeWorkstationRecipeGroup.Variant> variants,
+    /** Filter by card before fixing a route; retain different legal material batches. */
+    private static List<LargeWorkstationRecipe> available(List<LargeWorkstationRecipeGroup> groups,
             ResourceLocation installed) {
-        return variants.stream().filter(variant -> variant.unlocks(installed))
+        return groups.stream().flatMap(group -> group.availableVariants(installed).stream())
             .map(LargeWorkstationRecipeGroup.Variant::recipe)
             .sorted(Comparator.comparing(recipe -> recipe.id().toString())).toList();
+    }
+
+    /** Within one proportional material group, equal output quantities identify an exact material batch. */
+    static List<LargeWorkstationRecipeGroup.Variant> selectExecutionVariants(
+            List<LargeWorkstationRecipeGroup.Variant> variants) {
+        Map<Map<AEKey, Long>, LargeWorkstationRecipeGroup.Variant> selected = new HashMap<>();
+        for (var variant : variants) {
+            Map<AEKey, Long> batch = new HashMap<>();
+            for (var output : variant.recipe().outputs()) batch.merge(output.what(), output.amount(), Math::addExact);
+            selected.merge(Map.copyOf(batch), variant, (first, second) ->
+                COST_ORDER.compare(first.recipe(), second.recipe()) <= 0 ? first : second);
+        }
+        return selected.values().stream()
+            .sorted(Comparator.comparing(variant -> variant.recipe().id().toString())).toList();
     }
 
     /** Filter before deduplication: a locked cheaper adapter must not hide an unlocked native recipe. */
@@ -545,7 +560,7 @@ public final class LargeWorkstationRecipes {
     }
 
     private record Cache(Collection<RecipeHolder<?>> sources, List<LargeWorkstationRecipe> recipes,
-                         List<LargeWorkstationRecipe> executionRecipes, List<LargeWorkstationRecipeGroup.Variant> variants,
+                         List<LargeWorkstationRecipe> executionRecipes,
                          List<LargeWorkstationRecipeGroup> groups,
                          Map<ResourceLocation, LargeWorkstationRecipe> recipesById,
                          Map<ResourceLocation, LargeWorkstationRecipeGroup> groupsById,

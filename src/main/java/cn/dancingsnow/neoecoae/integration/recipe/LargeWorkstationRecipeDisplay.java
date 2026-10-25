@@ -193,7 +193,7 @@ public final class LargeWorkstationRecipeDisplay {
     }
 
     private static List<Component> moduleTooltip(LargeWorkstationRecipe recipe, @Nullable LargeWorkstationRecipeGroup group) {
-        if (group != null) return variantsTooltip(recipe, group.variants());
+        if (group != null) return variantsTooltip(recipe, group.displayVariants());
         var module = ECOWorkstationModules.fromSourceType(recipe.sourceType());
         var result = new ArrayList<Component>();
         addVariant(result, recipe, module.title().copy().withColor(module.color()), false);

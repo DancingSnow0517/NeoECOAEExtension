@@ -19,6 +19,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
@@ -43,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * of being pushed into an adjacent inventory.</p>
  */
 public final class LargeWorkstationPatternProvider extends PatternProviderLogic
-    implements ECOParallelCraftingProvider, IUpgradeableObject {
+    implements ECOParallelCraftingProvider, IUpgradeableObject, ECOProcessingTargetProvider {
     public static final int PATTERN_COLUMNS = 9;
     public static final int BASE_PATTERN_ROWS = 4;
     public static final int MAX_CAPACITY_CARDS = 4;
@@ -60,6 +61,13 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     private Object lastRecipes;
     @Nullable
     private ECOLargeIntegratedWorkingStationBlockEntity lastController;
+    @Nullable
+    private Target processingTarget;
+
+    @Override
+    public @Nullable Target neoecoae$getProcessingTarget() {
+        return processingTarget;
+    }
     /** Disk contents the cached list was built from; a change invalidates it the way a recipe change does. */
     private long lastDiskRevision = Long.MIN_VALUE;
 
@@ -422,6 +430,10 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     }
 
     private void onPatternAccepted(IPatternDetails pattern) {
+        var controller = controller();
+        if (controller != null && host.getLevel() != null) {
+            processingTarget = new Target(host.getLevel().dimension().location(), controller.getBlockPos());
+        }
         // The specialized provider bypasses PatternProviderLogic.pushPattern, so explicitly retain AE2's
         // lock-until-pulse/result state transition after the controller accepted the batch.
         ((PatternProviderLogicAccessor) (Object) this).neoecoae$onPushPatternSuccess(pattern);

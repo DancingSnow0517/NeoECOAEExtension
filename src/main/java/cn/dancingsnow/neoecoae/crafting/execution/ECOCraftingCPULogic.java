@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
+
 import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachments;
 import cn.dancingsnow.neoecoae.api.me.completion.ECOVirtualCraftingCompletionSink;
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingCpuContext;
@@ -89,6 +91,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     @Getter
     private final ListCraftingInventory inventory = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ECOCraftingCPULogic.this::postChange);
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
+    private final ECOProcessingMonitor processingMonitor = new ECOProcessingMonitor();
     private final ECOCraftingJobAttachments jobAttachments = new ECOCraftingJobAttachments();
     /**
      * 如果 CPU 正在尝试清空库存但无法完成，则为 true。
@@ -122,7 +125,10 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                 this::markCpuDirty, TickHandler.instance()::getCurrentTick);
         this.dispatchAccounting = new ECOCraftingDispatchAccounting(
                 this::postChange, this::markCpuDirty, this::createJobContext,
-                ECOCraftingLifecycle::firePatternDispatched);
+                event -> {
+                    processingMonitor.dispatched(event);
+                    ECOCraftingLifecycle.firePatternDispatched(event);
+                });
         this.fastPathDispatcher = new ECOCraftingFastPathDispatcher(this, energyTransaction, dispatchAccounting);
         this.providerDispatcher = new ECOCraftingProviderDispatcher(
                 this, fastPathDispatcher, energyTransaction, dispatchAccounting);
@@ -512,6 +518,15 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     ECOCraftingJobAttachments jobAttachmentsForLifecycle() {
         return jobAttachments;
+    }
+
+    public ECOProcessingMonitor getProcessingMonitor() { return processingMonitor; }
+
+    public ECOProcessingProgress getProcessingProgress(AEKey key) {
+        Level level = cpu.getLevel();
+        return job == null || getWaitingFor(key) <= 0 || level == null
+            ? ECOProcessingProgress.EMPTY
+            : processingMonitor.sample(level, key, level.getGameTime());
     }
 
     @Nullable

@@ -33,7 +33,17 @@ public record LargeWorkstationRecipeGroup(LargeWorkstationRecipe representative,
     }
 
     public List<Variant> availableVariants(ResourceLocation installedModule) {
-        return variants.stream().filter(variant -> variant.unlocks(installedModule)).toList();
+        return LargeWorkstationRecipes.selectExecutionVariants(
+            variants.stream().filter(variant -> variant.unlocks(installedModule)).toList());
+    }
+
+    /** Viewers show the same fixed costs as execution, including each card's independent winner. */
+    public List<Variant> displayVariants() {
+        var selected = new java.util.HashSet<Variant>();
+        for (var module : supportedModules()) selected.addAll(availableVariants(module));
+        selected.addAll(LargeWorkstationRecipes.selectExecutionVariants(
+            variants.stream().filter(Variant::unrestricted).toList()));
+        return variants.stream().filter(selected::contains).toList();
     }
 
     /** sourceId/type identify the real upstream recipe, even when recipe.id() is a borrowed execution alias. */

@@ -103,19 +103,58 @@ class LargeWorkstationRecipeGroupTest {
         }
     }
 
-    @Test void moreExpensiveOriginalWithExplicitLightningRemainsExecutableAndRestorable() {
+    @Test void sameCardAndBatchFixOnePassiveLightningCostAndKeepOldIdsRestorable() {
         var fewer = recipe("ae2lt:fewer", "ae2lt:overload_processing", 4, 1000,
             List.of(new GenericStack(LightningKey.HIGH_VOLTAGE, 1)));
         var more = recipe("ae2lt:more", "ae2lt:lightning_simulation", 4, 2000,
             List.of(new GenericStack(LightningKey.HIGH_VOLTAGE, 4)));
         try (var catalog = catalog(fewer, more)) {
             assertSame(fewer, onlyGroup(catalog).representative());
+            assertEquals(List.of(fewer), LargeWorkstationRecipes.getAvailable(catalog.level(), LargeWorkstationModule.LIGHTNING_TECH));
+            assertEquals(List.of(fewer), onlyGroup(catalog).availableVariants(module(LargeWorkstationModule.LIGHTNING_TECH))
+                .stream().map(LargeWorkstationRecipeGroup.Variant::recipe).toList());
+            assertSame(fewer, match(catalog, LargeWorkstationModule.LIGHTNING_TECH, 4).recipe(),
+                "Passive extraction must use the same fixed lightning amount as the card tooltip");
             var input = items(4);
             input.add(LightningKey.HIGH_VOLTAGE, 4);
             var match = LargeWorkstationRecipes.findScaled(catalog.level(), input, outputs(4), LargeWorkstationModule.LIGHTNING_TECH);
-            assertNotNull(match);
-            assertSame(more, match.recipe());
+            assertNull(match, "Explicit extras cannot silently select the discarded cost variant");
             assertSame(more, LargeWorkstationRecipes.getById(catalog.manager(), catalog.registries(), more.id()));
+            assertSame(onlyGroup(catalog), LargeWorkstationRecipes.getGroup(catalog.level(), more.id()));
+        }
+    }
+
+    @Test void screenshotCostsUseTheExistingEnergyPriorityRegardlessOfSourceOrderAndCardBypass() {
+        var slow = recipe("ae2lt:slow", "ae2lt:lightning_assembly", 4, 0,
+            List.of(new GenericStack(LightningKey.HIGH_VOLTAGE, 8))).processing(200, 1_000_000, false);
+        var fast = recipe("ae2lt:fast", "ae2lt:overload_processing", 4, 0,
+            List.of(new GenericStack(LightningKey.HIGH_VOLTAGE, 1))).processing(5, 2_000_000, false);
+        boolean previous = NEConfig.largeWorkstationIgnoreUpgradeCards;
+        try {
+            for (var order : List.of(List.of(slow, fast), List.of(fast, slow))) {
+                try (var catalog = catalog(order.toArray(LargeWorkstationRecipe[]::new))) {
+                    var group = onlyGroup(catalog);
+                    assertEquals(2, group.variants().size(), "Original IDs remain available for saved tasks");
+                    assertEquals(List.of(slow), group.displayVariants().stream().map(LargeWorkstationRecipeGroup.Variant::recipe).toList());
+                    assertSame(slow, match(catalog, LargeWorkstationModule.LIGHTNING_TECH, 4).recipe());
+                    NEConfig.largeWorkstationIgnoreUpgradeCards = true;
+                    assertEquals(List.of(slow), LargeWorkstationRecipes.getAvailable(catalog.level(), LargeWorkstationModule.REGULAR));
+                    assertSame(slow, match(catalog, LargeWorkstationModule.REGULAR, 4).recipe());
+                    NEConfig.largeWorkstationIgnoreUpgradeCards = previous;
+                }
+            }
+        } finally { NEConfig.largeWorkstationIgnoreUpgradeCards = previous; }
+    }
+
+    @Test void sameCardRetainsDifferentLegalBatchesAfterFixingEachBatchCost() {
+        var small = recipe("ae2lt:small", "ae2lt:overload_processing", 4, 1000,
+            List.of(new GenericStack(LightningKey.HIGH_VOLTAGE, 1)));
+        var large = recipe("ae2lt:large", "ae2lt:lightning_assembly", 32, 4000,
+            List.of(new GenericStack(LightningKey.HIGH_VOLTAGE, 2)));
+        try (var catalog = catalog(small, large)) {
+            assertEquals(2, onlyGroup(catalog).availableVariants(module(LargeWorkstationModule.LIGHTNING_TECH)).size());
+            assertSame(small, match(catalog, LargeWorkstationModule.LIGHTNING_TECH, 4).recipe());
+            assertSame(large, match(catalog, LargeWorkstationModule.LIGHTNING_TECH, 32).recipe());
         }
     }
 

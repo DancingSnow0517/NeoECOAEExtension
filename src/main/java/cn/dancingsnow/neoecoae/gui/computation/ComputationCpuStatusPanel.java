@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
+
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.util.AEColor;
@@ -380,6 +382,21 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
         key(context, entry.key(), x + ITEM_WIDTH - 19, y + 3, 1.0F);
         drawItemDescription(context, font, itemDescription(entry, false), x, y);
+        drawProcessingProgress(context, entry, x, y);
+    }
+
+    static void drawProcessingProgress(GUIContext context, ComputationCpuItemEntry entry, float x, float y) {
+        if (entry.active().signum() <= 0 || !entry.processing().hasProgress()) return;
+        int left = Math.round(x + 2), right = Math.round(x + ITEM_WIDTH - 2);
+        int top = Math.round(y + ITEM_HEIGHT - 3);
+        context.graphics.fill(left, top, right, top + 2, 0xFF5B566B);
+        int color = switch (entry.processing().state()) {
+            case WAITING -> 0xFFE2AA4F;
+            case PAUSED -> 0xFF90909F;
+            default -> 0xFFC7A6FF;
+        };
+        int filled = Math.round((right - left) * entry.processing().progress());
+        if (filled > 0) context.graphics.fill(left, top, left + filled, top + 2, color);
     }
 
     static void drawItemDescription(GUIContext context, Font font, List<Component> lines, float x, float y) {
@@ -585,7 +602,10 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 tag.putInt("itemPageStart", itemPageStart);
                 ListTag itemPage = new ListTag();
                 for (ComputationCpuItemEntry item : all.subList(itemPageStart, Math.min(all.size(), itemOffset + ITEM_PAGE * 2))) {
-                    itemPage.add(item.write(registries));
+                    var progress = item.active().signum() > 0
+                        ? selectedCpu.getLogic().getProcessingProgress(item.key())
+                        : ECOProcessingProgress.EMPTY;
+                    itemPage.add(item.withProcessing(progress == null ? ECOProcessingProgress.EMPTY : progress.page(-1)).write(registries));
                 }
                 tag.put("items", itemPage);
             } else {

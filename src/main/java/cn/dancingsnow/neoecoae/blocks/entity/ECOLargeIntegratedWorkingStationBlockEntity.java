@@ -22,6 +22,8 @@ import appeng.api.util.AECableType;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
+import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
@@ -553,6 +555,41 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private Component coolantModeText() {
         return Component.translatable("gui.neoecoae.large_integrated_working_station.temperature_disabled");
+    }
+
+    /** Read-only current-cycle observation; queued recipes never inherit the head recipe's progress. */
+    public Machine getProcessingStatus(AEKey output) {
+        var state = State.QUEUED;
+        Component reason = Component.empty();
+        PendingBatch batch = pendingBatches.peekFirst();
+        boolean matches = formed && batch != null && batch.outputTotal.get(output) > 0;
+        if (!formed) {
+            state = State.UNAVAILABLE;
+            reason = Component.empty();
+        } else if (matches) {
+            if (!getMainNode().isActive()) {
+                state = State.WAITING;
+                reason = Component.translatable("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.network_unavailable");
+            } else {
+                int pause = pauseReasonId;
+                if (!isTemperatureEnabled() && (pause == PauseReason.OVERHEATED.ordinal()
+                    || pause == PauseReason.TEMPERATURE_LOW.ordinal())) pause = PauseReason.NONE.ordinal();
+                boolean blocked = pause != PauseReason.NONE.ordinal() || isTemperatureEnabled() && overheated;
+                state = blocked ? State.WAITING : State.RUNNING;
+                if (blocked) reason = getPauseReasonText();
+            }
+        }
+        long parallel = matches ? batch.segmented
+            ? Math.min(LargeWorkstationOverclock.BASE_PARALLELISM, batch.craftCount) : batch.craftCount : 0;
+        int duration = matches ? batch.processingTicks : 0;
+        // Fallback batches pay work for one 256-craft portion at a time, retaining fractional work.
+        int progress = matches ? batch.segmented
+            ? (int) Math.min(duration, ((long) batch.progress * batch.craftCount + batch.progressRemainder) / parallel)
+            : batch.progress : 0;
+        return new Machine(
+            getBlockState().getBlock().getName(),
+            (level == null ? "unknown" : level.dimension().location().toString()) + " [" + getBlockPos().toShortString() + "]",
+            matches && batch.recipeId != null ? batch.recipeId.toString() : "", progress, duration, parallel, state, reason);
     }
 
     /** Returns the concrete materials accepted for the batch currently at the head of the work queue. */

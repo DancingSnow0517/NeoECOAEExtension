@@ -17,6 +17,7 @@ public final class ECOPatternIntegrations {
 
     public static synchronized void initialize() {
         if (initialized) return;
+        cn.dancingsnow.neoecoae.crafting.execution.ECOProcessingMonitor.initialize();
         cn.dancingsnow.neoecoae.compat.ae2.ECORemoteProviderLocator.initialize();
         cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge.initialize();
         if (ThunderboltApi.OVERLOAD != null) {

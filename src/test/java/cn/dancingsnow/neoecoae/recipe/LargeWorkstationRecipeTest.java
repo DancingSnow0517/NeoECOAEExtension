@@ -333,8 +333,8 @@ class LargeWorkstationRecipeTest {
         var regularOnly = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR);
         assertEquals(List.of(nativeRecipe), regularOnly, "An uninstalled lightning card must not hide the native recipe");
         var lightning = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.LIGHTNING_TECH);
-        assertEquals(java.util.Set.of(nativeRecipe, adapted), java.util.Set.copyOf(lightning),
-            "Execution retains both original variants even though viewers show only one group");
+        assertEquals(List.of(adapted), lightning,
+            "The installed card fixes one cost route for the same material batch");
         assertSame(lightning, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.LIGHTNING_TECH));
         assertSame(regularOnly, LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR));
         assertSame(adapted, LargeWorkstationRecipes.getById(manager, registries, optionalId),
@@ -342,7 +342,7 @@ class LargeWorkstationRecipeTest {
 
         NEConfig.largeWorkstationIgnoreUpgradeCards = true;
         var unrestricted = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR);
-        assertEquals(java.util.Set.of(nativeRecipe, adapted), java.util.Set.copyOf(unrestricted));
+        assertEquals(List.of(adapted), unrestricted);
         for (var card : LargeWorkstationModule.values()) {
             assertSame(unrestricted, LargeWorkstationRecipes.getAvailable(manager, registries, card),
                 "Ignoring cards unlocks all supported recipes for every card and the empty slot");

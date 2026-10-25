@@ -78,6 +78,28 @@ class GroupedWorkstationRecipeDisplayTest {
         } finally { ECOWorkstationModules.unregister(module.id()); }
     }
 
+    @Test void oneCardAndBatchShowOnlyTheFixedPassiveLightningCost() {
+        var module = module("lightning", "minecraft:diamond", "Lightning");
+        ECOWorkstationModules.register(0, module);
+        try (var flux = mockStatic(WorkstationFluxEnergy.class)) {
+            flux.when(WorkstationFluxEnergy::available).thenReturn(true);
+            var preferred = recipe("slow", 4, 0, List.of(new GenericStack(LightningKey.HIGH_VOLTAGE, 8)))
+                .processing(200, 1_000_000, false);
+            var alternate = recipe("fast", 4, 0, List.of(new GenericStack(LightningKey.HIGH_VOLTAGE, 1)))
+                .processing(5, 2_000_000, false);
+            var group = new LargeWorkstationRecipeGroup(preferred,
+                List.of(variant(alternate, module.id()), variant(preferred, module.id())));
+            var cards = LargeWorkstationRecipeDisplay.cards(preferred, group);
+            assertEquals(1, cards.size());
+            var lines = cards.getFirst().tooltip();
+            assertEquals(1, lines.stream().filter(line -> line.getString().equals("Lightning")).count());
+            var cost = assertInstanceOf(TranslatableContents.class, lines.get(1).getSiblings().getFirst().getContents());
+            assertEquals("1,000,000 FE", ((Component) cost.getArgs()[0]).getString());
+            assertTrue(lines.stream().anyMatch(line -> line.getString().contains(" × 8")));
+            assertFalse(lines.stream().anyMatch(line -> line.getString().contains(" × 1")));
+        } finally { ECOWorkstationModules.unregister(module.id()); }
+    }
+
     @Test void feSummaryChoosesTheAvailableUnitAndKeepsTheUnitColorAndFractionalAeFallback() {
         double oldAe = PowerUnit.AE.conversionRatio, oldFe = PowerUnit.FE.conversionRatio;
         double oldMultiplier = PowerMultiplier.CONFIG.multiplier;
