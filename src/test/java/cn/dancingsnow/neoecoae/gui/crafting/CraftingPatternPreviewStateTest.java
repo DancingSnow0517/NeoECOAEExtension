@@ -135,6 +135,80 @@ class CraftingPatternPreviewStateTest {
         assertEquals(0, reopened.getScrollRow());
     }
 
+    @Test void removingAWholeRowKeepsScrollUntilReopeningOrChangingTheQuery() throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
+        state.setScrollRow(4);
+        state.receive(f.emptyPage(false, 7, 8, 90, 0, 9));
+        assertEquals(10, state.getRowCount(), "live removals must leave the displayed rows in place");
+        assertEquals(4, state.getScrollRow());
+        assertEquals(72, state.getScrollOffset());
+
+        var reopened = new CraftingPatternPreviewState(f.host, f.player);
+        assertEquals(9, reopened.getRowCount(), "a new menu compacts the latest cached contents");
+        assertEquals(3, reopened.getScrollRow());
+        state.setOutputSearch("gear");
+        assertEquals(9, state.getRowCount(), "an explicit query change also compacts the results");
+        assertEquals(0, state.getScrollRow());
+    }
+
+    @Test void sparseFullRefreshKeepsExistingCellsWhilePagesArrive() throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        state.receive(f.page(true, true, true, -1, 7, 3, 0, 3));
+        var preview = CraftingInterfaceUI.patternPreview(state);
+        var first = f.page(true, false, true, -1, 8, 3, 1, 1);
+        var layout = new ListTag();
+        var bus = new CompoundTag();
+        bus.putLong("bus", 10);
+        bus.putInt("count", 3);
+        layout.add(bus);
+        first.put("layout", layout);
+        first.putIntArray("occupied", new int[]{1, 2});
+        state.receive(first);
+        assertFalse(preview.getChildren().get(0).isVisible());
+        assertTrue(preview.getChildren().get(1).isVisible());
+        assertFalse(preview.getChildren().get(2).isVisible());
+
+        state.receive(f.page(false, true, true, -1, 8, 3, 2, 1));
+        assertFalse(preview.getChildren().get(0).isVisible());
+        assertTrue(preview.getChildren().get(1).isVisible());
+        assertTrue(preview.getChildren().get(2).isVisible());
+        var reopened = new CraftingPatternPreviewState(f.host, f.player);
+        var reopenedPreview = CraftingInterfaceUI.patternPreview(reopened);
+        assertTrue(reopenedPreview.getChildren().get(0).isVisible());
+        assertFalse(reopenedPreview.getChildren().get(2).isVisible());
+    }
+
+    @Test void consecutiveShiftMovesKeepTheRemainingPhysicalAddresses() throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        state.receive(f.page(true, true, true, -1, 7, 3, 0, 3));
+        var preview = CraftingInterfaceUI.patternPreview(state);
+        state.receive(f.emptyPage(false, 7, 8, 3, 0, 1));
+        try (var ui = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
+            ui.when(UIElement::isShiftDown).thenReturn(true);
+            for (int visual : new int[]{1, 2}) {
+                var event = new UIEvent(UIEvents.MOUSE_DOWN, preview.getChildren().get(visual), 0, 0, 0);
+                event.target.dispatchEvent(event);
+                state.endQuickMoveDrag();
+            }
+        }
+        var moves = ArgumentCaptor.forClass(CompoundTag.class);
+        verify(f.host, times(2)).rpcToServer(eq("quickMovePatternPreview"), moves.capture());
+        for (int i = 0; i < 2; i++) {
+            var payload = moves.getAllValues().get(i);
+            assertEquals(8, payload.getInt("revision"));
+            var targets = payload.getList("targets", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            assertEquals(1, targets.size());
+            assertEquals(10, targets.getCompound(0).getLong("bus"));
+            assertEquals(i + 1, targets.getCompound(0).getInt("slot"));
+        }
+        assertFalse(preview.getChildren().get(0).isVisible());
+        assertTrue(preview.getChildren().get(1).isVisible());
+    }
+
     @Test void cacheProbeWaitsForTheNewMenuAndUsesItsIdOnce() throws Exception {
         var f = new Fixture();
         var state = new CraftingPatternPreviewState(f.host, f.player);
@@ -278,6 +352,13 @@ class CraftingPatternPreviewStateTest {
             when(host.getPatternPreviewSync()).thenReturn(sync);
             doAnswer(call -> { requests.add(((CompoundTag) call.getArgument(1)).copy()); return null; })
                     .when(host).rpcToServer(eq("openPatternPreview"), any(CompoundTag.class));
+        }
+
+        CompoundTag emptyPage(boolean full, int base, int revision, int size, int start, int count) {
+            var payload = page(true, true, full, base, revision, size, start, count);
+            var contents = payload.getList("entries", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            for (int i = 0; i < contents.size(); i++) contents.getCompound(i).put("stack", new CompoundTag());
+            return payload;
         }
 
         CompoundTag page(boolean first, boolean last, boolean full, int base, int revision,

@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PatternPreviewRowsTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
-    @Test void emptyCapacityHasNoCellsAndSparsePatternsArePackedAcrossBuses() {
+    @Test void emptyCapacityStartsCompactAndRemovedPatternsKeepTheirSessionCells() {
         var entries = new PatternPreviewEntry[108];
         for (int i = 0; i < entries.length; i++) entries[i] = empty(i < 54 ? 10 : 20, i % 54);
         var rows = new PatternPreviewRows();
@@ -30,12 +30,17 @@ class PatternPreviewRowsTest {
         assertNull(rows.cell(2), "the unused part of the row must not create empty slots");
         entries[53] = empty(10, 53);
         rows.changed(changes(53), false);
-        assertEquals(new PatternPreviewRows.Cell(107, -1), rows.cell(0));
-        assertNull(rows.cell(1));
+        assertEquals(new PatternPreviewRows.Cell(53, -1), rows.cell(0));
+        assertTrue(entries[rows.cell(0).entry()].stack().isEmpty());
+        assertEquals(new PatternPreviewRows.Cell(107, -1), rows.cell(1));
         entries[107] = empty(20, 53);
         rows.changed(changes(107), false);
-        assertEquals(0, rows.size());
-        assertNull(rows.cell(0));
+        assertEquals(1, rows.size(), "taking everything must leave the current row in place");
+        assertTrue(entries[rows.cell(1).entry()].stack().isEmpty());
+        var reopened = new PatternPreviewRows();
+        reopened.reset(entries);
+        assertEquals(0, reopened.size());
+        assertNull(reopened.cell(0));
     }
 
     @Test void directionalSearchPacksOnlyMatchesAndRetainsTheirActualOperationAddress() {
@@ -50,6 +55,9 @@ class PatternPreviewRowsTest {
         assertNull(rows.cell(1));
         entries[4] = entry(10, 4, "gold", "gear");
         rows.changed(changes(4), false);
+        assertEquals(new PatternPreviewRows.Cell(4, -1), rows.cell(0), "live replacements keep their source cell");
+        rows.filter("gold", "");
+        rows.filter("iron", "");
         assertEquals(0, rows.size());
     }
 
@@ -144,7 +152,68 @@ class PatternPreviewRowsTest {
         assertNull(rows.cell(1));
         entries[530] = empty(10, 530);
         rows.changed(changes(530), false);
+        assertEquals(1, rows.size());
+        assertEquals(new PatternPreviewRows.Cell(530, -1), rows.cell(0));
+        rows.filter("", "missing");
         assertEquals(0, rows.size());
+    }
+
+    @Test void newPatternsAppendAndRefilledSourcesReuseTheirOriginalCells() {
+        var entries = new PatternPreviewEntry[]{empty(10, 0), entry(10, 1, "iron", "gear"),
+                entry(10, 2, "gold", "circuit")};
+        var rows = new PatternPreviewRows();
+        rows.reset(entries);
+        entries[1] = empty(10, 1);
+        entries[0] = entry(10, 0, "copper", "plate");
+        rows.changed(changes(0, 1), false);
+        assertEquals(new PatternPreviewRows.Cell(1, -1), rows.cell(0));
+        assertEquals(new PatternPreviewRows.Cell(2, -1), rows.cell(1));
+        assertEquals(new PatternPreviewRows.Cell(0, -1), rows.cell(2));
+        entries[1] = entry(10, 1, "tin", "wire");
+        rows.changed(changes(1), false);
+        assertEquals(new PatternPreviewRows.Cell(1, -1), rows.cell(0));
+        assertEquals("wire", entries[rows.cell(0).entry()].outputKeywords());
+        assertNull(rows.cell(3));
+
+        var reopened = new PatternPreviewRows();
+        reopened.reset(entries);
+        assertEquals(new PatternPreviewRows.Cell(0, -1), reopened.cell(0));
+        assertEquals(new PatternPreviewRows.Cell(1, -1), reopened.cell(1));
+    }
+
+    @Test void fullSnapshotsRebindPhysicalSourcesWithoutReusingRemovedBusCells() {
+        var rows = new PatternPreviewRows();
+        rows.reset(new PatternPreviewEntry[]{entry(10, 0, "iron", "gear"), entry(20, 0, "gold", "circuit")});
+        rows.reset(new PatternPreviewEntry[]{entry(20, 0, "gold", "circuit"), entry(30, 0, "copper", "plate")});
+        rows.filter("", "");
+        assertNull(rows.cell(0), "a removed bus leaves a hole, never an address belonging to its successor");
+        assertEquals(new PatternPreviewRows.Cell(0, -1), rows.cell(1));
+        assertEquals(new PatternPreviewRows.Cell(1, -1), rows.cell(2));
+        rows.filter("", "circuit");
+        assertEquals(new PatternPreviewRows.Cell(0, -1), rows.cell(0));
+        assertNull(rows.cell(1));
+    }
+
+    @Test void diskRecipeChangesKeepLaterPhysicalSourcesAndDoNotExposeDiskIcons() {
+        var recipe = new PatternPreviewEntry.DiskPattern(new ItemStack(Items.STONE), "iron", "gear");
+        var entries = new PatternPreviewEntry[]{entry(10, 0, "gold", "circuit"),
+                new PatternPreviewEntry(10, 1, new ItemStack(Items.CHEST), "", "", List.of(recipe, recipe), true),
+                entry(20, 0, "copper", "plate")};
+        var rows = new PatternPreviewRows();
+        rows.reset(entries);
+        assertEquals(new PatternPreviewRows.Cell(1, 1), rows.cell(2));
+        assertEquals(new PatternPreviewRows.Cell(2, -1), rows.cell(3));
+        entries[1] = new PatternPreviewEntry(10, 1, new ItemStack(Items.CHEST), "", "", List.of(recipe), true);
+        rows.changed(changes(1), true);
+        assertEquals(new PatternPreviewRows.Cell(1, 0), rows.cell(1));
+        assertNull(rows.cell(2));
+        assertEquals(new PatternPreviewRows.Cell(2, -1), rows.cell(3));
+
+        entries[0] = new PatternPreviewEntry(10, 0, new ItemStack(Items.CHEST), "", "", List.of(recipe), true);
+        rows.changed(changes(0), true);
+        assertNull(rows.cell(0), "a disk replacing a physical pattern leaves that cell empty");
+        assertEquals(new PatternPreviewRows.Cell(2, -1), rows.cell(3));
+        assertEquals(new PatternPreviewRows.Cell(0, 0), rows.cell(4));
     }
 
     private static BitSet changes(int... indexes) {
