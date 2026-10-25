@@ -1,0 +1,16 @@
+{
+  "project": 1695369,
+  "server_exclusions": {
+    "60089": "Mouse Tweaks: client mouse input",
+    "976858": "Inventory Tweaks: client inventory controls",
+    "908741": "Embeddium: client renderer",
+    "882495": "GPU Memory Leak Fix: client renderer",
+    "358191": "PackMenu: client main menu",
+    "250702": "Just Enough Characters: client recipe search",
+    "931925": "Chloride: client rendering options",
+    "265917": "JEI Integration: client recipe display",
+    "581495": "Oculus: client shaders",
+    "240630": "Just Enough Resources: client recipe display",
+    "654373": "Rubidium Extra: client renderer"
+  }
+}
