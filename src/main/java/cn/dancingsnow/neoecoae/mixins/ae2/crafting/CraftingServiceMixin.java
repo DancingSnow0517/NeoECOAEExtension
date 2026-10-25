@@ -566,12 +566,12 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Inject(method = "submitJob", at = @At("HEAD"))
     private void neoecoae$traceSubmissionEntry(
-            ICraftingPlan job,
-            ICraftingRequester requestingMachine,
-            ICraftingCPU target,
-            boolean prioritizePower,
-            IActionSource src,
-            CallbackInfoReturnable<ICraftingSubmitResult> cir
+            CallbackInfoReturnable<ICraftingSubmitResult> cir,
+            @Local(argsOnly = true) ICraftingPlan job,
+            @Local(argsOnly = true) ICraftingRequester requestingMachine,
+            @Local(argsOnly = true) ICraftingCPU target,
+            @Local(argsOnly = true, ordinal = 0) boolean prioritizePower,
+            @Local(argsOnly = true) IActionSource src
     ) {
         if (!NEConfig.ecoCraftSubmissionDebug) return;
         NEOECOAE_SUBMISSION_LOGGER.info(
@@ -583,12 +583,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Inject(method = "submitJob", at = @At("RETURN"))
     private void neoecoae$traceSubmissionReturn(
-            ICraftingPlan job,
-            ICraftingRequester requestingMachine,
-            ICraftingCPU target,
-            boolean prioritizePower,
-            IActionSource src,
-            CallbackInfoReturnable<ICraftingSubmitResult> cir
+            CallbackInfoReturnable<ICraftingSubmitResult> cir,
+            @Local(argsOnly = true) ICraftingPlan job,
+            @Local(argsOnly = true) ICraftingCPU target
     ) {
         if (!NEConfig.ecoCraftSubmissionDebug) return;
         ICraftingSubmitResult result = cir.getReturnValue();

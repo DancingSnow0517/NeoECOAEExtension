@@ -32,7 +32,7 @@ public abstract class CraftConfirmMenuForceStartMixin implements ECOForceCraftSt
         return neoecoae$forceCraftStartActive;
     }
 
-    @Inject(method = "startJob", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "startJob*", at = @At("HEAD"), cancellable = true)
     private void neoecoae$wrapSimulationPlan(CallbackInfo ci) {
         CraftConfirmMenu menu = (CraftConfirmMenu) (Object) this;
         if (menu.isClientSide() || !neoecoae$consumeForceCraftStart()
@@ -62,16 +62,33 @@ public abstract class CraftConfirmMenuForceStartMixin implements ECOForceCraftSt
         ci.cancel();
     }
 
-    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method = "startJob")
+    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method = "startJob()V")
     private void neoecoae$restorePlan(com.llamalad7.mixinextras.injector.wrapoperation.Operation<Void> original) {
         try {
             original.call();
         } finally {
-            if (neoecoae$originalSimulationResult != null) {
-                result = neoecoae$originalSimulationResult;
-                neoecoae$originalSimulationResult = null;
-            }
-            neoecoae$forceCraftStartActive = false;
+            neoecoae$restoreSimulationPlan();
         }
+    }
+
+    // A regex keeps Mixin 0.8.5's development refmap fallback from dropping the optional descriptor.
+    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(
+        method = "name=/^startJob$/ desc=/^\\(Z\\)V$/", require = 0)
+    private void neoecoae$restoreFollowingPlan(boolean isFollowing,
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<Void> original) {
+        try {
+            original.call(isFollowing);
+        } finally {
+            neoecoae$restoreSimulationPlan();
+        }
+    }
+
+    @Unique
+    private void neoecoae$restoreSimulationPlan() {
+        if (neoecoae$originalSimulationResult != null) {
+            result = neoecoae$originalSimulationResult;
+            neoecoae$originalSimulationResult = null;
+        }
+        neoecoae$forceCraftStartActive = false;
     }
 }

@@ -37,6 +37,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.platform.mixin.CraftConfirmPlanningBridge;
 import cn.dancingsnow.neoecoae.platform.mixin.RouteCraftingPlanning;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
+import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryEntryAccessor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.math.BigInteger;
@@ -46,6 +47,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.Future;
+import java.util.function.Supplier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.Level;
@@ -57,6 +59,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Group;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
@@ -686,12 +689,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
                 missingAmount = Math.max(0L, required - storedAmount);
             }
 
-            entries.add(new CraftingPlanSummaryEntry(
-                key,
-                missingAmount,
-                storedAmount,
-                entry.getCraftAmount()
-            ));
+            var quantities = (CraftingPlanSummaryEntryAccessor) (Object) entry;
+            quantities.neoecoae$setMissingAmount(missingAmount);
+            quantities.neoecoae$setStoredAmount(storedAmount);
+            entries.add(entry);
         }
 
         Collections.sort(entries);
@@ -758,9 +759,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
      *
      * <p>Only a plan ECO produced may be rechecked here. Another planner can describe its stored/missing split with
      * different semantics, so re-extracting it from storage can report phantom shortages and reject submission.</p>
+     *
+     * <p>The wildcard includes Cosmolite's boolean overload; a bare method name selects only its no-argument delegate.</p>
      */
     @Inject(
-        method = "startJob",
+        method = "startJob*",
         at = @At(
             value = "INVOKE",
             target = "Lappeng/menu/me/crafting/CraftConfirmMenu;getGrid()Lappeng/api/networking/IGrid;"
@@ -809,6 +812,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
      * execution schedule and independent cycle expectation. The latter remains true when schedule propagation
      * fails, allowing the executor to stop instead of silently treating a solved cycle as a vanilla DAG.
      */
+    @Group(name = "neoecoae$confirmedSubmission", min = 1, max = 1)
     @WrapOperation(
         method = "startJob",
         at = @At(
@@ -819,7 +823,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
                 + "Lappeng/api/networking/crafting/ICraftingCPU;"
                 + "ZLappeng/api/networking/security/IActionSource;"
                 + ")Lappeng/api/networking/crafting/ICraftingSubmitResult;"
-        )
+        ),
+        require = 0
     )
     private ICraftingSubmitResult submitConfirmedCyclePlan(
             ICraftingService service,
@@ -829,6 +834,41 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
             boolean prioritizePower,
             IActionSource source,
             Operation<ICraftingSubmitResult> original) {
+        return neoecoae$submitConfirmedPlan(service, submittedPlan, target, source,
+            () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));
+    }
+
+    @Group(name = "neoecoae$confirmedSubmission", min = 1, max = 1)
+    @WrapOperation(
+        method = "startJob(Z)V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/api/networking/crafting/ICraftingService;submitJob("
+                + "Lappeng/api/networking/crafting/ICraftingPlan;"
+                + "Lappeng/api/networking/crafting/ICraftingRequester;"
+                + "Lappeng/api/networking/crafting/ICraftingCPU;"
+                + "ZLappeng/api/networking/security/IActionSource;Z"
+                + ")Lappeng/api/networking/crafting/ICraftingSubmitResult;"
+        ),
+        require = 0
+    )
+    private ICraftingSubmitResult submitConfirmedFollowingCyclePlan(
+            ICraftingService service,
+            ICraftingPlan submittedPlan,
+            @Nullable ICraftingRequester requestingMachine,
+            @Nullable ICraftingCPU target,
+            boolean prioritizePower,
+            IActionSource source,
+            boolean isFollowing,
+            Operation<ICraftingSubmitResult> original) {
+        return neoecoae$submitConfirmedPlan(service, submittedPlan, target, source,
+            () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source, isFollowing));
+    }
+
+    @Unique
+    private ICraftingSubmitResult neoecoae$submitConfirmedPlan(
+            ICraftingService service, ICraftingPlan submittedPlan, @Nullable ICraftingCPU target,
+            IActionSource source, Supplier<ICraftingSubmitResult> submission) {
         long startedNanos = System.nanoTime();
         if (NEConfig.ecoCraftSubmissionDebug) {
             ECOPlanningResult attached = submittedPlan instanceof ECOCraftingPlanDiagnostics diagnostics
@@ -854,7 +894,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         if (planningResult == null) planningResult = ECOPlanningResultRegistry.find(result);
         ECOPlanningResult boundResult = planningResult;
         ICraftingSubmitResult submitResult = ECOPlanningResultRegistry.withSubmissionAlias(submittedPlan, boundResult,
-            () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));
+            submission);
         if (NEConfig.ecoCraftSubmissionDebug) {
             NEOECOAE_LOGGER.info(
                 "[ECO-CRAFT-SUBMIT] stage=service-submit-return elapsedMs={} successful={} error={} detail={} output={} amount={} target={}",
@@ -875,7 +915,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         return submitResult;
     }
 
-    @Inject(method = "startJob", at = @At("HEAD"))
+    @Inject(method = "startJob*", at = @At("HEAD"))
     private void neoecoae$logStartButtonClick(CallbackInfo ci) {
         var menu = (CraftConfirmMenu) (Object) this;
         if (menu.isClientSide() || !NEConfig.ecoCraftSubmissionDebug || result == null) return;
@@ -888,7 +928,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
             neoecoae$describeCpu(selectedCpu));
     }
 
-    @Inject(method = "startJob", at = @At("RETURN"))
+    @Inject(method = "startJob*", at = @At("RETURN"))
     private void neoecoae$logStartButtonReturn(CallbackInfo ci) {
         var menu = (CraftConfirmMenu) (Object) this;
         long startedNanos = neoecoae$startButtonAttemptStartedNanos;

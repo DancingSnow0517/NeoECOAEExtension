@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
+import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryEntryAccessor;
 import cn.dancingsnow.neoecoae.mixins.ae2.menu.CraftConfirmMenuMixin;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -31,8 +32,11 @@ class ECOConfirmationAvailabilityTest {
         var summary = mock(CraftingPlanSummary.class,
             withSettings().extraInterfaces(CraftingPlanSummaryAccessor.class));
         when(summary.isSimulation()).thenReturn(true);
-        when(summary.getEntries()).thenReturn(List.of(
-            new CraftingPlanSummaryEntry(key, 0, 137346430105L, 0)));
+        var entry = mock(CraftingPlanSummaryEntry.class,
+            withSettings().extraInterfaces(CraftingPlanSummaryEntryAccessor.class));
+        when(entry.getWhat()).thenReturn(key);
+        when(entry.getStoredAmount()).thenReturn(137346430105L);
+        when(summary.getEntries()).thenReturn(List.of(entry));
         when(grid.getCraftingService().canEmitFor(key)).thenReturn(true);
         when(grid.getStorageService().getInventory().extract(key, 137346430105L,
             Actionable.SIMULATE, source)).thenReturn(21864722041L);
@@ -42,8 +46,9 @@ class ECOConfirmationAvailabilityTest {
         method.invoke(null, grid, source, summary);
         ArgumentCaptor<List<CraftingPlanSummaryEntry>> entries = ArgumentCaptor.forClass((Class) List.class);
         verify((CraftingPlanSummaryAccessor) summary).neoecoae$setEntries(entries.capture());
-        assertEquals(21864722041L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(entries.getValue()).getStoredAmount());
-        assertEquals(115481708064L, cn.dancingsnow.neoecoae.platform.JdkCompat.first(entries.getValue()).getMissingAmount());
+        assertSame(entry, cn.dancingsnow.neoecoae.platform.JdkCompat.first(entries.getValue()));
+        verify((CraftingPlanSummaryEntryAccessor) entry).neoecoae$setStoredAmount(21864722041L);
+        verify((CraftingPlanSummaryEntryAccessor) entry).neoecoae$setMissingAmount(115481708064L);
     }
 
     @Test

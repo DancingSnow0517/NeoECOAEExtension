@@ -83,7 +83,9 @@ public class CpuSelectionListMixin {
         at = @At(
             value = "INVOKE",
             target = "Lappeng/core/localization/Tooltips;ofBytes(J)Lnet/minecraft/network/chat/MutableComponent;"
-        )
+        ),
+        // Cosmolite renders this tooltip through NumberUtil instead of Tooltips.ofBytes.
+        require = 0
     )
     private MutableComponent wrapStorageTooltip(long storage, Operation<MutableComponent> original,
             @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu) {

@@ -54,12 +54,12 @@ public abstract class Ae2CraftingCpuFastPathMixin {
         }
     }
 
-    @Inject(method = "trySubmitJob", at = @At("HEAD"), cancellable = true)
-    private void neoecoae$validatePlan(appeng.api.networking.IGrid grid,
-            appeng.api.networking.crafting.ICraftingPlan plan,
-            appeng.api.networking.security.IActionSource source,
-            appeng.api.networking.crafting.ICraftingRequester requester,
-            CallbackInfoReturnable<appeng.api.networking.crafting.ICraftingSubmitResult> cir) {
+    // Cosmolite adds a boolean overload and calls it directly from its crafting service.
+    @Inject(method = "trySubmitJob*", at = @At("HEAD"), cancellable = true)
+    private void neoecoae$validatePlan(
+            CallbackInfoReturnable<appeng.api.networking.crafting.ICraftingSubmitResult> cir,
+            @com.llamalad7.mixinextras.sugar.Local(argsOnly = true)
+            appeng.api.networking.crafting.ICraftingPlan plan) {
         if (!cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.supportsPlan(plan))
             cir.setReturnValue(appeng.crafting.execution.CraftingSubmitResult.NO_CPU_FOUND);
     }

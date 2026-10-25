@@ -8,6 +8,7 @@
     "ae2.TooltipsByteUnitsMixin",
     "ae2.accessor.AECraftingPatternAccessor",
     "ae2.accessor.CraftingPlanSummaryAccessor",
+    "ae2.accessor.CraftingPlanSummaryEntryAccessor",
     "ae2.accessor.DelegatingMEInventoryAccessor",
     "ae2.accessor.SupplierStorageAccessor",
     "ae2.accessor.PatternProviderLogicAccessor",

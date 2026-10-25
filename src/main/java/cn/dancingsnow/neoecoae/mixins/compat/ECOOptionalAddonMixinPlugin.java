@@ -18,6 +18,8 @@ public final class ECOOptionalAddonMixinPlugin implements IMixinConfigPlugin {
                     "net/pedroksl/advanced_ae/common/logic/AdvCraftingCPULogic.class";
             case "cn.dancingsnow.neoecoae.mixins.compat.extendedae" ->
                     "com/glodblock/github/extendedae/common/tileentities/TileExIOPort.class";
+            case "cn.dancingsnow.neoecoae.mixins.compat.gregtech" ->
+                    "com/gregtechceu/gtceu/integration/ae2/machine/MEPatternBufferPartMachine.class";
             default -> throw new IllegalArgumentException("Unsupported optional mixin package: " + mixinPackage);
         };
     }
