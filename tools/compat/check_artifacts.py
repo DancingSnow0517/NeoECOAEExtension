@@ -1,4 +1,5 @@
 """Reject dev mappings, leaked test doubles, or a probe accidentally bundled in the release."""
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -8,10 +9,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--release-only', action='store_true',
+                        help='Check the production mod without requiring the separate compatibility probe')
+    args = parser.parse_args()
     version = next(line.split('=', 1)[1] for line in (ROOT / 'gradle.properties').read_text().splitlines()
                    if line.startswith('mod_version='))
     results = []
-    for name, mod in [(f'neoecoae-{version}.jar', 'neoecoae'), (f'neoeco-compat-tests-{version}.jar', 'neoeco_compat')]:
+    artifacts = [(f'neoecoae-{version}.jar', 'neoecoae')]
+    if not args.release_only:
+        artifacts.append((f'neoeco-compat-tests-{version}.jar', 'neoeco_compat'))
+    for name, mod in artifacts:
         path = ROOT / 'build/libs' / name
         with zipfile.ZipFile(path) as archive:
             entries = archive.namelist()

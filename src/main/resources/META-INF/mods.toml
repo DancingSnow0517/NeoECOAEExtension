@@ -7,7 +7,7 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_authors}"
-description='''Neo ECO AE Extension: Forge 1.20.1 port under development.'''
+description='''An Applied Energistics 2 addon providing ECO crafting, storage and computation systems, integrated workstations, and exact large-quantity handling.'''
 
 [[dependencies.neoecoae]]
 modId="gtceu"
@@ -51,6 +51,9 @@ mandatory=true
 versionRange="[15.4.10,16)"
 ordering="AFTER"
 side="BOTH"
+    [dependencies.neoecoae.mc-publish]
+    modrinth="ae2"
+    curseforge="applied-energistics-2"
 
 [[dependencies.neoecoae]]
 modId="guideme"
@@ -58,6 +61,9 @@ mandatory=true
 versionRange="[20.1.14,20.2.0)"
 ordering="AFTER"
 side="BOTH"
+    [dependencies.neoecoae.mc-publish]
+    modrinth="guideme"
+    curseforge="guideme"
 
 [[dependencies.neoecoae]]
 modId="ldlib"
@@ -65,6 +71,9 @@ mandatory=true
 versionRange="[1.0.33.b,1.1)"
 ordering="AFTER"
 side="BOTH"
+    [dependencies.neoecoae.mc-publish]
+    modrinth="ldlib"
+    curseforge="ldlib"
 
 [[dependencies.neoecoae]]
 modId="appbot"

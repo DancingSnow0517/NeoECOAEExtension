@@ -8,6 +8,7 @@ group = mod_group_id
 version = mod_version
 base.archivesName = mod_id
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java.withSourcesJar()
 
 def runtimeProfiles = [
     base: [],

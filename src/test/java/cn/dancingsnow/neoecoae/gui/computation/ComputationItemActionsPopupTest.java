@@ -29,7 +29,7 @@ class ComputationItemActionsPopupTest {
         var fixture = new Fixture(6, false);
         assertTrue(fixture.popup.getPositionX() + fixture.popup.getSizeWidth() <= 326);
         assertTrue(fixture.popup.getPositionY() + fixture.popup.getSizeHeight() <= 254);
-        assertEquals(138, fixture.popup.getSizeWidth());
+        assertEquals(154, fixture.popup.getSizeWidth());
         fixture.click(25);
         fixture.root.arrange();
         assertFalse(fixture.popup.isDisplayed());
@@ -82,7 +82,7 @@ class ComputationItemActionsPopupTest {
     @Test void stopAndResumeAreStepActionsAndNeverAnOrderCancel() {
         for (boolean stopped : List.of(false, true)) {
             var fixture = new Fixture(1, stopped);
-            fixture.click(64);
+            fixture.click(84);
             assertEquals(stopped ? "resume" : "stop", fixture.requests.get(1).getString("action"));
             assertFalse(fixture.requests.stream().anyMatch(request -> request.getString("action").equals("cancel")));
         }
@@ -94,7 +94,7 @@ class ComputationItemActionsPopupTest {
         fixture.popup.open(fixture.item, 20, 20);
         fixture.popup.accept(old);
         fixture.root.arrange();
-        fixture.click(64);
+        fixture.click(84);
         assertEquals(2, fixture.requests.size(), "Only the two inspect requests are sent");
     }
 

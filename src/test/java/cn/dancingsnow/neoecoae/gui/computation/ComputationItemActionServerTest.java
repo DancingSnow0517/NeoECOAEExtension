@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressView;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOProcessingMonitor;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.List;
 import java.util.Map;
@@ -113,6 +114,7 @@ class ComputationItemActionServerTest {
                 (position, expected, toInventory) -> false, (position, expected) -> false,
                 tick::get, () -> true, () -> List.of(cpu), ignored -> {}, ignored -> {}, Component::empty);
             when(cpu.getLogic()).thenReturn(logic);
+            when(logic.getProcessingMonitor()).thenReturn(mock(ECOProcessingMonitor.class));
             when(cpu.getSelectionMode()).thenReturn(CpuSelectionMode.ANY);
             var tier = mock(IECOTier.class);
             when(tier.getCPUOverlayTexture()).thenReturn(new ResourceLocation("test", "cpu.png"));

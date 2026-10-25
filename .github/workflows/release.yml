@@ -1,0 +1,109 @@
+name: Release Neo ECO AE Extension
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: startsWith(github.event.release.tag_name, '20.')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Validate release identity and bilingual notes
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          properties = dict(line.split('=', 1) for line in Path('gradle.properties').read_text().splitlines()
+                            if '=' in line and not line.startswith('#'))
+          version = properties['mod_version']
+          assert os.environ['RELEASE_TAG'] == version, 'Release tag must match mod_version'
+          assert properties['minecraft_version'] == '1.20.1'
+          notes = Path(f'docs/releases/{version}.md')
+          text = notes.read_text()
+          assert '## 中文' in text and '## English' in text, 'Both languages are required'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'version={version}\nnotes={notes.as_posix()}\n')
+          PY
+      - name: Restore verified compile dependencies
+        run: python3 tools/compat/bootstrap.py
+      - name: Build, test and reobfuscate the release
+        env:
+          # ModDevGradle must compile the Java 17 Minecraft artifacts on CI too.
+          CI: 'false'
+        run: >-
+          bash ./gradlew build
+          --no-daemon --no-parallel --max-workers=2 --console=plain
+          '-Dorg.gradle.jvmargs=-Xmx4G -Dfile.encoding=UTF-8'
+      - name: Verify production artifacts
+        run: python3 tools/compat/check_artifacts.py --release-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neoecoae-${{ steps.release.outputs.version }}
+          path: |
+            build/libs/neoecoae-${{ steps.release.outputs.version }}.jar
+            build/libs/neoecoae-${{ steps.release.outputs.version }}-sources.jar
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-verification-${{ steps.release.outputs.version }}
+          path: |
+            build/reports/tests/test/
+            build/test-results/test/
+            build/compat-build-evidence/
+          if-no-files-found: ignore
+      - name: Publish GitHub prerelease assets
+        if: github.event.release.prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: >-
+          gh release upload "$RELEASE_TAG"
+          "build/libs/neoecoae-$RELEASE_VERSION.jar"
+          "build/libs/neoecoae-$RELEASE_VERSION-sources.jar" --clobber
+      - name: Publish to GitHub, Modrinth and CurseForge
+        if: '!github.event.release.prerelease'
+        uses: Kir-Antipov/mc-publish@v3.3.1
+        with:
+          name: Neo ECO AE Extension v${{ steps.release.outputs.version }}
+          version: ${{ steps.release.outputs.version }}
+          version-type: release
+          changelog-file: ${{ steps.release.outputs.notes }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-tag: ${{ github.event.release.tag_name }}
+          modrinth-id: udZtKfzP
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: 1460639
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          loaders: forge
+          game-versions: '1.20.1'
+          java: '17'
+          environment: 'client | server'
+          files: |
+            build/libs/neoecoae-${{ steps.release.outputs.version }}.jar
+            build/libs/neoecoae-${{ steps.release.outputs.version }}-sources.jar
