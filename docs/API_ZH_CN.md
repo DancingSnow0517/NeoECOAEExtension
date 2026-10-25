@@ -380,6 +380,10 @@ public abstract class EcoParallelProviderExample
 
 `ECOFastPathDispatchProvider` 是经过验证的原子 FastPath 执行约定，与普通并行接收分开。准备探测不能移动资源。供应器负责核对具体配方、返还与容器语义、容量和提交目标。
 
+可选集成复用 `ECOParallelCraftingProviders.register(providerClass, adapter)`，返回同时实现 `ECOParallelCraftingProvider` 与 `ECOFastPathDispatchProvider` 的适配器。将适配器及注册放在仅当 NeoECOAE 存在时才加载的集成代码中，机器类本身即可在没有 NeoECOAE 时继续加载。`ECOFastPathFacade.supports`、`resolveProvider`、`prepare`、`prepareAllocated` 和 `prepareExactAllocated` 都会发现适配器的 FastPath 能力。优先使用供应器直接实现的 FastPath 接口，其次是注册适配器，最后是内置兼容桥；仅实现普通并行接口的适配器不会启用 FastPath。
+
+`Preparation.capacity` 是正数 `long`，不受普通路径 `int` 槽位数量限制；装不下一整份时返回 null。`ECOBatchDispatchContext.inputs()` 表示**单份输入**，`Batch.inputTotal()` 表示**整批总量**。不要修改批次集合，CPU 还需要用它们回滚。精确数量的已分配批次需要单独实现 `eco$prepareExactFastPath`，默认实现仍表示不支持。
+
 | 方法或数据 | 含义 |
 | --- | --- |
 | `eco$prepareFastPath(context)` | null 表示不支持，否则返回正容量和发配回调。 |

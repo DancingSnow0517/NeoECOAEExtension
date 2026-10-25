@@ -22,6 +22,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * <em>this</em> class rather than testing the interface, which is what makes the two kinds of provider
  * indistinguishable to them.</p>
  *
+ * <p>An adapter may also implement {@link ECOFastPathDispatchProvider}. The FastPath facade discovers
+ * that capability through this registry for inventory-backed, allocated and exact allocated batches.
+ * A provider's directly implemented FastPath contract takes precedence over a registered adapter.</p>
+ *
  * <p>An adapter's answer is cached per provider instance, weakly: a lookup sits on autocrafting paths, where
  * allocating an adapter per call would be waste, and a retired machine must not be kept alive by the cache.</p>
  *

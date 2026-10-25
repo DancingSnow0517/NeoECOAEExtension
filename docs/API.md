@@ -380,6 +380,10 @@ For a foreign provider class, register `ECOParallelCraftingProviders.register(pr
 
 `ECOFastPathDispatchProvider` is the separate contract for verified atomic FastPath execution. A preparation probe must not move resources. Providers validate the concrete recipe, return/container semantics, capacity, and commit target.
 
+For an optional integration, reuse `ECOParallelCraftingProviders.register(providerClass, adapter)` and return an adapter implementing both `ECOParallelCraftingProvider` and `ECOFastPathDispatchProvider`. Keep this adapter and its registration in integration code loaded only when NeoECOAE is present, so the machine class itself remains loadable without NeoECOAE. `ECOFastPathFacade.supports`, `resolveProvider`, `prepare`, `prepareAllocated`, and `prepareExactAllocated` discover its FastPath capability. Direct FastPath implementations take precedence, followed by registered adapters and then the built-in compatibility bridges. An ordinary-only adapter does not enable FastPath.
+
+`Preparation.capacity` is a positive `long`, independent of the ordinary `int` slot count; return null when no complete copy fits. `ECOBatchDispatchContext.inputs()` describes **one copy**, while `Batch.inputTotal()` contains **the full batch total**. Do not mutate the batch collections: the CPU retains them for rollback. Exact allocated batches require a separate `eco$prepareExactFastPath` implementation; its default still declines support.
+
 | Method/value | Meaning |
 | --- | --- |
 | `eco$prepareFastPath(context)` | Null declines support; otherwise returns positive capacity and a dispatch callback. |

@@ -9,6 +9,7 @@ import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
@@ -53,6 +54,7 @@ public final class ECOFastPathFacade {
 
     public static boolean supports(ICraftingProvider provider) {
         return provider instanceof ECOFastPathDispatchProvider
+            || ECOParallelCraftingProviders.find(provider) instanceof ECOFastPathDispatchProvider
             || ECOExtendedAEPlusMatrixBridge.supportsProvider(provider)
             || ECOUselessBatchProviderBridge.supports(provider);
     }
@@ -60,6 +62,7 @@ public final class ECOFastPathFacade {
     @Nullable
     public static ECOFastPathDispatchProvider resolveProvider(ICraftingProvider provider) {
         if (provider instanceof ECOFastPathDispatchProvider nativeProvider) return nativeProvider;
+        if (ECOParallelCraftingProviders.find(provider) instanceof ECOFastPathDispatchProvider adapted) return adapted;
         var matrix = ECOExtendedAEPlusMatrixBridge.adapt(provider);
         return matrix != null ? matrix : ECOUselessBatchProviderBridge.adapt(provider);
     }
@@ -119,7 +122,7 @@ public final class ECOFastPathFacade {
     @Nullable
     public static PreparedBatch prepareAllocated(ICraftingProvider provider, IPatternDetails pattern,
             KeyCounter[] oneCopy, long allocatedCopies, Level level, @Nullable UUID jobId) {
-        if (!(provider instanceof ECOFastPathDispatchProvider) || allocatedCopies <= 0) return null;
+        if (allocatedCopies <= 0 || resolveProvider(provider) == null) return null;
         var execution = ECOExtractedPatternExecution.fromProviderPush(pattern, oneCopy, level);
         if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()
                 || execution.fastPathType() != cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL) {
@@ -145,8 +148,10 @@ public final class ECOFastPathFacade {
     public static @Nullable PreparedExactBatch prepareExactAllocated(ICraftingProvider provider,
             IPatternDetails pattern, KeyCounter[] oneCopy, java.math.BigInteger allocatedCopies,
             Level level, UUID jobId) {
-        if (!(provider instanceof ECOFastPathDispatchProvider target) || allocatedCopies.signum() <= 0
+        if (allocatedCopies.signum() <= 0
                 || jobId == null || ECOExternalProviderBlocking.isEnabled(provider)) return null;
+        var target = resolveProvider(provider);
+        if (target == null) return null;
         var execution = ECOExtractedPatternExecution.fromProviderPush(pattern, oneCopy, level);
         if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()
                 || execution.fastPathType() != cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL)
