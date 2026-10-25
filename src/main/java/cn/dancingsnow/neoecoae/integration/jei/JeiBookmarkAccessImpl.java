@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import mezz.jei.api.constants.VanillaTypes;
@@ -32,7 +33,8 @@ final class JeiBookmarkAccessImpl {
             List<?> result = (List<?>) elements.invoke(list);
             return result.stream().map(JeiBookmarkAccessImpl::elementKey).filter(java.util.Objects::nonNull).distinct()
                 .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            com.mojang.logging.LogUtils.getLogger().warn("Failed to read JEI bookmarks", failure);
             return List.of();
         }
     }
@@ -45,20 +47,22 @@ final class JeiBookmarkAccessImpl {
             Field listField = overlay.getClass().getDeclaredField("bookmarkList");
             listField.setAccessible(true);
             Object list = listField.get(overlay);
-            Field factoryField = list.getClass().getDeclaredField("bookmarkFactory");
-            factoryField.setAccessible(true);
-            Object factory = factoryField.get(list);
-            Method create = factory.getClass().getMethod("create", ITypedIngredient.class);
-            Method add = list.getClass().getMethod("add", Class.forName("mezz.jei.gui.bookmarks.IBookmark"));
+            // JEI 15 exposes this operation on BookmarkList itself; the newer bookmarkFactory field
+            // does not exist on 1.20.1. This path also notifies the overlay and saves the bookmark file.
+            Method add = list.getClass().getMethod("addIngredientBookmark", ITypedIngredient.class);
             for (AEKey key : keys) {
                 if (key instanceof AEItemKey itemKey) {
                     ItemStack stack = itemKey.toStack();
                     var typed = runtime.getIngredientManager().createTypedIngredient(VanillaTypes.ITEM_STACK, stack, false);
-                    if (typed.isPresent()) add.invoke(list, create.invoke(factory, typed.get()));
+                    if (typed.isPresent()) add.invoke(list, typed.get());
+                } else if (key instanceof AEFluidKey fluidKey) {
+                    var typed = runtime.getIngredientManager().createTypedIngredient(
+                        ForgeTypes.FLUID_STACK, fluidKey.toStack(1), false);
+                    if (typed.isPresent()) add.invoke(list, typed.get());
                 }
             }
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
-            // JEI is optional and its internal bookmark implementation may change between versions.
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            com.mojang.logging.LogUtils.getLogger().warn("Failed to save missing ingredients to JEI bookmarks", failure);
         }
     }
 

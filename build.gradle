@@ -27,6 +27,7 @@ runtimeProfiles.storageAll = runtimeProfiles.storage + [
     'ae2lt', 'thunderbolt'
 ]
 def portingProfile = providers.gradleProperty('portingProfile').getOrElse('base')
+def jeiVersion = providers.gradleProperty('jeiVersion').getOrElse('15.48.0.177')
 if (!runtimeProfiles.containsKey(portingProfile)) {
     throw new GradleException("Unknown portingProfile '${portingProfile}'; choose ${runtimeProfiles.keySet()}")
 }
@@ -120,12 +121,12 @@ dependencies {
     testImplementation 'org.slf4j:slf4j-api:2.0.16'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     // Exercise optional per-recipe layout hooks against the same JEI release as the API.
-    testRuntimeOnly('mezz.jei:jei-1.20.1-forge:15.48.0.177') { transitive = false }
+    testRuntimeOnly("mezz.jei:jei-1.20.1-forge:${jeiVersion}") { transitive = false }
     ['lwjgl', 'lwjgl-glfw', 'lwjgl-opengl', 'lwjgl-stb'].each {
         testRuntimeOnly "org.lwjgl:${it}:3.3.1:${lwjglNatives}"
     }
-    modCompileOnly 'mezz.jei:jei-1.20.1-forge-api:15.48.0.177'
-    modCompileOnly 'mezz.jei:jei-1.20.1-common-api:15.48.0.177'
+    modCompileOnly "mezz.jei:jei-1.20.1-forge-api:${jeiVersion}"
+    modCompileOnly "mezz.jei:jei-1.20.1-common-api:${jeiVersion}"
     // EMI's favorites list is an internal client API; keep the full jar compile-only and optional.
     modCompileOnly 'dev.emi:emi-forge:1.1.24+1.20.1'
 }
