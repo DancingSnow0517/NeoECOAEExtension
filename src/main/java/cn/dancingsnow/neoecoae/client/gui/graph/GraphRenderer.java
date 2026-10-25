@@ -20,39 +20,107 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
-/** Immediate-mode renderer. Only queried viewport primitives reach the draw loops. */
-public final class GraphRenderer {
+/** Live rendering for sparse views; bounded progressive raster tiles for dense overviews. */
+public final class GraphRenderer implements AutoCloseable {
     private static final int TEXT = 0xffe8edf2;
     private static final int MUTED = 0xffaab3bd;
 
     public record Frame(@Nullable ClientCraftingGraph.Node hovered, List<Component> tooltip) {}
-    public record VisiblePlan(List<GraphLayoutSnapshot.Box> nodes, List<ClientCraftingGraph.Link> edges) {}
+    public record VisiblePlan(List<GraphLayoutSnapshot.Box> nodes, List<ClientCraftingGraph.Link> edges,
+            int nodeCount, int edgeCount) {
+        public VisiblePlan(List<GraphLayoutSnapshot.Box> nodes, List<ClientCraftingGraph.Link> edges) {
+            this(nodes, edges, nodes.size(), edges.size());
+        }
+    }
     private final CompactTreeRenderer compactTreeRenderer = new CompactTreeRenderer();
+    private final GraphVisibilityCache visibility = new GraphVisibilityCache();
+    private final GraphViewportCache canvas = new GraphViewportCache();
+    private boolean cachedView;
+    private ClientCraftingGraph tooltipGraph;
+    private ClientCraftingGraph.Node tooltipNode;
+    private List<Component> tooltipLines = List.of();
+
+    public static void resourcesReloaded() { GraphViewportCache.resourcesReloaded(); }
 
     static VisiblePlan collectVisible(GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom,
             int screenWidth, int screenHeight) {
-        float left = -cameraX / zoom;
-        float top = (30 - cameraY) / zoom;
-        float right = (screenWidth - cameraX) / zoom;
-        float bottom = (screenHeight - cameraY) / zoom;
-        return new VisiblePlan(layout.query(left, top, right, bottom, 180 / zoom),
-            layout.queryLinks(left, top, right, bottom, 180 / zoom));
+        var area = viewport(cameraX, cameraY, zoom, screenWidth, screenHeight).padded(24 / zoom);
+        return new VisiblePlan(layout.query(area, Integer.MAX_VALUE), layout.queryLinks(area));
+    }
+
+    static GraphLayoutSnapshot.Bounds viewport(float cameraX, float cameraY, float zoom,
+            int screenWidth, int screenHeight) {
+        return new GraphLayoutSnapshot.Bounds(-cameraX / zoom, (30 - cameraY) / zoom,
+            (screenWidth - cameraX) / zoom, (screenHeight - cameraY) / zoom);
+    }
+
+    static boolean useCache(float zoom, int visibleNodes, boolean previous) {
+        return zoom < 0.45f || visibleNodes > (previous ? 192 : GraphVisibilityCache.LIVE_LIMIT);
     }
 
     public Frame render(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
             float cameraX, float cameraY, float zoom, int screenWidth, int screenHeight, int mouseX, int mouseY,
             @Nullable Integer selectedId, GraphProfiler profiler) {
+        long started = System.nanoTime();
+        var area = viewport(cameraX, cameraY, zoom, screenWidth, screenHeight);
+        VisiblePlan visible = visibility.get(layout, area.padded(24 / zoom));
+        cachedView = useCache(zoom, visible.nodeCount(), cachedView);
+        Frame frame;
+        if (!cachedView) {
+            frame = renderImmediate(graphics, graph, layout, cameraX, cameraY, zoom, screenWidth, screenHeight,
+                mouseX, mouseY, selectedId, profiler, visible);
+        } else {
+            canvas.prepare(graphics, layout, area, layout.bounds(), zoom,
+                (tile, pixelsPerUnit) -> new TilePainter(graph, layout, tile, pixelsPerUnit));
+            float worldMouseX = (mouseX - cameraX) / zoom;
+            float worldMouseY = (mouseY - cameraY) / zoom;
+            var hit = mouseY < 30 ? List.<GraphLayoutSnapshot.Box>of()
+                : layout.query(new GraphLayoutSnapshot.Bounds(worldMouseX, worldMouseY, worldMouseX, worldMouseY), 1);
+            var hovered = hit.isEmpty() ? null : graph.nodes().get(hit.get(0).nodeId());
+            graphics.pose().pushPose();
+            try {
+                graphics.pose().translate(cameraX, cameraY, 0);
+                graphics.pose().scale(zoom, zoom, 1);
+                canvas.draw(graphics);
+                drawCachedOverlay(graphics, graph, layout, area, selectedId, hovered, zoom);
+                graphics.flush();
+            } finally {
+                graphics.pose().popPose();
+            }
+            frame = new Frame(hovered, List.of());
+        }
+        // Hover text contains exact amount formatting; keep it off the stationary-frame hot path.
+        if (tooltipGraph != graph || tooltipNode != frame.hovered()) {
+            tooltipGraph = graph;
+            tooltipNode = frame.hovered();
+            tooltipLines = graph.isCompactTree() ? CompactTreeRenderer.tooltip(graph, tooltipNode)
+                : tooltip(graph, tooltipNode);
+        }
+        profiler.update(visible.nodeCount(), visible.edgeCount(), System.nanoTime() - started);
+        return new Frame(frame.hovered(), tooltipLines);
+    }
+
+    @Override
+    public void close() {
+        canvas.close();
+        visibility.clear();
+        tooltipGraph = null;
+        tooltipNode = null;
+        tooltipLines = List.of();
+        cachedView = false;
+    }
+
+    private Frame renderImmediate(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
+            float cameraX, float cameraY, float zoom, int screenWidth, int screenHeight, int mouseX, int mouseY,
+            @Nullable Integer selectedId, GraphProfiler profiler, VisiblePlan visible) {
         if (graph.isCompactTree()) {
             return compactTreeRenderer.render(graphics, graph, layout, cameraX, cameraY, zoom, screenWidth,
-                screenHeight, mouseX, mouseY, selectedId, profiler);
+                screenHeight, mouseX, mouseY, selectedId, profiler, visible);
         }
         long started = System.nanoTime();
-        VisiblePlan visible = collectVisible(layout, cameraX, cameraY, zoom, screenWidth, screenHeight);
         List<GraphLayoutSnapshot.Box> boxes = visible.nodes();
         List<ClientCraftingGraph.Link> links = visible.edges();
         Set<Integer> neighborhood = selectedId == null ? Set.of() : graph.neighborhood(selectedId);
-        Set<Integer> visibleIds = new HashSet<>();
-        boxes.forEach(box -> visibleIds.add(box.nodeId()));
 
         for (var link : links) {
             drawLink(graphics, graph, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
@@ -78,7 +146,136 @@ public final class GraphRenderer {
             if (box.contains(worldMouseX, worldMouseY)) hovered = node;
         }
         profiler.update(boxes.size(), links.size(), System.nanoTime() - started);
-        return new Frame(hovered, tooltip(graph, hovered));
+        return new Frame(hovered, List.of());
+    }
+
+    private static void drawCachedOverlay(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
+            GraphLayoutSnapshot.Bounds area, @Nullable Integer selectedId, @Nullable ClientCraftingGraph.Node hovered,
+            float zoom) {
+        if (selectedId != null && zoom >= 0.5f) {
+            for (var link : layout.linksAt(selectedId)) {
+                if (layout.linkBounds(link).intersects(area)) {
+                    drawCachedLink(graphics, graph, layout, link, zoom, 0xfff6c453);
+                    int neighbor = link.fromId() == selectedId ? link.toId() : link.fromId();
+                    drawOutline(graphics, layout.box(neighbor), area, 0xff83c5be, 1 / zoom);
+                }
+            }
+        }
+        if (selectedId != null) drawOutline(graphics, layout.box(selectedId), area, 0xfff6c453, 2 / zoom);
+        if (hovered != null && (selectedId == null || selectedId != hovered.id())) {
+            drawOutline(graphics, layout.box(hovered.id()), area, 0xff83c5be, 1 / zoom);
+        }
+    }
+
+    private static void drawOutline(GuiGraphics graphics, @Nullable GraphLayoutSnapshot.Box box,
+            GraphLayoutSnapshot.Bounds area, int color, float thickness) {
+        if (box == null || !box.intersects(area.left(), area.top(), area.right(), area.bottom())) return;
+        float x = box.x(), y = box.y(), right = x + box.width(), bottom = y + box.height();
+        GraphDraw.line(graphics, x, y, right, y, color, thickness / 2);
+        GraphDraw.line(graphics, right, y, right, bottom, color, thickness / 2);
+        GraphDraw.line(graphics, right, bottom, x, bottom, color, thickness / 2);
+        GraphDraw.line(graphics, x, bottom, x, y, color, thickness / 2);
+    }
+
+    private static void drawCachedLink(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
+            ClientCraftingGraph.Link link, double pixelsPerUnit, int color) {
+        var route = layout.edgePoints(link);
+        if (route.size() < 2) {
+            var from = layout.box(link.fromId());
+            var to = layout.box(link.toId());
+            if (from == null || to == null) return;
+            if (graph.isCompactTree()) {
+                float middle = (from.y() + from.height() + to.y()) / 2;
+                route = List.of(new GraphLayoutSnapshot.Point(from.centerX(), from.y() + from.height()),
+                    new GraphLayoutSnapshot.Point(from.centerX(), middle),
+                    new GraphLayoutSnapshot.Point(to.centerX(), middle),
+                    new GraphLayoutSnapshot.Point(to.centerX(), to.y()));
+            } else {
+                float middle = (from.x() + from.width() + to.x()) / 2;
+                route = List.of(new GraphLayoutSnapshot.Point(from.x() + from.width(), from.centerY()),
+                    new GraphLayoutSnapshot.Point(middle, from.centerY()),
+                    new GraphLayoutSnapshot.Point(middle, to.centerY()),
+                    new GraphLayoutSnapshot.Point(to.x(), to.centerY()));
+            }
+        }
+        float half = (float) Math.max(0.35, 0.5 / pixelsPerUnit);
+        for (int i = 1; i < route.size(); i++) {
+            var from = route.get(i - 1);
+            var to = route.get(i);
+            GraphDraw.line(graphics, from.x(), from.y(), to.x(), to.y(), color, half);
+        }
+        if (graph.isCompactTree()) {
+            var end = route.get(route.size() - 1);
+            GraphDraw.fill(graphics, end.x() - 3, end.y() - 2, end.x() + 1, end.y() + 3, color);
+        } else {
+            drawArrowHead(graphics, route, color, 0, 0, 1);
+            if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
+                drawEdgeAmount(graphics, graph, link, route, 0, 0, 1);
+            }
+        }
+    }
+
+    private static final class TilePainter implements GraphViewportCache.Painter {
+        private final ClientCraftingGraph graph;
+        private final GraphLayoutSnapshot layout;
+        private final double pixelsPerUnit;
+        private final List<ClientCraftingGraph.Link> links;
+        private final List<GraphLayoutSnapshot.Box> nodes;
+        private final List<GraphLayoutSnapshot.Bounds> rows;
+        private int linkCursor, nodeCursor, rowCursor, missingCursor;
+        private boolean finished;
+
+        TilePainter(ClientCraftingGraph graph, GraphLayoutSnapshot layout, GraphLayoutSnapshot.Bounds area,
+                double pixelsPerUnit) {
+            this.graph = graph;
+            this.layout = layout;
+            this.pixelsPerUnit = pixelsPerUnit;
+            links = layout.queryLinks(area);
+            nodes = layout.query(area, Integer.MAX_VALUE);
+            rows = graph.isCompactTree() ? layout.queryRowFrames(area) : List.of();
+        }
+
+        @Override
+        public boolean advance(GuiGraphics graphics, long deadline) {
+            int work = 0;
+            do {
+                if (linkCursor < links.size()) {
+                    var link = links.get(linkCursor++);
+                    drawCachedLink(graphics, graph, layout, link, pixelsPerUnit,
+                        link.selected() ? 0xff8293a4 : 0xff66505a);
+                } else if (nodeCursor < nodes.size()) {
+                    var box = nodes.get(nodeCursor++);
+                    var node = graph.nodes().get(box.nodeId());
+                    if (node != null) {
+                        if (graph.isCompactTree()) {
+                            CompactTreeRenderer.drawNode(graphics, graph, node, box, false, false, 0, 0, 1);
+                        } else drawNode(graphics, graph, node, box, false, false, 0, 0, 1);
+                    }
+                } else if (rowCursor < rows.size()) {
+                    var row = rows.get(rowCursor++);
+                    float half = (float) (0.5 / pixelsPerUnit);
+                    GraphDraw.line(graphics, row.left(), row.top(), row.right(), row.top(), 0xff8293a4, half);
+                    GraphDraw.line(graphics, row.right(), row.top(), row.right(), row.bottom(), 0xff8293a4, half);
+                    GraphDraw.line(graphics, row.right(), row.bottom(), row.left(), row.bottom(), 0xff8293a4, half);
+                    GraphDraw.line(graphics, row.left(), row.bottom(), row.left(), row.top(), 0xff8293a4, half);
+                } else if (graph.isCompactTree() && missingCursor < nodes.size()) {
+                    var box = nodes.get(missingCursor++);
+                    var node = graph.nodes().get(box.nodeId());
+                    if (node != null && node.material() != null
+                            && node.material().status() == CraftingGraphSnapshot.MaterialStatus.MISSING) {
+                        CompactTreeRenderer.drawNodeFrame(graphics, box, 0xffcf5e5e, 0, 0, 1);
+                    }
+                } else if (!finished) {
+                    if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+                        drawCycleOutputArrow(graphics, graph, layout, 0, 0, 1);
+                    }
+                    if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) drawClusterLabels(graphics, graph, layout, 0, 0, 1);
+                    finished = true;
+                    return true;
+                } else return true;
+            } while (++work < 128 && System.nanoTime() < deadline);
+            return false;
+        }
     }
 
     private static void drawLink(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
@@ -101,10 +298,10 @@ public final class GraphRenderer {
         int x2 = screen(cameraX, to.x(), zoom);
         int y2 = screen(cameraY, to.centerY(), zoom);
         int middle = (x1 + x2) / 2;
-        graphics.hLine(Math.min(x1, middle), Math.max(x1, middle), y1, color);
-        graphics.vLine(middle, Math.min(y1, y2), Math.max(y1, y2), color);
-        graphics.hLine(Math.min(middle, x2), Math.max(middle, x2), y2, color);
-        graphics.fill(x2 - 4, y2 - 2, x2, y2 + 3, color);
+        GraphDraw.hLine(graphics, Math.min(x1, middle), Math.max(x1, middle), y1, color);
+        GraphDraw.vLine(graphics, middle, Math.min(y1, y2), Math.max(y1, y2), color);
+        GraphDraw.hLine(graphics, Math.min(middle, x2), Math.max(middle, x2), y2, color);
+        GraphDraw.fill(graphics, x2 - 4, y2 - 2, x2, y2 + 3, color);
     }
 
     private static void drawCycleOutputArrow(GuiGraphics graphics, ClientCraftingGraph graph,
@@ -170,7 +367,7 @@ public final class GraphRenderer {
         int y = screen(cameraY, point.y(), zoom);
         var font = Minecraft.getInstance().font;
         int width = font.width(text) + 6;
-        graphics.fill(x - width / 2, y - 8, x + (width + 1) / 2, y + 3, 0xcc171b20);
+        GraphDraw.fill(graphics, x - width / 2, y - 8, x + (width + 1) / 2, y + 3, 0xcc171b20);
         graphics.drawCenteredString(font, text, x, y - 7, MUTED);
     }
 
@@ -225,9 +422,9 @@ public final class GraphRenderer {
             int x2 = screen(cameraX, to.x(), zoom);
             int y2 = screen(cameraY, to.y(), zoom);
             if (x1 == x2) {
-                graphics.vLine(x1, Math.min(y1, y2), Math.max(y1, y2), color);
+                GraphDraw.vLine(graphics, x1, Math.min(y1, y2), Math.max(y1, y2), color);
             } else if (y1 == y2) {
-                graphics.hLine(Math.min(x1, x2), Math.max(x1, x2), y1, color);
+                GraphDraw.hLine(graphics, Math.min(x1, x2), Math.max(x1, x2), y1, color);
             } else {
                 drawDiagonal(graphics, x1, y1, x2, y2, color);
             }
@@ -235,15 +432,7 @@ public final class GraphRenderer {
     }
 
     private static void drawDiagonal(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
-        int dx = x2 - x1;
-        int dy = y2 - y1;
-        int steps = Math.max(Math.abs(dx), Math.abs(dy));
-        if (steps == 0) return;
-        for (int i = 0; i <= steps; i++) {
-            int x = x1 + Math.round(dx * (i / (float) steps));
-            int y = y1 + Math.round(dy * (i / (float) steps));
-            graphics.fill(x, y, x + 1, y + 1, color);
-        }
+        GraphDraw.line(graphics, x1, y1, x2, y2, color, 0.5f);
     }
 
     private static void drawNode(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
@@ -262,12 +451,12 @@ public final class GraphRenderer {
                 pixelWidth, pixelHeight, cameraY, zoom);
             return;
         }
-        graphics.fill(x, y, right, bottom, 0xee171b20);
+        GraphDraw.fill(graphics, x, y, right, bottom, 0xee171b20);
         int borderWidth = selected ? 3 : 2;
-        graphics.fill(x, y, right, Math.min(bottom, y + borderWidth), border);
-        graphics.fill(x, Math.max(y, bottom - 2), right, bottom, border);
-        graphics.fill(x, y, Math.min(right, x + 2), bottom, border);
-        graphics.fill(Math.max(x, right - 2), y, right, bottom, border);
+        GraphDraw.fill(graphics, x, y, right, Math.min(bottom, y + borderWidth), border);
+        GraphDraw.fill(graphics, x, Math.max(y, bottom - 2), right, bottom, border);
+        GraphDraw.fill(graphics, x, y, Math.min(right, x + 2), bottom, border);
+        GraphDraw.fill(graphics, Math.max(x, right - 2), y, right, bottom, border);
         if (pixelWidth < 18 || pixelHeight < 12) return;
 
         var font = Minecraft.getInstance().font;
@@ -345,12 +534,12 @@ public final class GraphRenderer {
     private static void drawCompactCycleNode(GuiGraphics graphics, ClientCraftingGraph graph,
             ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box, int border, boolean selected, int x, int y,
             int right, int bottom, int pixelWidth, int pixelHeight, float cameraY, float zoom) {
-        graphics.fill(x, y, right, bottom, 0xee171b20);
+        GraphDraw.fill(graphics, x, y, right, bottom, 0xee171b20);
         int borderWidth = selected ? 2 : 1;
-        graphics.fill(x, y, right, Math.min(bottom, y + borderWidth), border);
-        graphics.fill(x, Math.max(y, bottom - borderWidth), right, bottom, border);
-        graphics.fill(x, y, Math.min(right, x + borderWidth), bottom, border);
-        graphics.fill(Math.max(x, right - borderWidth), y, right, bottom, border);
+        GraphDraw.fill(graphics, x, y, right, Math.min(bottom, y + borderWidth), border);
+        GraphDraw.fill(graphics, x, Math.max(y, bottom - borderWidth), right, bottom, border);
+        GraphDraw.fill(graphics, x, y, Math.min(right, x + borderWidth), bottom, border);
+        GraphDraw.fill(graphics, Math.max(x, right - borderWidth), y, right, bottom, border);
         if (pixelWidth < 12 || pixelHeight < 18) return;
 
         Font font = Minecraft.getInstance().font;
@@ -545,28 +734,7 @@ public final class GraphRenderer {
 
     private static void fillTriangle(GuiGraphics graphics, float ax, float ay, float bx, float by,
             float cx, float cy, int color) {
-        int minX = (int) Math.floor(Math.min(ax, Math.min(bx, cx)));
-        int maxX = (int) Math.ceil(Math.max(ax, Math.max(bx, cx)));
-        int minY = (int) Math.floor(Math.min(ay, Math.min(by, cy)));
-        int maxY = (int) Math.ceil(Math.max(ay, Math.max(by, cy)));
-        float orientation = edge(ax, ay, bx, by, cx, cy);
-        for (int y = minY; y <= maxY; y++) {
-            for (int x = minX; x <= maxX; x++) {
-                float px = x + 0.5f;
-                float py = y + 0.5f;
-                float one = edge(ax, ay, bx, by, px, py);
-                float two = edge(bx, by, cx, cy, px, py);
-                float three = edge(cx, cy, ax, ay, px, py);
-                if (orientation >= 0 ? one >= 0 && two >= 0 && three >= 0
-                        : one <= 0 && two <= 0 && three <= 0) {
-                    graphics.fill(x, y, x + 1, y + 1, color);
-                }
-            }
-        }
-    }
-
-    private static float edge(float ax, float ay, float bx, float by, float px, float py) {
-        return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+        GraphDraw.triangle(graphics, ax, ay, bx, by, cx, cy, color);
     }
 
     private static long amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {

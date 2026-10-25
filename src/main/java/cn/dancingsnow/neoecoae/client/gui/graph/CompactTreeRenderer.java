@@ -7,10 +7,7 @@ import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -25,10 +22,8 @@ public final class CompactTreeRenderer {
 
     public GraphRenderer.Frame render(GuiGraphics graphics, ClientCraftingGraph graph,
             GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom, int screenWidth, int screenHeight,
-            int mouseX, int mouseY, @Nullable Integer selectedId, GraphProfiler profiler) {
+            int mouseX, int mouseY, @Nullable Integer selectedId, GraphProfiler profiler, GraphRenderer.VisiblePlan visible) {
         long started = System.nanoTime();
-        GraphRenderer.VisiblePlan visible = GraphRenderer.collectVisible(layout, cameraX, cameraY, zoom,
-            screenWidth, screenHeight);
         Set<Integer> neighborhood = selectedId == null ? Set.of() : graph.neighborhood(selectedId);
         for (var link : visible.edges()) {
             drawLink(graphics, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
@@ -43,7 +38,8 @@ public final class CompactTreeRenderer {
             drawNode(graphics, graph, node, box, selected, neighborhood.contains(node.id()), cameraX, cameraY, zoom);
             if (box.contains(worldMouseX, worldMouseY)) hovered = node;
         }
-        drawRowFrames(graphics, layout, cameraX, cameraY, zoom);
+        drawRowFrames(graphics, layout.queryRowFrames(GraphRenderer.viewport(cameraX, cameraY, zoom,
+            screenWidth, screenHeight)), cameraX, cameraY, zoom);
         for (var box : visible.nodes()) {
             var node = graph.nodes().get(box.nodeId());
             if (node != null && node.material() != null
@@ -52,36 +48,13 @@ public final class CompactTreeRenderer {
             }
         }
         profiler.update(visible.nodes().size(), visible.edges().size(), System.nanoTime() - started);
-        return new GraphRenderer.Frame(hovered, tooltip(graph, hovered));
+        return new GraphRenderer.Frame(hovered, List.of());
     }
 
-    private static void drawRowFrames(GuiGraphics graphics, GraphLayoutSnapshot layout,
+    private static void drawRowFrames(GuiGraphics graphics, List<GraphLayoutSnapshot.Bounds> rows,
             float cameraX, float cameraY, float zoom) {
-        Map<Float, List<GraphLayoutSnapshot.Box>> rows = new HashMap<>();
-        for (var box : layout.boxes().values()) {
-            rows.computeIfAbsent(box.y(), ignored -> new ArrayList<>()).add(box);
-        }
-        for (var row : rows.values()) {
-            row.sort(Comparator.comparingDouble(GraphLayoutSnapshot.Box::x));
-            float left = 0;
-            float top = 0;
-            float right = 0;
-            float bottom = 0;
-            boolean active = false;
-            for (var box : row) {
-                if (!active || box.x() > right + 0.001f) {
-                    if (active) drawRowFrame(graphics, left, top, right, bottom, cameraX, cameraY, zoom);
-                    left = box.x();
-                    top = box.y();
-                    right = box.x() + box.width();
-                    bottom = box.y() + box.height();
-                    active = true;
-                } else {
-                    right = Math.max(right, box.x() + box.width());
-                    bottom = Math.max(bottom, box.y() + box.height());
-                }
-            }
-            if (active) drawRowFrame(graphics, left, top, right, bottom, cameraX, cameraY, zoom);
+        for (var row : rows) {
+            drawRowFrame(graphics, row.left(), row.top(), row.right(), row.bottom(), cameraX, cameraY, zoom);
         }
     }
 
@@ -93,13 +66,13 @@ public final class CompactTreeRenderer {
         int b = screen(cameraY, bottom, zoom);
         if (r <= x || b <= y) return;
         int color = 0xff8293a4;
-        graphics.fill(x, y, r, Math.min(b, y + 1), color);
-        graphics.fill(x, Math.max(y, b - 1), r, b, color);
-        graphics.fill(x, y, Math.min(r, x + 1), b, color);
-        graphics.fill(Math.max(x, r - 1), y, r, b, color);
+        GraphDraw.fill(graphics, x, y, r, Math.min(b, y + 1), color);
+        GraphDraw.fill(graphics, x, Math.max(y, b - 1), r, b, color);
+        GraphDraw.fill(graphics, x, y, Math.min(r, x + 1), b, color);
+        GraphDraw.fill(graphics, Math.max(x, r - 1), y, r, b, color);
     }
 
-    private static void drawNodeFrame(GuiGraphics graphics, GraphLayoutSnapshot.Box box, int color,
+    static void drawNodeFrame(GuiGraphics graphics, GraphLayoutSnapshot.Box box, int color,
             float cameraX, float cameraY, float zoom) {
         int x = screen(cameraX, box.x(), zoom);
         int y = screen(cameraY, box.y(), zoom);
@@ -107,13 +80,13 @@ public final class CompactTreeRenderer {
         int bottom = screen(cameraY, box.y() + box.height(), zoom);
         if (right <= x || bottom <= y) return;
         int thickness = Math.min(2, Math.min(right - x, bottom - y));
-        graphics.fill(x, y, right, y + thickness, color);
-        graphics.fill(x, bottom - thickness, right, bottom, color);
-        graphics.fill(x, y, x + thickness, bottom, color);
-        graphics.fill(right - thickness, y, right, bottom, color);
+        GraphDraw.fill(graphics, x, y, right, y + thickness, color);
+        GraphDraw.fill(graphics, x, bottom - thickness, right, bottom, color);
+        GraphDraw.fill(graphics, x, y, x + thickness, bottom, color);
+        GraphDraw.fill(graphics, right - thickness, y, right, bottom, color);
     }
 
-    private static void drawLink(GuiGraphics graphics, GraphLayoutSnapshot layout, ClientCraftingGraph.Link link,
+    static void drawLink(GuiGraphics graphics, GraphLayoutSnapshot layout, ClientCraftingGraph.Link link,
             @Nullable Integer selected, Set<Integer> neighborhood, float cameraX, float cameraY, float zoom) {
         boolean highlighted = selected != null && (link.fromId() == selected || link.toId() == selected)
             && (neighborhood.contains(link.fromId()) || neighborhood.contains(link.toId()));
@@ -129,7 +102,7 @@ public final class CompactTreeRenderer {
         var end = cn.dancingsnow.neoecoae.platform.JdkCompat.last(route);
         int endX = screen(cameraX, end.x(), zoom);
         int endY = screen(cameraY, end.y(), zoom);
-        graphics.fill(endX - 3, endY - 2, endX + 1, endY + 3, color);
+        GraphDraw.fill(graphics, endX - 3, endY - 2, endX + 1, endY + 3, color);
     }
 
     private static void drawRoute(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
@@ -141,13 +114,13 @@ public final class CompactTreeRenderer {
             int y1 = screen(cameraY, from.y(), zoom);
             int x2 = screen(cameraX, to.x(), zoom);
             int y2 = screen(cameraY, to.y(), zoom);
-            if (x1 == x2) graphics.vLine(x1, Math.min(y1, y2), Math.max(y1, y2), color);
-            else if (y1 == y2) graphics.hLine(Math.min(x1, x2), Math.max(x1, x2), y1, color);
+            if (x1 == x2) GraphDraw.vLine(graphics, x1, Math.min(y1, y2), Math.max(y1, y2), color);
+            else if (y1 == y2) GraphDraw.hLine(graphics, Math.min(x1, x2), Math.max(x1, x2), y1, color);
             else {
                 int middle = (x1 + x2) / 2;
-                graphics.hLine(Math.min(x1, middle), Math.max(x1, middle), y1, color);
-                graphics.vLine(middle, Math.min(y1, y2), Math.max(y1, y2), color);
-                graphics.hLine(Math.min(middle, x2), Math.max(middle, x2), y2, color);
+                GraphDraw.hLine(graphics, Math.min(x1, middle), Math.max(x1, middle), y1, color);
+                GraphDraw.vLine(graphics, middle, Math.min(y1, y2), Math.max(y1, y2), color);
+                GraphDraw.hLine(graphics, Math.min(middle, x2), Math.max(middle, x2), y2, color);
             }
         }
     }
@@ -163,7 +136,7 @@ public final class CompactTreeRenderer {
             new GraphLayoutSnapshot.Point(endX, middle), new GraphLayoutSnapshot.Point(endX, endY));
     }
 
-    private static void drawNode(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
+    static void drawNode(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
             GraphLayoutSnapshot.Box box, boolean selected, boolean adjacent, float cameraX, float cameraY,
             float zoom) {
         int x = screen(cameraX, box.x(), zoom);
@@ -173,7 +146,7 @@ public final class CompactTreeRenderer {
         if (right <= x || bottom <= y) return;
         int accent = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : nodeBorder(graph, node);
         int background = selected ? 0xee2b271c : adjacent ? 0xee182527 : 0xee171b20;
-        graphics.fill(x, y, right, bottom, background);
+        GraphDraw.fill(graphics, x, y, right, bottom, background);
         if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
             drawFolder(graphics, graph, node, x, y, right, bottom, accent);
         } else {
@@ -255,7 +228,7 @@ public final class CompactTreeRenderer {
         }
     }
 
-    private static List<Component> tooltip(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node) {
+    static List<Component> tooltip(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node) {
         if (node == null) return List.of();
         if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
             var folder = graph.compactTreeNode(node.id());
