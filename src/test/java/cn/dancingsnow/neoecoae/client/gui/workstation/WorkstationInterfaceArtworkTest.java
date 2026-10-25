@@ -43,8 +43,12 @@ class WorkstationInterfaceArtworkTest {
                     java.security.MessageDigest.getInstance("SHA-256").digest(stream.readAllBytes())));
             }
         }
-        var manifest = com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(
-            java.nio.file.Path.of("porting/workstation-interface-artwork-1.21.1.json"))).getAsJsonObject();
+        String manifestText;
+        try (var stream = getClass().getResourceAsStream("/neoecoae/workstation-interface-artwork.json")) {
+            assertNotNull(stream);
+            manifestText = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        var manifest = com.google.gson.JsonParser.parseString(manifestText).getAsJsonObject();
         for (var value : manifest.getAsJsonArray("assets")) {
             var entry = value.getAsJsonObject();
             String path = entry.get("target").getAsString().substring("src/main/resources".length());

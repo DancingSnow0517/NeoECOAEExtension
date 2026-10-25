@@ -17,19 +17,23 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
-      - uses: actions/setup-java@v4
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Validate release identity and bilingual notes
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Read Properties
         id: release
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -48,9 +52,9 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write(f'version={version}\nnotes={notes.as_posix()}\n')
           PY
-      - name: Restore verified compile dependencies
+      - name: Restore Build Dependencies
         run: python3 tools/compat/bootstrap.py
-      - name: Build, test and reobfuscate the release
+      - name: Build with Gradle
         env:
           # ModDevGradle must compile the Java 17 Minecraft artifacts on CI too.
           CI: 'false'
@@ -58,16 +62,18 @@ jobs:
           bash ./gradlew build
           --no-daemon --no-parallel --max-workers=2 --console=plain
           '-Dorg.gradle.jvmargs=-Xmx4G -Dfile.encoding=UTF-8'
-      - name: Verify production artifacts
+      - name: Verify Release Jar
         run: python3 tools/compat/check_artifacts.py --release-only
-      - uses: actions/upload-artifact@v4
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: neoecoae-${{ steps.release.outputs.version }}
           path: |
             build/libs/neoecoae-${{ steps.release.outputs.version }}.jar
             build/libs/neoecoae-${{ steps.release.outputs.version }}-sources.jar
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - name: Upload Verification Reports
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: release-verification-${{ steps.release.outputs.version }}
@@ -76,7 +82,7 @@ jobs:
             build/test-results/test/
             build/compat-build-evidence/
           if-no-files-found: ignore
-      - name: Publish GitHub prerelease assets
+      - name: Upload pre-release jar to GitHub Release
         if: github.event.release.prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,7 +92,7 @@ jobs:
           gh release upload "$RELEASE_TAG"
           "build/libs/neoecoae-$RELEASE_VERSION.jar"
           "build/libs/neoecoae-$RELEASE_VERSION-sources.jar" --clobber
-      - name: Publish to GitHub, Modrinth and CurseForge
+      - name: Publish Mod
         if: '!github.event.release.prerelease'
         uses: Kir-Antipov/mc-publish@v3.3.1
         with:
