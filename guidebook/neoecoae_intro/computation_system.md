@@ -159,7 +159,6 @@ Groups require the same dimension, online ME network and logical frequency. Comp
 
 The structure is extensible - add more threading cores, parallel cores, drives, and transmitters to increase capacity.
 
-If you want to assemble the structure more quickly, see [Multiblock Auto Builder](multiblock_builder.md) for automatic preview and building tools.
 
 ## Computation Cells
 

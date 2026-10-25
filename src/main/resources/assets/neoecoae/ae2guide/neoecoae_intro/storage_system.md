@@ -97,7 +97,6 @@ The <ItemLink id="neoecoae:storage_casing" /> blocks form the frame of the multi
 
 The structure is extensible - you can add more drives and energy cells to increase capacity.
 
-If you want to assemble the structure more quickly, see [Multiblock Auto Builder](multiblock_builder.md) for automatic preview and building tools.
 
 <GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/store_min.nbt" />

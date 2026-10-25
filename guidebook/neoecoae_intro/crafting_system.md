@@ -166,7 +166,6 @@ Virtual work pays **10,000,000 AE once per group per tick**, subject to AE2's po
 
 The structure is extensible - add more workers, parallel cores, pattern buses, and heat sinks to increase capacity.
 
-If you want to assemble the structure more quickly, see [Multiblock Auto Builder](multiblock_builder.md) for automatic preview and building tools.
 
 ## Usage
 

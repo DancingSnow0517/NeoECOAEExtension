@@ -9,7 +9,7 @@ navigation:
 
 This walkthrough uses actual in-game screenshots of a formed F9 host with five physical FX Workers. The screenshots use the Chinese UI; the numbered regions and explanations below identify each control. Counts, capacities, and processing times are examples; use your own controller's readings.
 
-For structure assembly, see [ECO Crafting System](crafting_system.md) or [Multiblock Auto Builder](multiblock_builder.md).
+For structure assembly, see [ECO Crafting System](crafting_system.md).
 
 ## Find the controls
 
