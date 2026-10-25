@@ -213,6 +213,27 @@ class ExternalDemandCacheTest {
         assertExternalSolves(1);
     }
 
+    @Test
+    void changedQuantitiesAndStockReuseOnlyTheFilteredStructure() throws Exception {
+        var stock = stock(10L);
+        var base = new SolveState(stock);
+        assertEquals(4L, solve(network, cycle, 2L, stock, base).states().get(0).usedItems().get(raw));
+        assertEquals(6L, solve(network, cycle, 3L, stock, base).states().get(0).usedItems().get(raw));
+        stock.set(raw, 1L);
+        assertEquals(Map.of(raw, 3L), solve(network, cycle, 2L, stock, base).missingLeaves());
+        var structures = org.mockito.ArgumentCaptor.forClass(CompiledNetwork.class);
+        verify(solver, times(3)).solveDemands(structures.capture(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
+        var actual = structures.getAllValues();
+        assertSame(actual.get(0), actual.get(1));
+        assertSame(actual.get(1), actual.get(2));
+
+        var changed = network(pattern(output, raw, 3L));
+        assertEquals(Map.of(raw, 5L), solve(changed, cycle, 2L, stock, base).missingLeaves());
+        var afterChange = org.mockito.ArgumentCaptor.forClass(CompiledNetwork.class);
+        verify(solver, times(4)).solveDemands(afterChange.capture(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
+        assertNotSame(actual.get(0), afterChange.getAllValues().get(3));
+    }
+
     private ExternalDemandPlanner.Outcome solve(CompiledNetwork graph, CycleComponent component, long amount,
             KeyCounter stock, SolveState base) throws Exception {
         return planner.solveDemands(graph, component, Map.of(output, amount), stock, base,

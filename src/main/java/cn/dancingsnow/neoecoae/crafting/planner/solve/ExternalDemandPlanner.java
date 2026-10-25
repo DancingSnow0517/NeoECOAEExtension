@@ -45,7 +45,14 @@ final class ExternalDemandPlanner {
      * structure are part of the key, so a later network calculation can never inherit an old proof.
      */
     private static final int MAX_DEMAND_CACHE_ENTRIES = 256;
+    private static final int MAX_FILTERED_ROUTE_ENTRIES = 16;
+    private static final int MAX_FILTERED_ROUTE_WEIGHT = 50_000;
     private CompiledNetwork cachedNetwork;
+    private record FilteredRouteKey(Set<AEKey> members, Set<IPatternDetails> excluded, AEKey goal) {}
+    private record FilteredRoute(CompiledNetwork network, ActiveRouteSelector.Selection selection, int weight) {}
+    /** Pure structure only: a different quantity or stock still requires a fresh numeric solve. */
+    private final Map<FilteredRouteKey, FilteredRoute> filteredRoutes = new LinkedHashMap<>(16, 0.75F, true);
+    private int filteredRouteWeight;
     private final Map<CacheKey, Outcome> demandCache = new LinkedHashMap<>(64, 0.75F, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<CacheKey, Outcome> eldest) {
@@ -86,6 +93,8 @@ final class ExternalDemandPlanner {
         // identity both invalidates changed recipes and avoids hashing the complete recipe graph on each hit.
         if (cachedNetwork != network) {
             demandCache.clear();
+            filteredRoutes.clear();
+            filteredRouteWeight = 0;
             cachedNetwork = network;
         }
         KeyCounter available = remainingInventory(inventory, base);
@@ -204,21 +213,10 @@ final class ExternalDemandPlanner {
         Set<IPatternDetails> forbiddenPatterns = cycle.patterns().stream()
             .map(pattern -> pattern.details()).collect(java.util.stream.Collectors.toSet());
         List<AEKey> forbiddenMembers = cycle.members();
-        Map<AEKey, List<cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern>> producers =
-            new LinkedHashMap<>();
-        // A cycle member may have an independent alternate producer. Exclude only this component's physical
-        // patterns; blanking every producer for the member would incorrectly reject a craftable startup seed.
-        // Re-entry is still detected below when the filtered route ultimately depends on a forbidden member.
-        network.producers().forEach((key, candidates) -> producers.put(key, candidates.stream()
-            .filter(pattern -> !forbiddenPatterns.contains(pattern.details())).toList()));
-        int patterns = producers.values().stream().mapToInt(List::size).sum();
-        int edges = producers.values().stream().flatMap(List::stream).mapToInt(p -> p.inputs().size()).sum();
-        CompiledNetwork filtered = new CompiledNetwork(demands.keySet().iterator().next(), producers,
-            network.emittable().stream().filter(key -> !forbiddenMembers.contains(key)).collect(java.util.stream.Collectors.toSet()),
-            patterns, edges);
-
-        var graph = graphBuilder.build(filtered, cancellation);
-        var selection = routeSelector.select(graph, cancellation);
+        FilteredRoute route = filteredRoute(network, Set.copyOf(forbiddenMembers), forbiddenPatterns,
+            demands.keySet().iterator().next(), cancellation);
+        CompiledNetwork filtered = route.network();
+        var selection = route.selection();
         Set<IPatternDetails> deferredCyclePatterns = selection.cyclicComponents().stream()
             .flatMap(component -> component.patterns().stream())
             .map(pattern -> pattern.details()).collect(java.util.stream.Collectors.toSet());
@@ -256,6 +254,41 @@ final class ExternalDemandPlanner {
                 + ": " + solved.trace().diagnostics().stream()
                     .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
                     .collect(java.util.stream.Collectors.joining("; ")));
+    }
+
+    private FilteredRoute filteredRoute(CompiledNetwork network, Set<AEKey> forbiddenMembers,
+            Set<IPatternDetails> forbiddenPatterns, AEKey goal, ECOCancellation cancellation)
+            throws InterruptedException {
+        cancellation.checkpoint();
+        FilteredRouteKey key = new FilteredRouteKey(forbiddenMembers, Set.copyOf(forbiddenPatterns), goal);
+        FilteredRoute cached = filteredRoutes.get(key);
+        if (cached != null) return cached;
+        Map<AEKey, List<cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern>> producers =
+            new LinkedHashMap<>();
+        // Exclude only physical patterns owned by this component, retaining independent seed producers.
+        network.producers().forEach((material, candidates) -> producers.put(material, candidates.stream()
+            .filter(pattern -> !forbiddenPatterns.contains(pattern.details())).toList()));
+        int patterns = producers.values().stream().mapToInt(List::size).sum();
+        int edges = producers.values().stream().flatMap(List::stream).mapToInt(p -> p.inputs().size()).sum();
+        CompiledNetwork filtered = new CompiledNetwork(goal, producers,
+            network.emittable().stream().filter(material -> !forbiddenMembers.contains(material))
+                .collect(java.util.stream.Collectors.toSet()), patterns, edges);
+        var graph = graphBuilder.build(filtered, cancellation);
+        var selection = routeSelector.select(graph, cancellation);
+        long weight = (long) patterns + edges + producers.size();
+        FilteredRoute result = new FilteredRoute(filtered, selection,
+            (int) Math.min(Integer.MAX_VALUE, weight));
+        if (!selection.budgetExhausted() && weight <= MAX_FILTERED_ROUTE_WEIGHT) {
+            while (!filteredRoutes.isEmpty() && (filteredRoutes.size() >= MAX_FILTERED_ROUTE_ENTRIES
+                    || filteredRouteWeight + weight > MAX_FILTERED_ROUTE_WEIGHT)) {
+                var iterator = filteredRoutes.entrySet().iterator();
+                filteredRouteWeight -= iterator.next().getValue().weight();
+                iterator.remove();
+            }
+            filteredRoutes.put(key, result);
+            filteredRouteWeight += result.weight();
+        }
+        return result;
     }
 
     private static Outcome failure(CycleExternalDemandStatus status, Map<AEKey, Long> missing, String diagnostic) {

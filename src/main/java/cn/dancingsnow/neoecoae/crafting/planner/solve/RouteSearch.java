@@ -23,6 +23,11 @@ import org.jetbrains.annotations.Nullable;
  * (iterative deepening); the baseline itself is never returned.
  */
 final class RouteSearch {
+    @FunctionalInterface
+    interface BranchPruner {
+        boolean reject(Map<AEKey, Integer> choices, Set<AEKey> fixed, ECOCancellation cancellation)
+            throws InterruptedException;
+    }
     private static final class Frame {
         final AEKey key;
         final int base;
@@ -54,9 +59,16 @@ final class RouteSearch {
     private boolean deeper = true;
     private boolean passOpen;
     private long expansions;
+    private long prunedBranches;
+    private final BranchPruner pruner;
 
     RouteSearch(CompiledNetwork network, Map<AEKey, Integer> baseline) {
+        this(network, baseline, (choices, fixed, cancellation) -> false);
+    }
+
+    RouteSearch(CompiledNetwork network, Map<AEKey, Integer> baseline, BranchPruner pruner) {
         this.network = network;
+        this.pruner = pruner;
         this.choices = new LinkedHashMap<>(baseline);
         for (var entry : network.fastProducers().entrySet()) {
             AEKey key = entry.getKey();
@@ -81,6 +93,10 @@ final class RouteSearch {
     /** Number of reachability walks performed. */
     long expansions() {
         return expansions;
+    }
+
+    long prunedBranches() {
+        return prunedBranches;
     }
 
     /** Next route as a full choice map, or null once every route has been returned. */
@@ -117,11 +133,23 @@ final class RouteSearch {
         while (true) {
             cancellation.checkpoint();
             expansions++;
+            // Every undecided producer stays available to the proof. Rejecting a fixed prefix
+            // therefore excludes its entire subtree, including changes in unrelated branches.
+            if (pruner.reject(choices, fixed, cancellation)) {
+                prunedBranches++;
+                return false;
+            }
             AEKey frontier = walk();
             // A node at the limit is itself a route (undecided keys keep their baseline); a deeper pass
             // has work only if it still has an undecided frontier.
             if (deviations == limit) {
                 if (frontier != null) deeper = true;
+                // This pass emits undecided keys at their baseline choices. Test that concrete
+                // assignment as well, without pruning its different completions in a later pass.
+                if (pruner.reject(choices, choices.keySet(), cancellation)) {
+                    prunedBranches++;
+                    return false;
+                }
                 return true;
             }
             // Fully decided with fewer deviations: returned in an earlier pass, or the baseline itself.

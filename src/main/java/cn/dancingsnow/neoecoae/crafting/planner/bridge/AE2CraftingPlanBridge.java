@@ -23,6 +23,9 @@ public final class AE2CraftingPlanBridge {
 
     /** Partial structural plans are explanatory only and can never be submitted to an AE2 CPU. */
     public CraftingPlan partial(AEKey goal, long amount, boolean multiplePaths, SolveState state) {
+        // Exact diagnostic amounts are attached separately by the planner service. They must not
+        // be forced into AE2 long fields when the alternative search ends without a usable plan.
+        if (!state.executionAmountIssues().isEmpty()) return unsupported(goal, amount);
         return new CraftingPlan(new GenericStack(goal, amount), Math.max(0, state.bytes()), true, multiplePaths,
             state.usedItems(), state.emittedItems(), state.missingItems(), state.patternTimes());
     }
