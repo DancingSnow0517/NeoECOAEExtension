@@ -66,16 +66,21 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
 
     private final ComputationControllerUI.Config config;
     private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
-    private final BindableValue<Integer> cpuScrollRequest = new BindableValue<>(0);
-    private final BindableValue<Integer> itemScrollRequest = new BindableValue<>(0);
+    private final BindableValue<CompoundTag> cpuScrollRequest = new BindableValue<>(new CompoundTag());
+    private final BindableValue<CompoundTag> itemScrollRequest = new BindableValue<>(new CompoundTag());
     private final StatusButton pauseButton = new StatusButton();
     private final StatusButton cancelButton = new StatusButton();
     private final ComputationScrollbar cpuScrollbar;
     private final ComputationScrollbar itemScrollbar;
     private List<ComputationCpuEntry> cpus = List.of();
     private List<ComputationCpuItemEntry> items = List.of();
+    private final ComputationScrollPage<ComputationCpuEntry> cpuPage = new ComputationScrollPage<>(ROWS, 1);
+    private final ComputationScrollPage<ComputationCpuItemEntry> itemPage = new ComputationScrollPage<>(ITEM_ROWS, ITEM_COLS);
+    private int itemPageSerial = -1;
     private ComputationCpuEntry selected;
     private int selectedSerial = -1, total, cpuOffset, cpuPageOffset, itemTotal, itemOffset, itemPageOffset;
+    private boolean cpuScrollPending, itemScrollPending;
+    private long cpuScrollSequence, itemScrollSequence;
     private Runnable backAction = () -> {};
 
     ComputationCpuStatusPanel(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
@@ -89,14 +94,15 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         bind(DataBindingBuilder.create(server::snapshot, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
         selectionRequest.bind(DataBindingBuilder.intValC2S(server::select).build());
-        cpuScrollRequest.bind(DataBindingBuilder.intValC2S(server::scrollCpu).build());
-        itemScrollRequest.bind(DataBindingBuilder.intValC2S(server::scrollItems).build());
+        cpuScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::scrollCpu)
+            .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
+        itemScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::scrollItems)
+            .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
         selectionRequest.setDisplay(false);
         cpuScrollRequest.setDisplay(false);
         itemScrollRequest.setDisplay(false);
         addChildren(selectionRequest, cpuScrollRequest, itemScrollRequest);
-        for (int row = 0; row < ROWS; row++) addChild(cpuHitbox(row));
-        for (int cell = 0; cell < ITEM_PAGE; cell++) addChild(itemHitbox(cell));
+        addChildren(cpuHitbox(), itemHitbox());
         cpuScrollbar = new ComputationScrollbar(this, CPU_TRACK_X, TRACK_Y, TRACK_HEIGHT, this::scrollCpuTo);
         itemScrollbar = new ComputationScrollbar(this, ITEM_TRACK_X, TRACK_Y, TRACK_HEIGHT,
             row -> scrollItemsTo(row * ITEM_COLS));
@@ -136,6 +142,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     void setBackAction(Runnable action) { backAction = action; }
 
     void open(int serial) {
+        itemScrollPending = false;
         selectedSerial = serial;
         selectionRequest.setValue(serial);
     }
@@ -145,18 +152,33 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         super.setValue(value, notify);
         if (value == null || !value.contains("total")) return this;
         total = value.getInt("total");
-        cpuOffset = cpuPageOffset = value.getInt("cpuOffset");
         selectedSerial = value.getInt("selectedSerial");
         itemTotal = value.getInt("itemTotal");
-        itemOffset = itemPageOffset = value.getInt("itemOffset");
-        cpus = value.getList("cpus", Tag.TAG_COMPOUND).stream()
-            .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
-        items = value.getList("items", Tag.TAG_COMPOUND).stream()
-            .map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, config.registries())).toList();
+        cpuOffset = Math.clamp(cpuOffset, 0, Math.max(0, total - ROWS));
+        itemOffset = Math.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
+        int receivedCpuOffset = value.getInt("cpuOffset");
+        if (!cpuScrollPending || value.getLong("cpuScrollSequence") == cpuScrollSequence) {
+            cpuOffset = cpuPageOffset = receivedCpuOffset;
+            cpus = value.getList("cpus", Tag.TAG_COMPOUND).stream()
+                .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
+            cpuPage.accept(cpuOffset, value.contains("cpuPageStart") ? value.getInt("cpuPageStart") : cpuOffset,
+                cpus, false);
+            cpuScrollPending = false;
+            cpuScrollRequest.setValue(scrollTag(cpuScrollSequence, cpuOffset), false);
+        }
+        int receivedItemOffset = value.getInt("itemOffset");
+        if (!itemScrollPending || value.getLong("itemScrollSequence") == itemScrollSequence) {
+            itemOffset = itemPageOffset = receivedItemOffset;
+            items = value.getList("items", Tag.TAG_COMPOUND).stream()
+                .map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, config.registries())).toList();
+            itemPage.accept(itemOffset, value.contains("itemPageStart") ? value.getInt("itemPageStart") : itemOffset,
+                items, itemPageSerial != selectedSerial);
+            itemPageSerial = selectedSerial;
+            itemScrollPending = false;
+            itemScrollRequest.setValue(scrollTag(itemScrollSequence, itemOffset), false);
+        }
         selected = value.contains("selected")
             ? ComputationCpuEntry.read(value.getCompound("selected"), config.registries()) : null;
-        cpuScrollRequest.setValue(cpuOffset, false);
-        itemScrollRequest.setValue(itemOffset, false);
         selectionRequest.setValue(selectedSerial, false);
         cpuScrollbar.update(cpuOffset, total - ROWS, ROWS / 3);
         itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal), 1);
@@ -167,29 +189,34 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         return this;
     }
 
-    private UIElement cpuHitbox(int row) {
-        UIElement hitbox = hitbox(CPU_X, CPU_Y + row * CPU_STRIDE, CPU_WIDTH, CPU_HEIGHT);
+    private UIElement cpuHitbox() {
+        UIElement hitbox = hitbox(CPU_X, CPU_Y, CPU_WIDTH, ROWS * CPU_STRIDE - 1);
         hitbox.addEventListener(UIEvents.MOUSE_UP, event -> {
-            if (event.button != 0 || cpuOffset != cpuPageOffset || row >= cpus.size()) return;
-            selectedSerial = cpus.get(row).serial();
-            selectionRequest.setValue(selectedSerial);
+            if (event.button != 0) return;
+            ComputationCpuEntry entry = cpuPage.hit(event.y - getPositionY() - CPU_Y, 0, CPU_STRIDE, CPU_HEIGHT);
+            if (entry == null) return;
+            open(entry.serial());
             event.stopImmediatePropagation();
         });
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            if (cpuOffset == cpuPageOffset && row < cpus.size()) {
+            ComputationCpuEntry entry = cpuPage.hit(event.y - getPositionY() - CPU_Y, 0, CPU_STRIDE, CPU_HEIGHT);
+            if (entry != null) {
                 event.hoverTooltips = HoverTooltips.empty().append(
-                    ComputationCpuSelector.tooltip(cpus.get(row)).toArray(Component[]::new));
+                    ComputationCpuSelector.tooltip(entry).toArray(Component[]::new));
             }
         });
         return hitbox;
     }
 
-    private UIElement itemHitbox(int cell) {
-        UIElement hitbox = hitbox(ITEM_X + cell % ITEM_COLS * ITEM_COLUMN_STRIDE,
-            ITEM_Y + cell / ITEM_COLS * ITEM_STRIDE, ITEM_WIDTH, ITEM_HEIGHT);
+    private UIElement itemHitbox() {
+        UIElement hitbox = hitbox(ITEM_X, ITEM_Y, ITEM_COLS * ITEM_COLUMN_STRIDE - 1, ITEM_ROWS * ITEM_STRIDE - 1);
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            if (itemOffset != itemPageOffset || cell >= items.size()) return;
-            ComputationCpuItemEntry item = items.get(cell);
+            float localX = event.x - getPositionX() - ITEM_X;
+            int column = (int) (localX / ITEM_COLUMN_STRIDE);
+            if (localX - column * ITEM_COLUMN_STRIDE >= ITEM_WIDTH) return;
+            ComputationCpuItemEntry item = itemPage.hit(event.y - getPositionY() - ITEM_Y,
+                column, ITEM_STRIDE, ITEM_HEIGHT);
+            if (item == null) return;
             List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
             lines.addAll(itemDescription(item, true));
             if (item.batched()) {
@@ -201,15 +228,28 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private void scrollCpuTo(int value) {
-        cpuOffset = Math.clamp(value, 0, Math.max(0, total - ROWS));
+        int next = Math.clamp(value, 0, Math.max(0, total - ROWS));
+        if (next == cpuOffset) return;
+        cpuOffset = next;
+        cpuScrollPending = true;
         cpuScrollbar.update(cpuOffset, total - ROWS, ROWS / 3);
-        cpuScrollRequest.setValue(cpuOffset);
+        cpuScrollRequest.setValue(scrollTag(++cpuScrollSequence, cpuOffset));
     }
 
     private void scrollItemsTo(int value) {
-        itemOffset = Math.clamp(value / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
+        int next = Math.clamp(value / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
+        if (next == itemOffset) return;
+        itemOffset = next;
+        itemScrollPending = true;
         itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal), 1);
-        itemScrollRequest.setValue(itemOffset);
+        itemScrollRequest.setValue(scrollTag(++itemScrollSequence, itemOffset));
+    }
+
+    private static CompoundTag scrollTag(long sequence, int offset) {
+        var tag = new CompoundTag();
+        tag.putLong("sequence", sequence);
+        tag.putInt("offset", offset);
+        return tag;
     }
 
     private static int maxItemRows(int total) {
@@ -223,10 +263,31 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         context.graphics.flush();
         context.graphics.drawString(font, GuiText.CraftingCPUs.text(), Math.round(x + CPU_X), Math.round(y + 7), 0xFF000000 | TEXT, false);
         context.graphics.drawString(font, title(selected, itemTotal > 0), Math.round(x + ITEM_X - 1), Math.round(y + 7), 0xFF000000 | TEXT, false);
-        for (int row = 0; cpuOffset == cpuPageOffset && row < cpus.size() && row < ROWS; row++) drawCpu(context, font, cpus.get(row), x + CPU_X, y + CPU_Y + row * CPU_STRIDE);
-        for (int index = 0; itemOffset == itemPageOffset && index < items.size() && index < ITEM_PAGE; index++) {
-            drawItem(context, font, items.get(index), x + ITEM_X + (index % ITEM_COLS) * ITEM_COLUMN_STRIDE,
-                y + ITEM_Y + (index / ITEM_COLS) * ITEM_STRIDE, AEConfig.instance().isUseColoredCraftingStatus());
+        // Wait for acknowledged data, then move both viewports independently through their buffered rows.
+        cpuPage.advance();
+        itemPage.advance();
+        context.enableScissor(x + CPU_X, y + CPU_Y, CPU_WIDTH, ROWS * CPU_STRIDE - 1);
+        try {
+            for (int index = 0; index < cpuPage.size(); index++) {
+                double row = cpuPage.row(index);
+                if (row > -1 && row < ROWS) drawCpu(context, font, cpuPage.get(index),
+                    x + CPU_X, y + CPU_Y + (float) row * CPU_STRIDE);
+            }
+        } finally {
+            context.graphics.flush();
+            context.disableScissor();
+        }
+        context.enableScissor(x + ITEM_X, y + ITEM_Y, ITEM_COLS * ITEM_COLUMN_STRIDE - 1, ITEM_ROWS * ITEM_STRIDE - 1);
+        try {
+            for (int index = 0; index < itemPage.size(); index++) {
+                double row = itemPage.row(index);
+                if (row > -1 && row < ITEM_ROWS) drawItem(context, font, itemPage.get(index),
+                    x + ITEM_X + itemPage.column(index) * ITEM_COLUMN_STRIDE,
+                    y + ITEM_Y + (float) row * ITEM_STRIDE, AEConfig.instance().isUseColoredCraftingStatus());
+            }
+        } finally {
+            context.graphics.flush();
+            context.disableScissor();
         }
     }
 
@@ -250,6 +311,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     protected void onRemoved() {
         super.onRemoved();
         opening.reset();
+        cpuPage.reset();
+        itemPage.reset();
     }
 
     private void drawCpu(GUIContext context, Font font, ComputationCpuEntry entry, float x, float y) {
@@ -360,6 +423,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private CompoundTag cached;
         private long sampledTick = Long.MIN_VALUE;
         private int itemOffset;
+        private long cpuScrollSequence, itemScrollSequence;
 
         private ServerState(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
             this.config = config;
@@ -379,18 +443,20 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             cached = null;
         }
 
-        private void scrollCpu(int offset) {
+        private void scrollCpu(CompoundTag request) {
             if (!config.canInteract().getAsBoolean()) return;
             refresh();
-            selection.scroll(offset);
+            selection.scroll(request.getInt("offset"));
+            cpuScrollSequence = request.getLong("sequence");
             cached = null;
         }
 
-        private void scrollItems(int offset) {
+        private void scrollItems(CompoundTag request) {
             if (!config.canInteract().getAsBoolean()) return;
             refresh();
             int total = selectedItems(selection.selected()).size();
-            itemOffset = Math.clamp(offset / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
+            itemOffset = Math.clamp(request.getInt("offset") / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
+            itemScrollSequence = request.getLong("sequence");
             cached = null;
         }
 
@@ -413,10 +479,13 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             CompoundTag tag = new CompoundTag();
             tag.putInt("total", selection.size());
             tag.putInt("cpuOffset", selection.offset());
+            tag.putLong("cpuScrollSequence", cpuScrollSequence);
+            tag.putLong("itemScrollSequence", itemScrollSequence);
             tag.putInt("selectedSerial", selection.selectedSerial());
             var registries = config.registries();
             ListTag cpuPage = new ListTag();
-            for (ECOCraftingCPU cpu : selection.page()) cpuPage.add(ComputationCpuEntry.sample(cpu, selection.serial(cpu)).write(registries));
+            tag.putInt("cpuPageStart", Math.max(0, selection.offset() - ROWS));
+            for (ECOCraftingCPU cpu : selection.bufferedPage()) cpuPage.add(ComputationCpuEntry.sample(cpu, selection.serial(cpu)).write(registries));
             tag.put("cpus", cpuPage);
             ECOCraftingCPU selectedCpu = selection.selected();
             if (selectedCpu != null) {
@@ -426,8 +495,10 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 tag.putInt("itemTotal", all.size());
                 itemOffset = Math.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(all.size())) * ITEM_COLS;
                 tag.putInt("itemOffset", itemOffset);
+                int itemPageStart = Math.max(0, itemOffset - ITEM_PAGE);
+                tag.putInt("itemPageStart", itemPageStart);
                 ListTag itemPage = new ListTag();
-                for (ComputationCpuItemEntry item : all.subList(itemOffset, Math.min(all.size(), itemOffset + ITEM_PAGE))) {
+                for (ComputationCpuItemEntry item : all.subList(itemPageStart, Math.min(all.size(), itemOffset + ITEM_PAGE * 2))) {
                     itemPage.add(item.write(registries));
                 }
                 tag.put("items", itemPage);

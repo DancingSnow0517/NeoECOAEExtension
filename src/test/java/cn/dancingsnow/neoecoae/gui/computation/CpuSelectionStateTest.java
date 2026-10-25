@@ -13,6 +13,21 @@ class CpuSelectionStateTest {
     private void update(List<Cpu> cpus) { selection.update(cpus, Cpu::busy, Cpu::name); }
 
     @Test
+    void bufferedPagesIncludeBothNeighborsWithoutGrowingWithTheNetwork() {
+        List<Cpu> cpus = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) cpus.add(new Cpu(null, true));
+        update(cpus);
+        assertEquals(cpus.subList(0, 16), selection.bufferedPage());
+        selection.scroll(500);
+        assertEquals(cpus.subList(492, 516), selection.bufferedPage());
+        assertEquals(cpus.subList(500, 508), selection.page());
+        selection.scroll(992);
+        assertEquals(cpus.subList(984, 1000), selection.bufferedPage());
+        update(List.of());
+        assertTrue(selection.bufferedPage().isEmpty());
+    }
+
+    @Test
     void removalAndReorderingDoNotMoveSelectionToAnotherCpu() {
         Cpu first = new Cpu(null, true), selected = new Cpu(null, true), next = new Cpu(null, true);
         update(List.of(first, selected));
