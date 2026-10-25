@@ -71,6 +71,10 @@ final class CpuSelectionState<T> {
         return entries.subList(offset, Math.min(entries.size(), offset + rows));
     }
 
+    List<T> bufferedPage() {
+        return entries.subList(Math.max(0, offset - rows), Math.min(entries.size(), offset + rows * 2));
+    }
+
     int selectedSerial() { return selectedSerial; }
     int offset() { return offset; }
     int size() { return entries.size(); }

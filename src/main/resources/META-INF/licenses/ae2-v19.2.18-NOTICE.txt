@@ -9,10 +9,15 @@ Copyright (c) 2020 Ridanisaurus Rid.
 Copyright (c) 2013-2020 AlgorithmX2 et al.
 License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported.
 License URI: https://creativecommons.org/licenses/by-nc-sa/3.0/
-The copied states and small_scroller images
+The copied states, small_scroller and contextual menu background images
 retain their original bytes. Their source paths and SHA-256 values are recorded
 in porting/workstation-interface-artwork-1.21.1.json in the source distribution.
 Only their resource namespace and loading paths have changed for the backport.
+
+Contextual menu background (original bytes):
+Source: src/main/resources/assets/ae2/textures/guis/background.png
+Target: assets/neoecoae/textures/gui/vendor/ae2/context_background.png
+SHA-256: b97ef8e9c0f3373d662e489ec4c50ac2cfbb32e6501c98ce4be004a4c923f2c8
 
 Presentation code:
 Copyright (c) 2021 TeamAppliedEnergistics, All rights reserved.

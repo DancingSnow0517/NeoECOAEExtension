@@ -5,6 +5,8 @@ import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AEItemKey;
 import appeng.core.AEConfig;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -17,6 +19,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.fml.ModList;
@@ -67,6 +70,42 @@ class ComputationScrollRenderingTest {
         panel.setValue(snapshot(0, 0, 2), false);
         assertEquals(0, field(panel, "itemOffset"));
         assertFalse((boolean) field(panel, "itemScrollPending"));
+    }
+
+    @Test void openingTheAlreadySelectedCpuAlwaysSendsAViewRequestIncludingAfterReturning() throws Exception {
+        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+        panel.setValue(snapshot(0, 0, 1), false);
+        var requests = new ArrayList<Integer>();
+        set(panel, "selectionRequest", (java.util.function.IntConsumer) requests::add);
+        panel.open(1);
+        panel.open(1);
+        assertEquals(List.of(1, 1), requests, "A view request cannot depend on the selected serial changing");
+    }
+
+    @Test void separatelySyncedMachineProgressIsDrawnWithoutWaitingForItemQuantitiesToChange() throws Exception {
+        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+        var counts = snapshot(0, 0, 1);
+        counts.getList("items", 10).getCompound(0).putByteArray("active", BigInteger.ONE.toByteArray());
+        panel.setValue(counts, false);
+        var progress = ECOProcessingProgress.summarize(List.of(new ECOProcessingProgress.Machine(
+            Component.literal("Machine"), "overworld [0,64,0]", "test:recipe", 50, 100, 1,
+            ECOProcessingProgress.State.RUNNING, Component.empty())));
+        var overview = new CompoundTag();
+        overview.putInt("serial", 1);
+        var item = new CompoundTag();
+        item.put("key", AEItemKey.of(Items.STONE).toTagGeneric());
+        item.put("progress", progress.page(-1).write());
+        var entries = new ListTag();
+        entries.add(item);
+        overview.put("items", entries);
+        @SuppressWarnings("unchecked")
+        var binding = (BindableValue<CompoundTag>) field(panel, "processingOverview");
+        binding.setValue(overview, false);
+        // Reopening the same CPU may produce an identical payload and therefore no new S2C update.
+        panel.open(1);
+        var graphics = assertDrawn(panel, 1);
+        verify(graphics).fill(99, 38, 162, 40, 0xFF5B566B);
+        verify(graphics).fill(99, 38, 131, 40, 0xFFC7A6FF);
     }
 
     @Test void sidebarKeepsItsPageVisibleUntilTheLatestScrollReply() throws Exception {
@@ -148,7 +187,7 @@ class ComputationScrollRenderingTest {
             0, 0, 1024, 4, CpuSelectionMode.ANY, new ResourceLocation("neoecoae:cpu.png"), "idle");
     }
 
-    private static void assertDrawn(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement element,
+    private static GuiGraphics assertDrawn(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement element,
             int serial) throws Exception {
         var client = mock(Minecraft.class);
         set(client, "font", mock(Font.class));
@@ -174,6 +213,7 @@ class ComputationScrollRenderingTest {
                 keys.verify(() -> AEKeyRendering.drawInGui(client, graphics, 0, 0, AEItemKey.of(Items.STONE)));
             }
         }
+        return graphics;
     }
 
     private static void scroll(Object target, String name, int offset) throws Exception {
