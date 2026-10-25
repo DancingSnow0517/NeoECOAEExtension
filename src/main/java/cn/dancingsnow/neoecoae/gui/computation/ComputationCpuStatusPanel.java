@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.client.AEKeyRendering;
+import appeng.api.stacks.AEKey;
 import appeng.api.util.AEColor;
 import appeng.client.gui.widgets.AE2Button;
 import appeng.core.AEConfig;
@@ -68,6 +69,14 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
     private final BindableValue<CompoundTag> cpuScrollRequest = new BindableValue<>(new CompoundTag());
     private final BindableValue<CompoundTag> itemScrollRequest = new BindableValue<>(new CompoundTag());
+    private ComputationItemActionsPopup itemActionsPopup;
+    private final BindableValue<CompoundTag> itemActionResponse = new BindableValue<>(new CompoundTag()) {
+        @Override public BindableValue<CompoundTag> setValue(CompoundTag value, boolean notify) {
+            super.setValue(value, notify);
+            if (itemActionsPopup != null && value != null && value.getInt("serial") == selectedSerial) itemActionsPopup.accept(value);
+            return this;
+        }
+    };
     private final StatusButton pauseButton = new StatusButton();
     private final StatusButton cancelButton = new StatusButton();
     private final ComputationScrollbar cpuScrollbar;
@@ -91,6 +100,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         setOverflowVisible(true);
         ServerState server = new ServerState(config, identities);
         var cpuAction = addRPCEvent(RPCEventBuilder.simple(Integer.class, Integer.class, server::action));
+        var itemAction = addRPCEvent(RPCEventBuilder.simple(Integer.class, CompoundTag.class, server::itemAction));
+        itemActionsPopup = new ComputationItemActionsPopup(config.registries(), request -> itemAction.send(selectedSerial, request));
         bind(DataBindingBuilder.create(server::snapshot, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
         selectionRequest.bind(DataBindingBuilder.intValC2S(server::select).build());
@@ -98,16 +109,29 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
         itemScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::scrollItems)
             .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
+        itemActionResponse.bind(DataBindingBuilder.create(() -> server.itemActionResponse, ignored -> {})
+            .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
         selectionRequest.setDisplay(false);
         cpuScrollRequest.setDisplay(false);
         itemScrollRequest.setDisplay(false);
-        addChildren(selectionRequest, cpuScrollRequest, itemScrollRequest);
+        itemActionResponse.setDisplay(false);
+        addChildren(selectionRequest, cpuScrollRequest, itemScrollRequest, itemActionResponse, itemActionsPopup);
         addChildren(cpuHitbox(), itemHitbox());
+        addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (itemActionsPopup.isDisplayed() && !itemActionsPopup.isMouseOverElement(event.x, event.y)) {
+                itemActionsPopup.close();
+                if (event.button != 1) event.stopImmediatePropagation();
+            }
+        }, true);
         cpuScrollbar = new ComputationScrollbar(this, CPU_TRACK_X, TRACK_Y, TRACK_HEIGHT, this::scrollCpuTo);
         itemScrollbar = new ComputationScrollbar(this, ITEM_TRACK_X, TRACK_Y, TRACK_HEIGHT,
             row -> scrollItemsTo(row * ITEM_COLS));
         addChildren(cpuScrollbar, itemScrollbar);
         addEventListener(UIEvents.MOUSE_WHEEL, event -> {
+            if (itemActionsPopup.isDisplayed()) {
+                if (!itemActionsPopup.isMouseOverElement(event.x, event.y)) event.stopImmediatePropagation();
+                return;
+            }
             if (event.x >= getPositionX() + CPU_X && event.x < getPositionX() + CPU_TRACK_X + ComputationScrollbar.WIDTH
                 && event.y >= getPositionY() + CPU_Y && event.y < getPositionY() + CPU_Y + ROWS * CPU_STRIDE) {
                 scrollCpuTo(cpuOffset + (event.deltaY < 0 ? ROWS / 3 : -ROWS / 3));
@@ -120,7 +144,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }, true);
 
         Button back = new BackButton().noText()
-            .setOnClick(event -> backAction.run());
+            .setOnClick(event -> { itemActionsPopup.close(); backAction.run(); });
         back.setId("computation-status-back");
         back.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(302).top(-5).width(20).height(20).paddingAll(0));
         back.setOverflowVisible(true);
@@ -141,8 +165,13 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
 
     void setBackAction(Runnable action) { backAction = action; }
 
+    @Override public boolean isIntersectWithPoint(double x, double y) {
+        return super.isIntersectWithPoint(x, y) || itemActionsPopup != null && itemActionsPopup.isDisplayed();
+    }
+
     void open(int serial) {
         itemScrollPending = false;
+        itemActionsPopup.close();
         selectedSerial = serial;
         selectionRequest.setValue(serial);
     }
@@ -152,6 +181,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         super.setValue(value, notify);
         if (value == null || !value.contains("total")) return this;
         total = value.getInt("total");
+        if (selectedSerial != value.getInt("selectedSerial")) itemActionsPopup.close();
         selectedSerial = value.getInt("selectedSerial");
         itemTotal = value.getInt("itemTotal");
         cpuOffset = Math.clamp(cpuOffset, 0, Math.max(0, total - ROWS));
@@ -210,21 +240,35 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
 
     private UIElement itemHitbox() {
         UIElement hitbox = hitbox(ITEM_X, ITEM_Y, ITEM_COLS * ITEM_COLUMN_STRIDE - 1, ITEM_ROWS * ITEM_STRIDE - 1);
+        hitbox.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (event.button != 1) return;
+            var item = itemAt(event.x, event.y);
+            if (item == null) return;
+            itemActionsPopup.open(item, event.x - getPositionX() + 2, event.y - getPositionY() + 2);
+            event.stopImmediatePropagation();
+        });
+        hitbox.addEventListener(UIEvents.MOUSE_UP, event -> { if (event.button == 1) event.stopImmediatePropagation(); });
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            float localX = event.x - getPositionX() - ITEM_X;
-            int column = (int) (localX / ITEM_COLUMN_STRIDE);
-            if (localX - column * ITEM_COLUMN_STRIDE >= ITEM_WIDTH) return;
-            ComputationCpuItemEntry item = itemPage.hit(event.y - getPositionY() - ITEM_Y,
-                column, ITEM_STRIDE, ITEM_HEIGHT);
+            ComputationCpuItemEntry item = itemAt(event.x, event.y);
             if (item == null) return;
             List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
             lines.addAll(itemDescription(item, true));
             if (item.batched()) {
                 lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF));
             }
+            lines.add(Component.translatable("gui.neoecoae.processing.context_hint").withStyle(ChatFormatting.DARK_GRAY));
             event.hoverTooltips = HoverTooltips.empty().append(lines.toArray(Component[]::new));
         });
         return hitbox;
+    }
+
+    private ComputationCpuItemEntry itemAt(float mouseX, float mouseY) {
+        float localX = mouseX - getPositionX() - ITEM_X;
+        float localY = mouseY - getPositionY() - ITEM_Y;
+        if (localX < 0 || localX >= ITEM_COLS * ITEM_COLUMN_STRIDE - 1 || localY < 0 || localY >= ITEM_ROWS * ITEM_STRIDE - 1) return null;
+        int column = (int) (localX / ITEM_COLUMN_STRIDE);
+        if (localX - column * ITEM_COLUMN_STRIDE >= ITEM_WIDTH) return null;
+        return itemPage.hit(localY, column, ITEM_STRIDE, ITEM_HEIGHT);
     }
 
     private void scrollCpuTo(int value) {
@@ -424,6 +468,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private long sampledTick = Long.MIN_VALUE;
         private int itemOffset;
         private long cpuScrollSequence, itemScrollSequence;
+        private CompoundTag itemActionResponse = new CompoundTag();
 
         private ServerState(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
             this.config = config;
@@ -469,6 +514,47 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (action == 1) config.toggleCpuSuspended().accept(cpu);
             if (action == 2) config.cancelCpu().accept(cpu);
             cached = null;
+        }
+
+        private void itemAction(int serial, CompoundTag request) {
+            if (!config.canInteract().getAsBoolean()) return;
+            var response = new CompoundTag();
+            response.putInt("serial", serial);
+            response.putLong("sequence", request.getLong("sequence"));
+            response.put("key", request.getCompound("key").copy());
+            itemActionResponse = response;
+            refresh();
+            var cpu = selection.selected();
+            AEKey key = AEKey.fromTagGeneric(config.registries(), request.getCompound("key"));
+            if (cpu == null || serial != selection.selectedSerial() || key == null) {
+                response.putString("error", "gui.neoecoae.processing.task_changed");
+                return;
+            }
+            var logic = cpu.getLogic();
+            var job = logic.getProcessingJobId();
+            String action = request.getString("action");
+            if ((!action.equals("inspect") && !action.equals("open")) || job == null
+                || (action.equals("open") && (!request.hasUUID("job") || !job.equals(request.getUUID("job"))))) {
+                response.putString("error", "gui.neoecoae.processing.task_changed");
+                return;
+            }
+            response.putUUID("job", job);
+            var grid = cpu.getGrid();
+            var sources = grid != null && grid.getCraftingService() instanceof appeng.me.service.CraftingService crafting
+                ? cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.find(logic.getProcessingPatterns(key), crafting)
+                : List.<cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.Source>of();
+            var list = new ListTag();
+            for (var source : sources) list.add(source.describe(config.registries()));
+            response.put("sources", list);
+            if (action.equals("open")) {
+                var target = sources.stream().filter(source -> source.id().equals(request.getString("source"))).findFirst();
+                try {
+                    if (!(config.player() instanceof net.minecraft.server.level.ServerPlayer player)
+                        || target.isEmpty() || !target.get().open(player)) response.putString("error", "gui.neoecoae.processing.open_unavailable");
+                } catch (RuntimeException | LinkageError unsupported) {
+                    response.putString("error", "gui.neoecoae.processing.open_unavailable");
+                }
+            }
         }
 
         private CompoundTag snapshot() {

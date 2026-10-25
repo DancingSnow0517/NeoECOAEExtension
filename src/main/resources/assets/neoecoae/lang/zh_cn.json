@@ -1273,5 +1273,15 @@
   "gui.neoecoae.large_integrated_working_station.pause.fe_missing": "已暂停：ME 网络 FE 不足",
   "gui.neoecoae.workstation.fe_value": "网络 FE 消耗：%s FE/t；待结算：%s FE",
   "gui.neoecoae.workstation.fe_requirement": "网络 FE 供能需要 Applied Flux；FE 不足或未安装时，可用等价 AE 代偿。",
-  "gui.neoecoae.workstation.task_duration": "加工时间：%s / %s tick"
+  "gui.neoecoae.workstation.task_duration": "加工时间：%s / %s tick",
+  "gui.neoecoae.processing.action.locate": "定位并突出显示",
+  "gui.neoecoae.processing.pattern_location": "%s 的样板位于 %s，维度：%s，坐标：%s",
+  "gui.neoecoae.processing.action.open": "打开样板供应器",
+  "gui.neoecoae.processing.task_changed": "合成任务已变化，请重新右键打开菜单。",
+  "gui.neoecoae.processing.open_unavailable": "页面当前无法打开，请确认所在维度及机器状态。",
+  "gui.neoecoae.processing.no_pattern": "当前步骤没有可定位的样板。",
+  "gui.neoecoae.processing.previous": "上一页",
+  "gui.neoecoae.processing.next": "下一页",
+  "gui.neoecoae.processing.close": "关闭",
+  "gui.neoecoae.processing.context_hint": "右键定位、突出显示或打开样板供应器"
 }

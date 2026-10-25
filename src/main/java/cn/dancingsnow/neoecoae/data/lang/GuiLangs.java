@@ -768,5 +768,15 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.status.unknown_budget", "Planning budget exhausted");
         provider.add("gui.neoecoae.crafting_graph.status.too_complex", "Too complex");
         provider.add("gui.neoecoae.crafting_graph.status.cancelled", "Cancelled");
+        provider.add("gui.neoecoae.processing.action.locate", "Locate and highlight");
+        provider.add("gui.neoecoae.processing.pattern_location", "Pattern for %s is in %s; dimension: %s; coordinates: %s");
+        provider.add("gui.neoecoae.processing.action.open", "Open pattern provider");
+        provider.add("gui.neoecoae.processing.task_changed", "The crafting job has changed. Right-click to open the menu again.");
+        provider.add("gui.neoecoae.processing.open_unavailable", "The page cannot be opened. Check the dimension and machine state.");
+        provider.add("gui.neoecoae.processing.no_pattern", "This step has no locatable pattern.");
+        provider.add("gui.neoecoae.processing.previous", "Previous");
+        provider.add("gui.neoecoae.processing.next", "Next");
+        provider.add("gui.neoecoae.processing.close", "Close");
+        provider.add("gui.neoecoae.processing.context_hint", "Right-click to locate, highlight or open the pattern provider");
     }
 }

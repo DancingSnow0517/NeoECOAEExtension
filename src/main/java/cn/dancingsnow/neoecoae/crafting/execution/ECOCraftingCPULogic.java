@@ -514,6 +514,18 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         return jobAttachments;
     }
 
+    @Nullable
+    public UUID getProcessingJobId() {
+        return job == null ? null : job.link.getCraftingID();
+    }
+
+    /** Patterns belonging to this job that produce the selected status entry. */
+    public List<IPatternDetails> getProcessingPatterns(AEKey output) {
+        if (job == null) return List.of();
+        return job.tasks.keySet().stream().filter(pattern -> pattern.getOutputs().stream()
+            .anyMatch(stack -> output.equals(stack.what()))).toList();
+    }
+
     ECOCraftingEnergyTransaction energyTransactionForPersistence() {
         return energyTransaction;
     }

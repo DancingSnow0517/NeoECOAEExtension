@@ -1011,5 +1011,15 @@
   "gui.neoecoae.large_integrated_working_station.pause.fe_missing": "已暫停：ME 網路 FE 不足",
   "gui.neoecoae.workstation.fe_value": "網路 FE 消耗：%s FE/t；待結算：%s FE",
   "gui.neoecoae.workstation.fe_requirement": "網中 FE 供能須有 Applied Flux；FE 不足或未裝時，可用等價 AE 代償。",
-  "gui.neoecoae.workstation.task_duration": "加工時間：%s / %s tick"
+  "gui.neoecoae.workstation.task_duration": "加工時間：%s / %s tick",
+  "gui.neoecoae.processing.action.locate": "尋位顯之",
+  "gui.neoecoae.processing.pattern_location": "%s 之樣板在 %s，界：%s，位：%s",
+  "gui.neoecoae.processing.action.open": "啟樣板供應器",
+  "gui.neoecoae.processing.task_changed": "合成之務已易，請右擊重啟其單。",
+  "gui.neoecoae.processing.open_unavailable": "此頁未可啟，請察所處之界與機器之狀。",
+  "gui.neoecoae.processing.no_pattern": "此步無可尋之樣板。",
+  "gui.neoecoae.processing.previous": "前頁",
+  "gui.neoecoae.processing.next": "後頁",
+  "gui.neoecoae.processing.close": "閉",
+  "gui.neoecoae.processing.context_hint": "右擊可尋位顯之，或啟樣板供應器"
 }
