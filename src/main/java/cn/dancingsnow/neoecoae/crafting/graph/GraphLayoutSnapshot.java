@@ -1,13 +1,12 @@
 package cn.dancingsnow.neoecoae.crafting.graph;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-/** Layout and uniform-grid spatial index. */
+/** Immutable layout and bounds indices for nodes, routed edges and precomputed row frames. */
 public final class GraphLayoutSnapshot {
     public static final int MATERIAL_WIDTH = 132;
     public static final int MATERIAL_HEIGHT = 76;
@@ -23,7 +22,6 @@ public final class GraphLayoutSnapshot {
     public static final int COMPACT_FOLDER_HEIGHT = COMPACT_MATERIAL_HEIGHT;
     public static final int COMPACT_REFERENCE_WIDTH = COMPACT_MATERIAL_WIDTH;
     public static final int COMPACT_REFERENCE_HEIGHT = COMPACT_MATERIAL_HEIGHT;
-    private static final int CELL_SIZE = 256;
 
     public record Box(int nodeId, float x, float y, float width, float height) {
         public float centerX() { return x + width / 2; }
@@ -40,10 +38,19 @@ public final class GraphLayoutSnapshot {
     public record Bounds(float left, float top, float right, float bottom) {
         public float width() { return Math.max(1, right - left); }
         public float height() { return Math.max(1, bottom - top); }
+        public boolean intersects(Bounds other) {
+            return right >= other.left && left <= other.right && bottom >= other.top && top <= other.bottom;
+        }
+        public Bounds padded(float amount) {
+            return new Bounds(left - amount, top - amount, right + amount, bottom + amount);
+        }
     }
 
     private final Map<Integer, Box> boxes;
-    private final Map<Long, int[]> grid;
+    private final GraphSpatialIndex<Box> nodeIndex;
+    private final GraphSpatialIndex<ClientCraftingGraph.Link> edgeIndex;
+    private final GraphSpatialIndex<Bounds> rowIndex;
+    private final List<Bounds> rowFrames;
     private final List<ClientCraftingGraph.Link> links;
     private final Map<ClientCraftingGraph.Link, List<Point>> edgeRoutes;
     private final Map<Integer, int[]> edgesByNode;
@@ -59,27 +66,21 @@ public final class GraphLayoutSnapshot {
 
     GraphLayoutSnapshot(Map<Integer, Box> boxes, List<ClientCraftingGraph.Link> links,
             Map<ClientCraftingGraph.Link, List<Point>> edgeRoutes, Bounds bounds, long layoutNanos, long version) {
-        this.boxes = boxes;
+        this.boxes = Map.copyOf(boxes);
         this.bounds = bounds;
         this.version = version;
-        this.links = links;
+        this.links = List.copyOf(links);
         Map<ClientCraftingGraph.Link, List<Point>> frozenRoutes = new HashMap<>();
-        edgeRoutes.forEach((link, points) -> frozenRoutes.put(link, points));
-        this.edgeRoutes = frozenRoutes;
+        edgeRoutes.forEach((link, points) -> frozenRoutes.put(link, List.copyOf(points)));
+        this.edgeRoutes = Map.copyOf(frozenRoutes);
         long spatialStarted = System.nanoTime();
-        Map<Long, List<Integer>> mutable = new HashMap<>();
-        for (Box box : boxes.values()) {
-            int minX = floorCell(box.x());
-            int maxX = floorCell(box.x() + box.width());
-            int minY = floorCell(box.y());
-            int maxY = floorCell(box.y() + box.height());
-            for (int x = minX; x <= maxX; x++) for (int y = minY; y <= maxY; y++) {
-                mutable.computeIfAbsent(cellKey(x, y), ignored -> new ArrayList<>()).add(box.nodeId());
-            }
-        }
-        Map<Long, int[]> frozen = new HashMap<>();
-        mutable.forEach((key, ids) -> frozen.put(key, ids.stream().mapToInt(Integer::intValue).toArray()));
-        this.grid = frozen;
+        nodeIndex = new GraphSpatialIndex<>(this.boxes.values().stream()
+            .map(box -> new GraphSpatialIndex.Entry<>(boxBounds(box), box)).toList());
+        edgeIndex = new GraphSpatialIndex<>(this.links.stream()
+            .map(link -> new GraphSpatialIndex.Entry<>(linkBounds(link), link)).toList());
+        rowFrames = buildRowFrames();
+        rowIndex = new GraphSpatialIndex<>(rowFrames.stream()
+            .map(row -> new GraphSpatialIndex.Entry<>(row, row)).toList());
 
         Map<Integer, List<Integer>> mutableEdges = new HashMap<>();
         for (int i = 0; i < links.size(); i++) {
@@ -100,6 +101,17 @@ public final class GraphLayoutSnapshot {
     public Bounds bounds() { return bounds; }
     public Map<ClientCraftingGraph.Link, List<Point>> edgeRoutes() { return edgeRoutes; }
     public List<Point> edgePoints(ClientCraftingGraph.Link link) { return edgeRoutes.getOrDefault(link, List.of()); }
+    public List<Bounds> rowFrames() { return rowFrames; }
+    public int nodeCount(Bounds area) { return nodeIndex.count(area); }
+    public int edgeCount(Bounds area) { return edgeIndex.count(area); }
+    public List<Bounds> queryRowFrames(Bounds area) { return rowIndex.query(area, Integer.MAX_VALUE); }
+    public List<ClientCraftingGraph.Link> linksAt(int nodeId) {
+        int[] ids = edgesByNode.get(nodeId);
+        if (ids == null) return List.of();
+        List<ClientCraftingGraph.Link> result = new ArrayList<>(ids.length);
+        for (int id : ids) result.add(links.get(id));
+        return result;
+    }
     public int bendPointCount() {
         return edgeRoutes.values().stream().mapToInt(points -> Math.max(0, points.size() - 2)).sum();
     }
@@ -108,51 +120,66 @@ public final class GraphLayoutSnapshot {
     public long version() { return version; }
 
     public List<Box> query(float left, float top, float right, float bottom, float margin) {
-        left -= margin;
-        top -= margin;
-        right += margin;
-        bottom += margin;
-        Set<Integer> candidates = new LinkedHashSet<>();
-        for (int x = floorCell(left); x <= floorCell(right); x++) {
-            for (int y = floorCell(top); y <= floorCell(bottom); y++) {
-                int[] ids = grid.get(cellKey(x, y));
-                if (ids != null) for (int id : ids) candidates.add(id);
-            }
-        }
-        List<Box> visible = new ArrayList<>(candidates.size());
-        for (int id : candidates) {
-            Box box = boxes.get(id);
-            if (box.intersects(left, top, right, bottom)) visible.add(box);
-        }
-        return visible;
+        return query(new Bounds(left, top, right, bottom).padded(margin), Integer.MAX_VALUE);
+    }
+
+    public List<Box> query(Bounds area, int limit) {
+        return nodeIndex.query(area, limit);
     }
 
     public List<ClientCraftingGraph.Link> queryLinks(float left, float top, float right, float bottom, float margin) {
-        // Deliberate v1 approximation: an edge is considered only when at least one endpoint node is near the
-        // viewport. A long edge whose two endpoints are both off-screen is culled even if its line crosses the view.
-        Set<Integer> candidates = new LinkedHashSet<>();
-        for (Box box : query(left, top, right, bottom, margin)) {
-            int[] ids = edgesByNode.get(box.nodeId());
-            if (ids != null) for (int id : ids) candidates.add(id);
-        }
-        List<ClientCraftingGraph.Link> visible = new ArrayList<>(candidates.size());
-        for (int id : candidates) visible.add(links.get(id));
-        return visible;
+        return queryLinks(new Bounds(left, top, right, bottom).padded(margin));
+    }
+
+    public List<ClientCraftingGraph.Link> queryLinks(Bounds area) {
+        return edgeIndex.query(area, Integer.MAX_VALUE);
     }
 
     int candidateNodeCount(float left, float top, float right, float bottom, float margin) {
-        left -= margin;
-        top -= margin;
-        right += margin;
-        bottom += margin;
-        Set<Integer> candidates = new LinkedHashSet<>();
-        for (int x = floorCell(left); x <= floorCell(right); x++) {
-            for (int y = floorCell(top); y <= floorCell(bottom); y++) {
-                int[] ids = grid.get(cellKey(x, y));
-                if (ids != null) for (int id : ids) candidates.add(id);
+        return query(left, top, right, bottom, margin).size();
+    }
+
+    private static Bounds boxBounds(Box box) {
+        return new Bounds(box.x(), box.y(), box.x() + box.width(), box.y() + box.height());
+    }
+
+    public Bounds linkBounds(ClientCraftingGraph.Link link) {
+        var route = edgePoints(link);
+        if (!route.isEmpty()) {
+            float left = Float.POSITIVE_INFINITY, top = Float.POSITIVE_INFINITY;
+            float right = Float.NEGATIVE_INFINITY, bottom = Float.NEGATIVE_INFINITY;
+            for (var point : route) {
+                left = Math.min(left, point.x());
+                top = Math.min(top, point.y());
+                right = Math.max(right, point.x());
+                bottom = Math.max(bottom, point.y());
+            }
+            return new Bounds(left, top, right, bottom).padded(8);
+        }
+        var from = boxes.get(link.fromId());
+        var to = boxes.get(link.toId());
+        if (from == null || to == null) return new Bounds(0, 0, 0, 0);
+        return new Bounds(Math.min(from.x(), to.x()), Math.min(from.y(), to.y()),
+            Math.max(from.x() + from.width(), to.x() + to.width()),
+            Math.max(from.y() + from.height(), to.y() + to.height())).padded(8);
+    }
+
+    private List<Bounds> buildRowFrames() {
+        List<Box> ordered = new ArrayList<>(boxes.values());
+        ordered.sort(Comparator.comparingDouble(Box::y).thenComparingDouble(Box::x));
+        List<Bounds> result = new ArrayList<>();
+        Bounds active = null;
+        for (var box : ordered) {
+            if (active == null || box.y() != active.top() || box.x() > active.right() + 0.001f) {
+                if (active != null) result.add(active);
+                active = boxBounds(box);
+            } else {
+                active = new Bounds(active.left(), active.top(), Math.max(active.right(), box.x() + box.width()),
+                    Math.max(active.bottom(), box.y() + box.height()));
             }
         }
-        return candidates.size();
+        if (active != null) result.add(active);
+        return List.copyOf(result);
     }
 
     static float widthFor(ClientCraftingGraph.Node node) {
@@ -175,6 +202,4 @@ public final class GraphLayoutSnapshot {
         };
     }
 
-    private static int floorCell(float value) { return (int) Math.floor(value / CELL_SIZE); }
-    private static long cellKey(int x, int y) { return ((long) x << 32) ^ (y & 0xffffffffL); }
 }
