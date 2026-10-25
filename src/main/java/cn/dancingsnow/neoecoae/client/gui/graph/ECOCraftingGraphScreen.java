@@ -28,8 +28,6 @@ import org.lwjgl.glfw.GLFW;
 
 /** Full-screen immediate-mode ECO crafting DAG and SCC viewer. */
 public final class ECOCraftingGraphScreen extends Screen {
-    private static final float MIN_ZOOM = 0.15f;
-    private static final float MAX_ZOOM = 2.5f;
     private static final int TOOLBAR_HEIGHT = 30;
 
     private final Screen previous;
@@ -84,6 +82,7 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     @Override
     protected void init() {
+        renderer.close();
         clearWidgets();
         int x = 5;
         x = addButton(x, 48, tr("toolbar.fit_all"), this::fitAll);
@@ -294,7 +293,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             return true;
         }
         float oldZoom = zoom;
-        zoom = clamp((float) (zoom * Math.pow(1.12, scrollY)), MIN_ZOOM, MAX_ZOOM);
+        zoom = GraphViewTransform.scrollZoom(zoom, scrollY);
         float worldX = ((float) mouseX - cameraX) / oldZoom;
         float worldY = ((float) mouseY - cameraY) / oldZoom;
         cameraX = (float) mouseX - worldX * zoom;
@@ -377,6 +376,12 @@ public final class ECOCraftingGraphScreen extends Screen {
     @Override
     public void onClose() {
         Minecraft.getInstance().setScreen(previous);
+    }
+
+    @Override
+    public void removed() {
+        renderer.close();
+        super.removed();
     }
 
     private void activate(ClientCraftingGraph.Node node) {
@@ -561,7 +566,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         float availableWidth = Math.max(1, width - 40 - detailsReserve);
         int contentTop = graphContentTop();
         float availableHeight = Math.max(1, height - contentTop - 24);
-        zoom = clamp(Math.min(availableWidth / bounds.width(), availableHeight / bounds.height()), MIN_ZOOM, 1.5f);
+        zoom = GraphViewTransform.fitZoom(bounds, availableWidth, availableHeight);
         cameraX = 20 - bounds.left() * zoom + (availableWidth - bounds.width() * zoom) / 2;
         cameraY = contentTop + 12 - bounds.top() * zoom
             + (availableHeight - bounds.height() * zoom) / 2;
@@ -776,5 +781,4 @@ public final class ECOCraftingGraphScreen extends Screen {
     private static Component tr(String suffix, Object... args) {
         return Component.translatable("gui.neoecoae.crafting_graph." + suffix, args);
     }
-    private static float clamp(float value, float min, float max) { return Math.max(min, Math.min(max, value)); }
 }

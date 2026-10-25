@@ -50,6 +50,12 @@ public class NeoECOAEClient {
     }
 
     @SubscribeEvent
+    public static void onRegisterReloadListeners(net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener((net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager ->
+            cn.dancingsnow.neoecoae.client.gui.graph.GraphRenderer.resourcesReloaded());
+    }
+
+    @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();
         NEItemColors.clearCache();
