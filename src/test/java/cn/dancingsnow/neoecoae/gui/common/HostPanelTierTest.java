@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.common;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
@@ -21,10 +22,11 @@ class HostPanelTierTest {
     @BeforeAll
     static void bootstrap() throws ClassNotFoundException {
         InventoryTestBootstrap.initialize();
-        try (var mods = mockStatic(ModList.class)) {
+        try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {
             ModList modList = mock(ModList.class);
             when(modList.getAllScanData()).thenReturn(List.of());
             mods.when(ModList::get).thenReturn(modList);
+            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
             Class.forName(NeoECOAE.class.getName());
         }
     }

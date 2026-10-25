@@ -59,13 +59,7 @@ public final class CraftingInterfaceUI {
         StatusTooltips operationStatus = new StatusTooltips(craftingInterface);
         UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT,
             new JsonContext(craftingInterface, player, previewState, operationStatus));
-        root.addEventListener(UIEvents.MOUSE_UP, event -> {
-            if (event.button == 0) previewState.endQuickMoveDrag();
-        }, true);
-        root.addEventListener(UIEvents.TICK, event -> {
-            previewState.tick();
-            previewState.endQuickMoveDragIfReleased(root.isMouseDown(0));
-        });
+        root.addEventListener(UIEvents.TICK, event -> previewState.tick());
         return ECOModularUI.create(root, player);
     }
 
@@ -185,7 +179,22 @@ public final class CraftingInterfaceUI {
         private final CraftingPatternPreviewState state;
         private long lastFrame;
 
-        PatternPreview(CraftingPatternPreviewState state) { this.state = state; }
+        PatternPreview(CraftingPatternPreviewState state) { this.state = state; state.attachNativePreview(this); }
+        void sendNativeView() { writeClientAction(720, state.nativeSlots()::writeView); }
+
+        @Override public void handleClientAction(int id, net.minecraft.network.FriendlyByteBuf buffer) {
+            if (id != 720) { super.handleClientAction(id, buffer); return; }
+            if (!activeMenu()) return;
+            long generation = state.nativeSlots().readView(buffer);
+            // Send native contents first. The acknowledgement then enables exactly this viewport for clicks.
+            getModularUI().getMenu().broadcastChanges();
+            writeUpdateInfo(721, reply -> reply.writeLong(generation));
+        }
+
+        @Override public void readUpdateInfo(int id, net.minecraft.network.FriendlyByteBuf buffer) {
+            if (id == 721) state.nativeSlots().acknowledge(buffer.readLong());
+            else super.readUpdateInfo(id, buffer);
+        }
 
         public void advanceFrame() {
             long now = System.nanoTime();
@@ -227,17 +236,9 @@ public final class CraftingInterfaceUI {
         });
         preview.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             state.stopScrolling();
-            if ((event.button == 0 || event.button == 1) && state.hasCarriedPattern()
-                    && (event.button == 0 || event.target == preview)) {
-                // Capture left clicks before an occupied slot can swap or quick-move its pattern.
-                // A full bus must leave the carried pattern alone instead of falling back to replacement.
-                state.insertCarriedPattern(event.button);
-                event.hasHandler = true;
-                event.stopImmediatePropagation();
-            }
         }, true);
         preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (event.deltaY != 0 && !event.isShiftDown()) {
+            if (event.deltaY != 0) {
                 state.scroll(-event.deltaY);
                 event.stopImmediatePropagation();
             }
@@ -308,12 +309,7 @@ public final class CraftingInterfaceUI {
         inventory.hotbar.layout(layout -> layout.marginTop(4));
         inventory.apply(slot -> {
             slot.getStyle().backgroundTexture(IGuiTexture.EMPTY);
-            slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-                if (event.isShiftDown() && (event.button == 0 || event.button == 1) && state.quickMoveFromInventory(slot.getSlot())) {
-                    event.hasHandler = true;
-                    event.stopImmediatePropagation();
-                }
-            });
+            state.bindPlayerNativeClick(slot);
         });
         return withLayout ? HostElements.absolute(inventory, 7, 152, PREVIEW_WIDTH, 76) : inventory;
     }

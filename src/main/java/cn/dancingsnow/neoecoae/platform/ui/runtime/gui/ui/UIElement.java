@@ -31,6 +31,7 @@ public class UIElement extends WidgetGroup {
     private int nextRpc=1;
     private boolean display=true,layoutDirty=true,hover,allowHitTest=true,focusable;
     private final ElementTransform transform=new ElementTransform();
+    private float layoutX,layoutY;
     private UIElement pressedTarget;
     private boolean retainedPointerPress;
     private ModularUI modularUI;
@@ -100,7 +101,12 @@ public class UIElement extends WidgetGroup {
     public void sendMessage(String name){for(var listener:java.util.List.copyOf(messages.getOrDefault(name,java.util.List.of())))listener.accept(null);}
     public org.joml.Vector2f getLocalMouse(float x,float y){return new org.joml.Vector2f(x,y);}
     public static class ElementTransform {float x,y;public ElementTransform translate(float x,float y){this.x=x;this.y=y;return this;}}
-    public UIElement transform(Consumer<ElementTransform> action){action.accept(transform);markLayoutDirty();return this;}
+    public UIElement transform(Consumer<ElementTransform> action){
+        float previousX=transform.x,previousY=transform.y;action.accept(transform);
+        if(previousX!=transform.x||previousY!=transform.y)
+            setSelfPosition(new Position(Math.round(layoutX+transform.x),Math.round(layoutY+transform.y)));
+        return this;
+    }
     @Override public UIElement setVisible(boolean value){super.setVisible(value);return this;}
     @Override public UIElement setActive(boolean value){super.setActive(value);if(value)removeClass("__disabled__");else addClass("__disabled__");return this;}
     public UIElement setOverflowVisible(boolean value){style.overflowVisible=value;return this;}
@@ -167,7 +173,8 @@ public class UIElement extends WidgetGroup {
         var event=pointer(UIEvents.MOUSE_UP,target,x,y,button,0);
         if(pressedTarget!=null&&pressedTarget!=target)pointer(UIEvents.MOUSE_UP,pressedTarget,x,y,button,0);
         // A retained press owns its release too. A lone native release can issue a second vanilla slot action.
-        boolean result=!retainedPress&&nativePointer(pressedTarget==null?target:pressedTarget,UIEvents.MOUSE_UP,x,y,button,0);
+        boolean result=!retainedPress&&(nativePointer(target,UIEvents.MOUSE_UP,x,y,button,0)
+            ||(pressedTarget!=null&&pressedTarget!=target&&nativePointer(pressedTarget,UIEvents.MOUSE_UP,x,y,button,0)));
         pressedTarget=null;retainedPointerPress=false;
         if(modularUI!=null)modularUI.pointerUp();return retainedPress||result||event.hasHandler||event.isPropagationStopped();
     }
@@ -189,8 +196,19 @@ public class UIElement extends WidgetGroup {
     }
     @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){
         mouseMoved(x,y);if(modularUI!=null&&modularUI.getDragHandler().isDragging()){modularUI.getDragHandler().update((float)x,(float)y);return true;}
-        if(!retainedPointerPress&&pressedTarget!=null)for(var widget:pressedTarget.widgets)if(!(widget instanceof UIElement)&&widget.mouseDragged(x,y,button,dx,dy))return true;
+        if(!retainedPointerPress){
+            var target=hitTest(x,y);
+            if(target!=pressedTarget&&nativeDrag(target,x,y,button,dx,dy))return true;
+            if(nativeDrag(pressedTarget,x,y,button,dx,dy))return true;
+        }
         return retainedPointerPress;
+    }
+    private boolean nativeDrag(UIElement target,double x,double y,int button,double dx,double dy){
+        if(target==null)return false;
+        for(int i=target.widgets.size()-1;i>=0;i--){var widget=target.widgets.get(i);
+            if(!(widget instanceof UIElement)&&widget.isVisible()&&widget.isActive()&&widget.mouseDragged(x,y,button,dx,dy))return true;
+        }
+        return target.parent instanceof UIElement p&&nativeDrag(p,x,y,button,dx,dy);
     }
     public void markLayoutDirty(){layoutDirty=true;if(parent instanceof UIElement element)element.markLayoutDirty();}
     public void arrange(){for(int pass=0;pass<4;pass++){layoutDirty=false;LayoutEngine.arrange(this);if(!layoutDirty)break;}}
@@ -199,6 +217,7 @@ public class UIElement extends WidgetGroup {
     public float intrinsicWidth(){return 0;}
     public float intrinsicHeight(){return 0;}
     public void applyBounds(float x,float y,float width,float height){
+        layoutX=x;layoutY=y;
         setSelfPosition(new Position(Math.round(x+transform.x),Math.round(y+transform.y)));setSize(new Size(Math.max(0,Math.round(width)),Math.max(0,Math.round(height))));
         boolean effective=isDisplayed();for(UIElement p=getParentElement();p!=null;p=p.getParentElement())effective&=p.isDisplayed();
         super.setVisible(display&&effective);

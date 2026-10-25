@@ -71,6 +71,27 @@ class RetainedPointerRoutingTest {
         return element;
     }
 
+    @Test void nativeInventoryDragAndReleaseFollowTheSlotCurrentlyUnderTheMouse() {
+        var root = new UIElement();
+        root.layout(layout -> layout.width(36).height(18));
+        var first = element();
+        var second = element();
+        root.addChild(cn.dancingsnow.neoecoae.gui.common.HostElements.absolute(first, 0, 0, 18, 18));
+        root.addChild(cn.dancingsnow.neoecoae.gui.common.HostElements.absolute(second, 18, 0, 18, 18));
+        var firstWidget = nativeWidget(first);
+        var secondWidget = nativeWidget(second);
+        root.arrange();
+
+        assertTrue(root.mouseClicked(9, 9, 0));
+        assertTrue(root.mouseDragged(27, 9, 0, 18, 0));
+        assertTrue(root.mouseReleased(27, 9, 0));
+
+        verify(firstWidget).mouseClicked(9, 9, 0);
+        verify(secondWidget).mouseDragged(27, 9, 0, 18, 0);
+        verify(secondWidget).mouseReleased(27, 9, 0);
+        verify(firstWidget, never()).mouseReleased(anyDouble(), anyDouble(), anyInt());
+    }
+
     private static Widget nativeWidget(UIElement owner) {
         var widget = mock(Widget.class);
         when(widget.isVisible()).thenReturn(true);

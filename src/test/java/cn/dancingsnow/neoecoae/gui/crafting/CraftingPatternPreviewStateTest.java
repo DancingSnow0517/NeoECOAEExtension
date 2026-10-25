@@ -75,17 +75,16 @@ class CraftingPatternPreviewStateTest {
             assertEquals(1, state.getRowCount());
             assertNull(f.sync.clientSnapshot(), "a partial view must not be cached as complete");
             patterns.verifyNoInteractions();
-            var act = CraftingPatternPreviewState.class.getDeclaredMethod("act", int.class, int.class, int.class);
-            act.setAccessible(true);
-            act.invoke(state, 0, 1, 0);
-            var payload = ArgumentCaptor.forClass(CompoundTag.class);
-            verify(f.host).rpcToServer(eq("actOnPatternPreview"), payload.capture());
-            assertEquals(7, payload.getValue().getInt("revision"));
-            assertEquals(0, payload.getValue().getInt("slot"));
+            var preview = CraftingInterfaceUI.patternPreview(state);
+            var targets = NativePatternPreviewTestSupport.acknowledge(state);
+            assertEquals(0, targets[0].slot());
+            assertEquals(10, targets[0].bus());
+            assertNull(((com.lowdragmc.lowdraglib.gui.widget.SlotWidget) preview.getChildren().get(0).widgets.get(0))
+                .slotClick(0, net.minecraft.world.inventory.ClickType.PICKUP, f.player));
             state.receive(f.page(false, true, true, -1, 7, 65_536, 65_535, 1));
             assertEquals(7, f.sync.clientSnapshot().revision());
             assertTrue(f.sync.clientSnapshot().entries()[1].stack().isEmpty());
-            patterns.verifyNoInteractions();
+            patterns.verify(() -> appeng.api.crafting.PatternDetailsHelper.decodePattern(any(ItemStack.class), eq(f.level)), never());
             state.setInputSearch("iron");
             patterns.verify(() -> appeng.api.crafting.PatternDetailsHelper.decodePattern(any(ItemStack.class), eq(f.level)), times(1));
         }
@@ -98,17 +97,11 @@ class CraftingPatternPreviewStateTest {
         var layout = new ListTag();
         var bus = new CompoundTag(); bus.putLong("bus", 10); bus.putInt("count", 3); layout.add(bus);
         first.put("layout", layout);
-        first.putIntArray("occupied", new int[]{0, 1});
+        first.putIntArray("occupied", new int[]{0, 1, 2});
         state.receive(first);
-        var carried = new ItemStack(Items.DIAMOND);
-        when(f.player.containerMenu.getCarried()).thenReturn(carried);
-        try (var patterns = mockStatic(appeng.api.crafting.PatternDetailsHelper.class)) {
-            patterns.when(() -> appeng.api.crafting.PatternDetailsHelper.isEncodedPattern(carried)).thenReturn(true);
-            assertTrue(state.insertCarriedPattern(0));
-            var payload = ArgumentCaptor.forClass(CompoundTag.class);
-            verify(f.host).rpcToServer(eq("actOnPatternPreview"), payload.capture());
-            assertEquals(2, payload.getValue().getInt("slot"), "an unreceived occupied slot is not free capacity");
-        }
+        assertFalse(state.hasEmptyPhysicalSlot(), "unreceived occupied slots are not free capacity");
+        state.receive(f.emptyPage(false, 7, 8, 3, 1, 1));
+        assertFalse(state.hasEmptyPhysicalSlot(), "an unrelated delta cannot change an unfinished full snapshot");
     }
 
     @Test void reopeningRestoresDirectionalQueriesScrollAndCachedResultsBeforeAnyPacket() throws Exception {
@@ -158,87 +151,60 @@ class CraftingPatternPreviewStateTest {
         var state = new CraftingPatternPreviewState(f.host, f.player);
         state.receive(f.page(true, true, true, -1, 7, 3, 0, 3));
         var preview = CraftingInterfaceUI.patternPreview(state);
+        NativePatternPreviewTestSupport.acknowledge(state);
+        state.nativeSlots().setStackInSlot(1, new ItemStack(Items.STONE));
         var first = f.page(true, false, true, -1, 8, 3, 1, 1);
         var layout = new ListTag();
-        var bus = new CompoundTag();
-        bus.putLong("bus", 10);
-        bus.putInt("count", 3);
-        layout.add(bus);
+        var bus = new CompoundTag(); bus.putLong("bus", 10); bus.putInt("count", 3); layout.add(bus);
         first.put("layout", layout);
         first.putIntArray("occupied", new int[]{1, 2});
         state.receive(first);
-        assertFalse(preview.getChildren().get(0).isVisible());
-        assertTrue(preview.getChildren().get(1).isVisible());
-        assertFalse(preview.getChildren().get(2).isVisible());
-
+        var targets = NativePatternPreviewTestSupport.acknowledge(state);
+        assertEquals(0, targets[0].slot(), "a temporarily empty source retains its physical native slot");
+        assertEquals(1, targets[1].slot());
+        assertTrue(((PatternItemSlot) preview.getChildren().get(1)).getValue().is(Items.STONE));
         state.receive(f.page(false, true, true, -1, 8, 3, 2, 1));
-        assertFalse(preview.getChildren().get(0).isVisible());
-        assertTrue(preview.getChildren().get(1).isVisible());
-        assertTrue(preview.getChildren().get(2).isVisible());
+        targets = NativePatternPreviewTestSupport.acknowledge(state);
+        assertEquals(2, targets[2].slot());
         var reopened = new CraftingPatternPreviewState(f.host, f.player);
         var reopenedPreview = CraftingInterfaceUI.patternPreview(reopened);
-        assertTrue(reopenedPreview.getChildren().get(0).isVisible());
-        assertFalse(reopenedPreview.getChildren().get(2).isVisible());
+        var reopenedTargets = NativePatternPreviewTestSupport.acknowledge(reopened);
+        assertEquals(1, reopenedTargets[0].slot());
+        assertTrue(((PatternItemSlot) reopenedPreview.getChildren().get(0)).getValue().isEmpty(),
+            "catalogue caching must not replace native slot synchronization");
     }
 
-    @Test void consecutiveShiftMovesKeepTheRemainingPhysicalAddresses() throws Exception {
+    @Test void consecutiveNativeRemovalsKeepTheRemainingPhysicalAddresses() throws Exception {
         var f = new Fixture();
         var state = new CraftingPatternPreviewState(f.host, f.player);
         state.receive(f.page(true, true, true, -1, 7, 3, 0, 3));
         var preview = CraftingInterfaceUI.patternPreview(state);
+        NativePatternPreviewTestSupport.acknowledge(state);
+        for (int i = 0; i < 3; i++) state.nativeSlots().setStackInSlot(i, new ItemStack(Items.STONE));
+        assertFalse(((PatternItemSlot) preview.getChildren().get(0)).getSlot().remove(1).isEmpty());
         state.receive(f.emptyPage(false, 7, 8, 3, 0, 1));
-        try (var ui = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
-            ui.when(UIElement::isShiftDown).thenReturn(true);
-            for (int visual : new int[]{1, 2}) {
-                var event = new UIEvent(UIEvents.MOUSE_DOWN, preview.getChildren().get(visual), 0, 0, 0);
-                event.target.dispatchEvent(event);
-                state.endQuickMoveDrag();
-            }
-        }
-        var moves = ArgumentCaptor.forClass(CompoundTag.class);
-        verify(f.host, times(2)).rpcToServer(eq("quickMovePatternPreview"), moves.capture());
-        for (int i = 0; i < 2; i++) {
-            var payload = moves.getAllValues().get(i);
-            assertEquals(8, payload.getInt("revision"));
-            var targets = payload.getList("targets", net.minecraft.nbt.Tag.TAG_COMPOUND);
-            assertEquals(1, targets.size());
-            assertEquals(10, targets.getCompound(0).getLong("bus"));
-            assertEquals(i + 1, targets.getCompound(0).getInt("slot"));
-        }
-        assertFalse(preview.getChildren().get(0).isVisible());
-        assertTrue(preview.getChildren().get(1).isVisible());
+        assertFalse(((PatternItemSlot) preview.getChildren().get(1)).getSlot().remove(1).isEmpty());
+        assertFalse(((PatternItemSlot) preview.getChildren().get(2)).getSlot().remove(1).isEmpty());
+        var targets = NativePatternPreviewTestSupport.acknowledge(state);
+        assertEquals(1, targets[1].slot());
+        assertEquals(2, targets[2].slot());
+        assertTrue(state.nativeSlots().getStackInSlot(0).isEmpty());
     }
 
-    @Test void ordinaryPickupDoesNotReleaseTheSameGestureIntoTheVanillaSlotAfterItsRpc() throws Exception {
+    @Test void nativePickupCannotBeOverwrittenByAnOlderCatalogueRefresh() throws Exception {
         var f = new Fixture();
         var state = new CraftingPatternPreviewState(f.host, f.player);
         state.receive(f.page(true, true, true, -1, 7, 3, 0, 3));
         var preview = CraftingInterfaceUI.patternPreview(state);
-        preview.layout(layout -> layout.width(162).height(108));
-        preview.arrange();
+        NativePatternPreviewTestSupport.acknowledge(state);
+        state.nativeSlots().setStackInSlot(0, new ItemStack(Items.STONE));
         var slot = (PatternItemSlot) preview.getChildren().get(0);
-        var nativeUi = mock(com.lowdragmc.lowdraglib.gui.modular.ModularUI.class);
-        var screen = mock(com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer.class);
-        when(nativeUi.getModularUIGui()).thenReturn(screen);
-        cn.dancingsnow.neoecoae.util.UiTestSupport.set(slot.widgets.get(0), "gui", nativeUi);
-        try (var ui = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
-            ui.when(UIElement::isShiftDown).thenReturn(false);
-            assertTrue(preview.mouseClicked(9, 9, 0));
-            var action = ArgumentCaptor.forClass(CompoundTag.class);
-            verify(f.host).rpcToServer(eq("actOnPatternPreview"), action.capture());
-            assertEquals(0, action.getValue().getInt("action"));
-            assertEquals(0, action.getValue().getInt("slot"));
-
-            // The carried stack can arrive before the independently queued preview delta.
-            when(f.player.containerMenu.getCarried()).thenReturn(new ItemStack(Items.STONE));
-            assertTrue(preview.mouseReleased(9, 9, 0));
-        }
-        verify(screen, never()).superMouseReleased(anyDouble(), anyDouble(), anyInt());
-        assertFalse(slot.getValue().isEmpty(), "the preview still awaits its authoritative content delta");
+        assertEquals(1, slot.getSlot().remove(1).getCount());
+        state.receive(f.page(true, true, true, -1, 7, 3, 0, 3));
+        assertTrue(slot.getValue().isEmpty(), "stale search data must not flash the removed pattern back");
+        assertTrue(state.nativeSlots().ready(), "unchanged physical addresses do not interrupt native interaction");
         state.receive(f.emptyPage(false, 7, 8, 3, 0, 1));
         assertTrue(slot.getValue().isEmpty());
-        assertFalse(slot.isVisible());
-        assertTrue(preview.getChildren().get(1).isVisible());
     }
 
     @Test void cacheProbeWaitsForTheNewMenuAndUsesItsIdOnce() throws Exception {
@@ -279,6 +245,7 @@ class CraftingPatternPreviewStateTest {
         assertTrue(state.getScrollOffset() > 0 && state.getScrollOffset() < 18);
         assertNotEquals(Math.rint(state.getScrollOffset()), state.getScrollOffset());
         assertEquals(63, preview.getChildren().size());
+        NativePatternPreviewTestSupport.acknowledge(state);
         assertTrue(cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren()).isVisible());
         assertTrue(preview.getChildren().get(54).isVisible());
         var first = cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren());
@@ -304,25 +271,21 @@ class CraftingPatternPreviewStateTest {
         assertEquals(1, state.getScrollRow());
         assertEquals(0.5, state.getRowOffset());
         var first = (PatternItemSlot) cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren());
-        var event = new UIEvent(UIEvents.MOUSE_DOWN,null,0,0,0);
-        event.target = first;
-        event.button = 0;
-        try (var ui = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
-            ui.when(UIElement::isShiftDown).thenReturn(false);
-            event.target.dispatchEvent(event);
-        }
-        var action = ArgumentCaptor.forClass(CompoundTag.class);
-        verify(f.host).rpcToServer(eq("actOnPatternPreview"), action.capture());
-        assertEquals(9, action.getValue().getInt("slot"));
+        var targets = NativePatternPreviewTestSupport.acknowledge(state);
+        assertEquals(9, targets[9].slot(), "the existing second row is reused at the top");
+        assertEquals(63, targets[0].slot(), "only the row leaving the top is recycled at the bottom");
 
         state.setScrollOffset(100_000);
         assertEquals(72, state.getScrollOffset());
         assertEquals(4, state.getScrollRow());
-        assertFalse(preview.getChildren().get(54).isVisible());
+        preview.arrange();
+        assertTrue(preview.getChildren().get(27).getSelfPositionY() >= 108,
+            "the spare row stays clipped below the viewport");
         state.setInputSearch("missing");
         assertEquals(0, state.getScrollOffset());
         assertEquals(0, state.getMaxScrollOffset());
-        assertTrue(preview.getChildren().stream().noneMatch(child -> child.isVisible()));
+        targets = NativePatternPreviewTestSupport.acknowledge(state);
+        for (var target : targets) assertEquals(-1, target.slot());
     }
 
     @Test void wheelSpeedIsIndependentOfFrameRateAndFractionalWheelInputsAccumulate() throws Exception {
@@ -336,6 +299,40 @@ class CraftingPatternPreviewStateTest {
         state.scroll(.25);
         state.advanceScroll(1);
         assertEquals(9, state.getScrollOffset());
+    }
+
+    @Test void scrollingKeepsIconsVisibleAndNativePredictionsWhileRecyclingOnlyOneRow() throws Exception {
+        var f = new Fixture();
+        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var page = f.page(true, true, true, -1, 7, 90, 0, 90);
+        var incoming = page.getList("entries", net.minecraft.nbt.Tag.TAG_COMPOUND);
+        var bottom = new PatternPreviewEntry(10, 63, new ItemStack(Items.DIAMOND),
+            "iron", "gear", List.of(), false).encode(RegistryAccess.EMPTY);
+        bottom.putInt("index", 63);
+        incoming.set(63, bottom);
+        state.receive(page);
+        var preview = CraftingInterfaceUI.patternPreview(state);
+        var before = NativePatternPreviewTestSupport.acknowledge(state);
+        for (int i = 0; i < before.length; i++) state.nativeSlots().setStackInSlot(i, new ItemStack(Items.STONE));
+        var removed = (PatternItemSlot) preview.getChildren().get(9);
+        removed.getSlot().remove(1);
+        preview.arrange();
+
+        state.setScrollOffset(9.5);
+        assertTrue(state.nativeSlots().ready());
+        assertFalse(state.nativeSlots().needsView(), "sub-row motion sends no viewport request");
+        assertFalse(preview.isLayoutDirty(), "moving icons must not relayout the whole menu");
+        state.setScrollOffset(18.5);
+        assertFalse(state.nativeSlots().ready());
+        for (var child : preview.getChildren()) assertTrue(child.isVisible(), "a pending mapping cannot blank icons");
+        assertTrue(removed.getDisplayedStack().isEmpty(), "scrolling must preserve a native predicted removal");
+        var recycled = (PatternItemSlot) preview.getChildren().get(0);
+        assertTrue(recycled.getValue().is(Items.STONE), "the native packet buffer is not rewritten by the catalogue");
+        assertTrue(recycled.getDisplayedStack().is(Items.DIAMOND), "the new edge row can render before native sync");
+        var after = NativePatternPreviewTestSupport.acknowledge(state);
+        int changed = 0;
+        for (int i = 0; i < before.length; i++) if (!before[i].equals(after[i])) changed++;
+        assertEquals(9, changed, "one row scroll changes nine native addresses instead of all 63");
     }
 
     private static double animate(int fps) throws Exception {

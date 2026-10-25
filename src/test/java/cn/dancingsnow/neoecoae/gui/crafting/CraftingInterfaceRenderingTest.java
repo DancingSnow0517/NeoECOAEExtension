@@ -83,68 +83,51 @@ class CraftingInterfaceRenderingTest {
         }
     }
 
-    @Test void heldPatternLeftClickFindsAnOffscreenEmptySlotWhileSearching() throws Exception {
+    @Test void heldPatternLeftClickUsesNativePredictionWithOffscreenFreeCapacityWhileSearching() throws Exception {
         var entries = new PatternPreviewEntry[61];
         for (int i = 0; i < 60; i++) entries[i] = patternEntry(i, new ItemStack(Items.STONE));
         entries[60] = patternEntry(60, ItemStack.EMPTY);
         var fixture = new PatternClickFixture(entries);
         fixture.state.setOutputSearch("gear");
-        fixture.click(0, false);
-
-        assertEquals(1, fixture.actions.size());
-        var action = cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.actions);
-        assertEquals(60, action.getInt("slot"));
-        assertEquals(0, action.getInt("action"));
-        assertEquals(0, action.getInt("button"));
-        assertTrue(action.getCompound("stack").isEmpty(), "insertion must address an empty physical slot");
+        NativePatternPreviewTestSupport.acknowledge(fixture.state);
+        assertNotNull(fixture.click(0, false));
+        assertTrue(fixture.player.containerMenu.getCarried().isEmpty());
+        verify(fixture.host, never()).rpcToServer(anyString(), any(CompoundTag.class));
     }
 
-    @Test void fullCatalogueConsumesLeftClicksWithoutReplacingOrQuickMoving() throws Exception {
+    @Test void fullCatalogueConsumesNativeLeftInsertionWithoutReplacingExistingPatterns() throws Exception {
         var fixture = new PatternClickFixture(patternEntry(3, new ItemStack(Items.STONE)));
-        fixture.click(0, false);
-        fixture.click(0, true);
-        fixture.state.endQuickMoveDrag();
-
-        assertTrue(fixture.actions.isEmpty(), "no empty slot must never fall through to a swap");
-        verify(fixture.host, never()).rpcToServer(eq("quickMovePatternPreview"), any(CompoundTag.class));
+        assertNotNull(fixture.click(0, false));
         assertSame(fixture.carried, fixture.player.containerMenu.getCarried());
+        assertTrue(((PatternItemSlot) fixture.preview.getChildren().get(0)).getValue().is(Items.STONE));
+        verify(fixture.host, never()).rpcToServer(anyString(), any(CompoundTag.class));
     }
 
-    @Test void rightClickStillAddressesTheSelectedPhysicalPattern() throws Exception {
-        var fixture = new PatternClickFixture(patternEntry(3, new ItemStack(Items.STONE)),
-                patternEntry(4, ItemStack.EMPTY));
-        fixture.click(1, false);
-
-        assertEquals(1, fixture.actions.size());
-        var action = cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.actions);
-        assertEquals(3, action.getInt("slot"));
-        assertEquals(1, action.getInt("button"));
-        assertFalse(action.getCompound("stack").isEmpty(), "replacement must validate the selected pattern");
+    @Test void rightClickPassesThroughToTheNativeSelectedPhysicalPattern() throws Exception {
+        var fixture = new PatternClickFixture(patternEntry(3, new ItemStack(Items.STONE)), patternEntry(4, ItemStack.EMPTY));
+        assertNull(fixture.click(1, false), "null lets the native container handle pickup or replacement");
+        assertEquals(3, NativePatternPreviewTestSupport.acknowledge(fixture.state)[0].slot());
+        verify(fixture.host, never()).rpcToServer(anyString(), any(CompoundTag.class));
     }
 
-    @Test void emptyCursorLeftClickStillTakesTheSelectedPattern() throws Exception {
+    @Test void emptyCursorLeftClickPassesThroughToNativePickup() throws Exception {
         var fixture = new PatternClickFixture(patternEntry(3, new ItemStack(Items.STONE)));
-        when(fixture.player.containerMenu.getCarried()).thenReturn(ItemStack.EMPTY);
-        fixture.click(0, false);
-
-        assertEquals(1, fixture.actions.size());
-        assertEquals(3, cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.actions).getInt("slot"));
+        fixture.cursor = ItemStack.EMPTY;
+        assertNull(fixture.click(0, false));
+        assertEquals(1, ((PatternItemSlot) fixture.preview.getChildren().get(0)).getSlot().remove(1).getCount());
+        verify(fixture.host, never()).rpcToServer(anyString(), any(CompoundTag.class));
     }
 
-    @Test void leftClickOnAReadOnlyDiskRecipeInsertsWithoutTargetingTheDisk() throws Exception {
+    @Test void nativeLeftInsertionOnAReadOnlyDiskRecipeDoesNotMutateTheDisk() throws Exception {
         var disk = new PatternPreviewEntry(10, 0, ItemStack.EMPTY, "", "",
-                List.of(new PatternPreviewEntry.DiskPattern(new ItemStack(Items.STONE), "iron", "gear")), true);
+            List.of(new PatternPreviewEntry.DiskPattern(new ItemStack(Items.STONE), "iron", "gear")), true);
         var fixture = new PatternClickFixture(disk, patternEntry(1, ItemStack.EMPTY));
-        fixture.click(0, false);
-
-        assertEquals(1, fixture.actions.size());
-        assertEquals(1, cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.actions).getInt("slot"));
-        assertSame(fixture.preview, cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.preview.getChildren())
-                .getFirstAncestorOfType(CraftingInterfaceUI.PatternPreview.class));
-        try (var patterns = mockStatic(PatternDetailsHelper.class)) {
-            patterns.when(() -> PatternDetailsHelper.isEncodedPattern(fixture.carried)).thenReturn(true);
-            assertNotNull(fixture.preview.collectHoverTooltips(), "the insertion hint also belongs to occupied cells");
-        }
+        assertNotNull(fixture.click(0, false));
+        assertTrue(fixture.player.containerMenu.getCarried().isEmpty());
+        var slot = (PatternItemSlot) fixture.preview.getChildren().get(0);
+        assertTrue(slot.getSlot().remove(1).isEmpty(), "a disk recipe is never a writable inventory slot");
+        assertTrue(slot.getValue().is(Items.STONE));
+        assertSame(fixture.preview, slot.getFirstAncestorOfType(CraftingInterfaceUI.PatternPreview.class));
     }
 
     private static PatternPreviewEntry patternEntry(int slot, ItemStack stack) {
@@ -155,7 +138,7 @@ class CraftingInterfaceRenderingTest {
         final ECOMachineInterfaceBlockEntity<?> host = mock(ECOMachineInterfaceBlockEntity.class);
         final Player player = mock(Player.class);
         final ItemStack carried = new ItemStack(Items.DIAMOND);
-        final List<CompoundTag> actions = new ArrayList<>();
+        ItemStack cursor = carried;
         final CraftingPatternPreviewState state;
         final UIElement preview;
 
@@ -168,7 +151,8 @@ class CraftingInterfaceRenderingTest {
             when(level.registryAccess()).thenReturn(RegistryAccess.EMPTY);
             when(player.level()).thenReturn(level);
             player.containerMenu = mock(AbstractContainerMenu.class);
-            when(player.containerMenu.getCarried()).thenReturn(carried);
+            when(player.containerMenu.getCarried()).thenAnswer(call -> cursor);
+            doAnswer(call -> { cursor = call.getArgument(0); return null; }).when(player.containerMenu).setCarried(any());
             when(host.getLevel()).thenReturn(level);
             when(host.getBlockPos()).thenReturn(BlockPos.ZERO);
             var sync = new PatternPreviewSync(host);
@@ -184,20 +168,23 @@ class CraftingInterfaceRenderingTest {
             reuse.putBoolean("reuse", true);
             state.receive(reuse);
             preview = CraftingInterfaceUI.patternPreview(state);
-            doAnswer(call -> { actions.add(((CompoundTag) call.getArgument(1)).copy()); return null; })
-                    .when(host).rpcToServer(eq("actOnPatternPreview"), any(CompoundTag.class));
+            var targets = NativePatternPreviewTestSupport.acknowledge(state);
+            for (int visual = 0; visual < targets.length; visual++) {
+                var target = targets[visual];
+                if (target.slot() < 0) continue;
+                for (var entry : entries) if (entry.physicalSlot() == target.slot()) {
+                    state.nativeSlots().setStackInSlot(visual, target.recipe() < 0 ? entry.stack()
+                        : entry.diskPatterns().get(target.recipe()).stack());
+                }
+            }
         }
 
-        void click(int button, boolean shift) {
-            try (var patterns = mockStatic(PatternDetailsHelper.class);
-                 var ui = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
+        ItemStack click(int button, boolean shift) {
+            try (var patterns = mockStatic(PatternDetailsHelper.class)) {
                 patterns.when(() -> PatternDetailsHelper.isEncodedPattern(carried)).thenReturn(true);
-                ui.when(UIElement::isShiftDown).thenReturn(shift);
-                var event = new UIEvent(UIEvents.MOUSE_DOWN,null,0,0,0);
-                event.target = cn.dancingsnow.neoecoae.platform.JdkCompat.first(preview.getChildren());
-                event.button = button;
-                event.target.dispatchEvent(event);
-                assertTrue(event.hasHandler);
+                return ((com.lowdragmc.lowdraglib.gui.widget.SlotWidget) preview.getChildren().get(0).widgets.get(0))
+                    .slotClick(button, shift ? net.minecraft.world.inventory.ClickType.QUICK_MOVE
+                        : net.minecraft.world.inventory.ClickType.PICKUP, player);
             }
         }
     }
