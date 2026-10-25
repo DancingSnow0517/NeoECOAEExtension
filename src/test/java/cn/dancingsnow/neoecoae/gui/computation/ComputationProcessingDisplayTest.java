@@ -50,14 +50,13 @@ class ComputationProcessingDisplayTest {
             .anyMatch(line -> key(line).equals("gui.neoecoae.processing.progress_unavailable")));
     }
 
-    @Test void queuedStepsHaveATrackAndStorageOnlyCellsDoNotPretendToBeProcessing() {
+    @Test void queuedStepsAndStorageOnlyCellsDoNotDisplayAProgressBar() {
         var context = mock(GUIContext.class);
         UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
         var queued = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ZERO, BigInteger.ONE, false);
         ComputationCpuStatusPanel.drawProcessingProgress(context, queued, 10, 20);
-        verify(context.graphics).fill(12, 39, 75, 41, 0xFF5B566B);
-        verifyNoMoreInteractions(context.graphics);
+        verifyNoInteractions(context.graphics);
         assertTrue(ComputationProcessingTooltips.describe(queued).stream()
             .anyMatch(line -> key(line).equals("gui.neoecoae.processing.awaiting_dispatch")));
 
@@ -69,14 +68,13 @@ class ComputationProcessingDisplayTest {
         assertTrue(ComputationProcessingTooltips.describe(stored).isEmpty());
     }
 
-    @Test void staleMachineDataCannotFillAQueuedStepsTrack() {
+    @Test void staleMachineDataCannotDisplayAQueuedStepsProgressBar() {
         var context = mock(GUIContext.class);
         UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
         var queued = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ZERO, BigInteger.ONE, false, ECOProcessingProgress.summarize(List.of(machine(50, 100, State.RUNNING))));
         ComputationCpuStatusPanel.drawProcessingProgress(context, queued, 10, 20);
-        verify(context.graphics).fill(12, 39, 75, 41, 0xFF5B566B);
-        verifyNoMoreInteractions(context.graphics);
+        verifyNoInteractions(context.graphics);
         assertTrue(ComputationProcessingTooltips.describe(queued).stream()
             .noneMatch(line -> key(line).equals("gui.neoecoae.processing.time")));
     }

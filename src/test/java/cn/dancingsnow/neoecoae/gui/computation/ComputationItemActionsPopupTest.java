@@ -11,9 +11,11 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.item.Items;
@@ -38,7 +40,14 @@ class ComputationItemActionsPopupTest {
             assertEquals(fixture.item.key().getDisplayName(), message.getArgs()[0]);
             assertEquals(Component.literal("Provider " + i), message.getArgs()[1]);
             assertEquals("minecraft:overworld", message.getArgs()[2]);
-            assertEquals(new BlockPos(i, 64, 20).toShortString(), message.getArgs()[3]);
+            var coordinates = assertInstanceOf(Component.class, message.getArgs()[3]);
+            assertEquals(new BlockPos(i, 64, 20).toShortString(), coordinates.getString());
+            assertEquals(ChatFormatting.AQUA.getColor(), coordinates.getStyle().getColor().getValue());
+            assertTrue(coordinates.getStyle().isUnderlined());
+            var click = coordinates.getStyle().getClickEvent();
+            assertNotNull(click);
+            assertEquals(ClickEvent.Action.SUGGEST_COMMAND, click.getAction());
+            assertEquals("/tp " + i + " 64 20", click.getValue());
         }
         assertEquals(1, fixture.requests.size());
         assertEquals("inspect", fixture.requests.get(0).getString("action"));
@@ -49,10 +58,14 @@ class ComputationItemActionsPopupTest {
         assertTrue(fixture.chat.isEmpty());
         var response = fixture.response();
         response.getList("sources", 10).getCompound(0).putString("side", "north");
+        response.getList("sources", 10).getCompound(0).putLong("position", new BlockPos(264, 35, -201).asLong());
         fixture.popup.accept(response);
         fixture.click(25);
         assertEquals(1, fixture.chat.size());
         assertTrue(fixture.chat.get(0).getString().endsWith(" · north"));
+        var message = assertInstanceOf(TranslatableContents.class, fixture.chat.get(0).getContents());
+        var coordinates = assertInstanceOf(Component.class, message.getArgs()[3]);
+        assertEquals("/tp 264 35 -201", coordinates.getStyle().getClickEvent().getValue());
     }
 
     @Test void openingMultipleProvidersRequiresChoosingTheSourceAndCarriesTheJobToken() {

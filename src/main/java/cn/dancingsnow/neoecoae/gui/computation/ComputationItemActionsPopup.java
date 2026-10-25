@@ -10,10 +10,12 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -158,9 +160,14 @@ final class ComputationItemActionsPopup extends UIElement {
     private void showLocations() {
         for (var source : sources) {
             Component name = Component.Serializer.fromJson(source.getString("name"));
+            BlockPos position = BlockPos.of(source.getLong("position"));
+            var coordinates = Component.literal(position.toShortString()).withStyle(style -> style
+                .withColor(ChatFormatting.AQUA).withUnderlined(true)
+                .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                    "/tp " + position.getX() + " " + position.getY() + " " + position.getZ())));
             var location = Component.translatable("gui.neoecoae.processing.pattern_location",
                 item.key().getDisplayName(), name == null ? Component.empty() : name,
-                source.getString("dimension"), BlockPos.of(source.getLong("position")).toShortString());
+                source.getString("dimension"), coordinates);
             if (source.contains("side")) location.append(" · " + source.getString("side"));
             chat.accept(location);
         }

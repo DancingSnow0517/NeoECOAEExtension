@@ -451,13 +451,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     static void drawProcessingProgress(GUIContext context, ComputationCpuItemEntry entry, float x, float y) {
-        if (entry.active().signum() <= 0 && entry.pending().signum() <= 0) return;
+        if (entry.active().signum() <= 0) return;
         int left = Math.round(x + 2), right = Math.round(x + ITEM_WIDTH - 2);
         int top = Math.round(y + ITEM_HEIGHT - 3);
-        // Keep the slot visible while queued, unloaded, unsupported, or still being sampled.
-        // An unfilled slot does not claim a measured zero-percent machine cycle.
+        // Once inputs have been dispatched, keep the track visible while machine progress is unavailable.
         context.graphics.fill(left, top, right, top + 2, 0xFF5B566B);
-        if (entry.active().signum() <= 0 || !entry.processing().hasProgress()) return;
+        if (!entry.processing().hasProgress()) return;
         int color = switch (entry.processing().state()) {
             case WAITING -> 0xFFE2AA4F;
             case PAUSED -> 0xFF90909F;
