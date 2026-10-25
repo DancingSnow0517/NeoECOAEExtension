@@ -1765,7 +1765,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             // all of its base recipe operations, including extras absent from the encoded inputs.
             energyPerCraft = Math.multiplyExact(adapted.energy(), match.multiplier());
             fePerCraft = Math.multiplyExact(adapted.feEnergy(), match.multiplier());
-            processingTicks = LargeWorkstationProcessing.duration(adapted.processingTicks(), match.multiplier());
+            processingTicks = LargeWorkstationProcessing.duration(adapted.processingTicks(), match.multiplier(), profile);
             if (adapted.feAlternative()) {
                 // Prefer AE; choose FE only at acceptance, then preserve this choice across shortages/reloads.
                 IGrid grid = getMainNode().getGrid();

@@ -30,7 +30,19 @@ class LargeWorkstationProcessingTest {
     }
 
     @Test void patternMultiplierConsumesProportionalTimeAndRejectsOverflow() {
-        assertEquals(400, LargeWorkstationProcessing.duration(100, 4));
-        assertThrows(ArithmeticException.class, () -> LargeWorkstationProcessing.duration(200, Long.MAX_VALUE));
+        assertEquals(400, LargeWorkstationProcessing.duration(100, 4, LargeWorkstationOverclock.NORMAL));
+        assertThrows(ArithmeticException.class,
+            () -> LargeWorkstationProcessing.duration(200, Long.MAX_VALUE, LargeWorkstationOverclock.NORMAL));
+    }
+
+    @Test void overclockDurationRoundsUpAndNeverFallsBelowOneTick() {
+        var tier4 = LargeWorkstationOverclock.forCoolingTier(2);
+        var tier6 = LargeWorkstationOverclock.forCoolingTier(6);
+        var tier9 = LargeWorkstationOverclock.forCoolingTier(9);
+        assertEquals(51, LargeWorkstationProcessing.duration(101, 1, tier4));
+        assertEquals(21, LargeWorkstationProcessing.duration(101, 1, tier6));
+        assertEquals(1, LargeWorkstationProcessing.duration(1, 1, tier4));
+        assertEquals(1, LargeWorkstationProcessing.duration(1, 1, tier6));
+        assertEquals(1, LargeWorkstationProcessing.duration(Integer.MAX_VALUE, Long.MAX_VALUE, tier9));
     }
 }

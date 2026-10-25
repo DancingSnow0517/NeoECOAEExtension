@@ -17,8 +17,15 @@ final class LargeWorkstationProcessing {
         return new FluxPayment(result[0].longValueExact(), result[1].longValueExact());
     }
 
-    /** A multiplied pattern occupies the same lanes for proportionally longer. */
-    static int duration(int ticks, long multiplier) {
-        return Math.toIntExact(Math.multiplyExact((long) ticks, multiplier));
+    /** Apply the locked batch tier after pattern scaling; tier 9 always takes one tick. */
+    static int duration(int ticks, long multiplier, LargeWorkstationOverclock profile) {
+        if (profile.coolingTier() == 9) return 1;
+        int divisor = switch (profile.coolingTier()) {
+            case 2 -> 2; // Displayed as tier 4; shared cooling recipes use max_overclock = 2.
+            case 6 -> 5;
+            default -> 1;
+        };
+        long scaled = Math.multiplyExact((long) ticks, multiplier);
+        return Math.toIntExact(Math.max(1L, Math.ceilDiv(scaled, divisor)));
     }
 }

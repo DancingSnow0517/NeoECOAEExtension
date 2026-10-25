@@ -26,6 +26,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -96,6 +97,25 @@ class LargeWorkstationPatternScalingTest {
         assertEquals(suppliedLightning ? 0L : 24L,
             ((KeyCounter) value(batch, "missingExtras")).get(LightningKey.EXTREME_HIGH_VOLTAGE));
         assertEquals(new GenericStack(AEItemKey.of(Items.DIAMOND), 4), value(batch, "unlockStack"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"20,100", "50,40", "80,1"})
+    void overclockedDoubledPatternsLockTheAdjustedDurationAndFullEnergy(double temperature, int ticks) throws Exception {
+        var controller = controller();
+        field(controller, "overclocked", true);
+        field(controller, "temperature", temperature);
+        var recipe = recipe();
+        var holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 8)};
+        try (var recipes = mockStatic(LargeWorkstationRecipes.class, CALLS_REAL_METHODS)) {
+            recipes.when(() -> LargeWorkstationRecipes.getAvailable(controller.getLevel(), LargeWorkstationModule.REGULAR))
+                .thenReturn(List.of(recipe));
+            assertTrue(controller.acceptPatternBatch(pattern(8, 4), holders, 1, null));
+        }
+        var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
+        assertEquals(ticks, value(batch, "processingTicks"));
+        assertEquals(200L, value(batch, "energyPerCraft"));
+        assertEquals(4L, ((KeyCounter) value(batch, "outputTotal")).get(AEItemKey.of(Items.DIAMOND)));
     }
 
     @Test void mismatchedScaleLeavesCpuInputsUntouched() throws Exception {
