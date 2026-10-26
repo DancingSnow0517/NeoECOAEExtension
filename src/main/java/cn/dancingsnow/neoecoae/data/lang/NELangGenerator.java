@@ -4,6 +4,12 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("tooltip.neoecoae.bulk.capacity", "Unlimited quantity; %s / %s marked resource types");
+        provider.add("tooltip.neoecoae.bulk.configure", "25 resource types; an ECO Bulk Expansion Card expands this to 50");
+        provider.add("tooltip.neoecoae.bulk.legacy_configure", "Legacy single-resource bulk matrix; all forms of one compression chain share its marker");
+        provider.add("tooltip.neoecoae.bulk.crafting", "Built-in compression; an ECO Storage System provides virtual conversion patterns");
+        provider.add("tooltip.neoecoae.bulk.pending", "Crafting outputs are preserved on this disk and waiting for network storage");
+        provider.add("tooltip.neoecoae.bulk.recipe_changed", "%s historical entries can only be recovered as their original base items until their recipes are restored");
         provider.add("gui.neoecoae.big_order.reason.output_storage", "Waiting for output storage");
         provider.add("gui.neoecoae.big_order.reason.child_incomplete", "Incomplete segment; further planning stopped");
         provider.add("gui.neoecoae.big_order.planning", "Planning");
@@ -50,7 +56,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.storage.mega_filter.cutoff", "Compression display: %s");
         provider.add("gui.neoecoae.storage.mega_filter.cutoff_hint", "Shift + left-click raises, Shift + right-click lowers the compression display; the marker changes too");
         provider.add("gui.neoecoae.storage.mega_filter.duplicate_chain", "This compression chain is already configured in another marking slot of this storage host");
-        provider.add("gui.neoecoae.storage.mega_filter.not_compressible", "Only items belonging to a MEGA compression chain can be marked");
+        provider.add("gui.neoecoae.storage.mega_filter.not_compressible", "This item cannot be used as a bulk storage marker");
         provider.add("jade.neoecoae.overclock_status", "Theoretical / Effective Overclock: %d/%d");
         provider.add("tooltip.neoecoae.force_start", "Ignore missing materials and submit the crafting job");
 

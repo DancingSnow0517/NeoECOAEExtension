@@ -20,6 +20,8 @@ item_ids:
   - neoecoae:eco_fluid_storage_cell_16m
   - neoecoae:eco_fluid_storage_cell_64m
   - neoecoae:eco_fluid_storage_cell_256m
+  - neoecoae:eco_mega_long_bulk_cell
+  - neoecoae:eco_mega_upgrade_card
 ---
 
 # ECO 存储系统
@@ -90,6 +92,19 @@ ECO 存储系统为 ME 网络提供大容量存储。上方是最小结构，可
 | 256 MiB | <ItemLink id="neoecoae:eco_item_storage_cell_256m" /> | <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> |
 
 安装 AE2 Omni Cells、AE2 闪电科技、AppFlux 等模组后，还可以使用[兼容存储矩阵](compat_storage_matrices.md)存放更多资源类型。
+
+## 自主大宗存储
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:eco_mega_long_bulk_cell" />
+  <ItemIcon id="neoecoae:eco_mega_upgrade_card" />
+</ItemGrid>
+
+ECO 大宗存储矩阵不需要 MEGA Cells、压缩卡或解压模块。先在主机标记面板或元件工作台配置资源，再放入等级兼容的驱动器；默认支持 25 类资源，安装 ECO 大宗扩展卡后为 50 类。数量没有固定上限，终端悬停可查看精确数量。
+
+可逆工作台配方会形成压缩链，例如铁粒、铁锭、铁块。同链形态可以互相存取，只占一个资源标记。Shift + 左键上调、Shift + 右键下调展示层级；显示铁锭时，少于一锭的余数仍显示为铁粒，不会消失。
+
+主机形成、接入网络并保持普通存储模式后，自动提供压缩和解压虚拟样板。待回填产物随盘保存，网络满时保留并重试；有库存、待回填产物或隔离数据的盘不能拆解。配方变化时，旧库存仅以原始最小形态取回，避免用新比例改写数量。大宗盘不参与无限存储域迁移。
 
 ## 接入 ME 网络
 

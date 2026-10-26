@@ -1,10 +1,4 @@
 {
-  "neoforge:conditions": [
-    {
-      "type": "neoforge:mod_loaded",
-      "modid": "megacells"
-    }
-  ],
   "type": "ae2:storage_cell_disassembly",
   "cell": "neoecoae:eco_mega_long_bulk_cell",
   "cell_disassembly_items": [
@@ -14,11 +8,7 @@
     },
     {
       "count": 1,
-      "id": "megacells:cell_component_256m"
-    },
-    {
-      "count": 10,
-      "id": "megacells:bulk_cell_component"
+      "id": "neoecoae:eco_cell_component_256m"
     }
   ]
 }

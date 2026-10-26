@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.integration.megacells.item;
+package cn.dancingsnow.neoecoae.items;
 
 import appeng.api.ids.AEComponents;
 import appeng.api.stacks.GenericStack;
@@ -10,14 +10,14 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOBulkMarkableCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
-import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
-import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaLongBulkStorageCell;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import gripe._90.megacells.definition.MEGAItems;
+import cn.dancingsnow.neoecoae.all.NEItems;
+import cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 import net.minecraft.world.level.ItemLike;
 
 import java.util.ArrayList;
@@ -25,23 +25,44 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 
-public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem implements IECOBulkMarkableCellItem {
-    public ECOMegaLongBulkStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type) {
+public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBulkMarkableCellItem {
+    public static final int TYPE_LIMIT = 25;
+    public static final int UPGRADED_TYPE_LIMIT = 50;
+    private final int baseTypeLimit;
+    public ECOBulkStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type) {
+        this(properties, tier, type, TYPE_LIMIT);
+    }
+    public ECOBulkStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type, int baseTypeLimit) {
         super(properties, tier, AEKeyType.items(), type, Long.MAX_VALUE,
-            MegaCellCapacities.normalBytesPerType(tier), 1024.0);
+            1 << (12 + tier.getTier()), baseTypeLimit == 1 ? (double) tier.getStorageTotalBytes() / (1L << 20) : 1024.0);
+        if (baseTypeLimit != 1 && baseTypeLimit != TYPE_LIMIT) throw new IllegalArgumentException("Unsupported bulk type limit");
+        this.baseTypeLimit = baseTypeLimit;
     }
 
     @Override
     public int getTotalTypes() {
-        return MegaCellCapacities.LONG_BULK_TYPE_LIMIT;
+        return baseTypeLimit;
     }
 
     @Override
     public ConfigInventory getConfigInventory(ItemStack stack) {
-        int slots = getUpgrades(stack).isInstalled(NEMegaItems.ECO_MEGA_UPGRADE_CARD)
-            ? MegaCellCapacities.LONG_BULK_UPGRADED_TYPE_LIMIT
-            : MegaCellCapacities.LONG_BULK_TYPE_LIMIT;
-        return createPreservingConfigInventory(stack, slots);
+        return createPreservingConfigInventory(stack, activeSlots(stack));
+    }
+
+    public int activeSlots(ItemStack stack) {
+        if (baseTypeLimit == 1) return 1;
+        return getUpgrades(stack).isInstalled(NEItems.ECO_BULK_UPGRADE_CARD) ? UPGRADED_TYPE_LIMIT : TYPE_LIMIT;
+    }
+
+    @Override public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
+        var cell = (ECOBulkStorageCell) getCellInventory(stack);
+        if (cell == null) return;
+        lines.add(Component.translatable("tooltip.neoecoae.bulk.capacity", cell.getStoredItemTypes(), cell.getTotalItemTypes()));
+        lines.add(Component.translatable(baseTypeLimit == 1 ? "tooltip.neoecoae.bulk.legacy_configure" : "tooltip.neoecoae.bulk.configure").withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable("tooltip.neoecoae.bulk.crafting").withStyle(ChatFormatting.GRAY));
+        if (!cell.getPendingOutputs().isEmpty()) lines.add(Component.translatable("tooltip.neoecoae.bulk.pending").withStyle(ChatFormatting.YELLOW));
+        if (cell.getUnresolvedEntryCount() > 0) lines.add(Component.translatable("tooltip.neoecoae.storage.bulk_unresolved", cell.getUnresolvedEntryCount()).withStyle(ChatFormatting.RED));
+        if (cell.getRecoveringEntryCount() > 0) lines.add(Component.translatable("tooltip.neoecoae.bulk.recipe_changed", cell.getRecoveringEntryCount()).withStyle(ChatFormatting.YELLOW));
     }
 
     @Override
@@ -69,7 +90,7 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
     private static void saveConfigInventory(ItemStack stack, ConfigInventory activeInventory) {
         List<GenericStack> stored = new ArrayList<>(
             stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of()));
-        while (stored.size() < MegaCellCapacities.LONG_BULK_UPGRADED_TYPE_LIMIT) {
+        while (stored.size() < UPGRADED_TYPE_LIMIT) {
             stored.add(null);
         }
         List<GenericStack> active = activeInventory.toList();
@@ -82,7 +103,7 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
     private static boolean hasTooManyMarkers(ItemStack stack) {
         List<GenericStack> configured = stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of());
         return configured.stream().filter(java.util.Objects::nonNull).count()
-            > MegaCellCapacities.LONG_BULK_TYPE_LIMIT;
+            > TYPE_LIMIT;
     }
 
     private static void compactMarkers(ItemStack stack) {
@@ -118,14 +139,12 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
         @Override
         public void setItemDirect(int slot, ItemStack stack) {
             if (isLockedCard(slot) && (stack.isEmpty()
-                || !stack.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get()))) {
+                || !stack.is(NEItems.ECO_BULK_UPGRADE_CARD.get()))) {
                 return;
             }
-            if (stack.is(MEGAItems.COMPRESSION_CARD.asItem())) {
-                return;
-            }
-            boolean removingCard = delegate.getStackInSlot(slot).is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get())
-                && !stack.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get());
+            if (!stack.isEmpty() && !isItemValid(slot, stack)) return;
+            boolean removingCard = delegate.getStackInSlot(slot).is(NEItems.ECO_BULK_UPGRADE_CARD.get())
+                && !stack.is(NEItems.ECO_BULK_UPGRADE_CARD.get());
             delegate.setItemDirect(slot, stack);
             if (removingCard) {
                 compactMarkers(cellStack);
@@ -134,13 +153,12 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return !stack.is(MEGAItems.COMPRESSION_CARD.asItem())
-                && delegate.isItemValid(slot, stack);
+            return stack.is(NEItems.ECO_BULK_UPGRADE_CARD.get()) && delegate.isItemValid(slot, stack);
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (stack.is(MEGAItems.COMPRESSION_CARD.asItem())) {
+            if (!isItemValid(slot, stack)) {
                 return stack;
             }
             return delegate.insertItem(slot, stack, simulate);
@@ -152,7 +170,7 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
                 return ItemStack.EMPTY;
             }
             ItemStack extracted = delegate.extractItem(slot, amount, simulate);
-            if (!simulate && extracted.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get())) {
+            if (!simulate && extracted.is(NEItems.ECO_BULK_UPGRADE_CARD.get())) {
                 compactMarkers(cellStack);
             }
             return extracted;
@@ -161,7 +179,7 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
         private boolean isLockedCard(int slot) {
             ItemStack installed = delegate.getStackInSlot(slot);
             return !installed.isEmpty()
-                && installed.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get())
+                && installed.is(NEItems.ECO_BULK_UPGRADE_CARD.get())
                 && hasTooManyMarkers(cellStack);
         }
 
@@ -193,7 +211,7 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
 
     @Override
     protected ECOStorageCell createCellInventory(ItemStack stack, ISaveProvider host) {
-        return new ECOMegaLongBulkStorageCell(stack, host);
+        return new ECOBulkStorageCell(stack, host);
     }
 
 }

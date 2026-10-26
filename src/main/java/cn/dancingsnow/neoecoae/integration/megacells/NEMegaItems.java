@@ -3,11 +3,12 @@ package cn.dancingsnow.neoecoae.integration.megacells;
 import appeng.api.upgrades.Upgrades;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
+import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaFluidStorageCellItem;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaItemStorageCellItem;
-import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaLongBulkStorageCellItem;
+import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import cn.dancingsnow.neoecoae.integration.megacells.item.MegaCellHousingItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -22,10 +23,6 @@ import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.M
 public final class NEMegaItems {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
-        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.configure_item"),
-            "Configure 25 compression chains, or 50 with an ECO MEGA Upgrade Card; the first variant selects the storage form");
-        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compression_card_required"),
-            "Install a MEGA Cells Compression Card to enable compression variants");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.housing"),
             "MEGA Cells housing for %s storage matrices");
     }
@@ -33,22 +30,14 @@ public final class NEMegaItems {
     public static final ItemEntry<Item> MEGA_ITEM_CELL_HOUSING = housing("mega_item", "Mega Item");
     public static final ItemEntry<Item> MEGA_FLUID_CELL_HOUSING = housing("mega_fluid", "Mega Fluid");
     public static final ItemEntry<Item> ECO_MEGA_UPGRADE_CARD =
-        REGISTRATE.item("eco_mega_upgrade_card", Upgrades::createUpgradeCardItem)
-            .lang("ECO MEGA Upgrade Card")
-            .model((ctx, prov) -> {})
-            .register();
+        NEItems.ECO_BULK_UPGRADE_CARD;
 
     public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_4G =
         itemCell("4g", MEGA_4G_CAPACITY, Rarity.EPIC);
     public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_4G =
         fluidCell("4g", MEGA_4G_CAPACITY, Rarity.EPIC);
-    public static final ItemEntry<ECOMegaLongBulkStorageCellItem> ECO_MEGA_LONG_BULK_CELL =
-        REGISTRATE.item("eco_mega_long_bulk_cell",
-                p -> new ECOMegaLongBulkStorageCellItem(p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9,
-                    NEMegaCellTypes.MEGA_ITEM))
-            .lang("ECO MEGA Bulk Storage Matrix")
-            .model((ctx, prov) -> {})
-            .register();
+    public static final ItemEntry<ECOBulkStorageCellItem> ECO_MEGA_LONG_BULK_CELL =
+        NEItems.ECO_BULK_CELL;
 
     static ItemEntry<Item> housing(String family, String displayFamily) {
         String housingFamily = displayFamily.startsWith("Mega ") ? displayFamily.substring("Mega ".length()) : displayFamily;

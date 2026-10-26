@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.items.ECOInfiniteResourceCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
@@ -1004,11 +1005,9 @@ public class NEItems {
     private static ItemEntry<ECOStorageCellItem> bulkItemCell(
         String name, ECOTier tier, String size, ItemEntry<?> component, Rarity rarity
     ) {
-        long capacity = tier.getStorageTotalBytes();
         String level = tier.name().substring(1);
-        return REGISTRATE.item(name, p -> new ECOStorageCellItem(
-                p.stacksTo(1).rarity(rarity), tier, AEKeyType.items(), NECellTypes.BULK_ITEM,
-                capacity, Math.toIntExact(capacity), (double) capacity / (1L << 20)))
+        return REGISTRATE.<ECOStorageCellItem>item(name, p -> new ECOBulkStorageCellItem(
+                p.stacksTo(1).rarity(rarity), tier, NECellTypes.BULK_ITEM, 1))
             .recipe((ctx, prov) -> {
                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                     .requires(ECO_BULK_ITEM_CELL_HOUSING)
@@ -1024,6 +1023,25 @@ public class NEItems {
             .removeTab(NECreativeTabs.ECO.getKey())
             .register();
     }
+
+    // Historical ids stay registered unconditionally so existing disks and cards survive without MEGA Cells.
+    public static final ItemEntry<Item> ECO_BULK_UPGRADE_CARD =
+        REGISTRATE.item("eco_mega_upgrade_card", Upgrades::createUpgradeCardItem)
+            .lang("ECO Bulk Expansion Card")
+            .model((ctx, prov) -> {})
+            .register();
+    public static final ItemEntry<ECOBulkStorageCellItem> ECO_BULK_CELL =
+        REGISTRATE.item("eco_mega_long_bulk_cell", p -> new ECOBulkStorageCellItem(
+                p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.BULK_ITEM))
+            .lang("ECO Bulk Storage Matrix")
+            .model((ctx, prov) -> {})
+            .register();
+    public static final ItemEntry<MaterialItem> ECO_BULK_PATTERN =
+        REGISTRATE.item("eco_bulk_conversion_pattern", MaterialItem::new)
+            .lang("ECO Bulk Conversion")
+            .model((ctx, prov) -> prov.generated(ctx::get, prov.mcLoc("item/paper")))
+            .removeTab(NECreativeTabs.ECO.getKey())
+            .register();
 
     /**
      * ECO infinite base resource storage matrix: an unbounded source and sink for a hard-locked set

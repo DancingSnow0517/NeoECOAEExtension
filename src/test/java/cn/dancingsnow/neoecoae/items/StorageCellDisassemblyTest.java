@@ -42,7 +42,8 @@ class StorageCellDisassemblyTest {
         "false,false,client", "false,true,client", "true,false,client", "true,true,client",
         "false,false,occupied", "false,true,occupied", "true,false,occupied", "true,true,occupied",
         "false,false,unavailable", "false,true,unavailable", "true,false,unavailable", "true,true,unavailable",
-        "false,false,empty", "false,true,empty", "true,false,empty", "true,true,empty"
+        "false,false,empty", "false,true,empty", "true,false,empty", "true,true,empty",
+        "false,false,queued", "false,true,queued"
     })
     void onlyServerConfirmedEmptyCellsCanBeDisassembled(boolean omni, boolean onBlock, String state) {
         Item item = omni ? mock(ECOUniversalStorageCellItem.class, CALLS_REAL_METHODS)
@@ -72,7 +73,8 @@ class StorageCellDisassemblyTest {
         if (state.equals("occupied")) {
             contents.add(AEItemKey.of(Items.DIAMOND), 1);
         }
-        ECOStorageCell basicCell = mock(ECOStorageCell.class);
+        ECOStorageCell basicCell = state.equals("queued")
+            ? mock(cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell.class) : mock(ECOStorageCell.class);
         when(basicCell.getAvailableStacks()).thenReturn(contents);
         ItemStack housing = new ItemStack(Items.IRON_INGOT);
 

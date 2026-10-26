@@ -6,9 +6,7 @@ import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
-import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaCellsBackend;
-import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaBulkMarkingService;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.neoforged.fml.ModList;
@@ -24,12 +22,6 @@ public final class MegaCellsIntegration {
     private final List<MegaExternalCell> externalCells = new ArrayList<>();
 
     public void apply() {
-        StorageBulkMarkingIntegration.register(
-            MegaBulkMarkingService::autoMark,
-            MegaBulkMarkingService::hasBulkCell,
-            MegaBulkMarkingService::normalizeMarker,
-            MegaBulkMarkingService::isSameMarkerChain
-        );
         NEMegaCellTypes.register();
         NEMegaItems.register();
         NEMegaBaseItems.register();
@@ -61,21 +53,16 @@ public final class MegaCellsIntegration {
         event.enqueueWork(() -> {
             String group = GuiText.StorageCells.getTranslationKey();
             for (ItemEntry<? extends ECOStorageCellItem> cell : allCells()) {
-                if (cell.get() == NEMegaItems.ECO_MEGA_LONG_BULK_CELL.get()) {
-                    continue;
-                }
                 Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, group);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, group);
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
             }
-            Upgrades.add(NEMegaItems.ECO_MEGA_UPGRADE_CARD, NEMegaItems.ECO_MEGA_LONG_BULK_CELL, 1, group);
         });
     }
 
     private List<ItemEntry<? extends ECOStorageCellItem>> allCells() {
         List<ItemEntry<? extends ECOStorageCellItem>> cells = new ArrayList<>(List.of(
-            NEMegaItems.ECO_MEGA_ITEM_CELL_4G, NEMegaItems.ECO_MEGA_FLUID_CELL_4G,
-            NEMegaItems.ECO_MEGA_LONG_BULK_CELL
+            NEMegaItems.ECO_MEGA_ITEM_CELL_4G, NEMegaItems.ECO_MEGA_FLUID_CELL_4G
         ));
         cells.addAll(NEMegaBaseItems.cells());
         if (energyEnabled) cells.addAll(NEMegaEnergyItems.cells());
@@ -88,10 +75,6 @@ public final class MegaCellsIntegration {
     private void registerDeferredModels() {
         registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", false);
         registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", false);
-        registerCellModel(
-                NEMegaItems.ECO_MEGA_LONG_BULK_CELL,
-                "block/cell/storage_cell_l9_bulk_item",
-                false);
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "fe", false);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", false);
         if (chemicalEnabled) NEMegaRadioactiveItems.registerModels(false);
@@ -101,10 +84,6 @@ public final class MegaCellsIntegration {
     private void registerResolvedModels() {
         registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", true);
         registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", true);
-        registerCellModel(
-                NEMegaItems.ECO_MEGA_LONG_BULK_CELL,
-                "block/cell/storage_cell_l9_bulk_item",
-                true);
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "fe", true);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", true);
         if (chemicalEnabled) NEMegaRadioactiveItems.registerModels(true);

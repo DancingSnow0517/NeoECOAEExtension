@@ -1,0 +1,22 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "inputItems": [
+    {
+      "count": 1,
+      "item": "ae2:advanced_card"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 8,
+      "item": "ae2:engineering_processor"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:eco_mega_upgrade_card"
+  },
+  "energy": 288000
+}

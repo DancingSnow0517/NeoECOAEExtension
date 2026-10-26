@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.ae2.storage;
 import appeng.api.inventories.ISegmentedInventory;
 import appeng.blockentity.misc.CellWorkbenchBlockEntity;
 import appeng.util.ConfigInventory;
-import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaLongBulkStorageCellItem;
+import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,7 +21,7 @@ public class CellWorkbenchBlockEntityMixin {
         var cells = workbench.getSubInventory(ISegmentedInventory.CELLS);
         if (cacheConfig != null && cells != null) {
             var stack = cells.getStackInSlot(0);
-            if (stack.getItem() instanceof ECOMegaLongBulkStorageCellItem item) {
+            if (stack.getItem() instanceof ECOBulkStorageCellItem item) {
                 var current = item.getConfigInventory(stack);
                 // AE2 caches the config while the cell stays inserted. Upgrade changes
                 // must take effect before the workbench copies edits back into the cell.

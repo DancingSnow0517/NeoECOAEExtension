@@ -20,7 +20,7 @@ public class NECellTypes {
 
     public static final NECellTypeEntry BULK_ITEM = REGISTRATE.cellType("bulk_item")
         .desc(Component.translatable("cell_type.neoecoae.bulk_item").withColor(0xe7a34b))
-        .typeCount(1)
+        .typeCount(25)
         .register();
 
     public static final NECellTypeEntry FLUID = REGISTRATE.cellType("fluids")

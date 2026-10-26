@@ -18,6 +18,7 @@ These guides cover the Minecraft 1.21.1 / NeoForge source tree. Build versions a
 | Workstation processing time and network FE / 加工时间与网络 FE | — | [实施与游戏验收](WORKSTATION_PROCESSING_TIME_AND_FE_ZH_CN.md) |
 | Bigger AE2 storage cells / Bigger AE2 存储矩阵 | — | [存储矩阵联动](BIGGER_AE2_INTEGRATION_ZH_CN.md) |
 | Storage scanning and terminal synchronization / 存储扫描与终端同步优化 | — | [性能与网络优化](STORAGE_NETWORK_OPTIMIZATION_ZH_CN.md) |
+| Standalone bulk storage and compression / 自主大宗存储与压缩 | — | [大宗重构说明](ECO_BULK_STORAGE_ZH_CN.md) |
 | GuideME page corrections and validation / 游戏指南修订与验证 | — | [GuideME 更新说明](GUIDEME_UPDATE_ZH_CN.md) |
 
 Start with the API guide to request a calculation, submit a job, or integrate a provider/storage cell. Read the planner guide for routes, byproducts, seeds, reusable inputs, cycles, exact amounts, and diagnostics. Java examples are integration skeletons; provide machine transactions and permission checks, register integrations once, and mutate gameplay state on the owning server thread.

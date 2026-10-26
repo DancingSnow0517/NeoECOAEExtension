@@ -314,7 +314,9 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         }
 
         ECOStorageCell cellInventory = getCellInventory(stack);
-        if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()) {
+        if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()
+                || cellInventory instanceof cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell bulk
+                    && !bulk.canFitInsideCell()) {
             player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;
         }

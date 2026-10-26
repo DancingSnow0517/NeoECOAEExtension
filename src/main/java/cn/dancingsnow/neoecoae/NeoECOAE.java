@@ -86,6 +86,12 @@ public class NeoECOAE {
         NECellTypes.register();
         NERecipeTypes.register(modBus);
         NEDataComponents.register(modBus);
+        cn.dancingsnow.neoecoae.impl.storage.bulk.ECOCompressionService.init();
+        cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.register(
+            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::autoMark,
+            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::hasBulkCell,
+            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::normalizeMarker,
+            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::isSameMarkerChain);
 
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();
@@ -184,7 +190,6 @@ public class NeoECOAE {
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(
                 NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,
-                NEItems.ECO_BULK_ITEM_CELL_16M, NEItems.ECO_BULK_ITEM_CELL_64M, NEItems.ECO_BULK_ITEM_CELL_256M,
                 NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_FLUID_CELL_64M, NEItems.ECO_FLUID_CELL_256M
             );
             for (ItemEntry<ECOStorageCellItem> cell : cells) {
@@ -192,6 +197,9 @@ public class NeoECOAE {
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
             }
+            Upgrades.add(NEItems.ECO_BULK_UPGRADE_CARD, NEItems.ECO_BULK_CELL, 1, storageCellGroup);
+            appeng.api.crafting.PatternDetailsHelper.registerDecoder(
+                cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkConversionPattern.DECODER);
         });
     }
 
