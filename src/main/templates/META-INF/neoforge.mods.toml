@@ -224,10 +224,10 @@ file="META-INF/accesstransformer.cfg"
 [[dependencies.${mod_id}]]
     modId="useless_mod"
     type="optional"
-    versionRange="[1.21.1-2.3.7.2,)"
+    versionRange="[1.21.1-2.4.6.2,)"
     ordering="AFTER"
     side="BOTH"
-    reason="Useless Mod integration requires 1.21.1-2.3.7.2 or newer for AlloyFurnaceBigIntegerTarget public API."
+    reason="Useless Mod 1.21.1-2.4.6.2 or newer is required for compatibility with ECO's LongFluidTank input hatch."
 
 [[dependencies.${mod_id}]]
     modId="jade"
