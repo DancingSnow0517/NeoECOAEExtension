@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.Status;
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,6 +108,48 @@ public final class ECOBulkMarkingService {
         }
         candidates.sort(Comparator.comparingLong(Candidate::amount).reversed());
         return markCandidates(host, drives, targets, candidates, migrate, unboundedKeys);
+    }
+
+    /**
+     * Moves the resources matching one already configured bulk cell immediately. The cell's
+     * filters are authoritative; this operation never creates or changes marker slots.
+     */
+    public static cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult migrateMarkedCell(
+        ECOStorageSystemBlockEntity host, BlockPos position
+    ) {
+        if (!(host.getLevel() instanceof ServerLevel serverLevel)
+            || !serverLevel.getServer().isSameThread()) {
+            return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
+                Status.BUSY, 0L);
+        }
+        if (host.isInfiniteMode()) {
+            return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
+                Status.BUSY, 0L);
+        }
+        List<ECODriveBlockEntity> drives = host.getStorageDrivesForIntegration();
+        TargetCell selected = null;
+        for (ECODriveBlockEntity drive : drives) {
+            if (!drive.getBlockPos().equals(position)) continue;
+            ItemStack stack = drive.getCellStack();
+            if (stack != null && !stack.isEmpty() && stack.getItem() instanceof ECOBulkStorageCellItem
+                && drive.getCellInventory() instanceof ECOBulkStorageCell bulk
+                && host.getTier().compareTo(bulk.getTier()) >= 0) {
+                selected = new TargetCell(drive, bulk);
+            }
+            break;
+        }
+        if (selected == null) {
+            return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
+                Status.NO_BULK_CELL, 0L);
+        }
+        Set<AEKey> unboundedKeys = new HashSet<>();
+        var grid = host.getMainNode().getGrid();
+        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
+        collectUnboundedKeys(drives, unboundedKeys);
+        long transferred = transferMarkedChains(host, drives, List.of(selected), unboundedKeys);
+        if (transferred > 0L) host.notifyStorageConfigurationChanged();
+        return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
+            Status.SUCCESS, transferred);
     }
 
     private static void collectUnboundedKeys(List<ECODriveBlockEntity> drives, Set<AEKey> target) {

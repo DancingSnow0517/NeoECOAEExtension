@@ -6,6 +6,7 @@ import java.util.function.Supplier;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
@@ -30,7 +31,10 @@ final class StorageCellGrid extends UIElement {
     private final Supplier<IECOTier> panelTier;
     private final RPCEmitter extraction;
     private final RPCEmitter insertion;
+    private final RPCEmitter migrateMarked;
+    private final ECOBulkCellActionsPopup actionsPopup;
     private boolean interacting;
+    private boolean popupAttached;
 
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config) {
         this(sync, columns, config, () -> null);
@@ -44,6 +48,22 @@ final class StorageCellGrid extends UIElement {
             (position, expected, shift) -> isOpenMenu(config) && config.cellExtractor().extract(position, expected, shift)));
         insertion = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class,
             (position, expected) -> isOpenMenu(config) && config.cellInserter().insert(position, expected)));
+        migrateMarked = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, Boolean.class,
+            position -> {
+                if (!isOpenMenu(config)) return false;
+                config.cellActions().migrateMarked().accept(position);
+                return true;
+            }));
+        actionsPopup = new ECOBulkCellActionsPopup(
+            position -> migrateMarked.send(ignored -> {}, position),
+            config.cellActions().openPriority(),
+            config.cellActions().openCompressionDisplay());
+        addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (actionsPopup.isDisplayed() && !actionsPopup.isMouseOverElement(event.x, event.y)) {
+                actionsPopup.close();
+                if (event.button != 1) event.stopImmediatePropagation();
+            }
+        }, true);
         for (int i = 0; i < columns * 3; i++) {
             addChild(new CellSlot(i));
         }
@@ -102,6 +122,16 @@ final class StorageCellGrid extends UIElement {
             if (event.button != 0 && event.button != 1 || interacting) return;
             var cell = cell(index);
             if (cell.position() == null) return;
+            if (event.button == 1 && isBulkCell(cell)) {
+                if (!popupAttached) {
+                    addChild(actionsPopup);
+                    popupAttached = true;
+                }
+                actionsPopup.open(cell.position(),
+                    event.x - getPositionX() + 2, event.y - getPositionY() + 2,
+                    columns * 18, 3 * 18);
+                return;
+            }
             var mui = getModularUI();
             if (mui == null || mui.getMenu() == null) return;
             ItemStack carried = mui.getMenu().getCarried();
@@ -115,6 +145,10 @@ final class StorageCellGrid extends UIElement {
                 if (!extraction.send((Boolean success) -> interacting = false,
                     cell.position(), cell.interactionId(), UIElement.isShiftDown())) interacting = false;
             }
+        }
+
+        private boolean isBulkCell(StorageHostUI.CellEntry cell) {
+            return !cell.stack().isEmpty() && cell.stack().getItem() instanceof ECOBulkStorageCellItem;
         }
 
         @Override
@@ -159,7 +193,7 @@ final class StorageCellGrid extends UIElement {
                 HostText.usedPart(HostText.ae2Amount(cell.usedTypes()), cell.usedTypes(), cell.totalTypes()),
                 HostText.totalPart(capacity(cell.totalTypes()))));
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
-                HostText.usedPart(HostText.fullBytes(cell.usedBytes()), cell.usedBytes(), cell.totalBytes()),
+                HostText.usedPart(HostText.fullBytes(cell.exactUsedBytes()), cell.usedBytes(), cell.totalBytes()),
                 HostText.totalPart(fullCapacity(cell.totalBytes()))));
             lines.add(Component.translatable("gui.neoecoae.storage.ui.cell_state." +
                 (!cell.online() || !state.formed() ? "offline" : cell.infinite() ? "infinite"

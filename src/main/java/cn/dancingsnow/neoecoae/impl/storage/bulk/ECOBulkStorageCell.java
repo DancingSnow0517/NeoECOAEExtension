@@ -71,6 +71,9 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
             ? Long.MAX_VALUE : 0;
     }
     @Override public long getUsedBytes() { return getStoredItemCount(); }
+    public BigInteger getExactUsedBytes() {
+        return accounts.values().stream().map(Account::amount).reduce(BigInteger.ZERO, BigInteger::add);
+    }
     @Override public long getTotalBytes() { return Long.MAX_VALUE; }
     @Override public long getFreeBytes() { return Long.MAX_VALUE; }
     @Override public int getUnusedItemCount() { return 0; }

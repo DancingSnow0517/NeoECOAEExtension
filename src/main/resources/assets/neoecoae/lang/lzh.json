@@ -1021,5 +1021,14 @@
   "gui.neoecoae.processing.previous": "前頁",
   "gui.neoecoae.processing.next": "後頁",
   "gui.neoecoae.processing.close": "閉",
-  "gui.neoecoae.processing.context_hint": "右擊可尋位顯之，或啟樣板供應器"
+  "gui.neoecoae.processing.context_hint": "右擊可尋位顯之，或啟樣板供應器",
+  "gui.neoecoae.storage.bulk_cell.action.migrate": "即遷相合之物",
+  "gui.neoecoae.storage.bulk_cell.action.priority": "調貯藏先後",
+  "gui.neoecoae.storage.bulk_cell.action.compression_display": "調壓縮顯式",
+  "gui.neoecoae.storage.bulk_cell.compression_display.reserved": "壓縮顯式之選單，留待後設",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.success": "大宗盤遷訖：%s",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.no_bulk_cell": "所選之槽無可用 ECO 大宗盤",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.busy": "貯藏遷移正忙，今不可遷大宗盤",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.unavailable": "ECO 大宗遷移未可用",
+  "tooltip.neoecoae.bulk.bytes": "已用位元組：%s / %s"
 }

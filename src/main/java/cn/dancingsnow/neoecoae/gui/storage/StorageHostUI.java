@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 import java.math.BigInteger;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -55,13 +56,34 @@ public final class StorageHostUI {
         }
     }
 
+    public record CellActions(
+        Consumer<BlockPos> migrateMarked,
+        Runnable openPriority,
+        Consumer<BlockPos> openCompressionDisplay
+    ) {
+        public static final CellActions NONE = new CellActions(position -> {}, () -> {}, position -> {});
+    }
+
     public record Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
         LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
         Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
         BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
         BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
         IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor,
-        CellInserter cellInserter, Supplier<ItemStack> hostItem) {
+        CellInserter cellInserter, Supplier<ItemStack> hostItem, CellActions cellActions) {
+        public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
+            LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
+            Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
+            BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
+            BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
+            IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor,
+            CellInserter cellInserter, Supplier<ItemStack> hostItem) {
+            this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
+                storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
+                missingMembers, infiniteComponentInventory, player, cellExtractor, cellInserter, hostItem,
+                CellActions.NONE);
+        }
+
         public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
             LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
             Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
@@ -71,7 +93,8 @@ public final class StorageHostUI {
             CellInserter cellInserter) {
             this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
                 storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
-                missingMembers, infiniteComponentInventory, player, cellExtractor, cellInserter, () -> ItemStack.EMPTY);
+                missingMembers, infiniteComponentInventory, player, cellExtractor, cellInserter, () -> ItemStack.EMPTY,
+                CellActions.NONE);
         }
 
         public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
@@ -82,7 +105,8 @@ public final class StorageHostUI {
             IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor) {
             this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
                 storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
-                missingMembers, infiniteComponentInventory, player, cellExtractor, (position, expected) -> false);
+                missingMembers, infiniteComponentInventory, player, cellExtractor, (position, expected) -> false,
+                () -> ItemStack.EMPTY, CellActions.NONE);
         }
 
         public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
@@ -93,7 +117,8 @@ public final class StorageHostUI {
             IItemHandlerModifiable infiniteComponentInventory) {
             this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
                 storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
-                missingMembers, infiniteComponentInventory, null, (position, expected, shift) -> false);
+                missingMembers, infiniteComponentInventory, null, (position, expected, shift) -> false,
+                (position, expected) -> false, () -> ItemStack.EMPTY, CellActions.NONE);
         }
 
         HolderLookup.Provider registries() {
@@ -115,7 +140,7 @@ public final class StorageHostUI {
     public record CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
         long usedBytes, long totalBytes, boolean infinite, CellState state, boolean online,
         @Nullable BlockPos position, ItemStack stack, @Nullable Component extractionBlockReason,
-        @Nullable UUID interactionId, @Nullable Component panelTierName) {
+        @Nullable UUID interactionId, @Nullable Component panelTierName, BigInteger exactUsedBytes) {
         public static final CellEntry EMPTY = new CellEntry(-1, 0, 0, 0, 0, 0, 0, false, CellState.ABSENT, false);
 
         public CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
@@ -123,13 +148,14 @@ public final class StorageHostUI {
             @Nullable BlockPos position, ItemStack stack, @Nullable Component extractionBlockReason,
             @Nullable UUID interactionId) {
             this(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite, state, online,
-                position, stack, extractionBlockReason, interactionId, null);
+                position, stack, extractionBlockReason, interactionId, null,
+                BigInteger.valueOf(Math.max(0L, usedBytes)));
         }
 
         public CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
             long usedBytes, long totalBytes, boolean infinite, CellState state, boolean online) {
             this(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite, state, online,
-                null, ItemStack.EMPTY, null, null);
+                null, ItemStack.EMPTY, null, null, null, BigInteger.valueOf(Math.max(0L, usedBytes)));
         }
 
         public CellEntry atDrive(BlockPos position, ItemStack stack, @Nullable Component reason) {
@@ -138,19 +164,26 @@ public final class StorageHostUI {
 
         public CellEntry atDrive(BlockPos position, ItemStack stack, @Nullable Component reason, @Nullable UUID interactionId) {
             return new CellEntry(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite,
-                state, online, position, stack.copy(), reason, interactionId, panelTierName);
+                state, online, position, stack.copy(), reason, interactionId, panelTierName, exactUsedBytes);
         }
 
         public CellEntry withPanelTier(IECOTier tier) {
             return new CellEntry(typeId, this.tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite,
-                state, online, position, stack, extractionBlockReason, interactionId, tier.getPanelTierName());
+                state, online, position, stack, extractionBlockReason, interactionId, tier.getPanelTierName(), exactUsedBytes);
+        }
+
+        public CellEntry withExactUsedBytes(BigInteger exactUsedBytes) {
+            return new CellEntry(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite,
+                state, online, position, stack, extractionBlockReason, interactionId, panelTierName,
+                exactUsedBytes == null ? BigInteger.ZERO : exactUsedBytes.max(BigInteger.ZERO));
         }
 
         public CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
             long usedBytes, long totalBytes, boolean infinite) {
             this(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite,
                 usedBytes == 0 ? CellState.EMPTY : totalBytes > 0 && usedBytes >= totalBytes ? CellState.FULL
-                    : totalTypes > 0 && usedTypes >= totalTypes ? CellState.TYPES_FULL : CellState.NOT_EMPTY, true);
+                    : totalTypes > 0 && usedTypes >= totalTypes ? CellState.TYPES_FULL : CellState.NOT_EMPTY, true,
+                null, ItemStack.EMPTY, null, null, null, BigInteger.valueOf(Math.max(0L, usedBytes)));
         }
 
         public boolean installed() { return tier > 0 || !stack.isEmpty(); }

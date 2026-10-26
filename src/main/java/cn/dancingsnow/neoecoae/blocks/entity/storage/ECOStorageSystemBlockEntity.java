@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
+import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
@@ -308,10 +309,33 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 holder.player,
                 (position, expected, shift) -> StorageCellUiExtraction.extract(this, holder.player, position, expected, shift),
                 (position, expected) -> StorageCellUiInsertion.insert(this, holder.player, position, expected),
-                () -> new ItemStack(getBlockState().getBlock())
+                () -> new ItemStack(getBlockState().getBlock()),
+                new StorageHostUI.CellActions(
+                    position -> migrateMarkedBulkCell(holder.player, position),
+                    () -> actionUI.priorityWindow().setDisplay(true),
+                    position -> holder.player.displayClientMessage(
+                        net.minecraft.network.chat.Component.translatable(
+                            "gui.neoecoae.storage.bulk_cell.compression_display.reserved"), true)
+                )
         ), this::getTier, this::getBlockState);
         actionUI.addTo(root);
         return ECOModularUI.create(root, holder.player);
+    }
+
+    private void migrateMarkedBulkCell(Player player, BlockPos position) {
+        if (!canPlayerInteract(player)) return;
+        StorageBulkMarkingIntegration.MigrationResult result =
+            StorageBulkMarkingIntegration.migrateMarkedCell(this, position);
+        String key = switch (result.status()) {
+            case SUCCESS -> "gui.neoecoae.storage.bulk_cell.migrate.result.success";
+            case NO_BULK_CELL -> "gui.neoecoae.storage.bulk_cell.migrate.result.no_bulk_cell";
+            case BUSY -> "gui.neoecoae.storage.bulk_cell.migrate.result.busy";
+            case INVALID_THRESHOLD -> "gui.neoecoae.storage.bulk_cell.migrate.result.busy";
+            case UNAVAILABLE -> "gui.neoecoae.storage.bulk_cell.migrate.result.unavailable";
+        };
+        player.displayClientMessage(result.status() == StorageBulkMarkingIntegration.Status.SUCCESS
+            ? net.minecraft.network.chat.Component.translatable(key, result.transferred())
+            : net.minecraft.network.chat.Component.translatable(key), true);
     }
 
     public List<ECODriveBlockEntity> getStorageUiDrives() {

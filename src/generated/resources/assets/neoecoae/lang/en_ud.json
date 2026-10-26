@@ -883,5 +883,14 @@
   "gui.neoecoae.large_integrated_working_station.pause.fe_missing": "Paused: Insufficient FE in the ME network",
   "gui.neoecoae.workstation.fe_value": "Network FE consumption: %s FE/t; reserved: %s FE",
   "gui.neoecoae.workstation.fe_requirement": "Network FE requires Applied Flux; missing FE can be paid with equivalent AE.",
-  "gui.neoecoae.workstation.task_duration": "Processing time: %s / %s ticks"
+  "gui.neoecoae.workstation.task_duration": "Processing time: %s / %s ticks",
+  "gui.neoecoae.storage.bulk_cell.action.migrate": "Migrate matching resources now",
+  "gui.neoecoae.storage.bulk_cell.action.priority": "Adjust storage priority",
+  "gui.neoecoae.storage.bulk_cell.action.compression_display": "Adjust compression display",
+  "gui.neoecoae.storage.bulk_cell.compression_display.reserved": "Compression display menu is reserved for a future GUI",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.success": "Bulk-cell migration complete: %s",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.no_bulk_cell": "The selected slot is not an available ECO bulk cell",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.busy": "Storage migration is busy; the bulk-cell migration cannot run now",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.unavailable": "ECO bulk migration is unavailable",
+  "tooltip.neoecoae.bulk.bytes": "Bytes used: %s / %s"
 }

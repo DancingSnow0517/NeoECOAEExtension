@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOInfiniteResourceCell;
+import cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerService;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
@@ -34,7 +35,7 @@ final class ECOStorageHostStatistics {
     private final Map<ECODriveBlockEntity, DriveUiSnapshot> driveUiSnapshots = new HashMap<>();
     private record DriveUiSnapshot(IECOStorageCell inventory, long revision, long tick, int type, int tier,
         List<AEKeyType> keyTypes, boolean member, long usedTypes, long totalTypes, long usedBytes, long totalBytes,
-        boolean infiniteResource) {}
+        boolean infiniteResource, BigInteger exactUsedBytes) {}
 
     private final ECOStorageSystemBlockEntity host;
     private final Registry<ECOCellType> cellTypes;
@@ -208,6 +209,8 @@ final class ECOStorageHostStatistics {
                 );
             }
             // Keep every physical drive position, including empty and unsupported cells.
+            BigInteger exactUsedBytes = !supported || view.member() || view.infiniteResource()
+                ? BigInteger.ZERO : view.exactUsedBytes();
             cellEntries.add(new StorageHostUI.CellEntry(
                     cellTypeId,
                     view.tier(),
@@ -220,6 +223,7 @@ final class ECOStorageHostStatistics {
                     supported ? view.inventory().getStatus() : CellState.ABSENT,
                     supported && drive.isOnline()
             ).withPanelTier(view.inventory().getTier())
+                .withExactUsedBytes(exactUsedBytes)
                 .atDrive(drive.getBlockPos(), stack, drive.getCellExtractionBlockReasonText(), drive.getCellInteractionId()));
             if (view.infiniteResource()) continue;
             if (view.member()) {
@@ -291,7 +295,10 @@ final class ECOStorageHostStatistics {
                 keyTypes, member,
                 member ? 0L : inventory.getStoredItemTypes(), member ? 0L : inventory.hasInfiniteTypeCapacity() ? -1L : inventory.getTotalItemTypes(),
                 member || infiniteResource ? 0L : inventory.getUsedBytes(),
-                member || infiniteResource ? 0L : inventory.getTotalBytes(), infiniteResource);
+                member || infiniteResource ? 0L : inventory.getTotalBytes(), infiniteResource,
+                member || infiniteResource ? BigInteger.ZERO
+                    : inventory instanceof ECOBulkStorageCell bulk ? bulk.getExactUsedBytes()
+                    : BigInteger.valueOf(Math.max(0L, inventory.getUsedBytes())));
             driveUiSnapshots.put(drive, next);
             host.storageFaults().recovered(component);
             return next;

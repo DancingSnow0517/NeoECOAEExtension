@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOBulkMarkableCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -67,6 +68,7 @@ public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements 
         var cell = (ECOBulkStorageCell) getCellInventory(stack);
         if (cell == null) return;
         lines.add(Component.translatable("tooltip.neoecoae.bulk.capacity", cell.getStoredItemTypes(), cell.getTotalItemTypes()));
+        lines.add(Component.translatable("tooltip.neoecoae.bulk.bytes", HostText.fullBytes(cell.getExactUsedBytes()), "∞"));
         lines.add(Component.translatable(baseTypeLimit == 1 ? "tooltip.neoecoae.bulk.legacy_configure" : "tooltip.neoecoae.bulk.configure").withStyle(ChatFormatting.GRAY));
         lines.add(Component.translatable("tooltip.neoecoae.bulk.crafting").withStyle(ChatFormatting.GRAY));
         if (!cell.getPendingOutputs().isEmpty()) lines.add(Component.translatable("tooltip.neoecoae.bulk.pending").withStyle(ChatFormatting.YELLOW));

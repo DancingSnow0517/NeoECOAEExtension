@@ -1288,5 +1288,14 @@
   "tooltip.neoecoae.bulk.legacy_configure": "旧式单类大宗矩阵；同一压缩链的所有形态共用一个标记",
   "tooltip.neoecoae.bulk.crafting": "内置压缩；接入 ECO 存储系统后自动提供形态转换样板",
   "tooltip.neoecoae.bulk.pending": "转换产物已保存在盘内，正在等待回填网络",
-  "tooltip.neoecoae.bulk.recipe_changed": "%s 条历史库存暂仅允许取回原始最小形态；恢复原配方后可恢复转换"
+  "tooltip.neoecoae.bulk.recipe_changed": "%s 条历史库存暂仅允许取回原始最小形态；恢复原配方后可恢复转换",
+  "gui.neoecoae.storage.bulk_cell.action.migrate": "立即迁移匹配资源",
+  "gui.neoecoae.storage.bulk_cell.action.priority": "调整存储优先级",
+  "gui.neoecoae.storage.bulk_cell.action.compression_display": "调整压缩显示",
+  "gui.neoecoae.storage.bulk_cell.compression_display.reserved": "压缩显示菜单将在后续界面中提供",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.success": "大宗盘迁移完成：%s",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.no_bulk_cell": "所选槽位中没有可用的 ECO 大宗盘",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.busy": "存储迁移正忙，当前无法执行大宗盘迁移",
+  "gui.neoecoae.storage.bulk_cell.migrate.result.unavailable": "ECO 大宗迁移功能不可用",
+  "tooltip.neoecoae.bulk.bytes": "已用字节：%s / %s"
 }
