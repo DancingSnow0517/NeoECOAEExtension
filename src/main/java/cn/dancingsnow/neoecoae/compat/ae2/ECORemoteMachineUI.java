@@ -2,13 +2,14 @@ package cn.dancingsnow.neoecoae.compat.ae2;
 
 import com.lowdragmc.lowdraglib.gui.factory.UIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 
 /** Opens GT's own UI through LDLib, without requiring a client-loaded target chunk or linking GT classes. */
 final class ECORemoteMachineUI {
@@ -22,12 +23,7 @@ final class ECORemoteMachineUI {
         }
 
         @Override protected Holder readHolderFromSyncData(FriendlyByteBuf buffer) {
-            var pos = buffer.readBlockPos();
-            var state = Block.stateById(buffer.readVarInt());
-            var blockEntity = BlockEntity.loadStatic(pos, state, buffer.readNbt());
-            if (blockEntity == null || Minecraft.getInstance().level == null) return null;
-            blockEntity.setLevel(Minecraft.getInstance().level);
-            return new Holder(blockEntity, ECOProviderActions.member(blockEntity, "getMetaMachine"));
+            return FMLEnvironment.dist == Dist.CLIENT ? ClientHolderReader.read(buffer) : null;
         }
 
         @Override protected void writeHolderToSyncData(FriendlyByteBuf buffer, Holder holder) {
@@ -37,6 +33,20 @@ final class ECORemoteMachineUI {
             buffer.writeNbt(be.saveWithFullMetadata());
         }
     };
+
+    // The factory is registered on both physical sides. Keep ClientLevel references out of
+    // its class so JVM verification during dedicated-server initialization cannot load them.
+    private static final class ClientHolderReader {
+        private static Holder read(FriendlyByteBuf buffer) {
+            var pos = buffer.readBlockPos();
+            var state = Block.stateById(buffer.readVarInt());
+            var blockEntity = BlockEntity.loadStatic(pos, state, buffer.readNbt());
+            var level = net.minecraft.client.Minecraft.getInstance().level;
+            if (blockEntity == null || level == null) return null;
+            blockEntity.setLevel(level);
+            return new Holder(blockEntity, ECOProviderActions.member(blockEntity, "getMetaMachine"));
+        }
+    }
 
     static void initialize() { UIFactory.register(FACTORY); }
     static boolean open(BlockEntity blockEntity, Object machine, ServerPlayer player) {
