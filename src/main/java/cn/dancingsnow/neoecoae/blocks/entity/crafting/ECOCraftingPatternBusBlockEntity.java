@@ -25,6 +25,7 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.PatternStorageHost;
 import cn.dancingsnow.neoecoae.api.fastpath.EcoFastpathHost;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
@@ -70,7 +71,19 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
     AuxiliaryPatternHolder, PatternStorageHost, ECOFastPathDispatchProvider, EcoFastpathHost,
-    ECOJobAwareCraftingProvider {
+    ECOJobAwareCraftingProvider, ECOProcessingTargetProvider {
+
+    private Target processingTarget;
+
+    @Override public Target neoecoae$getProcessingTarget() {
+        return processingTarget;
+    }
+
+    boolean recordProcessingTarget(ECOCraftingWorkerBlockEntity worker, boolean accepted) {
+        if (accepted && worker.getLevel() != null) processingTarget = new Target(
+                worker.getLevel().dimension().location(), worker.getBlockPos());
+        return accepted;
+    }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 

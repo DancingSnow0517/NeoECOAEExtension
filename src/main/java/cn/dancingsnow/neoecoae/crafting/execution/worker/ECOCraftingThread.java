@@ -110,6 +110,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private long lastEjectionFailureLogTick = Long.MIN_VALUE;
     private long lastRecoveryFailureLogTick = Long.MIN_VALUE;
     private long lastBlockedProgressLogTick = Long.MIN_VALUE;
+    private String processingPauseReason = "";
     // Batch-owned diagnostics only: never serialized and never used to admit or advance work.
     private VirtualLaneStartResult lastVirtualLaneStartResult = VirtualLaneStartResult.STARTED;
     private long lastVirtualLaneStartTick = Long.MIN_VALUE;
@@ -134,6 +135,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         int powerMultiply,
         int ticksSinceLastCall
     ) {
+        processingPauseReason = "";
         if (!isBusy) {
             progress = 0;
             progressRemainder = 0.0D;
@@ -321,7 +323,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             getRemainingItems(),
             outputsReady,
             craftingJobId,
-            fastPathReason
+            fastPathReason,
+            processingPauseReason
         );
     }
 
@@ -709,6 +712,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         int overclockTimes,
         int powerMultiply
     ) {
+        processingPauseReason = reason;
         long tick = TickHandler.instance().getCurrentTick();
         long elapsed = tick - lastBlockedProgressLogTick;
         if (lastBlockedProgressLogTick != Long.MIN_VALUE && elapsed >= 0L
@@ -1068,6 +1072,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         recoveryState = RecoveryState.CLEARED;
         owningCpuMissingSinceGameTime = Long.MIN_VALUE;
         lastBlockedProgressLogTick = Long.MIN_VALUE;
+        processingPauseReason = "";
         outputDiagnostics.reset();
         if (availabilityChanged) {
             worker.onThreadAvailabilityChanged();
@@ -1527,6 +1532,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         List<ItemStack> remainingItems,
         boolean outputsReady,
         @Nullable UUID craftingJobId,
-        @Nullable String fastPathReason
-    ) {}
+        @Nullable String fastPathReason,
+        String pauseReason
+    ) {
+        public Snapshot(boolean busy, int progress, int maxProgress, int finiteBatchCraftCount, long craftCount,
+                boolean virtualBatch, ItemStack outputItem, long outputAmount, List<ItemStack> remainingItems,
+                boolean outputsReady, @Nullable UUID craftingJobId, @Nullable String fastPathReason) {
+            this(busy, progress, maxProgress, finiteBatchCraftCount, craftCount, virtualBatch, outputItem,
+                outputAmount, remainingItems, outputsReady, craftingJobId, fastPathReason, "");
+        }
+    }
 }

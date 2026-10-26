@@ -778,5 +778,20 @@ public class GuiLangs {
         provider.add("gui.neoecoae.processing.next", "Next");
         provider.add("gui.neoecoae.processing.close", "Close");
         provider.add("gui.neoecoae.processing.context_hint", "Right-click to locate, highlight or open the pattern provider");
+        provider.add("gui.neoecoae.processing.association.job", "Matched by crafting job");
+        provider.add("gui.neoecoae.processing.association.recipe", "Matched by destination and recipe; may be shared with other jobs");
+        provider.add("gui.neoecoae.processing.output_blocked", "Waiting for output to return to the network");
+        provider.add("gui.neoecoae.processing.energy", "Insufficient energy");
+        provider.add("gui.neoecoae.processing.coolant", "Insufficient coolant");
+        provider.add("gui.neoecoae.processing.paused", "Machine paused or unavailable");
+        provider.add("gui.neoecoae.processing.summary", "Current cycle: %s machine(s), %s, %s");
+        provider.add("gui.neoecoae.processing.machine", "%s: %s, %s, parallel %s");
+        provider.add("gui.neoecoae.processing.more", "%s more machine(s) included in the summary");
+        provider.add("gui.neoecoae.processing.refreshing", "Refreshing machine status…");
+        provider.add("gui.neoecoae.processing.state.running", "Running");
+        provider.add("gui.neoecoae.processing.state.waiting", "Waiting for output");
+        provider.add("gui.neoecoae.processing.state.paused", "Paused");
+        provider.add("gui.neoecoae.processing.state.queued", "Queued");
+        provider.add("gui.neoecoae.processing.state.unavailable", "Unavailable");
     }
 }

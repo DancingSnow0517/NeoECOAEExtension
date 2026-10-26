@@ -255,6 +255,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (item == null) return;
             List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
             lines.addAll(itemDescription(item, true));
+            lines.addAll(ComputationProcessingTooltips.lines(item.processing()));
             if (item.batched()) {
                 lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF));
             }
@@ -605,7 +606,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                     var progress = item.active().signum() > 0
                         ? selectedCpu.getLogic().getProcessingProgress(item.key())
                         : ECOProcessingProgress.EMPTY;
-                    itemPage.add(item.withProcessing(progress == null ? ECOProcessingProgress.EMPTY : progress.page(-1)).write(registries));
+                    itemPage.add(item.withProcessing(progress == null ? ECOProcessingProgress.EMPTY : progress.page(0)).write(registries));
                 }
                 tag.put("items", itemPage);
             } else {

@@ -80,7 +80,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
         var survey = surveys.computeIfAbsent(output, Survey::new);
         survey.requestedTick = tick;
         if (survey.scan == null && tick >= survey.nextTick) {
-            survey.scan = new ECOWorkstationMachineStatus.Scan(destinations, output);
+            survey.scan = new ECOWorkstationMachineStatus.Scan(destinations, output, jobId);
         }
         if (survey.scan != null && !survey.queued) {
             pending.addLast(survey);

@@ -19,15 +19,18 @@ public record ECOProcessingProgress(float progress, boolean hasProgress, State s
 
     public static ECOProcessingProgress summarize(List<Machine> machines) {
         double progress = 0, duration = 0;
-        boolean running = false, waiting = false, paused = false;
+        boolean running = false, waiting = false, paused = false, unavailable = false;
         for (var machine : machines) {
-            progress += machine.progressTicks();
-            duration += machine.durationTicks();
+            double weight = Math.max(1L, machine.parallel());
+            progress += machine.progressTicks() * weight;
+            duration += machine.durationTicks() * weight;
             running |= machine.state() == State.RUNNING;
             waiting |= machine.state() == State.WAITING;
             paused |= machine.state() == State.PAUSED;
+            unavailable |= machine.state() == State.UNAVAILABLE;
         }
-        State state = waiting ? State.WAITING : running ? State.RUNNING : paused ? State.PAUSED : State.QUEUED;
+        State state = waiting ? State.WAITING : running ? State.RUNNING : paused ? State.PAUSED
+            : unavailable ? State.UNAVAILABLE : State.QUEUED;
         return new ECOProcessingProgress(duration == 0 ? 0 : (float) (progress / duration), duration > 0,
             state, machines.size(), 0, false, machines);
     }
