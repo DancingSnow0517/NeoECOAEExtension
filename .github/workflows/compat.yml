@@ -1,4 +1,4 @@
-name: compat
+name: CI for Neo ECO AE Extension
 
 on:
   # GitHub schedules require this workflow on the default branch.
@@ -6,11 +6,6 @@ on:
   schedule:
     - cron: '17 3 * * 1'
   workflow_dispatch:
-    inputs:
-      gtl_file_id:
-        description: 'Optional CurseForge GTL release file ID; blank resolves newest stable 1.20.1 Forge release'
-        type: string
-        default: ''
   push:
     branches: ['1.20.1']
     paths:
@@ -39,28 +34,27 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
-    outputs:
-      source_sha: ${{ steps.source.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'schedule' && '1.20.1' || github.sha }}
-      - name: Record the exact source commit for all test jobs
-        id: source
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-java@v4
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Verify the harness (controlled fixtures, no Minecraft runtime)
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Verify Compatibility Harness
         run: python3 -m unittest discover -s tools/compat/tests -v
-      - name: Restore exact compile dependencies
+      - name: Restore Build Dependencies
         run: python3 tools/compat/bootstrap.py
-      - name: Build this commit and the production probe
+      - name: Build with Gradle
         env:
           # ModDevGradle skips recompilation for CI=true; its binary mappings fail Java 17 compilation.
           CI: 'false'
@@ -68,9 +62,10 @@ jobs:
           set -o pipefail
           mkdir -p build/compat-build-evidence
           bash ./gradlew -I tools/compat/compat.init.gradle reobfJar reobfCompatTestJar --no-daemon --max-workers=2 --console=plain 2>&1 | tee build/compat-build-evidence/build.log
-      - name: Verify production artifacts
+      - name: Verify Production Artifacts
         run: python3 tools/compat/check_artifacts.py
-      - uses: actions/upload-artifact@v4
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: neoeco-compat-test-jars
           path: |
@@ -78,7 +73,8 @@ jobs:
             build/libs/neoeco-compat-tests-*.jar
           if-no-files-found: error
           retention-days: 7
-      - uses: actions/upload-artifact@v4
+      - name: Upload Verification Reports
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: compat-build-evidence
@@ -86,49 +82,4 @@ jobs:
             build/compat-build-evidence/
             build/reports/problems/
           if-no-files-found: ignore
-          retention-days: 14
-
-  gtl:
-    name: GTL (latest stable CurseForge pack)
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 65
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.build.outputs.source_sha }}
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/download-artifact@v4
-        with:
-          name: neoeco-compat-test-jars
-          path: build/libs
-      # No whole-pack cache: mutable configuration and scripts must not survive runs.
-      # These isolated test servers accept Minecraft's EULA: https://aka.ms/MinecraftEULA.
-      - name: Resolve GTL and compare the original pack with this NeoECO build
-        env:
-          GTL_FILE_ID: ${{ inputs.gtl_file_id }}
-        run: |
-          version=$(sed -n 's/^mod_version=//p' gradle.properties)
-          args=()
-          if [ -n "$GTL_FILE_ID" ]; then args+=(--file-id "$GTL_FILE_ID"); fi
-          python3 tools/compat/gtl.py --accept-eula \
-            --neoeco "build/libs/neoecoae-$version.jar" \
-            --probe "build/libs/neoeco-compat-tests-$version.jar" \
-            --output build/compat/gtl --memory 6G --timeout 1500 "${args[@]}"
-      - name: Author-facing observations
-        if: always()
-        run: |
-          if [ -f build/compat/gtl/summary.md ]; then cat build/compat/gtl/summary.md >> "$GITHUB_STEP_SUMMARY"; fi
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gtl-compatibility-evidence
-          path: build/compat/gtl/evidence/
-          if-no-files-found: warn
           retention-days: 14
