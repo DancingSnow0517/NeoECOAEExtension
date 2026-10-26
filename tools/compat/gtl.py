@@ -93,8 +93,94 @@ def mod_ids(path):
 
 
 def expected_cases(spec, variant):
-    routes = ['plain'] if variant == 'baseline' else spec['routes']
-    return [f'{route}.{case["id"]}' for route in routes for case in spec['cases']]
+    return [case for cases in case_groups(spec, variant).values() for case in cases]
+
+
+def case_groups(spec, variant):
+    groups = {'base_ae2': [f'ae2.{case["id"]}' for case in spec['baseCases']['ae2']],
+              'base_gtl': [f'gtl.{case["id"]}' for case in spec['baseCases']['gtl']]}
+    if variant == 'coexist':
+        groups['neoeco'] = [f'machine.{case["id"]}' for case in spec['neoecoCases']]
+    return groups
+
+
+def group_results(report, spec, variant):
+    results = {}
+    for group, expected in case_groups(spec, variant).items():
+        tests = [test for test in report.get('tests', []) if test.get('id') in expected]
+        if not tests:
+            results[group] = {'status': 'not-run', 'passed': 0, 'reported': 0, 'expected': len(expected)}
+        else:
+            results[group] = assess({'tests': tests}, expected, 0)
+    return results
+
+
+def read_reports(directory):
+    report = {'tests': []}
+    errors = []
+    for name in ['ae2-report.json', 'compat-report.json', 'neoeco-report.json']:
+        path = directory / name
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text())
+            report['tests'].extend(data.get('tests', []))
+            if data.get('setupError'):
+                errors.append(f"{name}: {data['setupError']}")
+        except (json.JSONDecodeError, AttributeError, TypeError) as failure:
+            errors.append(f'{name}: invalid report: {failure}')
+    if errors:
+        report['setupError'] = '\n'.join(errors)
+    return report
+
+
+def concurrency_evidence(report):
+    """Use server-tick intervals to verify overlapping work and an exclusive restart."""
+    ordinary = [test for test in report.get('tests', []) if test.get('id') != 'machine.cold_restart']
+    cold = [test for test in report.get('tests', []) if test.get('id') == 'machine.cold_restart']
+    try:
+        first = max(test['startedAtTick'] for test in ordinary)
+        last = min(test['completedAtTick'] for test in ordinary)
+        settled = max(test['completedAtTick'] for test in ordinary)
+        return {'ordinaryScenarios': len(ordinary), 'overlapTicks': max(0, last - first),
+                'exclusiveRestart': not cold or len(cold) == 1 and cold[0]['startedAtTick'] >= settled}
+    except (KeyError, TypeError, ValueError):
+        return {'ordinaryScenarios': len(ordinary), 'overlapTicks': 0, 'exclusiveRestart': False}
+
+
+def run_variants(execute):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        pending = [pool.submit(execute, variant) for variant in ['baseline', 'coexist']]
+        return [future.result() for future in pending]
+
+
+def execute_server(command, directory, report_path, timeout):
+    """Resume the same saved world once when the probe requests a cold restart."""
+    deadline = time.monotonic() + timeout
+    for attempt in range(2):
+        name = 'server-console.log' if attempt == 0 else 'server-console-restart.log'
+        expired = False
+        with (directory / name).open('w') as log:
+            process = subprocess.Popen(command, cwd=directory, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
+            try:
+                process.wait(timeout=max(1, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired:
+                expired = True
+                process.terminate()
+                try:
+                    process.wait(timeout=20)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+        control = directory / 'neoeco-report.json'
+        if not control.exists():
+            control = report_path
+        data = json.loads(control.read_text()) if control.exists() else {}
+        if not data.get('restartRequested'):
+            return process.returncode, expired, attempt
+        if expired or process.returncode != 0 or attempt != 0:
+            raise ValueError('Cold restart requires one clean server shutdown and one resume')
+    raise ValueError('Probe requested more than one cold restart')
 
 
 def assess(report, expected, returncode):
@@ -214,29 +300,34 @@ def run_server(variant, base, forge_home, lock, output, neoeco, probe, java, mem
                f'-Dneoeco.compat.report={report_path}',
                f'@libraries/net/minecraftforge/forge/1.20.1-{lock["forge"]}/unix_args.txt', 'nogui']
     started = time.monotonic()
-    expired = False
-    with (directory / 'server-console.log').open('w') as log:
-        process = subprocess.Popen(command, cwd=directory, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
-        try:
-            process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            expired = True
-            process.terminate()
-            try:
-                process.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+    returncode, expired, restarts = execute_server(command, directory, report_path, timeout)
     spec = json.loads((ROOT / 'tools/compat/resources/neoeco-compat-scenarios.json').read_text())
     expected = expected_cases(spec, variant)
+    data = read_reports(directory)
     if report_path.exists():
-        data = json.loads(report_path.read_text())
-        result = assess(data, expected, process.returncode)
+        result = assess(data, expected, returncode)
+        if result['status'] == 'pass' and variant == 'coexist' and restarts != 1:
+            result.update(status='invalid-report', detail='The NeoECO suite did not perform its required cold restart')
     else:
-        result = {'status': 'timeout' if expired else 'no-report', 'exitCode': process.returncode,
+        result = {'status': 'timeout' if expired else 'no-report', 'exitCode': returncode,
                   'expected': len(expected), 'passed': 0, 'reported': 0,
                   'notRun': expected, 'detail': failure_hint(directory / 'server-console.log')}
-    result.update(variant=variant, seconds=round(time.monotonic() - started), replacements=replacements)
+    try:
+        scheduler = json.loads(report_path.read_text()) if report_path.exists() else {}
+        if not isinstance(scheduler, dict):
+            scheduler = {}
+    except (json.JSONDecodeError, OSError):
+        scheduler = {}
+    result.update(variant=variant, seconds=round(time.monotonic() - started), replacements=replacements, serverRestarts=restarts,
+                  peakActiveScenarios=scheduler.get('peakActiveScenarios', 0))
+    overlap = concurrency_evidence(data)
+    result['concurrency'] = overlap
+    ordinary_count = len(expected) - (variant == 'coexist')
+    if result['status'] == 'pass' and (result['peakActiveScenarios'] != ordinary_count
+            or overlap['ordinaryScenarios'] != ordinary_count or overlap['overlapTicks'] <= 0
+            or not overlap['exclusiveRestart']):
+        result.update(status='invalid-report', detail='Scenarios did not overlap or the cold restart interrupted ordinary scenarios')
+    result['groups'] = group_results(data, spec, variant)
     return result
 
 
@@ -247,7 +338,7 @@ def collect_evidence(output):
         if (output / name).exists():
             shutil.copy2(output / name, evidence / name)
     for variant in ['baseline', 'coexist']:
-        for pattern in ['compat-report.json', 'server-console.log', 'logs/*.log', 'crash-reports/*.txt']:
+        for pattern in ['compat-report.json', 'ae2-report.json', 'neoeco-report.json', 'server-console*.log', 'logs/*.log', 'crash-reports/*.txt']:
             for source in (output / variant).glob(pattern):
                 target = evidence / variant / source.relative_to(output / variant)
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -257,24 +348,20 @@ def collect_evidence(output):
 
 def observations(output):
     """Compare identical plain-route fixtures without assigning blame to a mod."""
-    reports = {}
-    for variant in ['baseline', 'coexist']:
-        path = output / variant / 'compat-report.json'
-        if path.exists():
-            try:
-                reports[variant] = json.loads(path.read_text())
-            except json.JSONDecodeError:
-                # run_server already records this as a harness error; preserve its raw evidence.
-                continue
+    reports = {variant: read_reports(output / variant) for variant in ['baseline', 'coexist']}
     baseline = {test['id']: test for test in reports.get('baseline', {}).get('tests', [])}
     rows = []
     for variant, data in reports.items():
         for test in data.get('tests', []):
             reference = baseline.get(test['id']) if variant == 'coexist' else None
-            comparison = 'baseline observation' if variant == 'baseline' else 'ECO-specific route; no identical baseline'
+            comparison = 'GTL reference observation' if variant == 'baseline' else 'NeoECO machine environment; no identical baseline'
             if reference:
                 comparison = 'same baseline outcome' if reference['status'] == test['status'] else 'differs from baseline'
+                changed = [field for field in ['planClass', 'cpuClass', 'finalAmount'] if reference.get(field) != test.get(field)]
+                if changed:
+                    comparison = 'differs from baseline: ' + ', '.join(changed)
             rows.append({'variant': variant, 'id': test['id'], 'status': test['status'],
+                         'stage': test.get('stage', test.get('phase', 'planning')),
                          'planClass': test.get('planClass'), 'ecoOwned': test.get('ecoOwned'),
                          'gtlGraphOwned': test.get('gtlGraphOwned'), 'comparison': comparison,
                          'error': test.get('error')})
@@ -291,7 +378,7 @@ def main():
     parser.add_argument('--cache', type=Path, default=ROOT / 'build/compat-cache')
     parser.add_argument('--java', default='java')
     parser.add_argument('--timeout', type=int, default=1500)
-    parser.add_argument('--memory', default='6G')
+    parser.add_argument('--memory', default='6G', help='Heap per server; both installation variants run simultaneously')
     args = parser.parse_args()
     if not args.accept_eula:
         parser.error('Test server startup requires --accept-eula')
@@ -309,14 +396,18 @@ def main():
         profile = json.loads((ROOT / 'tools/compat/gtl.json').read_text())
         base, lock = prepare_pack(profile, output, args.cache.resolve(), args.file_id)
         forge_home, summary['forgeInstallerSha256'] = install_forge(lock['forge'], output, args.cache.resolve(), args.java)
-        for variant in ['baseline', 'coexist']:
+        def execute_variant(variant):
             try:
                 result = run_server(variant, base, forge_home, lock, output, neoeco, probe,
                                     args.java, args.memory, args.timeout)
             except Exception:
                 result = {'variant': variant, 'status': 'harness-error', 'detail': traceback.format_exc()}
-            summary['results'].append(result)
             print(json.dumps(result), flush=True)
+            return result
+
+        started = time.monotonic()
+        summary['results'] = run_variants(execute_variant)
+        summary['runtimeSeconds'] = round(time.monotonic() - started)
     except Exception:
         summary['setupError'] = traceback.format_exc()
         print(summary['setupError'], flush=True)
@@ -334,21 +425,25 @@ def main():
         for result in summary['results']:
             lines.append(f"| {result['variant']} | {result['status']} | {result.get('passed', 0)} / "
                          f"{result.get('expected', '?')} | {result.get('exitCode', '?')} |")
+        lines += ['', '| Environment | Test group | Result | Passed / expected |', '|---|---|---|---|']
+        for result in summary['results']:
+            for group, counts in result.get('groups', {}).items():
+                lines.append(f"| {result['variant']} | {group} | {counts['status']} | {counts['passed']} / {counts['expected']} |")
         for result in summary['results']:
             if result.get('detail'):
                 lines += ['', f"**{result['variant']}: process/setup evidence**", '', '```text', result['detail'], '```']
         if summary.get('setupError'):
             lines += ['', 'Environment preparation failed:', '```text', summary['setupError'], '```']
         if summary['observations']:
-            lines += ['', '| Environment / case | Status | Plan owner | Comparison |', '|---|---|---|---|']
+            lines += ['', '| Environment / case | Status | Phase | Plan owner | Comparison |', '|---|---|---|---|---|']
             for row in summary['observations']:
                 owner = 'ECO' if row['ecoOwned'] else 'GTL graph' if row['gtlGraphOwned'] else row['planClass'] or 'no plan'
-                lines.append(f"| {row['variant']} / {row['id']} | {row['status']} | {owner} | {row['comparison']} |")
+                lines.append(f"| {row['variant']} / {row['id']} | {row['status']} | {row['stage']} | {owner} | {row['comparison']} |")
             for row in summary['observations']:
                 if row['error']:
                     lines += ['', f"**{row['variant']} / {row['id']}**", '', '```text', row['error'][:3000], '```']
-        lines += ['', 'These are production-server planner compatibility observations, not GUI or full progression certification.',
-                  'See each compat-report.json for route ownership, recipe vectors, material observations and failure traces.']
+        lines += ['', 'Both environments run the same AE2 and GTL base checks. The coexist environment also runs the NeoECO machine checks.',
+                  'Each compat-report.json records its execution phase, material observations and failure traces.']
         (output / 'summary.md').write_text('\n'.join(lines) + '\n')
         collect_evidence(output)
     return 0 if len(summary['results']) == 2 and all(r['status'] == 'pass' for r in summary['results']) else 1

@@ -25,12 +25,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Future;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.Level;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
@@ -38,7 +36,7 @@ import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 
-/** Loads final GTL recipes into physical GTL buffers and compares actual planner routes.
+/** Runs independent AE2, GTL and optional NeoECO scenarios concurrently.
  * Planning and native buffer admission are observed; no machine output is fabricated.
  */
 @Mod("neoeco_compat")
@@ -58,8 +56,16 @@ public final class PlannerProbe {
     private Future<ICraftingPlan> future;
     private JsonObject current;
     private long started;
-    private record Case(String route, JsonObject spec) {
-        String id() { return route + "." + spec.get("id").getAsString(); }
+    private MachineSuite machines;
+    private AE2Suite ae2;
+    private JsonObject specification;
+    private String variant;
+    private PlannerProbe owner;
+    private final List<PlannerProbe> concurrent = new ArrayList<>();
+    private boolean baseComplete;
+    private int peakActive;
+    private record Case(JsonObject spec) {
+        String id() { return "gtl." + spec.get("id").getAsString(); }
     }
 
     public PlannerProbe() {
@@ -69,17 +75,29 @@ public final class PlannerProbe {
         MinecraftForge.EVENT_BUS.addListener(this::stopping);
     }
 
+    private PlannerProbe(PlannerProbe owner, int ordinal) {
+        this.owner = owner;
+        server = owner.server;
+        destination = owner.destination;
+        graphEnabled = owner.graphEnabled;
+        cases.addAll(owner.cases);
+        index = ordinal;
+        next();
+    }
+
     private void start(ServerStartedEvent event) {
         server = event.getServer();
         destination = Path.of(System.getProperty("neoeco.compat.report"));
         report.addProperty("schema", 1);
+        report.addProperty("group", "base_gtl");
+        report.addProperty("execution", "concurrent; cold restart is exclusive");
         report.add("tests", results);
         var mods = new JsonObject();
         ModList.get().getMods().forEach(mod -> mods.addProperty(mod.getModId(), mod.getVersion().toString()));
         report.add("mods", mods);
         report.addProperty("scope", "Loaded GTL recipe conversion, physical GTL pattern buffers and planner routes; no machine processing");
         try {
-            var variant = System.getProperty("neoeco.compat.variant");
+            variant = System.getProperty("neoeco.compat.variant");
             require(variant.equals("baseline") || variant.equals("coexist"), "Unknown variant");
             require(ModList.get().isLoaded("neoecoae") == variant.equals("coexist"), "Unexpected NeoECO presence");
             try {
@@ -91,17 +109,34 @@ public final class PlannerProbe {
             }
             try (var stream = getClass().getResourceAsStream("/neoeco-compat-scenarios.json")) {
                 require(stream != null, "Missing scenario specification");
-                var specification = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
-                for (var route : specification.getAsJsonArray("routes")) {
-                    if (variant.equals("baseline") && !route.getAsString().equals("plain")) continue;
-                    for (var spec : specification.getAsJsonArray("cases")) cases.add(new Case(route.getAsString(), spec.getAsJsonObject()));
+                specification = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+                var base = specification.getAsJsonObject("baseCases");
+                ae2 = new AE2Suite(server, destination.resolveSibling("ae2-report.json"), base.getAsJsonArray("ae2"));
+                for (var spec : base.getAsJsonArray("gtl")) cases.add(new Case(spec.getAsJsonObject()));
+                if (variant.equals("coexist") && Files.exists(destination)) {
+                    var previous = JsonParser.parseString(Files.readString(destination)).getAsJsonObject();
+                    require(previous.has("complete") && previous.get("complete").getAsBoolean(), "Cannot resume an incomplete GTL base report");
+                    var expected = cases.stream().map(Case::id).collect(java.util.stream.Collectors.toSet());
+                    var actual = new java.util.HashSet<String>();
+                    for (var test : previous.getAsJsonArray("tests"))
+                        require(actual.add(test.getAsJsonObject().get("id").getAsString()), "Duplicate base result during restart");
+                    require(actual.equals(expected), "Cold restart changed the completed base selection");
+                    results.addAll(previous.getAsJsonArray("tests"));
+                    report.addProperty("complete", true);
+                    baseComplete = true;
+                    peakActive = previous.has("peakActiveScenarios") ? previous.get("peakActiveScenarios").getAsInt() : 0;
+                    startMachines(); return;
                 }
             }
             require(!cases.isEmpty(), "Empty test selection");
-            next();
+            for (int ordinal = 0; ordinal < cases.size(); ordinal++) concurrent.add(new PlannerProbe(this, ordinal));
+            if (variant.equals("coexist")) startMachines();
+            write();
         } catch (Throwable failure) {
             report.addProperty("setupError", trace(failure));
-            finish();
+            finished = true;
+            write();
+            server.halt(false);
         }
     }
 
@@ -110,8 +145,9 @@ public final class PlannerProbe {
         current = new JsonObject();
         current.addProperty("id", cases.get(index).id());
         current.addProperty("status", "running");
+        current.addProperty("startedAtTick", server.getTickCount());
         current.add("fixture", cases.get(index).spec.deepCopy());
-        results.add(current);
+        (owner == null ? results : owner.results).add(current);
         ticks = 0;
         stage = 0;
         future = null;
@@ -121,14 +157,34 @@ public final class PlannerProbe {
 
     private void tick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || server == null || finished) return;
+        if (owner == null) {
+            int active = ae2.activeCount() + (int) concurrent.stream().filter(test -> !test.finished).count()
+                    + (machines == null ? 0 : machines.activeCount());
+            peakActive = Math.max(peakActive, active);
+            report.addProperty("peakActiveScenarios", peakActive);
+            ae2.tick();
+            for (var test : concurrent) test.tick(event);
+            if (!baseComplete && concurrent.stream().allMatch(test -> test.finished)) finish();
+            if (machines != null) {
+                if (baseComplete && ae2.finished()) machines.allowRestart();
+                machines.tick();
+            }
+            if (baseComplete && ae2.finished() && (machines == null || machines.finished())) {
+                finished = true;
+                write();
+                server.halt(false);
+            }
+            return;
+        }
         try {
             require(++ticks < 1200, "Case exceeded 1200 server ticks at stage " + stage);
             var test = cases.get(index);
             var level = server.overworld();
-            // Every case gets a fresh, isolated physical network. No cache or inventory is reused across routes.
-            var origin = new BlockPos(index * 32, 100, 0);
+            // Every case gets a fresh, isolated physical network. No cache or inventory is reused across cases.
+            var origin = new BlockPos(index * 64, 100, 0);
             if (stage == 0) {
-                level.setChunkForced(origin.getX() >> 4, 0, true);
+                for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++)
+                    level.setChunkForced((origin.getX() >> 4) + x, z, true);
                 level.setBlockAndUpdate(origin, AEBlocks.CHEST.block().defaultBlockState());
                 level.setBlockAndUpdate(origin.above(), AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
                 level.setBlockAndUpdate(origin.north(), AEBlocks.CHEST.block().defaultBlockState());
@@ -165,7 +221,7 @@ public final class PlannerProbe {
                 patterns.forEach(pattern -> patternClasses.add(pattern.getClass().getName()));
                 current.add("patternClasses", patternClasses);
                 current.addProperty("stage", "planning");
-                future = calculate(test, level, grid);
+                future = calculate(level, grid);
                 current.addProperty("futureClass", future.getClass().getName());
                 stage = 3;
                 return;
@@ -198,11 +254,8 @@ public final class PlannerProbe {
             require(after.equals(current.get("inventoryBefore")), "Planning mutated physical storage");
             require(plan.finalOutput().what().equals(fixture.target)
                     && plan.finalOutput().amount() == fixture.amount, "Plan changed requested output");
-            if (!test.route.equals("plain")) require(eco, "Explicit ECO request was not planned by ECO");
-            else {
-                require(graphEnabled != null, "Cannot establish GTL planner routing: router API unavailable");
-                require(!eco && gtl == graphEnabled, "Plain request planner does not match GTL engine configuration");
-            }
+            require(graphEnabled != null, "Cannot establish GTL planner routing: router API unavailable");
+            require(!eco && gtl == graphEnabled, "Plain request planner does not match GTL engine configuration");
             boolean feasible = test.spec.get("feasible").getAsBoolean();
             require(plan.simulation() != feasible, "Unexpected feasibility; expected executable=" + feasible);
             if (feasible) require(operations == fixture.operations,
@@ -218,8 +271,7 @@ public final class PlannerProbe {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private Future<ICraftingPlan> calculate(Case test, ServerLevel level, IGrid grid) throws ReflectiveOperationException {
+    private Future<ICraftingPlan> calculate(ServerLevel level, IGrid grid) {
         AEKey target = fixture.target;
         long amount = fixture.amount;
         IGridNode requestNode = chest.getMainNode().getNode();
@@ -227,20 +279,8 @@ public final class PlannerProbe {
             public IActionSource getActionSource() { return IActionSource.empty(); }
             public IGridNode getGridNode() { return requestNode; }
         };
-        if (test.route.equals("plain")) return grid.getCraftingService().beginCraftingCalculation(
+        return grid.getCraftingService().beginCraftingCalculation(
                 level, requester, target, amount, CalculationStrategy.REPORT_MISSING_ITEMS);
-        Class<?> optionsType = Class.forName("cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions");
-        Object options = optionsType.getConstructor(boolean.class, boolean.class, Set.class).newInstance(true, false, Set.of());
-        if (test.route.equals("eco_request")) {
-            requester = (ICraftingSimulationRequester) Class.forName("cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerRequester")
-                    .getConstructor(ICraftingSimulationRequester.class, optionsType).newInstance(requester, options);
-            return grid.getCraftingService().beginCraftingCalculation(level, requester, target, amount,
-                    CalculationStrategy.REPORT_MISSING_ITEMS);
-        }
-        return (Future<ICraftingPlan>) Class.forName("cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService")
-                .getMethod("begin", Level.class, IGrid.class, IActionSource.class, AEKey.class, long.class,
-                        CalculationStrategy.class, optionsType)
-                .invoke(null, level, grid, IActionSource.empty(), target, amount, CalculationStrategy.REPORT_MISSING_ITEMS, options);
     }
 
     private static boolean ecoOwned(ICraftingPlan plan) throws ReflectiveOperationException {
@@ -252,24 +292,49 @@ public final class PlannerProbe {
     private void complete() {
         if (future != null && !future.isDone()) future.cancel(true);
         current.addProperty("ms", (System.nanoTime() - started) / 1_000_000);
-        index++;
-        next();
+        current.addProperty("completedAtTick", server.getTickCount());
+        var origin = new BlockPos(index * 64, 100, 0);
+        for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++)
+            server.overworld().setChunkForced((origin.getX() >> 4) + x, z, false);
+        finished = true;
+        write();
     }
 
     private void stopping(ServerStoppingEvent event) {
         if (finished || server == null) return;
+        if (ae2 != null) ae2.stopping();
+        if (machines != null) machines.stopping();
+        if (baseComplete) return;
         report.addProperty("setupError", "Server stopped before all cases completed");
-        if (future != null) future.cancel(true);
+        for (var test : concurrent) if (test.future != null) test.future.cancel(true);
         write();
     }
 
     private void finish() {
-        finished = true;
+        baseComplete = true;
+        report.addProperty("complete", true);
         write();
-        server.halt(false);
+    }
+
+    private void startMachines() {
+        Path machineReport = destination.resolveSibling("neoeco-report.json");
+        try {
+            machines = (MachineSuite) Class.forName("cn.dancingsnow.neoecoae.compatprobe.NeoMachineSuite")
+                    .getConstructor(MinecraftServer.class, Path.class, JsonObject.class)
+                    .newInstance(server, machineReport, specification);
+        } catch (Throwable failure) {
+            var error = new JsonObject();
+            error.add("tests", new JsonArray());
+            error.addProperty("setupError", trace(failure));
+            try { Files.writeString(machineReport, new GsonBuilder().setPrettyPrinting().create().toJson(error)); }
+            catch (Exception writeFailure) { throw new IllegalStateException("Cannot write NeoECO suite setup failure", writeFailure); }
+            finished = true;
+            server.halt(false);
+        }
     }
 
     private void write() {
+        if (owner != null) { owner.write(); return; }
         try {
             var temporary = destination.resolveSibling(destination.getFileName() + ".tmp");
             Files.writeString(temporary, new GsonBuilder().setPrettyPrinting().create().toJson(report));

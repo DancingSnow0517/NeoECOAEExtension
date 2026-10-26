@@ -1,504 +1,784 @@
 {
-  "schema": 2,
-  "routes": [
-    "plain",
-    "eco_request",
-    "eco_direct"
-  ],
-  "cases": [
-    {
-      "id": "logic_processor_plates",
-      "purpose": "Reusable silicon and logic presses with plate inputs",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "forming_press",
-          "id": "ae2:logic_processor",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:logic_processor",
-      "feasible": true,
-      "expectReusableInputs": 2
-    },
-    {
-      "id": "logic_processor_dusts",
-      "purpose": "HV dust alternative and reusable presses",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "forming_press",
-          "id": "ae2:logic_processor1",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:logic_processor",
-      "feasible": true,
-      "expectReusableInputs": 2
-    },
-    {
-      "id": "calculation_processor_plates",
-      "purpose": "Certus plate and calculation press",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "forming_press",
-          "id": "ae2:calculation_processor",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:calculation_processor",
-      "feasible": true,
-      "expectReusableInputs": 2
-    },
-    {
-      "id": "calculation_processor_dusts",
-      "purpose": "HV certus dust alternative",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "forming_press",
-          "id": "ae2:calculation_processor1",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:calculation_processor",
-      "feasible": true,
-      "expectReusableInputs": 2
-    },
-    {
-      "id": "engineering_processor_plates",
-      "purpose": "Diamond plate and engineering press",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "forming_press",
-          "id": "ae2:engineering_processor1",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:engineering_processor",
-      "feasible": true,
-      "expectReusableInputs": 2
-    },
-    {
-      "id": "engineering_processor_dusts",
-      "purpose": "HV diamond dust alternative",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "forming_press",
-          "id": "ae2:engineering_processor",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:engineering_processor",
-      "feasible": true,
-      "expectReusableInputs": 2
-    },
-    {
-      "id": "fluix_dust_mixing",
-      "purpose": "Three GT dust inputs produce three fluix dust",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "mixer",
-          "id": "ae2:fluix_dust",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_dust",
-      "feasible": true,
-      "expectOutputAmount": 3
-    },
-    {
-      "id": "fluix_water_autoclave",
-      "purpose": "250 mB water per fluix crystal",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "autoclave",
-          "id": "ae2:fluix_crystal_1",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_crystal",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:minecraft:water": 250
-      }
-    },
-    {
-      "id": "fluix_distilled_autoclave",
-      "purpose": "50 mB distilled water alternative",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "autoclave",
-          "id": "ae2:fluix_crystal_2",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_crystal",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:gtceu:distilled_water": 50
-      }
-    },
-    {
-      "id": "silicon_recovery",
-      "purpose": "AE silicon returns to GT silicon dust",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "macerator",
-          "id": "gtceu:silicon_dust",
-          "runs": 4
-        }
-      ],
-      "target": "gtceu:silicon_dust",
-      "feasible": true
-    },
-    {
-      "id": "fluix_crystal_maceration",
-      "purpose": "Fluix crystal returns to dust",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "macerator",
-          "id": "ae2:fluix_dust",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_dust",
-      "feasible": true
-    },
-    {
-      "id": "cable_rubber",
-      "purpose": "4 mB rubber cable coating",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembler",
-          "id": "ae2:fluix_covered_cable",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_covered_cable",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:gtceu:rubber": 4
-      }
-    },
-    {
-      "id": "cable_silicone_rubber",
-      "purpose": "2 mB silicone rubber alternative",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembler",
-          "id": "ae2:fluix_covered_cable1",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_covered_cable",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:gtceu:silicone_rubber": 2
-      }
-    },
-    {
-      "id": "cable_styrene_butadiene",
-      "purpose": "1 mB styrene butadiene rubber alternative",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembler",
-          "id": "ae2:fluix_covered_cable2",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_covered_cable",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:gtceu:styrene_butadiene_rubber": 1
-      }
-    },
-    {
-      "id": "blank_pattern_polyethylene",
-      "purpose": "Steel, polyethylene, circuit tag and molten glass",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembler",
-          "id": "gtceu:blank_pattern",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:blank_pattern",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:gtceu:glass": 144
+  "schema": 4,
+  "baseCases": {
+    "ae2": [
+      {
+        "id": "item_storage",
+        "operation": "items",
+        "timeoutTicks": 1800
       },
-      "expectOutputAmount": 1
-    },
-    {
-      "id": "blank_pattern_pvc",
-      "purpose": "PVC alternative produces four blank patterns",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembler",
-          "id": "gtceu:blank_pattern_good",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:blank_pattern",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:gtceu:glass": 288
+      {
+        "id": "fluid_storage",
+        "operation": "fluids",
+        "timeoutTicks": 1800
       },
-      "expectOutputAmount": 4
-    },
-    {
-      "id": "blank_pattern_ptfe",
-      "purpose": "PTFE alternative produces sixteen blank patterns",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembler",
-          "id": "gtceu:blank_pattern_better",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:blank_pattern",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:gtceu:glass": 576
+      {
+        "id": "simulation_custody",
+        "operation": "simulate",
+        "timeoutTicks": 1800
       },
-      "expectOutputAmount": 16
-    },
-    {
-      "id": "blank_pattern_pbi",
-      "purpose": "PBI alternative produces sixty-four blank patterns",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembler",
-          "id": "gtceu:blank_pattern_best",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:blank_pattern",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:gtceu:glass": 1152
+      {
+        "id": "nbt_separation",
+        "operation": "nbt",
+        "timeoutTicks": 1800
       },
-      "expectOutputAmount": 64
-    },
-    {
-      "id": "sky_stone_maceration",
-      "purpose": "Pack GT route for sky stone dust",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "macerator",
-          "id": "ae2:sky_dust",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:sky_dust",
-      "feasible": true
-    },
-    {
-      "id": "budding_quartz_bath",
-      "purpose": "Flawed budding quartz repaired with water",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "chemical_bath",
-          "id": "ae2:flawless_budding_quartz",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:flawless_budding_quartz",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:minecraft:water": 1000
+      {
+        "id": "cell_reinstall",
+        "operation": "cell",
+        "timeoutTicks": 1800
+      },
+      {
+        "id": "power_restore",
+        "operation": "power",
+        "timeoutTicks": 1800
+      },
+      {
+        "id": "crafting_pattern_publication",
+        "operation": "publication",
+        "timeoutTicks": 1800
+      },
+      {
+        "id": "missing_input_plan",
+        "operation": "missing",
+        "timeoutTicks": 1800
+      },
+      {
+        "id": "native_cpu_execution",
+        "operation": "execute",
+        "timeoutTicks": 1800
+      },
+      {
+        "id": "cancel_refund",
+        "operation": "cancel",
+        "timeoutTicks": 1800
       }
-    },
-    {
-      "id": "charged_certus_circuit",
-      "purpose": "GTL lightning processor and circuit configuration 1",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "lightning_processor",
-          "id": "ae2:charged_certus_quartz_crystal",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:charged_certus_quartz_crystal",
-      "feasible": true,
-      "expectCircuit": 1
-    },
-    {
-      "id": "lightning_fluix",
-      "purpose": "GTL lightning route produces two crystals with water",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "lightning_processor",
-          "id": "ae2:fluix_crystal",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_crystal",
-      "feasible": true,
-      "expectInputs": {
-        "fluid:minecraft:water": 1000
+    ],
+    "gtl": [
+      {
+        "id": "logic_processor_plates",
+        "purpose": "Reusable silicon and logic presses with plate inputs",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "forming_press",
+            "id": "ae2:logic_processor",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:logic_processor",
+        "feasible": true,
+        "expectReusableInputs": 2
       },
-      "expectOutputAmount": 2
-    },
-    {
-      "id": "lightning_fluix_pearl",
-      "purpose": "GTL lightning route consumes eight fluix crystals",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "lightning_processor",
-          "id": "ae2:fluix_pearl",
-          "runs": 4
+      {
+        "id": "logic_processor_dusts",
+        "purpose": "HV dust alternative and reusable presses",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "forming_press",
+            "id": "ae2:logic_processor1",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:logic_processor",
+        "feasible": true,
+        "expectReusableInputs": 2
+      },
+      {
+        "id": "calculation_processor_plates",
+        "purpose": "Certus plate and calculation press",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "forming_press",
+            "id": "ae2:calculation_processor",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:calculation_processor",
+        "feasible": true,
+        "expectReusableInputs": 2
+      },
+      {
+        "id": "calculation_processor_dusts",
+        "purpose": "HV certus dust alternative",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "forming_press",
+            "id": "ae2:calculation_processor1",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:calculation_processor",
+        "feasible": true,
+        "expectReusableInputs": 2
+      },
+      {
+        "id": "engineering_processor_plates",
+        "purpose": "Diamond plate and engineering press",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "forming_press",
+            "id": "ae2:engineering_processor1",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:engineering_processor",
+        "feasible": true,
+        "expectReusableInputs": 2
+      },
+      {
+        "id": "engineering_processor_dusts",
+        "purpose": "HV diamond dust alternative",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "forming_press",
+            "id": "ae2:engineering_processor",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:engineering_processor",
+        "feasible": true,
+        "expectReusableInputs": 2
+      },
+      {
+        "id": "fluix_dust_mixing",
+        "purpose": "Three GT dust inputs produce three fluix dust",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "mixer",
+            "id": "ae2:fluix_dust",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_dust",
+        "feasible": true,
+        "expectOutputAmount": 3
+      },
+      {
+        "id": "fluix_water_autoclave",
+        "purpose": "250 mB water per fluix crystal",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "autoclave",
+            "id": "ae2:fluix_crystal_1",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_crystal",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:minecraft:water": 250
         }
-      ],
-      "target": "ae2:fluix_pearl",
-      "feasible": true
-    },
-    {
-      "id": "max_storage_assembly_line",
-      "purpose": "Two fluid inputs and assembly-line research condition",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembly_line",
-          "id": "gtlcore:max_storage",
-          "runs": 4
+      },
+      {
+        "id": "fluix_distilled_autoclave",
+        "purpose": "50 mB distilled water alternative",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "autoclave",
+            "id": "ae2:fluix_crystal_2",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_crystal",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:gtceu:distilled_water": 50
         }
-      ],
-      "target": "gtlcore:max_storage",
-      "feasible": true
-    },
-    {
-      "id": "infinite_cell_assembly_line",
-      "purpose": "Three fluid inputs and high-tier tagged circuits",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembly_line",
-          "id": "gtlcore:infinite_cell_component",
-          "runs": 4
+      },
+      {
+        "id": "silicon_recovery",
+        "purpose": "AE silicon returns to GT silicon dust",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "macerator",
+            "id": "gtceu:silicon_dust",
+            "runs": 4
+          }
+        ],
+        "target": "gtceu:silicon_dust",
+        "feasible": true
+      },
+      {
+        "id": "fluix_crystal_maceration",
+        "purpose": "Fluix crystal returns to dust",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "macerator",
+            "id": "ae2:fluix_dust",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_dust",
+        "feasible": true
+      },
+      {
+        "id": "cable_rubber",
+        "purpose": "4 mB rubber cable coating",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembler",
+            "id": "ae2:fluix_covered_cable",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_covered_cable",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:gtceu:rubber": 4
         }
-      ],
-      "target": "gtlcore:infinite_cell_component",
-      "feasible": true
-    },
-    {
-      "id": "mixed_fluix_to_pearl",
-      "purpose": "GTL mixer -> autoclave -> lightning processor; shared material and fluid accounting",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "mixer",
-          "id": "ae2:fluix_dust",
-          "runs": 8
+      },
+      {
+        "id": "cable_silicone_rubber",
+        "purpose": "2 mB silicone rubber alternative",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembler",
+            "id": "ae2:fluix_covered_cable1",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_covered_cable",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:gtceu:silicone_rubber": 2
+        }
+      },
+      {
+        "id": "cable_styrene_butadiene",
+        "purpose": "1 mB styrene butadiene rubber alternative",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembler",
+            "id": "ae2:fluix_covered_cable2",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_covered_cable",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:gtceu:styrene_butadiene_rubber": 1
+        }
+      },
+      {
+        "id": "blank_pattern_polyethylene",
+        "purpose": "Steel, polyethylene, circuit tag and molten glass",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembler",
+            "id": "gtceu:blank_pattern",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:blank_pattern",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:gtceu:glass": 144
         },
-        {
-          "type": "autoclave",
-          "id": "ae2:fluix_crystal_2",
-          "runs": 24
+        "expectOutputAmount": 1
+      },
+      {
+        "id": "blank_pattern_pvc",
+        "purpose": "PVC alternative produces four blank patterns",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembler",
+            "id": "gtceu:blank_pattern_good",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:blank_pattern",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:gtceu:glass": 288
         },
-        {
-          "type": "lightning_processor",
-          "id": "ae2:fluix_pearl",
-          "runs": 3
-        }
-      ],
-      "target": "ae2:fluix_pearl",
-      "amount": 3,
-      "feasible": true
-    },
-    {
-      "id": "lightning_crystal_to_pearl",
-      "purpose": "GTL multi-output lightning recipe feeds pearl production",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "lightning_processor",
-          "id": "ae2:fluix_crystal",
-          "runs": 12
+        "expectOutputAmount": 4
+      },
+      {
+        "id": "blank_pattern_ptfe",
+        "purpose": "PTFE alternative produces sixteen blank patterns",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembler",
+            "id": "gtceu:blank_pattern_better",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:blank_pattern",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:gtceu:glass": 576
         },
-        {
-          "type": "lightning_processor",
-          "id": "ae2:fluix_pearl",
-          "runs": 3
+        "expectOutputAmount": 16
+      },
+      {
+        "id": "blank_pattern_pbi",
+        "purpose": "PBI alternative produces sixty-four blank patterns",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembler",
+            "id": "gtceu:blank_pattern_best",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:blank_pattern",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:gtceu:glass": 1152
+        },
+        "expectOutputAmount": 64
+      },
+      {
+        "id": "sky_stone_maceration",
+        "purpose": "Pack GT route for sky stone dust",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "macerator",
+            "id": "ae2:sky_dust",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:sky_dust",
+        "feasible": true
+      },
+      {
+        "id": "budding_quartz_bath",
+        "purpose": "Flawed budding quartz repaired with water",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "chemical_bath",
+            "id": "ae2:flawless_budding_quartz",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:flawless_budding_quartz",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:minecraft:water": 1000
         }
-      ],
-      "target": "ae2:fluix_pearl",
-      "amount": 3,
-      "feasible": true
-    },
-    {
-      "id": "pattern_buffer_bulk_fluid_admission",
-      "purpose": "Native GTL buffer admits 64 coating operations with exact fluid totals",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "assembler",
-          "id": "ae2:fluix_covered_cable",
-          "runs": 64
+      },
+      {
+        "id": "charged_certus_circuit",
+        "purpose": "GTL lightning processor and circuit configuration 1",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "lightning_processor",
+            "id": "ae2:charged_certus_quartz_crystal",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:charged_certus_quartz_crystal",
+        "feasible": true,
+        "expectCircuit": 1
+      },
+      {
+        "id": "lightning_fluix",
+        "purpose": "GTL lightning route produces two crystals with water",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "lightning_processor",
+            "id": "ae2:fluix_crystal",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_crystal",
+        "feasible": true,
+        "expectInputs": {
+          "fluid:minecraft:water": 1000
+        },
+        "expectOutputAmount": 2
+      },
+      {
+        "id": "lightning_fluix_pearl",
+        "purpose": "GTL lightning route consumes eight fluix crystals",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "lightning_processor",
+            "id": "ae2:fluix_pearl",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_pearl",
+        "feasible": true
+      },
+      {
+        "id": "max_storage_assembly_line",
+        "purpose": "Two fluid inputs and assembly-line research condition",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembly_line",
+            "id": "gtlcore:max_storage",
+            "runs": 4
+          }
+        ],
+        "target": "gtlcore:max_storage",
+        "feasible": true
+      },
+      {
+        "id": "infinite_cell_assembly_line",
+        "purpose": "Three fluid inputs and high-tier tagged circuits",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembly_line",
+            "id": "gtlcore:infinite_cell_component",
+            "runs": 4
+          }
+        ],
+        "target": "gtlcore:infinite_cell_component",
+        "feasible": true
+      },
+      {
+        "id": "mixed_fluix_to_pearl",
+        "purpose": "GTL mixer -> autoclave -> lightning processor; shared material and fluid accounting",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "mixer",
+            "id": "ae2:fluix_dust",
+            "runs": 8
+          },
+          {
+            "type": "autoclave",
+            "id": "ae2:fluix_crystal_2",
+            "runs": 24
+          },
+          {
+            "type": "lightning_processor",
+            "id": "ae2:fluix_pearl",
+            "runs": 3
+          }
+        ],
+        "target": "ae2:fluix_pearl",
+        "amount": 3,
+        "feasible": true
+      },
+      {
+        "id": "lightning_crystal_to_pearl",
+        "purpose": "GTL multi-output lightning recipe feeds pearl production",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "lightning_processor",
+            "id": "ae2:fluix_crystal",
+            "runs": 12
+          },
+          {
+            "type": "lightning_processor",
+            "id": "ae2:fluix_pearl",
+            "runs": 3
+          }
+        ],
+        "target": "ae2:fluix_pearl",
+        "amount": 3,
+        "feasible": true
+      },
+      {
+        "id": "pattern_buffer_bulk_fluid_admission",
+        "purpose": "Native GTL buffer admits 64 coating operations with exact fluid totals",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "assembler",
+            "id": "ae2:fluix_covered_cable",
+            "runs": 64
+          }
+        ],
+        "target": "ae2:fluix_covered_cable",
+        "amount": 64,
+        "feasible": true,
+        "dispatchRuns": 64,
+        "expectInputs": {
+          "fluid:gtceu:rubber": 4
         }
-      ],
-      "target": "ae2:fluix_covered_cable",
-      "amount": 64,
-      "feasible": true,
-      "dispatchRuns": 64,
-      "expectInputs": {
-        "fluid:gtceu:rubber": 4
+      },
+      {
+        "id": "autoclave_missing_water",
+        "purpose": "Real GTL autoclave recipe with all water deliberately absent",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "autoclave",
+            "id": "ae2:fluix_crystal_1",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_crystal",
+        "amount": 4,
+        "feasible": false,
+        "missing": "fluid:minecraft:water",
+        "expectInputs": {
+          "fluid:minecraft:water": 250
+        }
+      },
+      {
+        "id": "long_amount_missing_inputs",
+        "purpose": "GTL long order above Integer.MAX_VALUE reports missing inputs without truncation",
+        "source": "kubejs/server_scripts/ae2.js",
+        "recipes": [
+          {
+            "type": "mixer",
+            "id": "ae2:fluix_dust",
+            "runs": 4
+          }
+        ],
+        "target": "ae2:fluix_dust",
+        "amount": 2147483648,
+        "feasible": false
       }
+    ]
+  },
+  "neoecoCases": [
+    {
+      "id": "gtl_items",
+      "number": 1,
+      "category": "storage",
+      "operation": "items",
+      "timeoutTicks": 2400
     },
     {
-      "id": "autoclave_missing_water",
-      "purpose": "Real GTL autoclave recipe with all water deliberately absent",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "autoclave",
-          "id": "ae2:fluix_crystal_1",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_crystal",
-      "amount": 4,
-      "feasible": false,
-      "missing": "fluid:minecraft:water",
-      "expectInputs": {
-        "fluid:minecraft:water": 250
-      }
+      "id": "gtl_fluids",
+      "number": 2,
+      "category": "storage",
+      "operation": "fluids",
+      "timeoutTicks": 2400
     },
     {
-      "id": "long_amount_missing_inputs",
-      "purpose": "GTL long order above Integer.MAX_VALUE reports missing inputs without truncation",
-      "source": "kubejs/server_scripts/ae2.js",
-      "recipes": [
-        {
-          "type": "mixer",
-          "id": "ae2:fluix_dust",
-          "runs": 4
-        }
-      ],
-      "target": "ae2:fluix_dust",
-      "amount": 2147483648,
-      "feasible": false
+      "id": "circuit_nbt",
+      "number": 3,
+      "category": "storage",
+      "operation": "nbt",
+      "timeoutTicks": 2400
+    },
+    {
+      "id": "tagged_inputs",
+      "number": 4,
+      "category": "storage",
+      "operation": "tags",
+      "timeoutTicks": 2400
+    },
+    {
+      "id": "long_inventory",
+      "number": 5,
+      "category": "storage",
+      "operation": "long",
+      "timeoutTicks": 2400
+    },
+    {
+      "id": "storage_capacity",
+      "number": 6,
+      "category": "storage",
+      "operation": "capacity",
+      "timeoutTicks": 2400
+    },
+    {
+      "id": "workbench_order",
+      "number": 7,
+      "category": "crafting",
+      "operation": "workbench",
+      "timeoutTicks": 2400
+    },
+    {
+      "id": "plain_entry_cpu",
+      "number": 8,
+      "category": "crafting",
+      "operation": "plain",
+      "timeoutTicks": 2400
+    },
+    {
+      "id": "eco_entry_cpu",
+      "number": 9,
+      "category": "crafting",
+      "operation": "request",
+      "timeoutTicks": 2400
+    },
+    {
+      "id": "gtl_multistep_order",
+      "number": 10,
+      "category": "crafting",
+      "operation": "gt",
+      "timeoutTicks": 6000,
+      "reference": "mixed_fluix_to_pearl"
+    },
+    {
+      "id": "alternative_fluids",
+      "number": 11,
+      "category": "crafting",
+      "operation": "alternatives",
+      "timeoutTicks": 2400,
+      "reference": "fluix_distilled_autoclave"
+    },
+    {
+      "id": "pattern_output_multiplier",
+      "number": 12,
+      "category": "crafting",
+      "operation": "gt",
+      "timeoutTicks": 2400,
+      "reference": "blank_pattern_pvc"
+    },
+    {
+      "id": "missing_real_input",
+      "number": 13,
+      "category": "crafting",
+      "operation": "missing",
+      "timeoutTicks": 2400,
+      "reference": "autoclave_missing_water"
+    },
+    {
+      "id": "long_order",
+      "number": 14,
+      "category": "crafting",
+      "operation": "long",
+      "timeoutTicks": 2400,
+      "reference": "long_amount_missing_inputs"
+    },
+    {
+      "id": "neo_energized_fluix",
+      "number": 15,
+      "category": "processing",
+      "operation": "small",
+      "timeoutTicks": 2400,
+      "target": "neoecoae:energized_fluix_crystal"
+    },
+    {
+      "id": "neo_crystal_ingot",
+      "number": 16,
+      "category": "processing",
+      "operation": "small",
+      "timeoutTicks": 2400,
+      "target": "neoecoae:crystal_ingot"
+    },
+    {
+      "id": "neo_fluid_output",
+      "number": 17,
+      "category": "processing",
+      "operation": "small",
+      "timeoutTicks": 2400,
+      "target": "fluid:neoecoae:cryotheum_solution"
+    },
+    {
+      "id": "neo_large_workstation",
+      "number": 18,
+      "category": "processing",
+      "operation": "large",
+      "timeoutTicks": 2400,
+      "target": "neoecoae:energized_fluix_crystal"
+    },
+    {
+      "id": "gtl_reusable_press",
+      "number": 19,
+      "category": "processing",
+      "operation": "gt",
+      "timeoutTicks": 2400,
+      "reference": "logic_processor_plates"
+    },
+    {
+      "id": "gtl_programmed_circuit",
+      "number": 20,
+      "category": "processing",
+      "operation": "gt",
+      "timeoutTicks": 2400,
+      "reference": "charged_certus_circuit"
+    },
+    {
+      "id": "gtl_buffer_batch",
+      "number": 21,
+      "category": "processing",
+      "operation": "buffer",
+      "timeoutTicks": 2400,
+      "reference": "pattern_buffer_bulk_fluid_admission"
+    },
+    {
+      "id": "gtl_tagged_circuit",
+      "number": 22,
+      "category": "processing",
+      "operation": "gt",
+      "timeoutTicks": 2400,
+      "reference": "blank_pattern_polyethylene"
+    },
+    {
+      "id": "gtl_to_neo_chain",
+      "number": 23,
+      "category": "processing",
+      "operation": "cross",
+      "timeoutTicks": 2400,
+      "target": "neoecoae:energized_fluix_crystal"
+    },
+    {
+      "id": "neo_coolant_consumption",
+      "number": 24,
+      "category": "processing",
+      "operation": "coolant",
+      "timeoutTicks": 2400,
+      "target": "fluid:neoecoae:cryotheum_solution"
+    },
+    {
+      "id": "blocked_output_resume",
+      "number": 25,
+      "category": "recovery",
+      "operation": "blocked",
+      "timeoutTicks": 2400,
+      "target": "neoecoae:crystal_ingot"
+    },
+    {
+      "id": "power_loss_resume",
+      "number": 26,
+      "category": "recovery",
+      "operation": "power",
+      "timeoutTicks": 2400,
+      "target": "neoecoae:crystal_ingot"
+    },
+    {
+      "id": "missing_press_resume",
+      "number": 27,
+      "category": "recovery",
+      "operation": "tools",
+      "timeoutTicks": 2400,
+      "reference": "logic_processor_plates"
+    },
+    {
+      "id": "cancel_refund",
+      "number": 28,
+      "category": "recovery",
+      "operation": "cancel",
+      "timeoutTicks": 2400
+    },
+    {
+      "id": "cold_restart",
+      "number": 29,
+      "category": "recovery",
+      "operation": "restart",
+      "timeoutTicks": 2400,
+      "target": "neoecoae:crystal_ingot"
+    },
+    {
+      "id": "concurrent_orders",
+      "number": 30,
+      "category": "recovery",
+      "operation": "concurrent",
+      "timeoutTicks": 2400
     }
   ]
 }
