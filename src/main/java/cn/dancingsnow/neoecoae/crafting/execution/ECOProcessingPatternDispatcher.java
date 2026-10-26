@@ -88,7 +88,11 @@ final class ECOProcessingPatternDispatcher {
         Object gtTarget = logic == null ? provider : logic;
         var inputScaling = direct == null ? ECOGregTechProcessingDispatch.inputScaling(gtTarget)
                 : ECOBatchInputScaling.LINEAR;
-        boolean negotiatedCapacity = gtBuffer || ECOGregTechProcessingDispatch.hasCapacityContract(gtTarget);
+        // GTL's provider limit includes its own auto-expand switch and policy. ECO jobs
+        // learn from actual acceptance instead. Native buffers retain their physical
+        // overflow guard; a configuration item must travel once with the whole batch.
+        boolean atomicBatch = gtBuffer || java.util.Arrays.stream(request.inputs())
+                .anyMatch(counter -> counter.keySet().stream().anyMatch(inputScaling.perBatch()));
         boolean advancedPattern = direct == null && ECOAdvancedAEPatternScaling.isAdvancedPattern(request.pattern());
         long transportLimit = direct == null ? Long.MAX_VALUE : direct.maxBatchSize(request.pattern());
         var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
@@ -109,14 +113,14 @@ final class ECOProcessingPatternDispatcher {
                 && visitAttempts < MAX_ATTEMPTS_PER_VISIT && !provider.isBusy()) {
             attempts++;
             visitAttempts++;
-            long offer = Math.min(negotiatedCapacity && !ramp.backingOff
+            long offer = Math.min(atomicBatch && !ramp.backingOff
                     ? limit - ramp.owned : ramp.offer(limit - ramp.owned), transportLimit);
             var plan = planning.plan(offer, limit - ramp.owned, onePower, service, ECOBatchMode.LINEAR);
             if (plan == null) {
                 state.nextDispatchTick = tick + 1;
                 break;
             }
-            if (negotiatedCapacity) {
+            if (gtBuffer) {
                 long capacity = ECOGregTechProcessingDispatch.maxOperations(gtTarget, request.pattern(),
                         request.inputs(), plan.craftCount());
                 if (capacity == 0) {

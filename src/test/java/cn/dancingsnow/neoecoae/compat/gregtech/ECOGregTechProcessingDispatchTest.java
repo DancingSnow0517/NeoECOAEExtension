@@ -19,16 +19,16 @@ class ECOGregTechProcessingDispatchTest {
     public interface CapacityProvider extends ICraftingProvider, IPatternProviderAutoExpand {}
     public interface Holder extends ICraftingProvider { Object getLogic(); }
 
-    @Test void optionalCapacityContractsAreResolvedThroughProviderHostsAndBoundedToTheOffer() {
+    @Test void gtlAutoExpandPolicyCannotLimitEcoOwnedBatchesThroughProviderHosts() {
         var logic = mock(CapacityProvider.class);
         var host = mock(Holder.class);
         when(host.getLogic()).thenReturn(logic);
         var pattern = mock(IPatternDetails.class);
-        when(logic.gtlcore$getMaxPatternOperations(pattern, 10)).thenReturn(50L);
-        assertTrue(ECOGregTechProcessingDispatch.hasCapacityContract(host));
+        when(logic.gtlcore$getMaxPatternOperations(pattern, 10)).thenReturn(1L);
         assertEquals(10, ECOGregTechProcessingDispatch.maxOperations(host, pattern, new KeyCounter[0], 10));
         when(logic.gtlcore$getMaxPatternOperations(pattern, 10)).thenReturn(-50L);
-        assertEquals(0, ECOGregTechProcessingDispatch.maxOperations(host, pattern, new KeyCounter[0], 10));
+        assertEquals(10, ECOGregTechProcessingDispatch.maxOperations(host, pattern, new KeyCounter[0], 10));
+        verify(logic, never()).gtlcore$getMaxPatternOperations(any(), anyLong());
     }
 
     @Test void circuitConfigurationRuleRequiresBothGtlSupportAndTheExactItemIdentifier() {
@@ -73,7 +73,8 @@ class ECOGregTechProcessingDispatchTest {
     @Test void aRecursiveHostCannotTrapTheDispatchThread() {
         var host = mock(Holder.class);
         when(host.getLogic()).thenReturn(host);
-        assertFalse(ECOGregTechProcessingDispatch.hasCapacityContract(host));
+        assertEquals(10, ECOGregTechProcessingDispatch.maxOperations(host, mock(IPatternDetails.class),
+                new KeyCounter[0], 10));
         assertSame(ECOBatchInputScaling.LINEAR, ECOGregTechProcessingDispatch.inputScaling(host));
     }
 

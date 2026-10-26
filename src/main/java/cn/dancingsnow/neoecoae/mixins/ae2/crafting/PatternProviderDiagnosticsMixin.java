@@ -30,7 +30,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Observes existing calls only: no extra target probes, insertion, or changes to AE2's return value. */
-@Mixin(value = PatternProviderLogic.class, remap = false)
+// INVOKE injectors must have a strictly higher priority than MAE2 1.x's
+// priority-1000 overwrite. Injection runs after method merging, against that transport.
+@Mixin(value = PatternProviderLogic.class, remap = false, priority = 1100)
 public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushDiagnostics, ECOProcessingTargetProvider {
     @Shadow @Final private PatternProviderLogicHost host;
     @Shadow @Final private List<GenericStack> sendList;

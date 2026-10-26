@@ -113,12 +113,12 @@ class ECOGregTechProcessingDispatchIntegrationTest {
         verify(f.energy, never()).injectPower(anyDouble(), any());
     }
 
-    @Test void gtlProviderNegotiatesLiveCapacityBeforeEachChunk() {
+    @Test void gtlProviderUsesEcoDoublingEvenWhenGtlAutoExpandIsDisabled() {
         var f = new Fixture(16, false);
         var provider = f.gtlProvider();
         var queried = new ArrayList<Long>();
         when(((IPatternProviderAutoExpand) provider).gtlcore$getMaxPatternOperations(eq(f.pattern), anyLong()))
-                .thenAnswer(call -> { queried.add(call.getArgument(1)); return 4L; });
+                .thenAnswer(call -> { queried.add(call.getArgument(1)); return 1L; });
         var offers = new ArrayList<Long>();
         var stored = new KeyCounter();
         var result = f.dispatch(provider, (request, target) -> {
@@ -127,8 +127,8 @@ class ECOGregTechProcessingDispatchIntegrationTest {
             return true;
         });
         assertEquals(16, result.acceptedCrafts());
-        assertEquals(List.of(16L, 12L, 8L, 4L), queried);
-        assertEquals(List.of(4L, 4L, 4L, 4L), offers);
+        assertTrue(queried.isEmpty());
+        assertEquals(List.of(1L, 2L, 4L, 8L, 1L), offers);
         assertEquals(48, stored.get(f.iron));
         assertEquals(8_000, stored.get(f.water));
     }
@@ -158,25 +158,51 @@ class ECOGregTechProcessingDispatchIntegrationTest {
         assertEquals(1, provider.stored.get(f.circuit));
     }
 
+    @Test void aConfigurationBatchBacksOffUsingEcoPolicyAndRefundsTheRejectedOffer() {
+        var f = new Fixture(64, true);
+        var provider = f.gtlProvider();
+        when(((IPatternProviderAutoExpand) provider).gtlcore$getMaxPatternOperations(any(), anyLong()))
+                .thenThrow(new AssertionError("GTL must not choose an ECO job's batch"));
+        var offers = new ArrayList<Long>();
+        var stored = new KeyCounter();
+        var result = f.dispatch(provider, (request, target) -> {
+            offers.add(request.allowedCrafts());
+            if (request.allowedCrafts() > 32) return false;
+            request.pattern().pushInputsToExternalInventory(request.inputs(), stored::add);
+            return true;
+        });
+        assertEquals(List.of(64L, 32L), offers);
+        assertEquals(32, result.acceptedCrafts());
+        assertEquals(1, stored.get(f.circuit));
+        assertEquals(96, stored.get(f.iron));
+        assertEquals(96, f.inventory.list.get(f.iron));
+        assertEquals(0, f.inventory.list.get(f.circuit));
+        assertEquals(64, f.job.waitingFor.list.get(f.output));
+        assertFalse(f.job.suspended);
+    }
+
     @Test void unrelatedResourcesNeverEnterTheNativeItemFluidBufferLane() {
         var f = new Fixture(16, false);
         f.inputs[0].add(mock(AEKey.class), 1);
         assertFalse(ECOProcessingPatternDispatcher.supportsScaledDispatch(f.request, f.gtlBuffer()));
     }
 
-    @Test void capacityChangesStopFurtherMaterialExtractionInTheSameVisit() {
+    @Test void liveProviderBackpressureStopsEcoDoublingWithoutReadingGtlPolicy() {
         var f = new Fixture(16, false);
         var provider = f.gtlProvider();
         when(((IPatternProviderAutoExpand) provider).gtlcore$getMaxPatternOperations(any(), anyLong()))
                 .thenReturn(4L, 0L);
-        var result = f.dispatch(provider, (request, target) -> true);
-        assertEquals(4, result.acceptedCrafts());
-        assertEquals(36, f.inventory.list.get(f.iron));
-        assertEquals(12, f.progress.value);
-        assertTrue(f.dispatcher.isScaledFallbackDeferred(f.request, provider));
+        var result = f.dispatch(provider, (request, target) -> {
+            when(provider.isBusy()).thenReturn(true);
+            return true;
+        });
+        assertEquals(1, result.acceptedCrafts());
+        assertEquals(45, f.inventory.list.get(f.iron));
+        assertEquals(15, f.progress.value);
+        verify((IPatternProviderAutoExpand) provider, never()).gtlcore$getMaxPatternOperations(any(), anyLong());
     }
 
-    @Test void brokenCapacityObservationUsesOnlyTheNativeSingleCopyContract() {
+    @Test void brokenGtlAutoExpandPolicyCannotDisableEcoDoubling() {
         var f = new Fixture(16, false);
         var provider = f.gtlProvider();
         when(((IPatternProviderAutoExpand) provider).gtlcore$getMaxPatternOperations(any(), anyLong()))
@@ -184,7 +210,7 @@ class ECOGregTechProcessingDispatchIntegrationTest {
         var offers = new ArrayList<Long>();
         var result = f.dispatch(provider, (request, target) -> { offers.add(request.allowedCrafts()); return true; });
         assertEquals(16, result.acceptedCrafts());
-        assertTrue(offers.stream().allMatch(count -> count == 1L));
+        assertEquals(List.of(1L, 2L, 4L, 8L, 1L), offers);
         assertFalse(f.job.suspended);
     }
 

@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.resources.ResourceLocation;
 
-/** Optional GT transports and GTL capacity queries. No GT classes are linked when the mods are absent. */
+/** Optional GT transports and physical buffer limits. ECO owns batch sizing, independently of GTL auto-expand. */
 public final class ECOGregTechProcessingDispatch {
     private static final String GT_BUFFER =
             "com.gregtechceu.gtceu.integration.ae2.machine.MEPatternBufferPartMachine";
@@ -28,11 +28,9 @@ public final class ECOGregTechProcessingDispatch {
         @Override protected Access computeValue(Class<?> type) {
             boolean gtlBuffer = hasType(type, GTL_BUFFER);
             boolean stockBuffer = BatchInputProvider.class.isAssignableFrom(type) && hasType(type, GT_BUFFER);
-            Method capacity = hasType(type, GTL_CAPACITY)
-                    ? method(type, "gtlcore$getMaxPatternOperations", IPatternDetails.class, long.class) : null;
             Method bufferCapacity = gtlBuffer
                     ? method(type, "gtlcore$graphCapacity", IPatternDetails.class, Map.class, long.class) : null;
-            return new Access(gtlBuffer || stockBuffer, gtlBuffer || capacity != null, capacity, bufferCapacity,
+            return new Access(gtlBuffer || stockBuffer, gtlBuffer || hasType(type, GTL_CAPACITY), bufferCapacity,
                     method(type, "getLogic"));
         }
     };
@@ -44,11 +42,6 @@ public final class ECOGregTechProcessingDispatch {
 
     public static boolean isBuffer(Object provider) {
         return provider != null && ACCESS.get(provider.getClass()).buffer();
-    }
-
-    public static boolean hasCapacityContract(Object provider) {
-        Object logic = logic(provider);
-        return logic != null && ACCESS.get(logic.getClass()).capacity() != null;
     }
 
     public static ECOBatchInputScaling inputScaling(Object provider) {
@@ -79,9 +72,6 @@ public final class ECOGregTechProcessingDispatch {
                     for (var entry : counter) perCraft.merge(entry.getKey(), entry.getLongValue(), Math::addExact);
                 }
                 return bounded(access.bufferCapacity().invoke(logic, pattern, perCraft, requested), requested);
-            }
-            if (access.capacity() != null) {
-                return bounded(access.capacity().invoke(logic, pattern, requested), requested);
             }
             return requested;
         } catch (ReflectiveOperationException | RuntimeException | LinkageError unavailable) {
@@ -116,7 +106,7 @@ public final class ECOGregTechProcessingDispatch {
         Object current = provider;
         for (int depth = 0; current != null && depth < 8; depth++) {
             var access = ACCESS.get(current.getClass());
-            if (access.buffer() || access.capacity() != null || access.logic() == null) return current;
+            if (access.buffer() || access.circuitConfiguration() || access.logic() == null) return current;
             try {
                 Object next = access.logic().invoke(current);
                 if (next == current) return current;
@@ -144,7 +134,7 @@ public final class ECOGregTechProcessingDispatch {
         return hasType(type.getSuperclass(), name);
     }
 
-    private record Access(boolean buffer, boolean circuitConfiguration, Method capacity, Method bufferCapacity,
+    private record Access(boolean buffer, boolean circuitConfiguration, Method bufferCapacity,
                           Method logic) {}
     private record BufferPush(IPatternDetails pattern, IPatternDetails execution, KeyCounter[] inputs) {}
 }
