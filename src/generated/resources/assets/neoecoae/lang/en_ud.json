@@ -1,4 +1,8 @@
 {
+  "gui.neoecoae.storage.bulk_marker.raise": "Raise one level",
+  "gui.neoecoae.storage.bulk_marker.lower": "Lower one level",
+  "gui.neoecoae.storage.bulk_marker.remove": "Remove marker",
+  "gui.neoecoae.storage.bulk_marker.occupied": "Empty this resource's entire compression chain from the disk before removing its marker",
   "item.neoecoae.network_pull_card": "Network Pull Card",
   "gui.neoecoae.fluid_input_hatch.stock": "Buffered fluid",
   "gui.neoecoae.fluid_input_hatch.filter": "Marked fluid",
@@ -899,7 +903,7 @@
   "gui.neoecoae.workstation.fe_value": "Network FE consumption: %s FE/t; reserved: %s FE",
   "gui.neoecoae.workstation.fe_requirement": "Network FE requires Applied Flux; missing FE can be paid with equivalent AE.",
   "gui.neoecoae.workstation.task_duration": "Processing time: %s / %s ticks",
-  "gui.neoecoae.storage.bulk_cell.action.migrate": "Migrate matching resources now",
+  "gui.neoecoae.storage.bulk_cell.action.migrate": "Mark and migrate matching resources now",
   "gui.neoecoae.storage.bulk_cell.action.priority": "Adjust storage priority",
   "gui.neoecoae.storage.cell.action.configure": "Adjust stored resource types",
   "gui.neoecoae.storage.cell.priority.title": "Cell priority (relative to host)",

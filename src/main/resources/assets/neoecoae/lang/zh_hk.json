@@ -1,4 +1,8 @@
 {
+  "gui.neoecoae.storage.bulk_marker.raise": "調高一級",
+  "gui.neoecoae.storage.bulk_marker.lower": "調低一級",
+  "gui.neoecoae.storage.bulk_marker.remove": "取消標記",
+  "gui.neoecoae.storage.bulk_marker.occupied": "請先清空目前磁碟內該種資源及其所有壓縮形態，才能取消標記",
   "item.neoecoae.network_pull_card": "網絡拉取卡",
   "gui.neoecoae.fluid_input_hatch.stock": "倉内緩存",
   "gui.neoecoae.fluid_input_hatch.filter": "標記流体",
@@ -1063,7 +1067,7 @@
   "gui.neoecoae.processing.state.paused": "已暫停",
   "gui.neoecoae.processing.state.queued": "排隊中",
   "gui.neoecoae.processing.state.unavailable": "無法使用",
-  "gui.neoecoae.storage.bulk_cell.action.migrate": "立即遷移相符資源",
+  "gui.neoecoae.storage.bulk_cell.action.migrate": "立即標記並遷移相符資源",
   "gui.neoecoae.storage.bulk_cell.action.priority": "調整儲存優先級",
   "gui.neoecoae.storage.cell.action.configure": "調整物品儲存種類",
   "gui.neoecoae.storage.cell.priority.title": "儲存元件優先級（相對主機）",

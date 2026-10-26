@@ -322,7 +322,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 (position, expected) -> StorageCellUiInsertion.insert(this, holder.player, position, expected),
                 () -> new ItemStack(getBlockState().getBlock()),
                 new StorageHostUI.CellActions(
-                    (position, expected) -> migrateMarkedBulkCell(holder.player, position, expected),
+                    (position, expected) -> markAndMigrateBulkCell(holder.player, position, expected),
                     (position, expected) -> {
                         selectedCellPriority[0] = new CellPriorityTarget(position, expected);
                         cellPriorityWindow.setDisplay(true);
@@ -426,7 +426,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (level == null || level.isClientSide || !canPlayerInteract(player)) return preview;
         for (var drive : getStorageDrivesForIntegration()) {
             if (!drive.getBlockPos().equals(position) || drive.isRemoved()) continue;
-            var items = StorageBulkMarkingIntegration.previewMarkedCell(this, position);
+            var items = StorageBulkMarkingIntegration.previewMarkAndMigrateCell(
+                // A selected-cell action is an explicit migration request; do not hide a
+                // recognised chain merely because its current stock is below the global
+                // convenience auto-mark threshold.
+                this, position, 0L);
             preview.putUUID("cell_id", drive.getCellInteractionId());
             preview.putInt("total", items.size());
             var entries = new net.minecraft.nbt.ListTag();
@@ -437,23 +441,26 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return preview;
     }
 
-    private void migrateMarkedBulkCell(Player player, BlockPos position, UUID expected) {
+    private void markAndMigrateBulkCell(Player player, BlockPos position, UUID expected) {
         if (!canPlayerInteract(player)) return;
         // A confirmation belongs to the installation that was previewed, even if the drive was swapped meanwhile.
         if (expected == null || getStorageDrivesForIntegration().stream().noneMatch(drive ->
             !drive.isRemoved() && drive.getBlockPos().equals(position)
                 && expected.equals(drive.getCellInteractionId()))) return;
-        StorageBulkMarkingIntegration.MigrationResult result =
-            StorageBulkMarkingIntegration.migrateMarkedCell(this, position);
+        StorageBulkMarkingIntegration.MarkResult result =
+            StorageBulkMarkingIntegration.markAndMigrateCell(
+                // The confirmation above previews every positive-stock recognised chain.
+                this, position, 0L);
         String key = switch (result.status()) {
-            case SUCCESS -> "gui.neoecoae.storage.bulk_cell.migrate.result.success";
-            case NO_BULK_CELL -> "gui.neoecoae.storage.bulk_cell.migrate.result.no_bulk_cell";
-            case BUSY -> "gui.neoecoae.storage.bulk_cell.migrate.result.busy";
-            case INVALID_THRESHOLD -> "gui.neoecoae.storage.bulk_cell.migrate.result.busy";
-            case UNAVAILABLE -> "gui.neoecoae.storage.bulk_cell.migrate.result.unavailable";
+            case SUCCESS -> "gui.neoecoae.storage.bulk_mark.result.success";
+            case NO_BULK_CELL -> "gui.neoecoae.storage.bulk_mark.result.no_bulk_cell";
+            case BUSY -> "gui.neoecoae.storage.bulk_mark.result.busy";
+            case INVALID_THRESHOLD -> "gui.neoecoae.storage.bulk_mark.result.invalid_threshold";
+            case UNAVAILABLE -> "gui.neoecoae.storage.bulk_mark.result.unavailable";
         };
         player.displayClientMessage(result.status() == StorageBulkMarkingIntegration.Status.SUCCESS
-            ? net.minecraft.network.chat.Component.translatable(key, result.transferred())
+            ? net.minecraft.network.chat.Component.translatable(key, result.added(), result.alreadyMarked(),
+                result.noSpace(), result.transferred())
             : net.minecraft.network.chat.Component.translatable(key), true);
     }
 

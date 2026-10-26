@@ -1,4 +1,8 @@
 {
+  "gui.neoecoae.storage.bulk_marker.raise": "调高一级",
+  "gui.neoecoae.storage.bulk_marker.lower": "调低一级",
+  "gui.neoecoae.storage.bulk_marker.remove": "取消标记",
+  "gui.neoecoae.storage.bulk_marker.occupied": "请先清空当前盘内该种资源及其所有压缩形态，才能取消标记",
   "item.neoecoae.network_pull_card": "网络拉取卡",
   "gui.neoecoae.fluid_input_hatch.stock": "仓内缓存",
   "gui.neoecoae.fluid_input_hatch.filter": "标记流体",
@@ -1330,7 +1334,7 @@
   "gui.neoecoae.processing.state.paused": "已暂停",
   "gui.neoecoae.processing.state.queued": "排队中",
   "gui.neoecoae.processing.state.unavailable": "不可用",
-  "gui.neoecoae.storage.bulk_cell.action.migrate": "立即迁移匹配资源",
+  "gui.neoecoae.storage.bulk_cell.action.migrate": "立即标记并迁移匹配资源",
   "gui.neoecoae.storage.bulk_cell.action.priority": "调整存储优先级",
   "gui.neoecoae.storage.cell.action.configure": "调整物品存储种类",
   "gui.neoecoae.storage.cell.priority.title": "存储盘优先级（相对主机）",

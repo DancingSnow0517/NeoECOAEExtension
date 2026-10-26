@@ -106,6 +106,37 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     public List<AEItemKey> getStoredChainFilters() { return List.copyOf(accounts.keySet()); }
     public int getUnresolvedEntryCount() { refreshUnresolved(); return unresolved.size(); }
     public long getRecoveringEntryCount() { return accounts.values().stream().filter(account -> !isCurrent(account.units())).count(); }
+
+    /** Check exact balances, including lower remainders and outputs owned by this disk. */
+    public boolean canRemoveMarker(AEItemKey marker) {
+        refreshUnresolved();
+        if (!unresolved.isEmpty()) return false;
+        BulkUnits current = ECOCompressionService.units(marker);
+        for (var entry : accounts.entrySet()) {
+            Account account = entry.getValue();
+            if (account.amount().signum() > 0 && (current.contains(entry.getKey())
+                || account.units().items().stream().anyMatch(current::contains))) return false;
+        }
+        return pending.entrySet().stream().noneMatch(entry -> entry.getValue().signum() > 0
+            && (current.contains(entry.getKey()) || accounts.values().stream()
+                .anyMatch(account -> account.units().contains(marker) && account.units().contains(entry.getKey()))));
+    }
+
+    /** Keep occupied slots when any workbench, drag operation or clear-all action edits the config. */
+    public void protectOccupiedMarkers(List<GenericStack> previous, appeng.util.ConfigInventory proposed) {
+        proposed.beginBatch();
+        try {
+            for (int slot = 0; slot < Math.min(previous.size(), proposed.size()); slot++) {
+                GenericStack before = previous.get(slot);
+                if (before == null || !(before.what() instanceof AEItemKey marker)) continue;
+                var after = proposed.getKey(slot);
+                if (after instanceof AEItemKey item && ECOCompressionService.sameChain(marker, item)) continue;
+                if (!canRemoveMarker(marker)) proposed.setStack(slot, before);
+            }
+        } finally {
+            proposed.endBatchSuppressed();
+        }
+    }
     public Map<AEItemKey, BigInteger> getStoredEntries() {
         Map<AEItemKey, BigInteger> result = new LinkedHashMap<>();
         accounts.forEach((key, account) -> result.put(key, account.amount()));
@@ -209,9 +240,14 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         BulkUnits units = ECOCompressionService.units(item);
         AEItemKey before = cutoffs.getOrDefault(units.items().getFirst(), item);
         AEItemKey selected = units.items().get(Math.floorMod(units.cutoff(before) + delta, units.items().size()));
+        setCompressionCutoff(selected);
+        return selected;
+    }
+
+    public void setCompressionCutoff(AEItemKey selected) {
+        BulkUnits units = ECOCompressionService.units(selected);
         cutoffs.put(units.items().getFirst(), selected);
         saveChanges();
-        return selected;
     }
 
     /** Ownership of already-consumed crafting inputs is transferred to this disk, never to a grid pivot. */

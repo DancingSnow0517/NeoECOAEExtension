@@ -20,6 +20,9 @@ public final class StorageBulkMarkingIntegration {
         (host, position) -> new MigrationResult(Status.UNAVAILABLE, 0L);
     private static BiFunction<ECOStorageSystemBlockEntity, BlockPos, List<ItemStack>> migrationPreview =
         (host, position) -> List.of();
+    private static CellMarker cellMarker = (host, position, threshold) ->
+        new MarkResult(Status.UNAVAILABLE, 0, 0, 0, 0, 0L);
+    private static CellMarkerPreview cellMarkerPreview = (host, position, threshold) -> List.of();
 
     private StorageBulkMarkingIntegration() {
     }
@@ -49,6 +52,12 @@ public final class StorageBulkMarkingIntegration {
         StorageBulkMarkingIntegration.sameMarkerChain = sameMarkerChain;
         StorageBulkMarkingIntegration.cellMigrator = cellMigrator;
         StorageBulkMarkingIntegration.migrationPreview = migrationPreview;
+    }
+
+    /** Registers the selected-cell action used by the storage panel's mark-and-migrate button. */
+    public static void registerCellMarking(CellMarker marker, CellMarkerPreview preview) {
+        StorageBulkMarkingIntegration.cellMarker = marker;
+        StorageBulkMarkingIntegration.cellMarkerPreview = preview;
     }
 
     public static void register(
@@ -96,9 +105,32 @@ public final class StorageBulkMarkingIntegration {
         return handler == null ? List.of() : migrationPreview.apply(host, position);
     }
 
+    public static MarkResult markAndMigrateCell(
+        ECOStorageSystemBlockEntity host, BlockPos position, long threshold
+    ) {
+        return handler == null ? new MarkResult(Status.UNAVAILABLE, 0, 0, 0, 0, 0L)
+            : cellMarker.mark(host, position, threshold);
+    }
+
+    public static List<ItemStack> previewMarkAndMigrateCell(
+        ECOStorageSystemBlockEntity host, BlockPos position, long threshold
+    ) {
+        return handler == null ? List.of() : cellMarkerPreview.preview(host, position, threshold);
+    }
+
     @FunctionalInterface
     public interface Handler {
         MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold, boolean migrate);
+    }
+
+    @FunctionalInterface
+    public interface CellMarker {
+        MarkResult mark(ECOStorageSystemBlockEntity host, BlockPos position, long threshold);
+    }
+
+    @FunctionalInterface
+    public interface CellMarkerPreview {
+        List<ItemStack> preview(ECOStorageSystemBlockEntity host, BlockPos position, long threshold);
     }
 
     public record MarkResult(

@@ -820,6 +820,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.processing.state.paused", "Paused");
         provider.add("gui.neoecoae.processing.state.queued", "Queued");
         provider.add("gui.neoecoae.processing.state.unavailable", "Unavailable");
+        provider.add("gui.neoecoae.storage.bulk_cell.action.migrate", "Mark and migrate matching resources now");
         provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.title", "Confirm automatic migration");
         provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.description", "Move matching items into this bulk cell");
         provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.loading", "Checking available items...");

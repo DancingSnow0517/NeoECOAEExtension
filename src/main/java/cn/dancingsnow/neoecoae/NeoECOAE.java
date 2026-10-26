@@ -95,6 +95,9 @@ public class NeoECOAE {
             cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::isSameMarkerChain,
             cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::migrateMarkedCell,
             cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::previewMarkedCell);
+        cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.registerCellMarking(
+            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::markAndMigrateCell,
+            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::previewMarkAndMigrateCell);
 
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();

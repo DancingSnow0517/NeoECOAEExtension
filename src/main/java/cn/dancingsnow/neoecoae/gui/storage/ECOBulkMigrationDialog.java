@@ -23,14 +23,14 @@ import net.minecraft.world.item.ItemStack;
 /** Modal, read-only preview; only the explicit confirmation sends a migration request. */
 final class ECOBulkMigrationDialog extends UIElement {
     static final int PREVIEW_LIMIT = 6;
-    private static final int WIDTH = 216;
-    private static final int PADDING = 12;
-    private static final int PREVIEW_TOP = 40;
-    private static final int ROW_HEIGHT = 20;
-    private static final int COLUMN_WIDTH = (WIDTH - PADDING * 2) / 2;
-    private static final int BUTTON_WIDTH = 80;
+    private static final int WIDTH = 240;
+    private static final int PADDING = 14;
+    private static final int PREVIEW_TOP = 34;
+    private static final int ICON_SIZE = 16;
+    private static final int ICON_STEP = 20;
+    private static final int ROW_HEIGHT = ICON_SIZE;
+    private static final int BUTTON_WIDTH = 100;
     private static final int BUTTON_HEIGHT = 20;
-    private static final int HELP_LEFT = WIDTH - PADDING - 16;
     private static final SpriteTexture BACKGROUND = SpriteTexture.of(
         ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/vendor/ae2/context_background.png"))
         .setSprite(0, 0, 256, 256).setBorder(2);
@@ -81,12 +81,11 @@ final class ECOBulkMigrationDialog extends UIElement {
             var ui = getModularUI();
             if (ui == null) return;
             float x = ui.getLastMouseX() - panelX(), y = ui.getLastMouseY() - panelY();
-            if (x >= HELP_LEFT && x < HELP_LEFT + 16 && y >= 6 && y < 22) {
-                event.hoverTooltips = HoverTooltips.empty().append(text("help"));
-            } else if (x >= PADDING && x < WIDTH - PADDING && y >= PREVIEW_TOP) {
-                int column = (int) ((x - PADDING) / COLUMN_WIDTH);
-                int index = (int) ((y - PREVIEW_TOP) / ROW_HEIGHT) * 2 + column;
-                if (index < items.size()) {
+            int left = previewLeft();
+            if (!items.isEmpty() && y >= PREVIEW_TOP && y < PREVIEW_TOP + ROW_HEIGHT
+                && x >= left && x < left + previewWidth()) {
+                int index = (int) ((x - left) / ICON_STEP);
+                if (index >= 0 && index < items.size()) {
                     event.hoverTooltips = HoverTooltips.empty().append(items.get(index).getHoverName());
                 }
             }
@@ -147,7 +146,13 @@ final class ECOBulkMigrationDialog extends UIElement {
     private float panelX() { return getPositionX() + (getSizeWidth() - WIDTH) / 2; }
     private float panelY() { return getPositionY() + (getSizeHeight() - panelHeight()) / 2; }
 
-    private int previewRows() { return (items.size() + 1) / 2; }
+    private int previewRows() { return items.isEmpty() ? 0 : 1; }
+
+    private int previewWidth() {
+        return items.isEmpty() ? 0 : items.size() * ICON_STEP - (ICON_STEP - ICON_SIZE);
+    }
+
+    private int previewLeft() { return (WIDTH - previewWidth()) / 2; }
 
     private int buttonTop() {
         return PREVIEW_TOP + (items.isEmpty() ? 24 : previewRows() * ROW_HEIGHT + 20);
@@ -170,15 +175,11 @@ final class ECOBulkMigrationDialog extends UIElement {
         context.graphics.fill(Math.round(getPositionX()), Math.round(getPositionY()),
             Math.round(getPositionX() + getSizeWidth()), Math.round(getPositionY() + getSizeHeight()), 0x88000000);
         context.drawTexture(BACKGROUND, x, y, WIDTH, panelHeight());
-        context.drawTexture(NETextures.AE2_BUTTON, x + HELP_LEFT, y + 6, 16, 16);
         context.graphics.flush();
-        drawText(context, Component.literal("?"), HELP_LEFT + 5, 10, 0xFFFFFF, 8);
-        drawText(context, text("title"), PADDING, 10, 0x413F54, HELP_LEFT - PADDING - 4);
-        drawText(context, text("description"), PADDING, 24, 0x666477, WIDTH - PADDING * 2);
+        drawText(context, text("title"), PADDING, 10, 0x413F54, WIDTH - PADDING * 2);
         for (int i = 0; i < items.size(); i++) {
-            int left = PADDING + i % 2 * COLUMN_WIDTH, top = PREVIEW_TOP + i / 2 * ROW_HEIGHT;
-            context.graphics.renderItem(items.get(i), Math.round(x + left), Math.round(y + top));
-            drawText(context, items.get(i).getHoverName(), left + 20, top + 4, 0x413F54, COLUMN_WIDTH - 24);
+            int left = previewLeft() + i * ICON_STEP;
+            context.graphics.renderItem(items.get(i), Math.round(x + left), Math.round(y + PREVIEW_TOP));
         }
         if (!loaded || items.isEmpty()) {
             drawText(context, text(!loaded ? "loading" : expectedCell == null ? "unavailable" : "empty"),
@@ -186,8 +187,8 @@ final class ECOBulkMigrationDialog extends UIElement {
         }
         Component summary = total > PREVIEW_LIMIT
             ? Component.translatable("gui.neoecoae.storage.bulk_cell.migrate.confirm.more", total - PREVIEW_LIMIT)
-            : text("hint");
-        if (loaded && !items.isEmpty()) {
+            : Component.empty();
+        if (loaded && !items.isEmpty() && total > PREVIEW_LIMIT) {
             drawText(context, summary, PADDING, PREVIEW_TOP + previewRows() * ROW_HEIGHT + 2,
                 0x666477, WIDTH - PADDING * 2);
         }

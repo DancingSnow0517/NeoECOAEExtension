@@ -57,6 +57,10 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.storage.mega_filter.cutoff_hint", "Shift + left-click raises, Shift + right-click lowers the compression display; the marker changes too");
         provider.add("gui.neoecoae.storage.mega_filter.duplicate_chain", "This compression chain is already configured in another marking slot of this storage host");
         provider.add("gui.neoecoae.storage.mega_filter.not_compressible", "This item cannot be used as a bulk storage marker");
+        provider.add("gui.neoecoae.storage.bulk_marker.raise", "Raise one level");
+        provider.add("gui.neoecoae.storage.bulk_marker.lower", "Lower one level");
+        provider.add("gui.neoecoae.storage.bulk_marker.remove", "Remove marker");
+        provider.add("gui.neoecoae.storage.bulk_marker.occupied", "Empty this resource's entire compression chain from the disk before removing its marker");
         provider.add("jade.neoecoae.overclock_status", "Theoretical / Effective Overclock: %d/%d");
         provider.add("tooltip.neoecoae.force_start", "Ignore missing materials and submit the crafting job");
 

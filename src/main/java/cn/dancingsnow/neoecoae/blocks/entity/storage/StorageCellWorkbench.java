@@ -48,6 +48,13 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
 
     public ECOStorageSystemBlockEntity controller() { return controller; }
 
+    @Nullable
+    public cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell bulkCell() {
+        var drive = drive();
+        return drive != null && drive.getCellInventory() instanceof
+            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell bulk ? bulk : null;
+    }
+
     private ItemStack stack() {
         return getSubInventory(ISegmentedInventory.CELLS).getStackInSlot(0);
     }

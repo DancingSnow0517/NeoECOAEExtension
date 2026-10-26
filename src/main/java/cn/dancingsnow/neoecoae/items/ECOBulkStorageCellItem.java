@@ -101,6 +101,9 @@ public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements 
     private static void saveConfigInventory(ItemStack stack, ConfigInventory activeInventory) {
         List<GenericStack> stored = new ArrayList<>(
             stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of()));
+        if (getCellInventory(stack) instanceof ECOBulkStorageCell bulk) {
+            bulk.protectOccupiedMarkers(stored, activeInventory);
+        }
         while (stored.size() < UPGRADED_TYPE_LIMIT) {
             stored.add(null);
         }

@@ -9,11 +9,15 @@
   "inputItems": [
     {
       "count": 1,
-      "item": "neoecoae:eco_bulk_item_cell_housing"
+      "item": "neoecoae:mega_item_cell_housing"
     },
     {
       "count": 1,
       "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 1,
+      "item": "megacells:cell_component_256m"
     },
     {
       "count": 1,

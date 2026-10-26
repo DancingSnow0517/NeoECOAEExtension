@@ -10,11 +10,15 @@
   "cell_disassembly_items": [
     {
       "count": 1,
-      "id": "neoecoae:eco_bulk_item_cell_housing"
+      "id": "neoecoae:mega_item_cell_housing"
     },
     {
       "count": 1,
       "id": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 1,
+      "id": "megacells:cell_component_256m"
     },
     {
       "count": 1,

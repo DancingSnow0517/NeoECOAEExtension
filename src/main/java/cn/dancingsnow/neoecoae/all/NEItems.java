@@ -921,25 +921,6 @@ public class NEItems {
         .model(ItemModelUtil.importedCellModel("eco_item_cell_housing"))
         .register();
 
-    public static final ItemEntry<MaterialItem> ECO_BULK_ITEM_CELL_HOUSING = REGISTRATE
-        .item("eco_bulk_item_cell_housing", MaterialItem::new)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
-                .pattern("ACA")
-                .pattern("B B")
-                .pattern("CBC")
-                .define('A', NEItems.CRYSTAL_MATRIX)
-                .define('B', Tags.Items.DUSTS_REDSTONE)
-                .define('C', NETags.Items.ALUMINUM_ALLOY_INGOT)
-                .unlockedBy("has_crystal_matrix", RegistrateRecipeProvider.has(NEItems.CRYSTAL_MATRIX))
-                .unlockedBy("has_redstone", RegistrateRecipeProvider.has(Tags.Items.DUSTS_REDSTONE))
-                .unlockedBy("has_aluminum_alloy", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
-                .save(prov);
-        })
-        .lang("ECO Storage Matrix Housing (Bulk Item)")
-        .model(ItemModelUtil.importedCellModel("eco_bulk_item_cell_housing"))
-        .register();
-
     public static final ItemEntry<MaterialItem> ECO_FLUID_CELL_HOUSING = REGISTRATE
         .item("eco_fluid_cell_housing", MaterialItem::new)
         .recipe((ctx, prov) -> {
@@ -1034,12 +1015,12 @@ public class NEItems {
                 p.stacksTo(1).rarity(rarity), tier, NECellTypes.BULK_ITEM, 1))
             .recipe((ctx, prov) -> {
                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                    .requires(ECO_BULK_ITEM_CELL_HOUSING)
+                    .requires(ECO_ITEM_CELL_HOUSING)
                     .requires(component)
                     .unlockedBy("has_component", RegistrateRecipeProvider.has(component))
                     .save(prov);
                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                    ctx.get(), List.of(ECO_BULK_ITEM_CELL_HOUSING.asStack(), component.asStack()));
+                    ctx.get(), List.of(ECO_ITEM_CELL_HOUSING.asStack(), component.asStack()));
                 prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
             })
             .lang("ECO - LE" + level + " Storage Matrix (Bulk Item)")

@@ -1,4 +1,8 @@
 {
+  "gui.neoecoae.storage.bulk_marker.raise": "升一階",
+  "gui.neoecoae.storage.bulk_marker.lower": "降一階",
+  "gui.neoecoae.storage.bulk_marker.remove": "除標記",
+  "gui.neoecoae.storage.bulk_marker.occupied": "須盡取此盤中同類及其壓縮諸形，方可除標記",
   "item.neoecoae.network_pull_card": "網絡拉取卡",
   "gui.neoecoae.fluid_input_hatch.stock": "倉内緩存",
   "gui.neoecoae.fluid_input_hatch.filter": "標記流体",
@@ -1063,7 +1067,7 @@
   "gui.neoecoae.processing.state.paused": "暫停",
   "gui.neoecoae.processing.state.queued": "候序",
   "gui.neoecoae.processing.state.unavailable": "未備",
-  "gui.neoecoae.storage.bulk_cell.action.migrate": "即遷相合之物",
+  "gui.neoecoae.storage.bulk_cell.action.migrate": "即標記並遷相合之物",
   "gui.neoecoae.storage.bulk_cell.action.priority": "調貯藏先後",
   "gui.neoecoae.storage.cell.action.configure": "調所貯物類",
   "gui.neoecoae.storage.cell.priority.title": "貯盤先後（較於主機）",

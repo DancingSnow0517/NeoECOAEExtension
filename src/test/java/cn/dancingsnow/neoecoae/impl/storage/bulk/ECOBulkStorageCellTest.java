@@ -5,6 +5,7 @@ import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import appeng.api.stacks.AEKeyTypesInternal;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
@@ -45,6 +46,12 @@ class ECOBulkStorageCellTest {
         return new BulkUnits(List.of(nugget, ingot, block), List.of(BigInteger.ONE, BigInteger.valueOf(ratio), BigInteger.valueOf(ratio * 9L)));
     }
     static Fixture fixture(AEItemKey... markers) { return new Fixture(markers); }
+    private static appeng.util.ConfigInventory markerConfig() {
+        try (var types = mockStatic(AEKeyTypesInternal.class)) {
+            types.when(AEKeyTypesInternal::getAllTypes).thenReturn(Set.of(AEKeyType.items()));
+            return appeng.util.ConfigInventory.configTypes(25).supportedType(AEKeyType.items()).build();
+        }
+    }
     static final class Fixture {
         final ItemStack stack;
         final ECOBulkStorageCell cell;
@@ -223,5 +230,103 @@ class ECOBulkStorageCellTest {
         f.cell.cycleCompressionCutoff(ingot, 1);
         assertEquals(List.of(new ECOBulkConversionPattern(ingot, 1, nugget, 9),
             new ECOBulkConversionPattern(block, 1, ingot, 9)), f.cell.getConversionPatterns());
+    }
+
+    @Test void markerRemainsLockedUntilEveryRemainderOfItsChainIsExtracted() {
+        var f = fixture(block, AEItemKey.of(Items.PAPER));
+        assertTrue(f.cell.canRemoveMarker(block));
+        f.cell.insert(nugget, 82, Actionable.MODULATE, null);
+        assertFalse(f.cell.canRemoveMarker(block));
+        assertFalse(f.cell.canRemoveMarker(ingot));
+        assertTrue(f.cell.canRemoveMarker(AEItemKey.of(Items.PAPER)));
+        assertEquals(1, f.cell.extract(block, 1, Actionable.MODULATE, null));
+        assertEquals(0, f.cell.getAvailableStacks().get(block));
+        assertFalse(f.cell.canRemoveMarker(block));
+        assertEquals(1, f.cell.extract(nugget, 1, Actionable.MODULATE, null));
+        assertTrue(f.cell.canRemoveMarker(block));
+    }
+
+    @Test void clearAllAndReplacementRetainOccupiedMarkersButAllowTheirOtherForms() {
+        var paper = AEItemKey.of(Items.PAPER);
+        var f = fixture(ingot, paper);
+        f.cell.insert(nugget, 1, Actionable.MODULATE, null);
+        var previous = f.stack.get(AEComponents.STORAGE_CELL_CONFIG_INV);
+        var proposed = markerConfig();
+        proposed.readFromList(previous);
+        proposed.clear();
+        f.cell.protectOccupiedMarkers(previous, proposed);
+        assertEquals(ingot, proposed.getKey(0));
+        assertNull(proposed.getKey(1));
+        proposed.setStack(0, new GenericStack(paper, 0));
+        f.cell.protectOccupiedMarkers(previous, proposed);
+        assertEquals(ingot, proposed.getKey(0));
+        proposed.setStack(0, new GenericStack(block, 0));
+        f.cell.protectOccupiedMarkers(previous, proposed);
+        assertEquals(block, proposed.getKey(0));
+        f.cell.extract(nugget, 1, Actionable.MODULATE, null);
+        proposed.clear();
+        f.cell.protectOccupiedMarkers(previous, proposed);
+        assertTrue(proposed.isEmpty());
+    }
+
+    @Test void queuedOutputsAndHistoricalDefinitionsAlsoLockTheMarker() {
+        var f = fixture(ingot);
+        f.cell.enqueueOutput(nugget, BigInteger.ONE);
+        assertFalse(f.cell.canRemoveMarker(block));
+        var restored = f.restore(f.stack.copy());
+        assertFalse(restored.canRemoveMarker(ingot));
+        var history = fixture(ingot);
+        history.cell.insert(ingot, 10, Actionable.MODULATE, null);
+        ECOCompressionService.install(List.of());
+        assertFalse(history.cell.canRemoveMarker(ingot));
+        assertEquals(90, history.cell.extract(nugget, 90, Actionable.MODULATE, null));
+        assertTrue(history.cell.canRemoveMarker(ingot));
+    }
+
+    @Test void bulkItemConfigRestoresRejectedEditsAndClearAllBeforePublishing() throws Exception {
+        var f = fixture(ingot, AEItemKey.of(Items.PAPER));
+        f.cell.insert(nugget, 1, Actionable.MODULATE, null);
+        try (var factory = mockStatic(cn.dancingsnow.neoecoae.items.ECOStorageCellItem.class);
+             var types = mockStatic(AEKeyTypesInternal.class)) {
+            types.when(AEKeyTypesInternal::getAllTypes).thenReturn(Set.of(AEKeyType.items()));
+            factory.when(() -> cn.dancingsnow.neoecoae.items.ECOStorageCellItem.getCellInventory(f.stack))
+                .thenReturn(f.cell);
+            var create = ECOBulkStorageCellItem.class.getDeclaredMethod("createPreservingConfigInventory", ItemStack.class, int.class);
+            create.setAccessible(true);
+            var config = (appeng.util.ConfigInventory) create.invoke(null, f.stack, 25);
+            config.setStack(0, null);
+            assertEquals(ingot, config.getKey(0));
+            assertEquals(ingot, f.stack.get(AEComponents.STORAGE_CELL_CONFIG_INV).getFirst().what());
+            config.clear();
+            assertEquals(ingot, config.getKey(0));
+            assertNull(config.getKey(1));
+            config.setStack(0, new GenericStack(AEItemKey.of(Items.PAPER), 0));
+            assertEquals(ingot, config.getKey(0));
+            config.setStack(0, new GenericStack(block, 0));
+            assertEquals(block, config.getKey(0));
+            assertEquals(block, f.stack.get(AEComponents.STORAGE_CELL_CONFIG_INV).getFirst().what());
+            f.cell.extract(nugget, 1, Actionable.MODULATE, null);
+            config.clear();
+            assertTrue(config.isEmpty());
+            assertTrue(f.stack.get(AEComponents.STORAGE_CELL_CONFIG_INV).stream().allMatch(java.util.Objects::isNull));
+        }
+    }
+
+    @Test void compressionMenuMovesOneStepWithoutWrappingOrChangingBalances() {
+        assertEquals(ingot, ECOBulkMarkerActions.shift(nugget, 1));
+        assertEquals(block, ECOBulkMarkerActions.shift(ingot, 1));
+        assertEquals(ingot, ECOBulkMarkerActions.shift(block, -1));
+        assertEquals(nugget, ECOBulkMarkerActions.shift(ingot, -1));
+        assertNull(ECOBulkMarkerActions.shift(block, 1));
+        assertNull(ECOBulkMarkerActions.shift(nugget, -1));
+        assertNull(ECOBulkMarkerActions.shift(ingot, 2));
+        assertNull(ECOBulkMarkerActions.shift(AEItemKey.of(Items.PAPER), 1));
+        var f = fixture(ingot);
+        f.cell.insert(nugget, 82, Actionable.MODULATE, null);
+        var balance = f.cell.getStoredEntries();
+        f.cell.setCompressionCutoff(block);
+        assertEquals(balance, f.cell.getStoredEntries());
+        assertEquals(Map.of(block, BigInteger.ONE, nugget, BigInteger.ONE), exact(f.cell));
+        assertEquals(exact(f.cell), exact(f.restore(f.stack.copy())));
     }
 }
