@@ -13,6 +13,7 @@ import net.minecraft.world.level.material.Fluid;
 public class NETags {
     public static final class Items {
         public static final TagKey<Item> IRON_DUST = common("dusts/iron");
+        public static final TagKey<Item> SKY_STONE_DUST = common("dusts/sky_stone");
 
         public static final TagKey<Item> ALUMINUM_ORE = common("ores/aluminum");
         public static final TagKey<Item> RAW_ALUMINUM_STORAGE_BLOCK = common("storage_blocks/raw_aluminum");

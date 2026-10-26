@@ -731,7 +731,7 @@ public class NEItems {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(Items.ICE)
                 .requires(ConventionTags.CERTUS_QUARTZ_DUST)
-                .requires(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM, new ResourceLocation("forge", "dusts/sky_stone")))
+                .requires(NETags.Items.SKY_STONE_DUST)
                 .requires(Items.SNOWBALL)
                 .requires(Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_DUST), 4)
                 .unlockedBy("has_energized_cryztal_dust", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL_DUST))
@@ -746,7 +746,7 @@ public class NEItems {
                 .pattern("AAA")
                 .pattern("ABA")
                 .pattern("AAA")
-                .define('A', net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM, new ResourceLocation("forge", "dusts/sky_stone")))
+                .define('A', NETags.Items.SKY_STONE_DUST)
                 .define('B', NEItems.CRYOTHEUM)
                 .unlockedBy("has_cryotheum", RegistrateRecipeProvider.has(NEItems.CRYOTHEUM))
                 .save(prov);
