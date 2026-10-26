@@ -132,6 +132,15 @@ public final class LargeWorkstationRecipes {
         }
         Map<ResourceLocation, LargeWorkstationRecipe> recipesById = new HashMap<>();
         for (var recipe : recipes) recipesById.put(recipe.id(), recipe);
+        var sourceIds = sources.stream().map(RecipeHolder::id).collect(Collectors.toSet());
+        for (var recipe : CrystalScienceWorkstationRecipes.growthRecipes()) {
+            if (sourceIds.contains(recipe.id())) {
+                LOGGER.warn("Crystal growth recipe ID collides with a datapack recipe: {}", recipe.id());
+                continue;
+            }
+            recipes.add(recipe);
+            recipesById.put(recipe.id(), recipe);
+        }
         var variants = new ArrayList<LargeWorkstationRecipeGroup.Variant>();
         for (var recipe : recipes) variants.add(LargeWorkstationRecipeSources.direct(recipe));
         // Add only explicitly supported execution capabilities, never a recursively combined upstream catalog.

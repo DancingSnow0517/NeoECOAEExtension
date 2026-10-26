@@ -74,6 +74,18 @@ class ECOCraftingCoolingControllerTest {
     }
 
     @Test
+    void consumesLongHatchStockWithoutClippingItsRemainingInventory() {
+        var tank = (LongFluidTank) input;
+        tank.setFluid(FluidStack.EMPTY);
+        tank.add(new FluidStack(Fluids.WATER, 1), Long.MAX_VALUE);
+        cooling.tick();
+        assertEquals(ECOCraftingSystemBlockEntity.MAX_COOLANT, amount);
+        // One million coolant at 120 coolant/mB requires 8,334 mB, including the last fraction.
+        assertEquals(Long.MAX_VALUE - 8_334, tank.getStoredAmount());
+        assertEquals(Integer.MAX_VALUE, tank.getFluidAmount());
+    }
+
+    @Test
     void refillsAgainAfterInternalCoolantIsConsumed() {
         cooling.tick();
         amount -= 12000;

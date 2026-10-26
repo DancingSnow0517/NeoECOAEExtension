@@ -15,6 +15,7 @@ final class FluidHatchNetworkPull {
 
     static void sync(LongFluidTank tank, @Nullable AEFluidKey selected, long target,
         MEStorage network, IEnergySource energy, IActionSource source) {
+        if (target < 0) return;
         long stored = tank.getStoredAmount();
         if (stored > 0) {
             AEFluidKey current = AEFluidKey.of(tank.getFluid());

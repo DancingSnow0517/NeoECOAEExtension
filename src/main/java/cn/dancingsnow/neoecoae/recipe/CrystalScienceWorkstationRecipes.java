@@ -5,7 +5,10 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.recipes.entropy.EntropyRecipe;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -18,18 +21,66 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /** Adapts inventory-backed AE2CS machine operations without linking optional mod classes. */
 final class CrystalScienceWorkstationRecipes {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrystalScienceWorkstationRecipes.class);
     static final ResourceLocation ENTROPY = ResourceLocation.parse("ae2cs:entropy_variation_reaction_chamber");
+    static final ResourceLocation GROWTH = ResourceLocation.parse("ae2cs:crystal_growth");
+    private static final ResourceLocation GROWTH_CHAMBER = ResourceLocation.parse("ae2cs:crystal_growth_chamber");
+    private static final TagKey<Item> CRYSTAL_SEEDS = TagKey.create(Registries.ITEM, ResourceLocation.parse("ae2cs:crystal_seeds"));
+    private static final String SEED_CLASS = "io.github.lounode.ae2cs.common.item.CrystalSeedItem";
 
     private CrystalScienceWorkstationRecipes() {}
 
     static boolean isPresent() {
         return BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse("ae2cs:entropy_variation_reaction_chamber"));
+    }
+
+    /** Growth is a seed capability, not a RecipeManager recipe type. Tags define the chamber's inputs. */
+    static List<LargeWorkstationRecipe> growthRecipes() {
+        if (!BuiltInRegistries.ITEM.containsKey(GROWTH_CHAMBER)) return List.of();
+        var seeds = new ArrayList<Item>();
+        for (var holder : BuiltInRegistries.ITEM.getTagOrEmpty(CRYSTAL_SEEDS)) seeds.add(holder.value());
+        return growthRecipes(seeds);
+    }
+
+    static List<LargeWorkstationRecipe> growthRecipes(Iterable<Item> seeds) {
+        var recipes = new ArrayList<LargeWorkstationRecipe>();
+        for (var seed : seeds) {
+            // Subclasses may override progress rules that the inventory contract cannot represent.
+            if (!seed.getClass().getName().equals(SEED_CLASS)) continue;
+            try {
+                Item output = (Item) seed.getClass().getMethod("getGrowTo").invoke(seed);
+                int growthTicks = (Integer) seed.getClass().getMethod("getOvergrowTick").invoke(seed);
+                recipes.add(growth(seed, output, growthTicks));
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+                LOGGER.warn("Cannot adapt crystal growth for {}", BuiltInRegistries.ITEM.getKey(seed), failure);
+            }
+        }
+        return List.copyOf(recipes);
+    }
+
+    static LargeWorkstationRecipe growth(Item seed, Item output, int growthTicks) {
+        if (seed == Items.AIR || output == null || output == Items.AIR || output == seed || growthTicks <= 0) {
+            throw new IllegalArgumentException("Invalid crystal growth contract");
+        }
+        var seedId = BuiltInRegistries.ITEM.getKey(seed);
+        var id = ResourceLocation.fromNamespaceAndPath("neoecoae", "crystal_growth/"
+            + seedId.getNamespace() + "/" + seedId.getPath());
+        // An unupgraded chamber advances all seeds by 10 growth ticks every 10 ticks for 100 AE.
+        // Charge one complete cycle per seed operation; partially grown seeds receive no discount.
+        long cycles = ((long) growthTicks + 9) / 10;
+        long energy = Math.multiplyExact(cycles, 100);
+        int ticks = (int) Math.min(Integer.MAX_VALUE, cycles * 10);
+        var display = new IntegratedWorkingStationRecipe(List.of(new SizedIngredient(Ingredient.of(seed), 1)),
+            noFluid(), new ItemStack(output), FluidStack.EMPTY, (int) Math.min(Integer.MAX_VALUE, energy), ticks);
+        return new LargeWorkstationRecipe(id, display, energy, List.of(), GROWTH).processing(ticks, 0, false);
     }
 
     @Nullable

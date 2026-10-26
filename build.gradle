@@ -169,6 +169,7 @@ dependencies {
     // Exercise optional workstation adapters against the released key and recipe codecs.
     testRuntimeOnly("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
     testRuntimeOnly("maven.modrinth:applied-generators:InEKowoU") { transitive = false } // 0.3.0+1.21.1
+    testRuntimeOnly("maven.modrinth:ae2-crystal-science:taIhgdOA") { transitive = false } // 1.21.1-1.2.1
     // AdvancedAE embeds this library; plain JVM recipe tests do not unpack nested mod JARs.
     testRuntimeOnly("curse.maven:ae2addonlib-1366135:7222312") { transitive = false } // 1.0.3-1.21.1
     devMods("maven.modrinth:applied-generators:InEKowoU") { transitive = false }

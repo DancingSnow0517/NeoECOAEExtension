@@ -12,7 +12,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
@@ -22,7 +22,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.List;
-import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -32,7 +31,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AmountFormat;
+import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,11 @@ class FluidInputHatchUITest {
             String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(stream.readAllBytes()));
             assertEquals("38a472cc38f8e35f4186ad363c318e04d819e18ad12720c0854f8ff814b70722", hash);
         }
+        try (var stream = getClass().getClassLoader().getResourceAsStream("assets/neoecoae/textures/guis/fluid_input_hatch.png")) {
+            assertNotNull(stream);
+            String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(stream.readAllBytes()));
+            assertEquals("c05ee646cd7de822df9a2f4bf622d92831b5c26467c8429ed2447ae646e720f2", hash);
+        }
     }
 
     @BeforeAll
@@ -85,7 +91,8 @@ class FluidInputHatchUITest {
             UIElement root = FluidInputHatchUI.createRoot(host(), player());
             assertInstanceOf(FluidSlot.class, node(root, "stock"));
             assertInstanceOf(FluidSlot.class, node(root, "filter"));
-            assertInstanceOf(TextField.class, node(root, "amount"));
+            assertInstanceOf(Button.class, node(root, "edit-amount"));
+            assertTrue(root.selectId("amount-window").findAny().isEmpty());
             UIElement rail = node(root, "upgrades");
             assertEquals(1, rail.getChildren().getFirst().getChildren().stream().filter(ItemSlot.class::isInstance).count());
         }
@@ -132,8 +139,23 @@ class FluidInputHatchUITest {
     }
 
     @Test
-    void markingAndClearingDoNotConsumeTheCarriedFluidContainerOrTouchTheRealBuffer() throws Exception {
-        try (var ldlib = mockStatic(LDLib2.class); var fluids = mockStatic(FluidUtil.class)) {
+    void originalTankLayoutDisplaysPreservedLongStockWithoutClippingItsAmount() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var host = host();
+            host.tank.add(new FluidStack(Fluids.WATER, 1), 5_000_000_001L);
+            var root = FluidInputHatchUI.createRoot(host, player());
+            var slot = (FluidSlot) node(root, "legacy-fluid-content").getChildren().getFirst();
+            slot.setValue(host.tank.getFluid(), false); // The isolated UI has no S2C transport.
+            assertEquals(com.lowdragmc.lowdraglib2.gui.util.TextFormattingUtil.formatLongToCompactStringBuckets(5_000_000_001L, 3) + "B",
+                slot.getFluidAmountText().getString());
+            assertEquals(5_000_000_001L, host.tank.getStoredAmount());
+        }
+    }
+
+    @Test
+    void markingClicksUseServerActionsWithoutConsumingTheCarriedFluidContainer() throws Exception {
+        try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var host = host();
             var root = FluidInputHatchUI.createRoot(host, player());
@@ -146,17 +168,50 @@ class FluidInputHatchUITest {
             var uiField = UIElement.class.getDeclaredField("modularUI");
             uiField.setAccessible(true);
             uiField.set(mark, ui);
-            fluids.when(() -> FluidUtil.getFluidContained(bucket))
-                .thenReturn(Optional.of(new FluidStack(Fluids.WATER, 1000)));
+            RPCEmitter edits = mock(RPCEmitter.class);
+            var clickField = mark.getClass().getDeclaredField("click");
+            clickField.setAccessible(true);
+            clickField.set(mark, edits);
             click(mark, 0);
-            assertEquals(Fluids.WATER, mark.getValue().getFluid());
-            assertEquals(1, mark.getValue().getAmount());
             assertEquals(1, bucket.getCount());
             assertTrue(host.tank.isEmpty());
             click(mark, 1);
             assertTrue(mark.getValue().isEmpty());
             assertEquals(1, bucket.getCount());
+            verify(edits).send(0);
+            verify(edits).send(1);
             verify(menu, never()).setCarried(any());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void gearUsesMouseDownToRequestTheNativeStockSubmenuAndKeepsTheSharedSlots() throws Exception {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var host = host();
+            when(host.hasNetworkPullCard()).thenReturn(true);
+            when(host.getMarkedFluid()).thenReturn(new FluidStack(Fluids.WATER, 1));
+            var root = FluidInputHatchUI.createRoot(host, player());
+            FluidSlot mark = (FluidSlot) node(root, "filter");
+            mark.setValue(new FluidStack(Fluids.WATER, 1), false);
+            assertEquals(AEFluidKey.of(Fluids.WATER).formatAmount(16_000L, AmountFormat.SLOT), mark.getFluidAmountText().getString());
+            var button = node(root, "edit-amount");
+            var field = button.getClass().getDeclaredField("openAmount");
+            field.setAccessible(true);
+            var request = mock(RPCEmitter.class);
+            field.set(button, request);
+            UIEvent open = UIEvent.create(UIEvents.MOUSE_DOWN);
+            open.target = button;
+            open.button = 0;
+            UIEventDispatcher.dispatchEvent(open, false, false, false);
+            verify(request).send();
+            assertTrue(root.selectId("amount-window").findAny().isEmpty());
+            assertTrue(root.selectId("amount").findAny().isEmpty());
+            var upgrade = node(root, "upgrades");
+            ((BindableValue<Boolean>) node(root, "network-pull-mode")).setValue(false);
+            assertSame(upgrade, node(root, "upgrades"));
+            assertEquals(Fluids.WATER, mark.getValue().getFluid());
         }
     }
 

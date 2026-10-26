@@ -2,11 +2,19 @@ package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
+import appeng.api.util.IConfigManager;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.UpgradeInventories;
+import appeng.helpers.InterfaceLogic;
+import appeng.helpers.InterfaceLogicHost;
+import appeng.helpers.externalstorage.GenericStackInv;
+import appeng.menu.ISubMenu;
+import appeng.menu.locator.MenuHostLocator;
+import appeng.util.ConfigManager;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
+import cn.dancingsnow.neoecoae.menu.FluidHatchStockAmount;
 import cn.dancingsnow.neoecoae.util.LongFluidTank;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -15,6 +23,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -24,13 +35,12 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import java.util.List;
 
-public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidInputHatchBlockEntity> implements IUpgradeableObject {
+public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidInputHatchBlockEntity> implements IUpgradeableObject, InterfaceLogicHost {
 
     public LongFluidTank tank = new LongFluidTank() {
         @Override
         public int getCapacity() {
-            return upgrades != null && hasNetworkPullCard() ? Integer.MAX_VALUE
-                : (int) Math.min(Integer.MAX_VALUE, Math.max(16_000L, getStoredAmount()));
+            return upgrades != null && hasNetworkPullCard() ? Integer.MAX_VALUE : 16_000;
         }
 
         @Override
@@ -51,6 +61,8 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
     private final IUpgradeInventory upgrades;
     private FluidStack markedFluid = FluidStack.EMPTY;
     private long targetAmount = 16_000;
+    private GenericStackInv stockAmountConfig;
+    private final IConfigManager stockMenuConfigManager = new ConfigManager(this::saveChanges);
 
     public ECOFluidInputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
@@ -98,6 +110,35 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
         if (amount < 0) return;
         targetAmount = amount;
         saveChanges();
+    }
+
+    public boolean canPlayerUse(Player player) {
+        return level != null && !isRemoved() && player.level() == level
+            && level.getBlockEntity(worldPosition) == this && player.blockPosition().distSqr(worldPosition) <= 64;
+    }
+
+    @Override public BlockEntity getBlockEntity() { return this; }
+    @Override public IConfigManager getConfigManager() { return stockMenuConfigManager; }
+    @Override public GenericStackInv getConfig() {
+        if (stockAmountConfig == null) stockAmountConfig = FluidHatchStockAmount.configuration(this);
+        return stockAmountConfig;
+    }
+    @Override public ItemStack getMainMenuIcon() { return new ItemStack(getBlockState().getBlock()); }
+    @Override public int getPriority() { return 0; }
+    @Override public void setPriority(int value) {}
+
+    // InterfaceLogicHost is required by AE2's stock submenu, but this machine has no ME interface logic.
+    @Override public InterfaceLogic getInterfaceLogic() {
+        throw new UnsupportedOperationException("The fluid hatch only hosts the stock amount submenu");
+    }
+    @Override public GenericStackInv getStorage() {
+        throw new UnsupportedOperationException("Use the hatch's long fluid tank");
+    }
+    @Override public void openMenu(Player player, MenuHostLocator locator) {
+        if (player instanceof ServerPlayer serverPlayer && canPlayerUse(player)) BlockUIMenuType.openUI(serverPlayer, worldPosition);
+    }
+    @Override public void returnToMainMenu(Player player, ISubMenu subMenu) {
+        if (player.containerMenu == subMenu) openMenu(player, subMenu.getLocator());
     }
 
     @Override

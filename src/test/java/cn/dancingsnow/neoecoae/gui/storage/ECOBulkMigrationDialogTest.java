@@ -211,8 +211,8 @@ class ECOBulkMigrationDialogTest {
         }
 
         void click(int button) {
-            float x = dialog.getPositionX() + (dialog.getSizeWidth() - 240) / 2F + (button == 0 ? 60 : 180);
-            float y = dialog.getPositionY() + (dialog.getSizeHeight() - 158) / 2F + 142;
+            float x = dialog.getPositionX() + dialog.getSizeWidth() / 2F + (button == 0 ? -56 : 56);
+            float y = dialog.getPositionY() + (dialog.getSizeHeight() + dialog.panelHeight()) / 2F - 18;
             dispatch(UIEvents.MOUSE_DOWN, x, y);
             dispatch(UIEvents.MOUSE_UP, x, y);
             ui.init(253, 231);

@@ -23,9 +23,14 @@ import net.minecraft.world.item.ItemStack;
 /** Modal, read-only preview; only the explicit confirmation sends a migration request. */
 final class ECOBulkMigrationDialog extends UIElement {
     static final int PREVIEW_LIMIT = 6;
-    private static final int WIDTH = 240;
-    private static final int HEIGHT = 158;
-    private static final int BUTTON_TOP = 132;
+    private static final int WIDTH = 216;
+    private static final int PADDING = 12;
+    private static final int PREVIEW_TOP = 40;
+    private static final int ROW_HEIGHT = 20;
+    private static final int COLUMN_WIDTH = (WIDTH - PADDING * 2) / 2;
+    private static final int BUTTON_WIDTH = 80;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int HELP_LEFT = WIDTH - PADDING - 16;
     private static final SpriteTexture BACKGROUND = SpriteTexture.of(
         ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/vendor/ae2/context_background.png"))
         .setSprite(0, 0, 256, 256).setBorder(2);
@@ -76,12 +81,12 @@ final class ECOBulkMigrationDialog extends UIElement {
             var ui = getModularUI();
             if (ui == null) return;
             float x = ui.getLastMouseX() - panelX(), y = ui.getLastMouseY() - panelY();
-            if (x >= -17 && x < 1 && y >= 4 && y < 22) {
+            if (x >= HELP_LEFT && x < HELP_LEFT + 16 && y >= 6 && y < 22) {
                 event.hoverTooltips = HoverTooltips.empty().append(text("help"));
-            } else if (y >= 40 && y < 106) {
-                int column = x >= 16 && x < 120 ? 0 : x >= 128 && x < 232 ? 1 : -1;
-                int index = (int) ((y - 40) / 22) * 2 + column;
-                if (column >= 0 && index < items.size()) {
+            } else if (x >= PADDING && x < WIDTH - PADDING && y >= PREVIEW_TOP) {
+                int column = (int) ((x - PADDING) / COLUMN_WIDTH);
+                int index = (int) ((y - PREVIEW_TOP) / ROW_HEIGHT) * 2 + column;
+                if (index < items.size()) {
                     event.hoverTooltips = HoverTooltips.empty().append(items.get(index).getHoverName());
                 }
             }
@@ -120,6 +125,7 @@ final class ECOBulkMigrationDialog extends UIElement {
             if (items.size() >= PREVIEW_LIMIT) break;
             ItemStack.parse(registries, raw).filter(stack -> !stack.isEmpty()).ifPresent(items::add);
         }
+        hovered = pressed = -1;
     }
 
     void close() {
@@ -139,13 +145,22 @@ final class ECOBulkMigrationDialog extends UIElement {
     }
 
     private float panelX() { return getPositionX() + (getSizeWidth() - WIDTH) / 2; }
-    private float panelY() { return getPositionY() + (getSizeHeight() - HEIGHT) / 2; }
+    private float panelY() { return getPositionY() + (getSizeHeight() - panelHeight()) / 2; }
+
+    private int previewRows() { return (items.size() + 1) / 2; }
+
+    private int buttonTop() {
+        return PREVIEW_TOP + (items.isEmpty() ? 24 : previewRows() * ROW_HEIGHT + 20);
+    }
+
+    int panelHeight() { return buttonTop() + BUTTON_HEIGHT + 8; }
 
     private int button(float x, float y) {
         x -= panelX();
         y -= panelY();
-        if (y < BUTTON_TOP || y >= BUTTON_TOP + 20) return -1;
-        return x >= 16 && x < 104 ? 0 : x >= WIDTH - 104 && x < WIDTH - 16 ? 1 : -1;
+        if (y < buttonTop() || y >= buttonTop() + BUTTON_HEIGHT) return -1;
+        return x >= PADDING && x < PADDING + BUTTON_WIDTH ? 0
+            : x >= WIDTH - PADDING - BUTTON_WIDTH && x < WIDTH - PADDING ? 1 : -1;
     }
 
     @Override
@@ -154,37 +169,40 @@ final class ECOBulkMigrationDialog extends UIElement {
         context.graphics.flush();
         context.graphics.fill(Math.round(getPositionX()), Math.round(getPositionY()),
             Math.round(getPositionX() + getSizeWidth()), Math.round(getPositionY() + getSizeHeight()), 0x88000000);
-        context.drawTexture(BACKGROUND, x, y, WIDTH, HEIGHT);
-        context.drawTexture(NETextures.AE2_BUTTON, x - 17, y + 4, 18, 18);
+        context.drawTexture(BACKGROUND, x, y, WIDTH, panelHeight());
+        context.drawTexture(NETextures.AE2_BUTTON, x + HELP_LEFT, y + 6, 16, 16);
         context.graphics.flush();
-        drawText(context, Component.literal("?"), -11, 9, 0xFFFFFF, 12);
-        drawText(context, text("title"), 12, 10, 0x413F54, WIDTH - 24);
-        drawText(context, text("description"), 12, 24, 0x666477, WIDTH - 24);
+        drawText(context, Component.literal("?"), HELP_LEFT + 5, 10, 0xFFFFFF, 8);
+        drawText(context, text("title"), PADDING, 10, 0x413F54, HELP_LEFT - PADDING - 4);
+        drawText(context, text("description"), PADDING, 24, 0x666477, WIDTH - PADDING * 2);
         for (int i = 0; i < items.size(); i++) {
-            int left = 16 + i % 2 * 112, top = 40 + i / 2 * 22;
+            int left = PADDING + i % 2 * COLUMN_WIDTH, top = PREVIEW_TOP + i / 2 * ROW_HEIGHT;
             context.graphics.renderItem(items.get(i), Math.round(x + left), Math.round(y + top));
-            drawText(context, items.get(i).getHoverName(), left + 20, top + 4, 0x413F54, 80);
+            drawText(context, items.get(i).getHoverName(), left + 20, top + 4, 0x413F54, COLUMN_WIDTH - 24);
         }
         if (!loaded || items.isEmpty()) {
             drawText(context, text(!loaded ? "loading" : expectedCell == null ? "unavailable" : "empty"),
-                16, 65, 0x666477, WIDTH - 32);
+                PADDING, PREVIEW_TOP + 5, 0x666477, WIDTH - PADDING * 2);
         }
         Component summary = total > PREVIEW_LIMIT
             ? Component.translatable("gui.neoecoae.storage.bulk_cell.migrate.confirm.more", total - PREVIEW_LIMIT)
             : text("hint");
-        if (loaded && !items.isEmpty()) drawText(context, summary, 12, 113, 0x666477, WIDTH - 24);
-        drawButton(context, 0, 16, Component.translatable("gui.ok"), loaded && expectedCell != null && !items.isEmpty());
-        drawButton(context, 1, WIDTH - 104, Component.translatable("gui.cancel"), true);
+        if (loaded && !items.isEmpty()) {
+            drawText(context, summary, PADDING, PREVIEW_TOP + previewRows() * ROW_HEIGHT + 2,
+                0x666477, WIDTH - PADDING * 2);
+        }
+        drawButton(context, 0, PADDING, Component.translatable("gui.ok"), loaded && expectedCell != null && !items.isEmpty());
+        drawButton(context, 1, WIDTH - PADDING - BUTTON_WIDTH, Component.translatable("gui.cancel"), true);
     }
 
     private void drawButton(GUIContext context, int index, int left, Component label, boolean enabled) {
         var texture = !enabled ? NETextures.AE2_BUTTON_DISABLED
             : hovered == index ? NETextures.AE2_BUTTON_HIGHLIGHTED : NETextures.AE2_BUTTON;
-        context.drawTexture(texture, panelX() + left, panelY() + BUTTON_TOP, 88, 20);
+        context.drawTexture(texture, panelX() + left, panelY() + buttonTop(), BUTTON_WIDTH, BUTTON_HEIGHT);
         context.graphics.flush();
         var font = Minecraft.getInstance().font;
-        drawText(context, label, left + (88 - font.width(label)) / 2F, BUTTON_TOP + 6,
-            enabled ? 0xFFFFFF : 0xA0A0A0, 88);
+        drawText(context, label, left + (BUTTON_WIDTH - font.width(label)) / 2F, buttonTop() + 6,
+            enabled ? 0xFFFFFF : 0xA0A0A0, BUTTON_WIDTH);
     }
 
     private void drawText(GUIContext context, Component value, float left, float top, int color, int width) {

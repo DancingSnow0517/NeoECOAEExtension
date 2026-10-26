@@ -46,6 +46,8 @@ The server option `largeWorkstationIgnoreUpgradeCards` defaults to `false`. Set 
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="2" y="1" z="1"></Block>
 </GameScene>
 
+The Crystal Science card also supports the Crystal Growth Chamber. Each seed produces one matching purified crystal without consuming water; partially grown seeds are accepted. Each seed operation pays for its full growth cycle: a default seed costs 6,000 AE and takes 200 ticks (10 seconds). Costs and duration use the seed's actual growth cycle rather than the 200 AE/t reference of other Crystal Science machines. Multiplied patterns scale materials, duration and energy together.
+
 ## Processing time and network FE
 
 Base recipes longer than 200 ticks (10 seconds) are capped at 200 ticks; shorter recipes and total costs stay unchanged. Parallelism increases simultaneous operations. Crystal Science uses a 200 AE/t source reference, so a 57,600 AE recipe is capped from 288 to 200 ticks. The lightning overload factory defaults to 400,000 FE/t with a four-tick minimum; assembly and simulation use a 200 FE/t source reference. Data reassembly retains its duration within the cap. AdvancedAE, Applied Generators, ExtendedAE and EAEP keep their 100-tick reference.

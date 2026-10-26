@@ -88,7 +88,7 @@ The <ItemLink id="neoecoae:crafting_interface" /> connects the system to your ME
 
 The <ItemLink id="neoecoae:input_hatch" /> accepts coolant fluids for active cooling mode.
 
-The hatch keeps its original UI until a <ItemLink id="neoecoae:network_pull_card" /> is installed in the right-side upgrade slot. In the stocking UI, mark a coolant with a fluid container or a JEI/EMI ghost ingredient, then enter the target stock in mB. Marking consumes no fluid; right-click to clear it. Removing the card immediately restores the original layout.
+The hatch keeps its original UI until a <ItemLink id="neoecoae:network_pull_card" /> is installed in the right-side upgrade slot. The stocking UI uses an ME Interface-style pair of vertical slots: mark coolant in the upper slot and view the real buffer below. Right-click with a fluid container to mark its contents, or drag a JEI/EMI fluid ingredient; no fluid is consumed. Left-click with an empty cursor to clear it. Click the gear above a marked slot to edit target stock in buckets (B), then press Set. Fractional buckets are supported: 2.5 B equals 2500 mB. Removing the card immediately restores the original layout.
 
 Every 20 ticks, the hatch replenishes the deficit from its connected ME network. It stops at the target and replenishes fluid consumed by the cooling system. With the card installed, the buffer has no 16-bucket limit and stores exact signed 64-bit quantities. The real fluid slot and the amount below show current stock. Removing the card preserves stock above the ordinary capacity; normal fluid input resumes when stock falls below 16 buckets.
 

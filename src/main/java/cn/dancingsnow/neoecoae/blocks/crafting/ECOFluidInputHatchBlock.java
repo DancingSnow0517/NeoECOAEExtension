@@ -44,4 +44,10 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
         }
         return null;
     }
+
+    @Override
+    public boolean stillValid(BlockUIMenuType.BlockUIHolder holder) {
+        return holder.player.level().getBlockEntity(holder.pos) instanceof ECOFluidInputHatchBlockEntity hatch
+            && hatch.canPlayerUse(holder.player);
+    }
 }

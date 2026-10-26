@@ -32,8 +32,8 @@ public class LongFluidTank extends FluidTank {
 
     @Override
     public void setFluid(FluidStack stack) {
-        fluid = stack.copy();
-        amount = stack.getAmount();
+        amount = stack.isEmpty() ? 0 : stack.getAmount();
+        fluid = amount == 0 ? FluidStack.EMPTY : stack.copy();
         onContentsChanged();
     }
 

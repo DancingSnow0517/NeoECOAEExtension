@@ -12,9 +12,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.fluid_input_hatch.online", "ME online - restocks every second");
         provider.add("gui.neoecoae.fluid_input_hatch.offline", "ME offline - waiting for connection");
         provider.add("gui.neoecoae.fluid_input_hatch.upgrade", "Upgrade slot: Network Pull Card (max. 1)");
-        provider.add("gui.neoecoae.fluid_input_hatch.filter_hint", "Click with a fluid container or drag coolant from JEI/EMI to mark it; right-click to clear. No fluid is consumed.");
-        provider.add("gui.neoecoae.fluid_input_hatch.target_hint", "Every 20 ticks, replenish the target stock and return excess fluid. Unit: mB. 0 returns all buffered fluid. No 16-bucket limit.");
+        provider.add("gui.neoecoae.fluid_input_hatch.filter_hint", "Right-click with a fluid container to mark its contents, or drag coolant from JEI/EMI. Left-click with an empty cursor to clear. No fluid is consumed.");
+        provider.add("gui.neoecoae.fluid_input_hatch.target_hint", "Enter target stock in buckets (B); decimals are allowed. Replenishes every 20 ticks and returns excess. Set 0 to clear the mark and return the buffer.");
         provider.add("gui.neoecoae.fluid_input_hatch.select_fluid", "Click or drag coolant to mark it");
+        provider.add("gui.neoecoae.fluid_input_hatch.amount_hint", "Click the gear above the slot to edit target stock in buckets (B).");
+        provider.add("gui.neoecoae.fluid_input_hatch.target_buckets", "Amount to stock (B)");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_value", "Energy: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.fe_supply_hint", "Using %s requires Applied Flux");
         provider.add("gui.neoecoae.large_integrated_working_station.fe_storage_hint", "and %s stored in the ME network.");
@@ -58,6 +60,7 @@ public class GuiLangs {
         provider.add("recipe_type.neoecoae.ae2lt.lightning_simulation", "AE2LT: Lightning Simulation");
         provider.add("recipe_type.neoecoae.ae2cs.circuit_etcher_recipe", "AE2CS: Circuit Etching");
         provider.add("recipe_type.neoecoae.ae2cs.crystal_aggregator_recipe", "AE2CS: Crystal Aggregation");
+        provider.add("recipe_type.neoecoae.ae2cs.crystal_growth", "AE2CS: Crystal Growth");
         provider.add("recipe_type.neoecoae.appgen.synthesizing", "Applied Generators: Synthesizing");
         provider.add("recipe_type.neoecoae.advanced_ae.reaction", "AdvancedAE: Reaction Chamber");
         provider.add("recipe_type.neoecoae.extendedae_plus.crystal_assembler_plus", "ExtendedAE Plus: Crystal Assembling");

@@ -73,6 +73,14 @@ class FluidHatchNetworkPullTest {
     }
 
     @Test
+    void rejectsInvalidNegativeTargetsWithoutChangingStockOrCallingTheNetwork() {
+        tank.add(water.toStack(1), Long.MAX_VALUE);
+        sync(water, -1);
+        assertEquals(Long.MAX_VALUE, tank.getStoredAmount());
+        verifyNoInteractions(network, energy);
+    }
+
+    @Test
     void switchingFluidReturnsOldStockBeforePullingNewFluid() {
         tank.add(water.toStack(1), 30_000);
         var lava = AEFluidKey.of(Fluids.LAVA);
