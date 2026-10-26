@@ -192,6 +192,11 @@ class ComputationControllerUITest {
 
     private static ComputationControllerUI.Config config(Runnable toggleSubstitutions, Runnable toggleCycle,
                                                          Runnable toggleFast) {
+        return config(toggleSubstitutions, toggleCycle, toggleFast, () -> {});
+    }
+
+    private static ComputationControllerUI.Config config(Runnable toggleSubstitutions, Runnable toggleCycle,
+                                                         Runnable toggleFast, Runnable toggleSmartDoubling) {
         return new ComputationControllerUI.Config(
             () -> true, () -> 1, () -> 0, () -> 0,
             () -> 0L, () -> 1024L, () -> 1024L,
@@ -204,7 +209,34 @@ class ComputationControllerUITest {
             () -> ItemStack.EMPTY, List::of, List::of, null,
             (position, expected, toInventory) -> false, (position, expected) -> false,
             () -> 0L, () -> true, List::of, cpu -> {}, cpu -> {},
-            () -> Component.empty());
+            () -> Component.empty(), () -> true, toggleSmartDoubling);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void smartDoublingLivesInLeftToolbarAndFollowsServerState() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            Runnable toggle = mock(Runnable.class);
+            UIElement root = ComputationControllerUI.create(config(() -> {}, () -> {}, () -> {}, toggle),
+                () -> ComputationControllerPanelState.UNFORMED, new UIElement(), new UIElement(), new UIElement());
+            UIElement toolbar = find(root, "computation_toolbar");
+            UIElement button = find(toolbar, "computation-smart-doubling");
+            assertNotNull(button);
+            assertEquals(6, toolbar.getChildren().size());
+            UIElement icon = find(button, "computation-smart-doubling-icon");
+            icon.getStyleBag().compute(0);
+            assertEquals("neoecoae:textures/gui/computation/eco_batching.png",
+                ((SpriteTexture) icon.getStyle().backgroundTexture()).getImageLocation().toString());
+            BindableValue<Boolean> synced = (BindableValue<Boolean>) button.getChildren().getLast();
+            assertEquals(true, synced.getValue());
+            synced.setValue(false);
+            icon.getStyleBag().compute(1);
+            assertEquals("neoecoae:textures/gui/computation/eco_batching_off.png",
+                ((SpriteTexture) icon.getStyle().backgroundTexture()).getImageLocation().toString());
+            serverClick(button, 0);
+            verify(toggle).run();
+        }
     }
 
     @Test

@@ -96,7 +96,10 @@ public class NeoECOAEClient {
         importButton.active = JeiBookmarkAccess.isAvailable();
         importButton.visible = importButton.active;
         importButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip")));
+            Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip")
+                .append("\n")
+                .append(Component.literal("Neo ECO AE Extension")
+                    .withStyle(net.minecraft.ChatFormatting.BLUE, net.minecraft.ChatFormatting.ITALIC))));
         return importButton;
     }
 

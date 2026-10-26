@@ -16,6 +16,9 @@ import java.util.UUID;
 import java.math.BigInteger;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import net.minecraft.nbt.CompoundTag;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -57,11 +60,14 @@ public final class StorageHostUI {
     }
 
     public record CellActions(
-        Consumer<BlockPos> migrateMarked,
-        Runnable openPriority,
-        Consumer<BlockPos> openCompressionDisplay
+        BiConsumer<BlockPos, UUID> migrateMarked,
+        BiConsumer<BlockPos, UUID> openPriority,
+        Consumer<BlockPos> openCompressionDisplay,
+        Function<BlockPos, CompoundTag> previewMigration,
+        BiConsumer<BlockPos, UUID> openConfiguration
     ) {
-        public static final CellActions NONE = new CellActions(position -> {}, () -> {}, position -> {});
+        public static final CellActions NONE = new CellActions((position, expected) -> {}, (position, expected) -> {},
+            position -> {}, position -> new CompoundTag(), (position, expected) -> {});
     }
 
     public record Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,

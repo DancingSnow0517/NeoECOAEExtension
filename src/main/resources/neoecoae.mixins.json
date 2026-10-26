@@ -4,6 +4,7 @@
   "package": "cn.dancingsnow.neoecoae.mixins",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "ae2.accessor.AEBaseMenuAccessor",
     "ae2.accessor.AECraftingPatternAccessor",
     "ae2.accessor.CraftingPlanSummaryAccessor",
     "ae2.accessor.DelegatingMEInventoryAccessor",
@@ -46,6 +47,7 @@
     "client.ae2.AEBaseScreenGrayToolbarMixin",
     "client.ae2.CellWorkbenchScreenMixin",
     "client.ae2.CpuSelectionListMixin",
+    "client.ae2.CpuSelectionListPagingMixin",
     "client.ae2.CraftConfirmScreenMixin",
     "client.ae2.CraftingCpuScreenMixin",
     "client.ae2.CraftingStatusTableMixin",

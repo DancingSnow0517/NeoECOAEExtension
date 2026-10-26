@@ -107,7 +107,8 @@ final class ECOStorageHostStatistics {
             }
         } else {
             for (StorageHostUI.CellEntry entry : snapshot.cellEntries()) {
-                used = used.add(BigInteger.valueOf(Math.max(0L, entry.usedBytes())));
+                if (entry.totalBytes() == Long.MAX_VALUE) continue;
+                used = used.add(entry.exactUsedBytes());
             }
         }
         return HostText.ae2Amount(used);
@@ -237,7 +238,7 @@ final class ECOStorageHostStatistics {
             if (cellTypeId >= 0) {
                 storageTypes.merge(
                     normalUiTypeId(cellTypeId),
-                    new StorageTypeTotals(usedTypes, totalTypes, usedBytes, totalBytes),
+                    new StorageTypeTotals(usedTypes, totalTypes, usedBytes, totalBytes, view.exactUsedBytes()),
                     StorageTypeTotals::add
                 );
             }

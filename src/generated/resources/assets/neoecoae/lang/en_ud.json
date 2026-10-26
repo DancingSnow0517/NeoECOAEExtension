@@ -1,4 +1,15 @@
 {
+  "item.neoecoae.network_pull_card": "Network Pull Card",
+  "gui.neoecoae.fluid_input_hatch.stock": "Buffer",
+  "gui.neoecoae.fluid_input_hatch.filter": "Marked fluid",
+  "gui.neoecoae.fluid_input_hatch.target": "Target (mB)",
+  "gui.neoecoae.fluid_input_hatch.stored": "Buffered: %s mB",
+  "gui.neoecoae.fluid_input_hatch.card_required": "Install a Network Pull Card to enable stocking",
+  "gui.neoecoae.fluid_input_hatch.online": "ME online - restocks every second",
+  "gui.neoecoae.fluid_input_hatch.offline": "ME offline - stocking paused",
+  "gui.neoecoae.fluid_input_hatch.upgrade": "Upgrade slot: Network Pull Card (max. 1)",
+  "gui.neoecoae.fluid_input_hatch.filter_hint": "Click with a fluid container or drag a fluid from JEI/EMI to mark it; right-click to clear. No fluid is consumed.",
+  "gui.neoecoae.fluid_input_hatch.target_hint": "Target buffer amount in mB. Every second, restock the deficit from ME and return excess fluid. 0 returns all buffered fluid. No 16-bucket limit.",
   "gui.neoecoae.large_integrated_working_station.module_any": "Supported upgrade cards (any one): %s",
   "gui.neoecoae.large_integrated_working_station.variant_costs": "Each route retains its own batch size and costs:",
   "gui.neoecoae.large_integrated_working_station.recipe_variant": "%s: %s AE; batch: %s",
@@ -886,11 +897,14 @@
   "gui.neoecoae.workstation.task_duration": "Processing time: %s / %s ticks",
   "gui.neoecoae.storage.bulk_cell.action.migrate": "Migrate matching resources now",
   "gui.neoecoae.storage.bulk_cell.action.priority": "Adjust storage priority",
+  "gui.neoecoae.storage.cell.action.configure": "Adjust stored resource types",
+  "gui.neoecoae.storage.cell.priority.title": "Cell priority (relative to host)",
   "gui.neoecoae.storage.bulk_cell.action.compression_display": "Adjust compression display",
   "gui.neoecoae.storage.bulk_cell.compression_display.reserved": "Compression display menu is reserved for a future GUI",
   "gui.neoecoae.storage.bulk_cell.migrate.result.success": "Bulk-cell migration complete: %s",
   "gui.neoecoae.storage.bulk_cell.migrate.result.no_bulk_cell": "The selected slot is not an available ECO bulk cell",
   "gui.neoecoae.storage.bulk_cell.migrate.result.busy": "Storage migration is busy; the bulk-cell migration cannot run now",
   "gui.neoecoae.storage.bulk_cell.migrate.result.unavailable": "ECO bulk migration is unavailable",
-  "tooltip.neoecoae.bulk.bytes": "Bytes used: %s / %s"
+  "tooltip.neoecoae.bulk.bytes": "Bytes used: %s / %s",
+  "gui.neoecoae.storage.bulk_cell.priority.title": "Bulk cell priority (relative to host)"
 }

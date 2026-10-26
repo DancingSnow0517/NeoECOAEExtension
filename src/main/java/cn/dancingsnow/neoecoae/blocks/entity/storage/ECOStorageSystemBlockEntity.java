@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
+import cn.dancingsnow.neoecoae.gui.storage.StoragePriorityUI;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
@@ -100,6 +101,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Persisted
     @DescSynced
     private int storagePriority;
+    private record CellPriorityTarget(BlockPos position, UUID installation) {}
+    private final Map<UUID, CellPriorityTarget> cellPriorityTargets = new java.util.HashMap<>();
     @Persisted
     @DescSynced
     private ECOStorageHostMode hostMode = ECOStorageHostMode.UNFORMED;
@@ -289,6 +292,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
+        final CellPriorityTarget[] selectedCellPriority = {null};
+        UIElement cellPriorityWindow = StoragePriorityUI.createFloatingPanel(new StoragePriorityUI.Config(
+            () -> getCellPriority(holder.player, selectedCellPriority[0]),
+            priority -> setCellPriorityFromUi(holder.player, selectedCellPriority[0], priority),
+            delta -> changeCellPriorityFromUi(holder.player, selectedCellPriority[0], delta),
+            () -> net.minecraft.network.chat.Component.translatable(
+                "gui.neoecoae.storage.cell.priority.title")
+        ));
 
         UIElement root = StorageHostUI.create(new StorageHostUI.Config(
                 () -> getItemFromBlockEntity().getDescription(),
@@ -311,19 +322,127 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 (position, expected) -> StorageCellUiInsertion.insert(this, holder.player, position, expected),
                 () -> new ItemStack(getBlockState().getBlock()),
                 new StorageHostUI.CellActions(
-                    position -> migrateMarkedBulkCell(holder.player, position),
-                    () -> actionUI.priorityWindow().setDisplay(true),
+                    (position, expected) -> migrateMarkedBulkCell(holder.player, position, expected),
+                    (position, expected) -> {
+                        selectedCellPriority[0] = new CellPriorityTarget(position, expected);
+                        cellPriorityWindow.setDisplay(true);
+                        if (level != null && level.isClientSide) {
+                            rpcToServer("selectCellPriority", position, expected);
+                        }
+                    },
                     position -> holder.player.displayClientMessage(
                         net.minecraft.network.chat.Component.translatable(
-                            "gui.neoecoae.storage.bulk_cell.compression_display.reserved"), true)
+                            "gui.neoecoae.storage.bulk_cell.compression_display.reserved"), true),
+                    position -> previewBulkCellMigration(holder.player, position),
+                    (position, expected) -> openCellConfiguration(holder.player, position, expected)
                 )
         ), this::getTier, this::getBlockState);
         actionUI.addTo(root);
+        root.addChild(cellPriorityWindow);
         return ECOModularUI.create(root, holder.player);
     }
 
-    private void migrateMarkedBulkCell(Player player, BlockPos position) {
+    @Nullable
+    private ECODriveBlockEntity configurableDrive(Player player, @Nullable CellPriorityTarget target) {
+        if (target == null || !isFormed() || !canPlayerInteract(player)) return null;
+        for (var drive : getStorageDrivesForIntegration()) {
+            if (!drive.isRemoved() && drive.getBlockPos().equals(target.position())
+                && target.installation().equals(drive.getCellInteractionId())
+                && drive.canExtractCell() && drive.getCellStack() != null
+                && cn.dancingsnow.neoecoae.impl.storage.ECOStorageCellSettings.canConfigure(drive.getCellStack())) return drive;
+        }
+        return null;
+    }
+
+    private int getCellPriority(Player player, @Nullable CellPriorityTarget clientTarget) {
+        var target = level != null && level.isClientSide ? clientTarget : cellPriorityTargets.get(player.getUUID());
+        var drive = configurableDrive(player, target);
+        return drive == null ? 0 : drive.getConfiguredCellPriority();
+    }
+
+    private void setCellPriorityFromUi(Player player, @Nullable CellPriorityTarget clientTarget, int priority) {
+        if (level != null && level.isClientSide) {
+            if (clientTarget != null) rpcToServer("setCellPriority", clientTarget.position(), clientTarget.installation(), priority);
+            return;
+        }
+        setConfiguredCellPriority(player, cellPriorityTargets.get(player.getUUID()), priority);
+    }
+
+    private void changeCellPriorityFromUi(Player player, @Nullable CellPriorityTarget clientTarget, int delta) {
+        if (level != null && level.isClientSide) {
+            if (clientTarget != null) rpcToServer("changeCellPriority", clientTarget.position(), clientTarget.installation(), delta);
+            return;
+        }
+        setConfiguredCellPriority(player, cellPriorityTargets.get(player.getUUID()),
+            StoragePriority.adjust(getCellPriority(player, null), delta));
+    }
+
+    private void setConfiguredCellPriority(Player player, @Nullable CellPriorityTarget target, int priority) {
+        if (level == null || level.isClientSide) return;
+        var drive = configurableDrive(player, target);
+        if (drive != null) drive.setConfiguredCellPriority(priority);
+    }
+
+    @RPCMethod
+    public void selectCellPriority(RPCSender sender, BlockPos position, UUID expected) {
+        if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) return;
+        ServerPlayer player = sender.asPlayer();
+        if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) return;
+        var target = new CellPriorityTarget(position, expected);
+        if (configurableDrive(player, target) != null) cellPriorityTargets.put(player.getUUID(), target);
+    }
+
+    @RPCMethod
+    public void setCellPriority(RPCSender sender, BlockPos position, UUID expected, int priority) {
+        if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) return;
+        ServerPlayer player = sender.asPlayer();
+        if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) return;
+        var target = new CellPriorityTarget(position, expected);
+        if (configurableDrive(player, target) == null) return;
+        cellPriorityTargets.put(player.getUUID(), target);
+        setConfiguredCellPriority(player, target, priority);
+    }
+
+    @RPCMethod
+    public void changeCellPriority(RPCSender sender, BlockPos position, UUID expected, int delta) {
+        if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) return;
+        ServerPlayer player = sender.asPlayer();
+        if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) return;
+        var target = new CellPriorityTarget(position, expected);
+        if (configurableDrive(player, target) == null) return;
+        cellPriorityTargets.put(player.getUUID(), target);
+        setConfiguredCellPriority(player, target, StoragePriority.adjust(getCellPriority(player, null), delta));
+    }
+
+    private void openCellConfiguration(Player player, BlockPos position, UUID expected) {
+        if (level == null || level.isClientSide || !player.containerMenu.getCarried().isEmpty()
+            || configurableDrive(player, new CellPriorityTarget(position, expected)) == null) return;
+        appeng.menu.MenuOpener.open(appeng.menu.implementations.CellWorkbenchMenu.TYPE, player,
+            new cn.dancingsnow.neoecoae.menu.StorageCellWorkbenchLocator(worldPosition, position, expected));
+    }
+
+    private CompoundTag previewBulkCellMigration(Player player, BlockPos position) {
+        CompoundTag preview = new CompoundTag();
+        if (level == null || level.isClientSide || !canPlayerInteract(player)) return preview;
+        for (var drive : getStorageDrivesForIntegration()) {
+            if (!drive.getBlockPos().equals(position) || drive.isRemoved()) continue;
+            var items = StorageBulkMarkingIntegration.previewMarkedCell(this, position);
+            preview.putUUID("cell_id", drive.getCellInteractionId());
+            preview.putInt("total", items.size());
+            var entries = new net.minecraft.nbt.ListTag();
+            items.stream().limit(6).forEach(stack -> entries.add(stack.save(player.registryAccess())));
+            preview.put("items", entries);
+            return preview;
+        }
+        return preview;
+    }
+
+    private void migrateMarkedBulkCell(Player player, BlockPos position, UUID expected) {
         if (!canPlayerInteract(player)) return;
+        // A confirmation belongs to the installation that was previewed, even if the drive was swapped meanwhile.
+        if (expected == null || getStorageDrivesForIntegration().stream().noneMatch(drive ->
+            !drive.isRemoved() && drive.getBlockPos().equals(position)
+                && expected.equals(drive.getCellInteractionId()))) return;
         StorageBulkMarkingIntegration.MigrationResult result =
             StorageBulkMarkingIntegration.migrateMarkedCell(this, position);
         String key = switch (result.status()) {

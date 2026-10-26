@@ -71,6 +71,27 @@ class StorageResourceHoverTest {
     }
 
     @Test
+    void capacityTooltipExcludesHugeBulkBalancesAndKeepsTheWholeHostTotalAcrossPages() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var cells = new java.util.ArrayList<>(java.util.Collections.nCopies(35,
+                StoragePanelStateTest.cell(50, 100)));
+            cells.add(StoragePanelStateTest.cell(Long.MAX_VALUE, Long.MAX_VALUE)
+                .withExactUsedBytes(BigInteger.TEN.pow(40)));
+            for (int offset : List.of(0, 33)) {
+                StoragePanelState snapshot = StoragePanelState.capture(StoragePanelStateTest.config(cells, false), offset, 33);
+                UIElement capacity = bar(snapshot, "capacity_bar");
+                var lines = capacity.collectHoverTooltips().tooltipTexts();
+                assertEquals(2, lines.size());
+                Object[] bytes = assertInstanceOf(TranslatableContents.class, lines.getFirst().getContents()).getArgs();
+                assertEquals("1,750 / 3,500", ((Component) bytes[0]).getString());
+                Object[] usage = assertInstanceOf(TranslatableContents.class, lines.getLast().getContents()).getArgs();
+                assertEquals("50.0%", usage[0]);
+            }
+        }
+    }
+
+    @Test
     void outsideEdgesAndLeavingTheBarClearTheHighlightAndTooltip() {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);

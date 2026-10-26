@@ -8,6 +8,7 @@ import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
+import java.util.List;
 
 /** Optional-integration bridge for server-side storage-cell marking. */
 public final class StorageBulkMarkingIntegration {
@@ -17,6 +18,8 @@ public final class StorageBulkMarkingIntegration {
     private static BiPredicate<ItemStack, ItemStack> sameMarkerChain = (left, right) -> false;
     private static BiFunction<ECOStorageSystemBlockEntity, BlockPos, MigrationResult> cellMigrator =
         (host, position) -> new MigrationResult(Status.UNAVAILABLE, 0L);
+    private static BiFunction<ECOStorageSystemBlockEntity, BlockPos, List<ItemStack>> migrationPreview =
+        (host, position) -> List.of();
 
     private StorageBulkMarkingIntegration() {
     }
@@ -28,11 +31,24 @@ public final class StorageBulkMarkingIntegration {
         BiPredicate<ItemStack, ItemStack> sameMarkerChain,
         BiFunction<ECOStorageSystemBlockEntity, BlockPos, MigrationResult> cellMigrator
     ) {
+        register(handler, bulkCellDetector, markerNormalizer, sameMarkerChain, cellMigrator,
+            (host, position) -> List.of());
+    }
+
+    public static void register(
+        Handler handler,
+        Predicate<ECOStorageSystemBlockEntity> bulkCellDetector,
+        UnaryOperator<ItemStack> markerNormalizer,
+        BiPredicate<ItemStack, ItemStack> sameMarkerChain,
+        BiFunction<ECOStorageSystemBlockEntity, BlockPos, MigrationResult> cellMigrator,
+        BiFunction<ECOStorageSystemBlockEntity, BlockPos, List<ItemStack>> migrationPreview
+    ) {
         StorageBulkMarkingIntegration.handler = handler;
         StorageBulkMarkingIntegration.bulkCellDetector = bulkCellDetector;
         StorageBulkMarkingIntegration.markerNormalizer = markerNormalizer;
         StorageBulkMarkingIntegration.sameMarkerChain = sameMarkerChain;
         StorageBulkMarkingIntegration.cellMigrator = cellMigrator;
+        StorageBulkMarkingIntegration.migrationPreview = migrationPreview;
     }
 
     public static void register(
@@ -74,6 +90,10 @@ public final class StorageBulkMarkingIntegration {
     public static MigrationResult migrateMarkedCell(ECOStorageSystemBlockEntity host, BlockPos position) {
         return handler == null ? new MigrationResult(Status.UNAVAILABLE, 0L)
             : cellMigrator.apply(host, position);
+    }
+
+    public static List<ItemStack> previewMarkedCell(ECOStorageSystemBlockEntity host, BlockPos position) {
+        return handler == null ? List.of() : migrationPreview.apply(host, position);
     }
 
     @FunctionalInterface

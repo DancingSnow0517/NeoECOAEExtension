@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.client.ae2;
 import appeng.client.gui.me.crafting.CraftingCPUScreen;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCpuListPageHost;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.util.List;
@@ -23,6 +24,11 @@ public abstract class CraftingCpuScreenMixin {
         if (!(screen.getMenu() instanceof CraftingStatusMenu menu)) return true;
 
         int selectedSerial = menu.getSelectedCpuSerial();
+        if (menu instanceof ECOCpuListPageHost host) {
+            var selected = host.neoecoae$getCpuPage().selected();
+            return selected == null || selected.serial() != selectedSerial || selected.currentJob() == null
+                || IOverlayTextureHolder.of(selected).neoecoae$getOverlay() == null;
+        }
         return menu.cpuList.cpus().stream().noneMatch(cpu ->
             cpu.serial() == selectedSerial
                 && cpu.currentJob() != null

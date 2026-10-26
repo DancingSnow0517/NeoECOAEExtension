@@ -101,7 +101,10 @@ class ECOExactOrderTest {
         }
     }
 
-    @Test void dispatcherAccountsAnEntireExactBatchAndDoesNotOptOrdinaryJobsIn() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(longs = {0, 4, 16384})
+    void exactDispatchHonorsSmartDoublingLimitAndDoesNotOptOrdinaryJobsIn(long limit) {
+        BigInteger expected = limit == 0 ? HUGE : BigInteger.valueOf(limit);
         var input = mock(AEKey.class, RETURNS_DEEP_STUBS);
         var output = mock(AEKey.class, RETURNS_DEEP_STUBS);
         when(output.getAmountPerUnit()).thenReturn(1);
@@ -132,15 +135,17 @@ class ECOExactOrderTest {
             var candidate = job.executionRuntime.candidates().getFirst();
             var request = new ECOCraftingDispatchRequest(job, candidate, pattern, new KeyCounter[]{inputs},
                 outputs, new KeyCounter(), Long.MAX_VALUE, inventory, null);
-            when(provider.eco$prepareExactFastPath(any(), eq(HUGE))).thenReturn(
-                new cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider.ExactPreparation(HUGE, () -> true));
-            assertEquals(HUGE, dispatcher.tryExactDispatch(request, provider, 0, null, ignored -> {}));
-            assertEquals(BigInteger.ZERO, inventory.amount(input));
-            assertEquals(BigInteger.ZERO, job.tasks.get(pattern).remainingExact());
-            assertEquals(HUGE, cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.amount(job.waitingFor, output));
+            when(provider.eco$prepareExactFastPath(any(), eq(expected))).thenReturn(
+                new cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider.ExactPreparation(expected, () -> true));
+            assertEquals(expected, limit == 0
+                ? dispatcher.tryExactDispatch(request, provider, 0, null, ignored -> {})
+                : dispatcher.tryExactDispatch(request, provider, 0, null, ignored -> {}, limit));
+            assertEquals(HUGE.subtract(expected), inventory.amount(input));
+            assertEquals(HUGE.subtract(expected), job.tasks.get(pattern).remainingExact());
+            assertEquals(expected, cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.amount(job.waitingFor, output));
             assertTrue(job.batchedOutputs.contains(output));
-            assertEquals(HUGE, event.get().exactDispatchedCrafts());
-            assertTrue(job.executionRuntime.isComplete());
+            assertEquals(expected, event.get().exactDispatchedCrafts());
+            assertEquals(limit == 0, job.executionRuntime.isComplete());
             job.exactOrder = false;
             clearInvocations(provider);
             assertNull(dispatcher.tryExactDispatch(request, provider, 0, null, ignored -> {}));

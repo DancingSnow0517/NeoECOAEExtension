@@ -6,9 +6,14 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 public interface IECOStorageCell extends StorageCell {
     IECOTier getTier();
 
-    /** Marked bulk cells receive inserts before ordinary cells in the same host. */
+    /** Whether this cell should receive marked inserts before ordinary cells. */
     default boolean prioritizesMarkedInserts() {
         return false;
+    }
+
+    /** Priority offset used when this cell is mounted inside an ECO storage host. */
+    default int getStoragePriority() {
+        return prioritizesMarkedInserts() ? 1 : 0;
     }
     /**
      * @return cellType for display in gui

@@ -16,6 +16,14 @@
       "item": "neoecoae:eco_cell_component_256m"
     },
     {
+      "count": 1,
+      "item": "megacells:compression_card"
+    },
+    {
+      "count": 1,
+      "item": "megacells:decompression_module"
+    },
+    {
       "count": 8,
       "item": "ae2:engineering_processor"
     },

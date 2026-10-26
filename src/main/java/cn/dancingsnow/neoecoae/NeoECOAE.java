@@ -76,6 +76,7 @@ public class NeoECOAE {
 
         NECreativeTabs.register();
         NEMenus.register(modBus);
+        cn.dancingsnow.neoecoae.menu.StorageCellWorkbenchLocator.register();
         NEItems.register();
         NEBlocks.register();
         NEFluids.register();
@@ -92,7 +93,8 @@ public class NeoECOAE {
             cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::hasBulkCell,
             cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::normalizeMarker,
             cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::isSameMarkerChain,
-            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::migrateMarkedCell);
+            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::migrateMarkedCell,
+            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::previewMarkedCell);
 
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();
@@ -187,6 +189,7 @@ public class NeoECOAE {
             String storageCellGroup = GuiText.StorageCells.getTranslationKey();
 
             Upgrades.add(AEItems.SPEED_CARD, NEBlocks.INTEGRATED_WORKING_STATION.get(), 4);
+            Upgrades.add(NEItems.NETWORK_PULL_CARD, NEBlocks.INPUT_HATCH.get(), 1);
             Upgrades.add(AEItems.CAPACITY_CARD, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.get(), 4);
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(

@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -17,6 +18,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import java.util.List;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 /** CPU selection and network-frequency controls for the computation controller. */
@@ -77,6 +79,37 @@ final class ComputationControllerInteractions {
             case PLAYER_ONLY -> new ItemStackTexture(new ItemStack(AEParts.TERMINAL));
             case MACHINE_ONLY -> new ItemStackTexture(new ItemStack(AEParts.EXPORT_BUS));
         };
+    }
+
+    static Button createSmartDoublingButton(ComputationControllerUI.Config config) {
+        Button button = HostSideButtonBar.createButton().noText();
+        button.setId("computation-smart-doubling");
+        UIElement icon = new UIElement().style(style ->
+            style.backgroundTexture(smartDoublingIcon(config.smartDoublingEnabled().getAsBoolean())));
+        icon.setId("computation-smart-doubling-icon");
+        button.addChild(icon);
+        BindableValue<Boolean> synced = new BindableValue<>(config.smartDoublingEnabled().getAsBoolean());
+        synced.bind(DataBindingBuilder.boolS2C(config.smartDoublingEnabled()::getAsBoolean).build());
+        synced.registerValueListener(value -> icon.style(style ->
+            style.backgroundTexture(smartDoublingIcon(Boolean.TRUE.equals(value)))));
+        synced.setDisplay(false);
+        button.addChild(synced);
+        button.setOnServerClick(event -> config.toggleSmartDoubling().run());
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+            boolean on = Boolean.TRUE.equals(synced.getValue());
+            event.hoverTooltips = new HoverTooltips(List.of(
+                Component.translatable("gui.neoecoae.crafting.smart_doubling"),
+                Component.translatable("gui.neoecoae.computation.ui.switch." + (on ? "on" : "off"))
+                    .withColor(on ? 0x55FF55 : 0xAAAAAA),
+                Component.translatable("gui.neoecoae.computation.ui.switch.smart_doubling.desc")
+            ), null, null, null);
+        });
+        return button;
+    }
+
+    private static IGuiTexture smartDoublingIcon(boolean enabled) {
+        return SpriteTexture.of(ResourceLocation.fromNamespaceAndPath("neoecoae",
+            "textures/gui/computation/eco_batching" + (enabled ? "" : "_off") + ".png"));
     }
 
     static Component cpuSelectionModeTooltip(CpuSelectionMode mode) {

@@ -4,6 +4,16 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.fluid_input_hatch.stock", "Buffer");
+        provider.add("gui.neoecoae.fluid_input_hatch.filter", "Marked fluid");
+        provider.add("gui.neoecoae.fluid_input_hatch.target", "Target (mB)");
+        provider.add("gui.neoecoae.fluid_input_hatch.stored", "Buffered: %s mB");
+        provider.add("gui.neoecoae.fluid_input_hatch.card_required", "Install a Network Pull Card to enable stocking");
+        provider.add("gui.neoecoae.fluid_input_hatch.online", "ME online - restocks every second");
+        provider.add("gui.neoecoae.fluid_input_hatch.offline", "ME offline - stocking paused");
+        provider.add("gui.neoecoae.fluid_input_hatch.upgrade", "Upgrade slot: Network Pull Card (max. 1)");
+        provider.add("gui.neoecoae.fluid_input_hatch.filter_hint", "Click with a fluid container or drag a fluid from JEI/EMI to mark it; right-click to clear. No fluid is consumed.");
+        provider.add("gui.neoecoae.fluid_input_hatch.target_hint", "Target buffer amount in mB. Every second, restock the deficit from ME and return excess fluid. 0 returns all buffered fluid. No 16-bucket limit.");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_value", "Energy: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.fe_supply_hint", "Using %s requires Applied Flux");
         provider.add("gui.neoecoae.large_integrated_working_station.fe_storage_hint", "and %s stored in the ME network.");
@@ -353,6 +363,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.bulk_mark.result.success",
             "Auto-marked %s; already marked %s; no space %s; migrated %s");
         provider.add("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell", "No ECO bulk storage matrix installed");
+        provider.add("gui.neoecoae.storage.cell.action.configure", "Adjust stored resource types");
+        provider.add("gui.neoecoae.storage.cell.priority.title", "Cell priority (relative to host)");
         provider.add("gui.neoecoae.storage.bulk_mark.result.busy", "Storage transfer or migration is in progress");
         provider.add("gui.neoecoae.storage.bulk_mark.result.invalid_threshold", "The auto-mark threshold is invalid");
         provider.add("gui.neoecoae.storage.bulk_mark.result.unavailable", "ECO bulk marking is unavailable");
@@ -405,6 +417,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.ui.switch.substitutions.desc", "Lets planning use patterns that allow substitutions.");
         provider.add("gui.neoecoae.computation.ui.switch.cycle_planning.desc", "Lets planning solve recipe routes that contain cycles.");
         provider.add("gui.neoecoae.computation.ui.switch.fast_planner.desc", "Handles crafting requests with the ECO fast planner.");
+        provider.add("gui.neoecoae.computation.ui.switch.smart_doubling.desc", "When disabled, each dispatch is limited to actual parallelism, up to 16,384 crafts.");
         provider.add("gui.neoecoae.computation.ui.parallel_full", "Full build progress");
         provider.add("gui.neoecoae.computation.ui.parallel_shared", "Every thread gets the full parallel count.");
         provider.add("gui.neoecoae.computation.ui.title", "Extensible Computation Subsystem");
@@ -788,10 +801,29 @@ public class GuiLangs {
         provider.add("gui.neoecoae.processing.machine", "%s: %s, %s, parallel %s");
         provider.add("gui.neoecoae.processing.more", "%s more machine(s) included in the summary");
         provider.add("gui.neoecoae.processing.refreshing", "Refreshing machine status…");
+        provider.add("gui.neoecoae.processing.count", "Associated machines: %s");
+        provider.add("gui.neoecoae.processing.loading_details", "Loading machine details...");
+        provider.add("gui.neoecoae.processing.parallel", "Actual parallels: %s");
+        provider.add("gui.neoecoae.processing.cycle", "Cycle %s%%");
+        provider.add("gui.neoecoae.processing.time", "%s / %s t");
+        provider.add("gui.neoecoae.processing.remaining", "Remaining %s t");
+        provider.add("gui.neoecoae.processing.folded", "... %s more machines collapsed");
+        provider.add("gui.neoecoae.processing.dimension.overworld", "Overworld");
+        provider.add("gui.neoecoae.processing.dimension.nether", "The Nether");
+        provider.add("gui.neoecoae.processing.dimension.end", "The End");
         provider.add("gui.neoecoae.processing.state.running", "Running");
         provider.add("gui.neoecoae.processing.state.waiting", "Waiting for output");
         provider.add("gui.neoecoae.processing.state.paused", "Paused");
         provider.add("gui.neoecoae.processing.state.queued", "Queued");
         provider.add("gui.neoecoae.processing.state.unavailable", "Unavailable");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.title", "Confirm automatic migration");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.description", "Move matching items into this bulk cell");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.loading", "Checking available items...");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.unavailable", "Migration preview is unavailable");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.empty", "No matching items can be migrated");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.more", "%s more item types will also be migrated");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.hint", "Click OK to start the migration");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.help",
+            "Moves matching items from this host and the ME network. At most six item types are shown; all matching items are included when confirmed.");
     }
 }

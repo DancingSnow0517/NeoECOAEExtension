@@ -258,12 +258,10 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (item == null) return;
             List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
             lines.addAll(itemDescription(item, true));
-            lines.addAll(ComputationProcessingTooltips.lines(item.processing()));
             if (item.batched()) {
                 lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF));
             }
-            lines.add(Component.translatable("gui.neoecoae.processing.context_hint").withStyle(ChatFormatting.DARK_GRAY));
-            event.hoverTooltips = HoverTooltips.empty().append(lines.toArray(Component[]::new));
+            event.hoverTooltips = ComputationProcessingTooltips.create(lines, item);
         });
         return hitbox;
     }

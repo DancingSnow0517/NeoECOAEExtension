@@ -62,6 +62,9 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     private long contentRevision;
 
     public long contentRevision() { return contentRevision; }
+
+    @Override
+    public int getStoragePriority() { return ECOStorageCellSettings.priority(cellStack); }
     private boolean isPersisted = true;
     @Getter
     private final IECOTier tier;

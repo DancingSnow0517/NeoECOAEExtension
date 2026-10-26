@@ -190,6 +190,10 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Unique
     private boolean neoecoae$cyclePlanningInitialized;
     @Unique
+    private boolean neoecoae$smartDoublingEnabled = true;
+    @Unique
+    private boolean neoecoae$smartDoublingInitialized;
+    @Unique
     private long neoecoae$substitutionPatternCountVersion = Long.MIN_VALUE;
     @Unique
     private int neoecoae$substitutionPatternCount;
@@ -290,6 +294,12 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$initializeOrSyncCyclePlanning(
                     computationHost.isLocallyCyclePlanningEnabled(),
                     computationHost::applyNetworkCyclePlanningEnabled);
+            if (!neoecoae$smartDoublingInitialized) {
+                neoecoae$smartDoublingEnabled = computationHost.isLocallySmartDoublingEnabled();
+                neoecoae$smartDoublingInitialized = true;
+            } else {
+                computationHost.applyNetworkSmartDoublingEnabled(neoecoae$smartDoublingEnabled);
+            }
         }
     }
 
@@ -383,6 +393,20 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Override
     public boolean neoecoae$isCyclePlanningEnabled() {
         return neoecoae$cyclePlanningEnabled;
+    }
+
+    @Override
+    public boolean neoecoae$isSmartDoublingEnabled() {
+        return neoecoae$smartDoublingEnabled;
+    }
+
+    @Override
+    public void neoecoae$setSmartDoublingEnabled(boolean enabled) {
+        neoecoae$smartDoublingInitialized = true;
+        neoecoae$smartDoublingEnabled = enabled;
+        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+            host.applyNetworkSmartDoublingEnabled(enabled);
+        }
     }
 
     @Override

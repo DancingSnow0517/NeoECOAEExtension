@@ -61,7 +61,8 @@ public final class ComputationControllerUI {
         @Nullable Player player, DriveExtractor driveExtractor, DriveInserter driveInserter,
         LongSupplier gameTime, BooleanSupplier canInteract,
         Supplier<List<ECOCraftingCPU>> cpus, Consumer<ECOCraftingCPU> toggleCpuSuspended, Consumer<ECOCraftingCPU> cancelCpu,
-        Supplier<Component> endgameStatus
+        Supplier<Component> endgameStatus,
+        BooleanSupplier smartDoublingEnabled, Runnable toggleSmartDoubling
     ) {
         HolderLookup.Provider registries() {
             return player == null ? RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
@@ -100,6 +101,7 @@ public final class ComputationControllerUI {
         cpuMode.setId("computation-cpu-mode");
         Button frequency = ComputationControllerInteractions.createNetworkFrequencyButton(config);
         frequency.setId("computation-frequency");
+        Button smartDoubling = ComputationControllerInteractions.createSmartDoublingButton(config);
         var identities = new CpuSelectionState.Identities<ECOCraftingCPU>();
         ComputationCpuStatusPanel status = new ComputationCpuStatusPanel(config, identities);
         status.setDisplay(false);
@@ -153,7 +155,7 @@ public final class ComputationControllerUI {
                     case "computation_status" -> status;
                     case "computation_switch" -> createSwitch(config,
                         node.has("key") ? node.get("key").getAsString() : "", panelTier, textures);
-                    case "computation_toolbar" -> HostSideButtonBar.left(guideButton, buildButton, cpuMode, frequency, listToggle);
+                    case "computation_toolbar" -> HostSideButtonBar.left(guideButton, buildButton, cpuMode, frequency, smartDoubling, listToggle);
                     case "computation_info" -> info;
                     default -> null;
                 };

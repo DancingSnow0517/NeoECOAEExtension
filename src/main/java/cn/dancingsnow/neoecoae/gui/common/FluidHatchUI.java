@@ -24,6 +24,11 @@ public final class FluidHatchUI {
     private FluidHatchUI() {
     }
 
+    public static ModularUI createInputHatchUI(BlockUIMenuType.BlockUIHolder holder,
+        cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity host) {
+        return FluidInputHatchUI.create(host, holder.player);
+    }
+
     public static ModularUI createFluidHatchUI(BlockUIMenuType.BlockUIHolder holder, FluidTank tank, String titleKey,
         boolean allowClickFilled, boolean allowClickDrained) {
         UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT,

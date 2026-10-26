@@ -16,6 +16,7 @@ item_ids:
   - neoecoae:crafting_casing
   - neoecoae:crafting_vent
   - neoecoae:input_hatch
+  - neoecoae:network_pull_card
   - neoecoae:output_hatch
   - neoecoae:crafting_network_switch
   - neoecoae:crafting_high_energy_network_switch
@@ -86,6 +87,16 @@ The <ItemLink id="neoecoae:crafting_interface" /> connects the system to your ME
 <BlockImage id="neoecoae:input_hatch" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:input_hatch" /> accepts coolant fluids for active cooling mode.
+
+Install a <ItemLink id="neoecoae:network_pull_card" /> in the right-side upgrade slot, mark a coolant with a fluid container or a JEI/EMI ghost ingredient, and enter the target stock in mB. Marking consumes no fluid; right-click to clear it.
+
+Every 20 ticks, the hatch replenishes the deficit from its connected ME network. It stops at the target and replenishes fluid consumed by the cooling system. The buffer has no 16-bucket limit and stores exact signed 64-bit quantities. The real fluid slot and the amount below show current stock.
+
+Lowering the target, setting it to 0, or changing/clearing the marked fluid returns excess or old stock to ME. If the network cannot accept it, the hatch retains the remainder and retries before pulling another fluid. Stocking pauses without network power or a channel. Removing the card stops network stocking while leaving buffered coolant available for use.
+
+<RecipeFor id="neoecoae:network_pull_card" />
+
+One card costs 1 singularity, 2 wireless receivers, 1 advanced card, 1 superconducting processor, and 4 aluminum alloy ingots. It draws from the hatch's existing ME network connection.
 
 ### Fluid Output Hatch
 

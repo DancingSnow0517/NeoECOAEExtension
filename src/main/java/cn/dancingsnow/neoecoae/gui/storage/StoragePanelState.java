@@ -27,7 +27,16 @@ import net.minecraft.world.item.ItemStack;
 record StoragePanelState(Component title, int tier, boolean formed, boolean infinite, boolean migrating,
     long energy, long maxEnergy, long drain, String usedBytes, double usage, int cellCount, int cellOffset,
     List<CellEntry> cells, List<TypeLine> types, String domainId, int missingMembers, boolean componentPresent,
-    BigInteger totalBytes) {
+    BigInteger totalBytes, BigInteger exactUsedBytes) {
+
+    StoragePanelState(Component title, int tier, boolean formed, boolean infinite, boolean migrating,
+        long energy, long maxEnergy, long drain, String usedBytes, double usage, int cellCount, int cellOffset,
+        List<CellEntry> cells, List<TypeLine> types, String domainId, int missingMembers, boolean componentPresent,
+        BigInteger totalBytes) {
+        this(title, tier, formed, infinite, migrating, energy, maxEnergy, drain, usedBytes, usage, cellCount, cellOffset,
+            cells, types, domainId, missingMembers, componentPresent, totalBytes,
+            totalUsedBytes(cells, types, infinite || migrating));
+    }
 
     StoragePanelState(Component title, int tier, boolean formed, boolean infinite, boolean migrating,
         long energy, long maxEnergy, long drain, String usedBytes, double usage, int cellCount, int cellOffset,
@@ -90,7 +99,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             config.energyConsumePerTick().getAsLong(), config.totalUsedBytesText().get(), usage(all), all.size(), offset,
             cellPage(all, offset, pageSize), List.copyOf(types),
             config.domainId().get(), config.missingMembers().getAsInt(),
-            !config.infiniteComponentInventory().getStackInSlot(0).isEmpty(), totalCapacity(all));
+            !config.infiniteComponentInventory().getStackInSlot(0).isEmpty(), totalCapacity(all),
+            totalUsedBytes(all, types, infinite || migrating));
     }
 
     static int pageOffset(int requested, int total, int pageSize) {
@@ -134,6 +144,15 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             .reduce(BigInteger.ZERO, BigInteger::add);
     }
 
+    private static BigInteger totalUsedBytes(List<CellEntry> cells, List<TypeLine> types, boolean unbounded) {
+        if (unbounded) {
+            return types.stream().map(TypeLine::exactUsedBytes).reduce(BigInteger.ZERO, BigInteger::add);
+        }
+        // Use the same finite cells as totalCapacity and usage, before selecting the visible page.
+        return cells.stream().filter(cell -> cell.totalBytes() != Long.MAX_VALUE)
+            .map(CellEntry::exactUsedBytes).reduce(BigInteger.ZERO, BigInteger::add);
+    }
+
     TypeLine type(int id) {
         return types.stream().filter(type -> type.id() == id).findFirst().orElse(null);
     }
@@ -152,6 +171,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         tag.putLong("energy", energy); tag.putLong("maxEnergy", maxEnergy); tag.putLong("drain", drain);
         tag.putString("usedBytes", usedBytes); tag.putDouble("usage", usage);
         tag.putString("totalBytes", totalBytes.toString());
+        tag.putString("exactUsedBytes", exactUsedBytes.toString());
         tag.putInt("cellCount", cellCount); tag.putInt("cellOffset", cellOffset);
         tag.putString("domain", domainId); tag.putInt("missing", missingMembers);
         tag.putBoolean("component", componentPresent);
@@ -224,7 +244,9 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             tag.getLong("drain"), tag.getString("usedBytes"), tag.getDouble("usage"), tag.getInt("cellCount"),
             tag.getInt("cellOffset"), List.copyOf(cells), List.copyOf(types), tag.getString("domain"),
             tag.getInt("missing"), tag.getBoolean("component"),
-            tag.contains("totalBytes") ? new BigInteger(tag.getString("totalBytes")) : totalCapacity(cells));
+            tag.contains("totalBytes") ? new BigInteger(tag.getString("totalBytes")) : totalCapacity(cells),
+            tag.contains("exactUsedBytes") ? new BigInteger(tag.getString("exactUsedBytes"))
+                : totalUsedBytes(cells, types, tag.getBoolean("infinite") || tag.getBoolean("migrating")));
     }
 
     private static void putComponent(CompoundTag tag, String key, Component component) {

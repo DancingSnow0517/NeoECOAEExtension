@@ -114,15 +114,21 @@ final class ECOStorageInterfaceTransfer {
         public long insert(AEKey key, long amount, appeng.api.config.Actionable mode, IActionSource source) {
             if (!allowAccess.getAsBoolean()) return 0L;
             long inserted = 0L;
-            for (int pass = 0; pass < 2 && inserted < amount; pass++) {
-                for (MEStorage inventory : inventories) {
-                    if (inserted >= amount) break;
-                    boolean bulk = inventory instanceof IECOStorageCell cell && cell.prioritizesMarkedInserts();
-                    if (bulk != (pass == 0)) continue;
-                    inserted += inventory.insert(key, amount - inserted, mode, source);
-                }
+            var ordered = inventories.stream().sorted((left, right) -> Integer.compare(
+                storagePriority(right), storagePriority(left))).toList();
+            for (MEStorage inventory : ordered) {
+                if (inserted >= amount) break;
+                inserted += inventory.insert(key, amount - inserted, mode, source);
             }
             return inserted;
+        }
+
+        private static int storagePriority(MEStorage inventory) {
+            if (!(inventory instanceof IECOStorageCell cell)) return 0;
+            int priority = cell.getStoragePriority();
+            // Keep third-party/mock cells that only implement the legacy marked-insert flag
+            // ahead of ordinary storage while the new local priority API is absent.
+            return priority == 0 && cell.prioritizesMarkedInserts() ? 1 : priority;
         }
 
         @Override

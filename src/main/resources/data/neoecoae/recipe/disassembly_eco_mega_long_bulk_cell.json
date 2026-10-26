@@ -15,6 +15,14 @@
     {
       "count": 1,
       "id": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 1,
+      "id": "megacells:compression_card"
+    },
+    {
+      "count": 1,
+      "id": "megacells:decompression_module"
     }
   ]
 }

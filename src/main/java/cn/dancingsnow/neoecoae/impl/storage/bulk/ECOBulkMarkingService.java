@@ -127,17 +127,7 @@ public final class ECOBulkMarkingService {
                 Status.BUSY, 0L);
         }
         List<ECODriveBlockEntity> drives = host.getStorageDrivesForIntegration();
-        TargetCell selected = null;
-        for (ECODriveBlockEntity drive : drives) {
-            if (!drive.getBlockPos().equals(position)) continue;
-            ItemStack stack = drive.getCellStack();
-            if (stack != null && !stack.isEmpty() && stack.getItem() instanceof ECOBulkStorageCellItem
-                && drive.getCellInventory() instanceof ECOBulkStorageCell bulk
-                && host.getTier().compareTo(bulk.getTier()) >= 0) {
-                selected = new TargetCell(drive, bulk);
-            }
-            break;
-        }
+        TargetCell selected = findTargetCell(host, position, drives);
         if (selected == null) {
             return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
                 Status.NO_BULK_CELL, 0L);
@@ -150,6 +140,64 @@ public final class ECOBulkMarkingService {
         if (transferred > 0L) host.notifyStorageConfigurationChanged();
         return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
             Status.SUCCESS, transferred);
+    }
+
+    /** Read-only preview: probes the same sources and filters without moving any resources. */
+    public static List<ItemStack> previewMarkedCell(ECOStorageSystemBlockEntity host, BlockPos position) {
+        if (!(host.getLevel() instanceof ServerLevel serverLevel)
+            || !serverLevel.getServer().isSameThread() || host.isInfiniteMode()) return List.of();
+        var drives = host.getStorageDrivesForIntegration();
+        TargetCell selected = findTargetCell(host, position, drives);
+        if (selected == null) return List.of();
+        Set<AEKey> unboundedKeys = new HashSet<>();
+        var grid = host.getMainNode().getGrid();
+        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
+        collectUnboundedKeys(drives, unboundedKeys);
+        Set<AEItemKey> items = new HashSet<>();
+        IActionSource source = IActionSource.ofMachine(host);
+        for (var drive : drives) {
+            ItemStack stack = drive.getCellStack();
+            IECOStorageCell inventory = drive.getCellInventory();
+            if (stack == null || stack.isEmpty() || stack.getItem() instanceof ECOBulkStorageCellItem
+                || host.isInfiniteMemberCell(stack) || inventory == null
+                || host.getTier().compareTo(inventory.getTier()) < 0) continue;
+            collectPreviewItems(inventory, selected.storage(), source, unboundedKeys, items);
+        }
+        if (grid != null) {
+            try (var ignored = StorageExtractionExclusions.open(List.of(selected.storage()))) {
+                collectPreviewItems(grid.getStorageService().getInventory(), selected.storage(), source,
+                    unboundedKeys, items);
+            }
+        }
+        return items.stream().sorted(Comparator.comparing(key -> key.getId().toString()))
+            .map(AEItemKey::toStack).toList();
+    }
+
+    private static void collectPreviewItems(MEStorage from, ECOBulkStorageCell to, IActionSource source,
+        Set<AEKey> unboundedKeys, Set<AEItemKey> items) {
+        KeyCounter available = new KeyCounter();
+        from.getAvailableStacks(available);
+        for (var entry : available) {
+            if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey key)
+                || unboundedKeys.contains(key) || items.contains(key)) continue;
+            if (to.insert(key, 1L, Actionable.SIMULATE, source) > 0L
+                && from.extract(key, 1L, Actionable.SIMULATE, source) > 0L) items.add(key);
+        }
+    }
+
+    private static TargetCell findTargetCell(ECOStorageSystemBlockEntity host, BlockPos position,
+        List<ECODriveBlockEntity> drives) {
+        for (ECODriveBlockEntity drive : drives) {
+            if (!drive.getBlockPos().equals(position)) continue;
+            ItemStack stack = drive.getCellStack();
+            if (stack != null && !stack.isEmpty() && stack.getItem() instanceof ECOBulkStorageCellItem
+                && drive.getCellInventory() instanceof ECOBulkStorageCell bulk
+                && host.getTier().compareTo(bulk.getTier()) >= 0) {
+                return new TargetCell(drive, bulk);
+            }
+            break;
+        }
+        return null;
     }
 
     private static void collectUnboundedKeys(List<ECODriveBlockEntity> drives, Set<AEKey> target) {

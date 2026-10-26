@@ -45,6 +45,7 @@ import net.minecraft.world.item.SmithingTemplateItem;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.Tags;
 
 import java.util.List;
@@ -55,6 +56,21 @@ public class NEItems {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
+
+    public static final ItemEntry<Item> NETWORK_PULL_CARD = REGISTRATE
+        .item("network_pull_card", Upgrades::createUpgradeCardItem)
+        .lang("Network Pull Card")
+        .model((ctx, prov) -> prov.generated(ctx::get, prov.modLoc("item/network_pull_card")))
+        .recipe((ctx, prov) -> ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+            .pattern("AWA").pattern("CSC").pattern("APA")
+            .define('A', NEItems.ALUMINUM_ALLOY_INGOT)
+            .define('W', AEItems.ADVANCED_CARD)
+            .define('C', AEItems.WIRELESS_RECEIVER)
+            .define('S', AEItems.SINGULARITY)
+            .define('P', NEItems.SUPERCONDUCTING_PROCESSOR)
+            .unlockedBy("has_singularity", RegistrateRecipeProvider.has(AEItems.SINGULARITY))
+            .save(prov))
+        .register();
 
     public static final ItemEntry<Item> INTEGRATED_WORKING_STATION_MODULE_EMPTY = workstationModule(
         "empty", "Blank Integrated Working Station Upgrade Card");
@@ -72,6 +88,14 @@ public class NEItems {
         "appgen", "Applied Generators Integrated Working Station Upgrade Card");
 
     private static ItemEntry<Item> workstationModule(String variant, String name) {
+        String requiredMod = switch (variant) {
+            case "empty" -> null;
+            case "aelt" -> "ae2lt";
+            default -> variant;
+        };
+        if (requiredMod != null && !ModList.get().isLoaded(requiredMod)) {
+            return null;
+        }
         return REGISTRATE.item("integrated_working_station_module_" + variant, Upgrades::createUpgradeCardItem)
             .lang(name)
             .model((ctx, prov) -> prov.generated(ctx::get,
@@ -901,9 +925,9 @@ public class NEItems {
         .item("eco_bulk_item_cell_housing", MaterialItem::new)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
-                .pattern("ABA")
+                .pattern("ACA")
                 .pattern("B B")
-                .pattern("CCC")
+                .pattern("CBC")
                 .define('A', NEItems.CRYSTAL_MATRIX)
                 .define('B', Tags.Items.DUSTS_REDSTONE)
                 .define('C', NETags.Items.ALUMINUM_ALLOY_INGOT)

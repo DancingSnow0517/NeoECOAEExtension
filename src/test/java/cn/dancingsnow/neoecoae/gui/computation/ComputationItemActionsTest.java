@@ -113,7 +113,8 @@ class ComputationItemActionsTest {
                 () -> false, () -> 0, () -> {}, () -> true, () -> {}, () -> true, () -> {},
                 () -> 1, ignored -> {}, () -> net.minecraft.world.item.ItemStack.EMPTY,
                 List::of, List::of, player, (pos, expected, toInventory) -> false, (pos, expected) -> false,
-                () -> 0L, allowed::get, cpus::get, ignored -> {}, ignored -> {}, net.minecraft.network.chat.Component::empty);
+                () -> 0L, allowed::get, cpus::get, ignored -> {}, ignored -> {}, net.minecraft.network.chat.Component::empty,
+                () -> true, () -> {});
             when(cpu.getLogic()).thenReturn(logic);
             when(logic.getProcessingJobId()).thenReturn(job);
             var grid = mock(IGrid.class);

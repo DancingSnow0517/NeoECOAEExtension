@@ -227,6 +227,38 @@ class ECOBatchDispatchIntegrationTest {
                 && r.outputs().getFirst().amount() == 12), any(), eq(provider));
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,3,3", "false,20000,16384", "true,3,20000"})
+    void smartDoublingSwitchCapsNewBatchesAtActualParallelismAnd16384(boolean enabled, int parallelism, long expected) {
+        var cpu = mock(ECOCraftingCPU.class);
+        var grid = mock(appeng.api.networking.IGrid.class);
+        var crafting = mock(appeng.api.networking.crafting.ICraftingService.class, withSettings()
+            .extraInterfaces(cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings.class));
+        when(cpu.getGrid()).thenReturn(grid);
+        when(cpu.getCoProcessors()).thenReturn(parallelism);
+        when(grid.getCraftingService()).thenReturn(crafting);
+        when(((cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings) crafting)
+            .neoecoae$isSmartDoublingEnabled()).thenReturn(enabled);
+        var limited = new ECOCraftingProviderDispatcher(new ECOCraftingCPULogic(cpu),
+            mock(ECOCraftingFastPathDispatcher.class), new ECOCraftingEnergyTransaction(() -> {}, () -> 0), accounting);
+        var provider = mock(Parallel.class);
+        when(provider.eco$getAvailableParallelSlots()).thenReturn(20_000);
+        when(provider.eco$pushPatternBatch(eq(pattern), any(), eq(expected), any())).thenReturn(true);
+        inventory.insert(input, 40_000, Actionable.MODULATE);
+        var large = new ECOCraftingDispatchRequest(request.job(), null, pattern, request.inputs(), request.outputs(),
+            request.remainders(), 20_000, inventory, request.level());
+        try (var helpers = mockStatic(CraftingCpuHelper.class)) {
+            helpers.when(() -> CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
+            var result = limited.dispatchCandidate(large, List.of(provider), new ECOCraftingDispatchBudget(64, 64),
+                energy, mock(ECODispatchStallDiagnostics.class), ignored -> {}, () -> {},
+                (attempt, target) -> fail("Accepted batch must not be replayed"));
+            assertTrue(result.accepted());
+            assertEquals(expected, result.acceptedCrafts());
+            assertEquals(40_100 - expected * 2, inventory.list.get(input));
+            verify(provider).eco$pushPatternBatch(eq(pattern), any(), eq(expected), any());
+        }
+    }
+
     @Test void workstationProviderUsesParallelRouteEvenWhenItExposesAe2ProviderLogic() {
         var provider = mock(WorkstationLike.class);
         var ordinary = mock(Ae2LogicProvider.class);

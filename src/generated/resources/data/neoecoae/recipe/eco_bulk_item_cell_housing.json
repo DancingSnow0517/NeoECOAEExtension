@@ -13,9 +13,9 @@
     }
   },
   "pattern": [
-    "ABA",
+    "ACA",
     "B B",
-    "CCC"
+    "CBC"
   ],
   "result": {
     "count": 1,

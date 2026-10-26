@@ -38,6 +38,13 @@ class ECONetworkVersionTest {
         assertRejected("3", current);
     }
 
+    @Test
+    void previousFullCpuListProtocolIsRejectedEvenForTheSameRelease() {
+        String current = ECONetwork.protocolVersion("21.2.0-beta6");
+        assertRejected(current, "3/21.2.0-beta6");
+        assertRejected("3/21.2.0-beta6", current);
+    }
+
     private static void assertRejected(String serverVersion, String clientVersion) {
         var result = NetworkComponentNegotiator.validateComponent(
             component(serverVersion), component(clientVersion), "client").orElseThrow();

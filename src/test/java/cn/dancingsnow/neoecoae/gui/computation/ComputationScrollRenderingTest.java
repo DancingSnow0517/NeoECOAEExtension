@@ -178,7 +178,7 @@ class ComputationScrollRenderingTest {
             () -> net.minecraft.world.item.ItemStack.EMPTY, List::of, List::of, null,
             (position, expected, toInventory) -> false, (position, expected) -> false,
             () -> 0L, () -> true, List::of, cpu -> {}, cpu -> {},
-            () -> net.minecraft.network.chat.Component.empty());
+            () -> net.minecraft.network.chat.Component.empty(), () -> true, () -> {});
     }
 
     private static CompoundTag snapshot(int cpuOffset, int itemOffset, int serial) {

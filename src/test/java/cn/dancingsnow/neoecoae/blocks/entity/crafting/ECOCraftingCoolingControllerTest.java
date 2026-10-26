@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import cn.dancingsnow.neoecoae.util.LongFluidTank;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -36,7 +37,7 @@ class ECOCraftingCoolingControllerTest {
         var cluster = mock(NECraftingCluster.class);
         var inputHatch = mock(ECOFluidInputHatchBlockEntity.class);
         var outputHatch = mock(ECOFluidOutputHatchBlockEntity.class);
-        input = inputHatch.tank = new FluidTank(16000);
+        input = inputHatch.tank = new LongFluidTank();
         output = outputHatch.tank = new FluidTank(16000);
         input.setFluid(new FluidStack(Fluids.WATER, 16000));
         when(host.getCluster()).thenReturn(cluster);

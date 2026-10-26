@@ -159,6 +159,18 @@ class ECOStorageHostStatisticsTest {
     }
 
     @Test
+    void totalUsedBytesExcludesBulkCellsWhileTheirResourceStatisticsRemainAvailable() {
+        Fixture fixture = new Fixture();
+        fixture.addCell("items", AEKeyType.items(), 1, 315, 100, 1_000);
+        fixture.addCell("bulk_item", AEKeyType.items(), 1, 1, Long.MAX_VALUE, Long.MAX_VALUE);
+
+        assertEquals("100", fixture.statistics.getTotalUsedBytesText());
+        assertTotals(fixture.line("bulk_item"), 1, 1, Long.MAX_VALUE, Long.MAX_VALUE);
+        assertEquals(Long.MAX_VALUE, fixture.statistics.getCellEntries().get(1).usedBytes());
+        assertTrue(fixture.faults.snapshot().isEmpty());
+    }
+
+    @Test
     void emptyMegaCellPublishesCapacityUnderOrdinaryResourceGroup() {
         Fixture fixture = new Fixture();
         fixture.addCell("mega_item", AEKeyType.items(), 0, 315, 0, 4_096);

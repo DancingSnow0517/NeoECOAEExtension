@@ -40,6 +40,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     private final Map<AEItemKey, AEItemKey> cutoffs = new LinkedHashMap<>();
     private final Map<AEItemKey, BigInteger> pending = new LinkedHashMap<>();
     private final ListTag unresolved = new ListTag();
+    private int storagePriority = 1;
     private boolean persisted = true;
     private long checkedRevision = -1;
     private boolean recovering;
@@ -56,7 +57,15 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     }
 
     @Override public boolean isInfiniteStorageEligible() { return false; }
-    @Override public boolean prioritizesMarkedInserts() { return true; }
+    @Override public boolean prioritizesMarkedInserts() { return storagePriority > 0; }
+    @Override public int getStoragePriority() { return storagePriority; }
+    public int getConfiguredStoragePriority() { return storagePriority; }
+    public void setConfiguredStoragePriority(int priority) {
+        if (storagePriority == priority) return;
+        storagePriority = priority;
+        saveChanges();
+        persist();
+    }
     @Override public CellState getStatus() {
         return canFitInsideCell() ? CellState.EMPTY : getRemainingItemCount() > 0 ? CellState.NOT_EMPTY : CellState.FULL;
     }
@@ -246,8 +255,10 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         ListTag outputs = new ListTag();
         pending.forEach((key, amount) -> { CompoundTag entry = BulkItemKeys.write(key); entry.putString("amount", amount.toString()); outputs.add(entry); });
         data.put("entries", entries); data.put("cutoffs", displays); data.put("pending", outputs); data.put("unresolved", unresolved.copy());
+        data.putInt("priority", storagePriority);
         custom.remove(LEGACY_TAG);
-        if (accounts.isEmpty() && cutoffs.isEmpty() && pending.isEmpty() && unresolved.isEmpty()) custom.remove(DATA_TAG);
+        if (accounts.isEmpty() && cutoffs.isEmpty() && pending.isEmpty() && unresolved.isEmpty()
+            && storagePriority == 1) custom.remove(DATA_TAG);
         else custom.put(DATA_TAG, data);
         if (custom.isEmpty()) stack.remove(DataComponents.CUSTOM_DATA); else stack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
         stack.remove(AEComponents.STORAGE_CELL_INV);
@@ -260,6 +271,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         CompoundTag data = custom.getCompound(modern ? DATA_TAG : LEGACY_TAG);
         int version = data.getInt("version");
         if (version > 2) throw new IllegalStateException("Unsupported ECO bulk format " + version);
+        if (data.contains("priority", Tag.TAG_INT)) storagePriority = data.getInt("priority");
         for (Tag raw : data.getList("entries", Tag.TAG_COMPOUND)) loadEntry((CompoundTag) raw, version);
         for (Tag raw : data.getList("unresolved", Tag.TAG_COMPOUND)) recover((CompoundTag) raw);
         for (Tag raw : data.getList("cutoffs", Tag.TAG_COMPOUND)) {

@@ -236,7 +236,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
                 && !ECOInfiniteStorageMember.isMigrating(cellStack)
                 && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 int priority = cn.dancingsnow.neoecoae.gui.storage.StoragePriority.mountPriority(
-                    storageCluster.getController().getStoragePriority(), cellInventory.prioritizesMarkedInserts());
+                    storageCluster.getController().getStoragePriority(), getConfiguredCellPriority());
                 storageMounts.mount(cellInventory, priority);
                 mounted = true;
                 updateCellState();
@@ -287,6 +287,33 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Nullable
     public ECOStorageSystemBlockEntity getStorageController() {
         return cluster instanceof NEStorageCluster storageCluster ? storageCluster.getController() : null;
+    }
+
+    public int getConfiguredCellPriority() {
+        return cellStack == null ? 0 : cn.dancingsnow.neoecoae.impl.storage.ECOStorageCellSettings.priority(cellStack);
+    }
+
+    public void setConfiguredCellPriority(int priority) {
+        if (cellStack == null || !cn.dancingsnow.neoecoae.impl.storage.ECOStorageCellSettings.canConfigure(cellStack)) return;
+        if (getCellInventory() instanceof cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell bulk) {
+            bulk.setConfiguredStoragePriority(priority);
+        } else {
+            cn.dancingsnow.neoecoae.impl.storage.ECOStorageCellSettings.setPriority(cellStack, priority);
+        }
+        onCellConfigurationChanged();
+        var controller = getStorageController();
+        if (controller != null) controller.notifyStorageConfigurationChanged();
+    }
+
+    /** Flush balances before replacing the handler that cached the old partition and upgrade settings. */
+    public void reloadCellConfiguration() {
+        if (level == null || level.isClientSide) return;
+        if (cachedCellInventory != null) cachedCellInventory.persist();
+        ECOStorageCells.releaseCellInventory(cellStack, this);
+        invalidateCellInventoryCache();
+        onCellConfigurationChanged();
+        var controller = getStorageController();
+        if (controller != null) controller.notifyStorageConfigurationChanged();
     }
 
     /** Persists an in-place CellConfig mutation and refreshes this drive's AE2 storage mount. */

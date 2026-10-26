@@ -6,7 +6,7 @@ import java.util.function.Supplier;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCellSettings;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
@@ -23,6 +23,7 @@ import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundTag;
 
 /** JSON-positioned disk items. A click identifies the displayed physical drive, independent of paging. */
 final class StorageCellGrid extends UIElement {
@@ -32,7 +33,12 @@ final class StorageCellGrid extends UIElement {
     private final RPCEmitter extraction;
     private final RPCEmitter insertion;
     private final RPCEmitter migrateMarked;
+    private final RPCEmitter previewMigration;
+    private final RPCEmitter openConfiguration;
     private final ECOBulkCellActionsPopup actionsPopup;
+    private final ECOBulkMigrationDialog migrationDialog;
+    private BlockPos previewedPosition;
+    private UUID previewedCell;
     private boolean interacting;
     private boolean popupAttached;
 
@@ -48,18 +54,41 @@ final class StorageCellGrid extends UIElement {
             (position, expected, shift) -> isOpenMenu(config) && config.cellExtractor().extract(position, expected, shift)));
         insertion = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class,
             (position, expected) -> isOpenMenu(config) && config.cellInserter().insert(position, expected)));
-        migrateMarked = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, Boolean.class,
-            position -> {
+        openConfiguration = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class,
+            (position, expected) -> {
                 if (!isOpenMenu(config)) return false;
-                config.cellActions().migrateMarked().accept(position);
+                config.cellActions().openConfiguration().accept(position, expected);
                 return true;
             }));
+        previewMigration = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, CompoundTag.class, position -> {
+            previewedPosition = null;
+            previewedCell = null;
+            if (!isOpenMenu(config)) return new CompoundTag();
+            CompoundTag preview = config.cellActions().previewMigration().apply(position);
+            if (preview.hasUUID("cell_id") && preview.getInt("total") > 0) {
+                previewedPosition = position;
+                previewedCell = preview.getUUID("cell_id");
+            }
+            return preview;
+        }));
+        migrateMarked = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class,
+            (position, expected) -> {
+                if (!isOpenMenu(config) || !position.equals(previewedPosition)
+                    || !expected.equals(previewedCell)) return false;
+                previewedPosition = null;
+                previewedCell = null;
+                config.cellActions().migrateMarked().accept(position, expected);
+                return true;
+            }));
+        migrationDialog = new ECOBulkMigrationDialog(config.registries(),
+            (position, expected) -> migrateMarked.send(ignored -> {}, position, expected));
         actionsPopup = new ECOBulkCellActionsPopup(
-            position -> migrateMarked.send(ignored -> {}, position),
+            this::openMigrationDialog,
             config.cellActions().openPriority(),
+            (position, expected) -> openConfiguration.send(ignored -> {}, position, expected),
             config.cellActions().openCompressionDisplay());
         addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            if (actionsPopup.isDisplayed() && !actionsPopup.isMouseOverElement(event.x, event.y)) {
+            if (actionsPopup.isOpen() && !actionsPopup.isMouseOverElement(event.x, event.y)) {
                 actionsPopup.close();
                 if (event.button != 1) event.stopImmediatePropagation();
             }
@@ -72,6 +101,16 @@ final class StorageCellGrid extends UIElement {
             sync.scroll(event.deltaY < 0 ? 1 : -1);
             event.stopImmediatePropagation();
         });
+    }
+
+    private void openMigrationDialog(BlockPos position) {
+        UIElement root = this;
+        while (root.getParent() != null) root = root.getParent();
+        if (migrationDialog.getParent() == null) root.addChild(migrationDialog);
+        long request = migrationDialog.open(position, root.getSizeWidth(), root.getSizeHeight());
+        if (!previewMigration.send((CompoundTag preview) -> migrationDialog.accept(request, preview), position)) {
+            migrationDialog.accept(request, new CompoundTag());
+        }
     }
 
     private boolean isOpenMenu(StorageHostUI.Config config) {
@@ -122,13 +161,14 @@ final class StorageCellGrid extends UIElement {
             if (event.button != 0 && event.button != 1 || interacting) return;
             var cell = cell(index);
             if (cell.position() == null) return;
-            if (event.button == 1 && isBulkCell(cell)) {
+            if (event.button == 1 && cell.interactionId() != null && ECOStorageCellSettings.canConfigure(cell.stack())) {
                 if (!popupAttached) {
-                    addChild(actionsPopup);
+                    StorageCellGrid.this.addChild(actionsPopup);
                     popupAttached = true;
                 }
-                actionsPopup.open(cell.position(),
-                    event.x - getPositionX() + 2, event.y - getPositionY() + 2,
+                actionsPopup.open(cell, () -> cell(index),
+                    event.x - StorageCellGrid.this.getPositionX() + 2,
+                    event.y - StorageCellGrid.this.getPositionY() + 2,
                     columns * 18, 3 * 18);
                 return;
             }
@@ -147,21 +187,16 @@ final class StorageCellGrid extends UIElement {
             }
         }
 
-        private boolean isBulkCell(StorageHostUI.CellEntry cell) {
-            return !cell.stack().isEmpty() && cell.stack().getItem() instanceof ECOBulkStorageCellItem;
-        }
-
         @Override
         public List<Component> getFullTooltipTexts(boolean withItemTooltips) {
-            List<Component> lines = super.getFullTooltipTexts(withItemTooltips);
-            lines.addAll(tooltip(index));
-            return lines;
+            if (actionsPopup.isOpen()) return List.of();
+            return tooltip(index);
         }
 
         @Override
         protected void onHoverTooltips(UIEvent event) {
-            if (getValue().isEmpty()) event.hoverTooltips = new HoverTooltips(tooltip(index), null, null, null);
-            else super.onHoverTooltips(event);
+            if (actionsPopup.isOpen()) event.hoverTooltips = new HoverTooltips(List.of(), null, null, null);
+            else event.hoverTooltips = new HoverTooltips(tooltip(index), null, null, null);
         }
 
         @Override
@@ -171,7 +206,7 @@ final class StorageCellGrid extends UIElement {
 
         @Override
         protected void drawHover(GUIContext context) {
-            if (!sync.state().formed() || cell(index).position() == null) return;
+            if (actionsPopup.isOpen() || !sync.state().formed() || cell(index).position() == null) return;
             // Custom slot subclasses do not inherit the item-slot stylesheet selector.
             context.drawTexture(NETextures.AE2_SLOT_HIGHLIGHT, 0, 0, 16, 16);
         }
@@ -182,32 +217,17 @@ final class StorageCellGrid extends UIElement {
         List<Component> lines = new ArrayList<>();
         if (index < state.cells().size() && state.cells().get(index).installed()) {
             StorageHostUI.CellEntry cell = state.cells().get(index);
-            StoragePanelState.TypeLine type = state.type(cell.typeId());
-            Component name = type != null ? type.name() : Component.translatable(switch (cell.kind()) {
-                case StorageHostUI.CellEntry.KIND_ITEM -> "gui.neoecoae.storage.legacy.cell_info.item";
-                case StorageHostUI.CellEntry.KIND_FLUID -> "gui.neoecoae.storage.legacy.cell_info.fluid";
-                default -> "gui.neoecoae.storage.legacy.cell_info.other";
-            });
-            lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_info", name, tierName(cell)));
+            lines.add(cell.stack().getHoverName().copy());
+            long byteCapacity = cell.infinite() || cell.totalBytes() == Long.MAX_VALUE ? -1 : cell.totalBytes();
+            lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
+                HostText.usedPart(HostText.fullBytes(cell.exactUsedBytes()), cell.usedBytes(), byteCapacity),
+                HostText.totalPart(fullCapacity(byteCapacity))));
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_types",
                 HostText.usedPart(HostText.ae2Amount(cell.usedTypes()), cell.usedTypes(), cell.totalTypes()),
                 HostText.totalPart(capacity(cell.totalTypes()))));
-            lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
-                HostText.usedPart(HostText.fullBytes(cell.exactUsedBytes()), cell.usedBytes(), cell.totalBytes()),
-                HostText.totalPart(fullCapacity(cell.totalBytes()))));
-            lines.add(Component.translatable("gui.neoecoae.storage.ui.cell_state." +
-                (!cell.online() || !state.formed() ? "offline" : cell.infinite() ? "infinite"
-                    : cell.state().name().toLowerCase(java.util.Locale.ROOT))));
-            if (cell.extractionBlockReason() != null) lines.add(cell.extractionBlockReason().copy().withColor(0xFF5555));
-            else lines.add(Component.translatable("gui.neoecoae.storage.ui.take_cell").withColor(HostText.MUTED));
         } else {
             lines.add(Component.translatable("gui.neoecoae.storage.ui.cell_state.absent"));
-            if (cell(index).position() != null) {
-                lines.add(Component.translatable("gui.neoecoae.storage.ui.insert_cell").withColor(HostText.MUTED));
-            }
         }
-        lines.add(pageText(state, columns * 3));
-        lines.add(Component.translatable("gui.neoecoae.storage.ui.scroll_cells").withColor(HostText.MUTED));
         return lines;
     }
 
