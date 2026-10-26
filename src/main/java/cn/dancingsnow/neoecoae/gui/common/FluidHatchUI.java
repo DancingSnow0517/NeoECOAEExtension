@@ -11,9 +11,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import net.minecraft.resources.ResourceLocation;
 
@@ -31,9 +28,11 @@ public final class FluidHatchUI {
 
     public static ModularUI createFluidHatchUI(BlockUIMenuType.BlockUIHolder holder, FluidTank tank, String titleKey,
         boolean allowClickFilled, boolean allowClickDrained) {
-        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT,
-            new JsonContext(tank, titleKey, allowClickFilled, allowClickDrained));
-        return ECOModularUI.create(root, holder.player);
+        return ECOModularUI.create(createRoot(tank, titleKey, allowClickFilled, allowClickDrained), holder.player);
+    }
+
+    static UIElement createRoot(FluidTank tank, String titleKey, boolean allowClickFilled, boolean allowClickDrained) {
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(tank, titleKey, allowClickFilled, allowClickDrained));
     }
 
     private static final class JsonContext implements NeoUiJsonContext {

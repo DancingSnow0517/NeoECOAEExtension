@@ -4,16 +4,17 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
-        provider.add("gui.neoecoae.fluid_input_hatch.stock", "Buffer");
+        provider.add("gui.neoecoae.fluid_input_hatch.stock", "Buffered fluid");
         provider.add("gui.neoecoae.fluid_input_hatch.filter", "Marked fluid");
         provider.add("gui.neoecoae.fluid_input_hatch.target", "Target (mB)");
         provider.add("gui.neoecoae.fluid_input_hatch.stored", "Buffered: %s mB");
         provider.add("gui.neoecoae.fluid_input_hatch.card_required", "Install a Network Pull Card to enable stocking");
         provider.add("gui.neoecoae.fluid_input_hatch.online", "ME online - restocks every second");
-        provider.add("gui.neoecoae.fluid_input_hatch.offline", "ME offline - stocking paused");
+        provider.add("gui.neoecoae.fluid_input_hatch.offline", "ME offline - waiting for connection");
         provider.add("gui.neoecoae.fluid_input_hatch.upgrade", "Upgrade slot: Network Pull Card (max. 1)");
-        provider.add("gui.neoecoae.fluid_input_hatch.filter_hint", "Click with a fluid container or drag a fluid from JEI/EMI to mark it; right-click to clear. No fluid is consumed.");
-        provider.add("gui.neoecoae.fluid_input_hatch.target_hint", "Target buffer amount in mB. Every second, restock the deficit from ME and return excess fluid. 0 returns all buffered fluid. No 16-bucket limit.");
+        provider.add("gui.neoecoae.fluid_input_hatch.filter_hint", "Click with a fluid container or drag coolant from JEI/EMI to mark it; right-click to clear. No fluid is consumed.");
+        provider.add("gui.neoecoae.fluid_input_hatch.target_hint", "Every 20 ticks, replenish the target stock and return excess fluid. Unit: mB. 0 returns all buffered fluid. No 16-bucket limit.");
+        provider.add("gui.neoecoae.fluid_input_hatch.select_fluid", "Click or drag coolant to mark it");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_value", "Energy: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.fe_supply_hint", "Using %s requires Applied Flux");
         provider.add("gui.neoecoae.large_integrated_working_station.fe_storage_hint", "and %s stored in the ME network.");

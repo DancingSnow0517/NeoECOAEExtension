@@ -1330,6 +1330,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             // Compatibility inputs must be fully owned before any of this task joins progressed work.
             // A partial withdrawal stays on its original queued task and is saved/refunded there.
             if (!acquireExtraInputs(next)) break;
+            // Matrix substitution can change the physical input contract while acquiring extras.
+            // Keep that task separate instead of merging the previously calculated EHV portion.
+            if (!sameCounter(inputsPerCraft, divideCounter(next.inputTotal, next.craftCount))) break;
 
             long completedWork = batch.progress * batch.craftCount + batch.progressRemainder;
             batch.craftCount += taken;
@@ -1696,16 +1699,22 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (isCounterEmpty(batch.missingExtras)) return true;
         IGrid grid = getMainNode().getGrid();
         if (grid == null) return false;
+        MEStorage storage = grid.getStorageService().getInventory();
+        IActionSource source = IActionSource.ofMachine(this);
+        if (getInstalledModule() == LargeWorkstationModule.LIGHTNING_TECH) {
+            LargeWorkstationExtraInputs.prepareLightningSubstitution(batch.missingExtras, batch.inputTotal, storage, source,
+                segmented ? Math.min(LargeWorkstationOverclock.BASE_PARALLELISM, batch.craftCount) : batch.craftCount,
+                batch.craftCount, this::setChanged);
+        }
         if (segmented) {
             boolean complete = true;
-            MEStorage storage = grid.getStorageService().getInventory();
             for (GenericStack extra : counterEntries(batch.missingExtras)) {
                 long owned = batch.inputTotal.get(extra.what());
                 long target = portionAmount(Math.addExact(owned, extra.amount()),
                     Math.min(LargeWorkstationOverclock.BASE_PARALLELISM, batch.craftCount), batch.craftCount);
                 long requested = Math.max(0L, target - owned);
                 if (requested == 0) continue;
-                long extracted = storage.extract(extra.what(), requested, Actionable.MODULATE, IActionSource.ofMachine(this));
+                long extracted = storage.extract(extra.what(), requested, Actionable.MODULATE, source);
                 if (extracted < 0 || extracted > requested) throw new IllegalStateException("Invalid extra input extraction");
                 if (extracted > 0) {
                     batch.inputTotal.add(extra.what(), extracted);
@@ -1717,7 +1726,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return complete;
         }
         return LargeWorkstationExtraInputs.acquire(batch.missingExtras, batch.inputTotal,
-            grid.getStorageService().getInventory(), IActionSource.ofMachine(this), this::setChanged);
+            storage, source, this::setChanged);
     }
 
     private boolean recoverCounterToNetwork(KeyCounter counter) {

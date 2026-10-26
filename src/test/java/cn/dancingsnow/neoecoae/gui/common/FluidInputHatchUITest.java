@@ -13,6 +13,10 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
+import dev.vfyjxf.taffy.style.TaffyDisplay;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -36,6 +40,30 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class FluidInputHatchUITest {
+    @Test
+    void chineseResourcesContainReadableTextAndTheCardKeepsTheSuppliedPng() throws Exception {
+        for (String locale : List.of("zh_cn", "zh_tw", "zh_hk", "lzh")) {
+            String path = "assets/neoecoae/lang/" + locale + ".json";
+            try (var stream = getClass().getClassLoader().getResourceAsStream(path)) {
+                assertNotNull(stream, path);
+                var json = com.google.gson.JsonParser.parseString(new String(stream.readAllBytes(),
+                    java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+                for (var entry : json.entrySet()) {
+                    if (entry.getKey().equals("item.neoecoae.network_pull_card")
+                        || entry.getKey().startsWith("gui.neoecoae.fluid_input_hatch.")) {
+                        assertFalse(entry.getValue().getAsString().contains("?"), entry.getKey());
+                    }
+                }
+                if (locale.equals("zh_cn")) assertEquals("网络拉取卡", json.get("item.neoecoae.network_pull_card").getAsString());
+            }
+        }
+        try (var stream = getClass().getClassLoader().getResourceAsStream("assets/neoecoae/textures/item/network_pull_card.png")) {
+            assertNotNull(stream);
+            String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(stream.readAllBytes()));
+            assertEquals("38a472cc38f8e35f4186ad363c318e04d819e18ad12720c0854f8ff814b70722", hash);
+        }
+    }
+
     @BeforeAll
     static void bootstrap() throws Exception {
         InventoryTestBootstrap.initialize();
@@ -60,6 +88,46 @@ class FluidInputHatchUITest {
             assertInstanceOf(TextField.class, node(root, "amount"));
             UIElement rail = node(root, "upgrades");
             assertEquals(1, rail.getChildren().getFirst().getChildren().stream().filter(ItemSlot.class::isInstance).count());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void insertingAndRemovingTheCardSwitchesContentsWithoutRebuildingInventoryOrSlots() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var root = FluidInputHatchUI.createRoot(host(), player());
+            var legacy = node(root, "legacy-fluid-content");
+            var network = node(root, "network-fluid-content");
+            var rail = node(root, "upgrades");
+            var inventory = root.getChildren().stream().filter(InventorySlots.class::isInstance).findFirst().orElseThrow();
+            var mode = (BindableValue<Boolean>) node(root, "network-pull-mode");
+            assertEquals(TaffyDisplay.NONE, network.getStyleBag().computeCandidate(LayoutProperties.DISPLAY));
+            assertNotEquals(TaffyDisplay.NONE, legacy.getStyleBag().computeCandidate(LayoutProperties.DISPLAY));
+            for (boolean installed : List.of(true, false, true, false)) {
+                mode.setValue(installed);
+                assertEquals(installed ? TaffyDisplay.NONE : TaffyDisplay.FLEX,
+                    legacy.getStyleBag().computeCandidate(LayoutProperties.DISPLAY));
+                assertEquals(installed ? TaffyDisplay.FLEX : TaffyDisplay.NONE,
+                    network.getStyleBag().computeCandidate(LayoutProperties.DISPLAY));
+                assertSame(rail, node(root, "upgrades"));
+                assertTrue(root.getChildren().contains(inventory));
+                assertEquals(1, root.getChildren().stream().filter(InventorySlots.class::isInstance).count());
+            }
+        }
+    }
+
+    @Test
+    void savedCardStateSelectsTheNetworkContentsWhenTheMenuOpens() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var host = host();
+            when(host.hasNetworkPullCard()).thenReturn(true);
+            var root = FluidInputHatchUI.createRoot(host, player());
+            assertEquals(TaffyDisplay.NONE, node(root, "legacy-fluid-content")
+                .getStyleBag().computeCandidate(LayoutProperties.DISPLAY));
+            assertNotEquals(TaffyDisplay.NONE, node(root, "network-fluid-content")
+                .getStyleBag().computeCandidate(LayoutProperties.DISPLAY));
         }
     }
 

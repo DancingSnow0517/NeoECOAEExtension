@@ -40,7 +40,6 @@ final class StorageCellGrid extends UIElement {
     private BlockPos previewedPosition;
     private UUID previewedCell;
     private boolean interacting;
-    private boolean popupAttached;
 
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config) {
         this(sync, columns, config, () -> null);
@@ -87,12 +86,6 @@ final class StorageCellGrid extends UIElement {
             config.cellActions().openPriority(),
             (position, expected) -> openConfiguration.send(ignored -> {}, position, expected),
             config.cellActions().openCompressionDisplay());
-        addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            if (actionsPopup.isOpen() && !actionsPopup.isMouseOverElement(event.x, event.y)) {
-                actionsPopup.close();
-                if (event.button != 1) event.stopImmediatePropagation();
-            }
-        }, true);
         for (int i = 0; i < columns * 3; i++) {
             addChild(new CellSlot(i));
         }
@@ -101,6 +94,25 @@ final class StorageCellGrid extends UIElement {
             sync.scroll(event.deltaY < 0 ? 1 : -1);
             event.stopImmediatePropagation();
         });
+    }
+
+    private void openActionsPopup(StorageHostUI.CellEntry cell, int index, UIEvent event) {
+        UIElement root = this;
+        while (root.getParent() != null) root = root.getParent();
+        if (actionsPopup.getParent() == null) {
+            // Keep the menu above every host section, including those outside the disk grid.
+            root.addChild(actionsPopup);
+            root.addEventListener(UIEvents.MOUSE_DOWN, outside -> {
+                if (actionsPopup.isOpen() && !actionsPopup.isMouseOverElement(outside.x, outside.y)) {
+                    actionsPopup.close();
+                    if (outside.button != 1) outside.stopImmediatePropagation();
+                }
+            }, true);
+        }
+        actionsPopup.open(cell, () -> cell(index),
+            event.x - root.getPositionX() + 2,
+            event.y - root.getPositionY() + 2,
+            Math.round(root.getSizeWidth()), Math.round(root.getSizeHeight()));
     }
 
     private void openMigrationDialog(BlockPos position) {
@@ -162,14 +174,7 @@ final class StorageCellGrid extends UIElement {
             var cell = cell(index);
             if (cell.position() == null) return;
             if (event.button == 1 && cell.interactionId() != null && ECOStorageCellSettings.canConfigure(cell.stack())) {
-                if (!popupAttached) {
-                    StorageCellGrid.this.addChild(actionsPopup);
-                    popupAttached = true;
-                }
-                actionsPopup.open(cell, () -> cell(index),
-                    event.x - StorageCellGrid.this.getPositionX() + 2,
-                    event.y - StorageCellGrid.this.getPositionY() + 2,
-                    columns * 18, 3 * 18);
+                openActionsPopup(cell, index, event);
                 return;
             }
             var mui = getModularUI();

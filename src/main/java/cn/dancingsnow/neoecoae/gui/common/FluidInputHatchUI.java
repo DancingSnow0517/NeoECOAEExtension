@@ -16,10 +16,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
+import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.utils.FluidHelper;
 import java.util.List;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
@@ -44,16 +47,44 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
     }
 
     static UIElement createRoot(ECOFluidInputHatchBlockEntity host, Player player) {
-        return NeoUiJsonLoader.load(NeoECOAE.id("screens/fluid_input_hatch"), new FluidInputHatchUI(host, player));
+        var context = new FluidInputHatchUI(host, player);
+        // One inventory and one upgrade slot keep menu indices stable across mode changes.
+        UIElement root = FluidHatchUI.createRoot(host.tank, "block.neoecoae.input_hatch", true, true);
+        root.setId("fluid-input-hatch-root");
+        root.setOverflowVisible(true);
+        UIElement legacy = root.getChildren().get(1);
+        legacy.setId("legacy-fluid-content");
+        UIElement network = NeoUiJsonLoader.load(NeoECOAE.id("screens/fluid_input_hatch"), context);
+        root.addChildAt(network, 2);
+        root.addChild(context.upgrades());
+        BindableValue<Boolean> mode = new BindableValue<>(host.hasNetworkPullCard());
+        mode.setId("network-pull-mode");
+        mode.setDisplay(false);
+        java.util.function.Consumer<Boolean> applyMode = installed -> {
+            boolean enabled = Boolean.TRUE.equals(installed);
+            legacy.setDisplay(!enabled);
+            network.setDisplay(enabled);
+        };
+        applyMode.accept(mode.getValue());
+        mode.registerValueListener(installed -> {
+            applyMode.accept(installed);
+            var ui = root.getModularUI();
+            if (player.level().isClientSide && ui != null && ui.getScreen() != null) {
+                ui.init(ui.getScreen().width, ui.getScreen().height);
+            }
+        });
+        mode.bind(DataBindingBuilder.boolS2C(host::hasNetworkPullCard).initialValue(mode.getValue()).build());
+        root.addChild(mode);
+        return root;
     }
 
     @Override
     public UIElement createCustom(JsonObject definition) {
         return switch (definition.get("custom").getAsString()) {
-            case "title" -> label(() -> Component.translatable("block.neoecoae.input_hatch"));
             case "stock_caption" -> label(() -> text("stock"));
-            case "filter_caption" -> label(() -> text("filter"));
             case "amount_caption" -> label(() -> text("target"));
+            case "marked_fluid_name" -> label(() -> host.getMarkedFluid().isEmpty() ? text("select_fluid")
+                : FluidHelper.getDisplayName(host.getMarkedFluid()));
             case "stock" -> {
                 FluidSlot slot = new FluidSlot().bind(host.tank, 0)
                     .slotStyle(style -> style.fillDirection(FillDirection.ALWAYS_FULL));
@@ -64,16 +95,21 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
             }
             case "filter" -> new MarkedFluidSlot();
             case "amount" -> amountField();
-            case "stored_amount" -> label(() -> text("stored", Long.toString(host.tank.getStoredAmount())));
+            case "stored_amount" -> label(() -> Component.literal(host.tank.getStoredAmount() + " mB"));
             case "network_status" -> label(() -> text(!host.hasNetworkPullCard() ? "card_required"
                 : host.getMainNode().isActive() ? "online" : "offline"));
-            case "upgrades" -> HostSideButtonBar.rightSlots(List.of(
-                new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) host.getUpgrades().toItemHandler(), 0))
-                    .slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
-                        .showSlotOverlayOnlyEmpty(true))
-                    .style(style -> style.tooltips(text("upgrade")))));
             default -> throw new IllegalArgumentException("Unknown input hatch element: " + definition);
         };
+    }
+
+    private UIElement upgrades() {
+        UIElement rail = HostSideButtonBar.rightSlots(List.of(
+            new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) host.getUpgrades().toItemHandler(), 0))
+                .slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
+                    .showSlotOverlayOnlyEmpty(true))
+                .style(style -> style.tooltips(text("upgrade")))));
+        rail.setId("upgrades");
+        return rail;
     }
 
     private TextField amountField() {
@@ -84,8 +120,10 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
             try { host.setTargetAmount(Long.parseLong(value)); }
             catch (NumberFormatException ignored) { /* Keep the last valid value during an incomplete edit. */ }
         }).build());
-        field.textFieldStyle(style -> style.textColor(0xFFF2F2F2).textShadow(false).fontSize(6));
-        field.style(style -> style.tooltips(text("target_hint")));
+        field.textFieldStyle(style -> style.textColor(0xFFF2F2F2).textShadow(false).fontSize(7)
+            .focusOverlay(com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture.EMPTY));
+        field.style(style -> style.backgroundTexture(NETextures.PRIORITY_TEXT_FIELD).tooltips(text("target_hint")));
+        field.layout(layout -> layout.paddingHorizontal(3).paddingVertical(2));
         return field;
     }
 
@@ -98,7 +136,7 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
 
     private static Label label(Supplier<Component> value) {
         Label label = new Label();
-        label.textStyle(style -> style.fontSize(6).textColor(0x403E53).textShadow(false));
+        label.textStyle(style -> style.fontSize(7).textColor(0x403E53).textShadow(false).textWrap(TextWrap.HOVER_ROLL));
         label.bind(DataBindingBuilder.componentS2C(value).initialValue(value.get()).build());
         return label;
     }

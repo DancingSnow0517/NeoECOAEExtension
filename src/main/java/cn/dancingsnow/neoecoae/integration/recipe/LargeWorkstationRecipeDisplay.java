@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.recipe;
 
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.integration.ae2lt.WorkstationLightningInputs;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
@@ -237,6 +238,11 @@ public final class LargeWorkstationRecipeDisplay {
         lines.add(detailLine("time_label", duration(recipe)));
         if (showBatch) lines.add(detailLine("batch_label", resourceTooltip(recipe.outputs())));
         if (!recipe.extraInputs().isEmpty()) lines.add(detailLine("extra_required_label", resourceTooltip(recipe.extraInputs())));
+        for (var input : recipe.extraInputs()) {
+            var substitute = WorkstationLightningInputs.highVoltageSubstitute(input);
+            if (substitute != null) lines.add(Component.literal("  ").append(Component.translatable(
+                "jei.ae2lt.lightning_simulation.substitution", DisplayNumbers.grouped(Long.toString(substitute.amount())))));
+        }
     }
 
     private static Component detailLine(String label, Component value) {

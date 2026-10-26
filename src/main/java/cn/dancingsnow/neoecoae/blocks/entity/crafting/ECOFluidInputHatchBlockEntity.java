@@ -28,6 +28,21 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
 
     public LongFluidTank tank = new LongFluidTank() {
         @Override
+        public int getCapacity() {
+            return upgrades != null && hasNetworkPullCard() ? Integer.MAX_VALUE
+                : (int) Math.min(Integer.MAX_VALUE, Math.max(16_000L, getStoredAmount()));
+        }
+
+        @Override
+        public int getTankCapacity(int tank) { return getCapacity(); }
+
+        @Override
+        public int getSpace() {
+            return upgrades != null && hasNetworkPullCard() ? super.getSpace()
+                : (int) Math.max(0, 16_000L - getStoredAmount());
+        }
+
+        @Override
         protected void onContentsChanged() {
             setChanged();
             markForUpdate();

@@ -5,10 +5,41 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.integration.ae2lt.WorkstationLightningInputs;
 
 /** Transfers additional recipe costs into the same recoverable ownership ledger as CPU inputs. */
 final class LargeWorkstationExtraInputs {
     private LargeWorkstationExtraInputs() {}
+
+    /** Lock unpaid EHV to its real HV cost so saves, portions and refunds share one physical ledger. */
+    static void prepareLightningSubstitution(KeyCounter missing, KeyCounter owned, MEStorage storage,
+                                            IActionSource source, long portionCount, long craftCount,
+                                            Runnable changed) {
+        for (var extra : ECOFastPathStacks.copyCounter(missing)) {
+            var substitute = WorkstationLightningInputs.highVoltageSubstitute(extra);
+            if (substitute == null) continue;
+            long requested = requestForPortion(owned.get(extra.what()), extra.amount(), portionCount, craftCount);
+            if (requested == 0 || storage.extract(extra.what(), requested, Actionable.SIMULATE, source) >= requested) continue;
+            long substituteRequested;
+            try {
+                long substituteMissing = Math.addExact(missing.get(substitute.what()), substitute.amount());
+                substituteRequested = requestForPortion(owned.get(substitute.what()), substituteMissing, portionCount, craftCount);
+            } catch (ArithmeticException overflow) {
+                continue;
+            }
+            if (substituteRequested > 0
+                && storage.extract(substitute.what(), substituteRequested, Actionable.SIMULATE, source) < substituteRequested) continue;
+            missing.remove(extra.what(), extra.amount());
+            missing.add(substitute.what(), substitute.amount());
+            changed.run();
+        }
+    }
+
+    private static long requestForPortion(long owned, long missing, long count, long totalCount) {
+        long total = Math.addExact(owned, missing);
+        long target = total / totalCount * count + total % totalCount * count / totalCount;
+        return Math.max(0L, target - owned);
+    }
 
     static boolean acquire(KeyCounter missing, KeyCounter owned, MEStorage storage, IActionSource source, Runnable changed) {
         for (var extra : ECOFastPathStacks.copyCounter(missing)) {
