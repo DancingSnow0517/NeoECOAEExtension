@@ -197,7 +197,6 @@ public class NeoECOAE {
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
             }
-            Upgrades.add(NEItems.ECO_BULK_UPGRADE_CARD, NEItems.ECO_BULK_CELL, 1, storageCellGroup);
             appeng.api.crafting.PatternDetailsHelper.registerDecoder(
                 cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkConversionPattern.DECODER);
         });

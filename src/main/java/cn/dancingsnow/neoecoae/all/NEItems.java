@@ -1024,18 +1024,7 @@ public class NEItems {
             .register();
     }
 
-    // Historical ids stay registered unconditionally so existing disks and cards survive without MEGA Cells.
-    public static final ItemEntry<Item> ECO_BULK_UPGRADE_CARD =
-        REGISTRATE.item("eco_mega_upgrade_card", Upgrades::createUpgradeCardItem)
-            .lang("ECO Bulk Expansion Card")
-            .model((ctx, prov) -> {})
-            .register();
-    public static final ItemEntry<ECOBulkStorageCellItem> ECO_BULK_CELL =
-        REGISTRATE.item("eco_mega_long_bulk_cell", p -> new ECOBulkStorageCellItem(
-                p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.BULK_ITEM))
-            .lang("ECO Bulk Storage Matrix")
-            .model((ctx, prov) -> {})
-            .register();
+    // Legacy single-resource disks also use the shared virtual conversion carrier.
     public static final ItemEntry<MaterialItem> ECO_BULK_PATTERN =
         REGISTRATE.item("eco_bulk_conversion_pattern", MaterialItem::new)
             .lang("ECO Bulk Conversion")

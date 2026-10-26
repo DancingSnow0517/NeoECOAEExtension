@@ -10,10 +10,11 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOBulkMarkableCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.network.chat.Component;
@@ -28,6 +29,9 @@ import java.util.function.Supplier;
 public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBulkMarkableCellItem {
     public static final int TYPE_LIMIT = 25;
     public static final int UPGRADED_TYPE_LIMIT = 50;
+    // Resolve by registry id so legacy disks never initialize the optional MEGA item registrations.
+    private static final ResourceLocation EXPANSION_CARD =
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "eco_mega_upgrade_card");
     private final int baseTypeLimit;
     public ECOBulkStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type) {
         this(properties, tier, type, TYPE_LIMIT);
@@ -51,7 +55,12 @@ public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements 
 
     public int activeSlots(ItemStack stack) {
         if (baseTypeLimit == 1) return 1;
-        return getUpgrades(stack).isInstalled(NEItems.ECO_BULK_UPGRADE_CARD) ? UPGRADED_TYPE_LIMIT : TYPE_LIMIT;
+        return BuiltInRegistries.ITEM.getOptional(EXPANSION_CARD)
+            .filter(card -> getUpgrades(stack).isInstalled(card)).isPresent() ? UPGRADED_TYPE_LIMIT : TYPE_LIMIT;
+    }
+
+    private static boolean isExpansionCard(ItemStack stack) {
+        return !stack.isEmpty() && BuiltInRegistries.ITEM.getOptional(EXPANSION_CARD).map(stack::is).orElse(false);
     }
 
     @Override public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
@@ -139,12 +148,12 @@ public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements 
         @Override
         public void setItemDirect(int slot, ItemStack stack) {
             if (isLockedCard(slot) && (stack.isEmpty()
-                || !stack.is(NEItems.ECO_BULK_UPGRADE_CARD.get()))) {
+                || !isExpansionCard(stack))) {
                 return;
             }
             if (!stack.isEmpty() && !isItemValid(slot, stack)) return;
-            boolean removingCard = delegate.getStackInSlot(slot).is(NEItems.ECO_BULK_UPGRADE_CARD.get())
-                && !stack.is(NEItems.ECO_BULK_UPGRADE_CARD.get());
+            boolean removingCard = isExpansionCard(delegate.getStackInSlot(slot))
+                && !isExpansionCard(stack);
             delegate.setItemDirect(slot, stack);
             if (removingCard) {
                 compactMarkers(cellStack);
@@ -153,7 +162,7 @@ public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements 
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return stack.is(NEItems.ECO_BULK_UPGRADE_CARD.get()) && delegate.isItemValid(slot, stack);
+            return isExpansionCard(stack) && delegate.isItemValid(slot, stack);
         }
 
         @Override
@@ -170,7 +179,7 @@ public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements 
                 return ItemStack.EMPTY;
             }
             ItemStack extracted = delegate.extractItem(slot, amount, simulate);
-            if (!simulate && extracted.is(NEItems.ECO_BULK_UPGRADE_CARD.get())) {
+            if (!simulate && isExpansionCard(extracted)) {
                 compactMarkers(cellStack);
             }
             return extracted;
@@ -179,7 +188,7 @@ public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements 
         private boolean isLockedCard(int slot) {
             ItemStack installed = delegate.getStackInSlot(slot);
             return !installed.isEmpty()
-                && installed.is(NEItems.ECO_BULK_UPGRADE_CARD.get())
+                && isExpansionCard(installed)
                 && hasTooManyMarkers(cellStack);
         }
 

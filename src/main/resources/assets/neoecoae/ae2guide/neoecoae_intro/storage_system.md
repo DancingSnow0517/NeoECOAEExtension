@@ -136,14 +136,14 @@ The following ECO storage cells can be used in the drives:
 
 Storage matrices for AE2 Omni Cells and AE2 Lightning Tech are documented in [Compatibility Storage Matrices](compat_storage_matrices.md).
 
-## Standalone Bulk Storage
+## Bulk Storage (MEGA Cells)
 
 <ItemGrid>
   <ItemIcon id="neoecoae:eco_mega_long_bulk_cell" />
   <ItemIcon id="neoecoae:eco_mega_upgrade_card" />
 </ItemGrid>
 
-The ECO Bulk Storage Matrix works without MEGA Cells, compression cards or decompression modules. Configure resource markers in the host panel or cell workbench, then insert the disk into a compatible ECO drive. It supports 25 resource types, or 50 with an ECO Bulk Expansion Card. Stored quantities have no fixed upper bound; terminal tooltips show exact totals.
+The ECO Bulk Storage Matrix and Expansion Card are registered only when MEGA Cells is installed; their assembly and disassembly recipes require it too. ECO provides built-in compression without compression cards or decompression modules. Configure resource markers in the host panel or cell workbench, then insert the disk into a compatible ECO drive. It supports 25 resource types, or 50 with an ECO Bulk Expansion Card. Stored quantities have no fixed upper bound; terminal tooltips show exact totals.
 
 Reversible crafting recipes form chains such as iron nugget, ingot and block. Any form in a chain can be inserted or extracted, and the whole chain occupies one marker. Shift + left-click raises the display denomination; Shift + right-click lowers it. Remainders stay visible in lower forms.
 

@@ -52,6 +52,7 @@ public final class MegaCellsIntegration {
     private void commonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             String group = GuiText.StorageCells.getTranslationKey();
+            Upgrades.add(NEMegaItems.ECO_MEGA_UPGRADE_CARD, NEMegaItems.ECO_MEGA_LONG_BULK_CELL, 1, group);
             for (ItemEntry<? extends ECOStorageCellItem> cell : allCells()) {
                 Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, group);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, group);
@@ -73,6 +74,7 @@ public final class MegaCellsIntegration {
     }
 
     private void registerDeferredModels() {
+        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "block/cell/storage_cell_l9_bulk_item", false);
         registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", false);
         registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", false);
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "fe", false);
@@ -82,6 +84,7 @@ public final class MegaCellsIntegration {
     }
 
     private void registerResolvedModels() {
+        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "block/cell/storage_cell_l9_bulk_item", true);
         registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", true);
         registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", true);
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "fe", true);
