@@ -55,7 +55,8 @@ final class ComputationItemActionsPopup extends UIElement {
         setId("computation-item-actions");
         setFocusable(true);
         setDisplay(false);
-        style(style -> style.zIndex(100));
+        // Vanilla item models render above the base GUI plane, including their depth buffer writes.
+        style(style -> style.zIndex(400));
         setOverflowVisible(true);
         addEventListener(UIEvents.MOUSE_DOWN, event -> {
             pressed = event.button == 0 ? row(event.x, event.y) : -1;
@@ -79,7 +80,9 @@ final class ComputationItemActionsPopup extends UIElement {
             event.stopImmediatePropagation();
         });
         addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            int row = row(event.x, event.y);
+            var ui = getModularUI();
+            if (ui == null) return;
+            int row = row(ui.getLastMouseX(), ui.getLastMouseY());
             if (mode == Mode.MENU && (row == 0 || row == 1) && loaded && sources.isEmpty()) event.hoverTooltips =
                 HoverTooltips.empty().append(Component.translatable("gui.neoecoae.processing.no_pattern"));
         });
@@ -195,6 +198,7 @@ final class ComputationItemActionsPopup extends UIElement {
         float x = getPositionX(), y = getPositionY(), width = getSizeWidth();
         context.graphics.flush();
         context.drawTexture(BACKGROUND, x, y, width, getSizeHeight());
+        context.graphics.flush();
         Component title = item == null ? Component.empty() : item.key().getDisplayName();
         if (mode == Mode.CHOOSE) title = title.copy().append(" · " + (page + 1) + "/" + Math.max(1, (sources.size() + PAGE_SIZE - 1) / PAGE_SIZE));
         text(context, title, 7, 6, 0x413F54);

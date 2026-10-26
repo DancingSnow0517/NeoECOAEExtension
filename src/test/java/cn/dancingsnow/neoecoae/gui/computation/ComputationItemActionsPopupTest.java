@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 import appeng.api.stacks.AEItemKey;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -150,6 +152,51 @@ class ComputationItemActionsPopupTest {
         fixture.arrange();
         assertFalse(fixture.popup.isDisplayed());
         assertTrue(escape.hasHandler);
+    }
+
+    @Test void disabledActionsCollectTheirTooltipWithoutMouseCoordinatesInTheEvent() throws Exception {
+        var fixture = new Fixture(0);
+        set(fixture.ui, "lastMouseX", fixture.popup.getPositionX() + 10);
+        for (int top : new int[] {25, 41}) {
+            set(fixture.ui, "lastMouseY", fixture.popup.getPositionY() + top);
+            var tooltip = fixture.popup.collectHoverTooltips();
+            assertNotNull(tooltip);
+            assertEquals(List.of(Component.translatable("gui.neoecoae.processing.no_pattern")), tooltip.tooltipTexts());
+        }
+    }
+
+    @Test void popupRendersAboveItemDepthAndFlushesItsBackgroundBeforeDrawingText() throws Exception {
+        var fixture = new Fixture(1);
+        var client = mock(net.minecraft.client.Minecraft.class);
+        set(client, "font", mock(net.minecraft.client.gui.Font.class));
+        when(client.font.plainSubstrByWidth(anyString(), anyInt())).thenAnswer(call -> call.getArgument(0));
+        var graphics = mock(net.minecraft.client.gui.GuiGraphics.class);
+        var pose = new com.mojang.blaze3d.vertex.PoseStack();
+        when(graphics.pose()).thenReturn(pose);
+        var context = spy(new com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext());
+        context.graphics = graphics;
+        context.pose = new com.lowdragmc.lowdraglib2.gui.ui.rendering.EnhancedPoseStack(pose);
+        doAnswer(call -> {
+            // Native GUI item models write depth at up to 200 above their parent plane.
+            assertTrue(pose.last().pose().m32() > 200, "the menu background must cover item depth");
+            return null;
+        }).when(context).drawTexture(any(), anyFloat(), anyFloat(), anyFloat(), anyFloat());
+        try (var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
+            minecraft.when(net.minecraft.client.Minecraft::getInstance).thenReturn(client);
+            fixture.popup.drawInBackground(context);
+        }
+        var order = inOrder(context, graphics);
+        order.verify(graphics).flush();
+        order.verify(context).drawTexture(any(), anyFloat(), anyFloat(), anyFloat(), anyFloat());
+        order.verify(graphics).flush();
+        order.verify(graphics).drawString(eq(client.font), anyString(), anyInt(), anyInt(), anyInt(), eq(false));
+        assertEquals(0, pose.last().pose().m32(), "the popup must restore the enclosing GUI pose");
+    }
+
+    private static void set(Object target, String name, Object value) throws Exception {
+        var field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 
     private static final class Fixture {

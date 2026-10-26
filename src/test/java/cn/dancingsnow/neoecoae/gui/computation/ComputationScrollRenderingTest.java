@@ -121,6 +121,51 @@ class ComputationScrollRenderingTest {
         assertFalse((boolean) field(panel, "cpuScrollPending"));
     }
 
+    @Test void tooltipCollectionUsesTheUiMousePositionWithoutCoordinatesInTheEvent() throws Exception {
+        try (var ldlib = mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
+            ldlib.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
+            com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties.init();
+            var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+            var ui = com.lowdragmc.lowdraglib2.gui.ui.ModularUI.of(com.lowdragmc.lowdraglib2.gui.ui.UI.of(panel));
+            ui.init(326, 254);
+            var snapshot = snapshot(0, 0, 1);
+            var item = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), new BigInteger("123456789012345678901"),
+                BigInteger.ONE, BigInteger.TEN, true);
+            snapshot.getList("items", net.minecraft.nbt.Tag.TAG_COMPOUND).set(0, item.write(config().registries()));
+            panel.setValue(snapshot, false);
+            assertDrawn(panel, 1);
+
+            var cpuHitbox = panel.hitTest(panel.getPositionX() + 10, panel.getPositionY() + 20).getA();
+            assertSame(panel.getChildren().get(5), cpuHitbox);
+            set(ui, "lastMouseX", panel.getPositionX() + 10);
+            set(ui, "lastMouseY", panel.getPositionY() + 20);
+            set(ui, "lastHoveredElement", cpuHitbox);
+            var cpuTooltip = cpuHitbox.collectHoverTooltips();
+            assertNotNull(cpuTooltip);
+            assertEquals(ComputationCpuSelector.tooltip(cpu(1)), cpuTooltip.tooltipTexts());
+
+            var itemHitbox = panel.hitTest(panel.getPositionX() + 100, panel.getPositionY() + 20).getA();
+            set(ui, "lastMouseX", panel.getPositionX() + 100);
+            set(ui, "lastHoveredElement", itemHitbox);
+            try (var keys = mockStatic(AEKeyRendering.class)) {
+                keys.when(() -> AEKeyRendering.getTooltip(item.key()))
+                    .thenReturn(List.of(net.minecraft.network.chat.Component.literal("Stone")));
+                var tooltip = itemHitbox.collectHoverTooltips();
+                assertNotNull(tooltip);
+                assertEquals(List.of(net.minecraft.network.chat.Component.literal("Stone"),
+                    appeng.core.localization.GuiText.FromStorage.text(item.amount(item.stored(), true)),
+                    appeng.core.localization.GuiText.Crafting.text(item.amount(item.active(), true)),
+                    appeng.core.localization.GuiText.Scheduled.text(item.amount(item.pending(), true)),
+                    net.minecraft.network.chat.Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF),
+                    net.minecraft.network.chat.Component.translatable("gui.neoecoae.processing.context_hint")
+                        .withStyle(net.minecraft.ChatFormatting.DARK_GRAY)), tooltip.tooltipTexts());
+                // The one-pixel separator must stay empty after scrolling stops interpolating rows.
+                set(ui, "lastMouseY", panel.getPositionY() + 19 + 22);
+                assertNull(itemHitbox.collectHoverTooltips());
+            }
+        }
+    }
+
     private static ComputationControllerUI.Config config() {
         return new ComputationControllerUI.Config(
             () -> true, () -> 1, () -> 0, () -> 0,

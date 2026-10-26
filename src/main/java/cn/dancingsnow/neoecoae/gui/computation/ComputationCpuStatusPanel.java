@@ -87,7 +87,6 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private List<ComputationCpuItemEntry> items = List.of();
     private final ComputationScrollPage<ComputationCpuEntry> cpuPage = new ComputationScrollPage<>(ROWS, 1);
     private final ComputationScrollPage<ComputationCpuItemEntry> itemPage = new ComputationScrollPage<>(ITEM_ROWS, ITEM_COLS);
-    private int itemPageSerial = -1;
     private ComputationCpuEntry selected;
     private int selectedSerial = -1, total, cpuOffset, cpuPageOffset, itemTotal, itemOffset, itemPageOffset;
     private boolean cpuScrollPending, itemScrollPending;
@@ -194,7 +193,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             cpus = value.getList("cpus", Tag.TAG_COMPOUND).stream()
                 .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
             cpuPage.accept(cpuOffset, value.contains("cpuPageStart") ? value.getInt("cpuPageStart") : cpuOffset,
-                cpus, false);
+                cpus);
             cpuScrollPending = false;
             cpuScrollRequest.setValue(scrollTag(cpuScrollSequence, cpuOffset), false);
         }
@@ -204,8 +203,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             items = value.getList("items", Tag.TAG_COMPOUND).stream()
                 .map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, config.registries())).toList();
             itemPage.accept(itemOffset, value.contains("itemPageStart") ? value.getInt("itemPageStart") : itemOffset,
-                items, itemPageSerial != selectedSerial);
-            itemPageSerial = selectedSerial;
+                items);
             itemScrollPending = false;
             itemScrollRequest.setValue(scrollTag(itemScrollSequence, itemOffset), false);
         }
@@ -231,7 +229,10 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             event.stopImmediatePropagation();
         });
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            ComputationCpuEntry entry = cpuPage.hit(event.y - getPositionY() - CPU_Y, 0, CPU_STRIDE, CPU_HEIGHT);
+            // LDLib2's tooltip collection event has no mouse coordinates.
+            var ui = getModularUI();
+            if (ui == null) return;
+            ComputationCpuEntry entry = cpuPage.hit(ui.getLastMouseY() - getPositionY() - CPU_Y, 0, CPU_STRIDE, CPU_HEIGHT);
             if (entry != null) {
                 event.hoverTooltips = HoverTooltips.empty().append(
                     ComputationCpuSelector.tooltip(entry).toArray(Component[]::new));
@@ -251,7 +252,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         });
         hitbox.addEventListener(UIEvents.MOUSE_UP, event -> { if (event.button == 1) event.stopImmediatePropagation(); });
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            ComputationCpuItemEntry item = itemAt(event.x, event.y);
+            var ui = getModularUI();
+            if (ui == null) return;
+            ComputationCpuItemEntry item = itemAt(ui.getLastMouseX(), ui.getLastMouseY());
             if (item == null) return;
             List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
             lines.addAll(itemDescription(item, true));
@@ -310,7 +313,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         context.graphics.flush();
         context.graphics.drawString(font, GuiText.CraftingCPUs.text(), Math.round(x + CPU_X), Math.round(y + 7), 0xFF000000 | TEXT, false);
         context.graphics.drawString(font, title(selected, itemTotal > 0), Math.round(x + ITEM_X - 1), Math.round(y + 7), 0xFF000000 | TEXT, false);
-        // Wait for acknowledged data, then move both viewports independently through their buffered rows.
+        // Switch complete acknowledged pages together with the rows used for hit testing.
         cpuPage.advance();
         itemPage.advance();
         context.enableScissor(x + CPU_X, y + CPU_Y, CPU_WIDTH, ROWS * CPU_STRIDE - 1);
