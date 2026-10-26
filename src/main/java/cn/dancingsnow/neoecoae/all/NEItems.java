@@ -45,6 +45,7 @@ import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraftforge.common.Tags;
+import net.minecraftforge.fml.ModList;
 
 import java.util.List;
 
@@ -73,6 +74,15 @@ public class NEItems {
         "ae2cs", "AE2 Crystal Science Integrated Working Station Upgrade Card");
 
     private static ItemEntry<Item> workstationModule(String variant, String name) {
+        String requiredMod = switch (variant) {
+            case "empty" -> null;
+            case "aelt" -> "ae2lt";
+            case "extendedae" -> "expatternprovider";
+            default -> variant;
+        };
+        if (requiredMod != null && !ModList.get().isLoaded(requiredMod)) {
+            return null;
+        }
         return REGISTRATE.item("integrated_working_station_module_" + variant, Upgrades::createUpgradeCardItem)
             .lang(name)
             .model((ctx, prov) -> prov.generated(ctx::get,
