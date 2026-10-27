@@ -248,6 +248,13 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         return ECOCompressionService.units(item).items();
     }
 
+    @Override public AEItemKey getCompressionCutoff(AEItemKey item) {
+        BulkUnits units = ECOCompressionService.units(item);
+        AEItemKey selected = cutoffs.get(units.items().getFirst());
+        if (selected != null) return selected;
+        return getEffectiveConfiguredFilters().stream().filter(units::contains).findFirst().orElse(item);
+    }
+
     public void setCompressionCutoff(AEItemKey selected) {
         BulkUnits units = ECOCompressionService.units(selected);
         cutoffs.put(units.items().getFirst(), selected);
