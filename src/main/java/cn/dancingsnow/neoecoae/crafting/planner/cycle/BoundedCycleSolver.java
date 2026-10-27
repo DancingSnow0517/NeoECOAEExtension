@@ -235,6 +235,10 @@ public final class BoundedCycleSolver implements CycleSolver {
                 "No executable full-order certificate was obtained; marking search verifies reachability under the remaining resource budget"));
         }
 
+        CycleSolveResult deadlock = emptySiphonDeadlock(model, recipeCircuits, equation, diagnostics,
+            cancellation, memory);
+        if (deadlock != null) return deadlock;
+
         int budget = limits.maxStates();
         Search first = search(model, model.stock, budget, limits.maxFirings(), cancellation, memory);
         long visited = first.statesVisited;
@@ -460,6 +464,79 @@ public final class BoundedCycleSolver implements CycleSolver {
             count = count.max(missing.ceilDiv(delta));
         }
         return count.compareTo(run.exactCount()) < 0 ? count : PlannerAmount.ZERO;
+    }
+
+    /**
+     * Proves a startup deadlock without searching. Places that are empty, cannot be imported, and are refilled only
+     * by patterns that consume from them stay empty forever (an empty siphon), so those patterns never fire. Typical
+     * case: a reusable mold that is cut from the product it shapes. Boundary imports make the reachable markings
+     * infinite, so the marking search could only end at its budget. Returns null when no such proof exists.
+     */
+    private @Nullable CycleSolveResult emptySiphonDeadlock(Model model, boolean recipeCircuits,
+            @Nullable CycleSolveResult equation, List<CycleSolveDiagnostic> diagnostics,
+            ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
+        int keys = model.keyCount();
+        int transitions = model.transitionCount();
+        boolean[] empty = new boolean[keys];
+        for (int k = 0; k < keys; k++) empty[k] = !model.suppliable[k] && model.stock[k].signum() <= 0;
+        // Fixpoint: a pattern whose internal inputs can all be filled may fire and fill its outputs.
+        boolean[] live = new boolean[transitions];
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int t = 0; t < transitions; t++) {
+                cancellation.checkpoint();
+                if (live[t]) continue;
+                boolean enabled = true;
+                for (int k : model.metadata[t].consumedInternalKeys) enabled &= !empty[k];
+                if (!enabled) continue;
+                live[t] = true;
+                changed = true;
+                for (int k = 0; k < keys; k++) if (model.prod[t][k] > 0) empty[k] = false;
+            }
+        }
+        boolean anyDead = false;
+        for (boolean fires : live) anyDead |= !fires;
+        if (!anyDead) return null;
+
+        boolean proven = false;
+        for (int k = 0; k < keys && !proven; k++) proven = empty[k] && model.required[k].signum() > 0;
+        if (!proven && recipeCircuits) {
+            // Every real run fires live patterns only, so their material balance must still reach the target.
+            long[][] cons = new long[transitions][];
+            long[][] prod = new long[transitions][];
+            for (int t = 0; t < transitions; t++) {
+                cons[t] = live[t] ? model.cons[t] : new long[keys];
+                prod[t] = live[t] ? model.prod[t] : new long[keys];
+            }
+            try {
+                proven = CycleStateEquation.solve(cons, prod, model.suppliable, model.stock, model.required, true,
+                    searchSlice(cancellation, Long.MAX_VALUE, Long.MAX_VALUE), memory).status()
+                    == CycleStateEquation.Status.INFEASIBLE;
+            } catch (ECOPlanningBudget.Exhausted exhausted) {
+                cancellation.checkpoint();
+            }
+        }
+        if (!proven) return null;
+
+        PlannerAmount[] blocking = zeroes(keys);
+        for (int t = 0; t < transitions; t++) {
+            if (live[t]) continue;
+            for (int k : model.metadata[t].consumedInternalKeys) {
+                if (empty[k]) blocking[k] = blocking[k].max(PlannerAmount.of(model.cons[t][k]));
+            }
+        }
+        diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.EMPTY_SIPHON_DEADLOCK,
+            "Cannot start: " + describe(model, blocking) + " is empty and only produced by patterns that need it"));
+        if (equation != null && equation.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
+                && !equation.seedShortfall().isEmpty()) {
+            return equation.withAdditionalDiagnostics(diagnostics)
+                .withStartupCandidates(startupCandidates(model, cancellation, memory));
+        }
+        CycleSolveResult materials = fullOrderDeficit(model, cancellation, memory);
+        if (materials != null) return materials.withAdditionalDiagnostics(diagnostics);
+        return CycleSolveResult.failure(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, diagnostics,
+            CycleSolveMetrics.NONE).withStartupCandidates(startupCandidates(model, cancellation, memory));
     }
 
     private static ECOPlanningBudget searchSlice(ECOCancellation cancellation, long work, long nanos) {

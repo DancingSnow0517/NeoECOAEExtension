@@ -37,6 +37,11 @@ public record CycleSolveDiagnostic(Code code, String message) {
         PROVEN_INFEASIBLE_AT_CURRENT_STOCK,
         /** An identical cycle request already failed within this route-fallback invocation. */
         PROVEN_FAILURE_REUSED,
+        /**
+         * Some places are empty and only refillable by patterns that need them (an empty siphon, e.g. a missing
+         * reusable mold), and the target is unreachable without those patterns. A proof, found without searching.
+         */
+        EMPTY_SIPHON_DEADLOCK,
         /** The SCC can fire but no firing changes the deficit; it cannot create the required output. */
         NO_PRODUCTIVE_FIRING,
         STATE_BUDGET_EXHAUSTED,
