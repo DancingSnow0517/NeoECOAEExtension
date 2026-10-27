@@ -11,21 +11,21 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 java.withSourcesJar()
 
 def runtimeProfiles = [
-    base: [],
-    extended: ['expatternprovider', 'glodium'],
-    advanced: ['advanced_ae', 'geckolib'],
-    plus: ['expatternprovider', 'glodium', 'extendedae_plus'],
-    lightning: ['ae2lt', 'thunderbolt'],
-    omni: ['ae2omnicells'],
-    storage: ['appbot', 'botania', 'curios', 'patchouli', 'appflux', 'glodium',
-              'appmek', 'mekanism', 'mekanismgenerators', 'megacells', 'cloth_config', 'ae2omnicells'],
-    storageMinimal: ['megacells', 'cloth_config'],
-    combined: ['expatternprovider', 'glodium', 'advanced_ae', 'geckolib',
-               'extendedae_plus', 'ae2lt', 'thunderbolt']
+        base          : [],
+        extended      : ['expatternprovider', 'glodium'],
+        advanced      : ['advanced_ae', 'geckolib'],
+        plus          : ['expatternprovider', 'glodium', 'extendedae_plus'],
+        lightning     : ['ae2lt', 'thunderbolt'],
+        omni          : ['ae2omnicells'],
+        storage       : ['appbot', 'botania', 'curios', 'patchouli', 'appflux', 'glodium',
+                         'appmek', 'mekanism', 'mekanismgenerators', 'megacells', 'cloth_config', 'ae2omnicells'],
+        storageMinimal: ['megacells', 'cloth_config'],
+        combined      : ['expatternprovider', 'glodium', 'advanced_ae', 'geckolib',
+                         'extendedae_plus', 'ae2lt', 'thunderbolt']
 ]
 runtimeProfiles.storageAll = runtimeProfiles.storage + [
-    'bigger_ae2', 'appliedpneumatics', 'pneumaticcraft', 'arseng', 'ars_nouveau', 'geckolib',
-    'ae2lt', 'thunderbolt'
+        'bigger_ae2', 'appliedpneumatics', 'pneumaticcraft', 'arseng', 'ars_nouveau', 'geckolib',
+        'ae2lt', 'thunderbolt'
 ]
 def portingProfile = providers.gradleProperty('portingProfile').getOrElse('base')
 def jeiVersion = providers.gradleProperty('jeiVersion').getOrElse('15.48.0.177')
@@ -39,22 +39,22 @@ def releaseJars = dependencyLock.artifacts.collectEntries { artifact ->
         throw new GradleException("Missing pinned release ${artifact.filename}; download it from porting/dependencies.lock.json into libs/pinned/ before building.")
     }
     def actualHash = java.security.MessageDigest.getInstance('SHA-256')
-        .digest(artifactFile.bytes).encodeHex().toString()
+            .digest(artifactFile.bytes).encodeHex().toString()
     if (actualHash != artifact.sha256) {
         throw new GradleException("Pinned release checksum mismatch: ${artifact.mod_id}")
     }
     [(artifact.mod_id): artifactFile]
 }
-def releaseVersions = [ae2: ae2_version, guideme: guideme_version, ldlib: ldlib_version,
-    advanced_ae: '1.3.6-1.20.1', expatternprovider: '1.20-1.4.21-forge',
-    extendedae_plus: '1.6.3', ae2lt: '2.1.2-beta2', thunderbolt: '2.0.3-beta2',
-    glodium: '1.20-1.5-forge', geckolib: '4.8.4', ae2omnicells: '1.1.6-1.20.1-forge',
-    appbot: '1.5.2-forge', appflux: '1.20-1.3.7-forge', appmek: '1.4.3',
-    megacells: '2.4.6-1.20.1', botania: '1.20.1-455-FORGE', mekanism: '10.4.16.80',
-    mekanismgenerators: '10.4.16.80',
-    cloth_config: '11.1.136-forge', curios: '5.14.1+1.20.1', patchouli: '1.20.1-85-FORGE',
-    bigger_ae2: '20.2.1', appliedpneumatics: '1.0.8', pneumaticcraft: '6.0.23',
-    arseng: '1.2.0', ars_nouveau: '4.12.7']
+def releaseVersions = [ae2               : ae2_version, guideme: guideme_version, ldlib: ldlib_version,
+                       advanced_ae       : '1.3.6-1.20.1', expatternprovider: '1.20-1.4.21-forge',
+                       extendedae_plus   : '1.6.3', ae2lt: '2.1.2-beta2', thunderbolt: '2.0.3-beta2',
+                       glodium           : '1.20-1.5-forge', geckolib: '4.8.4', ae2omnicells: '1.1.6-1.20.1-forge',
+                       appbot            : '1.5.2-forge', appflux: '1.20-1.3.7-forge', appmek: '1.4.3',
+                       megacells         : '2.4.6-1.20.1', botania: '1.20.1-455-FORGE', mekanism: '10.4.16.80',
+                       mekanismgenerators: '10.4.16.80',
+                       cloth_config      : '11.1.136-forge', curios: '5.14.1+1.20.1', patchouli: '1.20.1-85-FORGE',
+                       bigger_ae2        : '20.2.1', appliedpneumatics: '1.0.8', pneumaticcraft: '6.0.23',
+                       arseng            : '1.2.0', ars_nouveau: '4.12.7']
 def pinned = { String mod ->
     "porting.pinned:${releaseJars[mod].name.take(releaseJars[mod].name.length() - 4)}:${releaseVersions[mod]}"
 }
@@ -91,13 +91,21 @@ repositories {
         url = 'https://maven.terraformersmc.com/'
         content { includeGroup 'dev.emi' }
     }
+    maven {
+        url = 'https://maven.architectury.dev/'
+        name = 'Architectury'
+    }
+    maven {
+        url = 'https://maven.latvian.dev/releases'
+        name = 'Latvian Mods (KubeJS, Rhino)'
+    }
 }
 
 // The headless render tests use Minecraft 1.20.1's LWJGL without opening a game window.
 def hostOs = System.getProperty('os.name').toLowerCase(Locale.ROOT)
 def hostArch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
 def lwjglNatives = hostOs.contains('windows') ? 'natives-windows' :
-    hostOs.contains('mac') ? 'natives-macos' : 'natives-linux'
+        hostOs.contains('mac') ? 'natives-macos' : 'natives-linux'
 if (hostArch in ['aarch64', 'arm64']) lwjglNatives += '-arm64'
 else if (hostArch in ['x86', 'i386'] && hostOs.contains('windows')) lwjglNatives += '-x86'
 
@@ -130,6 +138,10 @@ dependencies {
     modCompileOnly "mezz.jei:jei-1.20.1-common-api:${jeiVersion}"
     // EMI's favorites list is an internal client API; keep the full jar compile-only and optional.
     modCompileOnly 'dev.emi:emi-forge:1.1.24+1.20.1'
+    // KubeJS
+    modImplementation "dev.architectury:architectury-forge:9.2.14"
+    modImplementation "dev.latvian.mods:rhino-forge:2001.2.3-build.10"
+    modImplementation "dev.latvian.mods:kubejs-forge:2001.6.5-build.26"
 }
 
 legacyForge {
@@ -147,12 +159,12 @@ legacyForge {
         data {
             data()
             programArguments.addAll '--mod', mod_id, '--all',
-                '--output', file('src/generated/resources').absolutePath,
-                '--existing', file('src/main/resources').absolutePath
+                    '--output', file('src/generated/resources').absolutePath,
+                    '--existing', file('src/main/resources').absolutePath
         }
         configureEach {
             gameDirectory = project.file(providers.gradleProperty('multiblockAlignmentSmoke').isPresent()
-                ? "run/multiblock-alignment/${portingProfile}/${name}" : "run/${portingProfile}/${name}")
+                    ? "run/multiblock-alignment/${portingProfile}/${name}" : "run/${portingProfile}/${name}")
             logLevel = org.slf4j.event.Level.INFO
             systemProperty 'neoecoae.bootstrapSmoke', providers.gradleProperty('bootstrapSmoke').getOrElse('false')
             systemProperty 'neoecoae.clientSmoke', providers.gradleProperty('clientSmoke').getOrElse('false')
@@ -174,11 +186,11 @@ legacyForge {
 
 sourceSets.main.resources.srcDir 'src/generated/resources'
 def ecoMixinConfigs = ['neoecoae.mixins.json', 'neoecoae.compat.advanced_ae.mixins.json',
-    'neoecoae.compat.appmek.mixins.json',
-    'neoecoae.compat.gregtech.mixins.json',
-    'neoecoae.compat.ae2omnicells.mixins.json',
-    'neoecoae.compat.extendedae.mixins.json', 'neoecoae.compat.thunderbolt.mixins.json',
-    'neoecoae.terminal_big_amount.mixins.json']
+                       'neoecoae.compat.appmek.mixins.json',
+                       'neoecoae.compat.gregtech.mixins.json',
+                       'neoecoae.compat.ae2omnicells.mixins.json',
+                       'neoecoae.compat.extendedae.mixins.json', 'neoecoae.compat.thunderbolt.mixins.json',
+                       'neoecoae.terminal_big_amount.mixins.json']
 mixin {
     add sourceSets.main, 'neoecoae.refmap.json'
     ecoMixinConfigs.each { config it }
@@ -262,7 +274,7 @@ sourceSets {
     upstreamSyncTest {
         java.srcDir 'src/test/java'
         java.includes = file('porting/upstream-sync-test-sources.txt').readLines('UTF-8')
-            .findAll { !it.isBlank() && !it.startsWith('#') }
+                .findAll { !it.isBlank() && !it.startsWith('#') }
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
         runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
         runtimeClasspath += files(layout.buildDirectory.file("moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar"))
@@ -305,7 +317,10 @@ tasks.register('upstreamSyncTest', Test) {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17
-    options.compilerArgs += ['-Xmaxerrs', providers.gradleProperty('portingMaxErrors').getOrElse('1000')]
+    options.compilerArgs += [
+            '-Xmaxerrs', providers.gradleProperty('portingMaxErrors').getOrElse('1000'),
+            '-parameters'
+    ]
 }
 
 tasks.named('test', Test) {
@@ -319,7 +334,7 @@ tasks.named('test', Test) {
 }
 
 tasks.named('processResources', ProcessResources) {
-    def properties = [mod_id: mod_id, mod_name: mod_name, mod_version: mod_version,
+    def properties = [mod_id     : mod_id, mod_name: mod_name, mod_version: mod_version,
                       mod_authors: mod_authors, mod_license: mod_license]
     inputs.properties properties
     filesMatching('META-INF/mods.toml') { expand properties }
@@ -327,6 +342,6 @@ tasks.named('processResources', ProcessResources) {
 
 tasks.named('jar', Jar) {
     manifest.attributes('Implementation-Title': mod_name,
-                        'Implementation-Version': mod_version,
-                        'MixinConfigs': ecoMixinConfigs.join(','))
+            'Implementation-Version': mod_version,
+            'MixinConfigs': ecoMixinConfigs.join(','))
 }

@@ -15,6 +15,7 @@ gradle.projectsEvaluated {
         java.setSrcDirs(['tools/compat/src'])
         resources.setSrcDirs(['tools/compat/resources'])
         compileClasspath += project.sourceSets.main.compileClasspath
+        compileClasspath += project.sourceSets.main.output
     }
     def probeJar = project.tasks.register('compatTestJar', Jar) {
         group = 'verification'
