@@ -152,8 +152,7 @@ public final class ComponentPlanner {
                 ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner, false, stopAtFirstFailure);
         if (!cancellation.improveCompletedPlans() || plain.status() != PlanningStatus.SUCCESS
                 || plain.components().stream().noneMatch(component ->
-                component.cycleResult() != null && component.cycleResult().requiredSeed().entrySet().stream()
-                    .anyMatch(seed -> seed.getValue() > 0 && inventory.get(seed.getKey()) > 0))) return plain;
+                mayRetainSeed(component, inventory, plain.state()))) return plain;
         // Only improve after the entire original order, including shared upstream supply, has succeeded.
         // Per-component retention can spend stock needed later. Keep this completed transaction as the fallback
         // even when the optional re-plan exhausts its allowance before reaching that later component.
@@ -1102,7 +1101,20 @@ public final class ComponentPlanner {
                 && reservations.getOrDefault(entry.getKey(), 0L) >= entry.getValue());
     }
 
-    private static boolean hasPositiveFirings(CycleSolveResult result) {
+    /** Worth the optional retaining re-plan: the cycle borrowed a stocked seed, or met its demand by draining stock. */
+    private static boolean mayRetainSeed(ComponentPlanningResult component, KeyCounter inventory, SolveState state) {
+        CycleSolveResult result = component.cycleResult();
+        if (result == null) return false;
+        if (result.requiredSeed().entrySet().stream()
+                .anyMatch(seed -> seed.getValue() > 0 && inventory.get(seed.getKey()) > 0)) return true;
+        // A demand met entirely from stock fires nothing and names no seed, yet may hand over the last copies.
+        return !hasPositiveFirings(result) && component.requiredOutputs().keySet().stream().anyMatch(key -> {
+            long held = inventory.get(key);
+            return held > 0 && state.used.get(key).compareTo(PlannerAmount.of(held)) >= 0;
+        });
+    }
+
+    static boolean hasPositiveFirings(CycleSolveResult result) {
         return result != null && result.patternTimes().values().stream()
                 .anyMatch(count -> count != null && count > 0L);
     }
