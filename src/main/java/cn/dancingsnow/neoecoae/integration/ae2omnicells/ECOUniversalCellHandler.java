@@ -25,6 +25,8 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
     private static final String UUID_TAG = "ae_universal_cell_uuid";
     public static final ECOUniversalCellHandler INSTANCE = new ECOUniversalCellHandler();
 
+    // Server-thread only: claims happen when the server opens a disk, and releases from client-side block
+    // entities are ignored below, so no lock is needed.
     private final Map<UUID, ISaveProvider> owners = new HashMap<>();
     private final Map<ISaveProvider, UUID> ownerIds = new IdentityHashMap<>();
 
@@ -49,8 +51,9 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
     }
 
     @Override
-    public synchronized void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {
-        if (host == null) return;
+    public void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {
+        // Client drives also unload; they never claimed anything and must not read the server's table.
+        if (host == null || !EffectiveSide.get().isServer()) return;
         UUID id = ownerIds.get(host);
         if (id == null) id = getStorageId(stack);
         if (id != null && owners.get(id) == host) {
@@ -60,12 +63,12 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
     }
 
     @Override
-    public synchronized void clearRuntimeState() {
+    public void clearRuntimeState() {
         owners.clear();
         ownerIds.clear();
     }
 
-    private synchronized boolean claimUniqueStorage(ItemStack stack, ISaveProvider host) {
+    private boolean claimUniqueStorage(ItemStack stack, ISaveProvider host) {
         UUID currentId = getStorageId(stack);
         if (currentId == null) return false;
         ISaveProvider owner = owners.get(currentId);
