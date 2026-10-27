@@ -9,6 +9,7 @@ import appeng.me.storage.NetworkStorage;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.StorageBusTransferFilter;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator;
+import cn.dancingsnow.neoecoae.impl.storage.NetworkInventoryCache;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,17 +17,23 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /** Prevents storage totals from disappearing when an unbounded stack is combined with another inventory. */
 @Mixin(value = NetworkStorage.class, remap = false)
-public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
+public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, NetworkInventoryCache.Mounts {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
 
     @Unique private final StorageListingAccumulator neoecoae$listing = new StorageListingAccumulator();
+    @Unique private final List<MEStorage> neoecoae$mounted = new ArrayList<>();
+    @Unique private long neoecoae$mountGeneration;
 
     @Shadow private boolean mountsInUse;
     @Shadow @Final private NavigableMap<Integer, List<MEStorage>> priorityInventory;
@@ -34,6 +41,31 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage {
 
     @Shadow private boolean isQueuedForRemoval(MEStorage inventory) { throw new AssertionError(); }
     @Shadow private void flushQueuedOperations() { throw new AssertionError(); }
+
+    @Inject(method = {"mount", "unmount"}, at = @At("HEAD"))
+    private void neoecoae$countMountChange(CallbackInfo ci) {
+        neoecoae$mountGeneration++;
+    }
+
+    @Override
+    public long neoecoae$mountGeneration() {
+        return neoecoae$mountGeneration;
+    }
+
+    @Override
+    public boolean neoecoae$withMounts(Consumer<List<MEStorage>> action) {
+        // Same lock as getAvailableStacks: blocks recursive listing and defers mount changes.
+        if (mountsInUse) return false;
+        mountsInUse = true;
+        try {
+            for (var inventories : priorityInventory.values()) neoecoae$mounted.addAll(inventories);
+            action.accept(neoecoae$mounted);
+        } finally {
+            neoecoae$mounted.clear();
+            mountsInUse = false;
+        }
+        return true;
+    }
 
     @Override
     public BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {

@@ -58,6 +58,8 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.impl.s
     private String failure;
     // A failed snapshot stays dirty and is retried by the next vanilla save.
     private long revision;
+    // Visibility changes that are not quantity changes; see listingVersion().
+    private long listingChanges;
     // Last sequence of the retired write-ahead journal already folded into this snapshot.
     private long journalSequence;
     private KeyCodec codec;
@@ -293,6 +295,8 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.impl.s
     @Override
     public void setDirty() {
         revision++;
+        // Restore reservations and similar structural changes hide or reveal keys.
+        listingChanges++;
         refreshMountedStorageAvailability();
         super.setDirty();
     }
@@ -305,6 +309,11 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.impl.s
 
     public long revision() {
         return revision;
+    }
+
+    /** Advances whenever the visible listing may change. Both counters only grow, so equal sums mean no change. */
+    public long listingVersion() {
+        return amounts.contentRevision() + listingChanges;
     }
 
     public String lastFailureReason() {
@@ -456,12 +465,14 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.impl.s
 
     public void markUnreadable(String reason) {
         unreadable = true;
+        listingChanges++;
         refreshMountedStorageAvailability();
         failure = reason;
     }
 
     public void markIncompleteLegacy(List<String> failures) {
         incompleteLegacy = true;
+        listingChanges++;
         refreshMountedStorageAvailability();
         failure = String.join("; ", failures);
     }

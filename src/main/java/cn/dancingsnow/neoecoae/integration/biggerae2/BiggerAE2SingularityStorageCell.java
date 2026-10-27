@@ -140,6 +140,12 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
         if (!ECOInfiniteStorageMember.isSealed(cellStack)) amounts.forEach((key, amount) -> out.add(key, amount.toLongSaturated()));
     }
 
+    /** The listing is the seal state plus {@link #amounts}; every change to them goes through {@link #saveChanges}. */
+    @Override
+    public long neoecoae$listingVersion() {
+        return ECOInfiniteStorageMember.isSealed(cellStack) ? -1L : contentRevision();
+    }
+
     @Override
     public boolean isPreferredStorageFor(AEKey key, IActionSource source) {
         return (amounts.containsKey(key) || getPartitionList().isListed(key))
