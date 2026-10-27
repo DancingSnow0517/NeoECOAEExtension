@@ -24,6 +24,7 @@ public interface IECOBulkDisplayCell {
     /**
      * The cutoff actually in effect for the chain containing {@code item}. Implementations that keep a
      * separate cutoff should return it here, so a display never shows a marker the cell will ignore.
+     * Historical stock being recovered after a recipe change may use its saved base denomination.
      */
     default AEItemKey getCompressionCutoff(AEItemKey item) {
         return item;
