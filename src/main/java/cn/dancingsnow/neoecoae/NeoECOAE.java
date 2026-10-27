@@ -32,6 +32,7 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.network.ECONetwork;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
@@ -70,6 +71,10 @@ public class NeoECOAE {
     public NeoECOAE() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         MOD_BUS = modBus;
+        if (net.minecraftforge.fml.ModList.get().isLoaded("mekanism")
+                && net.minecraftforge.fml.ModList.get().isLoaded("useless_stretcher")) {
+            cn.dancingsnow.neoecoae.integration.mekanism.MilkInfusionIntegration.register(modBus);
+        }
         NECreativeTabs.register();
         NEMenus.register(modBus);
         NEItems.register();
@@ -98,6 +103,7 @@ public class NeoECOAE {
             cn.dancingsnow.neoecoae.config.RecipeProfileConfig.SPEC, "neoecoae-recipes-common.toml");
 
         modBus.addListener(NeoECOAE::registerCapabilities);
+        modBus.addListener(NeoECOAE::initUIFactories);
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);
@@ -183,6 +189,12 @@ public class NeoECOAE {
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
             ECOLargeIntegratedWorkingStationBlockEntity::getEnergyStorage
         );
+    }
+
+    private static void initUIFactories(FMLCommonSetupEvent event) {
+        // A remote client must know the factory before receiving LDLib's UI-open packet.
+        // Enqueue on both physical sides instead of relying on a server-side openUI call.
+        event.enqueueWork(BlockUIMenuType::register);
     }
 
     private static void initUpgrades(FMLCommonSetupEvent event) {

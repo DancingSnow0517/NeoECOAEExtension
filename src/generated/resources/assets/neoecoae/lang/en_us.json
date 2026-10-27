@@ -1316,5 +1316,9 @@
   "gui.neoecoae.processing.previous": "Previous",
   "gui.neoecoae.processing.next": "Next",
   "gui.neoecoae.processing.close": "Close",
-  "gui.neoecoae.processing.context_hint": "Right-click to locate patterns or control this step"
+  "gui.neoecoae.processing.context_hint": "Right-click to locate patterns or control this step",
+  "item.neoecoae.eco_infinite_sand_cell": "ECO Infinite Sand Resource Storage Matrix",
+  "tooltip.neoecoae.infinite_sand.contents": "Infinite supply: Sand",
+  "tooltip.neoecoae.infinite_sand.sink": "Accepts only sand; inserted sand is destroyed",
+  "infuse_type.neoecoae.milk": "Milk"
 }

@@ -42,8 +42,9 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
         AEFluidKey.of(Fluids.LAVA)
     );
 
-    /** One slot per locked key, so the cell reads as partition-configured out of the box. */
-    private static final int CONFIG_SLOTS = LOCKED_KEYS.size();
+    private final List<AEKey> suppliedKeys;
+    private final Set<AEKeyType> suppliedKeyTypes;
+    private final String tooltipGroup;
 
     /**
      * Installed upgrade slots. Cards are inert here (nothing is stored, so fuzzy/void/inverter have
@@ -52,6 +53,12 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
     private static final int UPGRADE_SLOTS = 4;
 
     public ECOInfiniteResourceCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> cellType) {
+        this(properties, tier, cellType, LOCKED_KEYS, "tooltip.neoecoae.infinite_resource");
+    }
+
+    /** Each resource matrix has its own immutable supply; partition cards cannot widen it. */
+    public ECOInfiniteResourceCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> cellType,
+            List<AEKey> suppliedKeys, String tooltipGroup) {
         super(
             properties,
             tier,
@@ -61,6 +68,10 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
             bytesPerType(tier),
             (double) tier.getStorageTotalBytes() / (1 << 20)
         );
+        this.suppliedKeys = List.copyOf(suppliedKeys);
+        this.suppliedKeyTypes = suppliedKeys.stream().map(AEKey::getType)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        this.tooltipGroup = tooltipGroup;
     }
 
     /** Matches the base cell's per-type cost (1 GiB per type at L9) without overflow. */
@@ -76,19 +87,27 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
         return what != null && LOCKED_KEYS.contains(what);
     }
 
+    public List<AEKey> suppliedKeys() {
+        return suppliedKeys;
+    }
+
+    public boolean suppliesKey(@Nullable AEKey what) {
+        return what != null && suppliedKeys.contains(what);
+    }
+
     @Override
     public Set<AEKeyType> getKeyTypes() {
-        return Set.of(AEKeyType.items(), AEKeyType.fluids());
+        return suppliedKeyTypes;
     }
 
     @Override
     public boolean isBlackListed(ItemStack cellStack, AEKey what) {
-        return !isLockedKey(what);
+        return !suppliesKey(what);
     }
 
     @Override
     public ConfigInventory getConfigInventory(ItemStack is) {
-        return ConfigInventory.configTypes(ECOInfiniteResourceCellItem::isLockedKey, CONFIG_SLOTS, null);
+        return ConfigInventory.configTypes(this::suppliesKey, suppliedKeys.size(), null);
     }
 
     @Override
@@ -108,11 +127,11 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
             return;
         }
-        lines.add(Component.translatable("tooltip.neoecoae.infinite_resource.contents")
+        lines.add(Component.translatable(tooltipGroup + ".contents")
             .withStyle(ChatFormatting.AQUA));
         lines.add(Component.translatable("tooltip.neoecoae.infinite_resource.unbounded")
             .withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("tooltip.neoecoae.infinite_resource.sink")
+        lines.add(Component.translatable(tooltipGroup + ".sink")
             .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
     }
 }

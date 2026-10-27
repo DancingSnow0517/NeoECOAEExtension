@@ -29,10 +29,17 @@ public final class BlockUIMenuType {
     }
     private static final UIFactory<BlockUIHolder> FACTORY=new UIFactory<>(ResourceLocation.fromNamespaceAndPath("neoecoae","block_ui")){
         @Override protected com.lowdragmc.lowdraglib.gui.modular.ModularUI createUITemplate(BlockUIHolder holder,Player player){return holder.isInvalid()?null:holder.createUI(player);}
-        @Override protected BlockUIHolder readHolderFromSyncData(FriendlyByteBuf buffer){return new BlockUIHolder(net.minecraft.client.Minecraft.getInstance().player,buffer.readBlockPos());}
+        @Override protected BlockUIHolder readHolderFromSyncData(FriendlyByteBuf buffer){return ClientHolderReader.read(buffer);}
         @Override protected void writeHolderToSyncData(FriendlyByteBuf buffer,BlockUIHolder holder){buffer.writeBlockPos(holder.pos);}
     };
-    static{UIFactory.register(FACTORY);}
+    // Keep client-only types out of the factory's verification during dedicated-server setup.
+    private static final class ClientHolderReader {
+        private static BlockUIHolder read(FriendlyByteBuf buffer) {
+            return new BlockUIHolder(net.minecraft.client.Minecraft.getInstance().player, buffer.readBlockPos());
+        }
+    }
     private BlockUIMenuType(){}
+    /** Called during common setup on both the client and the dedicated server. */
+    public static void register(){UIFactory.register(FACTORY);}
     public static boolean openUI(ServerPlayer player,BlockPos pos){return FACTORY.openUI(new BlockUIHolder(player,pos),player);}
 }

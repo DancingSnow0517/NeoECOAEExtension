@@ -265,6 +265,9 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.infinite_resource.contents", "Infinite supply: Water / Cobblestone / Lava");
         provider.add("tooltip.neoecoae.infinite_resource.unbounded", "Can be extracted directly by the ME network and never runs out");
         provider.add("tooltip.neoecoae.infinite_resource.sink", "Accepts only the three listed resources; inserted resources are destroyed");
+        provider.add("tooltip.neoecoae.infinite_sand.contents", "Infinite supply: Sand");
+        provider.add("tooltip.neoecoae.infinite_sand.sink", "Accepts only sand; inserted sand is destroyed");
+        provider.add("infuse_type.neoecoae.milk", "Milk");
         provider.add("gui.neoecoae.storage.status.degraded", "Infinite storage data needs repair");
         provider.add("gui.neoecoae.storage.status.recovery", "Infinite storage is temporarily read-only");
         provider.add("gui.neoecoae.storage.status.unavailable", "Infinite storage is unavailable");

@@ -73,6 +73,9 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
     @Override
     public void onRuntimeAvailable(IJeiRuntime runtime) {
         NeoECOAEJeiPlugin.runtime = runtime;
+        var manager = runtime.getRecipeManager();
+        manager.createRecipeCategoryLookup().includeHidden().get()
+            .forEach(category -> HiddenJeiRecipes.hide(manager, category.getRecipeType()));
     }
 
     public static IJeiRuntime runtime() { return runtime; }

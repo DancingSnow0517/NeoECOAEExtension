@@ -1,0 +1,11 @@
+{
+  "conditions": [
+    { "type": "forge:mod_loaded", "modid": "neoecoae" },
+    { "type": "forge:mod_loaded", "modid": "mekanism" },
+    { "type": "forge:mod_loaded", "modid": "useless_stretcher" }
+  ],
+  "type": "mekanism:metallurgic_infusing",
+  "itemInput": { "ingredient": { "item": "useless_stretcher:two_i_doll" } },
+  "chemicalInput": { "amount": 1000, "infuse_type": "neoecoae:milk" },
+  "output": { "item": "neoecoae:eco_infinite_sand_cell" }
+}

@@ -197,7 +197,7 @@ class HarnessTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b'controlled fixture')
             runner.collect_evidence(root)
-            actual = [str(p.relative_to(root / 'evidence')) for p in (root / 'evidence').rglob('*') if p.is_file()]
+            actual = [p.relative_to(root / 'evidence').as_posix() for p in (root / 'evidence').rglob('*') if p.is_file()]
             self.assertEqual(actual, ['baseline/logs/latest.log'])
 
     def test_ae2_comparison_detects_planner_changes_even_when_both_pass(self):

@@ -1318,5 +1318,9 @@
   "gui.neoecoae.processing.previous": "上一页",
   "gui.neoecoae.processing.next": "下一页",
   "gui.neoecoae.processing.close": "关闭",
-  "gui.neoecoae.processing.context_hint": "右键：查看样板或控制此加工步骤"
+  "gui.neoecoae.processing.context_hint": "右键：查看样板或控制此加工步骤",
+  "item.neoecoae.eco_infinite_sand_cell": "ECO无限沙子资源存储矩阵",
+  "tooltip.neoecoae.infinite_sand.contents": "无限供应：沙子",
+  "tooltip.neoecoae.infinite_sand.sink": "只接收沙子；输入的沙子会被直接销毁",
+  "infuse_type.neoecoae.milk": "牛奶"
 }
