@@ -1,4 +1,4 @@
-name: CI for Neo ECO AE Extension
+name: compat
 
 on:
   # GitHub schedules require this workflow on the default branch.
@@ -34,11 +34,16 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'schedule' && '1.20.1' || github.sha }}
+          ref: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1.20.1' || github.sha }}
+      - name: Record Source Commit
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -90,4 +95,50 @@ jobs:
             build/test-results/upstreamSyncTest/
             build/reports/tests/upstreamSyncTest/
           if-no-files-found: ignore
+          retention-days: 14
+
+  gtl:
+    name: GTL (latest stable CurseForge pack)
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - name: Checkout Built Source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.source_sha }}
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download Built JARs
+        uses: actions/download-artifact@v4
+        with:
+          name: neoeco-compat-test-jars
+          path: build/libs
+      # Each variant uses a fresh world and pack configuration. Both servers run concurrently.
+      # These isolated servers accept Minecraft's EULA: https://aka.ms/MinecraftEULA.
+      - name: Test Latest GTL with Built NeoECO
+        run: |
+          version=$(sed -n 's/^mod_version=//p' gradle.properties)
+          python3 tools/compat/gtl.py --accept-eula \
+            --neoeco "build/libs/neoecoae-$version.jar" \
+            --probe "build/libs/neoeco-compat-tests-$version.jar" \
+            --output build/compat/gtl --memory 6G --timeout 1500
+      - name: Publish Compatibility Summary
+        if: always()
+        run: |
+          if [ -f build/compat/gtl/summary.md ]; then cat build/compat/gtl/summary.md >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Upload Compatibility Evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gtl-compatibility-evidence
+          path: build/compat/gtl/evidence/
+          if-no-files-found: warn
           retention-days: 14

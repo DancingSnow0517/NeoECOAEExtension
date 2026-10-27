@@ -27,6 +27,7 @@ final class GtlFixture {
     final List<IPatternDetails> patterns = new ArrayList<>();
     final Map<AEKey, Long> stock = new LinkedHashMap<>();
     final JsonArray recipes = new JsonArray();
+    final List<List<AEKey>> reusableInputs = new ArrayList<>();
     final AEKey target;
     final long amount;
     final long operations;
@@ -90,6 +91,11 @@ final class GtlFixture {
             evidence.addProperty("recipeClass", recipe.getClass().getName());
             evidence.addProperty("circuit", (Integer) record.getMethod("circuit").invoke(converted));
             evidence.addProperty("nonConsumedInputs", record.getMethod("nonConsumedInputs").invoke(converted).toString());
+            for (Object alternatives : (List<?>) record.getMethod("nonConsumedInputs").invoke(converted)) {
+                var keys = new ArrayList<AEKey>();
+                for (Object key : (List<?>) alternatives) keys.add((AEKey) key);
+                reusableInputs.add(keys);
+            }
             evidence.addProperty("conditions", recipeClass.getField("conditions").get(recipe).toString());
             evidence.addProperty("duration", recipeClass.getField("duration").getInt(recipe));
             evidence.addProperty("runs", runs);
@@ -194,6 +200,15 @@ final class GtlFixture {
             expected.merge(sample.what(), amount, Math::addExact);
         }
         require(provider.pushPattern(pattern, inputs), "Real GTL buffer rejected the batch");
+        var held = custody();
+        require(held.equals(expected), "GTL batch changed item/fluid custody: expected=" + expected + "; held=" + held);
+        for (var key : expected.keySet()) require(storage.getAvailableStacks().get(key) == 0,
+                "GTL admission left a duplicate material in ME storage: " + key);
+        evidence.addProperty("admittedRuns", runs);
+        evidence.addProperty("bufferCustody", held.toString());
+    }
+
+    Map<AEKey, Long> custody() throws ReflectiveOperationException {
         Object[] slots = (Object[]) machine.getClass().getMethod("getInternalInventory").invoke(machine);
         var held = new LinkedHashMap<AEKey, Long>();
         for (Object slot : slots) for (String methodName : List.of("getItemInventory", "getFluidInventory")) {
@@ -202,11 +217,7 @@ final class GtlFixture {
             Map<?, ?> inventory = (Map<?, ?>) method.invoke(slot);
             inventory.forEach((key, amount) -> held.merge((AEKey) key, ((Number) amount).longValue(), Math::addExact));
         }
-        require(held.equals(expected), "GTL batch changed item/fluid custody: expected=" + expected + "; held=" + held);
-        for (var key : expected.keySet()) require(storage.getAvailableStacks().get(key) == 0,
-                "GTL admission left a duplicate material in ME storage: " + key);
-        evidence.addProperty("admittedRuns", runs);
-        evidence.addProperty("bufferCustody", held.toString());
+        return held;
     }
 
     static String label(AEKey key) {
