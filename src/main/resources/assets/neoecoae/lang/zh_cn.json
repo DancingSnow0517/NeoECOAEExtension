@@ -1353,5 +1353,8 @@
   "gui.neoecoae.storage.bulk_cell.migrate.confirm.empty": "没有可迁移的匹配物品",
   "gui.neoecoae.storage.bulk_cell.migrate.confirm.more": "另有 %s 种物品也将一并迁移",
   "gui.neoecoae.storage.bulk_cell.migrate.confirm.hint": "点击“确定”后开始迁移",
-  "gui.neoecoae.storage.bulk_cell.migrate.confirm.help": "从当前主机及 ME 网络迁入匹配物品。最多预览 6 种物品，确认后迁移全部匹配物品。"
+  "gui.neoecoae.storage.bulk_cell.migrate.confirm.help": "从当前主机及 ME 网络迁入匹配物品。最多预览 6 种物品，确认后迁移全部匹配物品。",
+  "item.neoecoae.eco_infinite_sand_cell": "ECO无限沙子资源存储矩阵",
+  "tooltip.neoecoae.infinite_sand.contents": "无限供应：沙子",
+  "tooltip.neoecoae.infinite_sand.sink": "只接收沙子；输入的沙子会被直接销毁"
 }

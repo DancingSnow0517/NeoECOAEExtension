@@ -36,7 +36,11 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
     }
 
     private boolean isLockedKey(AEKey what) {
-        return ECOInfiniteResourceCellItem.isLockedKey(what);
+        return resourceItem().suppliesKey(what);
+    }
+
+    private ECOInfiniteResourceCellItem resourceItem() {
+        return (ECOInfiniteResourceCellItem) cellStack.getItem();
     }
 
     private boolean isServable(AEKey what) {
@@ -86,7 +90,7 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
         if (ECOInfiniteStorageMember.isSealed(cellStack)) {
             return;
         }
-        for (AEKey key : ECOInfiniteResourceCellItem.lockedKeys()) {
+        for (AEKey key : resourceItem().suppliedKeys()) {
             // KeyCounter.add performs a plain long addition.  Adding an unbounded
             // value after a normal cell (or after another infinite cell) would
             // therefore wrap to a negative amount (for example -9.2P in AE2).
@@ -104,7 +108,7 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
     @Override
     public void neoecoae$visitExactAmounts(java.util.function.BiConsumer<AEKey, ExactAmount> visitor) {
         if (!ECOInfiniteStorageMember.isSealed(cellStack)) {
-            for (AEKey key : ECOInfiniteResourceCellItem.lockedKeys()) visitor.accept(key, ExactAmount.unbounded());
+            for (AEKey key : resourceItem().suppliedKeys()) visitor.accept(key, ExactAmount.unbounded());
         }
     }
 
