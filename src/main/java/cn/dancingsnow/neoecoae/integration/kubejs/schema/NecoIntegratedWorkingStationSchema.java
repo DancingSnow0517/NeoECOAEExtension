@@ -13,7 +13,7 @@ public interface NecoIntegratedWorkingStationSchema {
     RecipeKey<InputFluid> INPUT_FLUID = NecoRecipeComponents.ID_COMPAT_INPUT_FLUID.key("inputFluid").defaultOptional();
     RecipeKey<OutputItem> ITEM_OUTPUT = NecoRecipeComponents.ID_COMPAT_OUTPUT_ITEM.key("itemOutput").defaultOptional();
     RecipeKey<OutputFluid> FLUID_OUTPUT = NecoRecipeComponents.ID_COMPAT_OUTPUT_FLUID.key("fluidOutput").defaultOptional();
-    RecipeKey<Integer> ENERGY = NumberComponent.intRange(1, Integer.MAX_VALUE).key("energy").optional(1000);
+    RecipeKey<Integer> ENERGY = NumberComponent.intRange(1, Integer.MAX_VALUE).key("energy").optional(1000).alwaysWrite();
     RecipeKey<Integer> PROCESSING_TICKS = NumberComponent.intRange(1, Integer.MAX_VALUE).key("processingTicks").optional(100);
 
     RecipeSchema SCHEMA = new RecipeSchema(IntegratedWorkingStationRecipeJS.class, IntegratedWorkingStationRecipeJS::new,

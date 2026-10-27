@@ -12,6 +12,7 @@ import dev.latvian.mods.kubejs.recipe.RecipeJS;
 import dev.latvian.mods.kubejs.recipe.RecipeKey;
 import dev.latvian.mods.kubejs.recipe.ReplacementMatch;
 import dev.latvian.mods.kubejs.recipe.component.ComponentRole;
+import dev.latvian.mods.kubejs.recipe.component.FluidComponents;
 import dev.latvian.mods.kubejs.recipe.component.ItemComponents;
 import dev.latvian.mods.kubejs.recipe.component.RecipeComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -63,6 +64,11 @@ interface NecoRecipeComponents {
             }
 
             return recipe.inputFluidHasPriority(normalizeIdField(from, "fluid"));
+        }
+
+        @Override
+        public boolean isInput(RecipeJS recipe, InputFluid value, ReplacementMatch match) {
+            return FluidComponents.INPUT.isInput(recipe, value, match);
         }
 
         @Override
@@ -150,6 +156,11 @@ interface NecoRecipeComponents {
         @Override
         public boolean hasPriority(RecipeJS recipe, Object from) {
             return recipe.inputItemHasPriority(from);
+        }
+
+        @Override
+        public boolean isInput(RecipeJS recipe, InputItem value, ReplacementMatch match) {
+            return ItemComponents.INPUT.isInput(recipe, value, match);
         }
 
         @Override
