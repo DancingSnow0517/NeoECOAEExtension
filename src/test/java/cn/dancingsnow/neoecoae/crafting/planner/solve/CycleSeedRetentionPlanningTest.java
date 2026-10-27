@@ -34,6 +34,8 @@ class CycleSeedRetentionPlanningTest {
     // P1: A + F -> 2B, P2: B -> A. B is the goal; F is a boundary input without a producer.
     private final CompiledPattern p1 = fastPattern(0, b, 2, new GenericStack(a, 1), new GenericStack(f, 1));
     private final CompiledPattern p2 = fastPattern(1, a, 1, new GenericStack(b, 1));
+    private final AEKey x = key("X");
+    private final CompiledPattern px = fastPattern(2, x, 1, new GenericStack(a, 1));
 
     @Test
     void keepsTheOnlySeedWhenFuelAllows() throws Exception {
@@ -45,6 +47,38 @@ class CycleSeedRetentionPlanningTest {
         assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
         var end = replay(cycle(outcome).cycleResult(), counts(a, 1, f, 2));
         assertTrue(end.get(a) >= 1L && end.get(b) >= 2L, end.toString());
+    }
+
+    // Parent X consumes the seed A itself; stock covering the demand exactly must not take the last seed.
+    @Test
+    void stockThatExactlyCoversASeedDemandStillGrowsToKeepTheSeed() throws Exception {
+        for (long stocked : new long[] {99L, 100L}) {
+            var outcome = planParentOfSeed(inventory(a, stocked, f, 10_000), 100);
+            assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
+            assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+            long laps = 101L - stocked;
+            assertEquals(Map.of(px.details(), 100L, p1.details(), laps, p2.details(), 2L * laps),
+                outcome.state().patternTimes(), describe(outcome));
+            var end = replay(cycle(outcome).cycleResult(), counts(a, stocked, f, laps));
+            assertEquals(101L, end.get(a), "100 delivered to X and the seed kept: " + end);
+        }
+    }
+
+    @Test
+    void exactStockWithoutFuelStillUsesTheStoredSeeds() throws Exception {
+        var outcome = planParentOfSeed(inventory(a, 100), 100);
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
+        assertEquals(Map.of(px.details(), 100L), outcome.state().patternTimes());
+        assertEquals(100L, outcome.state().usedItems().get(a));
+        assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+    }
+
+    @Test
+    void stockBeyondTheDemandNeedsNoGrowth() throws Exception {
+        var outcome = planParentOfSeed(inventory(a, 150, f, 10_000), 100);
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
+        assertEquals(Map.of(px.details(), 100L), outcome.state().patternTimes());
+        assertEquals(0L, outcome.state().usedItems().get(f));
     }
 
     @Test
@@ -204,6 +238,15 @@ class CycleSeedRetentionPlanningTest {
         producers.put(a, List.of(p2));
         producers.put(f, List.of());
         return plan(new CompiledNetwork(b, producers, Set.of(), 2, 3), inventory, amount);
+    }
+
+    private ComponentPlanner.Outcome planParentOfSeed(KeyCounter inventory, long amount) throws Exception {
+        var producers = new LinkedHashMap<AEKey, List<CompiledPattern>>();
+        producers.put(x, List.of(px));
+        producers.put(b, List.of(p1));
+        producers.put(a, List.of(p2));
+        producers.put(f, List.of());
+        return plan(new CompiledNetwork(x, producers, Set.of(), 3, 4), inventory, amount);
     }
 
     /**

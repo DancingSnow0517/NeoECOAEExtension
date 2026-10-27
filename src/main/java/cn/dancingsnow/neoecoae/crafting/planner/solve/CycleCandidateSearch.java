@@ -118,6 +118,20 @@ final class CycleCandidateSearch {
         Candidate current = original;
         ECOPlanningBudget slice = slice();
         try {
+            // Covered entirely from stock, the original fires nothing and names no seed, so it can hand the last
+            // copies of a self-growing key downstream. Ask what one more copy needs, and keep that startup seed.
+            if (!ComponentPlanner.hasPositiveFirings(original.result())) {
+                for (AEKey key : reusable) {
+                    if (demand(key).signum() <= 0 || stock.getOrDefault(key, 0L) <= 0L
+                            || unreserved.get(key).signum() > 0) continue;
+                    Map<AEKey, PlannerAmount> probe = new LinkedHashMap<>(original.targets());
+                    probe.merge(key, demand(key).add(PlannerAmount.ONE), PlannerAmount::max);
+                    CycleSolveResult startup = failures.solve(request(probe), slice);
+                    if (startup.status() != CycleSolveStatus.SUCCESS) continue;
+                    long want = Math.min(startup.requiredSeed().getOrDefault(key, 0L), stock.getOrDefault(key, 0L));
+                    if (want > 0L) retained.put(key, PlannerAmount.of(want));
+                }
+            }
             for (int round = 0; ; round++) {
                 for (AEKey key : reusable) {
                     long want = Math.min(current.result().requiredSeed().getOrDefault(key, 0L),
