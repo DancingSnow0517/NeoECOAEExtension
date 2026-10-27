@@ -22,11 +22,10 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
+import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import gripe._90.megacells.misc.DecompressionPattern;
 import gripe._90.megacells.misc.DecompressionService;
@@ -40,7 +39,8 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
     private final List<IChestOrDrive> cellHosts = new ArrayList<>();
     private final List<ECODriveBlockEntity> ecoDrives = new ArrayList<>();
     private final List<IPatternDetails> patterns = new ArrayList<>();
-    private final Map<AEKey, Long> pendingOutputs = new LinkedHashMap<>();
+    // Updated by every dispatched batch and drained every tick; primitive values avoid boxing on both paths.
+    private final Object2LongLinkedOpenHashMap<AEKey> pendingOutputs = new Object2LongLinkedOpenHashMap<>();
     private final IGrid grid;
     private final List<IGridNode> moduleNodes = new ArrayList<>();
     private final IGridNode providerNode;
@@ -84,7 +84,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
                 CompoundTag entry = (CompoundTag) raw;
                 AEKey key = AEKey.fromTagGeneric(entry.getCompound("key"));
                 long amount = entry.getLong("amount");
-                if (key != null && amount > 0) pendingOutputs.merge(key, amount, NEMath::saturatingAdd);
+                if (key != null && amount > 0) pendingOutputs.put(key, NEMath.saturatingAdd(pendingOutputs.getLong(key), amount));
             }
         }
         if (node.getOwner() instanceof IChestOrDrive cellHost) {
@@ -115,15 +115,16 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
 
     @Override
     public void onServerStartTick() {
-        for (Iterator<Map.Entry<AEKey, Long>> it = pendingOutputs.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<AEKey, Long> pending = it.next();
+        for (var it = pendingOutputs.object2LongEntrySet().fastIterator(); it.hasNext(); ) {
+            var pending = it.next();
+            long amount = pending.getLongValue();
             long inserted = grid.getStorageService().getInventory()
-                .insert(pending.getKey(), pending.getValue(), Actionable.MODULATE, IActionSource.empty());
-            if (inserted >= pending.getValue()) {
+                .insert(pending.getKey(), amount, Actionable.MODULATE, IActionSource.empty());
+            if (inserted >= amount) {
                 it.remove();
                 markGridDataDirty();
             } else if (inserted > 0L) {
-                pending.setValue(pending.getValue() - inserted);
+                pending.setValue(amount - inserted);
                 markGridDataDirty();
             }
         }
@@ -173,7 +174,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         }
 
         var output = details.getPrimaryOutput();
-        pendingOutputs.merge(output.what(), output.amount(), Long::sum);
+        pendingOutputs.addTo(output.what(), output.amount());
         markGridDataDirty();
         return true;
     }
@@ -194,11 +195,11 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
             return;
         }
         var entries = new net.minecraft.nbt.ListTag();
-        for (var pending : pendingOutputs.entrySet()) {
-            if (pending.getValue() <= 0) continue;
+        for (var pending : Object2LongMaps.fastIterable(pendingOutputs)) {
+            if (pending.getLongValue() <= 0) continue;
             CompoundTag entry = new CompoundTag();
             entry.put("key", pending.getKey().toTagGeneric());
-            entry.putLong("amount", pending.getValue());
+            entry.putLong("amount", pending.getLongValue());
             entries.add(entry);
         }
         savedData.put(PENDING_TAG, entries);
@@ -222,7 +223,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         long capacity = Long.MAX_VALUE;
         for (var output : perCopy) {
             capacity = Math.min(capacity,
-                (Long.MAX_VALUE - pendingOutputs.getOrDefault(output.getKey(), 0L)) / output.getLongValue());
+                (Long.MAX_VALUE - pendingOutputs.getLong(output.getKey())) / output.getLongValue());
         }
         return capacity;
     }
@@ -232,14 +233,16 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
             return false;
         }
 
-        Map<AEKey, Long> batchOutputs = new LinkedHashMap<>();
+        var batchOutputs = new Object2LongLinkedOpenHashMap<AEKey>();
         for (var output : context.outputs()) {
             long amount = Math.multiplyExact(output.amount(), craftCount);
-            batchOutputs.merge(output.what(), amount, Math::addExact);
+            batchOutputs.put(output.what(), Math.addExact(batchOutputs.getLong(output.what()), amount));
         }
         // Validate and aggregate the complete batch before publishing any output. If a malformed
         // pattern overflows, the CPU can still roll back all extracted inputs atomically.
-        batchOutputs.replaceAll((key, amount) -> Math.addExact(pendingOutputs.getOrDefault(key, 0L), amount));
+        for (var entry : Object2LongMaps.fastIterable(batchOutputs)) {
+            entry.setValue(Math.addExact(pendingOutputs.getLong(entry.getKey()), entry.getLongValue()));
+        }
         pendingOutputs.putAll(batchOutputs);
         markGridDataDirty();
         return true;
